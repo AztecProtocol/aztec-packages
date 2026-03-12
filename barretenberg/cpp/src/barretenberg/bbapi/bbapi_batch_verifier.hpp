@@ -3,15 +3,13 @@
  * @file bbapi_batch_verifier.hpp
  * @brief BBAPI commands for the batch IVC proof verification service.
  *
- * These commands expose the ChonkBatchVerifierService as a set of RPC commands:
+ * Three commands expose the ChonkBatchVerifierService:
  *
  * - ChonkBatchVerifierStart: Initialize the service with VKs, output FIFO, and config
  * - ChonkBatchVerifierQueue: Queue a single proof for verification
- * - ChonkBatchVerifierCancel: Cancel a pending verification by request ID
  * - ChonkBatchVerifierStop: Shut down the service
  *
  * Results are streamed as size-delimited msgpack over a named FIFO pipe (not via RPC responses).
- * This decouples result delivery from the request channel, enabling high-throughput streaming.
  *
  * @note Disabled for WASM builds — the threading model requires OS threads and FIFO support.
  */
@@ -69,27 +67,6 @@ struct ChonkBatchVerifierQueue {
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(request_id, proof, vk_index);
     bool operator==(const ChonkBatchVerifierQueue&) const = default;
-};
-
-/**
- * @struct ChonkBatchVerifierCancel
- * @brief Cancel a pending verification request by ID.
- */
-struct ChonkBatchVerifierCancel {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierCancel";
-
-    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierCancelResponse";
-        bool found = false;
-        MSGPACK_FIELDS(found);
-        bool operator==(const Response&) const = default;
-    };
-
-    uint64_t request_id = 0;
-
-    Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(request_id);
-    bool operator==(const ChonkBatchVerifierCancel&) const = default;
 };
 
 /**

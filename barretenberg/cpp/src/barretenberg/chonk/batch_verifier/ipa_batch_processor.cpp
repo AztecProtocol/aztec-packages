@@ -18,7 +18,6 @@ void IPABatchProcessor::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHas
     batch_size_ = std::max(1u, batch_size);
     on_result_ = std::move(on_result);
     shutdown_ = false;
-    flush_requested_ = false;
 
     coordinator_thread_ = std::thread([this]() { coordinator_loop(); });
     info("IPABatchProcessor started with ", num_cores_, " cores, batch_size=", batch_size_);
@@ -29,41 +28,15 @@ void IPABatchProcessor::enqueue(VerifyRequest request)
     {
         std::lock_guard lock(mutex_);
         request.enqueue_time = std::chrono::steady_clock::now();
-        incoming_.push_back(std::move(request));
+        queue_.push_back(std::move(request));
     }
     cv_.notify_one();
-}
-
-bool IPABatchProcessor::cancel(uint64_t request_id)
-{
-    std::lock_guard lock(mutex_);
-
-    // Search both queues for a pending request to cancel immediately
-    auto try_cancel = [&](auto& container) -> bool {
-        for (auto it = container.begin(); it != container.end(); ++it) {
-            if (it->request_id == request_id) {
-                on_result_(VerifyResult::cancelled(request_id));
-                container.erase(it);
-                return true;
-            }
-        }
-        return false;
-    };
-
-    if (try_cancel(accumulator_) || try_cancel(incoming_)) {
-        return true;
-    }
-
-    // Not in queue — mark for late cancellation during batch processing
-    cancelled_ids_.insert(request_id);
-    return false;
 }
 
 void IPABatchProcessor::stop()
 {
     {
         std::lock_guard lock(mutex_);
-        flush_requested_ = true;
         shutdown_ = true;
     }
     cv_.notify_one();
@@ -80,11 +53,6 @@ IPABatchProcessor::~IPABatchProcessor()
     }
 }
 
-bool IPABatchProcessor::should_exit_locked() const
-{
-    return shutdown_ && incoming_.empty() && accumulator_.empty();
-}
-
 void IPABatchProcessor::coordinator_loop()
 {
     while (true) {
@@ -92,21 +60,17 @@ void IPABatchProcessor::coordinator_loop()
         std::vector<VerifyRequest> batch;
         {
             std::unique_lock lock(mutex_);
-            cv_.wait(lock, [this] { return shutdown_ || (accumulator_.size() + incoming_.size() >= batch_size_); });
+            cv_.wait(lock, [this] { return shutdown_ || queue_.size() >= batch_size_; });
 
-            // Drain incoming into accumulator
-            while (!incoming_.empty()) {
-                accumulator_.push_back(std::move(incoming_.front()));
-                incoming_.pop_front();
-            }
-
-            if (accumulator_.size() >= batch_size_) {
-                auto end = accumulator_.begin() + static_cast<ptrdiff_t>(batch_size_);
-                batch.insert(batch.end(), std::make_move_iterator(accumulator_.begin()), std::make_move_iterator(end));
-                accumulator_.erase(accumulator_.begin(), end);
-            } else if (flush_requested_ && !accumulator_.empty()) {
-                batch = std::move(accumulator_);
-                accumulator_.clear();
+            if (queue_.size() >= batch_size_) {
+                // Take exactly batch_size_ items
+                auto end = queue_.begin() + static_cast<ptrdiff_t>(batch_size_);
+                batch.assign(std::make_move_iterator(queue_.begin()), std::make_move_iterator(end));
+                queue_.erase(queue_.begin(), end);
+            } else if (shutdown_ && !queue_.empty()) {
+                // Flush remaining on shutdown
+                batch.assign(std::make_move_iterator(queue_.begin()), std::make_move_iterator(queue_.end()));
+                queue_.clear();
             }
 
             if (batch.empty()) {
@@ -116,15 +80,20 @@ void IPABatchProcessor::coordinator_loop()
                 continue;
             }
 
-            // Filter cancelled and invalid-VK requests before releasing the lock
-            filter_batch(batch);
+            // Filter invalid-VK requests before releasing the lock
+            auto it = batch.begin();
+            while (it != batch.end()) {
+                if (it->vk_index >= vks_.size()) {
+                    on_result_(
+                        VerifyResult::failed(it->request_id, "invalid vk_index: " + std::to_string(it->vk_index)));
+                    it = batch.erase(it);
+                } else {
+                    ++it;
+                }
+            }
         }
 
         if (batch.empty()) {
-            std::lock_guard lock(mutex_);
-            if (should_exit_locked()) {
-                break;
-            }
             continue;
         }
 
@@ -141,7 +110,6 @@ void IPABatchProcessor::coordinator_loop()
                 auto result = VerifyResult::failed(rr.request_id, rr.error_message);
                 result.time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start);
                 result.time_in_verify_ms = rr.reduce_ms;
-                result.time_in_sumcheck_ms = rr.reduce_ms;
                 on_result_(std::move(result));
             } else {
                 passed_indices.push_back(i);
@@ -149,10 +117,6 @@ void IPABatchProcessor::coordinator_loop()
         }
 
         if (passed_indices.empty()) {
-            std::lock_guard lock(mutex_);
-            if (should_exit_locked()) {
-                break;
-            }
             continue;
         }
 
@@ -177,29 +141,6 @@ void IPABatchProcessor::coordinator_loop()
             emit_ok(reduce_results, passed_indices, reduce_start, ipa_ms, 0);
         } else {
             bisect(reduce_results, passed_indices, 0, reduce_start);
-        }
-
-        std::lock_guard lock(mutex_);
-        if (should_exit_locked()) {
-            break;
-        }
-    }
-}
-
-void IPABatchProcessor::filter_batch(std::vector<VerifyRequest>& batch)
-{
-    auto it = batch.begin();
-    while (it != batch.end()) {
-        if (cancelled_ids_.count(it->request_id)) {
-            cancelled_ids_.erase(it->request_id);
-            on_result_(VerifyResult::cancelled(it->request_id));
-            it = batch.erase(it);
-        } else if (it->vk_index >= vks_.size()) {
-            auto result = VerifyResult::failed(it->request_id, "invalid vk_index: " + std::to_string(it->vk_index));
-            on_result_(std::move(result));
-            it = batch.erase(it);
-        } else {
-            ++it;
         }
     }
 }
@@ -291,7 +232,6 @@ void IPABatchProcessor::bisect(std::vector<ReduceResult>& results,
         auto result = VerifyResult::failed(rr.request_id, "batch check failed (bisected to individual)");
         result.time_in_queue_ms = ms_between(rr.enqueue_time, std::chrono::steady_clock::now());
         result.time_in_verify_ms = rr.reduce_ms;
-        result.time_in_sumcheck_ms = rr.reduce_ms;
         result.batch_failure_count = depth + 1;
         on_result_(std::move(result));
         return;
@@ -327,24 +267,15 @@ void IPABatchProcessor::emit_ok(const std::vector<ReduceResult>& results,
                                 double ipa_ms,
                                 uint32_t depth)
 {
-    std::lock_guard lock(mutex_);
     for (size_t idx : indices) {
         auto& rr = results[idx];
-        if (cancelled_ids_.count(rr.request_id)) {
-            cancelled_ids_.erase(rr.request_id);
-            on_result_(VerifyResult::cancelled(rr.request_id));
-        } else {
-            on_result_(VerifyResult{
-                .request_id = rr.request_id,
-                .verified = true,
-                .status = static_cast<uint8_t>(VerifyStatus::OK),
-                .time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start),
-                .time_in_verify_ms = rr.reduce_ms + ipa_ms,
-                .time_in_sumcheck_ms = rr.reduce_ms,
-                .time_in_ipa_ms = ipa_ms,
-                .batch_failure_count = depth,
-            });
-        }
+        on_result_(VerifyResult{
+            .request_id = rr.request_id,
+            .status = static_cast<uint8_t>(VerifyStatus::OK),
+            .time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start),
+            .time_in_verify_ms = rr.reduce_ms + ipa_ms,
+            .batch_failure_count = depth,
+        });
     }
 }
 

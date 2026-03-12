@@ -73,7 +73,6 @@ using Command = NamedUnion<CircuitProve,
 #ifndef __wasm__
                            ChonkBatchVerifierStart,
                            ChonkBatchVerifierQueue,
-                           ChonkBatchVerifierCancel,
                            ChonkBatchVerifierStop,
 #endif
                            Shutdown>;
@@ -136,7 +135,6 @@ using CommandResponse = NamedUnion<ErrorResponse,
 #ifndef __wasm__
                                    ChonkBatchVerifierStart::Response,
                                    ChonkBatchVerifierQueue::Response,
-                                   ChonkBatchVerifierCancel::Response,
                                    ChonkBatchVerifierStop::Response,
 #endif
                                    Shutdown::Response>;

@@ -2,23 +2,10 @@
 #pragma once
 /**
  * @file chonk_batch_verifier_service.hpp
- * @brief Batch IVC proof verification service.
+ * @brief Batch IVC proof verification service with FIFO result streaming.
  *
- * Two-class architecture:
- * - IPABatchProcessor: 3-phase batch verification pipeline
- * - ChonkBatchVerifierService: owns FIFO writer, lifecycle management
- *
- * ## Batch Verification Pipeline (IPABatchProcessor)
- *
- * 3-phase pipeline optimized for minimum latency:
- * 1. Parallel reduce: Run reduce_to_ipa_claim for each proof using work-stealing.
- * 2. Batch check: Aggregate pairing points + batch IPA verify in one shot.
- * 3. Emit / bisect: If batch passes, emit OK. If it fails, bisect using cached claims.
- *
- * ## Result Streaming
- *
- * Results are streamed as size-delimited msgpack over a named FIFO pipe.
- * Each message is [4-byte big-endian length][msgpack payload].
+ * Owns an IPABatchProcessor and a writer thread that streams results as
+ * size-delimited msgpack over a named FIFO pipe: [4-byte BE length][msgpack payload].
  */
 
 #include "batch_verifier_types.hpp"
@@ -40,9 +27,6 @@ class ChonkBatchVerifierService {
 
     /** Queue a proof for batch verification. */
     bool queue(VerifyRequest request);
-
-    /** Cancel a pending request by ID. */
-    bool cancel(uint64_t request_id);
 
     /** Stop the processor, flush remaining work, close FIFO. */
     void stop();

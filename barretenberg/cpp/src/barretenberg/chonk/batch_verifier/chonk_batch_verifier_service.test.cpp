@@ -76,7 +76,7 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchAllValid)
 
     ASSERT_EQ(collector.results.size(), 2u);
     for (const auto& r : collector.results) {
-        EXPECT_TRUE(r.verified);
+        EXPECT_TRUE(r.verified());
         EXPECT_EQ(r.status, static_cast<uint8_t>(VerifyStatus::OK));
         EXPECT_EQ(r.batch_failure_count, 0u);
     }
@@ -104,11 +104,11 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchWithIPACorruption)
     auto good = collector.find(1);
     auto bad = collector.find(2);
 
-    EXPECT_TRUE(good.verified);
+    EXPECT_TRUE(good.verified());
     EXPECT_EQ(good.status, static_cast<uint8_t>(VerifyStatus::OK));
     EXPECT_GT(good.batch_failure_count, 0u); // Was part of a failed batch that got bisected
 
-    EXPECT_FALSE(bad.verified);
+    EXPECT_FALSE(bad.verified());
     EXPECT_EQ(bad.status, static_cast<uint8_t>(VerifyStatus::FAILED));
     EXPECT_GT(bad.batch_failure_count, 0u);
 }
@@ -134,8 +134,8 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchWithSumcheckCorruption)
     auto good = collector.find(1);
     auto bad = collector.find(2);
 
-    EXPECT_TRUE(good.verified);
-    EXPECT_FALSE(bad.verified);
+    EXPECT_TRUE(good.verified());
+    EXPECT_FALSE(bad.verified());
     EXPECT_EQ(bad.status, static_cast<uint8_t>(VerifyStatus::FAILED));
 }
 
@@ -227,7 +227,7 @@ TEST_F(ChonkBatchVerifierServiceTests, FullServiceFIFOStreaming)
 
         // All should be verified OK
         for (const auto& r : fifo_results) {
-            EXPECT_TRUE(r.verified) << "Request " << r.request_id << " should have verified";
+            EXPECT_TRUE(r.verified()) << "Request " << r.request_id << " should have verified";
             EXPECT_EQ(r.status, static_cast<uint8_t>(VerifyStatus::OK));
         }
     }
@@ -475,7 +475,7 @@ TEST_F(ChonkBatchVerifierServiceTests, DISABLED_ScaleBenchmark)
 
         size_t ok_count = 0;
         for (const auto& r : collector.results) {
-            if (r.verified) {
+            if (r.verified()) {
                 ok_count++;
             }
         }

@@ -40,11 +40,6 @@ bool ChonkBatchVerifierService::queue(VerifyRequest request)
     return true;
 }
 
-bool ChonkBatchVerifierService::cancel(uint64_t request_id)
-{
-    return processor_.cancel(request_id);
-}
-
 void ChonkBatchVerifierService::stop()
 {
     // Stop processor (blocks until all work drained)

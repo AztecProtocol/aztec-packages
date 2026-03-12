@@ -25,7 +25,6 @@ using Commands = ::testing::Types<bbapi::CircuitProve,
                                   ,
                                   bbapi::ChonkBatchVerifierStart,
                                   bbapi::ChonkBatchVerifierQueue,
-                                  bbapi::ChonkBatchVerifierCancel,
                                   bbapi::ChonkBatchVerifierStop
 #endif
                                   >;

@@ -28,16 +28,14 @@ inline double ms_between(std::chrono::steady_clock::time_point from, std::chrono
 struct BatchVerifierConfig {
     uint32_t num_cores = 4;
     uint32_t batch_size = 64;
-    uint32_t max_pending = 1024;
 
-    MSGPACK_FIELDS(num_cores, batch_size, max_pending);
+    MSGPACK_FIELDS(num_cores, batch_size);
     bool operator==(const BatchVerifierConfig&) const = default;
 };
 
 enum class VerifyStatus : uint8_t {
     OK = 0,
     FAILED = 1,
-    CANCELLED = 2,
 };
 
 /**
@@ -45,39 +43,23 @@ enum class VerifyStatus : uint8_t {
  */
 struct VerifyResult {
     uint64_t request_id = 0;
-    bool verified = false;
     uint8_t status = 0; // VerifyStatus as uint8_t for msgpack
     std::string error_message;
     double time_in_queue_ms = 0;
     double time_in_verify_ms = 0;
-    double time_in_sumcheck_ms = 0;
-    double time_in_ipa_ms = 0;
     uint32_t batch_failure_count = 0;
 
-    /** Construct a cancellation result for a given request. */
-    static VerifyResult cancelled(uint64_t id)
-    {
-        return { .request_id = id, .verified = false, .status = static_cast<uint8_t>(VerifyStatus::CANCELLED) };
-    }
+    bool verified() const { return status == static_cast<uint8_t>(VerifyStatus::OK); }
 
     /** Construct a failure result for a given request. */
     static VerifyResult failed(uint64_t id, std::string error)
     {
         return { .request_id = id,
-                 .verified = false,
                  .status = static_cast<uint8_t>(VerifyStatus::FAILED),
                  .error_message = std::move(error) };
     }
 
-    MSGPACK_FIELDS(request_id,
-                   verified,
-                   status,
-                   error_message,
-                   time_in_queue_ms,
-                   time_in_verify_ms,
-                   time_in_sumcheck_ms,
-                   time_in_ipa_ms,
-                   batch_failure_count);
+    MSGPACK_FIELDS(request_id, status, error_message, time_in_queue_ms, time_in_verify_ms, batch_failure_count);
 };
 
 /**

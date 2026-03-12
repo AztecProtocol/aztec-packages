@@ -20,7 +20,6 @@
 #include <deque>
 #include <functional>
 #include <mutex>
-#include <set>
 #include <thread>
 #include <vector>
 
@@ -36,7 +35,6 @@ class IPABatchProcessor {
                ResultCallback on_result);
 
     void enqueue(VerifyRequest request);
-    bool cancel(uint64_t request_id);
     void stop();
     ~IPABatchProcessor();
 
@@ -62,9 +60,6 @@ class IPABatchProcessor {
 
     void coordinator_loop();
 
-    /** Remove cancelled and invalid-VK requests from a batch. Caller must hold mutex_. */
-    void filter_batch(std::vector<VerifyRequest>& batch);
-
     /** Run reduce_to_batch_ipa_claim on each proof in parallel using work-stealing. */
     std::vector<ReduceResult> parallel_reduce(const std::vector<VerifyRequest>& batch);
 
@@ -77,15 +72,12 @@ class IPABatchProcessor {
                 uint32_t depth,
                 std::chrono::steady_clock::time_point reduce_start);
 
-    /** Emit OK for all proofs in the index set (checking late cancellations). */
+    /** Emit OK for all proofs in the index set. */
     void emit_ok(const std::vector<ReduceResult>& results,
                  const std::vector<size_t>& indices,
                  std::chrono::steady_clock::time_point reduce_start,
                  double ipa_ms,
                  uint32_t depth);
-
-    /** True when shutdown is requested and both queues are empty. Caller must hold mutex_. */
-    bool should_exit_locked() const;
 
     // ── State ────────────────────────────────────────────────────────────
 
@@ -94,15 +86,12 @@ class IPABatchProcessor {
     uint32_t num_cores_ = 1;
     uint32_t batch_size_ = 64;
 
-    std::deque<VerifyRequest> incoming_;
-    std::vector<VerifyRequest> accumulator_;
-    std::set<uint64_t> cancelled_ids_;
+    std::deque<VerifyRequest> queue_;
 
     std::thread coordinator_thread_;
     mutable std::mutex mutex_;
     std::condition_variable cv_;
     bool shutdown_ = false;
-    bool flush_requested_ = false;
 };
 
 } // namespace bb

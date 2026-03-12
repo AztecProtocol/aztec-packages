@@ -7,12 +7,12 @@ A high-throughput service for verifying Chonk IVC proofs. Proofs are batched for
 ```
   TypeScript / Node.js (bb.js)
        │
-       │  msgpack over IPC (4 commands)
+       │  msgpack over IPC (3 commands)
        ▼
   ┌──────────────────────────────────────────────────────┐
   │                     BBAPI                            │
   │                                                      │
-  │  Start ─ Queue ─ Cancel ─ Stop                       │
+  │  Start ─ Queue ─ Stop                                │
   └──────────┬───────────────────────────────────────────┘
              │
              ▼
@@ -55,7 +55,6 @@ Request:
   config:
     num_cores: u32      # Cores for pipeline (Phase 1 reduce + Phase 2 batch IPA)
     batch_size: u32     # Proofs to accumulate before forming a batch
-    max_pending: u32    # Backpressure limit
 
 Response: (empty)
 ```
@@ -74,18 +73,7 @@ Response:
   accepted: bool
 ```
 
-### 3. Cancel
-
-Cancel pending work by request ID.
-
-```
-Cancel:
-  request_id: u64  →  found: bool
-```
-
-Cancelled proofs emit a result with `status: CANCELLED` on the FIFO.
-
-### 4. Stop
+### 3. Stop
 
 Drain all pending work, close the FIFO, shut down threads.
 
@@ -108,13 +96,10 @@ Results are written to the FIFO as size-delimited msgpack:
 ```
 VerifyResult:
   request_id: u64
-  verified: bool
-  status: u8              # 0=OK, 1=FAILED, 2=CANCELLED
+  status: u8              # 0=OK, 1=FAILED
   error_message: str
   time_in_queue_ms: f64
   time_in_verify_ms: f64
-  time_in_sumcheck_ms: f64
-  time_in_ipa_ms: f64
   batch_failure_count: u32  # Number of bisection rounds (0 = first-try pass)
 ```
 
@@ -143,7 +128,7 @@ The core optimization: batch N IPA verifications into a single MSM.
   Phase 2: Batch IPA Verify
   ┌─────────────────────────────────────────┐
   │ Single IPA::batch_reduce_verify call    │
-  │ set_parallel_for(num_trusted_cores)     │
+  │ set_parallel_for(num_cores)             │
   │                                         │
   │ N separate SRS MSMs → 1 batched MSM    │
   └─────────────────┬───────────────────────┘
@@ -266,5 +251,5 @@ chonk/batch_verifier/              ← this directory
   chonk_batch_verifier_service.test.cpp # Tests + piecewise timing
 
 bbapi/
-  bbapi_batch_verifier.hpp/cpp      # 4 RPC commands (Start/Queue/Cancel/Stop)
+  bbapi_batch_verifier.hpp/cpp      # 3 RPC commands (Start/Queue/Stop)
 ```

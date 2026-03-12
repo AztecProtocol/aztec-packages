@@ -249,7 +249,7 @@ TEST_F(RealProofStressTests, TimeToVerifyRealProofs)
 
             size_t ok = 0, fail = 0, bisect = 0;
             for (const auto& r : collector.results) {
-                if (r.verified)
+                if (r.verified())
                     ok++;
                 else
                     fail++;

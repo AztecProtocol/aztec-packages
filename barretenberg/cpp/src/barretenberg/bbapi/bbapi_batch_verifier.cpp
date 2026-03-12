@@ -51,18 +51,6 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest&
     return { .accepted = accepted };
 }
 
-ChonkBatchVerifierCancel::Response ChonkBatchVerifierCancel::execute(BBApiRequest& request) &&
-{
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-
-    if (!request.batch_verifier_service) {
-        BBAPI_ERROR(request, "Batch verifier not running. Call ChonkBatchVerifierStart first.");
-    }
-
-    bool found = request.batch_verifier_service->cancel(request_id);
-    return { .found = found };
-}
-
 ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
