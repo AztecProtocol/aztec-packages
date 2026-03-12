@@ -495,27 +495,15 @@ export class HttpBlobClient implements BlobClientInterface {
       return undefined;
     }
 
-<<<<<<< HEAD
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
     const client = createPublicClient({
-      transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
+      transport: makeL1HttpTransport(l1RpcUrls, { timeout: this.config.l1HttpTimeoutMS }),
     });
     try {
       const res: RpcBlock = await client.request({
         method: 'eth_getBlockByHash',
         params: [blockHash, /*tx flag*/ false],
-=======
-    if (!parentBeaconBlockRoot) {
-      // parentBeaconBlockRoot not provided by caller — fetch it from the execution RPC
-      if (!l1RpcUrls || l1RpcUrls.length === 0) {
-        this.log.debug('No execution host url configured');
-        return undefined;
-      }
-
-      const client = createPublicClient({
-        transport: makeL1HttpTransport(l1RpcUrls, { timeout: this.config.l1HttpTimeoutMS }),
->>>>>>> fde4119e9f (feat: add ETHEREUM_HTTP_TIMEOUT_MS env var for viem HTTP transport)
       });
 
       if (res.parentBeaconBlockRoot) {
