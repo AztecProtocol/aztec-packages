@@ -77,15 +77,19 @@ function build_packages {
 
 function install_deps {
   set -euo pipefail
-  # TODO: Move to build image?
-  if ! command -v cargo-binstall &>/dev/null; then
-    curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-  fi
-  if ! command -v just &>/dev/null; then
-    cargo-binstall just --version 1.42.4 -y --secure
-  fi
-  just --justfile ./noir-repo/justfile install-rust-tools
-  just --justfile ./noir-repo/justfile install-js-tools
+  # Serialize rustup/cargo-binstall operations to avoid race conditions with avm-transpiler
+  # which may run in parallel and share the same RUSTUP_HOME/CARGO_HOME.
+  (
+    flock -x 200
+    if ! command -v cargo-binstall &>/dev/null; then
+      curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+    fi
+    if ! command -v just &>/dev/null; then
+      cargo-binstall just --version 1.42.4 -y --secure
+    fi
+    just --justfile ./noir-repo/justfile install-rust-tools
+    just --justfile ./noir-repo/justfile install-js-tools
+  ) 200>/tmp/rustup.lock
 }
 
 export -f build_native build_packages install_deps

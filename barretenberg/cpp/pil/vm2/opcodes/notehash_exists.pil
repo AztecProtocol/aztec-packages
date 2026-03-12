@@ -26,6 +26,9 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol commit note_hash_tree_leaf_count;
     sel_execute_notehash_exists * (note_hash_tree_leaf_count - constants.NOTE_HASH_TREE_LEAF_COUNT) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `note_hash_tree_leaf_count` is a protocol constant (2^42).
+    // `register[1]` (leaf_index) is tag-checked to U64 by the execution trace instruction spec.
     #[NOTE_HASH_LEAF_INDEX_IN_RANGE]
     sel_execute_notehash_exists {
         note_hash_tree_leaf_count,

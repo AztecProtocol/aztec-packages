@@ -14,7 +14,7 @@ use aztec::{
 };
 
 // NFTNote supports partial notes, i.e. the ability to create an incomplete note in private, hiding certain values (the
-// owner, storage slot and randomness), and then completing the note in public with the ones missing (the token id).
+// owner and randomness), and then completing the note in public with the ones missing (the storage slot and token id).
 // Partial notes are being actively developed and are not currently fully supported via macros, and so we rely on the
 // #[custom_note] macro to implement it manually, resulting in some boilerplate. This is expected to be unnecessary once
 // macro support is expanded.
@@ -43,13 +43,12 @@ impl NoteHash for NFTNote {
         // values, so that notes all behave the same way regardless of how they were created. To achieve this, we
         // perform both steps of the partial note computation.
 
-        // First we create the partial note from a commitment to the private content (including storage slot).
-        let partial_note = PartialNFTNote {
-            commitment: compute_partial_commitment(owner, storage_slot, randomness),
-        };
+        // First we create the partial note from a commitment to the private content.
+        let partial_note =
+            PartialNFTNote { commitment: compute_partial_commitment(owner, randomness) };
 
         // Then compute the completion note hash. In a real partial note this step would be performed in public.
-        partial_note.compute_complete_note_hash(self.token_id)
+        partial_note.compute_complete_note_hash(storage_slot, self.token_id)
     }
 
     // The nullifiers are nothing special - this is just the canonical implementation that would be injected by the
@@ -82,7 +81,7 @@ impl NoteHash for NFTNote {
 }
 
 impl NFTNote {
-    /// Creates a partial note that will hide the owner and storage slot but not the token id, since the note will be
+    /// Creates a partial note that will hide the owner but not the token id or storage slot, since the note will be
     /// later completed in public. This is a powerful technique for scenarios in which the token id cannot be known in
     /// private (e.g. because it depends on some public state, such as a DEX).
     ///
@@ -97,7 +96,6 @@ impl NFTNote {
     /// discover the note. `recipient` will typically be the same as `owner`.
     pub fn partial(
         owner: AztecAddress,
-        storage_slot: Field,
         context: &mut PrivateContext,
         recipient: AztecAddress,
         completer: AztecAddress,
@@ -109,7 +107,7 @@ impl NFTNote {
         let randomness = unsafe { random() };
 
         // We create a commitment to the private data, which we then use to construct the log we send to the recipient.
-        let commitment = compute_partial_commitment(owner, storage_slot, randomness);
+        let commitment = compute_partial_commitment(owner, randomness);
 
         // Our partial note log encoding scheme includes a field with the tag of the public completion log, and we use
         // the commitment as the tag. This is good for multiple reasons:
@@ -122,7 +120,6 @@ impl NFTNote {
         let encrypted_log = compute_partial_note_private_content_log(
             private_log_content,
             owner,
-            storage_slot,
             randomness,
             recipient,
             commitment,
@@ -146,15 +143,8 @@ impl NFTNote {
 
 /// Computes a commitment to the private content of a partial NFTNote, i.e. the fields that will remain private. All
 /// other note fields will be made public.
-fn compute_partial_commitment(
-    owner: AztecAddress,
-    storage_slot: Field,
-    randomness: Field,
-) -> Field {
-    poseidon2_hash_with_separator(
-        [owner.to_field(), storage_slot, randomness],
-        DOM_SEP__NOTE_HASH,
-    )
+fn compute_partial_commitment(owner: AztecAddress, randomness: Field) -> Field {
+    poseidon2_hash_with_separator([owner.to_field(), randomness], DOM_SEP__NOTE_HASH)
 }
 
 #[derive(Packable)]
@@ -168,10 +158,10 @@ impl NoteType for NFTPartialNotePrivateLogContent {
     }
 }
 
-/// A partial instance of a NFTNote. This value represents a private commitment to the owner, randomness and storage
-/// slot, but the token id field has not yet been set. A partial note can be completed in public with the `complete`
-/// function (revealing the token id to the public), resulting in a NFTNote that can be used like any other one (except
-/// of course that its token id is known).
+/// A partial instance of a NFTNote. This value represents a private commitment to the owner and randomness, but the
+/// storage slot and token id fields have not yet been set. A partial note can be completed in public with the
+/// `complete` function (revealing the storage slot and token id to the public), resulting in a NFTNote that can be
+/// used like any other one (except of course that its token id is known).
 #[derive(Packable, Serialize, Deserialize)]
 pub struct PartialNFTNote {
     commitment: Field,
@@ -179,7 +169,13 @@ pub struct PartialNFTNote {
 
 impl PartialNFTNote {
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
-    pub fn complete(self, context: PublicContext, completer: AztecAddress, token_id: Field) {
+    pub fn complete(
+        self,
+        context: PublicContext,
+        completer: AztecAddress,
+        storage_slot: Field,
+        token_id: Field,
+    ) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
@@ -198,13 +194,13 @@ impl PartialNFTNote {
         );
 
         // We need to do two things:
-        //  - emit a public log containing the public fields (the token id). The contract will later find it by
-        //  searching for the expected tag (which is simply the partial note commitment).
+        //  - emit a public log containing the public fields (the storage slot and token id). The contract will later
+        //  find it by searching for the expected tag (which is simply the partial note commitment).
         //  - insert the completion note hash (i.e. the hash of the note) into the note hash tree. This is typically
         //  only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
         //  inserted in public as the public values are provided and the note hash computed.
-        context.emit_public_log(self.compute_note_completion_log(token_id));
-        context.push_note_hash(self.compute_complete_note_hash(token_id));
+        context.emit_public_log(self.compute_note_completion_log(storage_slot, token_id));
+        context.push_note_hash(self.compute_complete_note_hash(storage_slot, token_id));
     }
 
     /// Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
@@ -219,16 +215,21 @@ impl PartialNFTNote {
         )
     }
 
-    fn compute_note_completion_log(self, token_id: Field) -> [Field; 2] {
+    fn compute_note_completion_log(self, storage_slot: Field, token_id: Field) -> [Field; 3] {
         // The first field of this log must be the tag that the recipient of the partial note private field logs
-        // expects, which is equal to the partial note commitment.
-        [self.commitment, token_id]
+        // expects, which is equal to the partial note commitment. The storage slot is included as the first public
+        // value so that note discovery can extract it.
+        [self.commitment, storage_slot, token_id]
     }
 
-    fn compute_complete_note_hash(self, token_id: Field) -> Field {
-        // Here we finalize the note hash by including the (public) token id into the partial note commitment. Note that
-        // we use the same generator index as we used for the first round of poseidon - this is not an issue.
-        poseidon2_hash_with_separator([self.commitment, token_id], DOM_SEP__NOTE_HASH)
+    fn compute_complete_note_hash(self, storage_slot: Field, token_id: Field) -> Field {
+        // Here we finalize the note hash by including the (public) storage slot and token id into the partial note
+        // commitment. Note that we use the same separator as we used for the first round of poseidon - this is not
+        // an issue.
+        poseidon2_hash_with_separator(
+            [self.commitment, storage_slot, token_id],
+            DOM_SEP__NOTE_HASH,
+        )
     }
 }
 
@@ -253,10 +254,10 @@ mod test {
         let note = NFTNote { token_id };
         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 
-        let partial_note = PartialNFTNote {
-            commitment: compute_partial_commitment(owner, storage_slot, randomness),
-        };
-        let completed_partial_note_hash = partial_note.compute_complete_note_hash(token_id);
+        let partial_note =
+            PartialNFTNote { commitment: compute_partial_commitment(owner, randomness) };
+        let completed_partial_note_hash =
+            partial_note.compute_complete_note_hash(storage_slot, token_id);
 
         assert_eq(note_hash, completed_partial_note_hash);
     }

@@ -12,12 +12,12 @@ auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class StdlibPoseidon2 : public testing::Test {
-    using _curve = stdlib::bn254<Builder>;
+    using curve = stdlib::bn254<Builder>;
 
-    using byte_array_ct = typename _curve::byte_array_ct;
-    using field_ct = typename _curve::ScalarField;
-    using witness_ct = typename _curve::witness_ct;
-    using public_witness_ct = typename _curve::public_witness_ct;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using public_witness_ct = stdlib::public_witness_t<Builder>;
     using poseidon2 = typename stdlib::poseidon2<Builder>;
     using native_poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 

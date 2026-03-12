@@ -13,7 +13,6 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -32,14 +31,13 @@ export const ARCHIVER_STORE_NAME = 'archiver';
 /** Creates an archiver store. */
 export async function createArchiverStore(
   userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
-  l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
 ) {
   const config = {
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
   const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config);
-  return new KVArchiverDataStore(store, config.maxLogs, l1Constants);
+  return new KVArchiverDataStore(store, config.maxLogs);
 }
 
 /**
@@ -54,7 +52,7 @@ export async function createArchiver(
   deps: ArchiverDeps,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
 ): Promise<Archiver> {
-  const archiverStore = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
+  const archiverStore = await createArchiverStore(config);
   await registerProtocolContracts(archiverStore);
 
   // Create Ethereum clients

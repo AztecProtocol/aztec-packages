@@ -90,7 +90,6 @@ locals {
   devnet_offset = 6 # deprecated. Naming has changed
 
   devnets = [
-    "v4-devnet-1",
     "v4-devnet-2"
   ]
 }
@@ -100,10 +99,6 @@ resource "google_compute_global_address" "devnet_n_rpc_ip" {
   count       = 1
   name        = "devnet-${count.index + local.devnet_offset}-rpc-ip"
   description = "Static IP for devnet ${count.index + local.devnet_offset} network RPC ingress"
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # deprecated
@@ -115,20 +110,12 @@ resource "google_compute_managed_ssl_certificate" "devnet_n_rpc_cert" {
   managed {
     domains = ["devnet-${count.index + local.devnet_offset}.aztec-labs.com"]
   }
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 resource "google_compute_global_address" "devnet_network_rpc_ip" {
   for_each    = toset(local.devnets)
   name        = "${each.key}-rpc-ip"
   description = "Static IP for ${each.key} RPC ingress"
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 resource "google_compute_managed_ssl_certificate" "devnet_network_rpc_cert" {
@@ -138,9 +125,5 @@ resource "google_compute_managed_ssl_certificate" "devnet_network_rpc_cert" {
 
   managed {
     domains = ["${each.key}.aztec-labs.com"]
-  }
-
-  lifecycle {
-    prevent_destroy = true
   }
 }

@@ -181,6 +181,7 @@ export class EpochsTestContext {
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
       targetCommitteeSize: await this.rollup.getTargetCommitteeSize(),
+      rollupManaLimit: Number(await this.rollup.getManaLimit()),
     };
 
     this.logger.info(

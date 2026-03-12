@@ -355,13 +355,7 @@ pub contract Token {
     // docs:start:prepare_private_balance_increase
     #[internal("private")]
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
-        let partial_note = UintNote::partial(
-            to,
-            self.storage.balances.get_storage_slot(),
-            self.context,
-            to,
-            self.msg_sender(),
-        );
+        let partial_note = UintNote::partial(to, self.context, to, self.msg_sender());
 
         partial_note
     }
@@ -402,7 +396,12 @@ pub contract Token {
         // First we subtract the `amount` from the private balance of `from`
         self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
-        partial_note.complete_from_private(self.context, self.msg_sender(), amount);
+        partial_note.complete_from_private(
+            self.context,
+            self.msg_sender(),
+            self.storage.balances.get_storage_slot(),
+            amount,
+        );
     }
 
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
@@ -435,7 +434,12 @@ pub contract Token {
         balance_storage.write(from_balance);
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(self.context, from_and_completer, amount);
+        partial_note.complete(
+            self.context,
+            from_and_completer,
+            self.storage.balances.get_storage_slot(),
+            amount,
+        );
     }
     // docs:end:finalize_transfer_to_private
 
@@ -495,7 +499,12 @@ pub contract Token {
         self.storage.total_supply.write(supply);
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(self.context, completer, amount);
+        partial_note.complete(
+            self.context,
+            completer,
+            self.storage.balances.get_storage_slot(),
+            amount,
+        );
     }
 
     #[external("public")]

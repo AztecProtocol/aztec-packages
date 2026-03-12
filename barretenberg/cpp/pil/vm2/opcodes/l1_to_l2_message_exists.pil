@@ -25,6 +25,9 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol commit l1_to_l2_msg_tree_leaf_count;
     sel_execute_l1_to_l2_message_exists * (l1_to_l2_msg_tree_leaf_count - constants.L1_TO_L2_MSG_TREE_LEAF_COUNT) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `l1_to_l2_msg_tree_leaf_count` is a protocol constant (2^36).
+    // `register[1]` (leaf_index) is tag-checked to U64 by the execution trace instruction spec.
     #[L1_TO_L2_MSG_LEAF_INDEX_IN_RANGE]
     sel_execute_l1_to_l2_message_exists {
         l1_to_l2_msg_tree_leaf_count,

@@ -68,9 +68,8 @@ export interface L2BlockSource {
   getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
 
   /**
-   * Computes the finalized block number based on the proven block number.
-   * A block is considered finalized when it's 2 epochs behind the proven block.
-   * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+   * Returns the finalized L2 block number. A block is finalized when it was proven
+   * in an L1 block that has itself been finalized on Ethereum.
    * @returns The finalized block number.
    */
   getFinalizedL2BlockNumber(): Promise<BlockNumber>;
@@ -176,14 +175,16 @@ export interface L2BlockSource {
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
-   * Returns the current L2 slot number based on the currently synced L1 timestamp.
+   * Returns the last L2 slot number that has been fully synchronized from L1.
+   * An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
    */
-  getL2SlotNumber(): Promise<SlotNumber | undefined>;
+  getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 
   /**
-   * Returns the current L2 epoch number based on the currently synced L1 timestamp.
+   * Returns the last L2 epoch number that has been fully synchronized from L1.
+   * An epoch is fully synced when all its L2 slots have been fully synced.
    */
-  getL2EpochNumber(): Promise<EpochNumber | undefined>;
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined>;
 
   /**
    * Returns all checkpointed block headers for a given epoch.
