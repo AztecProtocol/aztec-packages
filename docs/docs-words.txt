@@ -59,6 +59,8 @@ CMOV
 codealong
 colour
 Colour
+CapsuleStore
+initializerless
 colums
 Commiting
 comsumer
