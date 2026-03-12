@@ -665,9 +665,10 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field add(const field& other) const noexcept;
     BB_INLINE constexpr field subtract(const field& other) const noexcept;
 
-    // Debug-only assertion: checks that the field element is in the coarse form [0, 2p].
+    // Debug-only assertion: checks that the field element is in the coarse form [0, 2p).
     // Only meaningful for "small" moduli (<=254 bits) which use the coarse representation.
-    // The bound is 2p (inclusive) because the asm coarse reduction can produce exactly 2p (≡ 0 mod p).
+    // The bound is strictly less than 2p: every coarse-reduction path (asm and generic) subtracts 2p
+    // when the result is >= 2p, so the output is always in [0, 2p).
     // Skips the check when the MSB of data[3] is set, as this indicates a point-at-infinity sentinel.
     // Not constexpr in debug builds (BB_ASSERT_DEBUG uses std::ostringstream).
     // Callers must guard with `if (!std::is_constant_evaluated())` in constexpr functions.
@@ -682,7 +683,7 @@ template <class Params_> struct alignas(32) field {
                 return;
             }
             uint256_t val{ data[0], data[1], data[2], data[3] };
-            BB_ASSERT_DEBUG(val <= twice_modulus, "field element exceeds 2p (coarse form violated)");
+            BB_ASSERT_DEBUG(val < twice_modulus, "field element >= 2p (coarse form violated)");
         }
     }
 #endif
