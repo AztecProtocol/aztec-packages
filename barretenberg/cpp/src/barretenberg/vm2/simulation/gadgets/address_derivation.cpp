@@ -32,6 +32,11 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
 {
     // Check if we've already derived this address.
     if (cached_derivations.contains(address)) {
+        // TODO(MW): This ignores the input instance, so if we have derived addr_a for instance A and call this
+        // again with addr_a but instance B, it will not fail and simply return. However calling this with addr_a and
+        // instance B /first/ will throw a runtime error. Neither case emits an event but only case throws -
+        // completeness issue?
+
         // Already processed this address - cache hit, don't emit event.
         return;
     }
