@@ -232,7 +232,6 @@ const requester = new BatchTxRequester(
   missingTxHashes,      // TxHash[] - what we need
   blockTxsSource,       // BlockTxsSource - the proposal or block we need txs for
   pinnedPeer,           // PeerId | undefined - peer expected to have the txs
-  timeoutMs,            // number - how long to try
   p2pService,           // BatchTxRequesterLibP2PService
 );
 

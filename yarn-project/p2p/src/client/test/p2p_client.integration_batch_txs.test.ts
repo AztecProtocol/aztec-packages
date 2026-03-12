@@ -231,10 +231,9 @@ describe('p2p client integration batch txs', () => {
     mockP2PService.reqResp = (client0 as any).p2pService.reqresp;
 
     const requester = new BatchTxRequester(
-      RequestTracker.fromArray(missingTxHashes),
+      RequestTracker.create(missingTxHashes, new Date(Date.now() + 5_000)),
       blockProposal,
       undefined, // no pinned peer
-      5_000,
       mockP2PService,
       logger,
       undefined,

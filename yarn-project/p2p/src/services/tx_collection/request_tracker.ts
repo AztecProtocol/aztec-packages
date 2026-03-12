@@ -62,11 +62,6 @@ export class RequestTracker implements IRequestTracker {
     return new RequestTracker(new Set(hashes.map(hash => hash.toString())), deadline, dateProvider);
   }
 
-  /** @deprecated Use create() instead. Temporary alias for backwards compatibility during rename. */
-  public static fromArray(hashes: TxHash[] | string[]) {
-    return new RequestTracker(new Set(hashes.map(hash => hash.toString())), new Date(Date.now() + 60_000 * 60));
-  }
-
   markFetched(tx: Tx): boolean {
     if (this.done) {
       return false;

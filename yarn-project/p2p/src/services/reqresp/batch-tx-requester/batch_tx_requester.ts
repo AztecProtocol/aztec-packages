@@ -44,7 +44,6 @@ export class BatchTxRequester {
   private readonly requestTracker: IRequestTracker;
   private readonly blockTxsSource: BlockTxsSource;
   private readonly pinnedPeer: PeerId | undefined;
-  private readonly timeoutMs: number;
   private readonly p2pService: BatchTxRequesterLibP2PService;
   private readonly logger: Logger;
   private readonly dateProvider: DateProvider;
@@ -62,7 +61,6 @@ export class BatchTxRequester {
     requestTracker: IRequestTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    timeoutMs: number,
     p2pService: BatchTxRequesterLibP2PService,
     logger?: Logger,
     dateProvider?: DateProvider,
@@ -71,7 +69,6 @@ export class BatchTxRequester {
     this.requestTracker = requestTracker;
     this.blockTxsSource = blockTxsSource;
     this.pinnedPeer = pinnedPeer;
-    this.timeoutMs = timeoutMs;
     this.p2pService = p2pService;
     this.logger = logger ?? createLogger('p2p:reqresp_batch');
     this.dateProvider = dateProvider ?? new DateProvider();

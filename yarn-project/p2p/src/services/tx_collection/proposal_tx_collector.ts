@@ -49,7 +49,7 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
     requestTracker: IRequestTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    timeoutMs: number,
+    _timeoutMs: number,
   ): Promise<Tx[]> {
     const {
       batchTxRequesterSmartParallelWorkerCount: smartParallelWorkerCount,
@@ -62,7 +62,6 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
       requestTracker,
       blockTxsSource,
       pinnedPeer,
-      timeoutMs,
       this.p2pService,
       this.log,
       this.dateProvider,

@@ -212,7 +212,12 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const collector = new BatchTxRequesterCollector(p2pService, logger, new DateProvider(), noopTxValidator);
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
-          collector.collectTxs(RequestTracker.fromArray(parsedTxHashes), parsedProposal, pinnedPeer, internalTimeoutMs),
+          collector.collectTxs(
+            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
+            parsedProposal,
+            pinnedPeer,
+            internalTimeoutMs,
+          ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );
@@ -225,7 +230,12 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       );
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
-          collector.collectTxs(RequestTracker.fromArray(parsedTxHashes), parsedProposal, pinnedPeer, internalTimeoutMs),
+          collector.collectTxs(
+            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
+            parsedProposal,
+            pinnedPeer,
+            internalTimeoutMs,
+          ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );

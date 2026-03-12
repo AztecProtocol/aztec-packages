@@ -110,21 +110,12 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
-      const tracker = RequestTracker.fromArray(missing);
-      const requester = new BatchTxRequester(
-        tracker,
-        blockProposal,
-        undefined,
-        deadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          smartParallelWorkerCount: 0,
-          dumbParallelWorkerCount: 1,
-          txValidator,
-        },
-      );
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        smartParallelWorkerCount: 0,
+        dumbParallelWorkerCount: 1,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -166,21 +157,12 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
-      const tracker = RequestTracker.fromArray(missing);
-      const requester = new BatchTxRequester(
-        tracker,
-        blockProposal,
-        undefined,
-        deadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          smartParallelWorkerCount: 0,
-          dumbParallelWorkerCount: 3,
-          txValidator,
-        },
-      );
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        smartParallelWorkerCount: 0,
+        dumbParallelWorkerCount: 3,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -296,10 +278,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -353,7 +334,6 @@ describe('BatchTxRequester', () => {
         RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -402,10 +382,9 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -475,10 +454,9 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -531,10 +509,9 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -590,7 +567,6 @@ describe('BatchTxRequester', () => {
         RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -667,7 +643,6 @@ describe('BatchTxRequester', () => {
         RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -778,10 +753,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -918,10 +892,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         clock,
@@ -992,21 +965,12 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
-      const tracker = RequestTracker.fromArray(missing);
-      const requester = new BatchTxRequester(
-        tracker,
-        blockProposal,
-        undefined,
-        shortDeadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          smartParallelWorkerCount: 1,
-          dumbParallelWorkerCount: 1,
-          txValidator,
-        },
-      );
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + shortDeadline));
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        smartParallelWorkerCount: 1,
+        dumbParallelWorkerCount: 1,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -1055,7 +1019,6 @@ describe('BatchTxRequester', () => {
         tracker,
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1126,7 +1089,6 @@ describe('BatchTxRequester', () => {
         tracker,
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1174,22 +1136,13 @@ describe('BatchTxRequester', () => {
 
       // Create semaphore that starts with 0 permits to block smart workers
       const semaphore = new TestSemaphore(new Semaphore(0));
-      const requester = new BatchTxRequester(
-        tracker,
-        blockProposal,
-        undefined,
-        deadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          semaphore,
-          smartParallelWorkerCount: 2,
-          dumbParallelWorkerCount: 2,
-          peerCollection,
-          txValidator,
-        },
-      );
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        semaphore,
+        smartParallelWorkerCount: 2,
+        dumbParallelWorkerCount: 2,
+        peerCollection,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -1253,7 +1206,6 @@ describe('BatchTxRequester', () => {
         RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1334,7 +1286,6 @@ describe('BatchTxRequester', () => {
         RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1405,7 +1356,6 @@ describe('BatchTxRequester', () => {
         RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1462,7 +1412,6 @@ describe('BatchTxRequester', () => {
         tracker,
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1519,10 +1468,9 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1571,10 +1519,9 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1653,10 +1600,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         clock,
@@ -1709,10 +1655,9 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1768,7 +1713,6 @@ describe('BatchTxRequester', () => {
         RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
