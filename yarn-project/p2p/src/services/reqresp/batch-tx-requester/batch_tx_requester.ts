@@ -564,11 +564,7 @@ export class BatchTxRequester {
       return;
     }
 
-    // If block response is invalid, demote the peer back to dumb if it was smart.
-    // This happens when the peer pruned its proposal and can no longer serve index-based requests.
-    if (!this.isBlockResponseValid(response)) {
-      this.peers.markPeerDumb(peerId);
-      this.txsMetadata.clearPeerData(peerId);
+    if (this.handleArchiveRootFromResponse(peerId, response)) {
       return;
     }
 
@@ -586,13 +582,33 @@ export class BatchTxRequester {
     this.smartRequesterSemaphore.release();
   }
 
-  private isBlockResponseValid(response: BlockTxsResponse): boolean {
+  /**
+   * Validates the archive root in the response and handles any mismatch.
+   * Returns true if the caller should stop processing (i.e., there was a mismatch).
+   *
+   * - Archives match: returns false (continue processing).
+   * - Response archive is Fr.ZERO (peer pruned proposal, legitimate): marks peer dumb, returns true.
+   * - Non-zero archive mismatch (malicious response): penalises + marks dumb, returns true.
+   */
+  private handleArchiveRootFromResponse(peerId: PeerId, response: BlockTxsResponse): boolean {
     const archiveRootsMatch = this.blockTxsSource.archive.toString() === response.archiveRoot.toString();
-    const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
-    return archiveRootsMatch && peerHasSomeTxsFromProposal;
+    if (archiveRootsMatch) {
+      return false;
+    }
+
+    if (!response.archiveRoot.isZero()) {
+      this.peers.penalisePeer(peerId, PeerErrorSeverity.LowToleranceError);
+    }
+
+    this.peers.markPeerDumb(peerId);
+    this.txsMetadata.clearPeerData(peerId);
+    return true;
   }
 
   private peerHasSomeTxsWeAreMissing(_peerId: PeerId, response: BlockTxsResponse): boolean {
+    if (response.txIndices.isEmpty()) {
+      return false;
+    }
     const txsPeerHas = new Set(this.extractHashesPeerHasFromResponse(response).map(h => h.toString()));
     return this.txsMetadata.getMissingTxHashes().intersection(txsPeerHas).size > 0;
   }
