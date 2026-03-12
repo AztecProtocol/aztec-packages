@@ -1,10 +1,11 @@
 use crate::Test;
 use aztec::{
+    hash::hash_args,
     history::deployment::{
         assert_contract_bytecode_was_not_published_by, assert_contract_bytecode_was_published_by,
         assert_contract_was_initialized_by, assert_contract_was_not_initialized_by,
     },
-    oracle::get_contract_instance::get_contract_instance,
+    macros::functions::initialization_utils::compute_initialization_hash,
     protocol::address::AztecAddress,
     test::helpers::test_environment::{PrivateContextOptions, TestEnvironment},
 };
@@ -28,14 +29,13 @@ pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, Fi
 
     // Deploy contract and initialize
     let initializer = Test::interface().initialize();
+    let init_hash = compute_initialization_hash(initializer.selector, hash_args(initializer.args));
     let contract_address = env.deploy("Test").with_private_initializer(owner, initializer);
 
     // We sanity check that the initialization block was the last one
     assert_eq(env.last_block_number(), CONTRACT_INITIALIZED_AT);
 
-    let instance = get_contract_instance(contract_address);
-
-    (env, contract_address, owner, instance.initialization_hash)
+    (env, contract_address, owner, init_hash)
 }
 
 #[test]
