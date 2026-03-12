@@ -343,3 +343,12 @@ tests:
     error_regex: "timeout: sending signal"
     owners:
       - *charlie
+
+  # TXE infrastructure timeout flakes
+  # http://ci.aztec-labs.com/f5e6345e9acbd3a0
+  # http://ci.aztec-labs.com/32e7363801220212
+  - regex: "noir-projects/scripts/run_test.sh noir-contracts"
+    error_regex: "Timeout waiting for TypeScript callback"
+    owners:
+      - *jan
+      - *palla
