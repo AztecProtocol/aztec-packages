@@ -172,3 +172,15 @@ TEST(fq6, MulByNonResidue)
 
     EXPECT_EQ(result, expected);
 }
+
+TEST(fq6, SparseMul)
+{
+    fq2 a0 = fq2::random_element();
+    fq2 a1 = fq2::random_element();
+    fq6 b = fq6::random_element();
+
+    fq6 result = b.sparse_mul(a0, a1);
+    fq6 expected = fq6{ a0, a1, fq2::zero() } * b;
+
+    EXPECT_EQ(result, expected);
+}

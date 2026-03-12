@@ -23,6 +23,8 @@ export type ActualProverConfig = {
    * When true, jobs are explicitly cancelled with the broker, which prevents reuse.
    */
   cancelJobsOnStop: boolean;
+  /** Max concurrent jobs the orchestrator serializes and enqueues to the broker. */
+  enqueueConcurrency: number;
 };
 
 /**
@@ -53,6 +55,7 @@ export const ProverConfigSchema = zodFor<ProverConfig>()(
     proofStore: z.string().optional(),
     failedProofStore: z.string().optional(),
     cancelJobsOnStop: z.boolean(),
+    enqueueConcurrency: z.number(),
   }),
 );
 
@@ -106,6 +109,11 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
       'When false (default), jobs remain in the broker queue and can be reused on restart/reorg. ' +
       'When true, jobs are explicitly cancelled with the broker, which prevents reuse.',
     ...booleanConfigHelper(false),
+  },
+  enqueueConcurrency: {
+    env: 'PROVER_ENQUEUE_CONCURRENCY',
+    description: 'Max concurrent jobs the orchestrator serializes and enqueues to the broker.',
+    ...numberConfigHelper(10),
   },
 };
 

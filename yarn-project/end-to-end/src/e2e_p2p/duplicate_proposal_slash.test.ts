@@ -16,7 +16,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitEpochWithProposer, awaitOffenseDetected } from './shared.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
 
 const TEST_TIMEOUT = 600_000; // 10 minutes
 
@@ -199,18 +199,23 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     ]);
     await awaitCommitteeExists({ rollup, logger: t.logger });
 
-    // Advance to an epoch where the malicious proposer is selected
+    // Find an epoch where the malicious proposer is selected, stopping one epoch before
+    // so we have time to start sequencers before the target epoch arrives
     const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
-    await awaitEpochWithProposer({
+    const { targetEpoch } = await advanceToEpochBeforeProposer({
       epochCache,
       cheatCodes: t.ctx.cheatCodes.rollup,
       targetProposer: maliciousValidatorAddress,
       logger: t.logger,
     });
 
-    // Start all sequencers simultaneously
+    // Start all sequencers while still one epoch before the target
     t.logger.warn('Starting all sequencers');
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+
+    // Now warp to the target epoch — sequencers are already running
+    t.logger.warn(`Advancing to target epoch ${targetEpoch}`);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch);
 
     // Wait for offense to be detected
     // The honest nodes should detect the duplicate proposal from the malicious validator
@@ -226,15 +231,17 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
 
     t.logger.warn(`Collected offenses`, { offenses });
 
-    // Verify the offense is correct
-    expect(offenses.length).toBeGreaterThan(0);
-    for (const offense of offenses) {
-      expect(offense.offenseType).toEqual(OffenseType.DUPLICATE_PROPOSAL);
+    // Filter to only DUPLICATE_PROPOSAL offenses. The two malicious nodes sharing the same key
+    // will also each self-attest to their own (different) checkpoint proposals, which causes honest
+    // nodes to detect a DUPLICATE_ATTESTATION as well. We only care about proposals here.
+    const proposalOffenses = offenses.filter(o => o.offenseType === OffenseType.DUPLICATE_PROPOSAL);
+    expect(proposalOffenses.length).toBeGreaterThan(0);
+    for (const offense of proposalOffenses) {
       expect(offense.validator.toString()).toEqual(maliciousValidatorAddress.toString());
     }
 
     // Verify that for each offense, the proposer for that slot is the malicious validator
-    for (const offense of offenses) {
+    for (const offense of proposalOffenses) {
       const offenseSlot = SlotNumber(Number(offense.epochOrSlot));
       const proposerForSlot = await epochCache.getProposerAttesterAddressInSlot(offenseSlot);
       t.logger.info(`Offense slot ${offenseSlot}: proposer is ${proposerForSlot?.toString()}`);
