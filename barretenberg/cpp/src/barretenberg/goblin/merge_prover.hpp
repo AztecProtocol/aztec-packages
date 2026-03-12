@@ -64,6 +64,8 @@ template <size_t BATCH_SIZE> class MergeProver {
     struct PolynomialBatch {
         std::array<Batch, NUM_COLUMNS> batches;
 
+        PolynomialBatch() = default;
+
         PolynomialBatch(const std::array<Polynomial, NUM_WIRES>& polynomials)
         {
             for (size_t col = 0; col < NUM_COLUMNS; ++col) {

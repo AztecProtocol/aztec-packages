@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -45,6 +46,8 @@ template <size_t BATCH_SIZE> class BatchMergeProver {
     using PCS = KZG<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using Transcript = NativeTranscript;
+    using Batch = MergeProver<BATCH_SIZE>::Batch;
+    using PolynomialBatch = MergeProver<BATCH_SIZE>::PolynomialBatch;
 
   public:
     using MergeProof = std::vector<FF>;
@@ -72,23 +75,11 @@ template <size_t BATCH_SIZE> class BatchMergeProver {
     std::shared_ptr<ECCOpQueue> op_queue;
     size_t max_subtables; // M
 
-    // One Batch = BATCH_SIZE individual column polynomials (interleaved into one commitment)
-    struct Batch : public std::array<Polynomial, BATCH_SIZE> {
-        using std::array<Polynomial, BATCH_SIZE>::array;
+    Polynomial interleave_polynomials(const std::array<Polynomial, BATCH_SIZE>& polys);
 
-        FF evaluate(const std::vector<FF>& powers_of_challenge) const
-        {
-            BB_ASSERT(powers_of_challenge.size() == BATCH_SIZE + 1);
-            FF result = 0;
-            for (size_t idx = 0; idx < BATCH_SIZE; ++idx) {
-                result += (*this)[idx].evaluate(powers_of_challenge.back()) * powers_of_challenge[idx];
-            }
-            return result;
-        }
-    };
-
-    static Polynomial interleave_batch(const Batch& batch);
-    static Batch compute_reversed_batch(const Batch& batch, size_t k_max);
+    Batch compute_degree_check_polynomial(const std::vector<PolynomialBatch>& subtable_columns,
+                                          const std::vector<FF>& degree_check_challenges,
+                                          const size_t max_size);
 };
 
 } // namespace bb
