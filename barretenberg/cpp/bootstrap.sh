@@ -7,7 +7,7 @@ else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
-export native_build_dir=$(scripts/native-preset-build-dir)
+export native_build_dir=$(scripts/preset-build-dir)
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -44,6 +44,14 @@ function inject_version {
   fi
 }
 
+# Inject version into all bb binaries in a directory (no-op if none exist).
+function inject_bb_versions {
+  local bin_dir=$1
+  for f in "$bin_dir"/bb "$bin_dir"/bb.exe "$bin_dir"/bb-avm; do
+    [ -f "$f" ] && inject_version "$f"
+  done
+}
+
 # Define build commands for each preset
 function build_preset() {
   local preset=$1
@@ -54,6 +62,32 @@ function build_preset() {
   fi
   cmake --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
+}
+
+# Generic: cache-download or build-preset + cache-upload, then inject bb versions.
+# Usage: build_cached <preset> [<cache_paths...>]
+# If no cache paths given, defaults to $build_dir/{bin,lib}.
+function build_cached {
+  set -eu
+  local preset=$1
+  local build_dir=$(scripts/preset-build-dir $preset)
+  shift
+  if ! cache_download barretenberg-$preset-$hash.zst; then
+    build_preset $preset
+    if [ $# -gt 0 ]; then
+      cache_upload barretenberg-$preset-$hash.zst "$@"
+    else
+      cache_upload barretenberg-$preset-$hash.zst $build_dir/{bin,lib}
+    fi
+  fi
+  inject_bb_versions $build_dir/bin
+}
+
+# Only check formatting if we're actually going to build (not cached).
+function build_format_check {
+  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+    ./format.sh check
+  fi
 }
 
 # Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
@@ -68,26 +102,15 @@ function build_native_objects {
   fi
 }
 
-# Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
 function build_native {
-  set -eu
-  if ! cache_download barretenberg-$native_preset-$hash.zst; then
-    ./format.sh check
-    build_preset $native_preset
-    cache_upload barretenberg-$native_preset-$hash.zst ${native_build_dir}/{bin,lib}
-  fi
-  # Always inject version (even for cached binaries) to ensure correct version on release
-  inject_version $native_build_dir/bin/bb
-
-  if [ -f $native_build_dir/bin/bb-avm ]; then
-    inject_version $native_build_dir/bin/bb-avm
-  fi
+  build_cached $native_preset
 }
 
-# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
-# Allow the build system to get a head start on compilation while building dependencies.
-# For cross compilation we're only building bb and napi module.
-# This is a noop if the final artifacts exist in the cache.
+function build_cross {
+  build_cached zig-$1
+}
+
+# Builds object files early for cross compilation (parallel with avm-transpiler).
 function build_cross_objects {
   set -eu
   target=$1
@@ -96,42 +119,14 @@ function build_cross_objects {
   fi
 }
 
-# Cross compile binaries. Targets (bb, nodejs_module, bb-external) are defined in build presets.
-# Arg is target arch-os e.g. amd64-linux, amd64-windows.
-function build_cross {
-  set -eu
-  target=$1
-  if ! cache_download barretenberg-$target-$hash.zst; then
-    build_preset zig-$target
-    cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
-  fi
-  # Always inject version (even for cached binaries) to ensure correct version on release
-  local bb_bin=bb; [[ "$target" == *-windows ]] && bb_bin=bb.exe
-  inject_version build-zig-$target/bin/$bb_bin
-}
-
-# Generic: cache-download or build-preset + cache-upload.
-# Usage: build_cached <preset> <cache_paths...>
-function build_cached {
-  set -eu
-  local preset=$1
-  shift
-  if ! cache_download barretenberg-$preset-$hash.zst; then
-    build_preset $preset
-    cache_upload barretenberg-$preset-$hash.zst "$@"
-  fi
-}
-
-# Build static library (.a) for iOS using Zig cross-compilation from Linux.
-# Only produces static libraries (bb-external) — Zig cannot link iOS executables
-# due to lack of TBD/dylib support. Requires iOS SDK headers (downloaded automatically).
-# Arg is preset name: zig-arm64-ios or zig-arm64-ios-sim
 function build_ios {
-  build_cached $1 build-$1/lib
+  local build_dir=$(scripts/preset-build-dir $1)
+  build_cached $1 $build_dir/lib
 }
 
 function build_android {
-  build_cached $1 build-$1/lib
+  local build_dir=$(scripts/preset-build-dir $1)
+  build_cached $1 $build_dir/lib
 }
 
 function build_asan_fast {
@@ -140,11 +135,11 @@ function build_asan_fast {
 }
 
 function build_wasm {
-  build_cached wasm build-wasm/bin
+  build_cached wasm
 }
 
 function build_wasm_threads {
-  build_cached wasm-threads build-wasm-threads/bin
+  build_cached wasm-threads
 }
 
 function build_wasm_threads_benches {
@@ -249,7 +244,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-zig-x86_64-android/lib libbb-external.a
 }
 
-export -f build_preset build_cached build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_wasm_threads_benches build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
+export -f build_preset build_cached build_format_check build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_wasm_threads_benches build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
 
 function build {
   echo_header "bb cpp build"

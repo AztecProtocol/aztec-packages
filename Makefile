@@ -113,13 +113,17 @@ bb-bbup:
 bb-cpp-yarn:
 	$(call run_command,$@,$(ROOT)/barretenberg/cpp,cd src/barretenberg/nodejs_module && yarn --immutable)
 
+# Format check (skipped if cache hit)
+bb-cpp-format-check:
+	$(call build,$@,barretenberg/cpp,build_format_check)
+
 # BB C++ Native - Split into compilation and linking phases
 # Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
 bb-cpp-native-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_native_objects)
 
 # Linking phase: Link all native binaries (needs avm-transpiler)
-bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn
+bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn bb-cpp-format-check
 	$(call build,$@,barretenberg/cpp,build_native)
 
 # BB C++ WASM - Single-threaded WebAssembly build

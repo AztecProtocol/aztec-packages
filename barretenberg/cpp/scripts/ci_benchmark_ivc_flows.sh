@@ -15,7 +15,7 @@ echo_header "bb ivc flow bench"
 
 export HARDWARE_CONCURRENCY=${CPUS:-8}
 # E.g. build, build-debug or build-coverage
-export native_build_dir=$(scripts/native-preset-build-dir)
+export native_build_dir=$(scripts/preset-build-dir)
 
 function verify_ivc_flow {
   local flow="$1"

@@ -24,7 +24,7 @@ tests_hash=$(hash_str \
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
   local program=$1
-  local native_build_dir=$(../cpp/scripts/native-preset-build-dir)
+  local native_build_dir=$(../cpp/scripts/preset-build-dir)
   local bb=$(realpath ../cpp/$native_build_dir/bin/bb)
   local outdir=$(mktemp -d)
   trap "rm -rf $outdir" EXIT
