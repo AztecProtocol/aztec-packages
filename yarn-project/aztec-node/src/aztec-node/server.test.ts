@@ -16,11 +16,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-<<<<<<< HEAD
-import { CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
-=======
 import { BlockHash, type BlockParameter, CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
->>>>>>> 26e335d47d (fix(node): check world state against requested block hash (#21385))
 import { L1PublishedData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -405,8 +401,6 @@ describe('aztec node', () => {
         expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(3);
       });
     });
-<<<<<<< HEAD
-=======
 
     describe('findLeavesIndexes', () => {
       const blockHash1 = Fr.random();
@@ -614,7 +608,6 @@ describe('aztec node', () => {
         expect(result).toBe(snapshotMerkleTreeOps);
       });
     });
->>>>>>> 26e335d47d (fix(node): check world state against requested block hash (#21385))
   });
 
   describe('simulatePublicCalls', () => {
