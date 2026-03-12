@@ -111,13 +111,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   public assertCompatibleOracleVersion(version: number): void {
     // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
-    // Protocol contracts/canonical contracts and SponsoredFPC shipped with committed bytecode that cannot be changed.
-    // Assert they use the expected pinned version instead of the current one.
+    // Protocol contracts/canonical contracts shipped with committed bytecode that cannot be changed. Assert they use
+    // the expected pinned version or the current one. We want to allow for both the pinned and the current versions
+    // because we want this code to work with both the pinned and unpinned version since some branches do not have the
+    // pinned contracts (like e.g. next)
     const LEGACY_ORACLE_VERSION = 12;
     if (isProtocolContract(this.contractAddress)) {
-      if (version !== LEGACY_ORACLE_VERSION) {
+      if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
         throw new Error(
-          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} for alpha payload contract at ${this.contractAddress}, got ${version}.`,
+          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} or current oracle version ${ORACLE_VERSION} for alpha payload contract at ${this.contractAddress}, got ${version}.`,
         );
       }
       return;
