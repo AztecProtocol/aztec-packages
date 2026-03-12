@@ -344,31 +344,35 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     };
 
     /**
-     * @brief Lightweight per-proof data for batch verification.
-     * @details Stores round_challenges_inv instead of the full s_vec, deferring s_vec
-     * construction to a fused butterfly that builds combined_s directly.
+     * @brief Per-proof data with deferred s-vector construction.
+     * @details Like TranscriptData but stores round_challenges_inv instead of the full s_vec,
+     * allowing the caller to build s_vec lazily (e.g., via a fused butterfly in batch mode).
      */
     struct TranscriptDataLight {
-        GroupElement C_zero;
-        Fr b_zero;
-        std::vector<Fr> round_challenges_inv; ///< log_poly_length inverse round challenges
-        Fr gen_challenge;
-        Fr a_zero;
+        GroupElement C_zero;                  ///< C_0 = C' + sum_j (u_j^{-1} L_j + u_j R_j)
+        Fr b_zero;                            ///< b_0 = g(beta)
+        std::vector<Fr> round_challenges_inv; ///< {u_0^{-1}, ..., u_{k-1}^{-1}}
+        Fr gen_challenge;                     ///< Generator challenge u
+        Fr a_zero;                            ///< a_0 from prover
     };
 
     /**
-     * @brief Per-proof data for batch verification without computing the LR pippenger MSM.
-     * @details Returns the raw L/R points and their challenge scalars so that they can be
-     * batched across all claims into a single large MSM.
+     * @brief Per-proof transcript data for batch verification (no per-claim MSM).
+     *
+     * @details In single-proof verification, we immediately compute
+     *   C_0 = C' + sum_j (u_j^{-1} L_j + u_j R_j)
+     * via a per-claim pippenger MSM. For batch verification, we defer this MSM: we store
+     * the raw L/R points and their scalar coefficients so the caller can merge them across
+     * all claims into one large batched MSM.
      */
     struct TranscriptDataNoMsm {
-        Commitment C_prime;                   ///< C' = C + f(beta) * U, before adding LR_sums
-        Fr b_zero;                            ///< b_0
-        std::vector<Fr> round_challenges_inv; ///< log_poly_length inverse round challenges
-        Fr gen_challenge;                     ///< Generator challenge u
-        Fr a_zero;                            ///< a_0 from prover
-        std::vector<Commitment> lr_elements;  ///< L_0, R_0, L_1, R_1, ... (2*log_poly_length points)
-        std::vector<Fr> lr_scalars;           ///< u_0^{-1}, u_0, u_1^{-1}, u_1, ... (2*log_poly_length scalars)
+        Commitment C_prime;                   ///< C' = C + f(beta) * U  (before LR folding)
+        Fr b_zero;                            ///< b_0 = g(beta), the challenge polynomial evaluated at beta
+        std::vector<Fr> round_challenges_inv; ///< {u_0^{-1}, ..., u_{k-1}^{-1}}, k = log_poly_length
+        Fr gen_challenge;                     ///< Generator challenge u, where U = u * G
+        Fr a_zero;                            ///< a_0, the final scalar sent by the prover
+        std::vector<Commitment> lr_elements;  ///< [L_0, R_0, L_1, R_1, ...] (2k points)
+        std::vector<Fr> lr_scalars;           ///< [u_0^{-1}, u_0, u_1^{-1}, u_1, ...] (2k scalars)
     };
 
     /**
@@ -519,54 +523,64 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Transcript processing that skips the per-claim LR MSM entirely.
-     * @details Returns raw L/R points and scalars so the caller can batch them into one MSM
-     * across all claims. Also returns C_prime (before adding LR sums).
+     * @brief Extract per-proof data from a transcript, deferring the LR MSM to the caller.
+     *
+     * @details Performs the same transcript reads as read_transcript_data (steps 2-4, 9), but
+     * instead of computing C_0 = C' + sum(u_j^{-1} L_j + u_j R_j) immediately, it returns
+     * the raw L/R points and scalars. This allows batch_reduce_verify to merge all claims'
+     * LR contributions into a single large MSM.
+     *
+     * @param opening_claim Contains commitment C and opening pair (beta, f(beta))
+     * @param transcript Transcript positioned after add_claim_to_hash_buffer
+     * @return TranscriptDataNoMsm with C_prime, round data, and raw LR points/scalars
      */
     template <typename Transcript>
     static TranscriptDataNoMsm read_transcript_data_no_msm(const OpeningClaim<Curve>& opening_claim,
                                                            const std::shared_ptr<Transcript>& transcript)
         requires(!Curve::is_stdlib_type)
     {
+        // Step 2: Receive generator challenge u, compute auxiliary generator U = u * G
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         if (generator_challenge.is_zero()) {
             throw_or_abort("The generator challenge can't be zero");
         }
         const Commitment aux_generator = Commitment::one() * generator_challenge;
+
+        // Step 3: Compute C' = C + f(beta) * U  (joint commitment binding f and its evaluation)
         const GroupElement C_prime_proj =
             opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
         const Commitment C_prime = C_prime_proj.normalize();
 
-        const auto pippenger_size = 2 * log_poly_length;
+        // Step 4: Receive L_j, R_j and compute round challenges u_j
+        constexpr size_t num_lr = 2 * log_poly_length;
         std::vector<Fr> round_challenges(log_poly_length);
-        std::vector<Commitment> lr_elements(pippenger_size);
-        std::vector<Fr> lr_scalars(pippenger_size);
+        std::vector<Commitment> lr_elements(num_lr);
+        std::vector<Fr> lr_scalars(num_lr);
 
         for (size_t i = 0; i < log_poly_length; i++) {
             std::string index = std::to_string(log_poly_length - i - 1);
-            const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
-            const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
+            lr_elements[2 * i] = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
+            lr_elements[2 * i + 1] = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
             if (round_challenges[i].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
-            lr_elements[2 * i] = element_L;
-            lr_elements[2 * i + 1] = element_R;
         }
 
+        // Batch-invert round challenges and interleave scalars: [u_0^{-1}, u_0, u_1^{-1}, u_1, ...]
         std::vector<Fr> round_challenges_inv = round_challenges;
         Fr::batch_invert(round_challenges_inv);
-
         for (size_t i = 0; i < log_poly_length; i++) {
             lr_scalars[2 * i] = round_challenges_inv[i];
             lr_scalars[2 * i + 1] = round_challenges[i];
         }
 
+        // Step 6: Compute b_0 = g(beta) = prod_i (1 + u_i^{-1} * beta^{2^i})
         const Fr b_zero = evaluate_challenge_poly(round_challenges_inv, opening_claim.opening_pair.challenge);
 
-        [[maybe_unused]] Commitment G_zero_from_prover =
-            transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        // Step 9: Advance transcript past G_0 and a_0 (G_0 unused in batch path)
+        [[maybe_unused]] auto _ = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        const Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         return { C_prime,
                  b_zero,
@@ -791,24 +805,31 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Batch verify multiple IPA proofs with a single large SRS MSM.
+     * @brief Batch-verify N IPA proofs using a single SRS MSM.
      *
-     * @details For N proofs, IPA verification's dominant cost is the SRS MSM (pippenger over poly_length points).
-     * By combining N proofs via random linear combination with challenge \f$\alpha\f$, we replace N separate MSMs with
-     * one.
+     * @details Single-proof IPA verification is dominated by an O(poly_length) SRS MSM.
+     * Naively verifying N proofs requires N such MSMs. By taking a random linear combination
+     * with powers of alpha, we replace all N MSMs with one, achieving near-constant marginal
+     * cost per additional proof.
      *
-     * Uses read_transcript_data_no_msm to skip per-claim LR pippenger MSMs entirely,
-     * batching all LR points + C_prime points into one large MSM.
+     * The algorithm has four phases:
      *
-     * The batch check verifies:
-     *   \f$\sum \alpha^i C_{0,i} = \langle \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle
-     *     + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
+     *   Phase 1 (Transcript Processing): For each claim i, extract C'_i, {L_j, R_j},
+     *           round challenges {u_j}, b_0, a_0. Uses work-stealing parallelism.
      *
-     * where \f$G\f$ = Commitment::one() and \f$U_i = u_i \cdot G\f$.
+     *   Phase 2 (Batched LR + C' MSM): Compute C_batch = sum_i alpha^i * C_{0,i} via one
+     *           MSM over all LR points and C' points, weighted by alpha^i.
+     *
+     *   Phase 3 (Fused S-vector Butterfly): Build combined_s = sum_i alpha^i * a_{0,i} * s_i
+     *           using a fused butterfly that constructs each s_i inline, avoiding N separate
+     *           O(poly_length) allocations.
+     *
+     *   Phase 4 (SRS MSM + Check): Compute G_batch = <combined_s, SRS> and verify
+     *           C_batch == G_batch + (sum_i alpha^i * a_{0,i} * b_{0,i} * u_i) * G
      *
      * @param vk Verification key containing SRS
-     * @param opening_claims The opening claims for each proof
-     * @param transcripts The transcripts containing each proof's data
+     * @param opening_claims The N opening claims (commitment + opening pair each)
+     * @param transcripts The N transcripts containing proof data
      * @return true if all proofs verify
      */
     template <typename Transcript = NativeTranscript>
@@ -821,9 +842,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         BB_ASSERT(num_claims == transcripts.size());
         BB_ASSERT(num_claims > 0);
 
-        // ── Phase 1: transcript processing (parallel, work-stealing) ──────────
-        // Skip per-claim LR pippenger; collect raw L/R points for batched MSM.
-        const size_t lr_per_claim = 2 * log_poly_length;
+        // ── Phase 1: Transcript processing ────────────────────────────────────
+        // Process each proof's transcript in parallel via work-stealing.
+        // We collect raw L/R points (not yet MSM'd) so Phase 2 can batch them.
+        constexpr size_t lr_per_claim = 2 * log_poly_length;
+
         std::vector<Commitment> all_C_primes(num_claims);
         std::vector<Fr> a_zeros(num_claims);
         std::vector<Fr> b_zeros(num_claims);
@@ -837,25 +860,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             const size_t num_workers = std::min(num_claims, get_num_cpus());
 
             auto process_claims = [&]() {
-                while (true) {
-                    size_t i = work_index.fetch_add(1, std::memory_order_relaxed);
-                    if (i >= num_claims) {
-                        break;
-                    }
+                for (size_t i = work_index.fetch_add(1, std::memory_order_relaxed); i < num_claims;
+                     i = work_index.fetch_add(1, std::memory_order_relaxed)) {
                     add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
                     auto data = read_transcript_data_no_msm(opening_claims[i], transcripts[i]);
+
                     all_C_primes[i] = data.C_prime;
-                    b_zeros[i] = data.b_zero;
-                    all_round_challenges_inv[i] = std::move(data.round_challenges_inv);
-                    gen_challenges[i] = data.gen_challenge;
                     a_zeros[i] = data.a_zero;
-                    const size_t offset = i * lr_per_claim;
-                    std::copy(data.lr_elements.begin(),
-                              data.lr_elements.end(),
-                              all_lr_elements.begin() + static_cast<ptrdiff_t>(offset));
-                    std::copy(data.lr_scalars.begin(),
-                              data.lr_scalars.end(),
-                              all_lr_scalars.begin() + static_cast<ptrdiff_t>(offset));
+                    b_zeros[i] = data.b_zero;
+                    gen_challenges[i] = data.gen_challenge;
+                    all_round_challenges_inv[i] = std::move(data.round_challenges_inv);
+
+                    const auto offset = static_cast<ptrdiff_t>(i * lr_per_claim);
+                    std::copy_n(data.lr_elements.begin(), lr_per_claim, all_lr_elements.begin() + offset);
+                    std::copy_n(data.lr_scalars.begin(), lr_per_claim, all_lr_scalars.begin() + offset);
                 }
             };
 
@@ -874,9 +892,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             }
         }
 
-        // ── Phase 2: batched LR + C_prime MSM ────────────────────────────────
-        // One (N*30 + N)-point MSM replaces N individual 30-point MSMs + C_batch loop.
-        Fr alpha = Fr::random_element();
+        // ── Phase 2: Batched LR + C' MSM ─────────────────────────────────────
+        // Combine all per-claim LR MSMs and C' additions into one large MSM:
+        //   C_batch = sum_i alpha^i * (C'_i + sum_j [u_{i,j}^{-1} L_{i,j} + u_{i,j} R_{i,j}])
+        //           = sum_i alpha^i * C_{0,i}
+        const Fr alpha = Fr::random_element();
         std::vector<Fr> alpha_pows(num_claims);
         alpha_pows[0] = Fr::one();
         for (size_t i = 1; i < num_claims; i++) {
@@ -884,24 +904,36 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         const size_t total_lr = num_claims * lr_per_claim;
-        const size_t batch_msm_size = total_lr + num_claims;
-        std::vector<Commitment> batch_msm_elements(batch_msm_size);
-        std::vector<Fr> batch_msm_scalars(batch_msm_size);
+        const size_t msm_size = total_lr + num_claims; // LR points + one C' per claim
+        std::vector<Commitment> msm_elements(msm_size);
+        std::vector<Fr> msm_scalars(msm_size);
 
         for (size_t i = 0; i < num_claims; i++) {
+            // Scale each claim's LR scalars by alpha^i
             const size_t offset = i * lr_per_claim;
             for (size_t j = 0; j < lr_per_claim; j++) {
-                batch_msm_elements[offset + j] = all_lr_elements[offset + j];
-                batch_msm_scalars[offset + j] = alpha_pows[i] * all_lr_scalars[offset + j];
+                msm_elements[offset + j] = all_lr_elements[offset + j];
+                msm_scalars[offset + j] = alpha_pows[i] * all_lr_scalars[offset + j];
             }
-            batch_msm_elements[total_lr + i] = all_C_primes[i];
-            batch_msm_scalars[total_lr + i] = alpha_pows[i];
+            // Append C'_i with scalar alpha^i
+            msm_elements[total_lr + i] = all_C_primes[i];
+            msm_scalars[total_lr + i] = alpha_pows[i];
         }
 
-        GroupElement C_batch = scalar_multiplication::pippenger<Curve>({ 0, { &batch_msm_scalars[0], batch_msm_size } },
-                                                                       { &batch_msm_elements[0], batch_msm_size });
+        GroupElement C_batch = scalar_multiplication::pippenger<Curve>({ 0, { &msm_scalars[0], msm_size } },
+                                                                       { &msm_elements[0], msm_size });
 
-        // ── Phase 3: fused butterfly + batched combine ────────────────────────
+        // ── Phase 3: Fused s-vector butterfly ─────────────────────────────────
+        // Build combined_s[j] = sum_i alpha^i * a_{0,i} * s_i[j]  for j in [0, poly_length).
+        //
+        // Each s_i is the "challenge polynomial coefficient vector" defined by
+        //   s_i[r] = prod_{k where bit k of r is 1} u_{i,k}^{-1}
+        //
+        // Rather than materializing each s_i separately, we use a butterfly expansion:
+        //   Start with seed = alpha^i * a_{0,i}, then for each round k:
+        //     s[2j]   = s[j]           (bit k = 0)
+        //     s[2j+1] = s[j] * u_k^{-1}  (bit k = 1)
+        // This builds s_i in-place in O(poly_length) time.
         const size_t num_threads = get_num_cpus();
         std::vector<std::vector<Fr>> thread_buffers(num_threads);
 
@@ -913,49 +945,64 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 return;
             }
 
-            auto& local = thread_buffers[thread_idx];
-            local.resize(poly_length, Fr::zero());
+            auto& accumulator = thread_buffers[thread_idx];
+            accumulator.resize(poly_length, Fr::zero());
+
+            // Double-buffer for butterfly: alternate between two scratch arrays.
+            // After log_poly_length rounds, the result lands in `prev`.
             std::vector<Fr> buf_a(poly_length);
             std::vector<Fr> buf_b(poly_length / 2);
 
             for (size_t i = claim_start; i < claim_end; i++) {
                 const auto& u_inv = all_round_challenges_inv[i];
 
+                // Set up double-buffer pointers so the final result lands in `prev`
+                // regardless of whether log_poly_length is even or odd.
                 Fr* prev = buf_b.data();
                 Fr* curr = buf_a.data();
                 if ((log_poly_length & 1) == 0) {
                     std::swap(prev, curr);
                 }
 
+                // Seed the butterfly with alpha^i * a_{0,i}
                 prev[0] = alpha_pows[i] * a_zeros[i];
+
+                // Butterfly expansion: each round doubles the vector length
                 for (size_t k = 0; k < log_poly_length; ++k) {
                     const size_t half = static_cast<size_t>(1) << k;
-                    const Fr& c = u_inv[k];
+                    const Fr& challenge_inv = u_inv[k];
                     for (size_t j = 0; j < half; ++j) {
                         curr[2 * j] = prev[j];
-                        curr[2 * j + 1] = prev[j] * c;
+                        curr[2 * j + 1] = prev[j] * challenge_inv;
                     }
                     std::swap(prev, curr);
                 }
 
+                // Accumulate this claim's s-vector into thread-local buffer
                 for (size_t j = 0; j < poly_length; ++j) {
-                    local[j] += prev[j];
+                    accumulator[j] += prev[j];
                 }
             }
         });
 
-        auto& combined = thread_buffers[0];
+        // Reduce thread-local accumulators into thread_buffers[0]
+        auto& combined_s_data = thread_buffers[0];
         for (size_t t = 1; t < num_threads; ++t) {
             if (thread_buffers[t].empty()) {
                 continue;
             }
             for (size_t j = 0; j < poly_length; ++j) {
-                combined[j] += thread_buffers[t][j];
+                combined_s_data[j] += thread_buffers[t][j];
             }
         }
 
         // ── Phase 4: SRS MSM + final check ───────────────────────────────────
-        Polynomial<Fr> combined_s(std::span<const Fr>(combined.data(), poly_length), poly_length);
+        // Verify: C_batch == <combined_s, SRS> + (sum_i alpha^i a_{0,i} b_{0,i} u_i) * G
+        //
+        // Left side:   C_batch = sum_i alpha^i * C_{0,i}
+        // Right side:  sum_i alpha^i * (a_{0,i} * G_s_i + a_{0,i} * b_{0,i} * U_i)
+        //            = <combined_s, SRS> + scalar * G
+        Polynomial<Fr> combined_s(std::span<const Fr>(combined_s_data.data(), poly_length), poly_length);
 
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length > srs_elements.size()) {
@@ -964,13 +1011,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Commitment G_batch =
             scalar_multiplication::pippenger_unsafe<Curve>(combined_s, { &srs_elements[0], poly_length });
 
-        Fr bU_scalar = Fr::zero();
+        // Accumulate the auxiliary generator scalar: sum_i alpha^i * a_{0,i} * b_{0,i} * u_i
+        Fr aux_scalar = Fr::zero();
         for (size_t i = 0; i < num_claims; i++) {
-            bU_scalar += alpha_pows[i] * a_zeros[i] * b_zeros[i] * gen_challenges[i];
+            aux_scalar += alpha_pows[i] * a_zeros[i] * b_zeros[i] * gen_challenges[i];
         }
 
-        GroupElement right_hand_side = G_batch + Commitment::one() * bU_scalar;
-        return (C_batch.normalize() == right_hand_side.normalize());
+        GroupElement rhs = G_batch + Commitment::one() * aux_scalar;
+        return (C_batch.normalize() == rhs.normalize());
     }
 
     /**

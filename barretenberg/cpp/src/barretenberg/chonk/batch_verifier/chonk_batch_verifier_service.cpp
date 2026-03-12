@@ -48,11 +48,7 @@ bool ChonkBatchVerifierService::queue(VerifyRequest request)
 bool ChonkBatchVerifierService::cancel(uint64_t request_id)
 {
     // Try both pools — request could be in either
-    bool found = trusted_processor_.cancel(request_id);
-    if (!found) {
-        found = untrusted_pool_.cancel(request_id);
-    }
-    return true;
+    return trusted_processor_.cancel(request_id) || untrusted_pool_.cancel(request_id);
 }
 
 uint32_t ChonkBatchVerifierService::cancel_by_source(const std::string& source)

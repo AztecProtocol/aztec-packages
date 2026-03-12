@@ -13,7 +13,7 @@ namespace bb {
 /**
  * @brief Reduce Goblin proof to pairing check and deferred batch opening claim.
  * @details Processes Merge, ECCVM, and Translator sub-proofs sequentially. The ECCVM's final Shplonk MSM
- * is deferred (returned as a BatchOpeningClaim). In native mode, performs immediate pairing checks.
+ * is deferred (returned as a BatchOpeningClaim). Pairing checks are also deferred for batch aggregation.
  */
 template <typename Curve>
 typename GoblinVerifier_<Curve>::BatchReductionResult GoblinVerifier_<
@@ -78,27 +78,21 @@ typename GoblinVerifier_<Curve>::BatchReductionResult GoblinVerifier_<
 }
 
 /**
- * @brief Reduce Goblin proof to pairing check and IPA opening claim
- * @details Calls reduce_to_pairing_check_and_batch_opening_claim and finalizes the deferred MSM.
+ * @brief Reduce Goblin proof to pairing check and IPA opening claim.
+ * @details Delegates to reduce_to_pairing_check_and_batch_opening_claim(), then finalizes
+ * the deferred ECCVM Shplonk MSM to produce a standard OpeningClaim.
  */
 template <typename Curve>
 typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
 {
     auto batch_result = reduce_to_pairing_check_and_batch_opening_claim();
     if (!batch_result.all_checks_passed) {
-        return ReductionResult{
-            .merge_pairing_points = std::move(batch_result.merge_pairing_points),
-            .translator_pairing_points = std::move(batch_result.translator_pairing_points),
-            .all_checks_passed = false,
-        };
+        return ReductionResult();
     }
-
-    // Finalize the deferred ECCVM Shplonk MSM
-    auto ipa_claim = batch_result.deferred_ipa_claim.finalize();
 
     return ReductionResult{ .merge_pairing_points = std::move(batch_result.merge_pairing_points),
                             .translator_pairing_points = std::move(batch_result.translator_pairing_points),
-                            .ipa_claim = std::move(ipa_claim),
+                            .ipa_claim = batch_result.deferred_ipa_claim.finalize(),
                             .ipa_proof = std::move(batch_result.ipa_proof),
                             .all_checks_passed = true };
 }

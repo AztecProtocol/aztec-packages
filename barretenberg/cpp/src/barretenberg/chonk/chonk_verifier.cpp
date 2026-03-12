@@ -42,7 +42,7 @@ ChonkVerifier<false>::BatchIPAReductionResult ChonkVerifier<false>::reduce_to_ba
     bool databus_consistency_verified = (calldata_commitment == return_data_commitment);
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
-        info("Chonk Verifier: verification failed at databus consistency check");
+        info("ChonkVerifier: verification failed at databus consistency check");
         return { {}, {}, {}, {}, {}, false };
     }
 
@@ -165,23 +165,18 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
                             .all_checks_passed = mega_reduction_succeeded && goblin_output.all_checks_passed };
 }
 
-/**
- * @brief Stub for recursive mode (not meaningful — reduce_to_ipa_claim is only used in native batch verification).
- */
+// Native-only stubs for recursive mode (these methods are only used in native batch verification)
 template <>
 ChonkVerifier<true>::IPAReductionResult ChonkVerifier<true>::reduce_to_ipa_claim([[maybe_unused]] const Proof& proof)
 {
-    throw_or_abort("reduce_to_ipa_claim is only available for native (non-recursive) ChonkVerifier");
+    throw_or_abort("reduce_to_ipa_claim is only available for native ChonkVerifier");
 }
 
-/**
- * @brief Stub for recursive mode.
- */
 template <>
 ChonkVerifier<true>::BatchIPAReductionResult ChonkVerifier<true>::reduce_to_batch_ipa_claim(
     [[maybe_unused]] const Proof& proof)
 {
-    throw_or_abort("reduce_to_batch_ipa_claim is only available for native (non-recursive) ChonkVerifier");
+    throw_or_abort("reduce_to_batch_ipa_claim is only available for native ChonkVerifier");
 }
 
 // Template instantiations

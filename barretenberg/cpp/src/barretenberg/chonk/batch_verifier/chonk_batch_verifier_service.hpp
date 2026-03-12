@@ -51,16 +51,16 @@ class ChonkBatchVerifierService {
                const std::string& output_fifo_path,
                const BatchVerifierConfig& config);
 
-    /** @brief Queue a proof for verification. Routes to trusted or untrusted pool. */
+    /** Route a proof to the trusted or untrusted pool based on request.trusted. */
     bool queue(VerifyRequest request);
 
-    /** @brief Cancel a pending request by ID (searches both pools). */
+    /** Cancel a pending request by ID. Searches both pools. */
     bool cancel(uint64_t request_id);
 
-    /** @brief Cancel all pending requests from a source (both pools). Returns count. */
+    /** Cancel all pending requests from a source. Returns count cancelled. */
     uint32_t cancel_by_source(const std::string& source);
 
-    /** @brief Stop both pools, flush remaining work, close FIFO. */
+    /** Stop both pools, flush remaining work, close FIFO. */
     void stop();
 
     ~ChonkBatchVerifierService();

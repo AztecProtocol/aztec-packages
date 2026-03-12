@@ -11,7 +11,7 @@
  */
 
 #include "chonk_batch_verifier_service.hpp"
-#include "batch_verifier_types.hpp"
+#include "batch_verifier_test_utils.hpp"
 #include "ipa_batch_processor.hpp"
 #include "untrusted_verifier_pool.hpp"
 
@@ -40,8 +40,8 @@ class ChonkBatchVerifierServiceTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
+    using ResultCollector = test_utils::ResultCollector;
 
-    // Generate a valid Chonk proof with its VK
     static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> generate_proof(size_t num_app_circuits = 1)
     {
         CircuitProducer circuit_producer(num_app_circuits);
@@ -55,66 +55,8 @@ class ChonkBatchVerifierServiceTests : public ::testing::Test {
         return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
     }
 
-    // Create a copy of a proof with corrupted IPA data (targets Phase 2: batch IPA verification)
-    static ChonkProof corrupt_ipa(const ChonkProof& proof)
-    {
-        ChonkProof corrupted = proof;
-        EXPECT_FALSE(corrupted.goblin_proof.ipa_proof.empty());
-        corrupted.goblin_proof.ipa_proof[0] = corrupted.goblin_proof.ipa_proof[0] + bb::fr(1);
-        return corrupted;
-    }
-
-    // Create a copy of a proof with corrupted non-IPA data (targets Phase 1: sumcheck/goblin verification)
-    static ChonkProof corrupt_sumcheck(const ChonkProof& proof)
-    {
-        ChonkProof corrupted = proof;
-        // Corrupt the mega proof (affects sumcheck/honk verification, not IPA)
-        EXPECT_FALSE(corrupted.mega_proof.empty());
-        corrupted.mega_proof[0] = corrupted.mega_proof[0] + bb::fr(1);
-        return corrupted;
-    }
-
-    // Collect results from a callback into a vector
-    struct ResultCollector {
-        std::mutex mutex;
-        std::vector<VerifyResult> results;
-
-        std::function<void(VerifyResult)> callback()
-        {
-            return [this](VerifyResult result) {
-                std::lock_guard lock(mutex);
-                results.push_back(std::move(result));
-            };
-        }
-
-        void wait_for(size_t count, std::chrono::seconds timeout = std::chrono::seconds(120))
-        {
-            auto deadline = std::chrono::steady_clock::now() + timeout;
-            while (true) {
-                {
-                    std::lock_guard lock(mutex);
-                    if (results.size() >= count) {
-                        return;
-                    }
-                }
-                ASSERT_LT(std::chrono::steady_clock::now(), deadline)
-                    << "Timed out waiting for " << count << " results, got " << results.size();
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }
-        }
-
-        VerifyResult find(uint64_t request_id)
-        {
-            std::lock_guard lock(mutex);
-            for (const auto& r : results) {
-                if (r.request_id == request_id) {
-                    return r;
-                }
-            }
-            EXPECT_TRUE(false) << "Result not found for request_id " << request_id;
-            return {};
-        }
-    };
+    static ChonkProof corrupt_ipa(const ChonkProof& proof) { return test_utils::corrupt_ipa(proof); }
+    static ChonkProof corrupt_sumcheck(const ChonkProof& proof) { return test_utils::corrupt_sumcheck(proof); }
 };
 
 // --- IPABatchProcessor Tests ---

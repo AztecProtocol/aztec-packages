@@ -2,16 +2,10 @@
 #ifndef __wasm__
 #include "barretenberg/bbapi/bbapi_batch_verifier.hpp"
 #endif
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/utils.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
-
-// Template for testing roundtrip serialization
-template <typename T> class BBApiSerializationTest : public ::testing::Test {};
 
 // Enumerate each command type
 using Commands = ::testing::Types<bbapi::CircuitProve,
@@ -37,12 +31,10 @@ using Commands = ::testing::Types<bbapi::CircuitProve,
 #endif
                                   >;
 
-// Typed test suites
 template <typename T> class BBApiMsgpack : public ::testing::Test {};
 
 TYPED_TEST_SUITE(BBApiMsgpack, Commands);
 
-// Test roundtrip serialization for UltraHonk commands
 TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
 {
     TypeParam command{};
@@ -52,5 +44,4 @@ TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
     typename TypeParam::Response response{};
     auto [actual_response, expected_response] = msgpack_roundtrip(response);
     EXPECT_EQ(actual_response, expected_response);
-    std::cout << msgpack_schema_to_string(command) << " " << msgpack_schema_to_string(response) << std::endl;
 }

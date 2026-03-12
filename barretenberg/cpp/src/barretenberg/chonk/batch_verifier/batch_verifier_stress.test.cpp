@@ -9,6 +9,7 @@
  * Env: CHONK_TEST_PROOFS_DIR (default: /tmp/chonk-proofs)
  */
 
+#include "batch_verifier_test_utils.hpp"
 #include "batch_verifier_types.hpp"
 #include "ipa_batch_processor.hpp"
 
@@ -56,6 +57,8 @@ class RealProofStressTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
+    using ResultCollector = test_utils::ResultCollector;
+
     static std::vector<LoadedProof> load_proofs()
     {
         auto dir = get_proofs_dir();
@@ -77,12 +80,10 @@ class RealProofStressTests : public ::testing::Test {
                 continue;
             }
 
-            // Load proof: file is to_buffer(proof.to_field_elements()) format
             auto proof_buf = read_file_bytes(proof_path);
             auto proof_fields = many_from_buffer<fr>(proof_buf);
             auto chonk_proof = ChonkProof::from_field_elements(proof_fields);
 
-            // Load VK: file is to_buffer<VK> format
             auto vk_buf = read_file_bytes(vk_path);
             auto vk = std::make_shared<VK>(from_buffer<VK>(vk_buf));
             auto vk_and_hash = std::make_shared<MegaZKFlavor::VKAndHash>(vk);
@@ -94,41 +95,12 @@ class RealProofStressTests : public ::testing::Test {
             });
         }
 
-        // Sort for determinism
         std::sort(proofs.begin(), proofs.end(), [](const auto& a, const auto& b) { return a.name < b.name; });
         return proofs;
     }
 
-    static ChonkProof corrupt_ipa(const ChonkProof& proof)
-    {
-        ChonkProof corrupted = proof;
-        corrupted.goblin_proof.ipa_proof[0] = corrupted.goblin_proof.ipa_proof[0] + bb::fr(1);
-        return corrupted;
-    }
-
-    static ChonkProof corrupt_sumcheck(const ChonkProof& proof)
-    {
-        ChonkProof corrupted = proof;
-        corrupted.mega_proof[0] = corrupted.mega_proof[0] + bb::fr(1);
-        return corrupted;
-    }
-
-    struct ResultCollector {
-        std::mutex mutex;
-        std::condition_variable cv;
-        std::vector<VerifyResult> results;
-
-        std::function<void(VerifyResult)> callback()
-        {
-            return [this](VerifyResult result) {
-                {
-                    std::lock_guard lock(mutex);
-                    results.push_back(std::move(result));
-                }
-                cv.notify_all();
-            };
-        }
-    };
+    static ChonkProof corrupt_ipa(const ChonkProof& proof) { return test_utils::corrupt_ipa(proof); }
+    static ChonkProof corrupt_sumcheck(const ChonkProof& proof) { return test_utils::corrupt_sumcheck(proof); }
 
     struct BenchRow {
         std::string label;

@@ -67,11 +67,10 @@ Request:
   vks: bytes[]            # Serialized verification keys
   output_fifo_path: str   # Path to named FIFO for result streaming
   config:
-    num_ipa_cores: u32       # Cores for batch IPA MSM (Phase 2)
-    num_sumcheck_cores: u32  # Worker threads for parallel reduce (Phase 1)
-    num_untrusted_cores: u32 # Threads for individual untrusted verification
-    trusted_batch_size: u32  # Proofs to accumulate before forming a batch
-    max_pending: u32         # Backpressure limit
+    num_trusted_cores: u32    # Cores for trusted pipeline (Phase 1 reduce + Phase 2 batch IPA)
+    num_untrusted_cores: u32  # Threads for individual untrusted verification
+    trusted_batch_size: u32   # Proofs to accumulate before forming a batch
+    max_pending: u32          # Backpressure limit
 
 Response: (empty)
 ```
@@ -150,7 +149,7 @@ The core optimization: batch N IPA verifications into a single MSM.
        ▼
   Phase 1: Parallel Reduce
   ┌─────────────────────────────────────────┐
-  │ num_sumcheck_cores worker threads       │
+  │ num_trusted_cores worker threads        │
   │ Each runs reduce_to_ipa_claim:          │
   │   MegaZK verify + databus + Goblin      │
   │   → produces IPA claim + IPA proof      │
@@ -165,7 +164,7 @@ The core optimization: batch N IPA verifications into a single MSM.
   Phase 2: Batch IPA Verify
   ┌─────────────────────────────────────────┐
   │ Single IPA::batch_reduce_verify call    │
-  │ set_parallel_for(num_ipa_cores)         │
+  │ set_parallel_for(num_trusted_cores)     │
   │                                         │
   │ N separate SRS MSMs → 1 batched MSM    │
   └─────────────────┬───────────────────────┘
@@ -286,6 +285,7 @@ N separate 2^20-MSMs become one 2^20-MSM. The cost grows sublinearly with N.
 chonk/batch_verifier/              ← this directory
   README.md                         # This file
   batch_verifier_types.hpp          # BatchVerifierConfig, VerifyResult, VerifyRequest
+  batch_verifier_test_utils.hpp     # Shared test helpers (corruption, result collection)
   ipa_batch_processor.hpp/cpp       # 3-phase trusted batch pipeline
   untrusted_verifier_pool.hpp/cpp   # Individual verification thread pool
   chonk_batch_verifier_service.hpp/cpp  # Top-level service (routing + FIFO)

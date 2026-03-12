@@ -1,6 +1,6 @@
 /**
  * @warning These benchmarks use functions that are tested elsewhere to guard against regressions in the benchmark.
- * Please do not anything that is untested.
+ * Please do not add anything that is untested.
  */
 
 #include <benchmark/benchmark.h>

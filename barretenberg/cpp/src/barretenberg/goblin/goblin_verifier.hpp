@@ -100,26 +100,19 @@ template <typename Curve> class GoblinVerifier_ {
     {}
 
     /**
-     * @brief Reduce Goblin proof to pairing check and IPA opening claim
-     * @details Orchestrates three sub-verifiers in sequence: Merge → ECCVM → Translator
-     *   - Merge: reduces to KZG pairing check
-     *   - ECCVM: reduces to IPA opening claim (Grumpkin curve)
-     *   - Translator: reduces to KZG pairing check
+     * @brief Reduce Goblin proof to pairing points and IPA opening claim.
+     * @details Orchestrates three sub-verifiers in sequence: Merge -> ECCVM -> Translator.
+     * Returns pairing points (deferred for caller to check) and a finalized IPA opening claim.
+     * IPA verification is always deferred to the caller.
      *
-     * Pairing points from Merge and Translator are aggregated. In native mode, performs immediate pairing
-     * checks for early rejections. IPA verification is always deferred.
-     *
-     * @return ReductionResult with all_checks_passed indicating:
-     *   - Native: reduction checks + pairing checks passed, IPA verification still needed
-     *   - Recursive: reduction checks only (pairing and IPA both deferred)
-     *
-     * @warning Caller must verify ipa_claim using ipa_proof (deferred in both modes)
+     * @return ReductionResult with pairing points and IPA claim (both need external verification)
      */
     [[nodiscard("Verification result must be accumulated")]] ReductionResult reduce_to_pairing_check_and_ipa_opening();
 
     /**
-     * @brief Like reduce_to_pairing_check_and_ipa_opening but defers the ECCVM Shplonk MSM.
-     * @details Returns a BatchOpeningClaim instead of a finalized IPA claim.
+     * @brief Like reduce_to_pairing_check_and_ipa_opening but also defers the ECCVM Shplonk MSM.
+     * @details Returns a DeferredIPAClaim whose commitments and scalars can be merged with other
+     * proofs' claims for a single batched MSM before finalization.
      */
     [[nodiscard("Batch opening claim must be finalized")]] BatchReductionResult
     reduce_to_pairing_check_and_batch_opening_claim();

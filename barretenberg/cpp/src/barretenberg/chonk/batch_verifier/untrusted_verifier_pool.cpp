@@ -37,15 +37,9 @@ bool UntrustedVerifierPool::cancel(uint64_t request_id)
 {
     std::lock_guard lock(mutex_);
 
-    // Check queue
     for (auto it = queue_.begin(); it != queue_.end(); ++it) {
         if (it->request_id == request_id) {
-            on_result_(VerifyResult{
-                .request_id = request_id,
-                .verified = false,
-                .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                .source = it->source,
-            });
+            on_result_(VerifyResult::cancelled(request_id, it->source));
             queue_.erase(it);
             return true;
         }
@@ -64,12 +58,7 @@ uint32_t UntrustedVerifierPool::cancel_by_source(const std::string& source)
     auto it = queue_.begin();
     while (it != queue_.end()) {
         if (it->source == source) {
-            on_result_(VerifyResult{
-                .request_id = it->request_id,
-                .verified = false,
-                .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                .source = source,
-            });
+            on_result_(VerifyResult::cancelled(it->request_id, source));
             it = queue_.erase(it);
             count++;
         } else {
@@ -119,64 +108,47 @@ void UntrustedVerifierPool::worker_loop()
             request = std::move(queue_.front());
             queue_.pop_front();
 
-            // Check cancellation
             if (cancelled_ids_.count(request.request_id)) {
                 cancelled_ids_.erase(request.request_id);
-                on_result_(VerifyResult{
-                    .request_id = request.request_id,
-                    .verified = false,
-                    .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                    .source = request.source,
-                });
+                on_result_(VerifyResult::cancelled(request.request_id, request.source));
                 continue;
             }
         }
 
-        // Each worker uses all available cores for its proof
         set_parallel_for_concurrency(get_num_cpus());
 
         auto verify_start = std::chrono::steady_clock::now();
-        double queue_ms = std::chrono::duration<double, std::milli>(verify_start - request.enqueue_time).count();
+        double queue_ms = ms_between(request.enqueue_time, verify_start);
 
         // Validate VK index
         if (request.vk_index >= vks_.size()) {
-            on_result_(VerifyResult{
-                .request_id = request.request_id,
-                .verified = false,
-                .status = static_cast<uint8_t>(VerifyStatus::FAILED),
-                .error_message = "invalid vk_index: " + std::to_string(request.vk_index),
-                .source = request.source,
-                .time_in_queue_ms = queue_ms,
-            });
+            auto result = VerifyResult::failed(
+                request.request_id, request.source, "invalid vk_index: " + std::to_string(request.vk_index));
+            result.time_in_queue_ms = queue_ms;
+            on_result_(std::move(result));
             continue;
         }
 
-        // Full individual verification (reduce to IPA claim + IPA verify)
+        // Full individual verification (reduce + IPA)
         ChonkNativeVerifier verifier(vks_[request.vk_index]);
-        auto result = verifier.reduce_to_ipa_claim(request.proof);
+        auto reduced = verifier.reduce_to_ipa_claim(request.proof);
 
-        if (!result.all_checks_passed) {
-            auto now = std::chrono::steady_clock::now();
-            on_result_(VerifyResult{
-                .request_id = request.request_id,
-                .verified = false,
-                .status = static_cast<uint8_t>(VerifyStatus::FAILED),
-                .error_message = "verification failed (untrusted, non-IPA)",
-                .source = request.source,
-                .time_in_queue_ms = queue_ms,
-                .time_in_verify_ms = std::chrono::duration<double, std::milli>(now - verify_start).count(),
-            });
+        if (!reduced.all_checks_passed) {
+            auto result =
+                VerifyResult::failed(request.request_id, request.source, "verification failed (untrusted, non-IPA)");
+            result.time_in_queue_ms = queue_ms;
+            result.time_in_verify_ms = ms_since(verify_start);
+            on_result_(std::move(result));
             continue;
         }
 
         // IPA verification
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-        std::vector<OpeningClaim<curve::Grumpkin>> claims = { result.ipa_claim };
+        std::vector<OpeningClaim<curve::Grumpkin>> claims = { reduced.ipa_claim };
         std::vector<std::shared_ptr<NativeTranscript>> transcripts = { std::make_shared<NativeTranscript>(
-            result.ipa_proof) };
+            reduced.ipa_proof) };
         bool ipa_ok = IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
-        auto verify_end = std::chrono::steady_clock::now();
-        double verify_ms = std::chrono::duration<double, std::milli>(verify_end - verify_start).count();
+        double verify_ms = ms_since(verify_start);
 
         on_result_(VerifyResult{
             .request_id = request.request_id,

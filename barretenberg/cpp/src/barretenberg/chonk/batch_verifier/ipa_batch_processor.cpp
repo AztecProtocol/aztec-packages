@@ -37,30 +37,24 @@ void IPABatchProcessor::enqueue(VerifyRequest request)
 bool IPABatchProcessor::cancel(uint64_t request_id)
 {
     std::lock_guard lock(mutex_);
-    for (auto it = accumulator_.begin(); it != accumulator_.end(); ++it) {
-        if (it->request_id == request_id) {
-            on_result_(VerifyResult{
-                .request_id = request_id,
-                .verified = false,
-                .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                .source = it->source,
-            });
-            accumulator_.erase(it);
-            return true;
+
+    // Search both queues for a pending request to cancel immediately
+    auto try_cancel = [&](auto& container) -> bool {
+        for (auto it = container.begin(); it != container.end(); ++it) {
+            if (it->request_id == request_id) {
+                on_result_(VerifyResult::cancelled(request_id, it->source));
+                container.erase(it);
+                return true;
+            }
         }
+        return false;
+    };
+
+    if (try_cancel(accumulator_) || try_cancel(incoming_)) {
+        return true;
     }
-    for (auto it = incoming_.begin(); it != incoming_.end(); ++it) {
-        if (it->request_id == request_id) {
-            on_result_(VerifyResult{
-                .request_id = request_id,
-                .verified = false,
-                .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                .source = it->source,
-            });
-            incoming_.erase(it);
-            return true;
-        }
-    }
+
+    // Not in queue — mark for late cancellation during batch processing
     cancelled_ids_.insert(request_id);
     return false;
 }
@@ -73,12 +67,7 @@ uint32_t IPABatchProcessor::cancel_by_source(const std::string& source)
         auto it = container.begin();
         while (it != container.end()) {
             if (it->source == source) {
-                on_result_(VerifyResult{
-                    .request_id = it->request_id,
-                    .verified = false,
-                    .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                    .source = source,
-                });
+                on_result_(VerifyResult::cancelled(it->request_id, source));
                 it = container.erase(it);
                 count++;
             } else {
@@ -112,24 +101,30 @@ IPABatchProcessor::~IPABatchProcessor()
     }
 }
 
+bool IPABatchProcessor::should_exit_locked() const
+{
+    return shutdown_ && incoming_.empty() && accumulator_.empty();
+}
+
 void IPABatchProcessor::coordinator_loop()
 {
     while (true) {
+        // ── Collect a batch ──────────────────────────────────────────────
         std::vector<VerifyRequest> batch;
         {
             std::unique_lock lock(mutex_);
             cv_.wait(lock, [this] { return shutdown_ || (accumulator_.size() + incoming_.size() >= batch_size_); });
 
+            // Drain incoming into accumulator
             while (!incoming_.empty()) {
                 accumulator_.push_back(std::move(incoming_.front()));
                 incoming_.pop_front();
             }
 
             if (accumulator_.size() >= batch_size_) {
-                batch.insert(batch.end(),
-                             std::make_move_iterator(accumulator_.begin()),
-                             std::make_move_iterator(accumulator_.begin() + static_cast<ptrdiff_t>(batch_size_)));
-                accumulator_.erase(accumulator_.begin(), accumulator_.begin() + static_cast<ptrdiff_t>(batch_size_));
+                auto end = accumulator_.begin() + static_cast<ptrdiff_t>(batch_size_);
+                batch.insert(batch.end(), std::make_move_iterator(accumulator_.begin()), std::make_move_iterator(end));
+                accumulator_.erase(accumulator_.begin(), end);
             } else if (flush_requested_ && !accumulator_.empty()) {
                 batch = std::move(accumulator_);
                 accumulator_.clear();
@@ -141,137 +136,54 @@ void IPABatchProcessor::coordinator_loop()
                 }
                 continue;
             }
-        }
 
-        // Filter cancelled and invalid-VK requests
-        {
-            std::lock_guard lock(mutex_);
-            auto it = batch.begin();
-            while (it != batch.end()) {
-                bool remove = false;
-                if (cancelled_ids_.count(it->request_id)) {
-                    cancelled_ids_.erase(it->request_id);
-                    on_result_(VerifyResult{
-                        .request_id = it->request_id,
-                        .verified = false,
-                        .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                        .source = it->source,
-                    });
-                    remove = true;
-                } else if (it->vk_index >= vks_.size()) {
-                    on_result_(VerifyResult{
-                        .request_id = it->request_id,
-                        .verified = false,
-                        .status = static_cast<uint8_t>(VerifyStatus::FAILED),
-                        .error_message = "invalid vk_index: " + std::to_string(it->vk_index),
-                        .source = it->source,
-                    });
-                    remove = true;
-                }
-                if (remove) {
-                    it = batch.erase(it);
-                } else {
-                    ++it;
-                }
-            }
+            // Filter cancelled and invalid-VK requests before releasing the lock
+            filter_batch(batch);
         }
 
         if (batch.empty()) {
-            if (shutdown_) {
-                std::lock_guard lock(mutex_);
-                if (incoming_.empty() && accumulator_.empty()) {
-                    break;
-                }
+            std::lock_guard lock(mutex_);
+            if (should_exit_locked()) {
+                break;
             }
             continue;
         }
 
-        // ── Phase 1: parallel reduce (all cores, work-stealing) ──────────────
-        const size_t num_proofs = batch.size();
-        std::vector<ReduceResult> reduce_results(num_proofs);
-        std::atomic<size_t> work_index{ 0 };
+        // ── Phase 1: parallel reduce (all cores, work-stealing) ──────────
         auto reduce_start = std::chrono::steady_clock::now();
-
-        uint32_t num_workers = std::min(num_cores_, static_cast<uint32_t>(num_proofs));
-        std::vector<std::thread> workers;
-        workers.reserve(num_workers);
-
-        for (uint32_t w = 0; w < num_workers; ++w) {
-            workers.emplace_back([&]() {
-                set_parallel_for_concurrency(1);
-                while (true) {
-                    size_t idx = work_index.fetch_add(1, std::memory_order_relaxed);
-                    if (idx >= num_proofs) {
-                        break;
-                    }
-                    auto& req = batch[idx];
-                    auto t0 = std::chrono::steady_clock::now();
-                    ChonkNativeVerifier verifier(vks_[req.vk_index]);
-                    auto result = verifier.reduce_to_batch_ipa_claim(req.proof);
-                    double ms =
-                        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-                    reduce_results[idx] = ReduceResult{
-                        .request_id = req.request_id,
-                        .source = req.source,
-                        .deferred_ipa_claim = std::move(result.deferred_ipa_claim),
-                        .ipa_proof = std::move(result.ipa_proof),
-                        .mega_pcs_pairing_points = std::move(result.mega_pcs_pairing_points),
-                        .merge_pairing_points = std::move(result.merge_pairing_points),
-                        .translator_pairing_points = std::move(result.translator_pairing_points),
-                        .all_checks_passed = result.all_checks_passed,
-                        .error_message = result.all_checks_passed ? "" : "reduction failed",
-                        .enqueue_time = req.enqueue_time,
-                        .reduce_ms = ms,
-                    };
-                }
-            });
-        }
-        for (auto& t : workers) {
-            t.join();
-        }
-
-        auto reduce_end = std::chrono::steady_clock::now();
-        double reduce_ms = std::chrono::duration<double, std::milli>(reduce_end - reduce_start).count();
+        auto reduce_results = parallel_reduce(batch);
 
         // Separate passed from failed (emit failures immediately)
         std::vector<size_t> passed_indices;
-        passed_indices.reserve(num_proofs);
-        for (size_t i = 0; i < num_proofs; ++i) {
+        passed_indices.reserve(reduce_results.size());
+        for (size_t i = 0; i < reduce_results.size(); ++i) {
             auto& rr = reduce_results[i];
             if (!rr.all_checks_passed) {
-                double queue_ms = std::chrono::duration<double, std::milli>(reduce_start - rr.enqueue_time).count();
-                on_result_(VerifyResult{
-                    .request_id = rr.request_id,
-                    .verified = false,
-                    .status = static_cast<uint8_t>(VerifyStatus::FAILED),
-                    .error_message = rr.error_message,
-                    .source = rr.source,
-                    .time_in_queue_ms = queue_ms,
-                    .time_in_verify_ms = rr.reduce_ms,
-                    .time_in_sumcheck_ms = rr.reduce_ms,
-                });
+                auto result = VerifyResult::failed(rr.request_id, rr.source, rr.error_message);
+                result.time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start);
+                result.time_in_verify_ms = rr.reduce_ms;
+                result.time_in_sumcheck_ms = rr.reduce_ms;
+                on_result_(std::move(result));
             } else {
                 passed_indices.push_back(i);
             }
         }
 
         if (passed_indices.empty()) {
-            if (shutdown_) {
-                std::lock_guard lock(mutex_);
-                if (incoming_.empty() && accumulator_.empty()) {
-                    break;
-                }
+            std::lock_guard lock(mutex_);
+            if (should_exit_locked()) {
+                break;
             }
             continue;
         }
 
-        // ── Phase 2: unified batch check (pairing + IPA) ────────────────────
+        // ── Phase 2: unified batch check (pairing + IPA) ────────────────
         set_parallel_for_concurrency(num_cores_);
 
         auto ipa_start = std::chrono::steady_clock::now();
         bool ok = batch_check(reduce_results, passed_indices);
-        auto ipa_end = std::chrono::steady_clock::now();
-        double ipa_ms = std::chrono::duration<double, std::milli>(ipa_end - ipa_start).count();
+        double ipa_ms = ms_since(ipa_start);
+        double reduce_ms = ms_between(reduce_start, ipa_start);
 
         info("IPABatchProcessor: batch of ",
              passed_indices.size(),
@@ -288,13 +200,75 @@ void IPABatchProcessor::coordinator_loop()
             bisect(reduce_results, passed_indices, 0, reduce_start);
         }
 
-        if (shutdown_) {
-            std::lock_guard lock(mutex_);
-            if (incoming_.empty() && accumulator_.empty()) {
-                break;
-            }
+        std::lock_guard lock(mutex_);
+        if (should_exit_locked()) {
+            break;
         }
     }
+}
+
+void IPABatchProcessor::filter_batch(std::vector<VerifyRequest>& batch)
+{
+    auto it = batch.begin();
+    while (it != batch.end()) {
+        if (cancelled_ids_.count(it->request_id)) {
+            cancelled_ids_.erase(it->request_id);
+            on_result_(VerifyResult::cancelled(it->request_id, it->source));
+            it = batch.erase(it);
+        } else if (it->vk_index >= vks_.size()) {
+            auto result =
+                VerifyResult::failed(it->request_id, it->source, "invalid vk_index: " + std::to_string(it->vk_index));
+            on_result_(std::move(result));
+            it = batch.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+std::vector<IPABatchProcessor::ReduceResult> IPABatchProcessor::parallel_reduce(const std::vector<VerifyRequest>& batch)
+{
+    const size_t num_proofs = batch.size();
+    std::vector<ReduceResult> results(num_proofs);
+    std::atomic<size_t> work_index{ 0 };
+
+    uint32_t num_workers = std::min(num_cores_, static_cast<uint32_t>(num_proofs));
+    std::vector<std::thread> workers;
+    workers.reserve(num_workers);
+
+    for (uint32_t w = 0; w < num_workers; ++w) {
+        workers.emplace_back([&]() {
+            set_parallel_for_concurrency(1);
+            while (true) {
+                size_t idx = work_index.fetch_add(1, std::memory_order_relaxed);
+                if (idx >= num_proofs) {
+                    break;
+                }
+                auto& req = batch[idx];
+                auto t0 = std::chrono::steady_clock::now();
+                ChonkNativeVerifier verifier(vks_[req.vk_index]);
+                auto reduced = verifier.reduce_to_batch_ipa_claim(req.proof);
+                results[idx] = ReduceResult{
+                    .request_id = req.request_id,
+                    .source = req.source,
+                    .deferred_ipa_claim = std::move(reduced.deferred_ipa_claim),
+                    .ipa_proof = std::move(reduced.ipa_proof),
+                    .mega_pcs_pairing_points = std::move(reduced.mega_pcs_pairing_points),
+                    .merge_pairing_points = std::move(reduced.merge_pairing_points),
+                    .translator_pairing_points = std::move(reduced.translator_pairing_points),
+                    .all_checks_passed = reduced.all_checks_passed,
+                    .error_message = reduced.all_checks_passed ? "" : "reduction failed",
+                    .enqueue_time = req.enqueue_time,
+                    .reduce_ms = ms_since(t0),
+                };
+            }
+        });
+    }
+    for (auto& t : workers) {
+        t.join();
+    }
+
+    return results;
 }
 
 bool IPABatchProcessor::batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices)
@@ -303,7 +277,7 @@ bool IPABatchProcessor::batch_check(const std::vector<ReduceResult>& results, co
         return true;
     }
 
-    // Step 1: aggregate and check pairings
+    // Aggregate and check all pairing points
     NativePairingPoints aggregated;
     for (size_t idx : indices) {
         auto& rr = results[idx];
@@ -315,7 +289,7 @@ bool IPABatchProcessor::batch_check(const std::vector<ReduceResult>& results, co
         return false;
     }
 
-    // Step 2: batch IPA verify
+    // Batch IPA verify
     std::vector<OpeningClaim<curve::Grumpkin>> claims;
     std::vector<std::shared_ptr<NativeTranscript>> transcripts;
     claims.reserve(indices.size());
@@ -334,21 +308,15 @@ void IPABatchProcessor::bisect(std::vector<ReduceResult>& results,
                                uint32_t depth,
                                std::chrono::steady_clock::time_point reduce_start)
 {
+    // Base case: single proof identified as the failure
     if (indices.size() == 1) {
         auto& rr = results[indices[0]];
-        double queue_ms =
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rr.enqueue_time).count();
-        on_result_(VerifyResult{
-            .request_id = rr.request_id,
-            .verified = false,
-            .status = static_cast<uint8_t>(VerifyStatus::FAILED),
-            .error_message = "batch check failed (bisected to individual)",
-            .source = rr.source,
-            .time_in_queue_ms = queue_ms,
-            .time_in_verify_ms = rr.reduce_ms,
-            .time_in_sumcheck_ms = rr.reduce_ms,
-            .batch_failure_count = depth + 1,
-        });
+        auto result = VerifyResult::failed(rr.request_id, rr.source, "batch check failed (bisected to individual)");
+        result.time_in_queue_ms = ms_between(rr.enqueue_time, std::chrono::steady_clock::now());
+        result.time_in_verify_ms = rr.reduce_ms;
+        result.time_in_sumcheck_ms = rr.reduce_ms;
+        result.batch_failure_count = depth + 1;
+        on_result_(std::move(result));
         return;
     }
 
@@ -358,29 +326,22 @@ void IPABatchProcessor::bisect(std::vector<ReduceResult>& results,
     std::vector<size_t> left(indices.begin(), indices.begin() + static_cast<ptrdiff_t>(mid));
     std::vector<size_t> right(indices.begin() + static_cast<ptrdiff_t>(mid), indices.end());
 
-    set_parallel_for_concurrency(num_cores_);
+    // Check each half and recurse on failures
+    auto check_half = [&](std::vector<size_t> half) {
+        set_parallel_for_concurrency(num_cores_);
+        auto t0 = std::chrono::steady_clock::now();
+        bool ok = batch_check(results, half);
+        double check_ms = ms_since(t0);
 
-    auto left_start = std::chrono::steady_clock::now();
-    bool left_ok = batch_check(results, left);
-    auto left_end = std::chrono::steady_clock::now();
-    double left_ms = std::chrono::duration<double, std::milli>(left_end - left_start).count();
+        if (ok) {
+            emit_ok(results, half, reduce_start, check_ms, depth + 1);
+        } else {
+            bisect(results, std::move(half), depth + 1, reduce_start);
+        }
+    };
 
-    auto right_start = std::chrono::steady_clock::now();
-    bool right_ok = batch_check(results, right);
-    auto right_end = std::chrono::steady_clock::now();
-    double right_ms = std::chrono::duration<double, std::milli>(right_end - right_start).count();
-
-    if (left_ok) {
-        emit_ok(results, left, reduce_start, left_ms, depth + 1);
-    } else {
-        bisect(results, std::move(left), depth + 1, reduce_start);
-    }
-
-    if (right_ok) {
-        emit_ok(results, right, reduce_start, right_ms, depth + 1);
-    } else {
-        bisect(results, std::move(right), depth + 1, reduce_start);
-    }
+    check_half(std::move(left));
+    check_half(std::move(right));
 }
 
 void IPABatchProcessor::emit_ok(const std::vector<ReduceResult>& results,
@@ -394,20 +355,14 @@ void IPABatchProcessor::emit_ok(const std::vector<ReduceResult>& results,
         auto& rr = results[idx];
         if (cancelled_ids_.count(rr.request_id)) {
             cancelled_ids_.erase(rr.request_id);
-            on_result_(VerifyResult{
-                .request_id = rr.request_id,
-                .verified = false,
-                .status = static_cast<uint8_t>(VerifyStatus::CANCELLED),
-                .source = rr.source,
-            });
+            on_result_(VerifyResult::cancelled(rr.request_id, rr.source));
         } else {
-            double queue_ms = std::chrono::duration<double, std::milli>(reduce_start - rr.enqueue_time).count();
             on_result_(VerifyResult{
                 .request_id = rr.request_id,
                 .verified = true,
                 .status = static_cast<uint8_t>(VerifyStatus::OK),
                 .source = rr.source,
-                .time_in_queue_ms = queue_ms,
+                .time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start),
                 .time_in_verify_ms = rr.reduce_ms + ipa_ms,
                 .time_in_sumcheck_ms = rr.reduce_ms,
                 .time_in_ipa_ms = ipa_ms,

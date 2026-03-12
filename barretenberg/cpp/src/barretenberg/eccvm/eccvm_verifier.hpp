@@ -46,19 +46,20 @@ template <typename Flavor> class ECCVMVerifier_ {
     };
 
     /**
-     * @brief Deferred IPA opening claim: contains the raw Shplonk MSM data plus the evaluation.
-     * @details When finalized via batch_mul(commitments, scalars), produces the commitment.
-     * Combined with {evaluation_point, evaluation}, forms the complete OpeningClaim for IPA.
+     * @brief Deferred IPA opening claim: holds the Shplonk MSM inputs for lazy finalization.
+     * @details The batch_opening_claim contains commitments, scalars, and evaluation_point from the
+     * Shplonk reduction. Calling finalize() performs batch_mul to produce the commitment, then
+     * combines it with the evaluation_point and evaluation to form a complete OpeningClaim for IPA.
+     * The evaluation is always 0 for Shplonk (see ShplonkVerifier_ documentation).
      */
     struct DeferredIPAClaim {
         BatchOpeningClaim<Curve> batch_opening_claim; // Commitments + scalars for deferred MSM
-        typename Curve::ScalarField evaluation;       // Shplonk evaluation (needed for IPA)
+        typename Curve::ScalarField evaluation;       // Always 0 for Shplonk
 
         /** Finalize the deferred MSM to produce a standard OpeningClaim. */
         OpeningClaim<Curve> finalize() const
         {
-            using GroupElement = typename Curve::Element;
-            auto commitment = GroupElement::batch_mul(batch_opening_claim.commitments, batch_opening_claim.scalars);
+            auto commitment = Curve::Element::batch_mul(batch_opening_claim.commitments, batch_opening_claim.scalars);
             return { { batch_opening_claim.evaluation_point, evaluation }, commitment };
         }
     };
@@ -97,15 +98,9 @@ template <typename Flavor> class ECCVMVerifier_ {
     }
 
     /**
-     * @brief Reduce the ECCVM proof to an IPA opening claim
-     * @details The ECCVM proves correct execution of elliptic curve operations accumulated in the op queue. This method
-     * verifies the ECCVM proof's internal checks (sumcheck, translation masking consistency, etc.) and reduces all
-     * polynomial opening claims to a single IPA opening claim via Shplemini and Shplonk. This method does NOT perform
-     * the final IPA verification - it returns an IPA claim that must be verified externally.
-     *
-     * @return ReductionResult containing:
-     *   - ipa_claim: IPA opening claim to be verified externally (in root rollup or natively)
-     *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
+     * @brief Reduce the ECCVM proof to an IPA opening claim (with eager Shplonk MSM).
+     * @details Delegates to reduce_to_batch_opening_claim() and finalizes the deferred MSM.
+     * Returns a standard OpeningClaim ready for IPA verification.
      */
     [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_ipa_opening();
 

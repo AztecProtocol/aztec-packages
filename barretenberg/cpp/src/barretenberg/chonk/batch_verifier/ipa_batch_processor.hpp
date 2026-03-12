@@ -60,18 +60,20 @@ class IPABatchProcessor {
         double reduce_ms = 0;
     };
 
+    // ── Coordinator loop phases ──────────────────────────────────────────
+
     void coordinator_loop();
 
-    /**
-     * @brief Unified batch check: pairing aggregation + batch IPA verify.
-     * @return true if all proofs in the index set are valid.
-     */
+    /** Remove cancelled and invalid-VK requests from a batch. Caller must hold mutex_. */
+    void filter_batch(std::vector<VerifyRequest>& batch);
+
+    /** Run reduce_to_batch_ipa_claim on each proof in parallel using work-stealing. */
+    std::vector<ReduceResult> parallel_reduce(const std::vector<VerifyRequest>& batch);
+
+    /** Aggregate pairing points and batch-verify IPA claims. Returns true if all valid. */
     bool batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices);
 
-    /**
-     * @brief Unified bisection for any batch failure (pairing or IPA).
-     * Recursively splits the batch and re-checks each half using cached results.
-     */
+    /** Recursively bisect a failed batch using cached reduction results. */
     void bisect(std::vector<ReduceResult>& results,
                 std::vector<size_t> indices,
                 uint32_t depth,
@@ -83,6 +85,11 @@ class IPABatchProcessor {
                  std::chrono::steady_clock::time_point reduce_start,
                  double ipa_ms,
                  uint32_t depth);
+
+    /** True when shutdown is requested and both queues are empty. Caller must hold mutex_. */
+    bool should_exit_locked() const;
+
+    // ── State ────────────────────────────────────────────────────────────
 
     std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks_;
     ResultCallback on_result_;
