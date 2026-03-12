@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<script defer src="../nargo_doc.js"></script>
+<title>Function partial_sha256_var_interstitial documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">partial_sha256_var_interstitial</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../index.html">aztec-nr</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">sha256</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module sha256</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.digest.html">digest</a></div></li>
+<li><a href="fn.partial_sha224_var_end.html">partial_sha224_var_end</a></div></li>
+<li><a href="fn.partial_sha256_var_end.html">partial_sha256_var_end</a></div></li>
+<li><a href="fn.partial_sha256_var_interstitial.html">partial_sha256_var_interstitial</a></div></li>
+<li><a href="fn.sha224_var.html">sha224_var</a></div></li>
+<li><a href="fn.sha256_var.html">sha256_var</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">aztec-nr</a> - <a href="index.html">sha256</a></div>
+<h1>Function <span class="fn">partial_sha256_var_interstitial</span></h1>
+<pre><code>pub fn partial_sha256_var_interstitial&lt;let N: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    h: [<a href="../std/primitive.u32.html" class="primitive">u32</a>; 8],
+    msg: [<a href="../std/primitive.u8.html" class="primitive">u8</a>; N],
+    message_size: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+) -> [<a href="../std/primitive.u32.html" class="primitive">u32</a>; 8]</code></pre>
+
+<div class="comments">
+<p>Given some state of a partially computed sha256 hash and part of the preimage, continue hashing
+@notice used for complex/ recursive offloading of post-partial hashing</p>
+<p>@param N - the maximum length of the message to hash
+@param h - the intermediate hash state
+@param msg - the preimage to hash
+@param message_size - the actual length of the preimage to hash
+@return the intermediate hash state after compressing in msg to h</p>
+</div>
+</main>
+</span>
+</body>
+</html>
