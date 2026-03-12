@@ -1,7 +1,7 @@
 #pragma once
 #ifndef __wasm__
-#include "barretenberg/chonk/batch_verifier/batch_verifier_types.hpp"
-#include "barretenberg/chonk/batch_verifier/chonk_batch_verifier.hpp"
+#include "barretenberg/chonk/batch_verifier_types.hpp"
+#include "barretenberg/chonk/chonk_batch_verifier.hpp"
 
 #include <condition_variable>
 #include <mutex>
