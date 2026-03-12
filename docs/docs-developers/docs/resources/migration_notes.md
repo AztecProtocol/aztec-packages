@@ -9,8 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
-=======
 
 ### [Aztec.js] `TxReceipt` now includes `epochNumber`
 
@@ -83,7 +81,7 @@ The `maxLogsHit` flag indicates whether the log limit was reached, meaning more 
 ### [Aztec.nr] Removed `get_random_bytes`
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
->>>>>>> a8b2277a50 (feat!: improve L2ToL1MessageWitness API (#21231))
+
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 
 All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
