@@ -11,8 +11,7 @@ bb.js is the TypeScript/JavaScript prover and verifier library for Barretenberg.
 bb.js supports multiple proof systems:
 
 - **UltraHonk**: The current recommended proof system with various hash function options
-- **MegaHonk**: Alternative Honk implementation
-- **Chonk**: For Aztec-specific client-side proving
+- **Chonk**: For Aztec-specific client-side IVC proving
 
 ## Installation
 
@@ -57,7 +56,7 @@ UltraHonk supports different verifier targets for different verification environ
 - `evm` / `evm-no-zk`: For Ethereum/Solidity verification (uses keccak)
 - `noir-recursive` / `noir-recursive-no-zk`: For recursive verification in Noir circuits (uses poseidon2)
 - `noir-rollup` / `noir-rollup-no-zk`: For rollup circuits with IPA accumulation (uses poseidon2)
-- `starknet` / `starknet-no-zk`: For Starknet verification via Garaga
+- `starknet` / `starknet-no-zk`: For Starknet verification via Garaga (reserved for future use)
 
 #include_code verifier_targets examples/basic.test.ts typescript
 
