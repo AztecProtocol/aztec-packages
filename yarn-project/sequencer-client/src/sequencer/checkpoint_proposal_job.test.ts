@@ -22,9 +22,8 @@ import { Checkpoint, type CheckpointData, L1PublishedData } from '@aztec/stdlib/
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockInCheckpointResult,
+  InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
-  NoValidTxsError,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -774,7 +773,7 @@ describe('CheckpointProposalJob', () => {
 
       const checkpointBuilder = mock<CheckpointBuilder>();
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
-      checkpointBuilder.buildBlock.mockResolvedValue({ failedTxs, numTxs: 1 } as BuildBlockInCheckpointResult);
+      checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(1, 2, failedTxs));
 
       const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
@@ -795,7 +794,7 @@ describe('CheckpointProposalJob', () => {
 
       const checkpointBuilder = mock<CheckpointBuilder>();
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
-      checkpointBuilder.buildBlock.mockRejectedValue(new NoValidTxsError(failedTxs));
+      checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(0, 3, failedTxs));
 
       const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,

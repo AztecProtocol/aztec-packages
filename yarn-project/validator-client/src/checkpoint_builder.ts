@@ -25,8 +25,8 @@ import {
   FullNodeBlockBuilderConfigKeys,
   type ICheckpointBlockBuilder,
   type ICheckpointsBuilder,
+  InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
-  NoValidTxsError,
   type PublicProcessorLimits,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -73,7 +73,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits & { expectedEndState?: StateReference } = {},
+    opts: PublicProcessorLimits & { expectedEndState?: StateReference; minValidTxs?: number } = {},
   ): Promise<BuildBlockInCheckpointResult> {
     const slot = this.checkpointBuilder.constants.slotNumber;
 
@@ -107,10 +107,10 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       processor.process(pendingTxs, cappedOpts, validator),
     );
 
-    // Throw if we didn't collect a single valid tx and we're not allowed to build empty blocks
-    // (only the first block in a checkpoint can be empty)
-    if (processedTxs.length === 0 && this.checkpointBuilder.getBlockCount() > 0) {
-      throw new NoValidTxsError(failedTxs);
+    // Throw before updating state if we don't have enough valid txs
+    const minValidTxs = opts.minValidTxs ?? 0;
+    if (processedTxs.length < minValidTxs) {
+      throw new InsufficientValidTxsError(processedTxs.length, minValidTxs, failedTxs);
     }
 
     // Add block to checkpoint
