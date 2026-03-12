@@ -237,11 +237,11 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<boolean> => {
-      this.logger.debug(
-        `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber} from peer.`,
+      this.logger.warn(
+        `Handler for block received not yet registered on P2P service. Received block ${block.blockNumber} for slot ${block.slotNumber} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
       );
-      return false;
+      return true;
     };
 
     this.checkpointReceivedCallback = (
@@ -1192,7 +1192,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
     const isValid = await this.blockReceivedCallback(block, sender);
     if (!isValid) {
-      this.logger.warn(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+      this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
     }
   }
 

@@ -178,7 +178,7 @@ export class ArchiverDataStoreUpdater {
           this.log.verbose(`Block number ${blockNumber} already inserted and matches checkpoint`, blockInfos);
           lastAlreadyInsertedBlockNumber = blockNumber;
         } else {
-          this.log.warn(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
+          this.log.info(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
           const prunedBlocks = await this.removeBlocksAfter(BlockNumber(blockNumber - 1));
           return { prunedBlocks, lastAlreadyInsertedBlockNumber };
         }
