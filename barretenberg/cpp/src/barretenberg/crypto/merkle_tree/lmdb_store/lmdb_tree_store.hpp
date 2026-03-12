@@ -38,7 +38,7 @@ struct BlockPayload {
     block_number_t blockNumber;
     fr root;
 
-    MSGPACK_FIELDS(size, blockNumber, root)
+    SERIALIZATION_FIELDS(size, blockNumber, root)
 
     bool operator==(const BlockPayload& other) const
     {
@@ -58,7 +58,7 @@ struct NodePayload {
     std::optional<fr> right;
     uint64_t ref;
 
-    MSGPACK_FIELDS(left, right, ref)
+    SERIALIZATION_FIELDS(left, right, ref)
 
     bool operator==(const NodePayload& other) const
     {
@@ -69,7 +69,7 @@ struct NodePayload {
 struct BlockIndexPayload {
     std::vector<block_number_t> blockNumbers;
 
-    MSGPACK_FIELDS(blockNumbers)
+    SERIALIZATION_FIELDS(blockNumbers)
 
     bool operator==(const BlockIndexPayload& other) const { return blockNumbers == other.blockNumbers; }
 
