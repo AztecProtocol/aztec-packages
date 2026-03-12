@@ -91,15 +91,52 @@ export class Oracle {
       return acc;
     }, {} as ACIRCallback);
 
-    // Legacy oracle names used by alpha payload protocol contracts (ContractInstanceRegistry,
-    // ContractClassRegistry, FeeJuice). Their bytecode is committed and cannot be changed.
+    // Legacy oracle names used by pinned protocol contracts. Their bytecode is committed and cannot be changed.
     // TODO(F-416): Remove these aliases on v5 when protocol contracts are redeployed.
     const legacyOracles: ACIRCallback = {
+      // Simple prefix renames (privateXxx/utilityXxx → aztec_prv_/aztec_utl_)
       utilityLog: this.aztec_utl_log.bind(this),
       utilityAssertCompatibleOracleVersion: this.aztec_utl_assertCompatibleOracleVersion.bind(this),
       utilityLoadCapsule: this.aztec_utl_loadCapsule.bind(this),
       privateStoreInExecutionCache: this.aztec_prv_storeInExecutionCache.bind(this),
       privateLoadFromExecutionCache: this.aztec_prv_loadFromExecutionCache.bind(this),
+      privateCallPrivateFunction: this.aztec_prv_callPrivateFunction.bind(this),
+      privateIsNullifierPending: this.aztec_prv_isNullifierPending.bind(this),
+      privateNotifyCreatedNullifier: this.aztec_prv_notifyCreatedNullifier.bind(this),
+      privateNotifyCreatedContractClassLog: this.aztec_prv_notifyCreatedContractClassLog.bind(this),
+      privateGetNextAppTagAsSender: this.aztec_prv_getNextAppTagAsSender.bind(this),
+      privateGetSenderForTags: this.aztec_prv_getSenderForTags.bind(this),
+      privateSetSenderForTags: this.aztec_prv_setSenderForTags.bind(this),
+      utilityGetUtilityContext: this.aztec_utl_getUtilityContext.bind(this),
+      utilityStorageRead: this.aztec_utl_storageRead.bind(this),
+      utilityStoreCapsule: this.aztec_utl_storeCapsule.bind(this),
+      utilityCopyCapsule: this.aztec_utl_copyCapsule.bind(this),
+      utilityDeleteCapsule: this.aztec_utl_deleteCapsule.bind(this),
+      utilityAes128Decrypt: this.aztec_utl_aes128Decrypt.bind(this),
+      utilityGetSharedSecret: this.aztec_utl_getSharedSecret.bind(this),
+      utilityFetchTaggedLogs: this.aztec_utl_fetchTaggedLogs.bind(this),
+      utilityBulkRetrieveLogs: this.aztec_utl_bulkRetrieveLogs.bind(this),
+      utilityValidateAndStoreEnqueuedNotesAndEvents: this.aztec_utl_validateAndStoreEnqueuedNotesAndEvents.bind(this),
+      utilityGetL1ToL2MembershipWitness: this.aztec_utl_getL1ToL2MembershipWitness.bind(this),
+      utilityCheckNullifierExists: this.aztec_utl_checkNullifierExists.bind(this),
+      utilityGetRandomField: this.aztec_utl_getRandomField.bind(this),
+      utilityEmitOffchainEffect: this.aztec_utl_emitOffchainEffect.bind(this),
+      // #21209 renames (same signature, different oracle name)
+      privateNotifySetMinRevertibleSideEffectCounter: this.aztec_prv_notifyRevertiblePhaseStart.bind(this),
+      privateIsSideEffectCounterRevertible: this.aztec_prv_inRevertiblePhase.bind(this),
+      // #21209 signature changes (old 4-param oracles → new 1-param validatePublicCalldata)
+      privateNotifyEnqueuedPublicFunctionCall: (
+        [_contractAddress]: ACVMField[],
+        [calldataHash]: ACVMField[],
+        [_sideEffectCounter]: ACVMField[],
+        [_isStaticCall]: ACVMField[],
+      ) => this.aztec_prv_validatePublicCalldata([calldataHash]),
+      privateNotifySetPublicTeardownFunctionCall: (
+        [_contractAddress]: ACVMField[],
+        [calldataHash]: ACVMField[],
+        [_sideEffectCounter]: ACVMField[],
+        [_isStaticCall]: ACVMField[],
+      ) => this.aztec_prv_validatePublicCalldata([calldataHash]),
     };
 
     return { ...callback, ...legacyOracles };
@@ -108,9 +145,9 @@ export class Oracle {
   // TODO(F-416): This oracle must never change its signature - it is called by the pinned alpha payload protocol
   // contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) which cannot be redeployed.
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
-    this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
-    return Promise.resolve([]);
+  async aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
+    await this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
+    return [];
   }
 
   // eslint-disable-next-line camelcase
