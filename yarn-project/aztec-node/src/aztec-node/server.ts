@@ -793,18 +793,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPrivateLogsByTags(tags, page);
+    return this.logsSource.getPrivateLogsByTags(tags, page, upToBlockNumber);
   }
 
   public async getPublicLogsByTagsFromContract(
@@ -813,18 +817,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
   }
 
   /**
