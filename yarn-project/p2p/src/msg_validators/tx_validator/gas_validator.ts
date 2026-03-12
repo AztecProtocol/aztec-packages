@@ -36,6 +36,18 @@ export interface HasGasLimitData {
   };
 }
 
+/** Structural interface for types that carry max fee per gas data, used by {@link MaxFeePerGasValidator}. */
+export interface HasMaxFeePerGasData {
+  txHash: { toString(): string };
+  data: {
+    constants: {
+      txContext: {
+        gasSettings: { maxFeesPerGas: GasFees };
+      };
+    };
+  };
+}
+
 /**
  * Validates that a transaction's gas limits are within acceptable bounds.
  *
@@ -114,14 +126,54 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
 }
 
 /**
+ * Validates that a transaction's max fee per gas meets the current block's gas fees.
+ *
+ * Rejects transactions whose maxFeesPerGas is below the current block's gas fees
+ * on either dimension (DA or L2). This is a cheap, stateless check.
+ *
+ * Generic over T so it can validate both full {@link Tx} objects and {@link TxMetaData}
+ * (used during pending pool migration).
+ *
+ * Used by: pending pool migration (via factory), and indirectly by {@link GasTxValidator}.
+ */
+export class MaxFeePerGasValidator<T extends HasMaxFeePerGasData> implements TxValidator<T> {
+  #log: Logger;
+  #gasFees: GasFees;
+
+  constructor(gasFees: GasFees, bindings?: LoggerBindings) {
+    this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
+    this.#gasFees = gasFees;
+  }
+
+  validateTx(tx: T): Promise<TxValidationResult> {
+    return Promise.resolve(this.validateMaxFeePerGas(tx));
+  }
+
+  /** Checks maxFeesPerGas >= current block gas fees on both dimensions. */
+  validateMaxFeePerGas(tx: T): TxValidationResult {
+    const maxFeesPerGas = tx.data.constants.txContext.gasSettings.maxFeesPerGas;
+    const notEnoughMaxFees =
+      maxFeesPerGas.feePerDaGas < this.#gasFees.feePerDaGas || maxFeesPerGas.feePerL2Gas < this.#gasFees.feePerL2Gas;
+
+    if (notEnoughMaxFees) {
+      this.#log.verbose(`Rejecting transaction ${tx.txHash.toString()} due to insufficient fee per gas`, {
+        txMaxFeesPerGas: maxFeesPerGas.toInspect(),
+        currentGasFees: this.#gasFees.toInspect(),
+      });
+      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS] };
+    }
+    return { result: 'valid' };
+  }
+}
+
+/**
  * Validates that a transaction can pay its gas fees.
  *
  * Runs three checks in order:
  * 1. **Gas limits** (delegates to {@link GasLimitsValidator}) — rejects if limits are
  *    out of bounds.
- * 2. **Max fee per gas** — skips (not rejects) the tx if its maxFeesPerGas is below
- *    the current block's gas fees. We skip rather than reject because the tx may
- *    become eligible in a later block with lower fees.
+ * 2. **Max fee per gas** — rejects the tx if its maxFeesPerGas is below
+ *    the current block's gas fees.
  * 3. **Fee payer balance** — reads the fee payer's FeeJuice balance from public state,
  *    adds any pending claim from a setup-phase `_increase_public_balance` call, and
  *    rejects if the total is less than the tx's fee limit (gasLimits * maxFeePerGas).
@@ -155,35 +207,13 @@ export class GasTxValidator implements TxValidator<Tx> {
       bindings: this.bindings,
     }).validateGasLimit(tx);
     if (gasLimitValidation.result === 'invalid') {
-      return Promise.resolve(gasLimitValidation);
+      return gasLimitValidation;
     }
-    if (this.#shouldSkip(tx)) {
-      return Promise.resolve({ result: 'skipped', reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS] });
+    const maxFeeValidation = new MaxFeePerGasValidator(this.#gasFees, this.bindings).validateMaxFeePerGas(tx);
+    if (maxFeeValidation.result === 'invalid') {
+      return maxFeeValidation;
     }
     return await this.validateTxFee(tx);
-  }
-
-  /**
-   * Check whether the tx's max fees are valid for the current block, and skip if not.
-   * We skip instead of invalidating since the tx may become eligible later.
-   * Note that circuits check max fees even if fee payer is unset, so we
-   * keep this validation even if the tx does not pay fees.
-   */
-  #shouldSkip(tx: Tx): boolean {
-    const gasSettings = tx.data.constants.txContext.gasSettings;
-
-    // Skip the tx if its max fees are not enough for the current block's gas fees.
-    const maxFeesPerGas = gasSettings.maxFeesPerGas;
-    const notEnoughMaxFees =
-      maxFeesPerGas.feePerDaGas < this.#gasFees.feePerDaGas || maxFeesPerGas.feePerL2Gas < this.#gasFees.feePerL2Gas;
-
-    if (notEnoughMaxFees) {
-      this.#log.verbose(`Skipping transaction ${tx.getTxHash().toString()} due to insufficient fee per gas`, {
-        txMaxFeesPerGas: maxFeesPerGas.toInspect(),
-        currentGasFees: this.#gasFees.toInspect(),
-      });
-    }
-    return notEnoughMaxFees;
   }
 
   /**

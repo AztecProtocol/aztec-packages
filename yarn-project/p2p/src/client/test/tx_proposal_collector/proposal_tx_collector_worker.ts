@@ -7,6 +7,7 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
@@ -119,6 +120,7 @@ async function startClient(config: P2PConfig, clientIndex: number) {
     proofVerifier as ClientProtocolCircuitVerifier,
     worldState,
     epochCache,
+    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     'proposal-tx-collector-bench-worker',
     new DateProvider(),
     telemetry as TelemetryClient,

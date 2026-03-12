@@ -75,7 +75,7 @@ This validator is invoked on **every** transaction potentially entering the pend
 - Startup hydration — revalidating persisted non-mined txs on node restart
 
 Runs:
-- DoubleSpend, BlockHeader, GasLimits, Timestamp
+- DoubleSpend, BlockHeader, GasLimits, MaxFeePerGas, Timestamp
 
 Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 
@@ -89,8 +89,9 @@ Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 | `MetadataTxValidator` | Chain ID, rollup version, protocol contracts hash, VK tree root | 4.18 us |
 | `TimestampTxValidator` | Transaction has not expired (expiration timestamp vs next slot) | 1.56 us |
 | `DoubleSpendTxValidator` | Nullifiers do not already exist in the nullifier tree | 106.08 us |
-| `GasTxValidator` | Gas limits are within bounds (delegates to `GasLimitsValidator`), max fee per gas meets current block fees, and fee payer has sufficient FeeJuice balance | 1.02 ms |
+| `GasTxValidator` | Gas limits are within bounds (delegates to `GasLimitsValidator`), max fee per gas meets current block fees (delegates to `MaxFeePerGasValidator`), and fee payer has sufficient FeeJuice balance | 1.02 ms |
 | `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas. Used standalone in pool migration; also called internally by `GasTxValidator` | 3–10 us |
+| `MaxFeePerGasValidator` | Max fee per gas >= current block gas fees on both dimensions (DA and L2). Used standalone in pool migration; also called internally by `GasTxValidator` | 3–10 us |
 | `PhasesTxValidator` | Public function calls in setup phase are on the allow list | 10.12–13.12 us |
 | `BlockHeaderTxValidator` | Transaction's anchor block hash exists in the archive tree | 98.88 us |
 | `TxProofValidator` | Client proof verifies correctly | ~250ms |
@@ -107,9 +108,16 @@ Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 | DoubleSpend | Stage 1 | Yes | — | Yes | Yes |
 | Gas (balance + limits) | Stage 1 | Optional* | — | Yes | — |
 | GasLimits (standalone) | — | — | — | — | Yes |
+| MaxFeePerGas (standalone) | — | — | — | — | Yes |
 | Phases | Stage 1 | Yes | — | Yes | — |
 | BlockHeader | Stage 1 | Yes | — | Yes | Yes |
 | Proof | Stage 2 | Optional** | Yes | — | — |
 
-\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `GasLimitsValidator` as its first step, so gas limits are checked wherever `GasTxValidator` runs. Pool migration uses `GasLimitsValidator` standalone because it doesn't need the balance or fee-per-gas checks.
+\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `GasLimitsValidator` and `MaxFeePerGasValidator` as its first steps, so gas limits and fee-per-gas are checked wherever `GasTxValidator` runs. Pool migration uses `GasLimitsValidator` and `MaxFeePerGasValidator` standalone because it doesn't need the balance check.
 \** Proof verification is skipped for simulations (no verifier provided).
+
+## Fee-Per-Gas Rejection Strategy
+
+The `MaxFeePerGasValidator` and `InsufficientFeePerGasEvictionRule` reject and evict transactions whose `maxFeesPerGas` falls below the current block's gas fees. This is a simple strategy: if a tx can't pay the current fees, it gets rejected on entry and evicted after each new block.
+
+**Caveat**: This may evict transactions that would become valid again if block fees drop. A more nuanced approach would be to define a threshold (e.g., 50%) and only reject/evict when the tx's max fee falls below that fraction of the current fees. The current approach is simpler and ensures the pool doesn't accumulate transactions with low max fees that are unlikely to be mined soon.

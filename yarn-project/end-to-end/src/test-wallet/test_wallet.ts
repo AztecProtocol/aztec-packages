@@ -39,6 +39,8 @@ export interface AccountData {
   contract: AccountContract;
 }
 
+const TEST_DEFAULT_MIN_FEE_PADDING = 10;
+
 /**
  * Wallet implementation that stores accounts in memory and provides extra debugging
  * utilities
@@ -50,6 +52,7 @@ export class TestWallet extends BaseWallet {
     private readonly nodeRef: AztecNodeProxy,
   ) {
     super(pxe, nodeRef);
+    this.minFeePadding = TEST_DEFAULT_MIN_FEE_PADDING;
   }
 
   static async create(
@@ -143,7 +146,7 @@ export class TestWallet extends BaseWallet {
   }
 
   setMinFeePadding(value?: number) {
-    this.minFeePadding = value ?? 0.5;
+    this.minFeePadding = value ?? TEST_DEFAULT_MIN_FEE_PADDING;
   }
 
   protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
