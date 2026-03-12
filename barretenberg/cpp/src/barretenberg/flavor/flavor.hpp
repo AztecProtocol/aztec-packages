@@ -46,7 +46,9 @@ class UltraStarknetFlavor;
 class UltraStarknetZKFlavor;
 #endif
 class UltraKeccakZKFlavor;
-class MegaFlavor;
+template <size_t BS> class MegaFlavor_;
+using MegaFlavor = MegaFlavor_<1>;
+using MultiMegaFlavor = MegaFlavor_<4>;
 class MegaZKFlavor;
 class MegaAvmFlavor;
 class TranslatorFlavor;

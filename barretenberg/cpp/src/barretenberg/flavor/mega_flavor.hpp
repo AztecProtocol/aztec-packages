@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/mega_interleaving_entities.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/prover_polynomials.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
@@ -30,7 +31,20 @@
 
 namespace bb {
 
-class MegaFlavor {
+// ============================================================
+// MegaFlavor_ template class
+// ============================================================
+
+/**
+ * @brief The Mega proving system flavor, parameterized on interleaving batch size.
+ *
+ * @details MegaFlavor_<1> (aliased as MegaFlavor) commits polynomials individually.
+ *          MegaFlavor_<4> (aliased as MultiMegaFlavor) batches 4 polynomials per interleaved
+ *          commitment, reducing witness commitments from 24 to 11.
+ *
+ * @tparam BATCH_SIZE_ The number of polynomials interleaved per commitment (1 or 4).
+ */
+template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
   public:
     using CircuitBuilder = MegaCircuitBuilder;
     using Curve = curve::BN254;
@@ -54,6 +68,15 @@ class MegaFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
+
+    // Interleaving parameters
+    static constexpr size_t INTERLEAVING_BATCH_SIZE = BATCH_SIZE_;
+    // log2(BATCH_SIZE): number of extra Gemini rounds for interleaving
+    static constexpr size_t INTERLEAVING_LOG_K = (BATCH_SIZE_ <= 1)   ? 0
+                                                 : (BATCH_SIZE_ <= 2) ? 1
+                                                 : (BATCH_SIZE_ <= 4) ? 2
+                                                                      : 3;
+
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -86,21 +109,13 @@ class MegaFlavor {
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;
 
+    // ================================================================
+    // Entity classes (same for all BATCH_SIZE values)
+    // ================================================================
+
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
-     *
-     * These polynomials fall into several categories based on their origin:
-     * - **Circuit selectors** (q_m, q_c, q_l, q_r, q_o, q_4, q_busread, q_lookup, q_arith, q_delta_range,
-     *   q_elliptic, q_memory, q_nnf, q_poseidon2_external, q_poseidon2_internal): Populated directly from
-     *   the circuit builder's execution trace blocks.
-     * - **Permutation polynomials** (sigma_1-4, id_1-4): Computed from wire copy cycles.
-     * - **Table polynomials** (table_1-4): Populated from lookup tables in the circuit.
-     * - **Lagrange polynomials** (lagrange_first, lagrange_last): Standard Lagrange basis polynomials.
-     * - **Derived indicator polynomials** (lagrange_ecc_op): Constructed during TraceToPolynomials as a
-     *   binary indicator (1 inside the ecc_op block, 0 elsewhere). Unlike gate selectors, this is NOT
-     *   stored in the circuit builder - it's derived from the ecc_op block's position and size.
-     * - **Identity polynomial** (databus_id): The identity polynomial id_i = i for databus lookups.
      */
     template <typename DataType_> class PrecomputedEntities {
       public:
@@ -200,24 +215,6 @@ class MegaFlavor {
     };
 
     /**
-     * @brief ZK-specific entities (only used when HasZK = true)
-     * @details Contains the Gemini masking polynomial used for zero-knowledge
-     */
-    template <typename DataType, bool HasZK_ = false> class MaskingEntities {
-      public:
-        // When ZK is disabled, this class is empty
-        auto get_all() { return RefArray<DataType, 0>{}; }
-        auto get_all() const { return RefArray<const DataType, 0>{}; }
-        static auto get_labels() { return std::vector<std::string>{}; }
-    };
-
-    // Specialization for when ZK is enabled
-    template <typename DataType> class MaskingEntities<DataType, true> {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
-    };
-
-    /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      * Combines WireEntities + DerivedEntities. ZK entities are added separately in AllEntities_.
@@ -271,6 +268,17 @@ class MegaFlavor {
                               z_perm_shift) // column 4
     };
 
+    // ================================================================
+    // Masking entities (BATCH_SIZE-dependent via external specialization)
+    // ================================================================
+
+    template <typename DataType, bool HasZK_ = HasZK>
+    using MaskingEntities = MegaMaskingEntities_<DataType, BATCH_SIZE_, HasZK_>;
+
+    // ================================================================
+    // AllEntities_ (uniform structure, uses BATCH_SIZE-aware masking)
+    // ================================================================
+
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -296,6 +304,12 @@ class MegaFlavor {
                                PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities_<DataType>::get_all());
         };
+        auto get_unshifted() const
+        {
+            return concatenate(MaskingEntities<DataType, HasZK_>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities_<DataType>::get_all());
+        };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities_<DataType>::get_all(); };
         auto get_witness() const { return WitnessEntities_<DataType>::get_all(); };
@@ -305,6 +319,10 @@ class MegaFlavor {
     // Default AllEntities alias (no ZK)
     template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
 
+    // ================================================================
+    // Entity counts
+    // ================================================================
+
     // Derive entity counts from the actual struct definitions
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = PrecomputedEntities<FF>::_members_size;
     static constexpr size_t NUM_WITNESS_ENTITIES = WireEntities<FF>::_members_size + DerivedEntities<FF>::_members_size;
@@ -312,17 +330,35 @@ class MegaFlavor {
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
 
-    static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
+    // ================================================================
+    // BATCH_SIZE-dependent constants
+    // ================================================================
 
-    // Size of the final PCS MSM after KZG adds quotient commitment:
-    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-    // (shifted commitments are removed as duplicates)
+    static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        (BATCH_SIZE_ == 1) ? RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
+                                                     NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
+                                                     NUM_SHIFTED_ENTITIES)
+                           : RepeatedCommitmentsData();
+
+    // Size of the final PCS MSM after KZG adds quotient commitment
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
+        if constexpr (BATCH_SIZE_ == 1) {
+            // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+            return NUM_UNSHIFTED_ENTITIES + log_n + 2;
+        } else {
+            // With ψ pre-batching: 1 unshifted + 1 shifted + 1 Shplonk Q + (pcs_log_n - 1) Gemini folds + 1 G1 + 1
+            // KZG W
+            const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+            return pcs_log_n + 4;
+        }
     }
+
+    // ================================================================
+    // AllValues, ProverPolynomials
+    // ================================================================
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
@@ -336,9 +372,6 @@ class MegaFlavor {
 
     using AllValues = AllValues_<HasZK>;
 
-    /**
-     * @brief A container for the prover polynomials handles.
-     */
     template <bool HasZK_ = HasZK>
     using ProverPolynomials_ = ProverPolynomialsBase<AllEntities_<Polynomial, HasZK_>, AllValues_<HasZK_>, Polynomial>;
 
@@ -346,11 +379,18 @@ class MegaFlavor {
 
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
-    /**
-     * @brief The verification key stores commitments to the precomputed (non-witness) polynomials used by the
-     * verifier.
-     */
-    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
+    // ================================================================
+    // Verification Key
+    // ================================================================
+
+    // VK precomputed commitment type depends on BATCH_SIZE:
+    // BS=1: 31 individual precomputed commitments
+    // BS>1: ceil(31/BS) interleaved precomputed commitments
+    using VKPrecomputedType = std::conditional_t<BATCH_SIZE_ == 1,
+                                                 PrecomputedEntities<Commitment>,
+                                                 MegaInterleavedPrecomputedCommitments_<Commitment, BATCH_SIZE_>>;
+
+    using VerificationKey = NativeVerificationKey_<VKPrecomputedType, Codec, HashFunction, CommitmentKey, BATCH_SIZE_>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
@@ -379,106 +419,204 @@ class MegaFlavor {
      */
     using WitnessCommitments = WitnessEntities<Commitment>;
 
+    // ================================================================
+    // CommitmentLabels (individual polynomial labels, same for all BS)
+    // ================================================================
+
     /**
      * @brief A container for commitment labels.
      * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
      * has, however, been useful during debugging to have these labels available.
-     *
      */
     class CommitmentLabels : public AllEntities<std::string> {
       public:
         CommitmentLabels()
         {
-            w_l = "W_L";
-            w_r = "W_R";
-            w_o = "W_O";
-            w_4 = "W_4";
-            z_perm = "Z_PERM";
-            lookup_inverses = "LOOKUP_INVERSES";
-            lookup_read_counts = "LOOKUP_READ_COUNTS";
-            lookup_read_tags = "LOOKUP_READ_TAGS";
-            ecc_op_wire_1 = "ECC_OP_WIRE_1";
-            ecc_op_wire_2 = "ECC_OP_WIRE_2";
-            ecc_op_wire_3 = "ECC_OP_WIRE_3";
-            ecc_op_wire_4 = "ECC_OP_WIRE_4";
-            calldata = "CALLDATA";
-            calldata_read_counts = "CALLDATA_READ_COUNTS";
-            calldata_read_tags = "CALLDATA_READ_TAGS";
-            calldata_inverses = "CALLDATA_INVERSES";
-            secondary_calldata = "SECONDARY_CALLDATA";
-            secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
-            secondary_calldata_read_tags = "SECONDARY_CALLDATA_READ_TAGS";
-            secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
-            return_data = "RETURN_DATA";
-            return_data_read_counts = "RETURN_DATA_READ_COUNTS";
-            return_data_read_tags = "RETURN_DATA_READ_TAGS";
-            return_data_inverses = "RETURN_DATA_INVERSES";
+            this->w_l = "W_L";
+            this->w_r = "W_R";
+            this->w_o = "W_O";
+            this->w_4 = "W_4";
+            this->z_perm = "Z_PERM";
+            this->lookup_inverses = "LOOKUP_INVERSES";
+            this->lookup_read_counts = "LOOKUP_READ_COUNTS";
+            this->lookup_read_tags = "LOOKUP_READ_TAGS";
+            this->ecc_op_wire_1 = "ECC_OP_WIRE_1";
+            this->ecc_op_wire_2 = "ECC_OP_WIRE_2";
+            this->ecc_op_wire_3 = "ECC_OP_WIRE_3";
+            this->ecc_op_wire_4 = "ECC_OP_WIRE_4";
+            this->calldata = "CALLDATA";
+            this->calldata_read_counts = "CALLDATA_READ_COUNTS";
+            this->calldata_read_tags = "CALLDATA_READ_TAGS";
+            this->calldata_inverses = "CALLDATA_INVERSES";
+            this->secondary_calldata = "SECONDARY_CALLDATA";
+            this->secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
+            this->secondary_calldata_read_tags = "SECONDARY_CALLDATA_READ_TAGS";
+            this->secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
+            this->return_data = "RETURN_DATA";
+            this->return_data_read_counts = "RETURN_DATA_READ_COUNTS";
+            this->return_data_read_tags = "RETURN_DATA_READ_TAGS";
+            this->return_data_inverses = "RETURN_DATA_INVERSES";
 
-            q_c = "Q_C";
-            q_l = "Q_L";
-            q_r = "Q_R";
-            q_o = "Q_O";
-            q_4 = "Q_4";
-            q_m = "Q_M";
-            q_busread = "Q_BUSREAD";
-            q_lookup = "Q_LOOKUP";
-            q_arith = "Q_ARITH";
-            q_delta_range = "Q_SORT";
-            q_elliptic = "Q_ELLIPTIC";
-            q_memory = "Q_MEMORY";
-            q_nnf = "Q_NNF";
-            q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
-            q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
-            sigma_1 = "SIGMA_1";
-            sigma_2 = "SIGMA_2";
-            sigma_3 = "SIGMA_3";
-            sigma_4 = "SIGMA_4";
-            id_1 = "ID_1";
-            id_2 = "ID_2";
-            id_3 = "ID_3";
-            id_4 = "ID_4";
-            table_1 = "TABLE_1";
-            table_2 = "TABLE_2";
-            table_3 = "TABLE_3";
-            table_4 = "TABLE_4";
-            lagrange_first = "LAGRANGE_FIRST";
-            lagrange_last = "LAGRANGE_LAST";
-            lagrange_ecc_op = "Q_ECC_OP_QUEUE";
+            this->q_c = "Q_C";
+            this->q_l = "Q_L";
+            this->q_r = "Q_R";
+            this->q_o = "Q_O";
+            this->q_4 = "Q_4";
+            this->q_m = "Q_M";
+            this->q_busread = "Q_BUSREAD";
+            this->q_lookup = "Q_LOOKUP";
+            this->q_arith = "Q_ARITH";
+            this->q_delta_range = "Q_SORT";
+            this->q_elliptic = "Q_ELLIPTIC";
+            this->q_memory = "Q_MEMORY";
+            this->q_nnf = "Q_NNF";
+            this->q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
+            this->q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            this->sigma_1 = "SIGMA_1";
+            this->sigma_2 = "SIGMA_2";
+            this->sigma_3 = "SIGMA_3";
+            this->sigma_4 = "SIGMA_4";
+            this->id_1 = "ID_1";
+            this->id_2 = "ID_2";
+            this->id_3 = "ID_3";
+            this->id_4 = "ID_4";
+            this->table_1 = "TABLE_1";
+            this->table_2 = "TABLE_2";
+            this->table_3 = "TABLE_3";
+            this->table_4 = "TABLE_4";
+            this->lagrange_first = "LAGRANGE_FIRST";
+            this->lagrange_last = "LAGRANGE_LAST";
+            this->lagrange_ecc_op = "Q_ECC_OP_QUEUE";
         };
     };
+
+    // ================================================================
+    // VerifierCommitments_
+    // ================================================================
 
     /**
      * Note: Made generic for use in MegaRecursive.
      **/
-    template <typename Commitment, typename VerificationKey, bool HasZK_ = HasZK>
-    class VerifierCommitments_ : public AllEntities_<Commitment, HasZK_> {
+    template <typename Commitment_, typename VerificationKey_, bool HasZK_ = HasZK>
+    class VerifierCommitments_ : public AllEntities_<Commitment_, HasZK_> {
       public:
-        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
-                             const std::optional<WitnessEntities<Commitment>>& witness_commitments = std::nullopt)
-        {
-            // Copy the precomputed polynomial commitments into this
-            for (auto [precomputed, precomputed_in] : zip_view(this->get_precomputed(), verification_key->get_all())) {
-                precomputed = precomputed_in;
-            }
+        VerifierCommitments_() = default;
 
-            // If provided, copy the witness polynomial commitments into this
-            if (witness_commitments.has_value()) {
-                for (auto [witness, witness_in] :
-                     zip_view(this->get_witness(), witness_commitments.value().get_all())) {
-                    witness = witness_in;
+        VerifierCommitments_(const std::shared_ptr<VerificationKey_>& verification_key,
+                             const std::optional<WitnessEntities<Commitment_>>& witness_commitments = std::nullopt)
+        {
+            if constexpr (BATCH_SIZE_ == 1) {
+                // Copy the precomputed polynomial commitments into this
+                for (auto [precomputed, precomputed_in] :
+                     zip_view(this->get_precomputed(), verification_key->get_all())) {
+                    precomputed = precomputed_in;
                 }
 
-                // Set shifted commitments
-                this->w_l_shift = witness_commitments->w_l;
-                this->w_r_shift = witness_commitments->w_r;
-                this->w_o_shift = witness_commitments->w_o;
-                this->w_4_shift = witness_commitments->w_4;
-                this->z_perm_shift = witness_commitments->z_perm;
+                // If provided, copy the witness polynomial commitments into this
+                if (witness_commitments.has_value()) {
+                    for (auto [witness, witness_in] :
+                         zip_view(this->get_witness(), witness_commitments.value().get_all())) {
+                        witness = witness_in;
+                    }
+
+                    // Set shifted commitments
+                    this->w_l_shift = witness_commitments->w_l;
+                    this->w_r_shift = witness_commitments->w_r;
+                    this->w_o_shift = witness_commitments->w_o;
+                    this->w_4_shift = witness_commitments->w_4;
+                    this->z_perm_shift = witness_commitments->z_perm;
+                }
             }
+            // For BATCH_SIZE > 1: individual precomputed slots are not populated from the VK
+            // because the VK stores interleaved commitments. The verifier uses interleaved
+            // commitments directly for PCS verification.
         }
     };
     // Specialize for Mega (general case used in MegaRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+
+    // ================================================================
+    // Interleaved entity type aliases (from external specializations)
+    // ================================================================
+
+    template <typename DataType, bool HasZK_ = HasZK>
+    using InterleavedWitnessCommitments_ = MegaInterleavedWitnessCommitments_<DataType, BATCH_SIZE_, HasZK_>;
+
+    template <typename DataType> using InterleavedWitnessCommitments = InterleavedWitnessCommitments_<DataType, HasZK>;
+    using InterleavedCommitments = InterleavedWitnessCommitments<Commitment>;
+
+    template <typename DataType_>
+    using InterleavedPrecomputedCommitments = MegaInterleavedPrecomputedCommitments_<DataType_, BATCH_SIZE_>;
+    using InterleavedPrecomputed = InterleavedPrecomputedCommitments<Commitment>;
+
+    // ================================================================
+    // Interleaved commitment labels (from mega_interleaving_entities.hpp)
+    // ================================================================
+
+    template <bool HasZK_ = HasZK>
+    using InterleavedCommitmentLabels_ = MegaInterleavedCommitmentLabels_<BATCH_SIZE_, HasZK_>;
+    using InterleavedCommitmentLabels = InterleavedCommitmentLabels_<HasZK>;
+
+    using InterleavedPrecomputedLabels = MegaInterleavedPrecomputedLabels_<BATCH_SIZE_>;
+
+    // ================================================================
+    // Interleaved constants (from MegaInterleavingConstants)
+    // ================================================================
+
+    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS =
+        MegaInterleavingConstants<BATCH_SIZE_>::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS;
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS =
+        MegaInterleavingConstants<BATCH_SIZE_>::NUM_INTERLEAVED_WITNESS_COMMITMENTS;
+    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
+        MegaInterleavingConstants<BATCH_SIZE_>::NUM_ALL_INTERLEAVED_COMMITMENTS;
+    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS =
+        MegaInterleavingConstants<BATCH_SIZE_>::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+
+    // ================================================================
+    // Group accessors (delegate to free functions in mega_interleaving_entities.hpp)
+    // ================================================================
+
+    template <typename FF_>
+    static auto compute_lagrange_basis(const FF_& u0, const FF_& u1)
+        requires(BATCH_SIZE_ == 4)
+    {
+        return compute_mega_lagrange_basis<BATCH_SIZE_>(u0, u1);
+    }
+
+    template <typename Entities>
+    static auto get_unshifted_groups(Entities& e)
+        requires(BATCH_SIZE_ > 1)
+    {
+        return get_mega_unshifted_groups<true>(e);
+    }
+
+    template <typename Entities>
+    static auto get_unshifted_groups_mut(Entities& e)
+        requires(BATCH_SIZE_ > 1)
+    {
+        return get_mega_unshifted_groups<false>(e);
+    }
+
+    template <typename Entities>
+    static auto get_to_be_shifted_groups(Entities& e)
+        requires(BATCH_SIZE_ > 1)
+    {
+        return get_mega_to_be_shifted_groups(e);
+    }
+
+    template <typename Entities>
+    static auto get_shifted_groups(Entities& e)
+        requires(BATCH_SIZE_ > 1)
+    {
+        return get_mega_shifted_groups(e);
+    }
 };
+
+// ============================================================
+// Type aliases
+// ============================================================
+
+using MegaFlavor = MegaFlavor_<1>;
+using MultiMegaFlavor = MegaFlavor_<4>;
 
 } // namespace bb

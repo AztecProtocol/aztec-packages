@@ -26,6 +26,23 @@
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
+
+// Helper to conditionally provide interleaved commitment types (empty for non-interleaved flavors)
+namespace detail {
+template <typename Flavor, bool = (Flavor::INTERLEAVING_BATCH_SIZE > 1)> struct InterleavedOinkTypes {
+    struct Empty {
+        auto get_all() { return RefArray<typename Flavor::Commitment, 0>{}; }
+        auto get_all() const { return RefArray<const typename Flavor::Commitment, 0>{}; }
+    };
+    using CommitmentsType = Empty;
+    using LabelsType = Empty;
+};
+template <typename Flavor> struct InterleavedOinkTypes<Flavor, true> {
+    using CommitmentsType = typename Flavor::InterleavedCommitments;
+    using LabelsType = typename Flavor::InterleavedCommitmentLabels;
+};
+} // namespace detail
+
 /**
  * @brief Executes the "Oink" phase of the Honk proving protocol: the initial rounds that commit to
  * witness data, lookup/logderivative inverses, and the permutation grand product, producing the
@@ -42,6 +59,9 @@ namespace bb {
  *   6. commit_to_z_perm – compute and commit to the permutation grand product polynomial
  *   7. get alpha challenge
  *
+ * For interleaved flavors (INTERLEAVING_BATCH_SIZE > 1), polynomials are committed in groups
+ * using interleaved MSM, reducing the number of witness commitments.
+ *
  * After prove() completes, the prover instance holds all committed polynomials and relation
  * parameters needed by the subsequent Sumcheck and PCS phases in UltraProver.
  *
@@ -55,12 +75,29 @@ template <typename Flavor> class OinkProver {
     using ProverInstance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
+    using Commitment = typename Flavor::Commitment;
     using Proof = typename Transcript::Proof;
+    using Polynomial = typename Flavor::Polynomial;
+
+    static constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
   public:
+    std::shared_ptr<ProverInstance> prover_instance;
+    std::shared_ptr<HonkVK> honk_vk;
+    std::shared_ptr<Transcript> transcript;
+    CommitmentKey commitment_key;
+
+    typename Flavor::CommitmentLabels commitment_labels;
+
+    // Interleaved commitment storage and labels (empty structs for BATCH_SIZE=1)
+    using InterleavedCommitmentsType = typename detail::InterleavedOinkTypes<Flavor>::CommitmentsType;
+    using InterleavedLabelsType = typename detail::InterleavedOinkTypes<Flavor>::LabelsType;
+    InterleavedCommitmentsType interleaved_commitments;
+    InterleavedLabelsType interleaved_labels;
+
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
-               const std::shared_ptr<typename Flavor::Transcript>& transcript)
+               const std::shared_ptr<Transcript>& transcript)
         : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
@@ -74,17 +111,21 @@ template <typename Flavor> class OinkProver {
     static void compute_grand_product_polynomial(ProverInstance& instance);
 
   private:
-    std::shared_ptr<ProverInstance> prover_instance;
-    std::shared_ptr<HonkVK> honk_vk;
-    std::shared_ptr<Transcript> transcript;
-    CommitmentKey commitment_key;
-    typename Flavor::CommitmentLabels commitment_labels;
     void send_vk_hash_and_public_inputs();
     void commit_to_wires();
     void commit_to_lookup_counts_and_w4();
     void commit_to_logderiv_inverses();
     void commit_to_z_perm();
     void commit_to_masking_poly();
+
+    /**
+     * @brief Commit to an interleaved group of polynomials and send to verifier.
+     * @details Only available for BATCH_SIZE > 1. If fewer than BATCH_SIZE polynomials are provided,
+     *          zeros are used for missing slots (the MSM efficiently skips zero contributions).
+     */
+    template <size_t NUM_POLYS>
+    Commitment commit_interleaved_and_send(std::array<PolynomialSpan<const FF>, NUM_POLYS> polynomials,
+                                           const std::string& label);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;

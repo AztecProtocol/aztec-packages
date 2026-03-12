@@ -6,6 +6,7 @@
 
 #include "ultra_prover.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
+#include "barretenberg/commitment_schemes/interleaved_group_batching.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
@@ -25,18 +26,6 @@ UltraProver_<Flavor>::UltraProver_(std::shared_ptr<ProverInstance> prover_instan
 
 /**
  * @brief Export the complete proof, including IPA proof for rollup circuits
- * @details Two-level proof structure for rollup circuits:
- *
- * **Prover Level (this function):**
- *   [public_inputs | honk_proof | ipa_proof]
- *   - Appends IPA proof if prover_instance->ipa_proof is non-empty
- *   - SYMMETRIC with UltraVerifier_::split_rollup_proof() which extracts the IPA portion
- *
- * **API Level (bbapi):**
- *   - _prove() further splits into: public_inputs (ACIR only) vs proof (rest including IPA)
- *   - concatenate_proof() reassembles for verification
- *
- * @note IPA_PROOF_LENGTH is defined in ipa.hpp as 4*CONST_ECCVM_LOG_N + 4 = 64 elements
  */
 template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
 {
@@ -62,7 +51,9 @@ template <typename Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 
 template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
-    size_t key_size = prover_instance->dyadic_size();
+    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
+
+    size_t key_size = prover_instance->dyadic_size() * BATCH_SIZE;
     if constexpr (Flavor::HasZK) {
         constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
         key_size = std::max(key_size, size_t{ 1 } << (log_subgroup_size + 1));
@@ -70,6 +61,7 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     commitment_key = CommitmentKey(key_size);
 
     OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
+    oink_prover.commitment_key = commitment_key;
     oink_prover.prove();
     vinfo("created oink proof");
 
@@ -114,35 +106,95 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 /**
  * @brief Reduce the sumcheck multivariate evaluations to a single univariate opening claim via Shplemini,
  * then produce an opening proof with the PCS (KZG or IPA).
+ *
+ * For interleaved flavors (BATCH_SIZE > 1), adds interleaving challenges, pre-batches polynomial groups,
+ * and uses interleaved PCS flow.
  */
 template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
+    using Polynomial = typename Flavor::Polynomial;
+
+    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
+    constexpr size_t LOG_K = Flavor::INTERLEAVING_LOG_K;
 
     auto& ck = commitment_key;
+    if (!ck.initialized()) {
+        size_t ck_size = prover_instance->dyadic_size() * BATCH_SIZE;
+        if constexpr (Flavor::HasZK) {
+            ck_size = std::max(ck_size, 2 * static_cast<size_t>(Curve::SUBGROUP_SIZE));
+        }
+        ck = CommitmentKey(ck_size);
+    }
 
-    PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size());
-    polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted(prover_instance->polynomials.get_to_be_shifted());
+    const size_t n = prover_instance->dyadic_size();
+    const size_t pcs_size = n * BATCH_SIZE;
 
-    OpeningClaim prover_opening_claim;
-    if constexpr (!Flavor::HasZK) {
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            prover_instance->dyadic_size(), polynomial_batcher, sumcheck_output.challenge, ck, transcript);
-    } else {
+    // Build full challenge vector: interleaving challenges (if any) + sumcheck challenges
+    std::vector<FF> full_challenge;
+    full_challenge.reserve(LOG_K + sumcheck_output.challenge.size());
+    for (size_t i = 0; i < LOG_K; i++) {
+        full_challenge.push_back(
+            transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_" + std::to_string(i)));
+    }
+    full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
+    // ZK: SmallSubgroupIPA
+    std::array<Polynomial, NUM_SMALL_IPA_EVALUATIONS> libra_witness_polys{};
+    if constexpr (Flavor::HasZK) {
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
         small_subgroup_ipa_prover.prove();
-
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(prover_instance->dyadic_size(),
-                                                              polynomial_batcher,
-                                                              sumcheck_output.challenge,
-                                                              ck,
-                                                              transcript,
-                                                              small_subgroup_ipa_prover.get_witness_polynomials());
+        libra_witness_polys = small_subgroup_ipa_prover.get_witness_polynomials();
     }
+
+    // Set up polynomial batcher and prove opening
+    OpeningClaim prover_opening_claim;
+
+    if constexpr (BATCH_SIZE > 1) {
+        // Pre-batch interleaved polynomial groups into 2 polynomials
+        constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+        constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+        auto [unshifted_challenges, shifted_challenges] =
+            get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED, NUM_SHIFTED);
+
+        Polynomial batched_unshifted;
+        Polynomial batched_to_be_shifted;
+        {
+            auto polys = std::move(prover_instance->polynomials);
+            auto unshifted_groups = Flavor::get_unshifted_groups_mut(polys);
+            auto shifted_groups = Flavor::get_to_be_shifted_groups(polys);
+            std::tie(batched_unshifted, batched_to_be_shifted) = batch_interleaved_polynomial_groups<FF>(
+                unshifted_groups, shifted_groups, unshifted_challenges, shifted_challenges, n, BATCH_SIZE);
+        }
+        vinfo("pre-batched interleaved groups");
+
+        PolynomialBatcher polynomial_batcher(pcs_size, BATCH_SIZE);
+        polynomial_batcher.set_unshifted(RefVector<Polynomial>(batched_unshifted));
+        polynomial_batcher.set_to_be_shifted(RefVector<Polynomial>(batched_to_be_shifted));
+
+        if constexpr (Flavor::HasZK) {
+            prover_opening_claim = ShpleminiProver_<Curve>::prove(
+                pcs_size, polynomial_batcher, full_challenge, ck, transcript, libra_witness_polys);
+        } else {
+            prover_opening_claim =
+                ShpleminiProver_<Curve>::prove(pcs_size, polynomial_batcher, full_challenge, ck, transcript);
+        }
+    } else {
+        PolynomialBatcher polynomial_batcher(pcs_size);
+        polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
+        polynomial_batcher.set_to_be_shifted(prover_instance->polynomials.get_to_be_shifted());
+
+        if constexpr (Flavor::HasZK) {
+            prover_opening_claim = ShpleminiProver_<Curve>::prove(
+                pcs_size, polynomial_batcher, full_challenge, ck, transcript, libra_witness_polys);
+        } else {
+            prover_opening_claim =
+                ShpleminiProver_<Curve>::prove(pcs_size, polynomial_batcher, full_challenge, ck, transcript);
+        }
+    }
+
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
     vinfo("computed opening proof");
@@ -159,18 +211,7 @@ template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
 template class UltraProver_<MegaAvmFlavor>;
-
-// MultiMega: explicit member instantiation (full class instantiation would fail for construct_proof/execute_pcs)
-template UltraProver_<MultiMegaFlavor>::UltraProver_(std::shared_ptr<ProverInstance>,
-                                                     const std::shared_ptr<HonkVK>&,
-                                                     const std::shared_ptr<Transcript>&);
-template UltraProver_<MultiMegaFlavor>::Proof UltraProver_<MultiMegaFlavor>::export_proof();
-template void UltraProver_<MultiMegaFlavor>::generate_gate_challenges();
-
-template UltraProver_<MultiMegaZKFlavor>::UltraProver_(std::shared_ptr<ProverInstance>,
-                                                       const std::shared_ptr<HonkVK>&,
-                                                       const std::shared_ptr<Transcript>&);
-template UltraProver_<MultiMegaZKFlavor>::Proof UltraProver_<MultiMegaZKFlavor>::export_proof();
-template void UltraProver_<MultiMegaZKFlavor>::generate_gate_challenges();
+template class UltraProver_<MultiMegaFlavor>;
+template class UltraProver_<MultiMegaZKFlavor>;
 
 } // namespace bb

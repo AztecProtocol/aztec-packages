@@ -65,5 +65,7 @@ using UltraStarknetZKProver = UltraProver_<UltraStarknetZKFlavor>;
 using UltraKeccakZKProver = UltraProver_<UltraKeccakZKFlavor>;
 using MegaProver = UltraProver_<MegaFlavor>;
 using MegaZKProver = UltraProver_<MegaZKFlavor>;
+using MultiHonkProver = UltraProver_<MultiMegaFlavor>;
+using MultiHonkZKProver = UltraProver_<MultiMegaZKFlavor>;
 
 } // namespace bb

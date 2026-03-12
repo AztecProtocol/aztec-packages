@@ -11,8 +11,6 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/multi_honk_prover.hpp"
-#include "barretenberg/ultra_honk/multi_honk_verifier.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -53,21 +51,8 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using IO = DefaultIO;
-    template <typename F, bool = IsMultiMegaFlavor<F>> struct ProverType {
-        using type = UltraProver_<F>;
-    };
-    template <typename F> struct ProverType<F, true> {
-        using type = MultiHonkProver_<F>;
-    };
-    using Prover = typename ProverType<Flavor>::type;
-
-    template <typename F, bool = IsMultiMegaFlavor<F>> struct VerifierType {
-        using type = UltraVerifier_<F, IO>;
-    };
-    template <typename F> struct VerifierType<F, true> {
-        using type = MultiHonkVerifier_<F, IO>;
-    };
-    using Verifier = typename VerifierType<Flavor>::type;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, IO>;
     using Proof = typename Flavor::Transcript::Proof;
 
     /**

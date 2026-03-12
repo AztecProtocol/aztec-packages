@@ -8,6 +8,7 @@ construction in stdlib and contains macros for explicit instantiation.
  */
 #pragma once
 #include <concepts>
+#include <cstddef>
 
 namespace bb {
 class Bn254FrParams;
@@ -22,10 +23,11 @@ using MegaCircuitBuilder = MegaCircuitBuilder_<field<Bn254FrParams>>;
 class StandardFlavor;
 class UltraFlavor;
 class UltraZKFlavor;
-class MegaFlavor;
+template <size_t BS> class MegaFlavor_;
+using MegaFlavor = MegaFlavor_<1>;
+using MultiMegaFlavor = MegaFlavor_<4>;
 class MegaZKFlavor;
 class MegaAvmFlavor;
-class MultiMegaFlavor;
 class MultiMegaZKFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;

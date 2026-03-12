@@ -5,6 +5,7 @@
 // =====================
 
 #include "./ultra_verifier.hpp"
+#include "barretenberg/commitment_schemes/interleaved_group_batching.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
@@ -22,44 +23,25 @@
 
 namespace bb {
 
-/**
- * @brief Compute log_n based on flavor.
- * @details Returns VIRTUAL_LOG_N for padded flavors, or VK's log_circuit_size otherwise.
- *          Called early in verification to derive num_public_inputs from proof size.
- */
 template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_log_n() const
 {
     if constexpr (Flavor::USE_PADDING) {
         return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
     } else {
-        // Non-padded: use actual circuit size from VK (native only)
         return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
     }
 }
 
-/**
- * @brief Compute padding indicator array based on flavor configuration.
- * @details Must be called AFTER OinkVerifier::verify() so that VK fields are properly
- *          tagged through the transcript (for recursive ZK flavors).
- * @param log_n The log circuit size (from compute_log_n)
- * @return std::vector<FF> padding indicator array
- */
 template <typename Flavor, class IO>
 std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_indicator_array(size_t log_n) const
 {
-    // - Non-ZK flavors: all 1s (no masking needed)
-    // - ZK without padding: all 1s (log_n == log_circuit_size, no padded region)
-    // - ZK with padding: computed to mask padded rounds (1s for real, 0s for padding)
     std::vector<FF> padding_indicator_array(log_n, FF{ 1 });
     if constexpr (Flavor::HasZK && Flavor::USE_PADDING) {
         auto vk_ptr = verifier_instance->get_vk();
         if constexpr (IsRecursive) {
-            // Recursive: use in-circuit computation via Lagrange polynomials
-            // Note: Must be called after OinkVerifier so log_circuit_size is properly tagged
             padding_indicator_array =
                 stdlib::compute_padding_indicator_array<Curve, Flavor::VIRTUAL_LOG_N>(vk_ptr->log_circuit_size);
         } else {
-            // Native: simple loop comparison
             const size_t log_circuit_size = static_cast<size_t>(vk_ptr->log_circuit_size);
             for (size_t idx = 0; idx < log_n; idx++) {
                 padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
@@ -70,35 +52,17 @@ std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_ind
     return padding_indicator_array;
 }
 
-/**
- * @brief Split a combined rollup proof into honk and IPA components
- * @details Two-level proof structure for rollup circuits:
- *
- * **Prover Level (UltraProver_::export_proof()):**
- *   Creates: [public_inputs | honk_proof | ipa_proof]
- *   - IPA proof appended if prover_instance->ipa_proof is non-empty
- *
- * **Verifier Level (this function):**
- *   Splits: [honk_proof | ipa_proof] -> (honk_proof, ipa_proof)
- *   - SYMMETRIC with UltraProver_::export_proof()
- *   - IPA proof is exactly IPA_PROOF_LENGTH (64) elements at the end
- *
- * @note IPA_PROOF_LENGTH is defined in ipa.hpp as 4*CONST_ECCVM_LOG_N + 4
- * @see UltraProver_::export_proof() for the proof construction side
- */
 template <typename Flavor, class IO>
 std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Flavor, IO>::Proof> UltraVerifier_<
     Flavor,
     IO>::split_rollup_proof(const Proof& combined_proof) const
     requires(IO::HasIPA)
 {
-    // Validate combined proof is large enough to contain IPA proof
     BB_ASSERT_GTE(combined_proof.size(),
                   IPA_PROOF_LENGTH,
                   "Combined rollup proof is too small to contain IPA proof. Expected at least " +
                       std::to_string(IPA_PROOF_LENGTH) + " elements, got " + std::to_string(combined_proof.size()));
 
-    // IPA proof is appended at the end (must match UltraProver_::export_proof())
     const auto honk_proof_length = static_cast<std::ptrdiff_t>(combined_proof.size() - IPA_PROOF_LENGTH);
 
     Proof honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_length);
@@ -107,9 +71,6 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
     return std::make_pair(honk_proof, ipa_proof);
 }
 
-/**
- * @brief Verify IPA proof for rollup circuits (native verifier only)
- */
 template <typename Flavor, class IO>
 bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPAClaim& ipa_claim)
     requires(!IsRecursiveFlavor<Flavor> && IO::HasIPA)
@@ -128,8 +89,8 @@ bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPACla
 
 /**
  * @brief Reduce ultra proof to verification claims (works for both native and recursive)
- * @details Contains all shared verification logic: Oink, Sumcheck, Shplemini
- * @return ReductionResult with pairing points and intermediate consistency checks
+ * @details Contains all shared verification logic: Oink, Sumcheck, Shplemini.
+ *          For interleaved flavors (BATCH_SIZE > 1), uses interleaved claim batching.
  */
 template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
@@ -139,57 +100,64 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
+    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
+
     transcript->load_proof(proof);
 
-    // Compute log_n first (needed for proof layout calculation)
     const size_t log_n = compute_log_n();
 
-    // Guard against proof size underflow before deriving num_public_inputs
     const size_t min_proof_size = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n);
     BB_ASSERT_GTE(proof.size(),
                   min_proof_size,
                   "Proof size too small. Got " + std::to_string(proof.size()) + " field elements, but need at least " +
                       std::to_string(min_proof_size) + " (excluding public inputs) for log_n=" + std::to_string(log_n));
 
-    // Derive num_public_inputs from proof size using centralized proof layout
     const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
 
-    // Compute padding indicator array AFTER OinkVerifier so VK fields are properly tagged
-    auto padding_indicator_array = compute_padding_indicator_array(log_n);
+    auto sumcheck_padding_indicator_array = compute_padding_indicator_array(log_n);
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
-    // Get the witness commitments that the verifier needs to verify
-    VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
-    // For ZK flavors: set gemini_masking_poly commitment from accumulator
-    if constexpr (Flavor::HasZK) {
-        commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
-    }
-
     // Construct the sumcheck verifier
     SumcheckVerifier<Flavor> sumcheck(transcript, verifier_instance->alpha, log_n);
-    // Receive commitments to Libra masking polynomials for ZKFlavors
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
 
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-    // Run the sumcheck verifier
+
     SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
-    // Get the claimed evaluation of the Libra polynomials for ZKFlavors
+        verifier_instance->relation_parameters, verifier_instance->gate_challenges, sumcheck_padding_indicator_array);
+
+    constexpr size_t LOG_K = Flavor::INTERLEAVING_LOG_K;
+
+    // Build full challenge vector: interleaving challenges (if any) + sumcheck challenges
+    std::vector<FF> full_challenge;
+    full_challenge.reserve(LOG_K + sumcheck_output.challenge.size());
+    for (size_t i = 0; i < LOG_K; i++) {
+        full_challenge.push_back(
+            transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_" + std::to_string(i)));
+    }
+    full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
+
+    // Receive remaining Libra commitments (after interleaving challenges, before Shplemini)
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
-    };
+    // PCS padding indicator: [1]*LOG_K prefix + sumcheck padding
+    std::vector<FF> pcs_padding_indicator_array;
+    pcs_padding_indicator_array.reserve(full_challenge.size());
+    for (size_t i = 0; i < LOG_K; i++) {
+        pcs_padding_indicator_array.push_back(FF{ 1 });
+    }
+    pcs_padding_indicator_array.insert(pcs_padding_indicator_array.end(),
+                                       sumcheck_padding_indicator_array.begin(),
+                                       sumcheck_padding_indicator_array.end());
 
     const Commitment one_commitment = [&]() {
         if constexpr (IsRecursive) {
@@ -199,38 +167,89 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         }
     }();
 
-    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                   claim_batcher,
-                                                                   sumcheck_output.challenge,
-                                                                   one_commitment,
-                                                                   transcript,
-                                                                   Flavor::REPEATED_COMMITMENTS,
-                                                                   libra_commitments,
-                                                                   sumcheck_output.claimed_libra_evaluation);
+    // Helper to run Shplemini and build the reduction result
+    auto run_shplemini = [&](ClaimBatcher& claim_batcher) -> ReductionResult {
+        auto shplemini_output = Shplemini::compute_batch_opening_claim(pcs_padding_indicator_array,
+                                                                       claim_batcher,
+                                                                       full_challenge,
+                                                                       one_commitment,
+                                                                       transcript,
+                                                                       Flavor::REPEATED_COMMITMENTS,
+                                                                       libra_commitments,
+                                                                       sumcheck_output.claimed_libra_evaluation);
 
-    // Build reduction result
-    ReductionResult result;
-    result.pairing_points = PCS::reduce_verify_batch_opening_claim(
-        std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
+        ReductionResult result;
+        result.pairing_points = PCS::reduce_verify_batch_opening_claim(
+            std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
 
-    bool consistency_checked = true;
-    if constexpr (Flavor::HasZK) {
-        consistency_checked = shplemini_output.consistency_checked;
-        vinfo("Ultra Verifier (with ZK): Libra evals consistency checked ", consistency_checked ? "true" : "false");
+        bool consistency_checked = true;
+        if constexpr (Flavor::HasZK) {
+            consistency_checked = shplemini_output.consistency_checked;
+            vinfo("UltraVerifier: consistency_checked=", consistency_checked ? "true" : "false");
+        }
+        vinfo("UltraVerifier: sumcheck_verified=", sumcheck_output.verified ? "true" : "false");
+        result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
+
+        return result;
+    };
+
+    // Build claim batcher — data must outlive the Shplemini call (ClaimBatch holds references)
+    if constexpr (BATCH_SIZE > 1) {
+        auto& interleaved = verifier_instance->interleaved_commitments;
+        auto& evals = sumcheck_output.claimed_evaluations;
+        auto vk = verifier_instance->get_vk();
+
+        constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+        constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+
+        auto unshifted_comms_ref = concatenate(vk->get_all(), interleaved.get_all());
+        std::vector<Commitment> unshifted_comms_vec;
+        unshifted_comms_vec.reserve(NUM_UNSHIFTED);
+        for (size_t i = 0; i < NUM_UNSHIFTED; i++) {
+            unshifted_comms_vec.push_back(unshifted_comms_ref[i]);
+        }
+        std::vector<Commitment> shifted_comms_vec;
+        shifted_comms_vec.reserve(NUM_SHIFTED);
+        for (const auto& c : interleaved.get_shiftable()) {
+            shifted_comms_vec.push_back(c);
+        }
+
+        auto [unshifted_challenges, shifted_challenges] =
+            get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED, NUM_SHIFTED);
+
+        auto lagrange_basis = Flavor::compute_lagrange_basis(full_challenge[0], full_challenge[1]);
+
+        auto [batched_unshifted_comm, batched_shifted_comm, batched_unshifted_eval, batched_shifted_eval] =
+            batch_interleaved_verifier_claims(unshifted_comms_vec,
+                                              shifted_comms_vec,
+                                              Flavor::get_unshifted_groups(evals),
+                                              Flavor::get_shifted_groups(evals),
+                                              unshifted_challenges,
+                                              shifted_challenges,
+                                              lagrange_basis);
+
+        ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefVector<Commitment>(batched_unshifted_comm),
+                                                             RefVector<FF>(batched_unshifted_eval) },
+                                    .shifted = ClaimBatch{ RefVector<Commitment>(batched_shifted_comm),
+                                                           RefVector<FF>(batched_shifted_eval) },
+                                    .shift_exponent = BATCH_SIZE };
+
+        return run_shplemini(claim_batcher);
+    } else {
+        VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
+        if constexpr (Flavor::HasZK) {
+            commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
+        }
+
+        ClaimBatcher claim_batcher{
+            .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
+            .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+        };
+
+        return run_shplemini(claim_batcher);
     }
-    vinfo("Ultra Verifier sumcheck_verified: ", sumcheck_output.verified ? "true" : "false");
-    result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
-
-    return result;
 }
 
-/**
- * @brief Perform ultra verification
- * @details
- * For Rollup flavors, splits the combined proof internally.
- * - Native: Performs immediate pairing verification (+ IPA for Rollup)
- * - Recursive: Returns pairing points (+ IPA proof for Rollup) for deferred verification
- */
 template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
@@ -305,9 +324,9 @@ template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
-// MultiMega flavors: only base class utility methods are instantiated here.
-// MultiHonkVerifier_ (in multi_honk_verifier.cpp) overrides reduce_to_pairing_check/verify_proof,
-// so we don't need full UltraVerifier_ instantiation for these flavors.
+template class UltraVerifier_<MultiMegaFlavor, DefaultIO>;
+template class UltraVerifier_<MultiMegaZKFlavor, DefaultIO>;
+template class UltraVerifier_<MultiMegaZKFlavor, HidingKernelIO>;
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template class UltraVerifier_<UltraStarknetFlavor, DefaultIO>;
@@ -351,58 +370,16 @@ template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
 template class UltraVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::GoblinAvmIO<UltraCircuitBuilder>>;
 
-// MultiMega: explicit member instantiation for base class utility methods used by MultiHonkVerifier_.
-// Full class instantiation would fail because reduce_to_pairing_check uses VerifierCommitments
-// that don't exist for MultiMega flavors (they use interleaved commitments instead).
-
-// Native
-template size_t UltraVerifier_<MultiMegaFlavor, DefaultIO>::compute_log_n() const;
-template std::vector<MultiMegaFlavor::FF> UltraVerifier_<MultiMegaFlavor, DefaultIO>::compute_padding_indicator_array(
-    size_t) const;
-
-template size_t UltraVerifier_<MultiMegaZKFlavor, DefaultIO>::compute_log_n() const;
-template std::vector<MultiMegaZKFlavor::FF> UltraVerifier_<MultiMegaZKFlavor,
-                                                           DefaultIO>::compute_padding_indicator_array(size_t) const;
-
-template size_t UltraVerifier_<MultiMegaZKFlavor, HidingKernelIO>::compute_log_n() const;
-template std::vector<MultiMegaZKFlavor::FF> UltraVerifier_<MultiMegaZKFlavor,
-                                                           HidingKernelIO>::compute_padding_indicator_array(size_t)
-    const;
-
-// Recursive
-template size_t UltraVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
-                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_log_n() const;
-template auto UltraVerifier_<
-    MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
-    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_padding_indicator_array(size_t) const
-    -> std::vector<FF>;
-
-template size_t UltraVerifier_<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
-                               stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_log_n() const;
-template auto UltraVerifier_<
-    MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
-    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_padding_indicator_array(size_t) const
-    -> std::vector<FF>;
-
-template size_t UltraVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_log_n() const;
-template auto UltraVerifier_<
-    MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_padding_indicator_array(size_t) const
-    -> std::vector<FF>;
-
-template size_t UltraVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>::compute_log_n() const;
-template auto UltraVerifier_<
-    MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>::compute_padding_indicator_array(size_t) const
-    -> std::vector<FF>;
-
-template size_t UltraVerifier_<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                               stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_log_n() const;
-template auto UltraVerifier_<
-    MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_padding_indicator_array(size_t) const
-    -> std::vector<FF>;
+// MultiMega recursive flavors
+template class UltraVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
+template class UltraVerifier_<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
+template class UltraVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
+template class UltraVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                              stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
+template class UltraVerifier_<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
 } // namespace bb

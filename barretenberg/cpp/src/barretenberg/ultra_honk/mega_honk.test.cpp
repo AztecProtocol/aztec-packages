@@ -11,8 +11,6 @@
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/multi_honk_prover.hpp"
-#include "barretenberg/ultra_honk/multi_honk_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -30,22 +28,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    // Use deferred type selection to avoid evaluating constrained templates for wrong flavors
-    template <typename F, bool = IsMultiMegaFlavor<F>> struct ProverType {
-        using type = UltraProver_<F>;
-    };
-    template <typename F> struct ProverType<F, true> {
-        using type = MultiHonkProver_<F>;
-    };
-    using Prover = typename ProverType<Flavor>::type;
-
-    template <typename F, bool = IsMultiMegaFlavor<F>> struct VerifierType {
-        using type = UltraVerifier_<F, DefaultIO>;
-    };
-    template <typename F> struct VerifierType<F, true> {
-        using type = MultiHonkVerifier_<F, DefaultIO>;
-    };
-    using Verifier = typename VerifierType<Flavor>::type;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;

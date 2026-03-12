@@ -24,13 +24,31 @@ namespace bb {
 template <typename AllEntitiesBase, typename AllValuesType, typename Polynomial>
 class ProverPolynomialsBase : public AllEntitiesBase {
   public:
-    // Define all operations as default, except copy construction/assignment
     ProverPolynomialsBase() = default;
     ProverPolynomialsBase& operator=(const ProverPolynomialsBase&) = delete;
     ProverPolynomialsBase(const ProverPolynomialsBase& o) = delete;
     ProverPolynomialsBase(ProverPolynomialsBase&& o) noexcept = default;
     ProverPolynomialsBase& operator=(ProverPolynomialsBase&& o) noexcept = default;
     ~ProverPolynomialsBase() = default;
+
+    /**
+     * @brief Allocate polynomials of the given circuit size.
+     */
+    explicit ProverPolynomialsBase(size_t circuit_size)
+    {
+        for (auto& poly : this->get_to_be_shifted()) {
+            poly = Polynomial{ /*memory size*/ circuit_size - 1,
+                               /*largest possible index*/ circuit_size,
+                               /* offset */ 1 };
+        }
+        for (auto& poly : this->get_unshifted()) {
+            if (poly.is_empty()) {
+                poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
+            }
+        }
+        set_shifted();
+    }
+
     [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.virtual_size(); }
     [[nodiscard]] AllValuesType get_row(size_t row_idx) const
     {

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/ultra_honk/oink_prover.hpp" // for InterleavedOinkTypes
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
@@ -24,6 +25,9 @@ namespace bb {
  *   6. complete_grand_product_round – compute public_input_delta, receive z_perm
  *   7. get alpha challenge
  *
+ * For interleaved flavors (INTERLEAVING_BATCH_SIZE > 1), receives interleaved commitments instead
+ * of individual ones, reducing the number of witness commitments.
+ *
  * Works with both native and recursive flavors. When instantiated with a recursive flavor
  * (IsRecursiveFlavor<Flavor>), automatically handles the differences in VK access and VK hash assertion.
  */
@@ -33,7 +37,20 @@ template <typename Flavor> class OinkVerifier {
     using Commitment = typename Flavor::Commitment;
     using Instance = bb::VerifierInstance_<Flavor>;
 
+    static constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
+
   public:
+    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Instance> verifier_instance;
+    typename Flavor::CommitmentLabels comm_labels;
+    size_t num_public_inputs;
+
+    // Interleaved commitment storage and labels (empty structs for BATCH_SIZE=1)
+    using InterleavedCommitmentsType = typename detail::InterleavedOinkTypes<Flavor>::CommitmentsType;
+    using InterleavedLabelsType = typename detail::InterleavedOinkTypes<Flavor>::LabelsType;
+    InterleavedCommitmentsType interleaved_comms;
+    InterleavedLabelsType interleaved_labels;
+
     OinkVerifier(const std::shared_ptr<Instance>& verifier_instance,
                  const std::shared_ptr<Transcript>& transcript,
                  size_t num_public_inputs)
@@ -45,10 +62,6 @@ template <typename Flavor> class OinkVerifier {
     void verify();
 
   private:
-    std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Instance> verifier_instance;
-    typename Flavor::CommitmentLabels comm_labels;
-    size_t num_public_inputs;
     void receive_vk_hash_and_public_inputs();
     void receive_wire_commitments();
     void receive_lookup_counts_and_w4_commitments();

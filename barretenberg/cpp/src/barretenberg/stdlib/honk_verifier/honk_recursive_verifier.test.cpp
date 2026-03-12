@@ -8,8 +8,6 @@
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/multi_honk_prover.hpp"
-#include "barretenberg/ultra_honk/multi_honk_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "ultra_verification_keys_comparator.hpp"
@@ -55,20 +53,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
-    // Deferred type selection: use MultiHonk* for MultiMega flavors, Ultra* otherwise
-    template <typename F, bool = IsMultiMegaFlavor<F>> struct ProverSelector {
-        using type = UltraProver_<F>;
-    };
-    template <typename F> struct ProverSelector<F, true> {
-        using type = MultiHonkProver_<F>;
-    };
-    template <typename F, typename IO_T, bool = IsMultiMegaFlavor<F>> struct VerifierSelector {
-        using type = bb::UltraVerifier_<F, IO_T>;
-    };
-    template <typename F, typename IO_T> struct VerifierSelector<F, IO_T, true> {
-        using type = MultiHonkVerifier_<F, IO_T>;
-    };
-    using InnerProver = typename ProverSelector<InnerFlavor>::type;
+    using InnerProver = UltraProver_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
@@ -77,7 +62,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
 
     // IO types: InnerIO uses InnerBuilder, OuterIO uses OuterBuilder
     using NativeIO = std::conditional_t<IO::HasIPA, bb::RollupIO, bb::DefaultIO>;
-    using InnerVerifier = typename VerifierSelector<InnerFlavor, NativeIO>::type;
+    using InnerVerifier = bb::UltraVerifier_<InnerFlavor, NativeIO>;
     using InnerIO = std::conditional_t<IO::HasIPA, RollupIO, DefaultIO<InnerBuilder>>;
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
@@ -90,7 +75,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
     using OuterIO = IO;
 
     // RecursiveVerifier uses IO that matches the test's IO type
-    using RecursiveVerifier = typename VerifierSelector<RecursiveFlavor, IO>::type;
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, IO>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using PairingObject = PairingPoints<OuterBuilder>;

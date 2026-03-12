@@ -52,6 +52,10 @@ class UltraFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
+    // Interleaving parameters (trivial for non-Multi flavors)
+    static constexpr size_t INTERLEAVING_BATCH_SIZE = 1;
+    static constexpr size_t INTERLEAVING_LOG_K = 0;
+
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
     // define the tuple of Relations that comprise the Sumcheck relation

@@ -10,6 +10,9 @@
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
@@ -23,14 +26,28 @@ namespace bb {
 template <typename Flavor> void OinkVerifier<Flavor>::verify()
 {
     receive_vk_hash_and_public_inputs();
+
     if constexpr (Flavor::HasZK) {
-        verifier_instance->gemini_masking_commitment =
-            transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+        if constexpr (BATCH_SIZE > 1) {
+            // Receive interleaved masking commitment
+            interleaved_comms.interleaved_masking =
+                transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_masking);
+        } else {
+            // Receive single Gemini masking polynomial commitment
+            verifier_instance->gemini_masking_commitment =
+                transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+        }
     }
+
     receive_wire_commitments();
     receive_lookup_counts_and_w4_commitments();
     receive_logderiv_commitments();
     complete_grand_product_round();
+
+    if constexpr (BATCH_SIZE > 1) {
+        // Store interleaved commitments and relation parameters on the verifier instance
+        verifier_instance->interleaved_commitments = interleaved_comms;
+    }
 
     verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
 }
@@ -75,49 +92,111 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
 
 /**
  * @brief Receive wire commitments (w_l, w_r, w_o). For Mega, also receive ECC op wire and DataBus commitments.
- * The fourth wire (w_4) is received later, after memory records are incorporated.
+ * For interleaved flavors, receive interleaved commitments instead.
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 {
-    // Get commitments to first three wire polynomials
-    verifier_instance->witness_commitments.w_l = transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
-    verifier_instance->witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(comm_labels.w_r);
-    verifier_instance->witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(comm_labels.w_o);
+    if constexpr (BATCH_SIZE > 1) {
+        // Receive W₁: [w_l, w_r, w_o, ZERO]
+        interleaved_comms.interleaved_wires =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_wires);
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-        // Receive ECC op wire commitments
-        for (auto [commitment, label] :
-             zip_view(verifier_instance->witness_commitments.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
-            commitment = transcript->template receive_from_prover<Commitment>(label);
+        // Receive W₂: [ecc_op_wire_1..4]
+        interleaved_comms.interleaved_ecc_op_wires =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_ecc_op_wires);
+
+        // Receive individual ecc_op_wire commits (for merge protocol compatibility).
+        // In the recursive case, these commitments are not used but must be consumed from transcript.
+        {
+            typename Flavor::CommitmentLabels labels;
+            if constexpr (!IsRecursiveFlavor<Flavor>) {
+                auto& wc = verifier_instance->witness_commitments;
+                wc.ecc_op_wire_1 = transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_1);
+                wc.ecc_op_wire_2 = transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_2);
+                wc.ecc_op_wire_3 = transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_3);
+                wc.ecc_op_wire_4 = transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_4);
+            } else {
+                // Receive but discard - must consume to advance transcript state
+                transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_1);
+                transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_2);
+                transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_3);
+                transcript->template receive_from_prover<Commitment>(labels.ecc_op_wire_4);
+            }
         }
 
-        // Receive DataBus related polynomial commitments
-        for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_entities(),
-                                                 comm_labels.get_databus_entities())) {
-            commitment = transcript->template receive_from_prover<Commitment>(label);
+        // Receive W₃: [calldata, ZERO, ZERO, ZERO]
+        interleaved_comms.interleaved_calldata =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_calldata);
+
+        // Receive W₄: [secondary_calldata, ZERO, ZERO, ZERO]
+        interleaved_comms.interleaved_secondary_calldata =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_secondary_calldata);
+
+        // Receive W₅: [cd_read_counts, cd_read_tags, scd_read_counts, scd_read_tags]
+        interleaved_comms.interleaved_databus_tags =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_databus_tags);
+
+        // Receive W₆: [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
+        interleaved_comms.interleaved_return_data_tags =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_return_data_tags);
+
+        // Receive W₇: [return_data, ZERO, ZERO, ZERO]
+        interleaved_comms.interleaved_return_data =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_return_data);
+    } else {
+        // Standard individual commitment path
+        verifier_instance->witness_commitments.w_l =
+            transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
+        verifier_instance->witness_commitments.w_r =
+            transcript->template receive_from_prover<Commitment>(comm_labels.w_r);
+        verifier_instance->witness_commitments.w_o =
+            transcript->template receive_from_prover<Commitment>(comm_labels.w_o);
+
+        if constexpr (IsMegaFlavor<Flavor>) {
+            // Receive ECC op wire commitments
+            for (auto [commitment, label] :
+                 zip_view(verifier_instance->witness_commitments.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
+                commitment = transcript->template receive_from_prover<Commitment>(label);
+            }
+
+            // Receive DataBus related polynomial commitments
+            for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_entities(),
+                                                     comm_labels.get_databus_entities())) {
+                commitment = transcript->template receive_from_prover<Commitment>(label);
+            }
         }
     }
 }
 
 /**
  * @brief Get sorted witness-table accumulator and fourth wire commitments
- *
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_w4_commitments()
 {
     // Get eta challenge and compute powers (eta, eta², eta³)
     verifier_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
-    // Get commitments to lookup argument polynomials and fourth wire
-    verifier_instance->witness_commitments.lookup_read_counts =
-        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_counts);
-    verifier_instance->witness_commitments.lookup_read_tags =
-        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
-    verifier_instance->witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
+    if constexpr (BATCH_SIZE > 1) {
+        // Receive W₈: [w_4, ZERO, ZERO, ZERO]
+        interleaved_comms.interleaved_w_4 =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_w_4);
+
+        // Receive W₉: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
+        interleaved_comms.interleaved_lookup =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_lookup);
+    } else {
+        // Get commitments to lookup argument polynomials and fourth wire
+        verifier_instance->witness_commitments.lookup_read_counts =
+            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_counts);
+        verifier_instance->witness_commitments.lookup_read_tags =
+            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
+        verifier_instance->witness_commitments.w_4 =
+            transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
+    }
 }
 
 /**
- * @brief Receive beta/gamma challenges and log-derivative inverse commitments (plus databus inverses for Mega).
+ * @brief Receive beta/gamma challenges and log-derivative inverse commitments.
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitments()
 {
@@ -125,13 +204,19 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitmen
     verifier_instance->relation_parameters.compute_beta_powers(beta);
     verifier_instance->relation_parameters.gamma = gamma;
 
-    verifier_instance->witness_commitments.lookup_inverses =
-        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
+    if constexpr (BATCH_SIZE > 1) {
+        // Receive W₁₀: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
+        interleaved_comms.interleaved_inverses =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_inverses);
+    } else {
+        verifier_instance->witness_commitments.lookup_inverses =
+            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-        for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_inverses(),
-                                                 comm_labels.get_databus_inverses())) {
-            commitment = transcript->template receive_from_prover<Commitment>(label);
+        if constexpr (IsMegaFlavor<Flavor>) {
+            for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_inverses(),
+                                                     comm_labels.get_databus_inverses())) {
+                commitment = transcript->template receive_from_prover<Commitment>(label);
+            }
         }
     }
 }
@@ -149,8 +234,14 @@ template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_rou
                                            verifier_instance->relation_parameters.gamma,
                                            vk->pub_inputs_offset);
 
-    verifier_instance->witness_commitments.z_perm =
-        transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
+    if constexpr (BATCH_SIZE > 1) {
+        // Receive W₁₁: [z_perm, ZERO, ZERO, ZERO]
+        interleaved_comms.interleaved_z_perm =
+            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_z_perm);
+    } else {
+        verifier_instance->witness_commitments.z_perm =
+            transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
+    }
 }
 
 // Native flavor instantiations
@@ -164,6 +255,8 @@ template class OinkVerifier<UltraStarknetZKFlavor>;
 template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;
+template class OinkVerifier<MultiMegaFlavor>;
+template class OinkVerifier<MultiMegaZKFlavor>;
 
 // Recursive flavor instantiations
 template class OinkVerifier<UltraRecursiveFlavor_<UltraCircuitBuilder>>;
@@ -175,5 +268,9 @@ template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

@@ -122,6 +122,12 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
+    // Forward compute_lagrange_basis to native flavor (templated on FF_ so works with stdlib types)
+    template <typename FF_> static auto compute_lagrange_basis(const FF_& u0, const FF_& u1)
+    {
+        return NativeFlavor::compute_lagrange_basis(u0, u1);
+    }
+
     // Forward static group methods to the native flavor (they work on any entity type with matching member names)
     template <typename Entities> static auto get_unshifted_groups(Entities& e)
     {

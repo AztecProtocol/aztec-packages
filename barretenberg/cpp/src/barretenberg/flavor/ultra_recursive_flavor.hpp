@@ -47,6 +47,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = UltraFlavor::USE_PADDING;
+    static constexpr size_t INTERLEAVING_BATCH_SIZE = UltraFlavor::INTERLEAVING_BATCH_SIZE;
+    static constexpr size_t INTERLEAVING_LOG_K = UltraFlavor::INTERLEAVING_LOG_K;
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES;
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = UltraFlavor::NUM_PRECOMPUTED_ENTITIES;

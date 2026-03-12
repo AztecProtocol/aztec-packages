@@ -3,7 +3,7 @@
 #include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/multi_honk_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 using namespace benchmark;
 using namespace bb;
