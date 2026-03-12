@@ -15,9 +15,11 @@ import { Gas } from '@aztec/stdlib/gas';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
 import {
   ReExFailedTxsError,
+  ReExInitialStateMismatchError,
   ReExStateMismatchError,
   ReExTimeoutError,
   TransactionsNotAvailableError,
@@ -30,6 +32,7 @@ import type { ValidatorMetrics } from './metrics.js';
 export type BlockProposalValidationFailureReason =
   | 'invalid_proposal'
   | 'parent_block_not_found'
+  | 'block_source_not_synced'
   | 'parent_block_wrong_slot'
   | 'in_hash_mismatch'
   | 'global_variables_mismatch'
@@ -37,6 +40,7 @@ export type BlockProposalValidationFailureReason =
   | 'txs_not_available'
   | 'state_mismatch'
   | 'failed_txs'
+  | 'initial_state_mismatch'
   | 'timeout'
   | 'unknown_error';
 
@@ -138,7 +142,13 @@ export class BlockProposalHandler {
       return { isValid: false, reason: 'invalid_proposal' };
     }
 
-    const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
+    const proposalInfo = {
+      ...proposal.toBlockInfo(),
+      proposer: proposer.toString(),
+      blockNumber: undefined as BlockNumber | undefined,
+      checkpointNumber: undefined as CheckpointNumber | undefined,
+    };
+
     this.log.info(`Processing proposal for slot ${slotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
@@ -152,7 +162,20 @@ export class BlockProposalHandler {
       return { isValid: false, reason: 'invalid_proposal' };
     }
 
-    // Check that the parent proposal is a block we know, otherwise reexecution would fail
+    // Ensure the block source is synced before checking for existing blocks,
+    // since a pending checkpoint prune may remove blocks we'd otherwise find.
+    // This affects mostly the block_number_already_exists check, since a pending
+    // checkpoint prune could remove a block that would conflict with this proposal.
+    // TODO(@Maddiaa0): This may break staggered slots.
+    const blockSourceSync = await this.waitForBlockSourceSync(slotNumber);
+    if (!blockSourceSync) {
+      this.log.warn(`Block source is not synced, skipping processing`, proposalInfo);
+      return { isValid: false, reason: 'block_source_not_synced' };
+    }
+
+    // Check that the parent proposal is a block we know, otherwise reexecution would fail.
+    // If we don't find it immediately, we keep retrying for a while; it may be we still
+    // need to process other block proposals to get to it.
     const parentBlock = await this.getParentBlock(proposal);
     if (parentBlock === undefined) {
       this.log.warn(`Parent block for proposal not found, skipping processing`, proposalInfo);
@@ -174,6 +197,7 @@ export class BlockProposalHandler {
       parentBlock === 'genesis'
         ? BlockNumber(INITIAL_L2_BLOCK_NUM)
         : BlockNumber(parentBlock.header.getBlockNumber() + 1);
+    proposalInfo.blockNumber = blockNumber;
 
     // Check that this block number does not exist already
     const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
@@ -189,7 +213,7 @@ export class BlockProposalHandler {
       deadline: this.getReexecutionDeadline(slotNumber, config),
     });
 
-    // If reexecution is disabled, bail. We are just interested in triggering tx collection.
+    // If reexecution is disabled, bail. We were just interested in triggering tx collection.
     if (!shouldReexecute) {
       this.log.info(
         `Received valid block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
@@ -204,6 +228,7 @@ export class BlockProposalHandler {
       return { isValid: false, blockNumber, reason: checkpointResult.reason };
     }
     const checkpointNumber = checkpointResult.checkpointNumber;
+    proposalInfo.checkpointNumber = checkpointNumber;
 
     // Check that I have the same set of l1ToL2Messages as the proposal
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
@@ -425,8 +450,46 @@ export class BlockProposalHandler {
     return new Date(nextSlotTimestampSeconds * 1000);
   }
 
-  private getReexecuteFailureReason(err: any) {
-    if (err instanceof ReExStateMismatchError) {
+  /** Waits for the block source to sync L1 data up to at least the slot before the given one. */
+  private async waitForBlockSourceSync(slot: SlotNumber): Promise<boolean> {
+    const deadline = this.getReexecutionDeadline(slot, this.checkpointsBuilder.getConfig());
+    const timeoutMs = deadline.getTime() - this.dateProvider.now();
+    if (slot === 0) {
+      return true;
+    }
+
+    // Make a quick check before triggering an archiver sync
+    const syncedSlot = await this.blockSource.getSyncedL2SlotNumber();
+    if (syncedSlot !== undefined && syncedSlot + 1 >= slot) {
+      return true;
+    }
+
+    try {
+      // Trigger an immediate sync of the block source, and wait until it reports being synced to the required slot
+      return await retryUntil(
+        async () => {
+          await this.blockSource.syncImmediate();
+          const syncedSlot = await this.blockSource.getSyncedL2SlotNumber();
+          return syncedSlot !== undefined && syncedSlot + 1 >= slot;
+        },
+        'wait for block source sync',
+        timeoutMs / 1000,
+        0.5,
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        this.log.warn(`Timed out waiting for block source to sync to slot ${slot}`);
+        return false;
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  private getReexecuteFailureReason(err: any): BlockProposalValidationFailureReason {
+    if (err instanceof ReExInitialStateMismatchError) {
+      return 'initial_state_mismatch';
+    } else if (err instanceof ReExStateMismatchError) {
       return 'state_mismatch';
     } else if (err instanceof ReExFailedTxsError) {
       return 'failed_txs';
@@ -466,6 +529,13 @@ export class BlockProposalHandler {
     const parentBlockNumber = BlockNumber(blockNumber - 1);
     await this.worldState.syncImmediate(parentBlockNumber);
     await using fork = await this.worldState.fork(parentBlockNumber);
+
+    // Verify the fork's archive root matches the proposal's expected last archive.
+    // If they don't match, our world state synced to a different chain and reexecution would fail.
+    const forkArchiveRoot = new Fr((await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+    if (!forkArchiveRoot.equals(proposal.blockHeader.lastArchive.root)) {
+      throw new ReExInitialStateMismatchError(proposal.blockHeader.lastArchive.root, forkArchiveRoot);
+    }
 
     // Build checkpoint constants from proposal (excludes blockNumber which is per-block)
     const constants: CheckpointGlobalVariables = {

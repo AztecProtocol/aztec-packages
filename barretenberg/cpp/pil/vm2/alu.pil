@@ -488,6 +488,13 @@ gt_input_b = sel_op_lt * ia + sel_op_lte * ib + sel_div_no_err * helper1;
 sel_ff_gt { gt_input_a, gt_input_b, gt_result_c }
 in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
+// Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+// - LT: gt_input_a = ib, gt_input_b = ia
+// - LTE: gt_input_a = ia, gt_input_b = ib
+// - DIV: gt_input_a = ib, gt_input_b = helper1
+// For LT/LTE/DIV, `sel_int_gt` is active only for non-FF values.
+// By preconditions of alu.pil (see above), `ia` and `ib` are bounded by 2^128 for non-FF values.
+// helper1 is constrained to be < 2^max_bits <= 2^128 as part of the lookup #[RANGE_CHECK_DIV_REMAINDER].
 #[INT_GT]
 sel_int_gt { gt_input_a, gt_input_b, gt_result_c }
 in gt.sel_alu { gt.input_a, gt.input_b, gt.res };

@@ -108,6 +108,7 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForValidatorSet,
       lagInEpochsForRandao,
       targetCommitteeSize,
+      rollupManaLimit,
     ] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
@@ -117,6 +118,7 @@ export class EpochCache implements EpochCacheInterface {
       rollup.getLagInEpochsForValidatorSet(),
       rollup.getLagInEpochsForRandao(),
       rollup.getTargetCommitteeSize(),
+      rollup.getManaLimit(),
     ] as const);
 
     const l1RollupConstants = {
@@ -129,6 +131,7 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForValidatorSet: Number(lagInEpochsForValidatorSet),
       lagInEpochsForRandao: Number(lagInEpochsForRandao),
       targetCommitteeSize: Number(targetCommitteeSize),
+      rollupManaLimit: Number(rollupManaLimit),
     };
 
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);

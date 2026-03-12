@@ -20,7 +20,7 @@ namespace bb {
 /**
  * @brief Receive witness commitments, compute relation parameters, and prepare for Sumcheck.
  */
-template <typename Flavor> void OinkVerifier<Flavor>::verify()
+template <typename Flavor> void OinkVerifier<Flavor>::verify(bool emit_alpha)
 {
     receive_vk_hash_and_public_inputs();
     if constexpr (Flavor::HasZK) {
@@ -32,7 +32,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
     receive_logderiv_commitments();
     complete_grand_product_round();
 
-    verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
+    if (emit_alpha) {
+        verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
+    }
 }
 
 /**

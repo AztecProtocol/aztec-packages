@@ -317,11 +317,11 @@ endfunction()
 
 function(barretenberg_module MODULE_NAME)
     # Auto-discover all source files
-    file(GLOB_RECURSE SOURCE_FILES *.cpp)
-    file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
-    file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
-    file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
-    file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
+    file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS *.cpp)
+    file(GLOB_RECURSE HEADER_FILES CONFIGURE_DEPENDS *.hpp *.tcc)
+    file(GLOB_RECURSE TEST_SOURCE_FILES CONFIGURE_DEPENDS *.test.cpp)
+    file(GLOB_RECURSE BENCH_SOURCE_FILES CONFIGURE_DEPENDS *.bench.cpp)
+    file(GLOB_RECURSE FUZZERS_SOURCE_FILES CONFIGURE_DEPENDS *.fuzzer.cpp)
     list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
 
     barretenberg_module_with_sources(

@@ -52,29 +52,29 @@ export class ArchiverDataStoreUpdater {
   ) {}
 
   /**
-   * Adds proposed blocks to the store with contract class/instance extraction from logs.
-   * These are uncheckpointed blocks that have been proposed by the sequencer but not yet included in a checkpoint on L1.
+   * Adds a proposed block to the store with contract class/instance extraction from logs.
+   * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events,
    * and individually broadcasted functions from the block logs.
    *
-   * @param blocks - The proposed L2 blocks to add.
+   * @param block - The proposed L2 block to add.
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
    */
-  public async addProposedBlocks(
-    blocks: L2Block[],
+  public async addProposedBlock(
+    block: L2Block,
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     const result = await this.store.transactionAsync(async () => {
-      await this.store.addProposedBlocks(blocks);
+      await this.store.addProposedBlock(block);
 
       const opResults = await Promise.all([
         // Update the pending chain validation status if provided
         pendingChainValidationStatus && this.store.setPendingChainValidationStatus(pendingChainValidationStatus),
-        // Add any logs emitted during the retrieved blocks
-        this.store.addLogs(blocks),
-        // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-        ...blocks.map(block => this.addContractDataToDb(block)),
+        // Add any logs emitted during the retrieved block
+        this.store.addLogs([block]),
+        // Unroll all logs emitted during the retrieved block and extract any contract classes and instances from it
+        this.addContractDataToDb(block),
       ]);
 
       await this.l2TipsCache?.refresh();
@@ -108,7 +108,7 @@ export class ArchiverDataStoreUpdater {
 
       await this.store.addCheckpoints(checkpoints);
 
-      // Filter out blocks that were already inserted via addProposedBlocks() to avoid duplicating logs/contract data
+      // Filter out blocks that were already inserted via addProposedBlock() to avoid duplicating logs/contract data
       const newBlocks = checkpoints
         .flatMap((ch: PublishedCheckpoint) => ch.checkpoint.blocks)
         .filter(b => lastAlreadyInsertedBlockNumber === undefined || b.number > lastAlreadyInsertedBlockNumber);
@@ -178,7 +178,7 @@ export class ArchiverDataStoreUpdater {
           this.log.verbose(`Block number ${blockNumber} already inserted and matches checkpoint`, blockInfos);
           lastAlreadyInsertedBlockNumber = blockNumber;
         } else {
-          this.log.warn(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
+          this.log.info(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
           const prunedBlocks = await this.removeBlocksAfter(BlockNumber(blockNumber - 1));
           return { prunedBlocks, lastAlreadyInsertedBlockNumber };
         }
@@ -277,6 +277,17 @@ export class ArchiverDataStoreUpdater {
   public async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.store.transactionAsync(async () => {
       await this.store.setProvenCheckpointNumber(checkpointNumber);
+      await this.l2TipsCache?.refresh();
+    });
+  }
+
+  /**
+   * Updates the finalized checkpoint number and refreshes the L2 tips cache.
+   * @param checkpointNumber - The checkpoint number to set as finalized.
+   */
+  public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      await this.store.setFinalizedCheckpointNumber(checkpointNumber);
       await this.l2TipsCache?.refresh();
     });
   }
