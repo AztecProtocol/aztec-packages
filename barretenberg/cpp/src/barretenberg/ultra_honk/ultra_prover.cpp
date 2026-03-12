@@ -38,7 +38,7 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
     Result result{ std::make_unique<typename Flavor::ProverPolynomials>(std::move(polynomials)),
                    {},
                    {},
-                   PolynomialBatcher(pcs_size, BATCH_SIZE) };
+                   PolynomialBatcher(pcs_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE) };
 
     if constexpr (BATCH_SIZE > 1) {
         auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);

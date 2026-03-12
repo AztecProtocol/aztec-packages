@@ -317,7 +317,6 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
-        manifest_expected.add_challenge(round, "KZG:masking_challenge");
 
         return manifest_expected;
     }

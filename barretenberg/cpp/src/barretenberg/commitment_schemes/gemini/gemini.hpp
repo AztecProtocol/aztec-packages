@@ -137,11 +137,10 @@ template <typename Curve> class GeminiProver_ {
 
         PolynomialBatcher(const size_t full_batched_size, const size_t actual_data_size = 0, size_t shift_exponent = 1)
             : full_batched_size(full_batched_size)
-            , shift_exponent(shift_exponent)
             , actual_data_size_(actual_data_size == 0 ? full_batched_size : actual_data_size)
+            , shift_exponent(shift_exponent)
             , batched_unshifted(actual_data_size_, full_batched_size)
-            , batched_to_be_shifted(
-                  Polynomial::shiftable(actual_data_size_, full_batched_size, full_batched_size, shift_exponent))
+            , batched_to_be_shifted(Polynomial::shiftable(actual_data_size_, full_batched_size, shift_exponent))
         {}
 
         bool has_unshifted() const { return unshifted.size() > 0; }
