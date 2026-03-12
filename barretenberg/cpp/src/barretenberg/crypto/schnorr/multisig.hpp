@@ -59,7 +59,7 @@ template <typename G1, typename HashRegNon, typename HashSig = Blake2sHasher> cl
         SchnorrProofOfPossession<G1, HashRegNon> proof_of_possession;
 
         // For serialization, update with any new fields
-        MSGPACK_FIELDS(public_key, proof_of_possession);
+        SERIALIZATION_FIELDS(public_key, proof_of_possession);
         // restore default constructor to enable deserialization
         MultiSigPublicKey() = default;
         // create a MultiSigPublicKey with a proof of possession associated with public_key of account
@@ -67,7 +67,7 @@ template <typename G1, typename HashRegNon, typename HashSig = Blake2sHasher> cl
             : public_key(account.public_key)
             , proof_of_possession(account)
         {}
-        // Needed to appease MSGPACK_FIELDS
+        // Needed to appease SERIALIZATION_FIELDS
         MultiSigPublicKey(const affine_element& public_key,
                           const SchnorrProofOfPossession<G1, HashRegNon>& proof_of_possession)
             : public_key(public_key)
@@ -82,7 +82,7 @@ template <typename G1, typename HashRegNon, typename HashSig = Blake2sHasher> cl
         Fr r;
         Fr s;
         // For serialization, update with any new fields
-        MSGPACK_FIELDS(r, s);
+        SERIALIZATION_FIELDS(r, s);
     };
 
     struct RoundOnePublicOutput {
@@ -96,7 +96,7 @@ template <typename G1, typename HashRegNon, typename HashSig = Blake2sHasher> cl
         // S = s⋅G
         affine_element S;
         // For serialization, update with any new fields
-        MSGPACK_FIELDS(R, S);
+        SERIALIZATION_FIELDS(R, S);
         // for std::sort
         bool operator<(const RoundOnePublicOutput& other) const
         {
