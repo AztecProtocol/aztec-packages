@@ -450,7 +450,8 @@ describe('TxCollection', () => {
       setReqRespTxs([txs[1]]);
 
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
-      expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline);
+      // Allow 5ms tolerance: setTimeout in RequestTracker can fire slightly before dateProvider.now() catches up
+      expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
       expectReqRespToHaveBeenCalledWith([txHashes[1], txHashes[2]]);
@@ -544,6 +545,31 @@ describe('TxCollection', () => {
         reqRespPromise.resolve([]);
       });
 
+      // Step 18: skips reqresp when all txs found during initial wait
+      it('skips reqresp when all txs are found during initial node wait', async () => {
+        config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        setNodeTxs(nodes[0], txs);
+        const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(collected).toEqual(txs);
+      });
+
+      // Step 18: skips reqresp when deadline expires during initial wait
+      it('skips reqresp when deadline expires during initial node wait', async () => {
+        deadline = new Date(dateProvider.now() + 200);
+        config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
+        expect(collected).toEqual([]);
+      });
+
       // Step 2: cancellationToken in initial wait race (L124)
       it('exits initial wait when tracker is cancelled before reqresp starts', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
@@ -566,7 +592,8 @@ describe('TxCollection', () => {
         request.requestTracker.cancel();
         await collectionPromise;
 
-        // Should have exited well before deadline
+        // Should have exited without ever starting reqresp
+        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
         expect(dateProvider.now()).toBeLessThan(+deadline);
       });
 
@@ -657,6 +684,25 @@ describe('TxCollection', () => {
         const collected = await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
         expect(collected).toEqual([]);
+
+        reqRespPromise.resolve([]);
+      });
+
+      // Step 17: request is cleaned up by finally block (not by stopCollectingForBlocks)
+      it('request is cleaned up by finally block after stopCollectingForBlocksUpTo', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        const reqRespPromise = promiseWithResolvers<TxArray[]>();
+        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(100);
+        expect(txCollection.fastCollection.requests.size).toBe(1);
+
+        txCollection.stopCollectingForBlocksUpTo(block.number);
+        await collectionPromise;
+
+        expect(txCollection.fastCollection.requests.size).toBe(0);
 
         reqRespPromise.resolve([]);
       });
