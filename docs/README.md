@@ -37,7 +37,7 @@ Aztec Docs use **multi-instance versioning** with separate version tracks for de
 
 Each versioned docs folder is a complete copy of the documentation at that point in time, which allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `nightly` and `devnet`, while network docs show versions like `testnet` and `ignition`.
+When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `testnet`, `devnet`, and `nightly`, while network docs show versions like `testnet` and `ignition`.
 
 - Updating files in `docs-developers/` updates the "next" developer version
 - Updating files in `docs-network/` updates the "next" network version
@@ -93,6 +93,7 @@ Each docs instance has its own version file and lookup logic:
 ```javascript
 const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
 const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
+const developerTestnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
 ```
 
 **Network docs** (from `network_versions.json`):
@@ -107,7 +108,7 @@ This ensures that:
 - When nightly versions are removed by the cleanup script, the build doesn't break
 - Version configurations are conditionally included only if they exist
 - Array index shifts don't cause mismatched version configurations
-- The llms.txt plugin always points to the correct version (devnet)
+- The llms.txt plugin always points to the correct version (testnet)
 
 **Why this matters:** The [nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs `cleanup_nightly_versions.sh` before creating new versioned docs. Without dynamic lookup, removing versions would cause array indices to point to wrong versions, breaking the build.
 

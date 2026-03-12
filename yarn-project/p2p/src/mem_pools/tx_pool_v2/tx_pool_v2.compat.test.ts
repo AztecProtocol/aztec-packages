@@ -98,7 +98,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
   });
 
   const mockFixedSizeTx = async (maxPriorityFeesPerGas?: GasFees) => {
-    const tx = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas });
+    const tx = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas, maxFeesPerGas: maxPriorityFeesPerGas });
     jest.spyOn(tx, 'getSize').mockReturnValue(mockFixedTxSize);
     return tx;
   };
@@ -273,7 +273,9 @@ describe('TxPoolV2 Compatibility Tests', () => {
 
     it('returns pending tx hashes sorted by priority', async () => {
       const withPriorityFee = (tx: Tx, fee: number) => {
-        unfreeze(tx.data.constants.txContext.gasSettings).maxPriorityFeesPerGas = new GasFees(fee, fee);
+        const gs = unfreeze(tx.data.constants.txContext.gasSettings);
+        gs.maxPriorityFeesPerGas = new GasFees(fee, fee);
+        gs.maxFeesPerGas = new GasFees(fee, fee);
         return tx;
       };
 
@@ -687,6 +689,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     const mockPublicTx = (seed: number, fee: number) =>
       mockTx(seed, {
         maxPriorityFeesPerGas: new GasFees(fee, fee),
+        maxFeesPerGas: new GasFees(fee, fee),
         numberOfNonRevertiblePublicCallRequests: 1,
       });
 

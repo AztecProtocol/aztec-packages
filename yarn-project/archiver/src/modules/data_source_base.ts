@@ -46,9 +46,9 @@ export abstract class ArchiverDataSourceBase
 
   abstract getL2Tips(): Promise<L2Tips>;
 
-  abstract getL2SlotNumber(): Promise<SlotNumber | undefined>;
+  abstract getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 
-  abstract getL2EpochNumber(): Promise<EpochNumber | undefined>;
+  abstract getSyncedL2EpochNumber(): Promise<EpochNumber | undefined>;
 
   abstract isEpochComplete(epochNumber: EpochNumber): Promise<boolean>;
 
@@ -165,16 +165,21 @@ export abstract class ArchiverDataSourceBase
     return (await this.store.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
-  public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
-    return this.store.getPrivateLogsByTags(tags, page);
+  public getPrivateLogsByTags(
+    tags: SiloedTag[],
+    page?: number,
+    upToBlockNumber?: BlockNumber,
+  ): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags, page, upToBlockNumber);
   }
 
   public getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]> {
-    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, page);
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
   }
 
   public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {

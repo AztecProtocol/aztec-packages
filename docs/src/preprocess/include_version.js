@@ -83,7 +83,7 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   // COMMIT_TAG: kept for backwards compatibility with #include_aztec_version
   const nightlyTag =
     process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || "0.0.0-nightly.0";
-  const testnetTag = process.env.TESTNET_TAG || "2.1.11";
+  const testnetTag = process.env.TESTNET_TAG || "4.1.0-rc.2";
   const devnetTag = process.env.DEVNET_TAG || "4.0.0-devnet.2-patch.1";
   const mainnetTag = process.env.MAINNET_TAG || "2.1.11";
   const releaseType = process.env.RELEASE_TYPE || "nightly";
@@ -110,6 +110,7 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   // New macro for API ref paths
   const apiRefVersion = releaseType === "nightly" ? "nightly"
                       : releaseType === "devnet" ? "devnet"
+                      : releaseType === "testnet" ? "testnet"
                       : "next";
 
   // Step 1: Process conditional blocks FIRST (before version substitution)

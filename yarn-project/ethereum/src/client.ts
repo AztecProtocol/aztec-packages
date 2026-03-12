@@ -25,9 +25,16 @@ type Config = {
   l1ChainId: number;
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS?: number;
+  /** Timeout for HTTP requests to the L1 RPC node in ms. */
+  l1HttpTimeoutMS?: number;
 };
 
 export type { Config as EthereumClientConfig };
+
+/** Creates a viem fallback HTTP transport for the given L1 RPC URLs. */
+export function makeL1HttpTransport(rpcUrls: string[], opts?: { timeout?: number }) {
+  return fallback(rpcUrls.map(url => http(url, { batch: false, timeout: opts?.timeout })));
+}
 
 // TODO: Use these methods to abstract the creation of viem clients.
 
@@ -36,7 +43,7 @@ export function getPublicClient(config: Config): ViemPublicClient {
   const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
   return createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
+    transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
     pollingInterval: config.viemPollingIntervalMS,
   });
 }
@@ -77,6 +84,7 @@ export function createExtendedL1Client(
   chain: Chain = foundry,
   pollingIntervalMS?: number,
   addressIndex?: number,
+  opts?: { httpTimeoutMS?: number },
 ): ExtendedViemWalletClient {
   const hdAccount =
     typeof mnemonicOrPrivateKeyOrHdAccount === 'string'
@@ -88,7 +96,7 @@ export function createExtendedL1Client(
   const extendedClient = createWalletClient({
     account: hdAccount,
     chain,
-    transport: fallback(rpcUrls.map(url => http(url, { batch: false }))),
+    transport: makeL1HttpTransport(rpcUrls, { timeout: opts?.httpTimeoutMS }),
     pollingInterval: pollingIntervalMS,
   }).extend(publicActions);
 

@@ -178,23 +178,31 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const blockEndOverhead = getNumBlockEndBlobFields(isFirstBlock);
     const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
 
-    // Cap L2 gas by remaining checkpoint mana
-    const cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? remainingMana, remainingMana);
+    // When redistributeCheckpointBudget is enabled (default), compute a fair share of remaining budget
+    // across remaining blocks scaled by the multiplier, instead of letting one block consume it all.
+    const redistribute = this.config.redistributeCheckpointBudget !== false;
+    const remainingBlocks = Math.max(1, (this.config.maxBlocksPerCheckpoint ?? 1) - existingBlocks.length);
+    const multiplier = this.config.perBlockAllocationMultiplier ?? 1.2;
 
-    // Cap DA gas by remaining checkpoint DA gas budget
-    const cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? remainingDAGas, remainingDAGas);
+    // Cap L2 gas by remaining checkpoint mana (with fair share when redistributing)
+    const fairShareL2 = redistribute ? Math.ceil((remainingMana / remainingBlocks) * multiplier) : Infinity;
+    const cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? Infinity, fairShareL2, remainingMana);
 
-    // Cap blob fields by remaining checkpoint blob capacity
-    const cappedBlobFields =
-      opts.maxBlobFields !== undefined ? Math.min(opts.maxBlobFields, maxBlobFieldsForTxs) : maxBlobFieldsForTxs;
+    // Cap DA gas by remaining checkpoint DA gas budget (with fair share when redistributing)
+    const fairShareDA = redistribute ? Math.ceil((remainingDAGas / remainingBlocks) * multiplier) : Infinity;
+    const cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? remainingDAGas, fairShareDA, remainingDAGas);
 
-    // Cap transaction count by remaining checkpoint tx budget
+    // Cap blob fields by remaining checkpoint blob capacity (with fair share when redistributing)
+    const fairShareBlobs = redistribute ? Math.ceil((maxBlobFieldsForTxs / remainingBlocks) * multiplier) : Infinity;
+    const cappedBlobFields = Math.min(opts.maxBlobFields ?? Infinity, fairShareBlobs, maxBlobFieldsForTxs);
+
+    // Cap transaction count by remaining checkpoint tx budget (with fair share when redistributing)
     let cappedMaxTransactions: number | undefined;
     if (this.config.maxTxsPerCheckpoint !== undefined) {
       const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
       const remainingTxs = Math.max(0, this.config.maxTxsPerCheckpoint - usedTxs);
-      cappedMaxTransactions =
-        opts.maxTransactions !== undefined ? Math.min(opts.maxTransactions, remainingTxs) : remainingTxs;
+      const fairShareTxs = redistribute ? Math.ceil((remainingTxs / remainingBlocks) * multiplier) : Infinity;
+      cappedMaxTransactions = Math.min(opts.maxTransactions ?? Infinity, fairShareTxs, remainingTxs);
     } else {
       cappedMaxTransactions = opts.maxTransactions;
     }

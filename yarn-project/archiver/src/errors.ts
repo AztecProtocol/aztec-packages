@@ -6,24 +6,9 @@ export class NoBlobBodiesFoundError extends Error {
   }
 }
 
-export class InitialBlockNumberNotSequentialError extends Error {
-  constructor(
-    public readonly newBlockNumber: number,
-    public readonly previousBlockNumber: number | undefined,
-  ) {
-    super(
-      `Cannot insert new block ${newBlockNumber} given previous block number in store is ${
-        previousBlockNumber ?? 'undefined'
-      }`,
-    );
-  }
-}
-
 export class BlockNumberNotSequentialError extends Error {
   constructor(newBlockNumber: number, previous: number | undefined) {
-    super(
-      `Cannot insert new block ${newBlockNumber} given previous block number in batch is ${previous ?? 'undefined'}`,
-    );
+    super(`Cannot insert new block ${newBlockNumber} given previous block number is ${previous ?? 'undefined'}`);
   }
 }
 
@@ -44,14 +29,6 @@ export class CheckpointNumberNotSequentialError extends Error {
   constructor(newCheckpointNumber: number, previous: number | undefined) {
     super(
       `Cannot insert new checkpoint ${newCheckpointNumber} given previous checkpoint number in batch is ${previous ?? 'undefined'}`,
-    );
-  }
-}
-
-export class CheckpointNumberNotConsistentError extends Error {
-  constructor(newCheckpointNumber: number, previous: number | undefined) {
-    super(
-      `Cannot insert block for new checkpoint ${newCheckpointNumber} given previous block was checkpoint ${previous ?? 'undefined'}`,
     );
   }
 }
@@ -89,6 +66,31 @@ export class BlockNotFoundError extends Error {
   }
 }
 
+/** Thrown when a proposed block matches a block that was already checkpointed. This is expected for late proposals. */
+export class BlockAlreadyCheckpointedError extends Error {
+  constructor(public readonly blockNumber: number) {
+    super(`Block ${blockNumber} has already been checkpointed with the same content`);
+    this.name = 'BlockAlreadyCheckpointedError';
+  }
+}
+
+/** Thrown when logs are added for a tag whose last stored log has a higher block number than the new log. */
+export class OutOfOrderLogInsertionError extends Error {
+  constructor(
+    public readonly logType: 'private' | 'public',
+    public readonly tag: string,
+    public readonly lastBlockNumber: number,
+    public readonly newBlockNumber: number,
+  ) {
+    super(
+      `Out-of-order ${logType} log insertion for tag ${tag}: ` +
+        `last existing log is from block ${lastBlockNumber} but new log is from block ${newBlockNumber}`,
+    );
+    this.name = 'OutOfOrderLogInsertionError';
+  }
+}
+
+/** Thrown when a proposed block conflicts with an already checkpointed block (different content). */
 export class CannotOverwriteCheckpointedBlockError extends Error {
   constructor(
     public readonly blockNumber: number,
