@@ -29,7 +29,9 @@ describe('e2e_offchain_payment', () => {
   jest.setTimeout(TIMEOUT);
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2));
+    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2, {
+      anvilSlotsInAnEpoch: 32,
+    }));
   });
 
   afterAll(() => teardown());
