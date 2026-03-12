@@ -93,7 +93,7 @@ namespace contract_instance_retrieval;
     // ==== Inputs and Outputs ====
 
     pol commit address; // Contract address.
-    pol commit exists; // @boolean — the contract instance exists (its address nullifier exists).
+    pol commit exists; // @boolean — the contract instance exists (its address nullifier exists, or for protocol contracts, its derived address in PI is nonzero).
     exists * (1 - exists) = 0;
 
     // Address instance members.
@@ -173,9 +173,9 @@ namespace contract_instance_retrieval;
         public_inputs.cols[0]
     };
 
-    // Inverse of derived_address, used in the zero-check below. Only constrained when is_protocol_contract=1;
-    // free otherwise — should be secure because it is only used in the zero-check which is also gated by is_protocol_contract.
-    pol commit protocol_contract_derived_address_inv;
+    // Only constrained when is_protocol_contract=1; free otherwise — should be secure because
+    // it is only used in the zero-check which is also gated by is_protocol_contract.
+    pol commit protocol_contract_derived_address_inv; // @zero-check
     pol NOT_EXISTS = 1 - exists;
 
     // Zero-check with error support: exists iff derived_address != 0.
