@@ -16,72 +16,8 @@ use crate::macros::{
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `sync_state` utility function.
 ///
-/// This type lets users override different parts of the default aztec-nr contract behavior, such
-/// as message handling. These are advanced features that require careful understanding of
-/// the behavior of these systems.
-///
-/// ## Examples
-///
-/// ```noir
-/// #[aztec(aztec::macros::AztecConfig::new().custom_message_handler(my_handler))]
-/// contract MyContract { ... }
-/// ```
-pub struct AztecConfig {
-    custom_message_handler: Option<CustomMessageHandler<()>>,
-}
-
-impl AztecConfig {
-    /// Creates a new `AztecConfig` with default values.
-    ///
-    /// Calling `new` is equivalent to invoking the [`aztec`] macro with no parameters. The different methods
-    /// (e.g. [`AztecConfig::custom_message_handler`]) can then be used to change the default behavior.
-    pub comptime fn new() -> Self {
-        Self { custom_message_handler: Option::none() }
-    }
-
-    /// Sets a handler for custom messages.
-    ///
-    /// This enables contracts to process non-standard messages (i.e. any with a message type that is not in
-    /// [`crate::messages::msg_type`]).
-    ///
-    /// `handler` must be a function that conforms to the
-    /// [`crate::messages::discovery::CustomMessageHandler`] type signature.
-    pub comptime fn custom_message_handler(_self: Self, handler: CustomMessageHandler<()>) -> Self {
-        Self { custom_message_handler: Option::some(handler) }
-    }
-}
-
-/// Enables aztec-nr features on a `contract`.
-///
-/// All aztec-nr contracts should have this macro invoked on them, as it is the one that processes all contract
-/// functions, notes, storage, generates interfaces for external calls, and creates the message processing
-/// boilerplate.
-///
-/// ## Examples
-///
-/// Most contracts can simply invoke the macro with no parameters, resulting in default aztec-nr behavior:
-/// ```noir
-/// #[aztec]
-/// contract MyContract { ... }
-/// ```
-///
-/// Advanced contracts can use [`AztecConfig`] to customize parts of its behavior, such as message
-/// processing.
-/// ```noir
-/// #[aztec(aztec::macros::AztecConfig::new().custom_message_handler(my_handler))]
-/// contract MyAdvancedContract { ... }
-/// ```
-#[varargs]
-pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
-    let num_args = args.len();
-    let config = if num_args == 0 {
-        AztecConfig::new()
-    } else if num_args == 1 {
-        args[0]
-    } else {
-        panic(f"#[aztec] expects 0 or 1 arguments, got {num_args}")
-    };
-
+/// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
+pub comptime fn aztec(m: Module) -> Quoted {
     // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
     check_each_fn_macroified(m);
 
@@ -106,19 +42,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     } else {
         quote {}
     };
-    let process_custom_message_option = if config.custom_message_handler.is_some() {
-        let handler = config.custom_message_handler.unwrap();
-        quote { Option::some($handler) }
-    } else {
-        quote { Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none() }
-    };
-
-    let offchain_inbox_sync_option = quote {
-        Option::some(aztec::messages::processing::offchain::sync_inbox)
-    };
-
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
-        generate_sync_state(process_custom_message_option, offchain_inbox_sync_option)
+        generate_sync_state()
     } else {
         quote {}
     };
@@ -347,7 +272,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 }
 
 /// Generates the `sync_state` utility function that performs message discovery.
-comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_inbox_sync_option: Quoted) -> Quoted {
+comptime fn generate_sync_state() -> Quoted {
     quote {
         pub struct sync_state_parameters {}
 
@@ -362,8 +287,7 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_
             aztec::messages::discovery::do_sync_state(
                 address,
                 _compute_note_hash_and_nullifier,
-                $process_custom_message_option,
-                $offchain_inbox_sync_option,
+                Option::some(aztec::messages::processing::offchain::sync_inbox),
             );
         }
     }

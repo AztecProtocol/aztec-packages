@@ -79,7 +79,6 @@ randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 pub unconstrained fn do_sync_state<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
     debug_log("Performing state synchronization");
@@ -111,7 +110,6 @@ pub unconstrained fn do_sync_state<Env>(
             process_message_ciphertext(
                 contract_address,
                 compute_note_hash_and_nullifier,
-                process_custom_message,
                 msg.message_ciphertext,
                 msg.message_context,
             );
