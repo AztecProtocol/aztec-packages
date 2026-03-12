@@ -116,7 +116,21 @@ export class Oracle {
       utilityGetSharedSecret: this.aztec_utl_getSharedSecret.bind(this),
       utilityFetchTaggedLogs: this.aztec_utl_fetchTaggedLogs.bind(this),
       utilityBulkRetrieveLogs: this.aztec_utl_bulkRetrieveLogs.bind(this),
-      utilityValidateAndStoreEnqueuedNotesAndEvents: this.aztec_utl_validateAndStoreEnqueuedNotesAndEvents.bind(this),
+      // #21176 added maxNotePackedLen and maxEventSerializedLen params.
+      // Pinned protocol contract bytecode calls with old 3-param signature.
+      // Values derived from: MAX_MESSAGE_CONTENT_LEN(11) - RESERVED_FIELDS (3 for notes, 1 for events).
+      utilityValidateAndStoreEnqueuedNotesAndEvents: (
+        contractAddress: ACVMField[],
+        noteValidationRequestsArrayBaseSlot: ACVMField[],
+        eventValidationRequestsArrayBaseSlot: ACVMField[],
+      ) =>
+        this.aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
+          contractAddress,
+          noteValidationRequestsArrayBaseSlot,
+          eventValidationRequestsArrayBaseSlot,
+          [new Fr(8).toString()],
+          [new Fr(10).toString()],
+        ),
       utilityGetL1ToL2MembershipWitness: this.aztec_utl_getL1ToL2MembershipWitness.bind(this),
       utilityCheckNullifierExists: this.aztec_utl_checkNullifierExists.bind(this),
       utilityGetRandomField: this.aztec_utl_getRandomField.bind(this),
