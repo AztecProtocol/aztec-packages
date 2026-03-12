@@ -254,6 +254,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
+  it('getCheckpointsDataForEpoch', async () => {
+    const response = await context.client.getCheckpointsDataForEpoch(EpochNumber(1));
+    expect(response).toEqual([]);
+  });
+
   it('getNodeVersion', async () => {
     const response = await context.client.getNodeVersion();
     expect(response).toBe('1.0.0');
