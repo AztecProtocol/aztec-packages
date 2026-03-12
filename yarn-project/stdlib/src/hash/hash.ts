@@ -59,7 +59,7 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promi
 }
 
 /**
- * Computes the private initialization nullifier for a contract, given its address and initialization hash.
+ * Computes the siloed private initialization nullifier for a contract, given its address and initialization hash.
  * @param contract - The contract address.
  * @param initializationHash - The contract's initialization hash.
  * @returns The siloed private initialization nullifier.
