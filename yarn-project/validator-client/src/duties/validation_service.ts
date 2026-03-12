@@ -177,7 +177,7 @@ export class ValidationService {
       } else {
         const error = result.reason;
         if (error instanceof DutyAlreadySignedError || error instanceof SlashingProtectionError) {
-          this.log.info(
+          this.log.verbose(
             `Attestation for slot ${proposal.slotNumber} by ${attestors[i]} already signed by another High-Availability node`,
           );
           // Continue with remaining attestors

@@ -405,7 +405,7 @@ export class ServerWorldStateSynchronizer
   }
 
   private async handleChainPruned(blockNumber: BlockNumber) {
-    this.log.warn(`Chain pruned to block ${blockNumber}`);
+    this.log.info(`Chain pruned to block ${blockNumber}`);
     const status = await this.merkleTreeDb.unwindBlocks(blockNumber);
     this.provenBlockNumber = undefined;
     this.instrumentation.updateWorldStateMetrics(status);

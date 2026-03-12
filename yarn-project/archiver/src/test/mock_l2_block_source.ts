@@ -447,11 +447,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     };
   }
 
-  getL2EpochNumber(): Promise<EpochNumber> {
+  getSyncedL2EpochNumber(): Promise<EpochNumber> {
     throw new Error('Method not implemented.');
   }
 
-  getL2SlotNumber(): Promise<SlotNumber> {
+  getSyncedL2SlotNumber(): Promise<SlotNumber> {
     throw new Error('Method not implemented.');
   }
 
