@@ -220,6 +220,13 @@ export class LightweightCheckpointBuilder {
     timings.updateArchive = msUpdateArchive;
     this.lastArchives.push(newArchive);
 
+    const expectedNextLeafIndex = Number(globalVariables.blockNumber) + 1;
+    if (newArchive.nextAvailableLeafIndex !== expectedNextLeafIndex) {
+      throw new Error(
+        `Archive tree next leaf index mismatch after building block ${globalVariables.blockNumber} (expected ${expectedNextLeafIndex} but got ${newArchive.nextAvailableLeafIndex})`,
+      );
+    }
+
     const indexWithinCheckpoint = IndexWithinCheckpoint(this.blocks.length);
     const block = new L2Block(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);
     this.blocks.push(block);
