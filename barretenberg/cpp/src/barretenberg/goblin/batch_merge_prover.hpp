@@ -79,7 +79,8 @@ template <size_t BATCH_SIZE> class BatchMergeProver {
 
     Batch compute_degree_check_polynomial(const std::vector<PolynomialBatch>& subtable_columns,
                                           const std::vector<FF>& degree_check_challenges,
-                                          const size_t max_size);
+                                          const size_t max_size,
+                                          const size_t challenge_offset);
 };
 
 } // namespace bb

@@ -35,11 +35,13 @@ using NativeG1 = curve::BN254::AffineElement;
 /**
  * @brief Populate the current (already-initialized) subtable in op_queue with a few ECC ops.
  */
-void populate_subtable(const std::shared_ptr<ECCOpQueue>& op_queue)
+void populate_subtable(const std::shared_ptr<ECCOpQueue>& op_queue, size_t num_ops)
 {
-    op_queue->add_accumulate(NativeG1::random_element());
-    op_queue->mul_accumulate(NativeG1::random_element(), bb::fr::random_element());
-    op_queue->eq_and_reset();
+    for (size_t i = 0; i < num_ops; ++i) {
+        op_queue->add_accumulate(NativeG1::random_element());
+        op_queue->mul_accumulate(NativeG1::random_element(), bb::fr::random_element());
+        op_queue->eq_and_reset();
+    }
 }
 
 /**
@@ -52,7 +54,7 @@ std::shared_ptr<ECCOpQueue> make_op_queue_with_n_subtables(size_t N)
         if (i > 0) {
             op_queue->initialize_new_subtable();
         }
-        populate_subtable(op_queue);
+        populate_subtable(op_queue, 1 + (i * 2));
         op_queue->merge(MergeSettings::PREPEND);
     }
     return op_queue;
@@ -223,14 +225,29 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     {
         static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
 
-        // Column commitments start at index 1 (N) + M (shift_sizes).
+        // The verifier's calculated_hash loop processes subtable_cols[M*NC-1] down to [0], using
+        // hash_inputs.insert(begin, col_serialized) followed by hash_inputs = {calculated_hash}.
+        // This means:
+        //   - iteration 0: hash_inputs = [col_fields]                 (no previous hash)
+        //   - iteration k: hash_inputs = [col_fields, prev_hash]
+        //
+        // Real subtables occupy slots M-N..M-1, so their columns are at proof positions
+        // (M*NC-1) down to (M-N)*NC in the column area (0-indexed from start of column area).
+        // The first N*NC iterations of the verifier process exactly these real entries.
+        //
+        // We replicate those N*NC iterations here to produce the intermediate hash that the
+        // extension loop expects as its starting point (the external `hash` argument).
         std::vector<bb::fr> hash_inputs;
         bb::fr hash_val(0);
         for (size_t i = 0; i < N * NUM_COLUMNS; i++) {
-            const size_t base = 1 + M + i * NUM_FRS_COMM;
+            // Proof column area starts at 1+M. Verifier processes flat index M*NC-1-i first.
+            const size_t base = 1 + M + (M * NUM_COLUMNS - 1 - i) * NUM_FRS_COMM;
+            std::vector<bb::fr> col_serialized;
             for (size_t j = 0; j < NUM_FRS_COMM; j++) {
-                hash_inputs.push_back(proof[base + j]);
+                col_serialized.push_back(proof[base + j]);
             }
+            // Prepend col fields before the running hash, matching verifier's insert(begin, ...).
+            hash_inputs.insert(hash_inputs.begin(), col_serialized.begin(), col_serialized.end());
             hash_val = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
             hash_inputs = { hash_val };
         }
@@ -449,13 +466,17 @@ template <typename TestParams> class BatchMergeManifestTests : public testing::T
         static constexpr size_t NUM_FRS_COMM =
             NativeTranscript::Codec::template calc_num_fields<curve::BN254::AffineElement>();
         const size_t N = op_queue->get_num_subtables();
+        // Replicate the verifier's calculated_hash loop for the N*NC real subtable entries
+        // (same logic as BatchMergeTests::compute_running_hash).
         std::vector<bb::fr> hash_inputs;
         bb::fr hash_val(0);
         for (size_t i = 0; i < N * NUM_COLUMNS; i++) {
-            const size_t base = 1 + MAX_SUBTABLES + i * NUM_FRS_COMM;
+            const size_t base = 1 + MAX_SUBTABLES + (MAX_SUBTABLES * NUM_COLUMNS - 1 - i) * NUM_FRS_COMM;
+            std::vector<bb::fr> col_serialized;
             for (size_t j = 0; j < NUM_FRS_COMM; j++) {
-                hash_inputs.push_back(proof[base + j]);
+                col_serialized.push_back(proof[base + j]);
             }
+            hash_inputs.insert(hash_inputs.begin(), col_serialized.begin(), col_serialized.end());
             hash_val = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
             hash_inputs = { hash_val };
         }

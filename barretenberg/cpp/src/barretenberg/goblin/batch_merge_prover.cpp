@@ -41,7 +41,8 @@ template <size_t BATCH_SIZE>
 typename BatchMergeProver<BATCH_SIZE>::Batch BatchMergeProver<BATCH_SIZE>::compute_degree_check_polynomial(
     const std::vector<PolynomialBatch>& subtable_columns,
     const std::vector<FF>& degree_check_challenges,
-    const size_t max_size)
+    const size_t max_size,
+    const size_t challenge_offset)
 {
     // Zero initialization
     Batch reversed_batched_columns;
@@ -56,7 +57,7 @@ typename BatchMergeProver<BATCH_SIZE>::Batch BatchMergeProver<BATCH_SIZE>::compu
         // Iterate over the columns for each subtable
         for (size_t jdx = 0; jdx < NUM_COLUMNS; jdx++) {
             // The challenge for degree batching is dependent on the column index
-            const FF challenge = degree_check_challenges[(idx * NUM_COLUMNS) + jdx];
+            const FF challenge = degree_check_challenges[challenge_offset + (idx * NUM_COLUMNS) + jdx];
             // Iterate over the number of element in each column (BATCH_SIZE) and add to the reversed batched column
             for (size_t b = 0; b < BATCH_SIZE; b++) {
                 reversed_batched_columns[BATCH_SIZE - b - 1].add_scaled(subtable_columns[idx][jdx][b].reverse(),
@@ -107,22 +108,24 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     transcript->send_to_verifier("batch_merge_num_subtables", static_cast<uint32_t>(N));
     for (size_t i = 0; i < M; ++i) {
         transcript->send_to_verifier("batch_merge_shift_size_" + std::to_string(i),
-                                     static_cast<uint32_t>(i < N ? shift_sizes[i] : FF(1)));
+                                     static_cast<uint32_t>(i < M - N ? 0U : shift_sizes[i - (M - N)]));
     }
 
     // -------------------------------------------------------------------------
     // Step 2: Commit to columns to be merged
     // -------------------------------------------------------------------------
-    for (size_t idx = 0; idx < N; ++idx) {
-        for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            transcript->send_to_verifier("COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)),
-                                         pcs_commitment_key.commit_interleaved<BATCH_SIZE>(subtable_cols[idx][col]));
-        }
-    }
-    for (size_t idx = N; idx < M; ++idx) {
+    for (size_t idx = 0; idx < M - N; ++idx) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
             transcript->send_to_verifier("COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)),
                                          pcs_commitment_key.commit_interleaved<BATCH_SIZE>({}));
+        }
+    }
+
+    for (size_t idx = M - N; idx < M; ++idx) {
+        for (size_t col = 0; col < NUM_COLUMNS; ++col) {
+            transcript->send_to_verifier(
+                "COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)),
+                pcs_commitment_key.commit_interleaved<BATCH_SIZE>(subtable_cols[idx - (M - N)][col]));
         }
     }
 
@@ -151,7 +154,7 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     // Step 4: Compute G = sum_i α_i * C_i(1 / X) * X^{k_max}, commit, send [G]
     // -------------------------------------------------------------------------
     Batch reversed_batched_cols =
-        compute_degree_check_polynomial(subtable_cols, degree_check_challenges, max_shift_size);
+        compute_degree_check_polynomial(subtable_cols, degree_check_challenges, max_shift_size, (M - N) * NUM_COLUMNS);
     transcript->send_to_verifier("BATCH_MERGE_REVERSED_COLUMNS",
                                  pcs_commitment_key.commit_interleaved<BATCH_SIZE>(reversed_batched_cols));
 
@@ -190,17 +193,17 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     // -------------------------------------------------------------------------
     // c_evals[i][col] = C_i_col(κ)
     std::vector<std::vector<FF>> c_evals(M, std::vector<FF>(NUM_COLUMNS));
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < M - N; ++i) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            c_evals[i][col] = subtable_cols[i].evaluate(col, powers_of_kappa);
+            c_evals[i][col] = FF(0);
             transcript->send_to_verifier("BATCH_MERGE_C_EVAL_" + std::to_string(i) + "_" + std::to_string(col),
                                          c_evals[i][col]);
         }
     }
 
-    for (size_t i = N; i < M; ++i) {
+    for (size_t i = M - N; i < M; ++i) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            c_evals[i][col] = FF(0);
+            c_evals[i][col] = subtable_cols[i - (M - N)].evaluate(col, powers_of_kappa);
             transcript->send_to_verifier("BATCH_MERGE_C_EVAL_" + std::to_string(i) + "_" + std::to_string(col),
                                          c_evals[i][col]);
         }
@@ -211,6 +214,17 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     for (size_t col = 0; col < NUM_COLUMNS; ++col) {
         t_evals[col] = merged_table.evaluate(col, powers_of_kappa);
         transcript->send_to_verifier("BATCH_MERGE_T_EVAL_" + std::to_string(col), t_evals[col]);
+    }
+
+    for (size_t col = 0; col < NUM_COLUMNS; ++col) {
+        FF reconstructed = c_evals[M - N][col];
+        FF pow_kappa = FF(1);
+        for (size_t i = M - N + 1; i < M; ++i) {
+            pow_kappa *= kappa.pow(shift_sizes[i - 1 - (M - N)] * BATCH_SIZE);
+            reconstructed += c_evals[i][col] * pow_kappa;
+        }
+        FF diff = reconstructed - t_evals[col];
+        info("DIFF: ", diff);
     }
 
     // g_evals[col] = G_col(κ^{-1})
@@ -236,10 +250,10 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     Polynomial interleaved_at_kappa(q_size);
     {
         // Subtables
-        for (size_t i = 0; i < N; ++i) {
+        for (size_t i = M - N; i < M; ++i) {
             for (size_t col = 0; col < NUM_COLUMNS; ++col) {
                 const FF beta = betas[i * NUM_COLUMNS + col];
-                Polynomial C_il = interleave_polynomials(subtable_cols[i][col]); // size k_i * BATCH_SIZE
+                Polynomial C_il = interleave_polynomials(subtable_cols[i - (M - N)][col]); // size k_i * BATCH_SIZE
                 interleaved_at_kappa.add_scaled(C_il, beta);
                 interleaved_at_kappa.at(0) -= c_evals[i][col] * beta;
             }
@@ -281,7 +295,7 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     opening_claim.polynomial.add_scaled(interleaved_at_kappa, FF(1));
     opening_claim.polynomial.add_scaled(interleaved_at_kappa_inv, (z - kappa) * (z - kappa_inv).invert());
 
-    info(opening_claim.polynomial.evaluate(z));
+    info("EVAL opening claim: ", opening_claim.polynomial.evaluate(z));
 
     PCS::compute_opening_proof(pcs_commitment_key, opening_claim, transcript);
 

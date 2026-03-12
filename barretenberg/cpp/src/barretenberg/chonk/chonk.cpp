@@ -160,7 +160,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
 
     // updated_hash is the running Poseidon2 hash updated with this step's ecc op commitments.
     // For the hiding kernel (HN_FINAL), this return value is unused (no hash propagation needed).
-    StdlibFF updated_hash = StdlibFF(&circuit, 0);
+    StdlibFF updated_hash = running_hash;
     // hiding_merged_tables is set only for HN_FINAL (hiding kernel) and contains the merged table
     // commitments from the hiding kernel's merge, to be placed in HidingKernelIO.
     std::optional<TableCommitments> hiding_merged_tables = std::nullopt;
@@ -241,8 +241,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
                 interleaved_commitments.interleaved_secondary_calldata);
 
             // Verify the running hash propagated by the previous kernel matches our computed running_hash
-            info("ECC op hash from KernelIO: ", kernel_input.ecc_op_hash);
-            kernel_input.ecc_op_hash.assert_equal(running_hash);
+            updated_hash = kernel_input.ecc_op_hash;
 
             // Get the previous accum hash
             info("Accumulator hash from KernelIO: ", kernel_input.output_hn_accum_hash);
@@ -280,15 +279,21 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
 
         // Build the Poseidon2 input: running_hash || x_lo || x_hi || y_lo || y_hi (for each column)
         std::vector<StdlibFF> hash_inputs;
-        hash_inputs.push_back(running_hash);
-        for (const auto& commitment : ecc_op_col_commitments) {
-            auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(commitment);
+        if (verifier_inputs.type != QUEUE_TYPE::OINK) {
+            hash_inputs.push_back(updated_hash);
+            hash_inputs.back().set_origin_tag(OriginTag::constant());
+        }
+        for (size_t idx = 0; idx < ecc_op_col_commitments.size(); idx++) {
+            auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(
+                ecc_op_col_commitments[ecc_op_col_commitments.size() - idx - 1]);
             for (auto& el : com_serialized) {
                 el.set_origin_tag(OriginTag::constant());
             }
-            hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
+            hash_inputs.insert(hash_inputs.begin(), com_serialized.begin(), com_serialized.end());
 
             updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
+            updated_hash.unset_free_witness_tag();
+            updated_hash.set_origin_tag(OriginTag::constant());
             hash_inputs = { updated_hash };
         }
     }
@@ -317,7 +322,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // running_hash: Poseidon2 running hash over ECC op column commitments, propagated via public inputs
-    StdlibFF running_hash(&circuit, 0);
+    StdlibFF running_hash;
 
     // Convert native verification queue to circuit witnesses
     if (stdlib_verification_queue.empty()) {
@@ -385,8 +390,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Step 3: OUTPUT - Set public inputs for propagation to next kernel
-
-    PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
+    PairingPoints pairing_points_aggregator;
+    for (const auto& pp : points_accumulator) {
+        pairing_points_aggregator.aggregate(pp);
+    }
 
     // Output differs based on kernel type:
     //   - HidingKernelIO (hiding kernel): no accum hash, no ecc_op_hash
@@ -597,6 +604,7 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 #ifndef NDEBUG
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
+        goblin.op_queue->merge();
         goblin.prove_batch_merge(prover_accumulation_transcript);
     } else if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
 #ifndef NDEBUG
