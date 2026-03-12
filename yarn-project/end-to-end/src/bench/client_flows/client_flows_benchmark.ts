@@ -27,7 +27,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { E2E_DEFAULT_MIN_FEE_PADDING, MNEMONIC } from '../../fixtures/fixtures.js';
+import { MNEMONIC } from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
@@ -377,7 +377,7 @@ export class ClientFlowsBenchmark {
   public async getPrivateFPCPaymentMethodForWallet(wallet: Wallet, sender: AztecAddress) {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
-    const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(E2E_DEFAULT_MIN_FEE_PADDING);
+    const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1.5);
     const gasSettings = GasSettings.default({ maxFeesPerGas });
     return new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet, gasSettings);
   }

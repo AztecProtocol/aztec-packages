@@ -16,7 +16,6 @@ import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/test
 
 import { format } from 'util';
 
-import { E2E_DEFAULT_MIN_FEE_PADDING } from '../fixtures/fixtures.js';
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 
@@ -186,7 +185,7 @@ describe('e2e_local_network_example', () => {
     // docs:start:private_fpc_payment
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
-    const maxFeesPerGas = (await node.getCurrentMinFees()).mul(E2E_DEFAULT_MIN_FEE_PADDING);
+    const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5);
     const gasSettings = GasSettings.default({ maxFeesPerGas });
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
     const { receipt: receiptForAlice } = await bananaCoin.methods
