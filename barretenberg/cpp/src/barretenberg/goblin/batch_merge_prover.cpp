@@ -107,7 +107,7 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     transcript->send_to_verifier("batch_merge_num_subtables", static_cast<uint32_t>(N));
     for (size_t i = 0; i < M; ++i) {
         transcript->send_to_verifier("batch_merge_shift_size_" + std::to_string(i),
-                                     static_cast<uint32_t>(i < N ? shift_sizes[i] : FF(0)));
+                                     static_cast<uint32_t>(i < N ? shift_sizes[i] : FF(1)));
     }
 
     // -------------------------------------------------------------------------

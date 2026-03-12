@@ -282,12 +282,15 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         std::vector<StdlibFF> hash_inputs;
         hash_inputs.push_back(running_hash);
         for (const auto& commitment : ecc_op_col_commitments) {
-            hash_inputs.push_back(commitment.x().limbs[0]);
-            hash_inputs.push_back(commitment.x().limbs[1]);
-            hash_inputs.push_back(commitment.y().limbs[0]);
-            hash_inputs.push_back(commitment.y().limbs[1]);
+            auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(commitment);
+            for (auto& el : com_serialized) {
+                el.set_origin_tag(OriginTag::constant());
+            }
+            hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
+
+            updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
+            hash_inputs = { updated_hash };
         }
-        updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
     }
 
     return { output_verifier_accumulator, pairing_points, updated_hash, hiding_merged_tables };
@@ -409,16 +412,18 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/XXXX): Perform batch merge verification here.
-        // For now, use empty table commitments as placeholder until batch merge is implemented.
+        // Perform batch merge verification
+        auto [merge_pairing_points, merged_tables] =
+            goblin.recursively_verify_batch_merge(circuit, accumulation_recursive_transcript, running_hash);
+
+        // TO DO: OPTIMIZE THIS AGGREGATION
+        pairing_points_aggregator.aggregate(merge_pairing_points);
+
         TailKernelIO tail_output;
         tail_output.pairing_inputs = pairing_points_aggregator;
         tail_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
         tail_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
-        // Placeholder: batch merge result — will be replaced when batch merge prover/verifier is implemented
-        for (auto& table_commitment : tail_output.ecc_op_tables) {
-            table_commitment = TailKernelIO::G1::constant_infinity(&circuit);
-        }
+        tail_output.ecc_op_tables = merged_tables;
         RecursiveTranscript hash_transcript;
         tail_output.output_hn_accum_hash =
             current_stdlib_verifier_accumulator->hash_with_origin_tagging(hash_transcript);
@@ -581,18 +586,18 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     // - HN_FINAL (tail kernel): Keep the individual merge proof for the tail kernel's own subtable.
     //            The hiding kernel circuit's complete_kernel_circuit_logic will dequeue and verify this proof.
     // - MEGA (hiding kernel): merge handled in goblin.prove() as before.
-    if (queue_entry.type == QUEUE_TYPE::OINK || queue_entry.type == QUEUE_TYPE::HN ||
-        queue_entry.type == QUEUE_TYPE::HN_TAIL) {
+    if (queue_entry.type == QUEUE_TYPE::OINK || queue_entry.type == QUEUE_TYPE::HN) {
 #ifndef NDEBUG
         // In debugging builds update native verifier accumulator
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
         // Reset the op queue subtable so the next circuit can start a fresh subtable.
-        // (Previously this was done implicitly by prove_merge which called op_queue->merge() internally.)
-        // For HN_TAIL, we additionally need to construct the batch merge proof once that infrastructure
-        // is in place: TODO(https://github.com/AztecProtocol/barretenberg/issues/XXXX):
-        // goblin.prove_batch_merge(prover_accumulation_transcript, /* C_1..C_M */);
         goblin.op_queue->merge();
+    } else if (queue_entry.type == QUEUE_TYPE::HN_TAIL) {
+#ifndef NDEBUG
+        update_native_verifier_accumulator(queue_entry, verifier_transcript);
+#endif
+        goblin.prove_batch_merge(prover_accumulation_transcript);
     } else if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
 #ifndef NDEBUG
         update_native_verifier_accumulator(queue_entry, verifier_transcript);

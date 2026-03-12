@@ -51,68 +51,6 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
     }
 
     // -------------------------------------------------------------------------
-    // Check consistency of columns to be merged and running hash
-    // -------------------------------------------------------------------------
-    bool hash_verified = true;
-
-    std::vector<FF> hash_inputs;
-    FF calculated_hash;
-    for (const auto& commitment : subtable_cols) {
-        const auto col_serialized = Transcript::Codec::serialize_to_fields(commitment);
-        hash_inputs.insert(hash_inputs.end(), col_serialized.begin(), col_serialized.end());
-        if constexpr (IsRecursive) {
-            calculated_hash = stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs);
-        } else {
-            calculated_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
-        }
-        hash_inputs = { calculated_hash };
-    }
-
-    std::vector<FF> extended_hash = { hash };
-    std::vector<FF> hash_inputs_extend;
-    Commitment point_at_infinity;
-    FF expected_hash = hash;
-    if constexpr (IsRecursive) {
-        point_at_infinity =
-            Commitment::from_witness(shift_sizes[0].get_context(), Curve::NativeCurve::Group::point_at_infinity);
-        point_at_infinity.fix_witness();
-    } else {
-        point_at_infinity = Curve::Group::point_at_infinity;
-    }
-    auto infinity_serialized = Transcript::Codec::serialize_to_fields(point_at_infinity);
-
-    FF index = FF(0);
-    // Each padding subtable contributes NUM_COLUMNS column commitments to the hash, so the total
-    // number of extension steps needed to "catch up" with (M-N) padding subtables is (M-N)*NUM_COLUMNS.
-    FF index_diff = (FF(M) - N) * FF(NUM_COLUMNS);
-    for (size_t idx = 0; idx < (M - 1) * NUM_COLUMNS; idx++) {
-        hash_inputs_extend.push_back(extended_hash.back());
-        hash_inputs_extend.insert(hash_inputs_extend.end(), infinity_serialized.begin(), infinity_serialized.end());
-        if constexpr (IsRecursive) {
-            extended_hash.push_back(stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs_extend));
-        } else {
-            extended_hash.push_back(
-                crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs_extend));
-        }
-        hash_inputs_extend.clear();
-
-        index += FF(1);
-        if constexpr (IsRecursive) {
-            expected_hash = FF::conditional_assign(index_diff == index, extended_hash.back(), expected_hash);
-        } else {
-            expected_hash = index_diff == index ? extended_hash.back() : expected_hash;
-        }
-    }
-
-    if constexpr (IsRecursive) {
-        FF hash_diff = expected_hash - calculated_hash;
-        hash_verified &= (hash_diff.get_value() == 0);
-        hash_diff.assert_equal(FF(0), "BatchMergeVerifier: column commitments hash mismatch");
-    } else {
-        hash_verified &= (expected_hash == calculated_hash);
-    }
-
-    // -------------------------------------------------------------------------
     // Receive [T] commitments from proof
     // -------------------------------------------------------------------------
     TableCommitments merged_commitments;
@@ -240,6 +178,89 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
                 degree_check_verified &= (diff == 0);
             }
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Check consistency of columns to be merged and running hash
+    // -------------------------------------------------------------------------
+    bool hash_verified = true;
+
+    std::vector<FF> hash_inputs;
+    FF calculated_hash;
+    for (const auto& commitment : subtable_cols) {
+        auto col_serialized = Transcript::Codec::serialize_to_fields(commitment);
+        hash_inputs.insert(hash_inputs.end(), col_serialized.begin(), col_serialized.end());
+        if constexpr (IsRecursive) {
+            // The Poseidon2 permutation creates fresh witness_t elements (FREE_WITNESS) for
+            // each round's new state.  When inputs exceed rate=3, an intermediate duplex fires
+            // and the resulting FREE_WITNESS state clashes with ORIGIN_TAGGED transcript fields
+            // in the next state+=cache step.  Strip all origin tags first; the transcript has
+            // already bound these fields to the proof, so this is safe.
+            for (auto& f : hash_inputs) {
+                f.set_origin_tag(OriginTag::constant());
+            }
+            calculated_hash = stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs);
+            // The permutation leaves the output as a FREE_WITNESS witness_t.  Demote it to
+            // CONSTANT so that subsequent arithmetic (next hash iteration, the final
+            // expected_hash - calculated_hash comparison) does not clash with ORIGIN_TAGGED
+            // values (e.g. the index_diff condition in the extension loop).
+            calculated_hash.unset_free_witness_tag();
+        } else {
+            calculated_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
+        }
+        hash_inputs = { calculated_hash };
+    }
+
+    std::vector<FF> extended_hash = { hash };
+    std::vector<FF> hash_inputs_extend;
+    Commitment point_at_infinity;
+    FF expected_hash = hash;
+    if constexpr (IsRecursive) {
+        point_at_infinity =
+            Commitment::from_witness(shift_sizes[0].get_context(), Curve::NativeCurve::Group::point_at_infinity);
+        point_at_infinity.fix_witness();
+        // point_at_infinity is a protocol constant, not a transcript element.  Remove the
+        // free-witness tag assigned by from_witness so that infinity_serialized does not
+        // contaminate the extension-loop Poseidon2 outputs with the free-witness tag, which
+        // would otherwise collide with the transcript-origin tag on calculated_hash.
+        point_at_infinity.set_origin_tag(OriginTag::constant());
+    } else {
+        point_at_infinity = Curve::Group::point_at_infinity;
+    }
+    auto infinity_serialized = Transcript::Codec::serialize_to_fields(point_at_infinity);
+
+    FF index = FF(0);
+    // Each padding subtable contributes NUM_COLUMNS column commitments to the hash, so the total
+    // number of extension steps needed to "catch up" with (M-N) padding subtables is (M-N)*NUM_COLUMNS.
+    FF index_diff = (FF(M) - N) * FF(NUM_COLUMNS);
+    for (size_t idx = 0; idx < (M - 1) * NUM_COLUMNS; idx++) {
+        hash_inputs_extend.push_back(extended_hash.back());
+        hash_inputs_extend.insert(hash_inputs_extend.end(), infinity_serialized.begin(), infinity_serialized.end());
+        if constexpr (IsRecursive) {
+            extended_hash.push_back(stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs_extend));
+            // Same reason as calculated_hash above: demote FREE_WITNESS output to CONSTANT so
+            // the conditional_assign below (which involves ORIGIN_TAGGED index_diff) does not throw.
+            extended_hash.back().unset_free_witness_tag();
+        } else {
+            extended_hash.push_back(
+                crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs_extend));
+        }
+        hash_inputs_extend.clear();
+
+        index += FF(1);
+        if constexpr (IsRecursive) {
+            expected_hash = FF::conditional_assign(index_diff == index, extended_hash.back(), expected_hash);
+        } else {
+            expected_hash = index_diff == index ? extended_hash.back() : expected_hash;
+        }
+    }
+
+    if constexpr (IsRecursive) {
+        FF hash_diff = expected_hash - calculated_hash;
+        hash_verified &= (hash_diff.get_value() == 0);
+        hash_diff.assert_equal(FF(0), "BatchMergeVerifier: column commitments hash mismatch");
+    } else {
+        hash_verified &= (expected_hash == calculated_hash);
     }
 
     // -------------------------------------------------------------------------
