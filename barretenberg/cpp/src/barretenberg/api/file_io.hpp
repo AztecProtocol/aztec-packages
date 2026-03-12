@@ -153,7 +153,9 @@ inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
     }
 }
 
-// Filesystem path overloads for convenience.
+// On Windows, std::filesystem::path uses wide strings (wchar_t) and doesn't implicitly convert
+// to std::string. On Linux/macOS (libstdc++), the conversion is implicit so these aren't needed.
+#ifdef _WIN32
 inline size_t get_file_size(const std::filesystem::path& filename)
 {
     return get_file_size(filename.string());
@@ -168,5 +170,6 @@ inline void write_file(const std::filesystem::path& filename, std::span<const ui
 {
     write_file(filename.string(), data);
 }
+#endif
 
 } // namespace bb
