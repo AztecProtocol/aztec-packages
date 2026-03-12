@@ -264,10 +264,10 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion(foreignVersion: ForeignCallSingle) {
+  async aztec_utl_assertCompatibleOracleVersion(foreignVersion: ForeignCallSingle) {
     const version = fromSingle(foreignVersion).toNumber();
 
-    this.handlerAsMisc().assertCompatibleOracleVersion(version);
+    await this.handlerAsMisc().assertCompatibleOracleVersion(version);
 
     return toForeignCallResult([]);
   }
