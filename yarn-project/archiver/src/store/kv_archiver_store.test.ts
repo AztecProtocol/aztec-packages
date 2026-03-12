@@ -2081,8 +2081,16 @@ describe('KVArchiverDataStore', () => {
       await expect(store.getContractInstance(await AztecAddress.random(), timestamp)).resolves.toBeUndefined();
     });
 
-    it('returns undefined if previously stored contract instances was deleted', async () => {
+    it('returns contract instance after soft-delete (still accessible for in-flight builds)', async () => {
       await store.deleteContractInstances([contractInstance], BlockNumber(blockNum));
+      await expect(store.getContractInstance(contractInstance.address, timestamp)).resolves.toMatchObject(
+        contractInstance,
+      );
+    });
+
+    it('returns undefined after finalization of soft-deleted contract instance', async () => {
+      await store.deleteContractInstances([contractInstance], BlockNumber(blockNum));
+      await store.finalizeContractData(BlockNumber(blockNum));
       await expect(store.getContractInstance(contractInstance.address, timestamp)).resolves.toBeUndefined();
     });
   });
@@ -2178,6 +2186,75 @@ describe('KVArchiverDataStore', () => {
       expect(fetchedInstance?.originalContractClassId).toEqual(classId);
       expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
     });
+
+    it('returns update data after soft-delete (still accessible for in-flight builds)', async () => {
+      const blockNum = 5;
+      await store.deleteContractInstanceUpdates(
+        [
+          {
+            prevContractClassId: classId,
+            newContractClassId: nextClassId,
+            timestampOfChange,
+            address: contractInstance.address,
+          },
+        ],
+        timestampOfChange - 1n,
+        BlockNumber(blockNum),
+      );
+      const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange + 1n);
+      expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+    });
+
+    it('returns original class id after finalization of soft-deleted update', async () => {
+      const blockNum = 5;
+      await store.deleteContractInstanceUpdates(
+        [
+          {
+            prevContractClassId: classId,
+            newContractClassId: nextClassId,
+            timestampOfChange,
+            address: contractInstance.address,
+          },
+        ],
+        timestampOfChange - 1n,
+        BlockNumber(blockNum),
+      );
+      await store.finalizeContractData(BlockNumber(blockNum));
+      const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange + 1n);
+      expect(fetchedInstance?.currentContractClassId).toEqual(classId);
+    });
+
+    it('re-adding update after soft-delete prevents finalization from deleting it', async () => {
+      const blockNum = 5;
+      await store.deleteContractInstanceUpdates(
+        [
+          {
+            prevContractClassId: classId,
+            newContractClassId: nextClassId,
+            timestampOfChange,
+            address: contractInstance.address,
+          },
+        ],
+        timestampOfChange - 1n,
+        BlockNumber(blockNum),
+      );
+      // Re-add the same update
+      await store.addContractInstanceUpdates(
+        [
+          {
+            prevContractClassId: classId,
+            newContractClassId: nextClassId,
+            timestampOfChange,
+            address: contractInstance.address,
+          },
+        ],
+        timestampOfChange - 1n,
+      );
+      // Finalize should NOT delete the update because re-adding removed it from the pending-deletion map
+      await store.finalizeContractData(BlockNumber(blockNum));
+      const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange + 1n);
+      expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+    });
   });
 
   describe('contractClasses', () => {
@@ -2197,8 +2274,14 @@ describe('KVArchiverDataStore', () => {
       await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
     });
 
-    it('returns undefined if the initial deployed contract class was deleted', async () => {
+    it('returns contract class after soft-delete (still accessible for in-flight builds)', async () => {
       await store.deleteContractClasses([contractClass], BlockNumber(blockNum));
+      await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
+    });
+
+    it('returns undefined after finalization of soft-deleted contract class', async () => {
+      await store.deleteContractClasses([contractClass], BlockNumber(blockNum));
+      await store.finalizeContractData(BlockNumber(blockNum));
       await expect(store.getContractClass(contractClass.id)).resolves.toBeUndefined();
     });
 

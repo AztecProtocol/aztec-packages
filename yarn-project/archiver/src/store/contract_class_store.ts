@@ -17,10 +17,12 @@ import { Vector } from '@aztec/stdlib/types';
 export class ContractClassStore {
   #contractClasses: AztecAsyncMap<string, Buffer>;
   #bytecodeCommitments: AztecAsyncMap<string, Buffer>;
+  #prunedContractClasses: AztecAsyncMap<string, number>;
 
   constructor(private db: AztecAsyncKVStore) {
     this.#contractClasses = db.openMap('archiver_contract_classes');
     this.#bytecodeCommitments = db.openMap('archiver_bytecode_commitments');
+    this.#prunedContractClasses = db.openMap('archiver_pruned_contract_classes');
   }
 
   async addContractClass(
@@ -29,21 +31,30 @@ export class ContractClassStore {
     blockNumber: number,
   ): Promise<void> {
     await this.db.transactionAsync(async () => {
+      const classIdStr = contractClass.id.toString();
+      // If previously pruned, remove from pending-deletion map
+      const wasPruned = await this.#prunedContractClasses.getAsync(classIdStr);
+      if (wasPruned !== undefined) {
+        await this.#contractClasses.delete(classIdStr);
+        await this.#bytecodeCommitments.delete(classIdStr);
+        await this.#prunedContractClasses.delete(classIdStr);
+      }
       await this.#contractClasses.setIfNotExists(
-        contractClass.id.toString(),
+        classIdStr,
         serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
       );
-      await this.#bytecodeCommitments.setIfNotExists(contractClass.id.toString(), bytecodeCommitment.toBuffer());
+      await this.#bytecodeCommitments.setIfNotExists(classIdStr, bytecodeCommitment.toBuffer());
     });
   }
 
+  /** Soft-deletes a contract class, tracks it for pending deletion but keeps data accessible for in-flight block builds. */
   async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
-    const restoredContractClass = await this.#contractClasses.getAsync(contractClass.id.toString());
-    if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
-      await this.db.transactionAsync(async () => {
-        await this.#contractClasses.delete(contractClass.id.toString());
-        await this.#bytecodeCommitments.delete(contractClass.id.toString());
-      });
+    const restoredContractClassBuf = await this.#contractClasses.getAsync(contractClass.id.toString());
+    if (restoredContractClassBuf) {
+      const restoredContractClass = deserializeContractClassPublic(restoredContractClassBuf);
+      if (restoredContractClass.l2BlockNumber >= blockNumber) {
+        await this.#prunedContractClasses.set(contractClass.id.toString(), restoredContractClass.l2BlockNumber);
+      }
     }
   }
 
@@ -59,6 +70,22 @@ export class ContractClassStore {
 
   async getContractClassIds(): Promise<Fr[]> {
     return (await toArray(this.#contractClasses.keysAsync())).map(key => Fr.fromHexString(key));
+  }
+
+  /**
+   * Hard-deletes pruned contract classes for blocks at or before the finalized block number.
+   * Called when a checkpoint is finalized, at which point no in-flight fork can reference the pruned data.
+   */
+  async finalizeContractClasses(finalizedBlockNumber: number): Promise<void> {
+    await this.db.transactionAsync(async () => {
+      for await (const [classId, l2BlockNumber] of this.#prunedContractClasses.entriesAsync()) {
+        if (l2BlockNumber <= finalizedBlockNumber) {
+          await this.#contractClasses.delete(classId);
+          await this.#bytecodeCommitments.delete(classId);
+          await this.#prunedContractClasses.delete(classId);
+        }
+      }
+    });
   }
 
   async addFunctions(

@@ -233,14 +233,27 @@ export class KVArchiverDataStore implements ContractDataSource {
       )
     ).every(Boolean);
   }
-  async deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
+  async deleteContractInstanceUpdates(
+    data: ContractInstanceUpdateWithAddress[],
+    timestamp: UInt64,
+    blockNumber: BlockNumber,
+  ): Promise<boolean> {
     return (
       await Promise.all(
         data.map((update, logIndex) =>
-          this.#contractInstanceStore.deleteContractInstanceUpdate(update, timestamp, logIndex),
+          this.#contractInstanceStore.deleteContractInstanceUpdate(update, timestamp, logIndex, blockNumber),
         ),
       )
     ).every(Boolean);
+  }
+
+  /**
+   * Hard-deletes all pruned contract data for blocks at or before the finalized block number.
+   * Called when a checkpoint is finalized, at which point no in-flight fork can reference the pruned data.
+   */
+  async finalizeContractData(finalizedBlockNumber: BlockNumber): Promise<void> {
+    await this.#contractInstanceStore.finalizeContractData(finalizedBlockNumber);
+    await this.#contractClassStore.finalizeContractClasses(finalizedBlockNumber);
   }
 
   /**
