@@ -1,9 +1,10 @@
 name: Pull v4 into v4-next
 
 on:
-  push:
-    branches:
-      - v4
+  schedule:
+    # Run every 15 minutes to catch v4 merges promptly
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -25,10 +26,24 @@ jobs:
           git config user.name "AztecBot"
           git config user.email "tech@aztecprotocol.com"
 
-      - name: Attempt to merge v4 into v4-next
-        id: merge
+      - name: Check if v4 is ahead of v4-next
+        id: check
         run: |
           git fetch origin v4
+          AHEAD=$(git rev-list --count v4-next..origin/v4)
+          echo "ahead=$AHEAD"
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "v4-next is already up to date with v4."
+            echo "needs_merge=false" >> $GITHUB_OUTPUT
+          else
+            echo "v4 is $AHEAD commit(s) ahead of v4-next."
+            echo "needs_merge=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Attempt to merge v4 into v4-next
+        if: steps.check.outputs.needs_merge == 'true'
+        id: merge
+        run: |
           if git merge origin/v4 --no-edit; then
             echo "conflict=false" >> $GITHUB_OUTPUT
             echo "Merge succeeded without conflicts."
@@ -39,11 +54,11 @@ jobs:
           fi
 
       - name: Push merged v4-next
-        if: steps.merge.outputs.conflict == 'false'
+        if: steps.check.outputs.needs_merge == 'true' && steps.merge.outputs.conflict == 'false'
         run: git push origin v4-next
 
       - name: Create conflict-resolution PR
-        if: steps.merge.outputs.conflict == 'true'
+        if: steps.check.outputs.needs_merge == 'true' && steps.merge.outputs.conflict == 'true'
         id: conflict-pr
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -83,7 +98,7 @@ EOF
           fi
 
       - name: Notify Slack
-        if: steps.merge.outputs.conflict == 'true'
+        if: steps.check.outputs.needs_merge == 'true' && steps.merge.outputs.conflict == 'true'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
