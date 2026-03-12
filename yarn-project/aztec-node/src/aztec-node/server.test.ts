@@ -16,12 +16,8 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-<<<<<<< HEAD
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
-=======
-import { BlockHash, CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { L1PublishedData } from '@aztec/stdlib/checkpoint';
->>>>>>> 6d9ac92061 (fix(node): handle slot zero in getL2ToL1Messages)
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
