@@ -9,10 +9,10 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/multi_mega_flavor.hpp"
-#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
-#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
-#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include <cstddef>
 
 namespace bb::ProofLength {
