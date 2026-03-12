@@ -404,7 +404,7 @@ else
   # Send host script via SSM and poll until completion.
   # Run as ubuntu to match SSH behavior (SSM defaults to root).
   set +e
-  SSM_RUN_AS=ubuntu SSM_POLL_TIMEOUT=${SSM_POLL_TIMEOUT:-7200} \
+  SSM_RUN_AS=ubuntu SSM_POLL_TIMEOUT=${SSM_POLL_TIMEOUT:-$((AWS_SHUTDOWN_TIME * 60 + 600))} \
     ssm_send_command "$iid" "$host_script"
   exit_code=$?
   set -e
