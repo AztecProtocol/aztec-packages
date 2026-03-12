@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 use crate::macros::{
     calls_generation::{
         external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
@@ -10,6 +11,23 @@ use crate::macros::{
     utils::{
         get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
         module_has_storage,
+=======
+use crate::{
+    macros::{
+        calls_generation::{
+            external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
+            internal_functions::generate_call_internal_struct,
+        },
+        dispatch::generate_public_dispatch,
+        emit_public_init_nullifier::generate_emit_public_init_nullifier,
+        internals_functions_generation::{create_fn_abi_exports, process_functions},
+        notes::NOTES,
+        storage::STORAGE_LAYOUT_NAME,
+        utils::{
+            get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
+            module_has_storage,
+        },
+>>>>>>> cee97a1ba4 (feat!: auto-enqueue public init nullifier for contracts with public functions (#20775))
     },
 };
 
@@ -53,7 +71,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
-    let public_dispatch = generate_public_dispatch(m);
+    let (has_public_init_nullifier_fn, emit_public_init_nullifier_fn_body) = generate_emit_public_init_nullifier(m);
+    let public_dispatch = generate_public_dispatch(m, has_public_init_nullifier_fn);
 
     quote {
         $interface
@@ -65,6 +84,11 @@ pub comptime fn aztec(m: Module) -> Quoted {
         $public_dispatch
         $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
+<<<<<<< HEAD
+=======
+        $emit_public_init_nullifier_fn_body
+        $offchain_receive_fn_and_abi_export
+>>>>>>> cee97a1ba4 (feat!: auto-enqueue public init nullifier for contracts with public functions (#20775))
     }
 }
 

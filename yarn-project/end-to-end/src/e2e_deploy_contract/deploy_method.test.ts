@@ -6,6 +6,7 @@ import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
+import { InitTestContract } from '@aztec/noir-test-contracts.js/InitTest';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -97,6 +98,31 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
     await contract.methods.create_note(owner, 30).send({ from: defaultAccountAddress });
     expect((await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).result).toEqual(30n);
+  });
+
+  // The public init nullifier is emitted at the end of the initializer. If it were emitted at the beginning,
+  // the contract would appear initialized while the initializer body is still running, allowing external callers
+  // to interact with a half-initialized contract. As a consequence, any public calls the initializer enqueues
+  // run before the nullifier exists and cannot pass init checks.
+  it('refuses to self-call an init-checked function during public initialization', async () => {
+    const owner = defaultAccountAddress;
+    await expect(
+      InitTestContract.deployWithOpts(
+        { wallet, method: 'public_initializer_self_calling_init_checked' },
+        owner,
+        42,
+      ).simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow(/Not initialized/);
+  });
+
+  // Private functions execute before public functions, so the init check in create_note fails
+  // because the public initializer hasn't emitted the private initialization nullifier yet.
+  it('refuses to call a private init-checked function in same tx as public initialization', async () => {
+    const owner = defaultAccountAddress;
+    const deployMethod = StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42);
+    const contract = await deployMethod.register();
+    const batch = new BatchCall(wallet, [deployMethod, contract.methods.create_note(owner, 10)]);
+    await expect(batch.send({ from: defaultAccountAddress })).rejects.toThrow(/Cannot find the leaf for nullifier/);
   });
 
   it('deploys a contract with a default initializer not named constructor', async () => {
