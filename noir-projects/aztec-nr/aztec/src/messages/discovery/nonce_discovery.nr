@@ -90,9 +90,9 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
                     // available). We skip this note because without a nullifier we cannot track whether it
                     // has been spent.
                     aztecnr_warn_log_format!(
-                        "Skipping note discovery: nullifier could not be computed for note type {0} on contract {1}",
+                        "Skipping note with nonce {0}: nullifier not computable for note type {1} on contract {2}",
                     )(
-                        [note_type_id, contract_address.to_field()],
+                        [candidate_nonce, note_type_id, contract_address.to_field()],
                     );
                 }
 
