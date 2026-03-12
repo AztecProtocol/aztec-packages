@@ -216,7 +216,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn unknown_note_type_is_skipped() {
+    unconstrained fn unknown_note_type_is_discarded() {
         let unique_note_hashes_in_tx = BoundedVec::from_array([random()]);
         let packed_note = BoundedVec::new();
         let note_type_id = 0; // This note type id is unknown to compute_note_hash_and_nullifier
@@ -299,7 +299,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn note_without_nullifier_is_skipped() {
+    unconstrained fn note_without_nullifier_is_discarded() {
         let note_index_in_tx = 2;
         let note_and_data = construct_note(VALUE, note_index_in_tx);
 
@@ -321,7 +321,7 @@ mod test {
             BoundedVec::from_array(note_and_data.note.pack()),
         );
 
-        // The note hash matches but the nullifier couldn't be computed, so the note should be skipped.
+        // The note hash matches but the nullifier couldn't be computed, so the note should be discarded.
         assert_eq(discovered_notes.len(), 0);
     }
 
