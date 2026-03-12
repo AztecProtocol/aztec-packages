@@ -143,8 +143,8 @@ class Goblin {
      */
     std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
         MegaBuilder& builder,
-        const std::vector<BatchRecursiveTableCommitments>& subtable_commitments,
-        const std::shared_ptr<RecursiveTranscript>& transcript);
+        const std::shared_ptr<RecursiveTranscript>& transcript,
+        const BatchMergeRecursiveVerifier::FF& hash);
 };
 
 } // namespace bb

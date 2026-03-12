@@ -60,23 +60,22 @@ template <size_t BatchSize, typename Curve> class BatchMergeVerifier_ {
         bool reduction_succeeded = false;
     };
 
+    size_t M;
     std::shared_ptr<Transcript> transcript;
 
-    explicit BatchMergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
-        : transcript(std::move(transcript))
+    explicit BatchMergeVerifier_(size_t M, std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
+        : M(M)
+        , transcript(std::move(transcript))
     {}
 
     /**
      * @brief Reduce the batch merge proof to a pairing check.
      *
      * @param proof                  The batch merge proof from BatchMergeProver.
-     * @param subtable_commitments   [C_0]..[C_{M-1}] commitments to all subtable columns.
-     *                               C_i is the interleaved commitment to subtable i (deque order).
-     *                               Unused slots (i >= N) should be the point at infinity.
      * @return ReductionResult with KZG pairing points and [T] commitments.
      */
-    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(
-        const Proof& proof, const std::vector<TableCommitments>& subtable_commitments);
+    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(const Proof& proof,
+                                                                                                   const FF hash);
 
   private:
     bool check_concatenation_identity(const std::vector<FF>& subtable_evals,
