@@ -1,6 +1,7 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
 
@@ -72,6 +73,8 @@ export type TxPoolV2Dependencies = {
   worldStateSynchronizer: WorldStateSynchronizer;
   /** Factory that creates a validator for re-validating pool transactions using metadata */
   createTxValidator: () => Promise<TxValidator<TxMetaData>>;
+  /** Provides projected minimum fees for the next block. Used by eviction rules instead of stale block header fees. */
+  blockMinFeesProvider: BlockMinFeesProvider;
 };
 
 /**

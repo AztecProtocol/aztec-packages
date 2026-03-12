@@ -7,6 +7,7 @@ import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
 import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -47,6 +48,7 @@ export async function createP2PClient(
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
+  blockMinFeesProvider: BlockMinFeesProvider,
   packageVersion: string,
   dateProvider: DateProvider = new DateProvider(),
   telemetry: TelemetryClient = getTelemetryClient(),
@@ -88,6 +90,7 @@ export async function createP2PClient(
           const currentBlockNumber = await archiver.getBlockNumber();
           const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
           const l1Constants = await archiver.getL1Constants();
+          const gasFees = await blockMinFeesProvider.getCurrentMinFees();
           return createTxValidatorForTransactionsEnteringPendingTxPool(
             worldStateSynchronizer,
             nextSlotTimestamp,
@@ -97,8 +100,10 @@ export async function createP2PClient(
               maxBlockL2Gas: config.validateMaxL2BlockGas,
               maxBlockDAGas: config.validateMaxDABlockGas,
             },
+            gasFees,
           );
         },
+        blockMinFeesProvider,
       },
       telemetry,
       {
