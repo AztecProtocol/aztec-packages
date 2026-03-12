@@ -477,8 +477,12 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // We expect exactly one connected component (all variables properly connected)
         EXPECT_EQ(cc.size(), 1);
 
-        // Expected variables in one gate:
-        size_t expected_unconstrained = 0;
+        // TODO: MultiMega oink verifier receives 4 individual ecc_op_wire commitments for merge protocol
+        // compatibility that are unused by the recursive Multi verifier (it uses interleaved commitments).
+        // With MegaBuilder (goblin), each commitment = 4 limbs => 16 unconstrained witnesses.
+        // With UltraBuilder (non-goblin), the commitments are constrained via bigfield CRT checks.
+        // Resolved in child branches.
+        size_t expected_unconstrained = (IsMultiMegaFlavor<InnerFlavor> && IsMegaBuilder<OuterBuilder>) ? 16 : 0;
         EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
     }
 };

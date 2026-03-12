@@ -84,17 +84,28 @@ template <IsMultiMegaFlavor Flavor> void MultiHonkOinkVerifier_<Flavor>::execute
         domain_separator + interleaved_labels.interleaved_ecc_op_wires);
 
     // Receive individual ecc_op_wire commits (for merge protocol compatibility).
+    // In the recursive case, these commitments are not used (only interleaved commitments matter),
+    // but we still need to consume them from the transcript to maintain proof format compatibility.
     {
         typename Flavor::CommitmentLabels labels;
-        auto& wc = verifier_instance->witness_commitments;
-        wc.ecc_op_wire_1 =
+        if constexpr (!IsRecursiveFlavor<Flavor>) {
+            auto& wc = verifier_instance->witness_commitments;
+            wc.ecc_op_wire_1 =
+                transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_1);
+            wc.ecc_op_wire_2 =
+                transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_2);
+            wc.ecc_op_wire_3 =
+                transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_3);
+            wc.ecc_op_wire_4 =
+                transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_4);
+        } else {
+            // Receive but discard - these are unused in recursive verification but must be
+            // consumed to advance the transcript state correctly.
             transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_1);
-        wc.ecc_op_wire_2 =
             transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_2);
-        wc.ecc_op_wire_3 =
             transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_3);
-        wc.ecc_op_wire_4 =
             transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_4);
+        }
     }
 
     // Receive W₃: [calldata, ZERO, ZERO, ZERO]
