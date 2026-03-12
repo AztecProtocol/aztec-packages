@@ -11,7 +11,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.js] `TxReceipt` now includes `epochNumber`
 
-`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in. This is `undefined` if the transaction hasn't been included in a proven epoch yet.
+`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
 
 ### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
 
