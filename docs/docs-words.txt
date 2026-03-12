@@ -382,6 +382,7 @@ noirfmt
 postprocesses
 blobscan
 fusaka
+xdeadbeefn
 healthcheck
 supernode
 supernodes
@@ -402,6 +403,15 @@ critesjosh
 mcpServers
 NethermindEth
 Windsurf
+Uniswap
+uniswap
+WETH
+DAI
+authwit
+DEXs
+offchain
+preimage
+slippage
 callee
 completer
 interoperate
