@@ -40,7 +40,7 @@ export const DefaultSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  perBlockAllocationMultiplier: 2,
+  perBlockAllocationMultiplier: 1.2,
   enforceTimeTable: true,
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
