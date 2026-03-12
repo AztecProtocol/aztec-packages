@@ -122,41 +122,16 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     using TransSumcheck = SumcheckProver<TranslatorFlavor>;
 
     joint_challenge.reserve(JOINT_LOG_N);
-    round_univariates_list.clear();
-    round_evaluations_list.clear();
 
     SumcheckRoundUnivariate U_joint;
 
-    // Evaluation domain {0, 1, ..., BATCHED_RELATION_PARTIAL_LENGTH-1} for Lagrange-to-monomial conversion.
-    static constexpr size_t PARTIAL_LENGTH = MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    std::vector<FF> eval_domain;
-    eval_domain.reserve(PARTIAL_LENGTH);
-    for (size_t idx = 0; idx < PARTIAL_LENGTH; idx++) {
-        eval_domain.push_back(FF(idx));
-    }
-    MegaZKCommitmentKey univariate_ck(PARTIAL_LENGTH);
+    // Use committed sumcheck infrastructure: commits to round univariates and stores them for Shplemini.
+    static constexpr bool UseCommittedSumcheck = true;
+    RoundUnivariateHandler<MegaZKFlavor, UseCommittedSumcheck> handler(transcript);
 
-    // Per-round helper: add Libra masking, commit to the joint univariate, send commitment + evaluations at 0 and 1.
     auto send_round = [&](size_t round_idx) -> FF {
         U_joint += MegaZKProverRound::compute_libra_univariate(zk_sumcheck_data, round_idx);
-
-        const std::string idx = std::to_string(round_idx);
-
-        // Transform to monomial form and commit
-        Polynomial<FF> round_poly_monomial(eval_domain, std::span<FF>(U_joint.evaluations), PARTIAL_LENGTH);
-        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, univariate_ck.commit(round_poly_monomial));
-        round_univariates_list.push_back(std::move(round_poly_monomial));
-
-        // Send evaluations at 0 and 1
-        transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_0", U_joint.value_at(0));
-        transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_1", U_joint.value_at(1));
-
-        // Store evaluations; third element (eval at challenge) populated later
-        round_evaluations_list.push_back({ U_joint.value_at(0), U_joint.value_at(1), FF(0) });
-        if (round_idx > 0) {
-            round_evaluations_list[round_idx - 1][2] = U_joint.value_at(0) + U_joint.value_at(1);
-        }
-
+        handler.process_round_univariate(round_idx, U_joint);
         FF u = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
         joint_challenge.emplace_back(u);
         return u;
@@ -262,9 +237,9 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     }
 
     // Finalize committed sumcheck: populate the last round's evaluation at the final challenge.
-    // This is U_{last}(u_{last}), needed by Shplemini for the opening claim.
-    round_evaluations_list[JOINT_LOG_N - 1][2] =
-        round_univariates_list[JOINT_LOG_N - 1].evaluate(joint_challenge.back());
+    handler.finalize_last_round(JOINT_LOG_N, U_joint, joint_challenge.back());
+    round_univariates_list = std::move(handler.round_univariates);
+    round_evaluations_list = std::move(handler.round_evaluations);
 
     // Extract and send translator evaluations after all rounds.
     for (auto [eval, poly] : zip_view(trans_claimed_evals.get_all(), translator_partial.get_all())) {

@@ -126,8 +126,9 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
     libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
-    // Initialise the joint sumcheck round verifier.
-    FF target_total_sum = libra_total_sum * libra_challenge;
+    // Use committed sumcheck infrastructure: defers per-round checks to Shplemini.
+    static constexpr bool UseCommittedSumcheck = true;
+    SumcheckVerifierRound<MegaZKFlavorT, UseCommittedSumcheck> joint_round(libra_total_sum * libra_challenge);
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
@@ -141,28 +142,10 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     joint_challenge.clear();
     joint_challenge.reserve(JOINT_LOG_N);
-    round_univariate_commitments.clear();
-    round_univariate_evaluations.clear();
-
-    // Per-round committed sumcheck: receive commitment and evaluations at 0 and 1,
-    // draw challenge, update gate separator. Per-round sum checks are deferred to Shplemini.
-    auto process_committed_round = [&](size_t round_idx) {
-        const std::string idx = std::to_string(round_idx);
-
-        round_univariate_commitments.push_back(
-            transcript->template receive_from_prover<Commitment>("Sumcheck:univariate_comm_" + idx));
-        FF eval_0 = transcript->template receive_from_prover<FF>("Sumcheck:univariate_" + idx + "_eval_0");
-        FF eval_1 = transcript->template receive_from_prover<FF>("Sumcheck:univariate_" + idx + "_eval_1");
-        round_univariate_evaluations.push_back({ eval_0, eval_1, FF(0) });
-
-        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + idx);
-        joint_challenge.emplace_back(round_challenge);
-        gate_sep.partially_evaluate(round_challenge);
-    };
 
     // ==================== Real rounds 0..mega_zk_log_n-1 ====================
     for (size_t round_idx = 0; round_idx < mega_zk_log_n; round_idx++) {
-        process_committed_round(round_idx);
+        joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -186,7 +169,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
     for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
-        process_committed_round(round_idx);
+        joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -273,27 +256,10 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     frv_joint += libra_evaluation * libra_challenge;
 
-    // -------------------------------------------------------------------------
-    // Committed sumcheck final verification.
-    // -------------------------------------------------------------------------
-    // Check: eval_0[0] + eval_1[0] == target_total_sum (first round consistency).
-    FF first_round_sum = round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
-    bool verified = false;
-    if constexpr (IsRecursive) {
-        verified = (first_round_sum.get_value() == target_total_sum.get_value());
-        first_round_sum.assert_equal(target_total_sum);
-    } else {
-        verified = (first_round_sum == target_total_sum);
-    }
-
-    // Populate evaluation at round challenge for each round (needed by Shplemini).
-    // For rounds 1..N-1: U_{i-1}(u_{i-1}) = U_i(0) + U_i(1).
-    for (size_t round_idx = 1; round_idx < JOINT_LOG_N; round_idx++) {
-        round_univariate_evaluations[round_idx - 1][2] =
-            round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
-    }
-    // Last round: U_{N-1}(u_{N-1}) = FRV_joint (the full relation purported value).
-    round_univariate_evaluations[JOINT_LOG_N - 1][2] = frv_joint;
+    // Final verification via committed sumcheck round: checks first-round sum and populates Shplemini data.
+    bool verified = joint_round.perform_final_verification(frv_joint);
+    round_univariate_commitments = std::move(joint_round.round_univariate_commitments);
+    round_univariate_evaluations = std::move(joint_round.round_univariate_evaluations);
 
     return verified;
 }
