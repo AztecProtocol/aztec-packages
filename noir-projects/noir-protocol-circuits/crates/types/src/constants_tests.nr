@@ -130,7 +130,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<52, 45>::new();
+    let mut tester = HashedValueTester::<51, 44>::new();
 
     // -----------------
     // Domain separators
