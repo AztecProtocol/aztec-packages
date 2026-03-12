@@ -43,9 +43,9 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
             // creates FREE_WITNESS internal witnesses that would otherwise clash with the
             // ORIGIN_TAGGED transcript value FF(M)-N.
             FF upper_bound = FF(M) - N;
-            upper_bound.create_range_constraint(6); // IMPOSING RANGE CONSTRAINT OF 6 as M < 2^6 = 64
+            upper_bound.create_range_constraint(7); // IMPOSING RANGE CONSTRAINT OF 6 as M < 2^7 = 128
             upper_bound.set_origin_tag(OriginTag::constant());
-            auto is_less_than = index.template ranged_less_than<6>(upper_bound);
+            auto is_less_than = index.template ranged_less_than<7>(upper_bound);
             // Demote result to CONSTANT so conditional_assign can safely use the
             // ORIGIN_TAGGED shift_sizes[i].
             is_less_than.set_origin_tag(OriginTag::constant());
