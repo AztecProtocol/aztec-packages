@@ -110,6 +110,13 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
 
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
+    // Fast path: skip thread pool overhead for trivial cases
+    if (num_iterations <= 1) {
+        for (size_t i = 0; i < num_iterations; ++i) {
+            func(i);
+        }
+        return;
+    }
 #ifdef NO_MULTITHREADING
     for (size_t i = 0; i < num_iterations; ++i) {
         func(i);
