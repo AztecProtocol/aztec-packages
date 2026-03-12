@@ -11,7 +11,9 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### Private initialization nullifier now includes `init_hash`
 
-The private initialization nullifier is no longer derived from just the contract address. It is now computed as `poseidon2_hash(address, init_hash)` with a dedicated domain separator. This prevents observers from determining whether a fully private contract has been initialized by simply knowing its address.
+The private initialization nullifier is no longer derived from just the contract address. It is now computed as a Poseidon2 hash of `[address, init_hash]` using a dedicated domain separator. This prevents observers from determining whether a fully private contract has been initialized by simply knowing its address.
+
+Note that `Wallet.getContractMetadata` now returns `isContractInitialized: false` when the wallet does not have the contract instance registered, since `init_hash` is needed to compute the nullifier. Previously, this check worked for any address.
 
 If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_initialized_by` from `aztec::history::deployment`, these now require an additional `init_hash: Field` parameter:
 

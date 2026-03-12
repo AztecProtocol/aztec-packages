@@ -471,11 +471,18 @@ export abstract class BaseWallet implements Wallet {
     return decodedEvents;
   }
 
+  /**
+   * Returns metadata about a contract, including whether it has been initialized, published, and updated.
+   *
+   * `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the
+   * instance is not available, it defaults to `false` rather than indicating "unknown".
+   * @param address - The contract address to query.
+   */
   async getContractMetadata(address: AztecAddress) {
     const instance = await this.pxe.getContractInstance(address);
     const publiclyRegisteredContractPromise = this.aztecNode.getContract(address);
-    // The private init nullifier is derived from init_hash, which is only available when the PXE has the contract
-    // instance. Without it, we report the contract as not initialized.
+    // The private init nullifier includes init_hash to prevent observers from determining initialization status from
+    // the address alone.
     let isContractInitialized = false;
     if (instance) {
       const initNullifier = await computeSiloedPrivateInitNullifier(address, instance.initializationHash);

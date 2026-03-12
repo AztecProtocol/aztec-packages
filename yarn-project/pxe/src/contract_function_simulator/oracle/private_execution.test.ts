@@ -37,7 +37,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
-  type ContractInstanceWithAddress,
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';

@@ -112,8 +112,8 @@ pub fn assert_is_initialized_private(context: &mut PrivateContext) {
 
 /// Computes the private initialization nullifier for a contract.
 ///
-/// Includes `init_hash` so that address knowledge alone is insufficient to determine whether
-/// a contract has been initialized (for fully private contracts whose `init_hash` is not public).
+/// Includes `init_hash` so that observers cannot determine whether a contract has been initialized from the address
+/// alone.
 pub(crate) fn compute_private_init_nullifier(address: AztecAddress, init_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [address.to_field(), init_hash],

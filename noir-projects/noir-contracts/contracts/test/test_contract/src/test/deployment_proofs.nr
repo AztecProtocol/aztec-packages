@@ -134,6 +134,22 @@ unconstrained fn assert_contract_bytecode_was_not_published_by_of_deployed_fails
     );
 }
 
+#[test(should_fail_with = "Nullifier membership witness not found at block")]
+unconstrained fn assert_contract_was_initialized_by_with_wrong_init_hash_fails() {
+    let (env, contract_address, _owner, _init_hash) = setup();
+
+    env.private_context_opts(
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT),
+        |context| {
+            assert_contract_was_initialized_by(
+                context.anchor_block_header,
+                contract_address,
+                0xdeadbeef,
+            );
+        },
+    );
+}
+
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn assert_contract_was_not_initialized_by_of_initialized_fails() {
     let (env, contract_address, _owner, init_hash) = setup();
