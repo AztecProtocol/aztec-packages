@@ -75,7 +75,7 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     );
     make_functions_uncallable(
         utility_functions,
-        "Calling utility functions directly from within the contract is not supported. You attempted to call ",
+        "Direct invocation of utility functions is not supported. You attempted to call ",
     );
 
     // INTERNAL FUNCTIONS
