@@ -126,3 +126,8 @@ export class GasFees {
     return `GasFees { feePerDaGas=${this.feePerDaGas} feePerL2Gas=${this.feePerL2Gas} }`;
   }
 }
+
+/** Provides projected minimum gas fees for the next block. */
+export interface BlockMinFeesProvider {
+  getCurrentMinFees(): Promise<GasFees>;
+}

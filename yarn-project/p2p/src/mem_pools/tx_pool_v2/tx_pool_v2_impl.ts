@@ -115,7 +115,7 @@ export class TxPoolV2Impl {
 
     // Post-event eviction rules (run after events to check ALL pending txs)
     this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule());
-    this.#evictionManager.registerRule(new InsufficientFeePerGasEvictionRule());
+    this.#evictionManager.registerRule(new InsufficientFeePerGasEvictionRule(deps.blockMinFeesProvider));
     this.#evictionManager.registerRule(new InvalidTxsAfterReorgRule(deps.worldStateSynchronizer));
     this.#evictionManager.registerRule(new FeePayerBalanceEvictionRule(deps.worldStateSynchronizer));
     // LowPriorityEvictionRule handles cases where txs become pending via prepareForSlot (unprotect)

@@ -330,6 +330,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
     }
 
+    const globalVariableBuilder = new GlobalVariableBuilder({
+      ...config,
+      rollupVersion: BigInt(config.rollupVersion),
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+    });
+
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
       config,
@@ -337,6 +344,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       proofVerifier,
       worldStateSynchronizer,
       epochCache,
+      globalVariableBuilder,
       packageVersion,
       dateProvider,
       telemetry,
@@ -549,13 +557,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         log.info(`Prover node subsystem created but not started`);
       }
     }
-
-    const globalVariableBuilder = new GlobalVariableBuilder({
-      ...config,
-      rollupVersion: BigInt(config.rollupVersion),
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-    });
 
     const node = new AztecNodeService(
       config,
