@@ -60,7 +60,8 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     }
     size_t total_size = end - start;
     if (__aligned_for<T>(total_size) < sizeof(T)) {
-        return "Incomplete " + msgpack_schema_name(*obj) + " SERIALIZATION_FIELDS() params! Not all of object specified.";
+        return "Incomplete " + msgpack_schema_name(*obj) +
+               " SERIALIZATION_FIELDS() params! Not all of object specified.";
     }
     return {};
 }

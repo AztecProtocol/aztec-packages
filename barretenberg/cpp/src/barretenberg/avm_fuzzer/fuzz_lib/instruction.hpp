@@ -537,12 +537,12 @@ struct CALL_Instruction {
     bool is_static_call;
 
     SERIALIZATION_FIELDS(l2_gas_address,
-                   da_gas_address,
-                   contract_address_address,
-                   calldata_address,
-                   calldata_size_address,
-                   calldata_size,
-                   is_static_call);
+                         da_gas_address,
+                         contract_address_address,
+                         calldata_address,
+                         calldata_size_address,
+                         calldata_size,
+                         is_static_call);
 };
 
 struct RETURNDATASIZE_Instruction {
@@ -616,7 +616,8 @@ struct TORADIXBE_Instruction {
     ParamRef output_bits_address; // U1: whether output is bits
     AddressRef dst_address;       // destination for limbs
     bool is_output_bits;          // known at generation time for memory tracking (U1 if true, U8 if false)
-    SERIALIZATION_FIELDS(value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
+    SERIALIZATION_FIELDS(
+        value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
 };
 
 struct DEBUGLOG_Instruction {

@@ -313,20 +313,20 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
     SERIALIZATION_FIELDS(modulus,
-                   public_inps,
-                   vars_of_interest,
-                   variables,
-                   selectors,
-                   wires,
-                   real_variable_index,
-                   lookup_tables,
-                   real_variable_tags,
-                   range_tags,
-                   rom_records,
-                   rom_states,
-                   ram_records,
-                   ram_states,
-                   circuit_finalized);
+                         public_inps,
+                         vars_of_interest,
+                         variables,
+                         selectors,
+                         wires,
+                         real_variable_index,
+                         lookup_tables,
+                         real_variable_tags,
+                         range_tags,
+                         rom_records,
+                         rom_states,
+                         ram_records,
+                         ram_states,
+                         circuit_finalized);
 };
 // ========================================================================================
 } // namespace bb

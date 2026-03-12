@@ -39,8 +39,8 @@ struct JumpIfToNewBlock {
     uint16_t condition_offset_index;
 
     SERIALIZATION_FIELDS(then_program_block_instruction_block_idx,
-                   else_program_block_instruction_block_idx,
-                   condition_offset_index);
+                         else_program_block_instruction_block_idx,
+                         condition_offset_index);
 };
 
 /// @brief finalizes the current block with a jump to the block, which does not create a loop in the graph (defined by

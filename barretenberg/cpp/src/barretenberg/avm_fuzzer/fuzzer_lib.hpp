@@ -36,14 +36,14 @@ struct FuzzerTxData {
     std::vector<FF> note_hashes;
 
     SERIALIZATION_FIELDS(input_programs,
-                   contract_classes,
-                   contract_instances,
-                   contract_addresses,
-                   tx,
-                   global_variables,
-                   protocol_contracts,
-                   public_data_writes,
-                   note_hashes);
+                         contract_classes,
+                         contract_instances,
+                         contract_addresses,
+                         tx,
+                         global_variables,
+                         protocol_contracts,
+                         public_data_writes,
+                         note_hashes);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)

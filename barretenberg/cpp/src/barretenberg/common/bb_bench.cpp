@@ -248,11 +248,13 @@ void GlobalBenchStatsContainer::add_entry(const char* key, const std::shared_ptr
 
 void GlobalBenchStatsContainer::print() const
 {
-    std::cout << "GlobalBenchStatsContainer::print() START" << "\n";
+    std::cout << "GlobalBenchStatsContainer::print() START"
+              << "\n";
     for (const std::shared_ptr<TimeStatsEntry>& entry : entries) {
         print_stats_recursive(entry->key, &entry->count, "");
     }
-    std::cout << "GlobalBenchStatsContainer::print() END" << "\n";
+    std::cout << "GlobalBenchStatsContainer::print() END"
+              << "\n";
 }
 
 void GlobalBenchStatsContainer::print_stats_recursive(const OperationKey& key,

@@ -100,7 +100,8 @@ struct WorldStateDBStats {
     TreeDBStats publicDataTreeStats;
     TreeDBStats nullifierTreeStats;
 
-    SERIALIZATION_FIELDS(noteHashTreeStats, messageTreeStats, archiveTreeStats, publicDataTreeStats, nullifierTreeStats);
+    SERIALIZATION_FIELDS(
+        noteHashTreeStats, messageTreeStats, archiveTreeStats, publicDataTreeStats, nullifierTreeStats);
 
     WorldStateDBStats() = default;
     WorldStateDBStats(const TreeDBStats& noteHashStats,

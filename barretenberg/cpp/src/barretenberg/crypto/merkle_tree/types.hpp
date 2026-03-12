@@ -100,12 +100,12 @@ struct TreeDBStats {
     ~TreeDBStats() = default;
 
     SERIALIZATION_FIELDS(mapSize,
-                   physicalFileSize,
-                   blocksDBStats,
-                   nodesDBStats,
-                   leafPreimagesDBStats,
-                   leafIndicesDBStats,
-                   blockIndicesDBStats)
+                         physicalFileSize,
+                         blocksDBStats,
+                         nodesDBStats,
+                         leafPreimagesDBStats,
+                         leafIndicesDBStats,
+                         blockIndicesDBStats)
 
     bool operator==(const TreeDBStats& other) const
     {

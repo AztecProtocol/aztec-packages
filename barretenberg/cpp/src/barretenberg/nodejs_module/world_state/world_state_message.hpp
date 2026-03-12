@@ -242,12 +242,12 @@ struct SyncBlockRequest {
     std::vector<crypto::merkle_tree::PublicDataLeafValue> publicDataWrites;
 
     SERIALIZATION_FIELDS(blockNumber,
-                   blockStateRef,
-                   blockHeaderHash,
-                   paddedNoteHashes,
-                   paddedL1ToL2Messages,
-                   paddedNullifiers,
-                   publicDataWrites);
+                         blockStateRef,
+                         blockHeaderHash,
+                         paddedNoteHashes,
+                         paddedL1ToL2Messages,
+                         paddedNullifiers,
+                         publicDataWrites);
 };
 
 struct CopyStoresRequest {

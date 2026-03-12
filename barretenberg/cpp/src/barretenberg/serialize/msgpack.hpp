@@ -118,7 +118,7 @@ to the object itself, do break up the above to keep a reference to the handle, f
 // Helper for above documented syntax
 // Define a macro that takes any amount of parameters and expands to a msgpack method definition
 // __VA__ARGS__ expands to the parmeters, comma separated.
-#define SERIALIZATION_FIELDS(...)                                                                                            \
+#define SERIALIZATION_FIELDS(...)                                                                                      \
     void msgpack(auto pack_fn)                                                                                         \
     {                                                                                                                  \
         pack_fn(NVP(__VA_ARGS__));                                                                                     \
