@@ -240,7 +240,7 @@ export class HAKeyStore implements ExtendedValidatorKeyStore {
     }
 
     if (error instanceof SlashingProtectionError) {
-      this.log.warn(`Duty already signed by another node with different payload`, {
+      this.log.info(`Duty already signed by another node with different payload`, {
         dutyType: context.dutyType,
         slot: context.slot,
         existingMessageHash: error.existingMessageHash,

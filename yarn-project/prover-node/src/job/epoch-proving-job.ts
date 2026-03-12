@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
+import { AVM_MAX_CONCURRENT_SIMULATIONS } from '@aztec/native';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
@@ -164,7 +165,14 @@ export class EpochProvingJob implements Traceable {
       const previousBlockHeaders = this.gatherPreviousBlockHeaders();
 
       const allCheckpointsTimer = new Timer();
-      await asyncPool(this.config.parallelBlockLimit ?? 32, this.checkpoints, async checkpoint => {
+
+      const parallelism = this.config.parallelBlockLimit
+        ? this.config.parallelBlockLimit
+        : AVM_MAX_CONCURRENT_SIMULATIONS > 0
+          ? AVM_MAX_CONCURRENT_SIMULATIONS
+          : this.checkpoints.length;
+
+      await asyncPool(parallelism, this.checkpoints, async checkpoint => {
         this.checkState();
         const checkpointTimer = new Timer();
 
