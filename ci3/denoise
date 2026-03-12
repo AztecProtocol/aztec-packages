@@ -147,6 +147,9 @@ if [ "$status" -ne 0 ]; then
       cat $outfile
     fi
     echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
+    if [ "${CI:-0}" == "1" ]; then
+      post_github_status failure "denoise/${display_cmd:0:240}" "$url" "failed ($time)" 2>/dev/null || true
+    fi
   fi
 else
   echo -e ". ${green}done${reset} ($time)"

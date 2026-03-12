@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function fields_to_bytes documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">fields_to_bytes</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module fields_to_bytes</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.fields_from_bytes.html">fields_from_bytes</a></div></li>
+<li><a href="fn.fields_to_bytes.html">fields_to_bytes</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">utils</a>::<a href="../index.html">conversion</a>::<a href="index.html">fields_to_bytes</a></div>
+<h1>Function <span class="fn">fields_to_bytes</span></h1>
+<pre><code>pub fn fields_to_bytes&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> [<a href="../../../../std/primitive.u8.html" class="primitive">u8</a>; N * 32]</code></pre>
+
+<div class="comments">
+<p>Converts an input array of fields into a single array of bytes. Use <code>fields_from_bytes</code> to obtain the original
+field array. Each field is converted to a 32-byte big-endian array.</p>
+<p>For example, if you have a field array [123, 456], it will be converted to a 64-byte array:
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,123,  // First field (32 bytes)
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,200]  // Second field (32 bytes)</p>
+<p>Since a field is ~254 bits, you'll end up with a subtle 2-bit &quot;gap&quot; at the big end, every 32 bytes. Be careful that
+such a gap doesn't leak information! This could happen if you for example expected the output to be
+indistinguishable from random bytes.</p>
+</div>
+</main>
+</span>
+</body>
+</html>
