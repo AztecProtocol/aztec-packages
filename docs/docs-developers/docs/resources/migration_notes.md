@@ -9,6 +9,204 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
+
+This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous (constrained computation of nullifiers can be performed only on the `ConfirmedNote` type). If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
+
+### [Aztec.nr] Changes to standard note hash computation
+
+Note hashes used to be computed with the storage slot being the last value of the preimage, it is now the first. This is to make it easier to ensure all note hashes have proper domain separation.
+
+This change requires no input from your side unless you were testing or relying on hardcoded note hashes.
+
+### [Aztec.js] `getPublicEvents` now returns an object instead of an array
+
+`getPublicEvents` now returns a `GetPublicEventsResult<T>` object with `events` and `maxLogsHit` fields instead of a plain array. This enables pagination through large result sets using the new `afterLog` filter option.
+
+```diff
+- const events = await getPublicEvents<MyEvent>(node, MyContract.events.MyEvent, filter);
++ const { events } = await getPublicEvents<MyEvent>(node, MyContract.events.MyEvent, filter);
+```
+
+The `maxLogsHit` flag indicates whether the log limit was reached, meaning more results may be available. You can use `afterLog` in the filter to fetch the next page.
+
+### [Aztec.nr] Removed `get_random_bytes`
+
+The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
+
+### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
+
+All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
+
+**Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes, using `extractOffchainOutput` to decode offchain messages from raw effects.
+
+The offchain output includes two fields:
+
+- `offchainEffects` — raw offchain effects emitted during execution, other than `offchainMessages`
+- `offchainMessages` — decoded messages intended for specific recipients
+
+We are making this change now so in the future we can add more fields to the responses of this APIs without breaking backwards compatibility,
+so this won't ever happen again.
+
+**`simulate()` — always returns `{ result, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const value = await contract.methods.foo(args).simulate({ from: sender });
++ const { result: value } = await contract.methods.foo(args).simulate({ from: sender });
+```
+
+When using `includeMetadata` or `fee.estimateGas`, `stats` and `estimatedGas` are also available as optional fields on the same object:
+
+```diff
+- const { stats, estimatedGas } = await contract.methods.foo(args).simulate({
++ const sim = await contract.methods.foo(args).simulate({
+    from: sender,
+    includeMetadata: true,
+  });
++ const stats = sim.stats!;
++ const estimatedGas = sim.estimatedGas!;
+```
+
+`SimulationReturn` is no longer a generic conditional type — it's a single flat type with optional `stats` and `estimatedGas` fields.
+
+**`send()` — returns `{ receipt, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const receipt = await contract.methods.foo(args).send({ from: sender });
++ const { receipt } = await contract.methods.foo(args).send({ from: sender });
+```
+
+When using `NO_WAIT`, returns `{ txHash, offchainEffects, offchainMessages }` instead of a bare `TxHash`:
+
+```diff
+- const txHash = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
++ const { txHash } = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
+```
+
+Offchain messages emitted by the transaction are available on the result:
+
+```typescript
+const { receipt, offchainMessages } = await contract.methods.foo(args).send({ from: sender });
+for (const msg of offchainMessages) {
+  console.log(`Message for ${msg.recipient} from contract ${msg.contractAddress}:`, msg.payload);
+}
+```
+
+**Deploy — returns `{ contract, receipt, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const myContract = await MyContract.deploy(wallet, ...args).send({ from: sender });
++ const { contract: myContract } = await MyContract.deploy(wallet, ...args).send({ from: sender });
+```
+
+The deploy receipt is also available via `receipt` if needed (e.g. for `receipt.txHash` or `receipt.transactionFee`).
+
+**Custom wallet implementations — `sendTx()` must return objects:**
+
+If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()` method must now return objects that include offchain output. Use `extractOffchainOutput` to split raw effects into decoded messages and remaining effects:
+
+```diff
++ import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
+
+  async sendTx(executionPayload, opts) {
+    const provenTx = await this.pxe.proveTx(...);
++   const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
+    const tx = await provenTx.toTx();
+    const txHash = tx.getTxHash();
+    await this.aztecNode.sendTx(tx);
+
+    if (opts.wait === NO_WAIT) {
+-     return txHash;
++     return { txHash, ...offchainOutput };
+    }
+    const receipt = await waitForTx(this.aztecNode, txHash, opts.wait);
+-   return receipt;
++   return { receipt, ...offchainOutput };
+  }
+```
+
+### `aztec new` crate directories are now named after the contract
+
+`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
+
+```
+counter/
+├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
+├── counter_contract/
+│   ├── src/main.nr
+│   └── Nargo.toml            # type = "contract"
+└── counter_test/
+    ├── src/lib.nr
+    └── Nargo.toml            # type = "lib"
+```
+
+This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
+
+**What changed:**
+- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
+- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
+- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
+- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
+
+### [CLI] `--name` flag removed from `aztec new` and `aztec init`
+
+The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
+
+**Migration:**
+
+```diff
+- aztec new my_project --name counter
++ aztec new counter
+```
+
+```diff
+- aztec init --name counter
++ aztec init
+```
+
+**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
+
+### [Aztec.js] Removed `SingleKeyAccountContract`
+
+The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
+
+**Migration:**
+
+```diff
+- import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
+- const contract = new SingleKeyAccountContract(signingKey);
++ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
++ const contract = new SchnorrAccountContract(signingKey);
+```
+
+**Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
+
+### `aztec new` and `aztec init` now create a 2-crate workspace
+
+`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
+
+- A `contract` crate (type = "contract") for your smart contract code
+- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
+
+The new project structure looks like:
+
+```
+my_project/
+├── Nargo.toml           # [workspace] members = ["contract", "test"]
+├── contract/
+│   ├── src/main.nr
+│   └── Nargo.toml       # type = "contract"
+└── test/
+    ├── src/lib.nr
+    └── Nargo.toml       # type = "lib"
+```
+
+**What changed:**
+- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
+- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
+- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
+- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
+
 ### Scope enforcement for private state access (TXE and PXE)
 
 Scope enforcement is now active across both TXE (test environment) and PXE (client). Previously, private execution could implicitly access any account's keys and notes. Now, only the caller (`from`) address is in scope by default, and accessing another address's private state requires explicitly granting scope.
@@ -74,6 +272,8 @@ The `simulateUtility` method and related types have been renamed to `executeUtil
 - let result = env.simulate_utility(my_contract_address, selector);
 + let result = env.execute_utility(my_contract_address, selector);
 ```
+
+## 4.0.0-devnet.2-patch.0
 
 ### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
 

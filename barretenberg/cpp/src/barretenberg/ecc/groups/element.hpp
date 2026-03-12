@@ -59,7 +59,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr element dbl() const noexcept;
     constexpr void self_dbl() noexcept;
-    constexpr void self_mixed_add_or_sub(const affine_element<Fq, Fr, Params>& other, uint64_t predicate) noexcept;
 
     constexpr element operator+(const element& other) const noexcept;
     constexpr element operator+(const affine_element<Fq, Fr, Params>& other) const noexcept;
@@ -128,27 +127,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
     static element random_coordinates_on_curve(numeric::RNG* engine = nullptr) noexcept;
-    // {
-    //     bool found_one = false;
-    //     Fq yy;
-    //     Fq x;
-    //     Fq y;
-    //     Fq t0;
-    //     while (!found_one) {
-    //         x = Fq::random_element(engine);
-    //         yy = x.sqr() * x + Params::b;
-    //         if constexpr (Params::has_a) {
-    //             yy += (x * Params::a);
-    //         }
-    //         y = yy.sqrt();
-    //         t0 = y.sqr();
-    //         found_one = (yy == t0);
-    //     }
-    //     return { x, y, Fq::one() };
-    // }
-    static void conditional_negate_affine(const affine_element<Fq, Fr, Params>& in,
-                                          affine_element<Fq, Fr, Params>& out,
-                                          uint64_t predicate) noexcept;
 
     friend std::ostream& operator<<(std::ostream& os, const element& a)
     {
@@ -161,10 +139,6 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 {
     return os << "x:" << e.x << " y:" << e.y << " z:" << e.z;
 }
-
-// constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
-// constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
-// constexpr element<Fq, Fr, Params>::curve_b = Params::b;
 
 } // namespace bb::group_elements
 

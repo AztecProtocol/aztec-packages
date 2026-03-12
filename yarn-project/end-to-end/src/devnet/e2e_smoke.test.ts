@@ -138,7 +138,7 @@ describe('End-to-end tests for devnet', () => {
 
     const l2AccountDeployMethod = await l2AccountManager.getDeployMethod();
 
-    const txReceipt = await l2AccountDeployMethod.send({
+    const { receipt: txReceipt } = await l2AccountDeployMethod.send({
       from: AztecAddress.ZERO,
       fee: {
         paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
@@ -172,7 +172,9 @@ describe('End-to-end tests for devnet', () => {
 
     expect(txReceipt.isMined() && txReceipt.hasExecutionSucceeded()).toBe(true);
     const feeJuice = FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
-    const balance = await feeJuice.methods.balance_of_public(l2AccountAddress).simulate({ from: l2AccountAddress });
+    const { result: balance } = await feeJuice.methods
+      .balance_of_public(l2AccountAddress)
+      .simulate({ from: l2AccountAddress });
     expect(balance).toEqual(amount - txReceipt.transactionFee!);
   });
 
@@ -253,7 +255,7 @@ describe('End-to-end tests for devnet', () => {
   async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
     const [fundedAccountAddress] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 
-    const test = await TestContract.deploy(wallet).send({
+    const { contract: test } = await TestContract.deploy(wallet).send({
       from: fundedAccountAddress,
       universalDeploy: true,
       skipClassPublication: true,

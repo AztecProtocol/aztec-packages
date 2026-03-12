@@ -130,7 +130,7 @@ describe('e2e_reload_keystore', () => {
 
     // Send a tx and verify the block uses the initial coinbase
     const deployer = new ContractDeployer(artifact, wallet);
-    const sentTx1 = await deployer.deploy(ownerAddress, ownerAddress, 1).send({
+    const { txHash: sentTx1 } = await deployer.deploy(ownerAddress, ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(1),
       skipClassPublication: true,
@@ -197,7 +197,7 @@ describe('e2e_reload_keystore', () => {
     // Whichever validator is the proposer, its coinbase must be from the reloaded keystore.
     const allNewCoinbasesLower = newCoinbases.map(c => c.toString().toLowerCase());
 
-    const sentTx2 = await deployer.deploy(ownerAddress, ownerAddress, 2).send({
+    const { txHash: sentTx2 } = await deployer.deploy(ownerAddress, ownerAddress, 2).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(2),
       skipClassPublication: true,

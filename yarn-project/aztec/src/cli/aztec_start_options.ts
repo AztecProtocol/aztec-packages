@@ -12,7 +12,6 @@ import {
   isBooleanConfigValue,
   omitConfigMappings,
 } from '@aztec/foundation/config';
-import { dataConfigMappings } from '@aztec/kv-store/config';
 import { sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
 import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker/config';
@@ -20,6 +19,7 @@ import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
 import { chainConfigMappings, nodeRpcConfigMappings } from '@aztec/stdlib/config';
+import { dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
 import { worldStateConfigMappings } from '@aztec/world-state/config';
 
@@ -105,8 +105,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'NETWORK',
     },
 
-    configToFlag('--auto-update', sharedNodeConfigMappings.autoUpdate),
-    configToFlag('--auto-update-url', sharedNodeConfigMappings.autoUpdateUrl),
+    configToFlag('--enable-version-check', sharedNodeConfigMappings.enableVersionCheck),
 
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
     configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),
@@ -150,12 +149,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'AZTEC_ADMIN_API_KEY_HASH',
     },
     {
-      flag: '--no-admin-api-key',
+      flag: '--disable-admin-api-key',
       description:
         'Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.',
       defaultValue: false,
-      env: 'AZTEC_NO_ADMIN_API_KEY',
-      parseVal: val => val === 'true' || val === '1',
+      env: 'AZTEC_DISABLE_ADMIN_API_KEY',
+      // undefined means the flag was passed without a value (boolean toggle), treat as true.
+      parseVal: val => val === undefined || val === 'true' || val === '1',
     },
     {
       flag: '--reset-admin-api-key',

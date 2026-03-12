@@ -11,13 +11,14 @@ import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectValidatorKeysCommands } from '@aztec/cli/validator_keys';
 import { getActiveNetworkName } from '@aztec/foundation/config';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { Command } from 'commander';
 
 import { injectCompileCommand } from '../cli/cmds/compile.js';
 import { injectMigrateCommand } from '../cli/cmds/migrate_ha_db.js';
+import { injectProfileCommand } from '../cli/cmds/profile.js';
 import { injectAztecCommands } from '../cli/index.js';
-import { getCliVersion } from '../cli/release_version.js';
 
 const NETWORK_FLAG = 'network';
 
@@ -46,7 +47,7 @@ async function main() {
   await enrichEnvironmentWithNetworkConfig(networkName);
   enrichEnvironmentWithChainName(networkName);
 
-  const cliVersion = getCliVersion();
+  const cliVersion = getPackageVersion() ?? 'unknown';
   let program = new Command('aztec');
   program.description('Aztec command line interface').version(cliVersion).enablePositionalOptions();
   program = injectAztecCommands(program, userLog, debugLogger);
@@ -58,6 +59,7 @@ async function main() {
   program = injectMiscCommands(program, userLog);
   program = injectValidatorKeysCommands(program, userLog);
   program = injectCompileCommand(program, userLog);
+  program = injectProfileCommand(program, userLog);
   program = injectMigrateCommand(program, userLog);
 
   await program.parseAsync(process.argv);

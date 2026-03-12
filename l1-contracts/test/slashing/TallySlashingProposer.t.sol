@@ -605,9 +605,8 @@ contract TallySlashingProposerTest is TestBase {
 
   function test_getVotesRevertsForOutOfRangeRound() public {
     // Test that getVotes reverts for rounds outside the valid roundabout range.
-    // Before the range check was added to _getRoundVotes, getVotes would silently
-    // return whatever stale data was at the storage slot - potentially data from
-    // a completely different round that mapped to the same circular index.
+    // getVotes routes through _getRoundData for range validation before loading
+    // vote slots, so out-of-range round reads should always revert.
     _jumpToSlashRound(10);
     SlashRound baseRound = slashingProposer.getCurrentRound();
 
@@ -668,6 +667,47 @@ contract TallySlashingProposerTest is TestBase {
     bytes memory emptyVote = new bytes(expectedLength);
     bytes memory result = slashingProposer.getVotes(staleRound, 0);
     assertEq(result, emptyVote, "getVotes should return empty bytes for stale round");
+  }
+
+  function test_getVotesReturnsEmptyForUnwrittenIndexInCurrentRound() public {
+    // Populate two vote indices in a base round.
+    _jumpToSlashRound(10);
+    SlashRound baseRound = slashingProposer.getCurrentRound();
+
+    uint8[] memory firstVote = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    firstVote[0] = 3;
+    _castVote(firstVote);
+
+    timeCheater.cheat__progressSlot();
+
+    uint8[] memory secondVote = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    secondVote[1] = 2;
+    secondVote[2] = 1;
+    _castVote(secondVote);
+
+    bytes memory secondVoteData = _createVoteData(secondVote);
+    assertEq(slashingProposer.getVotes(baseRound, 1), secondVoteData, "Base round index 1 should be populated");
+
+    // Jump to a round that maps to the same circular slot and cast only one vote.
+    uint256 roundaboutSize = slashingProposer.ROUNDABOUT_SIZE();
+    SlashRound overlappingRound = SlashRound.wrap(SlashRound.unwrap(baseRound) + roundaboutSize);
+    _jumpToSlashRound(SlashRound.unwrap(overlappingRound));
+
+    uint8[] memory overlappingVote = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    overlappingVote[0] = 1;
+    _castVote(overlappingVote);
+
+    (, uint256 voteCount) = slashingProposer.getRound(overlappingRound);
+    assertEq(voteCount, 1, "Overlapping round should have exactly one vote");
+
+    // Reading index 1 must return empty bytes, not stale bytes from baseRound index 1.
+    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+    bytes memory emptyVote = new bytes(expectedLength);
+    assertEq(
+      slashingProposer.getVotes(overlappingRound, 1),
+      emptyVote,
+      "getVotes should return empty bytes for unwritten vote index"
+    );
   }
 
   function test_getVotesRevertsForFutureRound() public {
@@ -951,9 +991,9 @@ contract TallySlashingProposerTest is TestBase {
     // Round FIRST_SLASH_ROUND targets epochs 0 and 1, which have no committees
     // because they precede the validator set sampling lag.
     //
-    // Before the fix, casting votes that reach quorum for validator slots in these
-    // committee-less epochs would cause executeRound (and getTally) to revert with
-    // an array out-of-bounds access when indexing _committees[epochIndex][validatorIndex].
+    // Casting votes that reach quorum for validator slots in these committee-less epochs cause
+    // executeRound (and getTally) to revert with an array out-of-bounds access when
+    // indexing _committees[epochIndex][validatorIndex].
     _jumpToSlashRound(FIRST_SLASH_ROUND);
     SlashRound targetRound = slashingProposer.getCurrentRound();
 
@@ -980,16 +1020,18 @@ contract TallySlashingProposerTest is TestBase {
     assertEq(committees[0].length, 0, "Epoch 0 should have empty committee");
     assertEq(committees[1].length, 0, "Epoch 1 should have empty committee");
 
-    // getTally should not revert and should return 0 actions
+    // getTally should revert because of out of bounds
+    vm.expectRevert();
     TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(targetRound, committees);
-    assertEq(actions.length, 0, "Should have no slash actions for empty committees");
+    assertEq(actions.length, 0, "Should have no slash actions since reverted");
 
-    // executeRound should also succeed
+    // Reverts because of out of bounds
+    vm.expectRevert();
     slashingProposer.executeRound(targetRound, committees);
 
-    // Verify round is marked as executed
+    // Verify round is not marked as executed
     (bool isExecuted,) = slashingProposer.getRound(targetRound);
-    assertTrue(isExecuted, "Round should be marked as executed");
+    assertFalse(isExecuted, "Round should not be marked as executed");
   }
 
   function test_revertWhenSlashAmountIsZero() public {

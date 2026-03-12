@@ -59,7 +59,10 @@ template <typename Flavor> class OinkVerifier {
         , num_public_inputs(num_public_inputs)
     {}
 
-    void verify();
+    // emit_alpha: when false, skip drawing the "alpha" challenge at the end of Oink.
+    // Used by BatchedHonkTranslatorVerifier, which draws a single joint alpha ("Sumcheck:alpha")
+    // after both circuits' pre-sumcheck phases instead.
+    void verify(bool emit_alpha = true);
 
   private:
     void receive_vk_hash_and_public_inputs();

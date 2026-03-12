@@ -116,7 +116,7 @@ export class TestContext {
 
     const broker = new TestBroker(proverCount, localProver);
     const facade = new BrokerCircuitProverFacade(broker);
-    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO, false, 10);
 
     await broker.start();
     facade.start();
@@ -262,7 +262,7 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const block = await builder.addBlock(blockGlobalVariables[i], txs, {
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
         expectedEndState: state,
         insertTxsEffects: true,
       });

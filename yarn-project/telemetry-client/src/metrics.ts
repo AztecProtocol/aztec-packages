@@ -350,6 +350,13 @@ export const ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_l1_inclusion_delay',
+  description: 'Seconds into the L2 slot when the checkpoint L1 tx was included',
+  unit: 's',
+  valueType: ValueType.INT,
+};
+
 export const NODE_RECEIVE_TX_DURATION: MetricDefinition = {
   name: 'aztec.node.receive_tx.duration',
   description: 'The duration of the receiveTx method',
@@ -757,6 +764,12 @@ export const PEER_MANAGER_PEER_COUNT: MetricDefinition = {
   unit: 'peers',
   valueType: ValueType.INT,
 };
+export const PEER_MANAGER_HEALTHY_PEER_COUNT: MetricDefinition = {
+  name: 'aztec.peer_manager.healthy_peer_count',
+  description: 'Number of healthy (non-protected, non-banned) peers',
+  unit: 'peers',
+  valueType: ValueType.INT,
+};
 export const PEER_MANAGER_LOW_SCORE_DISCONNECTS: MetricDefinition = {
   name: 'aztec.peer_manager.low_score_disconnects',
   description: 'Number of peers disconnected due to low score',
@@ -1041,6 +1054,11 @@ export const PROVING_QUEUE_REJECTED_JOBS: MetricDefinition = {
   description: 'Number of rejected proving jobs',
   valueType: ValueType.INT,
 };
+export const PROVING_QUEUE_ABORTED_JOBS: MetricDefinition = {
+  name: 'aztec.proving_queue.aborted_jobs_count',
+  description: 'Number of aborted proving jobs',
+  valueType: ValueType.INT,
+};
 export const PROVING_QUEUE_RETRIED_JOBS: MetricDefinition = {
   name: 'aztec.proving_queue.retried_jobs_count',
   description: 'Number of retried proving jobs',
@@ -1113,6 +1131,36 @@ export const PROVER_NODE_JOB_BLOCKS: MetricDefinition = {
 export const PROVER_NODE_JOB_TRANSACTIONS: MetricDefinition = {
   name: 'aztec.prover_node.job_transactions',
   description: 'Number of transactions in a proven epoch',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_BLOB_PROCESSING_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.blob_processing.last_duration',
+  description: 'Duration of blob processing step in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHONK_VERIFIER_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.chonk_verifier.last_duration',
+  description: 'Duration of chonk verifier enqueuing in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_BLOCK_PROCESSING_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.block_processing.duration',
+  description: 'Duration of processing a single block in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHECKPOINT_PROCESSING_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.checkpoint_processing.duration',
+  description: 'Duration of processing a single checkpoint in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_ALL_CHECKPOINTS_PROCESSING_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.all_checkpoints_processing.last_duration',
+  description: 'Duration of processing all checkpoints in epoch proving job',
+  unit: 'ms',
   valueType: ValueType.INT,
 };
 export const PROVER_NODE_REWARDS_TOTAL: MetricDefinition = {
@@ -1247,6 +1295,16 @@ export const VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT: MetricDefinition =
 export const VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT: MetricDefinition = {
   name: 'aztec.validator.attestation_failed_node_issue_count',
   description: 'The number of failed attestations due to node issues (timeout, missing data, etc.)',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_CURRENT_EPOCH: MetricDefinition = {
+  name: 'aztec.validator.current_epoch',
+  description: 'The current epoch number, reflecting total epochs elapsed since genesis',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_ATTESTED_EPOCH_COUNT: MetricDefinition = {
+  name: 'aztec.validator.attested_epoch_count',
+  description: 'The number of epochs in which this node successfully submitted at least one attestation',
   valueType: ValueType.INT,
 };
 
@@ -1472,4 +1530,52 @@ export const IVC_VERIFIER_AGG_DURATION_AVG: MetricDefinition = {
   description: 'AVG ivc verification',
   unit: 'ms',
   valueType: ValueType.DOUBLE,
+};
+
+// HA Signer metrics
+export const HA_SIGNER_SIGNING_DURATION: MetricDefinition = {
+  name: 'aztec.ha_signer.signing_duration',
+  description: 'End-to-end duration for signing with HA protection (lock + sign + record)',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_SIGNING_SUCCESS_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.signing_success_count',
+  description: 'Count of successful signing operations',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_DUTY_ALREADY_SIGNED_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.duty_already_signed_count',
+  description: 'Count of DutyAlreadySignedError (expected in HA; another node signed first)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_SLASHING_PROTECTION_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.slashing_protection_count',
+  description: 'Count of SlashingProtectionError (attempted to sign different data)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_SIGNING_ERROR_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.signing_error_count',
+  description: 'Count of signing function failures (lock deleted for retry)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_LOCK_ACQUIRED_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.lock_acquired_count',
+  description: 'Count of lock acquisitions (new lock acquired vs existing record found)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_CLEANUP_STUCK_DUTIES_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.cleanup_stuck_duties_count',
+  description: 'Number of stuck duties cleaned up per cleanup run',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_CLEANUP_OLD_DUTIES_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.cleanup_old_duties_count',
+  description: 'Number of old duties cleaned up',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_CLEANUP_OUTDATED_ROLLUP_DUTIES_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.cleanup_outdated_rollup_duties_count',
+  description: 'Number of duties cleaned due to rollup upgrade',
+  valueType: ValueType.INT,
 };

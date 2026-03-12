@@ -520,6 +520,20 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(verify);
 
     /***************************************************************************************************************
+     * Subcommand: batch_verify
+     ***************************************************************************************************************/
+    std::filesystem::path batch_verify_proofs_dir{ "./proofs" };
+    CLI::App* batch_verify =
+        app.add_subcommand("batch_verify", "Batch-verify multiple Chonk proofs with a single IPA SRS MSM.");
+
+    add_help_extended_flag(batch_verify);
+    add_scheme_option(batch_verify);
+    batch_verify->add_option("--proofs_dir", batch_verify_proofs_dir, "Directory containing proof_N/vk_N pairs.");
+    add_verbose_flag(batch_verify);
+    add_debug_flag(batch_verify);
+    add_crs_path_option(batch_verify);
+
+    /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
      ***************************************************************************************************************/
     CLI::App* write_solidity_verifier =
@@ -813,6 +827,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 throw_or_abort("write_solidity_verifier requires --verifier_target to be 'evm' or 'evm-no-zk', got '" +
                                flags.verifier_target + "'");
             }
+            if (flags.optimized_solidity_verifier && !flags.disable_zk) {
+                throw_or_abort(
+                    "An optimized ZK Solidity verifier is not currently available. "
+                    "Use --verifier_target evm-no-zk, or remove --optimized to use the non-optimized ZK verifier.");
+            }
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }
@@ -953,6 +972,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
+            }
+            if (batch_verify->parsed()) {
+                const bool verified = api.batch_verify(flags, batch_verify_proofs_dir);
+                vinfo("batch verified: ", verified);
+                return verified ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {

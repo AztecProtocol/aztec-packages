@@ -1,7 +1,7 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsArgs } from '@aztec/ethereum/deploy-aztec-l1-contracts';
@@ -104,12 +104,15 @@ export class FeesTest {
 
   async setup() {
     this.logger.verbose('Setting up fresh context...');
+    // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
+    const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
       startProverNode: true,
       ...this.setupOptions,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
       l1ContractsArgs: { ...this.setupOptions },
+      txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
 
     this.rollupContract = RollupContract.getFromConfig(this.context.config);
@@ -157,11 +160,15 @@ export class FeesTest {
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balanceBefore } = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
 
     await mintTokensToPrivate(this.bananaCoin, this.aliceAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balanceAfter } = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
@@ -223,7 +230,7 @@ export class FeesTest {
   async applyDeployBananaToken() {
     this.logger.info('Applying deploy banana token setup');
 
-    const bananaCoin = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
+    const { contract: bananaCoin } = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
       from: this.aliceAddress,
     });
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
@@ -244,7 +251,7 @@ export class FeesTest {
     expect((await this.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
     const bananaCoin = this.bananaCoin;
-    const bananaFPC = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
+    const { contract: bananaFPC } = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
       from: this.aliceAddress,
     });
 
@@ -275,7 +282,7 @@ export class FeesTest {
 
       // @todo @lherskind As we deal with #13601
       // Right now the value is from `FeeLib.sol`
-      const L1_GAS_PER_EPOCH_VERIFIED = 1000000n;
+      const L1_GAS_PER_EPOCH_VERIFIED = 3600000n;
 
       // We round up
       const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);

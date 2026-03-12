@@ -14,16 +14,13 @@ import {
   type Abi,
   type BlockOverrides,
   type Hex,
-  type NonceManager,
   type PrepareTransactionRequestRequest,
   type StateOverride,
   type TransactionReceipt,
   type TransactionSerializable,
-  createNonceManager,
   formatGwei,
   serializeTransaction,
 } from 'viem';
-import { jsonRpc } from 'viem/nonce';
 
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -47,8 +44,9 @@ import {
 const MAX_L1_TX_STATES = 32;
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
-  protected nonceManager: NonceManager;
   protected txs: L1TxState[] = [];
+  /** Last nonce successfully sent to the chain. Used as a lower bound when a fallback RPC node returns a stale count. */
+  private lastSentNonce: number | undefined;
   /** Tx delayer for testing. Only set when enableDelayer config is true. */
   public delayer?: Delayer;
   /** KZG instance for blob operations. */
@@ -68,7 +66,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     delayer?: Delayer,
   ) {
     super(client, logger, dateProvider, config, debugMaxGasLimit);
-    this.nonceManager = createNonceManager({ source: jsonRpc() });
     this.kzg = kzg;
 
     // Set up delayer: use provided one or create new
@@ -110,6 +107,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       this.metrics?.recordMinedTx(l1TxState, new Date(l1Timestamp));
     } else if (newState === TxUtilsState.NOT_MINED) {
       this.metrics?.recordDroppedTx(l1TxState);
+      // The tx was dropped: the chain nonce reverted to l1TxState.nonce, so our lower bound is
+      // no longer valid. Clear it so the next send fetches the real nonce from the chain.
+      if (this.lastSentNonce === l1TxState.nonce) {
+        this.lastSentNonce = undefined;
+      }
     }
 
     // Update state in the store
@@ -244,9 +246,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         throw new InterruptError(`Transaction sending is interrupted`);
       }
 
-      // Check timeout before consuming nonce to avoid leaking a nonce that was never sent.
-      // A leaked nonce creates a gap (e.g. nonce 107 consumed but unsent), so all subsequent
-      // transactions (108, 109, ...) can never be mined since the chain expects 107 first.
       const now = new Date(await this.getL1Timestamp());
       if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
         throw new TimeoutError(
@@ -254,11 +253,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         );
       }
 
-      const nonce = await this.nonceManager.consume({
-        client: this.client,
-        address: account,
-        chainId: this.client.chain.id,
-      });
+      const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+      // If a fallback RPC node returns a stale count (lower than what we last sent), use our
+      // local lower bound to avoid sending a duplicate of an already-pending transaction.
+      const nonce =
+        this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
 
       const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
       const txData = this.makeTxData(baseState, { isCancelTx: false });
@@ -266,6 +265,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       // Send the new tx
       const signedRequest = await this.prepareSignedTransaction(txData);
       const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+      // Update after tx is sent successfully
+      this.lastSentNonce = nonce;
 
       // Create the new state for monitoring
       const l1TxState: L1TxState = {
@@ -449,7 +450,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             { nonce, account, pendingNonce, timePassed },
           );
           await this.updateState(state, TxUtilsState.NOT_MINED);
-          this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
           throw new DroppedTransactionError(nonce, account);
         }
 
@@ -541,12 +541,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     // Oh no, the transaction has timed out!
     if (isCancelTx || !gasConfig.cancelTxOnTimeout) {
-      // If this was already a cancellation tx, or we are configured to not cancel txs, we just mark it as NOT_MINED
-      // and reset the nonce manager, so the next tx that comes along can reuse the nonce if/when this tx gets dropped.
-      // This is the nastiest scenario for us, since the new tx could acquire the next nonce, but then this tx is dropped,
-      // and the new tx would never get mined. Eventually, the new tx would also drop.
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
     } else {
       // Otherwise we fire the cancellation without awaiting to avoid blocking the caller,
       // and monitor it in the background so we can speed it up as needed.
@@ -685,7 +680,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         { nonce, account },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
       return;
     }
 
@@ -697,7 +691,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         { nonce, account, currentNonce },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
       return;
     }
 

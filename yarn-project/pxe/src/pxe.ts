@@ -145,6 +145,7 @@ export type PXECreateArgs = {
 export class PXE {
   private constructor(
     private node: AztecNode,
+    private db: AztecAsyncKVStore,
     private blockStateSynchronizer: BlockSynchronizer,
     private keyStore: KeyStore,
     private contractStore: ContractStore,
@@ -240,6 +241,7 @@ export class PXE {
 
     const pxe = new PXE(
       node,
+      store,
       synchronizer,
       keyStore,
       contractStore,
@@ -345,9 +347,8 @@ export class PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } =
-        await this.protocolContractsProvider.getProtocolContractArtifact(name);
-      await this.contractStore.addContractArtifact(contractClass.id, artifact);
+      const { address, instance, artifact } = await this.protocolContractsProvider.getProtocolContractArtifact(name);
+      await this.contractStore.addContractArtifact(artifact);
       await this.contractStore.addContractInstance(instance);
       registered[name] = address.toString();
     }
@@ -602,8 +603,7 @@ export class PXE {
    * @param artifact - The build artifact for the contract class.
    */
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const { id: contractClassId } = await getContractClassFromArtifact(artifact);
-    await this.contractStore.addContractArtifact(contractClassId, artifact);
+    const contractClassId = await this.contractStore.addContractArtifact(artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
@@ -622,17 +622,17 @@ export class PXE {
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);
-      const contractClassId = contractClass.id;
-      if (!contractClassId.equals(instance.currentContractClassId)) {
+      if (!contractClass.id.equals(instance.currentContractClassId)) {
         throw new Error(
-          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.currentContractClassId})`,
+          `Artifact does not match expected class id (computed ${contractClass.id} but instance refers to ${instance.currentContractClassId})`,
         );
       }
       const computedAddress = await computeContractAddressFromInstance(instance);
       if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
-      await this.contractStore.addContractArtifact(contractClass.id, artifact);
+
+      await this.contractStore.addContractArtifact(artifact, contractClass);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -681,15 +681,16 @@ export class PXE {
         throw new Error('Could not update contract to a class different from the current one.');
       }
 
-      await this.contractStore.addContractArtifact(contractClass.id, artifact);
-
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
 
       currentInstance.currentContractClassId = contractClass.id;
-      await this.contractStore.addContractInstance(currentInstance);
+      await Promise.all([
+        this.contractStore.addContractArtifact(artifact, contractClass),
+        this.contractStore.addContractInstance(currentInstance),
+      ]);
       this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
     });
   }
@@ -959,7 +960,8 @@ export class PXE {
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();
           if (validationResult.result === 'invalid') {
-            throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+            const reason = validationResult.reason.length > 0 ? ` Reason: ${validationResult.reason.join(', ')}` : '';
+            throw new Error(`The simulated transaction is unable to be added to state and is invalid.${reason}`);
           }
         }
 
@@ -1130,9 +1132,10 @@ export class PXE {
   }
 
   /**
-   * Stops the PXE's job queue.
+   * Stops the PXE's job queue and closes the backing store.
    */
-  public stop(): Promise<void> {
-    return this.jobQueue.end();
+  public async stop(): Promise<void> {
+    await this.jobQueue.end();
+    await this.db.close();
   }
 }

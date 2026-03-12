@@ -34,7 +34,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
       }
 
       if (context.event === EvictionEvent.CHAIN_PRUNED) {
-        await this.worldState.syncImmediate(context.blockNumber);
+        await this.worldState.syncImmediate();
         const feePayers = pool.getPendingFeePayers();
         return await this.evictForFeePayers(feePayers, this.worldState.getSnapshot(context.blockNumber), pool);
       }

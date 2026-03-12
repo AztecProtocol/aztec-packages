@@ -21,11 +21,11 @@ namespace bb {
 /**
  * @brief Commit to witnesses, compute relation parameters, and prepare for Sumcheck.
  */
-template <typename Flavor> void OinkProver<Flavor>::prove()
+template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 {
     BB_BENCH_NAME("OinkProver::prove");
     if (!commitment_key.initialized()) {
-        commitment_key = CommitmentKey(prover_instance->dyadic_size() * BATCH_SIZE);
+        commitment_key = CommitmentKey(prover_instance->polynomials.max_end_index() * BATCH_SIZE);
     }
     send_vk_hash_and_public_inputs();
     commit_to_masking_poly();
@@ -33,11 +33,8 @@ template <typename Flavor> void OinkProver<Flavor>::prove()
     commit_to_lookup_counts_and_w4();
     commit_to_logderiv_inverses();
     commit_to_z_perm();
-    prover_instance->alpha = transcript->template get_challenge<FF>("alpha");
-
-    if constexpr (BATCH_SIZE > 1) {
-        // Free the commitment key (PCS will create its own)
-        commitment_key = CommitmentKey();
+    if (emit_alpha) {
+        prover_instance->alpha = transcript->template get_challenge<FF>("alpha");
     }
 }
 

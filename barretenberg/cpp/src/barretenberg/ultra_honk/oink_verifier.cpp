@@ -22,7 +22,7 @@ namespace bb {
 /**
  * @brief Receive witness commitments, compute relation parameters, and prepare for Sumcheck.
  */
-template <typename Flavor> void OinkVerifier<Flavor>::verify()
+template <typename Flavor> void OinkVerifier<Flavor>::verify(bool emit_alpha)
 {
     receive_vk_hash_and_public_inputs();
 
@@ -48,7 +48,14 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
         verifier_instance->interleaved_commitments = interleaved_comms;
     }
 
-    verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
+    if constexpr (BATCH_SIZE > 1) {
+        // Store interleaved commitments and relation parameters on the verifier instance
+        verifier_instance->interleaved_commitments = interleaved_comms;
+    }
+
+    if (emit_alpha) {
+        verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
+    }
 }
 
 /**

@@ -124,8 +124,15 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
 {
     constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
-    size_t key_size = prover_instance->dyadic_size() * BATCH_SIZE;
+    // The CRS only needs to accommodate the actual data extent (max_end_index) rather than the
+    // full dyadic_size. All committed polynomials fit within this bound: witness/selector polys
+    // have backing ≤ max_end_index, Gemini fold polys have size ≤ dyadic_size/2 < max_end_index,
+    // Shplonk quotient Q is sized at max(claim sizes), and KZG opening proof is sized at Q.size().
+    // For ZK, the gemini_masking_poly (at dyadic_size) is already reflected in max_end_index.
+    size_t key_size = prover_instance->polynomials.max_end_index() * BATCH_SIZE;
     if constexpr (Flavor::HasZK) {
+        // SmallSubgroupIPA commits fixed-size polynomials (up to SUBGROUP_SIZE + 3). Ensure the
+        // CRS is large enough for tiny test circuits where max_end_index may be smaller.
         constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
         key_size = std::max(key_size, size_t{ 1 } << (log_subgroup_size + 1));
     }
@@ -191,13 +198,6 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
     constexpr size_t LOG_K = Flavor::INTERLEAVING_LOG_K;
 
     auto& ck = commitment_key;
-    if (!ck.initialized()) {
-        size_t ck_size = prover_instance->dyadic_size() * BATCH_SIZE;
-        if constexpr (Flavor::HasZK) {
-            ck_size = std::max(ck_size, 2 * static_cast<size_t>(Curve::SUBGROUP_SIZE));
-        }
-        ck = CommitmentKey(ck_size);
-    }
 
     const size_t n = prover_instance->dyadic_size();
     const size_t pcs_size = n * BATCH_SIZE;

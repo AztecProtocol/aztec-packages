@@ -76,7 +76,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve({ accepted, ignored: [], rejected: [] });
   }
 
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     const key = tx.getTxHash().toString();
     if (this.txsByHash.has(key)) {
       return Promise.resolve('ignored');
@@ -292,6 +292,7 @@ export function createMockEpochCache(): EpochCacheInterface {
       ethereumSlotDuration: 1,
       proofSubmissionEpochs: 1,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     }),
   };
 }

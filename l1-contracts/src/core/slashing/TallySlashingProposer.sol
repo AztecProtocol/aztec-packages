@@ -594,13 +594,16 @@ contract TallySlashingProposer is EIP712 {
   function getVotes(SlashRound _round, uint256 _index) external view returns (bytes memory) {
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
 
-    // _getRoundVotes reverts if _round is out of the roundabout range.
-    // But within-range the storage slot may still hold stale data from a
-    // previous round that mapped to the same circular index. Guard against
-    // that by checking the authoritative round metadata first.
+    // _getRoundData reverts if _round is out of the roundabout range and
+    // returns empty metadata if this circular slot still contains round data
+    // from an older round number.
     SlashRound currentRound = getCurrentRound();
     RoundData memory roundData = _getRoundData(_round, currentRound);
-    if (roundData.voteCount == 0) {
+
+    // Vote storage is not cleared when a circular slot is reused. If this
+    // round has fewer votes than a previous one that shared the same slot,
+    // indices >= voteCount would otherwise return stale vote bytes.
+    if (_index >= roundData.voteCount) {
       return new bytes(expectedLength);
     }
 
@@ -900,14 +903,6 @@ contract TallySlashingProposer is EIP712 {
         if (escapeHatchEpochs[epochIndex]) {
           continue;
         }
-
-        // Skip validators for epochs without a valid committee (e.g. early epochs
-        // before the validator set was sampled). Without this check, indexing into
-        // an empty committee array would revert and block execution of the round.
-        if (_committees[epochIndex].length != COMMITTEE_SIZE) {
-          continue;
-        }
-
         uint256 packedVotes = tallyMatrix[i];
 
         // Skip if no votes for this validator

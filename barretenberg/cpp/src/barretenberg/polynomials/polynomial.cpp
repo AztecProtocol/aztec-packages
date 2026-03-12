@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -184,28 +184,20 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
     return *this;
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
-{
-    BB_ASSERT(size() == virtual_size());
-    return polynomial_arithmetic::evaluate(data(), z, target_size);
-}
-
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
-    BB_ASSERT(size() == virtual_size());
-    return polynomial_arithmetic::evaluate(data(), z, size());
+    // Evaluate only the backing data; virtual zeroes beyond backing contribute nothing.
+    // When start_index > 0, multiply by z^start_index to account for the offset.
+    Fr result = polynomial_arithmetic::evaluate(data(), z, size());
+    if (start_index() > 0) {
+        result *= z.pow(start_index());
+    }
+    return result;
 }
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
     return _evaluate_mle(evaluation_points, coefficients_, shift);
-}
-
-template <typename Fr>
-Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    return polynomial_arithmetic::compute_barycentric_evaluation(data(), domain.size, z, domain);
 }
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
@@ -282,17 +274,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted(size_t k) const
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= k;
     result.coefficients_.end_ -= k;
-    return result;
-}
-
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
-{
-    // ensure that at least the last magnitude-many coefficients are virtual 0's
-    BB_ASSERT_LTE((coefficients_.end_ + magnitude), virtual_size());
-    Polynomial result;
-    result.coefficients_ = coefficients_;
-    result.coefficients_.start_ += magnitude;
-    result.coefficients_.end_ += magnitude;
     return result;
 }
 

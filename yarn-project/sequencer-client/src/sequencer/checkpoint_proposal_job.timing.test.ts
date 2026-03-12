@@ -330,6 +330,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     // Initialize test state
@@ -436,6 +437,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     validatorClient.signAttestationsAndSigners.mockResolvedValue(mockedSig);
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(globalVariables.feeRecipient);
+    validatorClient.getValidatorAddresses.mockReturnValue([attestorAddress]);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);

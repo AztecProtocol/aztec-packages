@@ -36,7 +36,7 @@ describe('e2e_deploy_contract legacy', () => {
       deployer: defaultAccountAddress,
     });
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
-    const receipt = await deployer
+    const { receipt } = await deployer
       .deploy()
       .send({ from: defaultAccountAddress, contractAddressSalt: salt, wait: { returnReceipt: true } });
     expect(receipt.contract.address).toEqual(deploymentData.address);
@@ -65,7 +65,7 @@ describe('e2e_deploy_contract legacy', () => {
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      const receipt = await deployer
+      const { receipt } = await deployer
         .deploy()
         .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random(), wait: { returnReceipt: true } });
       logger.info(`Sending TX to contract ${index + 1}...`);
@@ -113,8 +113,8 @@ describe('e2e_deploy_contract legacy', () => {
     expect(goodTxPromiseResult.status).toBe('fulfilled');
     expect(badTxReceiptResult.status).toBe('fulfilled'); // but reverted
 
-    const goodTxReceipt = goodTxPromiseResult.status === 'fulfilled' ? goodTxPromiseResult.value : null;
-    const badTxReceipt = badTxReceiptResult.status === 'fulfilled' ? badTxReceiptResult.value : null;
+    const goodTxReceipt = goodTxPromiseResult.status === 'fulfilled' ? goodTxPromiseResult.value.receipt : null;
+    const badTxReceipt = badTxReceiptResult.status === 'fulfilled' ? badTxReceiptResult.value.receipt : null;
 
     // Both the good and bad transactions are included
     expect(goodTxReceipt).toBeDefined();

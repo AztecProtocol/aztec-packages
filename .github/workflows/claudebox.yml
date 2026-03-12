@@ -1,0 +1,173 @@
+name: ClaudeBox
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Prompt / instructions for Claude'
+        required: true
+        type: string
+      link:
+        description: 'Context link (e.g., PR URL, issue URL, external reference)'
+        required: false
+        type: string
+
+jobs:
+  claudebox:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.comment.body, '/claudebox')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check write access
+        if: github.event_name == 'issue_comment'
+        run: |
+          ASSOCIATION="${{ github.event.comment.author_association }}"
+          echo "Author association: $ASSOCIATION"
+          if [[ "$ASSOCIATION" != "OWNER" && "$ASSOCIATION" != "MEMBER" && "$ASSOCIATION" != "COLLABORATOR" ]]; then
+            echo "ERROR: User does not have write access (association: $ASSOCIATION)"
+            exit 1
+          fi
+          echo "Access granted."
+
+      - name: Add reaction
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          gh api \
+            repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content='eyes' || true
+
+      - name: Setup SSH tunnel to ClaudeBox
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+
+          # SSH tunnel: CI runner :4001 → bastion :3000 → (reverse tunnel) → claude-box :3001
+          ssh -f -N -L 4001:localhost:3000 \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -o ConnectTimeout=15 \
+            -i ~/.ssh/build_instance_key \
+            ubuntu@ci.aztec-labs.com
+
+          # Wait for tunnel
+          for i in $(seq 1 15); do
+            if curl -s -o /dev/null --max-time 2 http://localhost:4001/ 2>/dev/null; then
+              echo "SSH tunnel ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: SSH tunnel failed to connect"
+          exit 1
+
+      - name: Parse command
+        id: parse
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body || '' }}
+          INPUT_PROMPT: ${{ inputs.prompt || '' }}
+          INPUT_LINK: ${{ inputs.link || '' }}
+        run: |
+          if [ -n "$INPUT_PROMPT" ]; then
+            PROMPT="$INPUT_PROMPT"
+            LINK="$INPUT_LINK"
+          else
+            PROMPT=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
+            LINK=""
+          fi
+
+          echo "link=$LINK" >> "$GITHUB_OUTPUT"
+          {
+            echo "prompt<<PROMPT_EOF"
+            echo "$PROMPT"
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Parsed: prompt=${PROMPT:0:120}"
+
+      - name: Post status comment
+        id: status_comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PROMPT_TEXT: ${{ steps.parse.outputs.prompt }}
+        run: |
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SHORT_PROMPT=$(printf '%.120s' "$PROMPT_TEXT")
+          BODY="**ClaudeBox**: _${SHORT_PROMPT}_ ... [workflow run]($RUN_URL)"
+
+          COMMENT_ID=$(gh api \
+            repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
+            -f body="$BODY" \
+            --jq '.id')
+          echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Posted status comment: $COMMENT_ID"
+
+      - name: Run ClaudeBox
+        timeout-minutes: 120
+        env:
+          CLAUDEBOX_URL: http://localhost:4001
+          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
+          CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
+          CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
+          COMMENT_ID: ${{ github.event.comment.id || '' }}
+          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AUTHOR: ${{ github.event.comment.user.login || github.actor }}
+        run: |
+          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
+          echo "Creating payload..."
+          PAYLOAD=$(jq -n \
+            --arg prompt "$CLAUDEBOX_PROMPT" \
+            --arg user "$AUTHOR" \
+            --arg comment_id "$COMMENT_ID" \
+            --arg run_comment_id "$RUN_COMMENT_ID" \
+            --arg repo "$REPO" \
+            --arg run_url "$RUN_URL" \
+            --arg link "$CLAUDEBOX_LINK" \
+            '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link}')
+
+          echo "Sending payload..."
+          # Start session — returns 202 with log URL
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "$AUTH" -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
+            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
+            exit 1
+          fi
+
+          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
+          SESSION_ID=$(basename "$LOG_URL")
+          echo "Session started: $LOG_URL"
+
+          echo "Session received, polling..."
+          # Poll until completed
+          while true; do
+            sleep 30
+            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
+            STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
+            echo "$(date -u +%H:%M:%S) status=$STATUS"
+            if [ "$STATUS" != "running" ]; then
+              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
+              echo "Session finished: status=$STATUS exit_code=$EXIT_CODE"
+              echo "Log: $LOG_URL"
+              exit "$EXIT_CODE"
+            fi
+          done

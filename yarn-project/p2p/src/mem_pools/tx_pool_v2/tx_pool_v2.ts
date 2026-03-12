@@ -58,6 +58,9 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
         const hashes = txHashes.map(h => (typeof h === 'string' ? TxHash.fromString(h) : TxHash.fromBigInt(h)));
         this.emit('txs-removed', { txHashes: hashes });
       },
+      onTxsMined: (txHashes: string[]) => {
+        this.#metrics?.transactionsRemoved(txHashes);
+      },
     };
 
     // Create the implementation
@@ -74,7 +77,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.addPendingTxs(txs, opts));
   }
 
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     return this.#queue.put(() => this.#impl.canAddPendingTx(tx));
   }
 

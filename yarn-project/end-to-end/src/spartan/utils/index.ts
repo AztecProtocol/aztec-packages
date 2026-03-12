@@ -41,6 +41,9 @@ export {
   applyNetworkShaping,
 } from './chaos.js';
 
+// Helm
+export { hasDeployedHelmRelease } from './helm.js';
+
 // Bot management
 export { restartBot, installTransferBot, uninstallTransferBot } from './bot.js';
 
@@ -63,3 +66,6 @@ export { getPublicViemClient, getL1DeploymentAddresses, getNodeClient } from './
 
 // Health checks
 export { ChainHealth, type ChainHealthSnapshot } from './health.js';
+
+// Pod log extraction
+export { type BlockBuiltLogEntry, fetchBlockBuiltLogs } from './pod_logs.js';

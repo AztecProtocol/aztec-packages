@@ -30,6 +30,7 @@ import {
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -49,7 +50,6 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -61,7 +61,6 @@ import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -186,6 +185,11 @@ export type SetupOptions = {
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
   anvilPort?: number;
+  /**
+   * Number of slots per epoch for Anvil's finality simulation.
+   * Anvil reports `finalized = latest - slotsInAnEpoch * 2`.
+   */
+  anvilSlotsInAnEpoch?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
   /** ZkPassport configuration (domain, scope, mock verifier) */
@@ -306,6 +310,7 @@ export async function setup(
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
+        slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
@@ -456,7 +461,7 @@ export async function setup(
     }
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
-    let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
+    let p2pClientDeps: P2PClientDeps | undefined = undefined;
 
     if (opts.mockGossipSubNetwork) {
       mockGossipSubNetwork = new MockGossipSubNetwork();
@@ -503,7 +508,7 @@ export async function setup(
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
       const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
 
-      const p2pClientDeps: Partial<P2PClientDeps<P2PClientType.Full>> = {
+      const p2pClientDeps: Partial<P2PClientDeps> = {
         p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork!),
         rpcTxProviders: [aztecNodeService],
       };
@@ -719,7 +724,7 @@ export function createAndSyncProverNode(
   deps: {
     telemetry?: TelemetryClient;
     dateProvider: DateProvider;
-    p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
+    p2pClientDeps?: P2PClientDeps;
   },
   options: { prefilledPublicData: PublicDataTreeLeaf[]; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {
@@ -754,7 +759,9 @@ export function getBalancesFn(
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate({ from: address })));
+    const b = await Promise.all(
+      addresses.map(async address => (await method(address).simulate({ from: address })).result),
+    );
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;
@@ -841,8 +848,6 @@ export const deployAccounts =
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
         from: AztecAddress.ZERO,
-        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-        additionalScopes: [accountManager.address],
         skipClassPublication: i !== 0, // Publish the contract class at most once.
       });
     }
@@ -874,7 +879,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(wallet, calls);
 
-  const txReceipt = await batch.send({ from: accountsToDeploy[0] });
+  const { receipt: txReceipt } = await batch.send({ from: accountsToDeploy[0] });
   if (waitUntilProven) {
     if (!node) {
       throw new Error('Need to provide an AztecNode to wait for proven.');

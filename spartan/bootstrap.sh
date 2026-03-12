@@ -99,6 +99,12 @@ function run_network_tests {
   source_network_env "$env_file"
   gcp_auth
   export SCENARIO_TESTS=1
+  # Retrieve the admin API key stored as a K8s Secret during deployment.
+  # Exported so the test runner can authenticate against the admin RPC endpoint.
+  export AZTEC_ADMIN_API_KEY
+  AZTEC_ADMIN_API_KEY=$(kubectl get secret aztec-admin-api-key \
+    --namespace "$NAMESPACE" \
+    -o jsonpath='{.data.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
   local failed=()
   for test_file in "$@"; do
     echo_header "Running $test_file"
@@ -144,6 +150,11 @@ function proving_bench_cmds {
   echo "$(hash):TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/n_tps_prove.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps_prove.test.ts"
 }
 
+function block_capacity_bench_cmds {
+  local timeout=7200  # 2h
+  echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
+}
+
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -168,6 +179,19 @@ function proving_bench {
   gcp_auth
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   proving_bench_cmds | parallelize 1
+}
+
+function block_capacity_bench {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan block capacity bench"
+  gcp_auth
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  block_capacity_bench_cmds | parallelize 1
 }
 
 function ensure_eth_balances {
@@ -234,7 +258,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench)
     env_file="$1"
     $cmd "$env_file"
     ;;

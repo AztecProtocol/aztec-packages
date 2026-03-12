@@ -1,4 +1,5 @@
 import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
+import { DA_GAS_PER_FIELD } from '@aztec/constants';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -175,7 +176,7 @@ export class L2Block {
     } & Partial<Parameters<typeof BlockHeader.random>[0]> = {},
   ): Promise<L2Block> {
     const archive = new AppendOnlyTreeSnapshot(Fr.random(), blockNumber + 1);
-    const header = BlockHeader.random({ blockNumber, ...blockHeaderOverrides });
+    const header = BlockHeader.random({ ...blockHeaderOverrides, blockNumber });
     const body = await Body.random({ txsPerBlock, makeTxOptions, ...txOptions });
     return new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
@@ -220,5 +221,16 @@ export class L2Block {
       txCount: this.body.txEffects.length,
       timestamp: this.header.globalVariables.timestamp,
     };
+  }
+
+  /**
+   * Compute how much DA gas this block uses.
+   *
+   * @remarks This assumes DA gas is computed solely based on the number of blob fields in transactions.
+   * This may change in the future, but we cannot access the actual DA gas used in a block since it's not exposed
+   * in the L2BlockHeader, so we have to rely on recomputing it.
+   */
+  computeDAGasUsed(): number {
+    return this.body.txEffects.reduce((total, txEffect) => total + txEffect.getNumBlobFields(), 0) * DA_GAS_PER_FIELD;
   }
 }

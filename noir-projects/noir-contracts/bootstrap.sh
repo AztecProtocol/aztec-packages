@@ -168,7 +168,7 @@ function compile {
   local contract_name contract_hash
 
   local contract_path=$(get_contract_path "$1" "$2")
-  local contract=${contract_path##*/}
+  local contract=$(grep -oP '(?<=^name = ")[^"]+' "$2/$contract_path/Nargo.toml")
   # Calculate filename because nargo...
   contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
@@ -191,8 +191,17 @@ function compile {
   # .[0] is the original json (at $json_path)
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
-  jq -c '.functions[]' $json_path | \
-    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
+  # Write each function to a separate temp file to avoid pipe/stdin issues with large JSON
+  local func_dir=$(mktemp -d -p $tmp_dir)
+  local i=0
+  while IFS= read -r func_json; do
+    echo "$func_json" > "$func_dir/$i.json"
+    ((i++)) || true
+  done < <(jq -c '.functions[]' $json_path)
+
+  # Process each function file in parallel
+  ls "$func_dir"/*.json | sort -V | \
+    parallel $PARALLEL_FLAGS --keep-order 'cat {} | process_function '"$contract_hash" | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -247,7 +256,7 @@ function test {
   # Starting txe servers with incrementing port numbers.
   # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
   local txe_base_port=14730
-  export NUM_TXES=8
+  export NUM_TXES=1
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     check_port $((txe_base_port + i)) || echo "WARNING: port $((txe_base_port + i)) is in use, TXE $i may fail to start"

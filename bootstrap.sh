@@ -1,26 +1,196 @@
 #!/usr/bin/env bash
-# Usage: ./bootstrap.sh <full|fast|check|clean>"
-#   full: Bootstrap the repo from scratch.
-#   fast: Bootstrap the repo using CI cache where possible to save time building.
-#   check: Check required toolchains and versions are installed.
-#   clean: Force a complete clean of the repo. Erases untracked files, be careful!
-# Use ci3 script base.
+# Install required dependencies first (and restart your shell):
+#   ./bootstrap.sh install_deps
+#
+# Usage: ./bootstrap.sh [cmd]"
+#   ./bootstrap.sh: Max parallelism. Only use on serious hardware.
+#   ./bootstrap.sh gentle: Less parallelism. Gentler on hardware. Slow.
+#   ./bootstrap.sh check: Check required toolchains and versions are installed.
+#   ./bootstrap.sh clean: Force a complete clean of the repo. Erases untracked files, be careful!
+
+### TOOLCHAIN INSTALLATIONS ############################################################################################
+# Expected toolchain versions.
+export expected_min_clang_version=20.0.0
+export expected_min_cmake_version=3.24
+export expected_min_node_version=24.12.0
+export expected_min_zig_version=0.15.1
+export expected_abs_rust_version=1.89.0
+export expected_abs_wasi_version=27.0
+export expected_abs_foundry_version=1.4.1
+export expected_abs_yarn_version=4.5.2
+
+function ensure {
+  command -v $1 &>/dev/null
+}
+
+function install_wasi_sdk {
+  if cat /opt/wasi-sdk/VERSION 2> /dev/null | grep $expected_abs_wasi_version > /dev/null; then
+    return
+  fi
+  local arch=$(uname -m)
+  local os=$(os)
+  local triple=$expected_abs_wasi_version-$arch-$os
+  curl -LOs https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${expected_abs_wasi_version%%.*}/wasi-sdk-$triple.tar.gz
+  tar xzf wasi-sdk-$triple.tar.gz
+  rm wasi-sdk-$triple.tar.gz
+  echo "Installing wasi sdk at /opt/wasi-sdk..."
+  sudo rm -rf /opt/wasi-sdk
+  sudo mv wasi-sdk-$triple /opt/wasi-sdk
+}
+
+function install_foundry {
+  curl -L https://foundry.paradigm.xyz | bash
+  ~/.foundry/bin/foundryup -i $expected_abs_foundry_version
+}
+
+function install_zig {
+  if ! ensure zvm; then
+    curl -s https://www.zvm.app/install.sh | bash
+    export PATH="$PATH:$HOME/.zvm/bin"
+    export PATH="$PATH:$HOME/.zvm/self"
+  fi
+  zvm i $expected_min_zig_version
+}
+
+function install_rustup {
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $expected_abs_rust_version
+}
+
+function install_node {
+  if ! ensure nvm; then
+    # Files need to exist if you want nvm installer to update them.
+    case $SHELL in
+      */zsh) touch $HOME/.zshrc ;;
+      */bash) touch $HOME/.bashrc ;;
+    esac
+    curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+    . "$HOME/.nvm/nvm.sh" --no-use
+  fi
+  nvm install --lts
+  nvm alias default lts/*
+}
+
+function install_node_utils {
+  . "$HOME/.nvm/nvm.sh"
+  npm i -g corepack solhint
+}
+
+function install_llvm {
+  wget https://apt.llvm.org/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh 20 all && \
+    rm llvm.sh
+}
+
+function install_yq {
+  curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
+    -o $AZTEC_DEV_BIN/yq && chmod +x $AZTEC_DEV_BIN/yq
+}
+
+function install_ldid {
+  curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 \
+    -o $AZTEC_DEV_BIN/ldid && chmod +x $AZTEC_DEV_BIN/ldid
+}
+
+export -f install_wasi_sdk install_foundry install_zig install_rustup install_node install_node_utils install_llvm \
+          install_yq install_ldid ensure
+
+function install_linux_deps {
+  if ! ensure apt; then
+    echo "Installation requires the apt package manager."
+    exit 1
+  fi
+  mkdir -p "$AZTEC_DEV_BIN"
+  spinner "Installing apt dependencies..." "sudo apt install -y jq parallel curl wget zstd redis-tools lsb-release software-properties-common gnupg build-essential cmake ninja-build xxd doxygen"
+  spinner "Installing llvm..." install_llvm
+  spinner "Installing yq..." install_yq
+  spinner "Installing ldid..." install_ldid
+  spinner "Installing rustup..." install_rustup
+  spinner "Installing wasi-sdk..." install_wasi_sdk
+  spinner "Installing foundry..." install_foundry
+  spinner "Installing zig..." install_zig
+  spinner "Installing node..." install_node
+  spinner "Installing node utils..." install_node_utils
+}
+
+function install_macos_deps {
+  # Check if brew is available.
+  if ! ensure brew; then
+    echo "Installation requires Homebrew."
+    echo "Install it from https://brew.sh"
+    exit 1
+  fi
+  spinner "Installing brew dependencies..." \
+    "brew install cmake ninja llvm@20 doxygen coreutils grep gnu-sed parallel yq zstd redis util-linux libusb jq bash"
+
+  # Make clang 20 available.
+  local llvm_bin="$(brew --prefix)/Cellar/llvm@20/20.1.8/bin"
+  mkdir -p "$AZTEC_DEV_BIN"
+  ln -sf "$llvm_bin/clang" "$AZTEC_DEV_BIN/clang-20"
+  ln -sf "$llvm_bin/clang++" "$AZTEC_DEV_BIN/clang++-20"
+  ln -sf "$llvm_bin/clang-format" "$AZTEC_DEV_BIN/clang-format-20"
+
+  spinner "Installing wasi-sdk..." install_wasi_sdk
+  spinner "Installing foundry..." install_foundry
+  spinner "Installing rustup..." install_rustup
+  spinner "Installing zig..." install_zig
+  spinner "Installing node..." install_node
+  spinner "Installing node utils..." install_node_utils
+}
+
+function install_deps {
+  case "$(os)" in
+    linux) install_linux_deps ;;
+    macos) install_macos_deps ;;
+    *)
+      echo -e "${bold}${red}Unknown operating system.${reset}"
+      echo "We encourage use of our dev container. See build-images/README.md."
+      exit 1
+      ;;
+  esac
+
+  echo
+  if [ -t 0 ]; then
+    echo "Done! Starting fresh shell..."
+    exec $SHELL
+  else
+    echo "Done! You'll need to start a fresh shell to see PATH updates."
+    echo
+  fi
+}
+
+# Special case for installing dependencies (can run on older bash).
+if [ "${1:-}" = "install_deps" ]; then
+  set -euo pipefail
+  source $(git rev-parse --show-toplevel)/ci3/source_base
+  install_deps
+  exit 0
+fi
+
+### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
 
 # Number of TXE servers to run when testing.
-export NUM_TXES=8
+export NUM_TXES=1
 
+# Number of jobs for make. Defaults to number of CPUs.
+# TODO: We should dial this back on consumer hardware, maybe to just 1.
 export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
 
-# Cleanup function. Called on script exit.
+# We append all test commands to this file as they become available during build.
+# The test engine feeds it into parallel.
+export test_cmds_file="/tmp/test_cmds"
+export bench_cmds_file="/tmp/bench_cmds"
+
+### CLEANUP ON EXIT ####################################################################################################
 function cleanup {
   set +e
   if [ -n "${test_engine_pid:-}" ]; then
     echo "Sending SIGTERM to test engine process group..."
-    kill -SIGTERM -- -$test_engine_pgid &>/dev/null
+    kill -SIGTERM -- -$test_engine_pid &>/dev/null
     wait $test_engine_pid
     test_engine_pid=
   fi
@@ -30,152 +200,101 @@ function cleanup {
     wait $make_pid
     make_pid=
   fi
-  if [ -n "${txe_pids:-}" ]; then
-    echo "Sending SIGTERM to TXE processes..."
-    kill -SIGTERM $txe_pids &>/dev/null
-    wait $txe_pids
-    txe_pids=
-  fi
+  stop_txes
 }
 trap cleanup EXIT
 
-function encourage_dev_container {
-  echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
+### TOOLCHAIN CHECKS ###################################################################################################
+function check_minimum_version {
+  local min_version=$1
+  local installed_version=$2
+  if [[ "$(printf '%s\n' "$min_version" "$installed_version" | sort -V | head -n1)" != "$min_version" ]]; then
+    return 1
+  fi
+  return 0
+}
+
+function toolchain_incompatible {
+  if [ "$(os)" == "unknown" ] || [ "$(os)" == "linux" ] && ! ensure apt; then
+    echo -e "${bold}${red}ERROR: Toolchain incompatibility.${reset}"
+    echo "We encourage use of our dev container. See build-images/README.md."
+  else
+    echo -e "${bold}${red}ERROR: Toolchain incompatibility.${reset}"
+    echo "You can install requirements with: ./bootstrap.sh install_deps"
+  fi
+  exit 1
 }
 
 # Checks for required utilities, toolchains and their versions.
-# Developers should probably use the dev container in /build-images to ensure the smoothest experience.
+# DO NOT INSTALL THINGS IN HERE.
 function check_toolchains {
   # Check for various required utilities.
-  for util in jq parallel awk git curl zstd; do
-    if ! command -v $util > /dev/null; then
-      encourage_dev_container
-      echo "Utility $util not found."
-      echo "Installation: sudo apt install $util"
-      exit 1
+  for util in jq parallel awk git curl zstd corepack solhint; do
+    if ! ensure $util; then
+      echo "$util not found."
+      toolchain_incompatible
     fi
   done
-  if ! command -v ldid > /dev/null; then
-    encourage_dev_container
-    echo "Utility ldid not found."
-    echo "Install from https://github.com/ProcursusTeam/ldid."
-    exit 1
+  if [ "$(os)" == "linux" ] && ! ensure ldid; then
+    echo "ldid not found."
+    toolchain_incompatible
   fi
   if ! yq --version | grep "version v4" > /dev/null; then
-    encourage_dev_container
-    echo "yq v4 not installed."
-    echo "Installation: https://github.com/mikefarah/yq/#install"
-    exit 1
+    echo "yq not found."
+    toolchain_incompatible
   fi
   # Check cmake version.
-  local cmake_min_version="3.24"
   local cmake_installed_version=$(cmake --version | head -n1 | awk '{print $3}')
-  if [[ "$(printf '%s\n' "$cmake_min_version" "$cmake_installed_version" | sort -V | head -n1)" != "$cmake_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum cmake version 3.24 not found."
-    exit 1
+  if ! check_minimum_version $expected_min_cmake_version $cmake_installed_version; then
+    echo "Minimum cmake version $expected_min_cmake_version not found."
+    toolchain_incompatible
   fi
   # Check clang version.
-  if ! clang++-20 --version | grep "clang version 20." > /dev/null; then
-    encourage_dev_container
-    echo "clang 16 not installed."
-    echo "Installation: sudo apt install clang-20"
-    exit 1
+  local clang_installed_version=$(clang++-20 --version | head -n1 | awk '{print $4}')
+  if ! check_minimum_version $expected_min_clang_version $clang_installed_version; then
+    echo "Minimum clang version $expected_min_clang_version not found."
+    toolchain_incompatible
   fi
   # Check zig version.
-  if ! zig version | grep "0.15.1" > /dev/null; then
-    encourage_dev_container
-    echo "zig 0.15.1 not installed."
-    echo "Install in /opt/zig."
-    exit 1
+  local zig_installed_version=$(zig version)
+  if ! check_minimum_version $expected_min_zig_version $zig_installed_version; then
+    echo "Minimum zig version $expected_min_zig_version not found."
+    toolchain_incompatible
   fi
   # Check rustup installed.
-  local rust_version=$(yq '.toolchain.channel' ./avm-transpiler/rust-toolchain.toml)
-  if ! command -v rustup > /dev/null; then
-    encourage_dev_container
+  if ! ensure rustup; then
     echo "Rustup not installed."
-    echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $rust_version"
-    exit 1
+    toolchain_incompatible
   fi
-  if ! rustup show | grep $rust_version > /dev/null; then
-    if [ "${CI:-0}" -eq 1 ]; then
-      echo "Attempting install of required Rust version $rust_version"
-      rustup self update 2>/dev/null || true
-      rustup toolchain install $rust_version
-      rustup default $rust_version
-    else
-      # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
-      # is desirable.
-      echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
-    fi
+  if ! rustup show | grep $expected_abs_rust_version > /dev/null; then
+    # Cargo will download necessary version of rust at runtime but warn to update the build-image.
+    echo -e "${bold}${yellow}WARN: Rust ${expected_abs_rust_version} is not installed. Update build-image.${reset}"
   fi
   # Check wasi-sdk version.
-  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then
-    encourage_dev_container
-    echo "wasi-sdk-27 not found at /opt/wasi-sdk."
-    echo "Use dev container, build from source, or you can install linux x86 version with:"
-    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-27.0-x86_64-linux /opt/wasi-sdk"
-    exit 1
+  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep $expected_abs_wasi_version > /dev/null; then
+    toolchain_incompatible
   fi
   # Check foundry version.
-  local foundry_version="v1.4.1"
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
-      echo "$tool not in PATH or incorrect version (requires $foundry_version)."
-      if [ "${CI:-0}" -eq 1 ]; then
-        echo "Attempting install of required foundry version $foundry_version"
-        curl -L https://foundry.paradigm.xyz | bash
-        ~/.foundry/bin/foundryup -i $foundry_version
-      else
-        encourage_dev_container
-        echo "Installation: https://book.getfoundry.sh/getting-started/installation"
-        echo "  curl -L https://foundry.paradigm.xyz | bash"
-        echo "  foundryup -i $foundry_version"
-        exit 1
-      fi
+    if ! $tool --version 2> /dev/null | grep "$expected_abs_foundry_version" > /dev/null; then
+      echo "$tool version $expected_abs_foundry_version not found."
+      toolchain_incompatible
     fi
   done
   # Check Node.js version.
-  local node_min_version="24.12.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
-  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
-    echo "Installation: nvm install $node_min_version"
-    exit 1
+  if ! check_minimum_version $expected_min_node_version $node_installed_version; then
+    echo "Minimum node version $expected_min_node_version not found."
+    toolchain_incompatible
   fi
-  # Check for required npm globals.
-  for util in corepack solhint; do
-    if ! command -v $util > /dev/null; then
-      encourage_dev_container
-      echo "$util not found."
-      echo "Installation: npm install --global $util"
-      exit 1
-    fi
-  done
+  # Check yarn version. This catches oddities like an overriding .yarnrc.yml outside the repo.
+  if [ "$expected_abs_yarn_version" != "$(corepack yarn@$expected_abs_yarn_version --version)" ]; then
+    echo "Yarn version $expected_abs_yarn_version not found. Check for a rogue .yarnrc.yml in e.g. home directory."
+    toolchain_incompatible
+  fi
 }
 
-function versions {
-  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
-  noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
-  anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
-  node_version=$(node --version | cut -d 'v' -f 2)
-  cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
-  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
-  zig_version=$(zig version)
-  rustc_version=$(rustc --version | cut -d' ' -f2)
-  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
-  echo "noir: $noir_version"
-  echo "foundry: $anvil_version"
-  echo "node: $node_version"
-  echo "cmake: $cmake_version"
-  echo "clang: $clang_version"
-  echo "zig: $zig_version"
-  echo "rustc: $rustc_version"
-  echo "wasi-sdk: $wasi_sdk_version"
-}
-
+### BUILDING AND TESTING ###############################################################################################
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
@@ -201,31 +320,14 @@ EOF
   chmod +x $hooks_dir/post-merge
 }
 
-function sort_by_cpus {
-  awk '
-    {
-      cpus = 0;  # Default value
-      # Split line on space, take first field ($1)
-      split($1, subfields, ":");  # Split first field on :
-      for (i in subfields) {
-        split(subfields[i], arr, "=");
-        if (arr[1] == "CPUS") {
-          cpus = arr[2];
-          break;
-        }
-      }
-      # Print padded CPUS value followed by original line
-      printf "%010d %s\n", cpus, $0
-    }
-  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
-}
-
-function test_cmds {
-  if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3 release-image
+function pull_submodules {
+  echo_header "pull submodules"
+  # If it's an old standalone noir clone, nuke it.
+  if [ -d "noir/noir-repo/.git" ]; then
+    echo "Removing old noir clone..."
+    rm -rf noir/noir-repo
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
 }
 
 function start_txes {
@@ -263,21 +365,27 @@ function start_txes {
   done
 }
 
-export test_cmds_file="/tmp/test_cmds"
+function stop_txes {
+  if [ -n "${txe_pids:-}" ]; then
+    echo "Stopping TXE processes..."
+    kill -SIGTERM $txe_pids &>/dev/null || true
+    wait $txe_pids || true
+    txe_pids=
+  fi
+}
 
 function prep {
-  pull_submodules
   check_toolchains
+  pull_submodules
+}
 
-  # Ensure we have yarn set up.
-  corepack enable
-
-  rm -f $test_cmds_file
+function build {
+  prep
+  echo_header "build"
+  make ${1:-fast}
 }
 
 function build_and_test {
-  local target=${1:-}
-
   prep
   echo_header "build and test"
 
@@ -286,15 +394,12 @@ function build_and_test {
   touch $test_cmds_file
   # put it in it's own process group, we can terminate on cleanup.
   setsid color_prefix "test-engine" "denoise \"test_engine $test_cmds_file\"" &
+  # setsid makes the child the session leader, so its PID is its PGID.
   test_engine_pid=$!
-  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
-  echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
+  echo "Started test engine with PGID $test_engine_pid."
 
   # Start the build.
-  if [ -z "$target" ]; then
-    [ "$CI_FULL" -eq 0 ] && target="all" || target="full"
-  fi
-  make $target &
+  make $1 &
   make_pid=$!
 
   # As soon as one of the above fails, terminate the other (as part of exit cleanup).
@@ -305,110 +410,33 @@ function build_and_test {
 
     # If make succeeded, start txes and add tests that depend on them.
     if [ "$finished" == "$make_pid" ]; then
+      echo "Makefile build complete, starting TXEs and adding dependent tests..."
       make_pid=
 
-      if [ -z "${1:-}" ]; then
-        # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
-        start_txes
-        make noir-projects-txe-tests
-      fi
+      # TODO: Handle this better so they can be run as part of the Makefile dependency tree.
+      start_txes
+      make noir-projects-txe-tests
 
       # Signal tests complete, handled by parallel -E STOP.
       echo STOP >> $test_cmds_file
     fi
 
     if [ "$finished" == "$test_engine_pid" ]; then
+      echo "Test engine completed successfully."
       test_engine_pid=
     fi
   done
 
+  stop_txes
+
   return 0
-}
-
-function test {
-  echo_header "test all"
-
-  start_txes
-
-  # We will start half as many jobs as we have cpu's.
-  # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
-  # and also that half the cpus are logical, not physical.
-  echo "Gathering tests to run..."
-  tests=$(test_cmds $@)
-
-  # Note: Capturing strips last newline. The echo re-adds it.
-  local num
-  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
-  echo "Gathered $num tests."
-
-  echo "$tests" | parallelize
-}
-
-function pull_submodules {
-  echo_header "pull submodules"
-  # If it's an old standalone noir clone, nuke it.
-  if [ -d "noir/noir-repo/.git" ]; then
-    echo "Removing old noir clone..."
-    rm -rf noir/noir-repo
-  fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
-}
-
-function build {
-  prep
-
-  # These projects are dependent on each other and must be built linearly.
-  serial_projects=(
-    noir
-    avm-transpiler
-    barretenberg
-    noir-projects
-    l1-contracts
-    yarn-project
-    release-image
-  )
-  # These projects can be built in parallel.
-  parallel_cmds=(
-    yarn-project/end-to-end/bootstrap.sh
-    boxes/bootstrap.sh
-    playground/bootstrap.sh
-    docs/bootstrap.sh
-    aztec-up/bootstrap.sh
-  )
-
-  local start_building=false
-  for project in "${serial_projects[@]}"; do
-    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
-    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
-    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
-
-    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
-    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
-      start_building=true
-      continue
-    fi
-
-    # Build the project if we should be building
-    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
-      $project/bootstrap.sh ${1:-}
-    fi
-
-    # Stop the build if we've reached BOOTSTRAP_TO
-    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
-    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
-      return
-    fi
-  done
-
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
 }
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
 
 function build_bench {
@@ -440,12 +468,35 @@ function bench {
   fi
   echo_header "bench all"
   build_bench
-  find . -type d -iname bench-out | xargs rm -rf
-  bench_cmds | STRICT_SCHEDULING=1 parallelize
+
+  bench_cmds > $bench_cmds_file
+  denoise "bench_engine $bench_cmds_file"
+
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
   cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+}
+
+### RELEASING ##########################################################################################################
+function versions {
+  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
+  noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
+  anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  node_version=$(node --version | cut -d 'v' -f 2)
+  cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  zig_version=$(zig version)
+  rustc_version=$(rustc --version | cut -d' ' -f2)
+  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  echo "noir: $noir_version"
+  echo "foundry: $anvil_version"
+  echo "node: $node_version"
+  echo "cmake: $cmake_version"
+  echo "clang: $clang_version"
+  echo "zig: $zig_version"
+  echo "rustc: $rustc_version"
+  echo "wasi-sdk: $wasi_sdk_version"
 }
 
 function release_github {
@@ -481,19 +532,9 @@ function release_github {
 }
 
 function release {
-  # Our releases are controlled by the REF_NAME environment variable, which should be a valid semver (but can have a leading v).
+  # Releases are triggered when REF_NAME is a valid semver (but can have a leading v).
   # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
   # We derive a dist tag from our prerelease portion of our REF_NAME semver. It is latest if no prerelease.
-  # Our steps:
-  #   barretenberg/cpp => upload binaries to github release
-  #   barretenberg/ts
-  #     + noir
-  #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
-  #   aztec-up => upload scripts to prod if dist tag is latest
-  #   playground => publish if dist tag is latest.
-  #   release-image => push docker image to dist tag.
-  #   boxes/l1-contracts/aztec-nr => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
-
   echo_header "release all"
   set -x
 
@@ -529,6 +570,49 @@ function release_dryrun {
   DRY_RUN=1 release
 }
 
+### SELF TESTING #######################################################################################################
+function test_bootstrap_linux {
+  local name=linux-bootstrap-test-ubuntu
+  docker volume rm $name-volume &>/dev/null || true
+  trap "docker volume rm $name-volume &>/dev/null" EXIT
+  docker run --rm -ti --name $name \
+    --cpus=32 \
+    --ulimit nofile=1048576:1048576 \
+    -v $root:/aztec-packages:ro \
+    --mount type=volume,src=$name-volume,dst=/root/aztec-packages \
+    -w /root \
+    ubuntu:24.04 bash -c "
+set -euo pipefail
+ulimit -n 65536
+apt update && apt install -y git sudo
+git config --global --add safe.directory /aztec-packages/.git
+git clone --branch=$(git branch --show-current) /aztec-packages
+cd aztec-packages
+./bootstrap.sh install_deps </dev/null
+bash -l -i -c 'ulimit -n 65536 && NO_CACHE=1 ./bootstrap.sh gentle'
+  "
+}
+
+function test_bootstrap_macos {
+  local version="${1:-26}"
+  local name="bootstrap-test-$version"
+  CPU_CORES=32 RAM_SIZE=32g /mnt/user-data/macos/launch_vm.sh $version "" $name
+  trap "docker stop macos-$name" EXIT
+  local ip=$(docker inspect -f '{{ .NetworkSettings.Networks.bridge.IPAddress }}' macos-$name)
+  echo "Waiting for Mac VM ($name) to be accessible at $ip..."
+  while ! nc -z $ip 22 &>/dev/null; do sleep 0.5; done
+  /mnt/user-data/macos/ssh.sh $name bash -c 'cat > /tmp/mac_bootstrap.sh' <<REMOTE_EOF
+set -euo pipefail
+ulimit -n 65536
+git clone --depth=1 --branch=$(git branch --show-current) https://github.com/aztecprotocol/aztec-packages
+cd aztec-packages
+./bootstrap.sh install_deps </dev/null
+zsh -l -i -c "ulimit -n 65536 && NO_CACHE=1 ./bootstrap.sh gentle"
+REMOTE_EOF
+  /mnt/user-data/macos/ssh.sh $name -t zsh -l /tmp/mac_bootstrap.sh
+}
+
+### COMMAND HANDLER ####################################################################################################
 # Handle our command line arguments.
 # All the commands that start with ci-* are intended to be callable from
 # a fresh repo. They are ideal for calling into from github actions on a new runner
@@ -561,6 +645,14 @@ case "$cmd" in
     install_hooks
     build
   ;;
+  "gentle")
+    install_hooks
+    prep
+    if [ -t 1 ]; then
+      export DUMP_FAIL=1
+    fi
+    CMAKE_BUILD_PARALLEL_LEVEL=$(nproc --ignore=2) CARGO_BUILD_JOBS=$(nproc --ignore=2) MEMSUSPEND=1g make -j1 "$@"
+  ;;
 
   ######################################
   # VARIANTS ON NORMAL PULL-REQUEST CI #
@@ -569,30 +661,20 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    build
-    test
+    build_and_test fast
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
-    build
-    test
+    build_and_test full
     bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build
-    test
-    bench
-    ;;
-  "ci-full-no-test-cache-makefile")
-    export CI=1
-    export USE_TEST_CACHE=0
-    export CI_FULL=1
-    build_and_test
+    build_and_test full
     bench
     ;;
   "ci-grind-test")
@@ -704,6 +786,30 @@ case "$cmd" in
     bench_merge
     cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
+  "ci-network-block-capacity-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys network and runs block capacity benchmarks. Cleanup should be done separately.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run block capacity benchmarks
+    spartan/bootstrap.sh block_capacity_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-block-capacity-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
     # Tears down a deployed network.
@@ -724,7 +830,7 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build
+    build release
     release
     ;;
 
@@ -734,7 +840,7 @@ case "$cmd" in
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1
-    ./bootstrap.sh
+    BOOTSTRAP_TO=yarn-project ./bootstrap.sh
     docs/bootstrap.sh ci
     ;;
   "ci-barretenberg-debug")
@@ -790,6 +896,15 @@ case "$cmd" in
     export CI=1
     build
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
+    ;;
+
+  #################
+  # SOCKET FIX    #
+  #################
+  "ci-socket-fix")
+    export CI=1
+    build
+    scripts/socket-fix-ci.sh "$@"
     ;;
 
   ##############################################

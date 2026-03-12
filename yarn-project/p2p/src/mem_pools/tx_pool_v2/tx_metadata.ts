@@ -2,7 +2,8 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
-import type { Tx } from '@aztec/stdlib/tx';
+import { Gas } from '@aztec/stdlib/gas';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
@@ -12,12 +13,17 @@ import { type PreAddResult, TxPoolRejectionCode } from './eviction/interfaces.js
 export type TxMetaValidationData = {
   getNonEmptyNullifiers(): Fr[];
   expirationTimestamp: bigint;
+  /** Whether the tx has public calls. Used to select the correct L2 gas minimum. */
+  forPublic?: unknown;
   constants: {
     anchorBlockHeader: {
       hash(): Promise<BlockHash>;
       globalVariables: {
         blockNumber: BlockNumber;
       };
+    };
+    txContext: {
+      gasSettings: { gasLimits: Gas };
     };
   };
 };
@@ -33,6 +39,9 @@ export type TxMetaValidationData = {
 export type TxMetaData = {
   /** The transaction hash as hex string */
   readonly txHash: string;
+
+  /** The transaction hash as bigint (for efficient Fr conversion in comparisons) */
+  readonly txHashBigInt: bigint;
 
   /** Block ID (number and hash) in which the transaction was mined (undefined if not mined) */
   minedL2BlockId?: L2BlockId;
@@ -77,7 +86,9 @@ export type TxState = 'pending' | 'protected' | 'mined' | 'deleted';
  * Fr values are captured in closures for zero-cost re-validation.
  */
 export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
-  const txHash = tx.getTxHash().toString();
+  const txHashObj = tx.getTxHash();
+  const txHash = txHashObj.toString();
+  const txHashBigInt = txHashObj.toBigInt();
   const nullifierFrs = tx.data.getNonEmptyNullifiers();
   const nullifiers = nullifierFrs.map(n => n.toString());
   const anchorBlockHeaderHashFr = await tx.data.constants.anchorBlockHeader.hash();
@@ -93,6 +104,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
 
   return {
     txHash,
+    txHashBigInt,
     anchorBlockHeaderHash,
     priorityFee,
     feePayer,
@@ -105,10 +117,14 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     data: {
       getNonEmptyNullifiers: () => nullifierFrs,
       expirationTimestamp,
+      forPublic: !!tx.data.forPublic,
       constants: {
         anchorBlockHeader: {
           hash: () => Promise.resolve(anchorBlockHeaderHashFr),
           globalVariables: { blockNumber: anchorBlockNumber },
+        },
+        txContext: {
+          gasSettings: { gasLimits: tx.data.constants.txContext.gasSettings.gasLimits },
         },
       },
     },
@@ -124,11 +140,11 @@ const HEX_STRING_BYTES = 98;
 const BIGINT_BYTES = 32;
 const FR_BYTES = 80;
 // Fixed cost: object shell + txHash + anchorBlockHeaderHash + feePayer (3 hex strings)
-// + priorityFee + claimAmount + feeLimit + includeByTimestamp (4 bigints)
+// + txHashBigInt + priorityFee + claimAmount + feeLimit + includeByTimestamp (5 bigints)
 // + receivedAt (number, 8 bytes) + estimatedSizeBytes (number, 8 bytes)
 // + data closure object (~OBJECT_OVERHEAD + anchorBlockHeaderHashFr Fr + anchorBlockNumber number)
 const FIXED_METADATA_BYTES =
-  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 4 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
+  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 5 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
 
 /** Estimates the in-memory size of a TxMetaData object based on the number of nullifiers. */
 function estimateTxMetaDataSize(nullifierCount: number): number {
@@ -136,14 +152,19 @@ function estimateTxMetaDataSize(nullifierCount: number): number {
   return FIXED_METADATA_BYTES + nullifierCount * (HEX_STRING_BYTES + FR_BYTES);
 }
 
+/** Converts a txHash bigint back to the canonical 0x-prefixed 64-char hex string. */
+export function txHashFromBigInt(value: bigint): string {
+  return TxHash.fromBigInt(value).toString();
+}
+
 /** Minimal fields required for priority comparison. */
-type PriorityComparable = Pick<TxMetaData, 'txHash' | 'priorityFee'>;
+export type PriorityComparable = Pick<TxMetaData, 'txHash' | 'txHashBigInt' | 'priorityFee'>;
 
 /**
  * Compares two priority fees in ascending order.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */
-export function compareFee(a: bigint, b: bigint): number {
+export function compareFee(a: bigint, b: bigint): -1 | 0 | 1 {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
@@ -152,10 +173,8 @@ export function compareFee(a: bigint, b: bigint): number {
  * Uses field element comparison for deterministic ordering.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */
-export function compareTxHash(a: string, b: string): number {
-  const fieldA = Fr.fromHexString(a);
-  const fieldB = Fr.fromHexString(b);
-  return fieldA.cmp(fieldB);
+export function compareTxHash(a: bigint, b: bigint): -1 | 0 | 1 {
+  return Fr.cmpAsBigInt(a, b);
 }
 
 /**
@@ -163,29 +182,46 @@ export function compareTxHash(a: string, b: string): number {
  * Returns negative if a < b, positive if a > b, 0 if equal.
  * Use with sort() for ascending order, or negate/reverse for descending.
  */
-export function comparePriority(a: PriorityComparable, b: PriorityComparable): number {
+export function comparePriority(a: PriorityComparable, b: PriorityComparable): -1 | 0 | 1 {
   const feeComparison = compareFee(a.priorityFee, b.priorityFee);
   if (feeComparison !== 0) {
     return feeComparison;
   }
-  return compareTxHash(a.txHash, b.txHash);
+  return compareTxHash(a.txHashBigInt, b.txHashBigInt);
+}
+
+/**
+ * Returns the minimum fee required to replace an existing tx with the given price bump percentage.
+ * Uses integer arithmetic: `existingFee + existingFee * priceBumpPercentage / 100`.
+ */
+export function getMinimumPriceBumpFee(existingFee: bigint, priceBumpPercentage: bigint): bigint {
+  const bump = (existingFee * priceBumpPercentage) / 100n;
+  // Ensure the minimum bump is at least 1, so that replacement always requires
+  // paying strictly more — even with 0% bump or zero existing fee.
+  const effectiveBump = bump > 0n ? bump : 1n;
+  return existingFee + effectiveBump;
 }
 
 /**
  * Checks for nullifier conflicts between an incoming transaction and existing pool state.
  *
  * When the incoming tx shares nullifiers with existing pending txs:
- * - If the incoming tx has strictly higher priority, mark conflicting txs for eviction
- * - If any conflicting tx has equal or higher priority, ignore the incoming tx
+ * - If the incoming tx meets or exceeds the required priority, mark conflicting txs for eviction
+ * - Otherwise, ignore the incoming tx
+ *
+ * When `priceBumpPercentage` is provided (RPC path), uses fee-only comparison with the
+ * percentage bump instead of `comparePriority`.
  *
  * @param incomingMeta - Metadata for the incoming transaction
  * @param getTxHashByNullifier - Accessor to find which tx uses a nullifier
  * @param getMetadata - Accessor to get metadata for a tx hash
+ * @param priceBumpPercentage - Optional percentage bump required for fee-based replacement
  */
 export function checkNullifierConflict(
   incomingMeta: TxMetaData,
   getTxHashByNullifier: (nullifier: string) => string | undefined,
   getMetadata: (txHash: string) => TxMetaData | undefined,
+  priceBumpPercentage?: bigint,
 ): PreAddResult {
   const txHashesToEvict: string[] = [];
 
@@ -206,19 +242,32 @@ export function checkNullifierConflict(
       continue;
     }
 
-    // If incoming tx has strictly higher priority, mark for eviction
-    // Otherwise, ignore incoming tx (ties go to existing tx)
-    // Use comparePriority for deterministic ordering (includes txHash as tiebreaker)
-    if (comparePriority(incomingMeta, conflictingMeta) > 0) {
+    // When price bump is set (RPC path), require the incoming fee to meet the bumped threshold.
+    // Otherwise (P2P path), use full comparePriority with tx hash tiebreaker.
+    const isHigherPriority =
+      priceBumpPercentage !== undefined
+        ? incomingMeta.priorityFee >= getMinimumPriceBumpFee(conflictingMeta.priorityFee, priceBumpPercentage)
+        : comparePriority(incomingMeta, conflictingMeta) > 0;
+
+    if (isHigherPriority) {
       txHashesToEvict.push(conflictingHashStr);
     } else {
+      const minimumFee =
+        priceBumpPercentage !== undefined
+          ? getMinimumPriceBumpFee(conflictingMeta.priorityFee, priceBumpPercentage)
+          : undefined;
       return {
         shouldIgnore: true,
         txHashesToEvict: [],
         reason: {
           code: TxPoolRejectionCode.NULLIFIER_CONFLICT,
-          message: `Nullifier conflict with existing tx ${conflictingHashStr}`,
+          message:
+            minimumFee !== undefined
+              ? `Nullifier conflict with existing tx ${conflictingHashStr}. Minimum required fee: ${minimumFee}, got: ${incomingMeta.priorityFee}`
+              : `Nullifier conflict with existing tx ${conflictingHashStr}`,
           conflictingTxHash: conflictingHashStr,
+          minimumPriceBumpFee: minimumFee,
+          txPriorityFee: minimumFee !== undefined ? incomingMeta.priorityFee : undefined,
         },
       };
     }
@@ -237,6 +286,42 @@ export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigi
         hash: () => Promise.resolve(new BlockHash(Fr.ZERO)),
         globalVariables: { blockNumber: BlockNumber(0) },
       },
+      txContext: {
+        gasSettings: { gasLimits: Gas.empty() },
+      },
     },
+  };
+}
+
+/** Creates a stub TxMetaData for tests. All fields have sensible defaults and can be overridden. */
+export function stubTxMetaData(
+  txHash: string,
+  overrides: {
+    priorityFee?: bigint;
+    feePayer?: string;
+    claimAmount?: bigint;
+    feeLimit?: bigint;
+    nullifiers?: string[];
+    expirationTimestamp?: bigint;
+    anchorBlockHeaderHash?: string;
+  } = {},
+): TxMetaData {
+  const txHashBigInt = Fr.fromHexString(txHash).toBigInt();
+  // Normalize to canonical zero-padded hex so txHashFromBigInt(txHashBigInt) === normalizedTxHash
+  const normalizedTxHash = txHashFromBigInt(txHashBigInt);
+  const expirationTimestamp = overrides.expirationTimestamp ?? 0n;
+  return {
+    txHash: normalizedTxHash,
+    txHashBigInt,
+    anchorBlockHeaderHash: overrides.anchorBlockHeaderHash ?? '0x1234',
+    priorityFee: overrides.priorityFee ?? 100n,
+    feePayer: overrides.feePayer ?? '0xfeepayer',
+    claimAmount: overrides.claimAmount ?? 0n,
+    feeLimit: overrides.feeLimit ?? 100n,
+    nullifiers: overrides.nullifiers ?? [`0x${normalizedTxHash.slice(2)}null1`],
+    expirationTimestamp,
+    receivedAt: 0,
+    estimatedSizeBytes: 0,
+    data: stubTxMetaValidationData({ expirationTimestamp }),
   };
 }

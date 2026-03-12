@@ -7,9 +7,8 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -19,7 +18,6 @@ import type { P2PService } from '../index.js';
 import { type AttestationPool, createTestAttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
-import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
 import type { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { P2PClient } from './p2p_client.js';
 
@@ -63,17 +61,7 @@ describe('P2P Client', () => {
   });
 
   const createClient = (config: Partial<P2PConfig> = {}) =>
-    new P2PClient(
-      P2PClientType.Full,
-      kvStore,
-      blockSource,
-      mempools,
-      p2pService,
-      txCollection,
-      undefined,
-      epochCache,
-      config,
-    );
+    new P2PClient(kvStore, blockSource, mempools, p2pService, txCollection, undefined, epochCache, config);
 
   const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -196,82 +184,6 @@ describe('P2P Client', () => {
     await advanceToFinalizedBlock(BlockNumber(8));
     expect(txPool.handleFinalizedBlock).toHaveBeenCalledTimes(1);
     await client.stop();
-  });
-
-  it('request transactions handles missing items', async () => {
-    const mockTx1 = await mockTx();
-    const mockTx2 = await mockTx();
-    const mockTx3 = await mockTx();
-
-    // None of the txs are in the pool
-    txPool.getTxByHash.mockResolvedValue(undefined);
-
-    // P2P service will not return tx2
-    p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[mockTx1, mockTx3])]);
-
-    // Spy on the tx pool addPendingTxs method, it should not be called for the missing tx
-    const addTxsSpy = jest.spyOn(txPool, 'addPendingTxs');
-
-    await client.start();
-
-    // We query for all 3 txs via getTxsByHash which internally requests from the network
-    const txHashes = await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()]);
-    const results = await client.getTxsByHash(txHashes, undefined);
-
-    // We should receive the found transactions (tx2 will be undefined)
-    expect(results).toEqual([mockTx1, undefined, mockTx3]);
-
-    // P2P should have been called with the 3 tx hashes (all missing from pool)
-    expect(p2pService.sendBatchRequest).toHaveBeenCalledWith(
-      ReqRespSubProtocol.TX,
-      txHashes.map(hash => new TxHashArray(...[hash])),
-      undefined,
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-    );
-
-    // Retrieved txs should have been added to the pool
-    expect(addTxsSpy).toHaveBeenCalledTimes(1);
-    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx3]);
-
-    await client.stop();
-  });
-
-  it('getTxsByHash handles missing items', async () => {
-    // We expect the node to fetch this item from their local p2p pool
-    const txInMempool = await mockTx();
-    // We expect this transaction to be requested from the network
-    const txToBeRequested = await mockTx();
-    // We expect this transaction to not be found
-    const txToNotBeFound = await mockTx();
-
-    txPool.getTxByHash.mockImplementation(txHash =>
-      Promise.resolve(txHash === txInMempool.getTxHash() ? txInMempool : undefined),
-    );
-
-    const addTxsSpy = jest.spyOn(txPool, 'addPendingTxs');
-
-    p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[txToBeRequested])]);
-
-    await client.start();
-
-    const query = await Promise.all([txInMempool.getTxHash(), txToBeRequested.getTxHash(), txToNotBeFound.getTxHash()]);
-    const results = await client.getTxsByHash(query, undefined);
-
-    // We should return the resolved transactions (txToNotBeFound is undefined)
-    expect(results).toEqual([txInMempool, txToBeRequested, undefined]);
-    // We should add the found requested transactions to the pool
-    expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested]);
-    // The p2p service should have been called to request the missing txs
-    expect(p2pService.sendBatchRequest).toHaveBeenCalledWith(
-      ReqRespSubProtocol.TX,
-      expect.anything(),
-      undefined,
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-    );
   });
 
   it('getPendingTxs respects pagination', async () => {
@@ -469,12 +381,17 @@ describe('P2P Client', () => {
 
     it('triggers tx collection for missing txs from mined blocks', async () => {
       await client.start();
+      // Drain any initial background sync that processes the initial blocks (1-100),
+      // which may call startCollecting depending on timing.
+      await client.sync();
+
       const block = await L2Block.random(BlockNumber(101), { txsPerBlock: 3 });
       // Compute the block hash since it gets cached when the p2p client logs it
       await block.hash();
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       blockSource.addProposedBlocks([block]);
+      txCollection.startCollecting.mockClear();
       await client.sync();
 
       expect(txCollection.startCollecting).toHaveBeenCalledTimes(1);

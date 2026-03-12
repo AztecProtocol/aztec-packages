@@ -1,6 +1,7 @@
 import {
   type ConfigMappingsType,
   SecretValue,
+  bigintConfigHelper,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
@@ -10,7 +11,6 @@ import {
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -20,6 +20,7 @@ import {
   chainConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
 import {
   type BatchTxRequesterConfig,
@@ -38,7 +39,16 @@ export interface P2PConfig
     ChainConfig,
     TxCollectionConfig,
     TxFileStoreConfig,
-    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot'> {
+    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock'> {
+  /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
+  validateMaxTxsPerBlock?: number;
+
+  /** Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected. */
+  validateMaxL2BlockGas?: number;
+
+  /** Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected. */
+  validateMaxDABlockGas?: number;
+
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -150,8 +160,8 @@ export interface P2PConfig
   /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb. */
   p2pStoreMapSizeKb?: number;
 
-  /** Which calls are allowed in the public setup phase of a tx. */
-  txPublicSetupAllowList: AllowedElement[];
+  /** Additional entries to extend the default setup allow list. */
+  txPublicSetupAllowListExtend: AllowedElement[];
 
   /** The maximum number of pending txs before evicting lower priority txs. */
   maxPendingTxCount: number;
@@ -173,10 +183,7 @@ export interface P2PConfig
   /** Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers. */
   disableTransactions: boolean;
 
-  /** True to simulate discarding transactions. - For testing purposes only*/
-  dropTransactions: boolean;
-
-  /** The probability that a transaction is discarded. - For testing purposes only */
+  /** The probability that a transaction is discarded (0 = disabled). - For testing purposes only */
   dropTransactionsProbability: number;
 
   /** Whether to delete transactions from the pool after a reorg instead of moving them back to pending. */
@@ -193,11 +200,30 @@ export interface P2PConfig
 
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
+
+  /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
+  priceBumpPercentage: bigint;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
+  validateMaxTxsPerBlock: {
+    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
+    description:
+      'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxL2BlockGas: {
+    env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
+    description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxDABlockGas: {
+    env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
+    description: 'Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
@@ -396,12 +422,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
-  txPublicSetupAllowList: {
+  txPublicSetupAllowListExtend: {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
     parseEnv: (val: string) => parseAllowList(val),
-    description: 'The list of functions calls allowed to run in setup',
+    description:
+      'Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.',
     printDefault: () =>
-      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+      'Default: AuthRegistry._set_authorized, AuthRegistry.set_authorized, FeeJuice._increase_public_balance',
   },
   maxPendingTxCount: {
     env: 'P2P_MAX_PENDING_TX_COUNT',
@@ -429,11 +456,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED',
     description: 'Number of auth attempts to allow before peer is banned. Number is inclusive',
     ...numberConfigHelper(3),
-  },
-  dropTransactions: {
-    env: 'P2P_DROP_TX',
-    description: 'True to simulate discarding transactions. - For testing purposes only',
-    ...booleanConfigHelper(false),
   },
   dropTransactionsProbability: {
     env: 'P2P_DROP_TX_CHANCE',
@@ -471,6 +493,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MIN_TX_POOL_AGE_MS',
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
+  },
+  priceBumpPercentage: {
+    env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
+    description:
+      'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
+    ...bigintConfigHelper(10n),
   },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
@@ -530,12 +558,43 @@ export const bootnodeConfigMappings = pickConfigMappings(
 );
 
 /**
+ * Parses a `+`-separated flags string into validation properties for an allow list entry.
+ * Supported flags: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
+ */
+function parseFlags(
+  flags: string,
+  entry: string,
+): { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } {
+  const result: { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } = {};
+  for (const flag of flags.split('+')) {
+    if (flag === 'os') {
+      result.onlySelf = true;
+    } else if (flag === 'rn') {
+      result.rejectNullMsgSender = true;
+    } else if (flag.startsWith('cl=')) {
+      const n = parseInt(flag.slice(3), 10);
+      if (isNaN(n) || n < 0) {
+        throw new Error(
+          `Invalid allow list entry "${entry}": invalid calldataLength in flag "${flag}". Expected a non-negative integer.`,
+        );
+      }
+      result.calldataLength = n;
+    } else {
+      throw new Error(`Invalid allow list entry "${entry}": unknown flag "${flag}". Supported flags: os, rn, cl=N.`);
+    }
+  }
+  return result;
+}
+
+/**
  * Parses a string to a list of allowed elements.
- * Each encoded is expected to be of one of the following formats
- * `I:${address}`
- * `I:${address}:${selector}`
- * `C:${classId}`
- * `C:${classId}:${selector}`
+ * Each entry is expected to be of one of the following formats:
+ * `I:${address}:${selector}` — instance (contract address) with function selector
+ * `C:${classId}:${selector}` — class with function selector
+ *
+ * An optional flags segment can be appended after the selector:
+ * `I:${address}:${selector}:${flags}` or `C:${classId}:${selector}:${flags}`
+ * where flags is a `+`-separated list of: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
  *
  * @param value The string to parse
  * @returns A list of allowed elements
@@ -548,31 +607,37 @@ export function parseAllowList(value: string): AllowedElement[] {
   }
 
   for (const val of value.split(',')) {
-    const [typeString, identifierString, selectorString] = val.split(':');
-    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+    const trimmed = val.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [typeString, identifierString, selectorString, flagsString] = trimmed.split(':');
+
+    if (!selectorString) {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": selector is required. Expected format: I:address:selector or C:classId:selector`,
+      );
+    }
+
+    const selector = FunctionSelector.fromString(selectorString);
+    const flags = flagsString ? parseFlags(flagsString, trimmed) : {};
 
     if (typeString === 'I') {
-      if (selector) {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-        });
-      }
+      entries.push({
+        address: AztecAddress.fromString(identifierString),
+        selector,
+        ...flags,
+      });
     } else if (typeString === 'C') {
-      if (selector) {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-        });
-      }
+      entries.push({
+        classId: Fr.fromHexString(identifierString),
+        selector,
+        ...flags,
+      });
+    } else {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": unknown type "${typeString}". Expected "I" (instance) or "C" (class).`,
+      );
     }
   }
 

@@ -29,7 +29,7 @@ if [ "$CI" -eq 1 ] && [ -f $HOME/ci-started ] && [ "${NO_CACHE:-0}" -eq 0 ]; the
   fi
 else
   if [ "$CI" -ne 1 ]; then
-    unset CI
+    export YARN_ENABLE_IMMUTABLE_INSTALLS=false
   fi
   denoise "yarn install"
 fi

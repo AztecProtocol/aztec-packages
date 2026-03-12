@@ -193,10 +193,10 @@ export type CheckpointProposedArgs = {
   checkpointNumber: CheckpointNumber;
   archive: Fr;
   versionedBlobHashes: Buffer[];
-  /** Hash of attestations. Undefined for older events (backwards compatibility). */
-  attestationsHash?: Buffer32;
-  /** Digest of the payload. Undefined for older events (backwards compatibility). */
-  payloadDigest?: Buffer32;
+  /** Hash of attestations emitted in the CheckpointProposed event. */
+  attestationsHash: Buffer32;
+  /** Digest of the payload emitted in the CheckpointProposed event. */
+  payloadDigest: Buffer32;
 };
 
 /** Log type for CheckpointProposed events. */
@@ -392,16 +392,25 @@ export class RollupContract {
     epochDuration: number;
     proofSubmissionEpochs: number;
     targetCommitteeSize: number;
+    rollupManaLimit: number;
   }> {
-    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs, targetCommitteeSize] =
-      await Promise.all([
-        this.getL1StartBlock(),
-        this.getL1GenesisTime(),
-        this.getSlotDuration(),
-        this.getEpochDuration(),
-        this.getProofSubmissionEpochs(),
-        this.getTargetCommitteeSize(),
-      ]);
+    const [
+      l1StartBlock,
+      l1GenesisTime,
+      slotDuration,
+      epochDuration,
+      proofSubmissionEpochs,
+      targetCommitteeSize,
+      rollupManaLimit,
+    ] = await Promise.all([
+      this.getL1StartBlock(),
+      this.getL1GenesisTime(),
+      this.getSlotDuration(),
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+      this.getTargetCommitteeSize(),
+      this.getManaLimit(),
+    ]);
     return {
       l1StartBlock,
       l1GenesisTime,
@@ -409,6 +418,7 @@ export class RollupContract {
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
       targetCommitteeSize,
+      rollupManaLimit: Number(rollupManaLimit),
     };
   }
 
@@ -503,8 +513,9 @@ export class RollupContract {
     return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber());
   }
 
-  async getProvenCheckpointNumber(): Promise<CheckpointNumber> {
-    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber());
+  async getProvenCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber(options));
   }
 
   async getSlotNumber(): Promise<SlotNumber> {
@@ -1060,8 +1071,22 @@ export class RollupContract {
           checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber!),
           archive: Fr.fromString(log.args.archive!),
           versionedBlobHashes: log.args.versionedBlobHashes!.map(h => Buffer.from(h.slice(2), 'hex')),
-          attestationsHash: log.args.attestationsHash ? Buffer32.fromString(log.args.attestationsHash) : undefined,
-          payloadDigest: log.args.payloadDigest ? Buffer32.fromString(log.args.payloadDigest) : undefined,
+          attestationsHash: (() => {
+            if (!log.args.attestationsHash) {
+              throw new Error(
+                `CheckpointProposed event missing attestationsHash for checkpoint ${log.args.checkpointNumber}`,
+              );
+            }
+            return Buffer32.fromString(log.args.attestationsHash);
+          })(),
+          payloadDigest: (() => {
+            if (!log.args.payloadDigest) {
+              throw new Error(
+                `CheckpointProposed event missing payloadDigest for checkpoint ${log.args.checkpointNumber}`,
+              );
+            }
+            return Buffer32.fromString(log.args.payloadDigest);
+          })(),
         },
       }));
   }

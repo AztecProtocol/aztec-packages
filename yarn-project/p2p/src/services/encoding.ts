@@ -1,11 +1,11 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
-import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 
 import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import type { Message } from '@libp2p/interface';
+import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
 import xxhashFactory from 'xxhash-wasm';
 
@@ -44,11 +44,10 @@ export function msgIdToStrFn(msgId: Uint8Array): string {
  * @param message - The libp2p message
  * @returns The message identifier
  */
-export function getMsgIdFn(message: Message) {
-  const { topic } = message;
-
-  const vec = [Buffer.from(topic), message.data];
-  return sha256(Buffer.concat(vec)).subarray(0, 20);
+export async function getMsgIdFn({ topic, data }: Message): Promise<Uint8Array> {
+  const buffer = Buffer.concat([Buffer.from(topic), data]);
+  const hash = await webcrypto.subtle.digest('SHA-256', buffer);
+  return Buffer.from(hash.slice(0, 20));
 }
 
 const DefaultMaxSizesKb: Record<TopicType, number> = {

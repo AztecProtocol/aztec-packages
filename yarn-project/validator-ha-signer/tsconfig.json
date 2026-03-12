@@ -11,6 +11,15 @@
     },
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src"]

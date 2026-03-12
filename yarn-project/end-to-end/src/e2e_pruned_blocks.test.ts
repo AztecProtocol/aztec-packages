@@ -3,7 +3,6 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { CheatCodes } from '@aztec/aztec/testing';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -18,7 +17,6 @@ describe('e2e_pruned_blocks', () => {
 
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
-  let cheatCodes: CheatCodes;
 
   let wallet: Wallet;
 
@@ -32,7 +30,6 @@ describe('e2e_pruned_blocks', () => {
 
   // Don't make this value too high since we need to mine this number of empty blocks, which is relatively slow.
   const WORLD_STATE_CHECKPOINT_HISTORY = 2;
-  const EPOCH_LENGTH = 2;
   const WORLD_STATE_CHECK_INTERVAL_MS = 300;
   const ARCHIVER_POLLING_INTERVAL_MS = 300;
 
@@ -40,20 +37,18 @@ describe('e2e_pruned_blocks', () => {
     ({
       aztecNode,
       aztecNodeAdmin,
-      cheatCodes,
       logger,
       teardown,
       wallet,
       accounts: [admin, sender, recipient],
     } = await setup(3, {
-      aztecEpochDuration: EPOCH_LENGTH,
       worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
       archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
-    token = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin });
+    ({ contract: token } = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin }));
     logger.info(`L2 token contract deployed at ${token.address}`);
   });
 
@@ -76,7 +71,9 @@ describe('e2e_pruned_blocks', () => {
     // mint transaction that the node will drop the block corresponding to the first mint, resulting in errors if PXE
     // tried to access any historical information related to it (which it shouldn't).
 
-    const firstMintReceipt = await token.methods.mint_to_private(sender, MINT_AMOUNT / 2n).send({ from: admin });
+    const { receipt: firstMintReceipt } = await token.methods
+      .mint_to_private(sender, MINT_AMOUNT / 2n)
+      .send({ from: admin });
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
 
     // mint_to_private should create just one new note with the minted amount
@@ -90,13 +87,13 @@ describe('e2e_pruned_blocks', () => {
         .data,
     ).toBeGreaterThan(0);
 
-    // We now mine dummy blocks, mark them as proven and wait for the node to process them, which should result in older
-    // blocks (notably the one with the minted note) being pruned. Given world state prunes based on the finalized tip,
-    // and we are defining the finalized tip as two epochs behind the proven one, we need to mine two extra epochs.
-    // This test assumes 1 block per checkpoint
+    // Mine enough blocks so the first mint block gets pruned. The test infrastructure auto-proves every
+    // checkpoint as it lands, and with slotsInAnEpoch=1 Anvil reports finalized = latest - 2, so
+    // finalization lags proving by just 2 L1 blocks. We mine WORLD_STATE_CHECKPOINT_HISTORY + 3 blocks:
+    // WORLD_STATE_CHECKPOINT_HISTORY to push the first mint block far enough back in history, and 3 to
+    // account for the 2-block finality lag plus one buffer.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
-    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + EPOCH_LENGTH * 2 + 1);
-    await cheatCodes.rollup.markAsProven();
+    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + 3);
 
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
     // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
@@ -122,7 +119,9 @@ describe('e2e_pruned_blocks', () => {
 
     await token.methods.transfer(recipient, MINT_AMOUNT).send({ from: sender });
 
-    expect(await token.methods.balance_of_private(recipient).simulate({ from: recipient })).toEqual(MINT_AMOUNT);
-    expect(await token.methods.balance_of_private(sender).simulate({ from: sender })).toEqual(0n);
+    expect((await token.methods.balance_of_private(recipient).simulate({ from: recipient })).result).toEqual(
+      MINT_AMOUNT,
+    );
+    expect((await token.methods.balance_of_private(sender).simulate({ from: sender })).result).toEqual(0n);
   });
 });

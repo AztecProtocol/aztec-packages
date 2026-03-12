@@ -467,6 +467,92 @@ describe('TallySlashingHelpers', () => {
       expect(votes.slice(4, 8)).toEqual([0, 0, 0, 0]); // Padded empty committee
     });
 
+    it('truncates to maxSlashedValidators unique (validator, epoch) pairs', () => {
+      const offenses: Offense[] = [
+        { validator: mockValidator1, amount: 30n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+        { validator: mockValidator2, amount: 20n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+        { validator: mockValidator3, amount: 10n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+      ];
+
+      const committees = [[mockValidator1, mockValidator2, mockValidator3, mockValidator4]];
+      const epochsForCommittees = [5n];
+      // Only 2 slashed validators allowed; validator3 should be zeroed out
+      const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, {
+        ...settings,
+        maxSlashedValidators: 2,
+      });
+
+      expect(votes).toHaveLength(4);
+      expect(votes[0]).toEqual(3); // validator1: included (1st)
+      expect(votes[1]).toEqual(2); // validator2: included (2nd)
+      expect(votes[2]).toEqual(0); // validator3: zeroed out (limit reached)
+      expect(votes[3]).toEqual(0); // validator4: no offenses
+    });
+
+    it('counts the same validator in multiple epochs as separate slashed pairs', () => {
+      // An always-slash validator appears once per epoch committee, each generating a slash() call
+      const offenses = [
+        {
+          validator: mockValidator1,
+          amount: 30n,
+          offenseType: OffenseType.UNKNOWN,
+          epochOrSlot: undefined, // always-slash
+        },
+        { validator: mockValidator2, amount: 20n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+        { validator: mockValidator3, amount: 10n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 6n },
+      ];
+
+      const committees = [
+        [mockValidator1, mockValidator2],
+        [mockValidator1, mockValidator3],
+      ];
+      const epochsForCommittees = [5n, 6n];
+      // Limit of 3: validator1@epoch5, validator2@epoch5, validator1@epoch6 are included;
+      // validator3@epoch6 is zeroed out
+      const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, {
+        ...settings,
+        maxSlashedValidators: 3,
+      });
+
+      expect(votes).toHaveLength(8); // 2 committees × 4 targetCommitteeSize
+      expect(votes[0]).toEqual(3); // validator1 @ epoch5: included (1st)
+      expect(votes[1]).toEqual(2); // validator2 @ epoch5: included (2nd)
+      expect(votes[2]).toEqual(0); // padded
+      expect(votes[3]).toEqual(0); // padded
+      expect(votes[4]).toEqual(3); // validator1 @ epoch6: included (3rd)
+      expect(votes[5]).toEqual(0); // validator3 @ epoch6: zeroed out (limit reached)
+      expect(votes[6]).toEqual(0); // padded
+      expect(votes[7]).toEqual(0); // padded
+    });
+
+    it('truncates based on validator count, not offense count', () => {
+      // 3 offenses for validator1, 2 for validator2, 1 for validator3 — but only 2 validators allowed.
+      // Truncation must cut one validator (not one offense record).
+      const offenses: Offense[] = [
+        { validator: mockValidator1, amount: 15n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+        { validator: mockValidator1, amount: 8n, offenseType: OffenseType.DATA_WITHHOLDING, epochOrSlot: 5n },
+        { validator: mockValidator1, amount: 5n, offenseType: OffenseType.VALID_EPOCH_PRUNED, epochOrSlot: 5n },
+        { validator: mockValidator2, amount: 20n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+        { validator: mockValidator2, amount: 5n, offenseType: OffenseType.DATA_WITHHOLDING, epochOrSlot: 5n },
+        { validator: mockValidator3, amount: 10n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+      ];
+
+      const committees = [[mockValidator1, mockValidator2, mockValidator3, mockValidator4]];
+      const epochsForCommittees = [5n];
+      // validator1: 15n+8n+5n=28n → 2 units, validator2: 20n+5n=25n → 2 units, validator3: 10n → 1 unit
+      // Limit of 2 validators: validator3 (lowest vote) is zeroed out
+      const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, {
+        ...settings,
+        maxSlashedValidators: 2,
+      });
+
+      expect(votes).toHaveLength(4);
+      expect(votes[0]).toEqual(2); // validator1: 28n → 2 units, included
+      expect(votes[1]).toEqual(2); // validator2: 25n → 2 units, included
+      expect(votes[2]).toEqual(0); // validator3: 10n → 1 unit, zeroed out (only 2 validators allowed)
+      expect(votes[3]).toEqual(0); // validator4: no offenses
+    });
+
     it('handles multiple consecutive empty committees', () => {
       const offenses: Offense[] = [
         {

@@ -162,7 +162,7 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
       wait: { timeout: 120 },
     };
 
-    const receipt = await deployMethod.send(deployOpts);
+    const { receipt } = await deployMethod.send(deployOpts);
 
     logger.info('Account deployed', receipt);
 

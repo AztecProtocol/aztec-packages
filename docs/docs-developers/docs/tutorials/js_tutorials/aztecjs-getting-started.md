@@ -7,9 +7,9 @@ references: ["docs/examples/ts/aztecjs_getting_started/index.ts"]
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will retrieving the local network and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
+In this guide, we will retrieve the local network and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
 
-Before starting, make sure to be running Aztec local network at version #include_version_without_prefix. Check out [the guide](../../tutorials/local_network.md) for info about that.
+Before starting, make sure to be running Aztec local network at version #include_version_without_prefix. Check out [the guide](../../../getting_started_on_local_network.md) for info about that.
 
 ## Set up the project
 
@@ -121,3 +121,15 @@ Bob is now the minter, so he can mint some tokens to himself:
 Have a look at the [contract source](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). Notice is that the `mint_to_private` function we used above actually starts a partial note. This allows the total balance to increase while keeping the recipient private! How cool is that?
 
 :::
+
+## Going Further
+
+The pre-compiled token contract used in this tutorial is Aztec's reference implementation. It covers the core operations you need to get started: minting, private transfers, and public balance management.
+
+For production applications, consider the **AIP-20 Token Standard** maintained by [DeFi Wonderland](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract). AIP-20 formalizes the same patterns used in the reference contract and adds:
+
+- **Commitment-based transfers** for DeFi protocols where the recipient is determined asynchronously
+- **Recursive note consumption** for handling large balances that span many notes
+- **Tokenized vault support (AIP-4626)** for yield-bearing tokens that issue shares against an underlying asset
+
+To learn how to write a token contract from scratch rather than deploying a pre-compiled one, see the [Private Token Contract tutorial](../contract_tutorials/token_contract.md). For the full specifications of all Aztec contract standards, see the [Aztec Contract Standards](../../aztec-nr/standards/index.md) reference.

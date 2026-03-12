@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -171,9 +171,6 @@ class AvmRecursiveFlavor {
                 transcript->template get_challenge<FF>("Shplonk:z");
 
             [[maybe_unused]] auto _kzg_w = transcript->template receive_from_prover<StdlibCommitment>("KZG:W");
-
-            [[maybe_unused]] const FF _masking_challenge =
-                transcript->template get_challenge<FF>("KZG:masking_challenge");
 
             return transcript;
         };

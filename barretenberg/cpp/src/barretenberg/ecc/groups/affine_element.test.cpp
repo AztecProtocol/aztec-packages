@@ -139,7 +139,10 @@ template <typename G1> class TestAffineElement : public testing::Test {
     {
         for (size_t i = 0; i < 10; i++) {
             affine_element P = affine_element(element::random_element());
-            uint256_t compressed = P.compress();
+            uint256_t compressed = uint256_t(P.x);
+            if (uint256_t(P.y).get_bit(0)) {
+                compressed.data[3] |= group_elements::UINT256_TOP_LIMB_MSB;
+            }
             affine_element Q = affine_element::from_compressed(compressed);
             EXPECT_EQ(P, Q);
         }
@@ -158,9 +161,21 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    static void test_add_affine()
+    {
+        element lhs = element::random_element();
+        affine_element lhs_affine(lhs);
+
+        element rhs = element::random_element();
+        affine_element rhs_affine(rhs);
+
+        element expected = lhs + rhs;
+        affine_element result = lhs_affine + rhs_affine;
+        EXPECT_EQ(element(result) == expected, true);
+    }
+
     // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
     // on the curve, depending on the y-coordinate.
-    // TODO(@Rumata888): add corresponding typed test class
     static void test_infinity_regression()
     {
         affine_element P;
@@ -168,8 +183,6 @@ template <typename G1> class TestAffineElement : public testing::Test {
         affine_element R(0, P.y);
         ASSERT_FALSE(P == R);
     }
-    // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
-    // on the curve, depending on the y-coordinate.
     static void test_infinity_ordering_regression()
     {
         affine_element P(0, 1);
@@ -217,6 +230,11 @@ using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1:
 } // namespace
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
+
+TYPED_TEST(TestAffineElement, AddAffine)
+{
+    TestFixture::test_add_affine();
+}
 
 TYPED_TEST(TestAffineElement, ReadWrite)
 {
