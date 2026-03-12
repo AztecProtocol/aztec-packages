@@ -185,6 +185,11 @@ export type SetupOptions = {
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
   anvilPort?: number;
+  /**
+   * Number of slots per epoch for Anvil's finality simulation.
+   * Anvil reports `finalized = latest - slotsInAnEpoch * 2`.
+   */
+  anvilSlotsInAnEpoch?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
   /** ZkPassport configuration (domain, scope, mock verifier) */
@@ -305,6 +310,7 @@ export async function setup(
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
+        slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
