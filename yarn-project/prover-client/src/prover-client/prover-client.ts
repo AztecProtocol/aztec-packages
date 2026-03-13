@@ -54,6 +54,7 @@ export class ProverClient implements EpochProverManager {
       facade,
       this.config.proverId,
       this.config.cancelJobsOnStop,
+      this.config.enqueueConcurrency,
       this.telemetry,
       bindings,
     );
@@ -156,7 +157,7 @@ export class ProverClient implements EpochProverManager {
 }
 
 export function buildServerCircuitProver(
-  config: ActualProverConfig & ACVMConfig & BBConfig,
+  config: Omit<ActualProverConfig, 'enqueueConcurrency'> & ACVMConfig & BBConfig,
   telemetry: TelemetryClient,
 ): Promise<ServerCircuitProver> {
   if (config.realProofs) {

@@ -131,7 +131,7 @@ export function cancelSimulation(token: CancellationToken): void {
  * Maximum number of concurrent AVM simulations. Each simulation spawns a dedicated OS thread,
  * so this controls resource usage. Defaults to 4. Set to 0 for unlimited.
  */
-const AVM_MAX_CONCURRENT_SIMULATIONS = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
+export const AVM_MAX_CONCURRENT_SIMULATIONS = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
 const avmSimulationSemaphore =
   AVM_MAX_CONCURRENT_SIMULATIONS > 0 ? new Semaphore(AVM_MAX_CONCURRENT_SIMULATIONS) : null;
 

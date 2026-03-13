@@ -80,7 +80,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
         fileData.resize(to_read);
         size_t total = 0;
         while (total < to_read) {
-            ssize_t got = ::read(fd, fileData.data() + total, to_read - total);
+            ssize_t got = ::read(fd, fileData.data() + total, static_cast<unsigned int>(to_read - total));
             if (got < 0) {
                 close(fd);
                 THROW std::runtime_error("Failed to read file: " + filename + " (" + strerror(errno) + ")");
@@ -109,7 +109,8 @@ inline void write_file(const std::string& filename, std::span<const uint8_t> dat
     // Loop to handle short writes (required by POSIX, common on pipes and sockets).
     size_t total_written = 0;
     while (total_written < data.size()) {
-        ssize_t written = ::write(fd, data.data() + total_written, data.size() - total_written);
+        ssize_t written =
+            ::write(fd, data.data() + total_written, static_cast<unsigned int>(data.size() - total_written));
         if (written < 0) {
             close(fd);
             THROW std::runtime_error("Failed to write to file: " + filename + " (" + strerror(errno) + ")");
@@ -143,7 +144,7 @@ template <typename Fr> inline std::string field_elements_to_json(const std::vect
 inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
 {
     try {
-        return read_file(vk_path);
+        return read_file(vk_path.string());
     } catch (const std::runtime_error&) {
         THROW std::runtime_error("Unable to open file: " + vk_path.string() +
                                  "\nGenerate a vk during proving by running `bb prove` with an additional `--write_vk` "
@@ -151,4 +152,24 @@ inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
                                  "\nIf you already have a vk file, specify its path with `--vk_path <path>`.");
     }
 }
+
+// On Windows, std::filesystem::path uses wide strings (wchar_t) and doesn't implicitly convert
+// to std::string. On Linux/macOS (libstdc++), the conversion is implicit so these aren't needed.
+#ifdef _WIN32
+inline size_t get_file_size(const std::filesystem::path& filename)
+{
+    return get_file_size(filename.string());
+}
+
+inline std::vector<uint8_t> read_file(const std::filesystem::path& filename, size_t bytes = 0)
+{
+    return read_file(filename.string(), bytes);
+}
+
+inline void write_file(const std::filesystem::path& filename, std::span<const uint8_t> data)
+{
+    write_file(filename.string(), data);
+}
+#endif
+
 } // namespace bb

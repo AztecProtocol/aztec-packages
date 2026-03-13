@@ -27,13 +27,13 @@ struct SchnorrComputePublicKey {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrComputePublicKeyResponse";
         grumpkin::g1::affine_element public_key;
-        MSGPACK_FIELDS(public_key);
+        SERIALIZATION_FIELDS(public_key);
         bool operator==(const Response&) const = default;
     };
 
     grumpkin::fr private_key;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(private_key);
+    SERIALIZATION_FIELDS(private_key);
     bool operator==(const SchnorrComputePublicKey&) const = default;
 };
 
@@ -48,14 +48,14 @@ struct SchnorrConstructSignature {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrConstructSignatureResponse";
         std::array<uint8_t, 32> s;
         std::array<uint8_t, 32> e;
-        MSGPACK_FIELDS(s, e);
+        SERIALIZATION_FIELDS(s, e);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> message; // Variable length
     grumpkin::fr private_key;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(message, private_key);
+    SERIALIZATION_FIELDS(message, private_key);
     bool operator==(const SchnorrConstructSignature&) const = default;
 };
 
@@ -69,7 +69,7 @@ struct SchnorrVerifySignature {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrVerifySignatureResponse";
         bool verified;
-        MSGPACK_FIELDS(verified);
+        SERIALIZATION_FIELDS(verified);
         bool operator==(const Response&) const = default;
     };
 
@@ -78,7 +78,7 @@ struct SchnorrVerifySignature {
     std::array<uint8_t, 32> s;
     std::array<uint8_t, 32> e;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(message, public_key, s, e);
+    SERIALIZATION_FIELDS(message, public_key, s, e);
     bool operator==(const SchnorrVerifySignature&) const = default;
 };
 

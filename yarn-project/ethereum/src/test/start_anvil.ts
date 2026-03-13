@@ -26,6 +26,13 @@ export async function startAnvil(
     chainId?: number;
     /** The hardfork to use (e.g. 'cancun', 'latest'). */
     hardfork?: string;
+    /**
+     * Number of slots per epoch used by anvil to compute the 'finalized' and 'safe' block tags.
+     * Anvil reports `finalized = latest - slotsInAnEpoch * 2`.
+     * Defaults to 1 so the finalized block advances immediately, making tests that check
+     * L1-finality-based logic work without needing hundreds of mined blocks.
+     */
+    slotsInAnEpoch?: number;
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
@@ -55,6 +62,7 @@ export async function startAnvil(
       if (opts.hardfork !== undefined) {
         args.push('--hardfork', opts.hardfork);
       }
+      args.push('--slots-in-an-epoch', String(opts.slotsInAnEpoch ?? 1));
 
       const child = spawn(anvilBinary, args, {
         stdio: ['ignore', 'pipe', 'pipe'],

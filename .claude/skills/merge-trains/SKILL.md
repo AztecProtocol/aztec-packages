@@ -49,20 +49,20 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 
 Two options from the [merge-train-readme.md](https://github.com/AztecProtocol/aztec-packages/blob/next/.github/workflows/merge-train-readme.md):
 
-**Option 1: Direct Fix** -- Push a fix directly to the merge-train branch. Use bypass merge to expedite (all users have this permission). You can use the ci-skip label to no-op CI if really necessary.
+**Option 1: Direct Fix** -- Merge-train branches are protected, so you cannot push directly. Instead, create a PR targeting the merge-train branch with your fix, add the `ci-skip` label to skip CI, and use GitHub's "Merge without waiting for requirements to be met" button (bypass merge) to force-merge it. All users have bypass merge permission. **Important**: If your fix resolves a conflict from a `next` merge, use the **merge commit** method (not squash) to preserve the merge resolution.
 
 **Option 2: Fix in Next** -- Merge a revert or workaround into `next`. The fix will auto-propagate to the merge-train via the `merge-train-next-to-branches` workflow. Best when the root cause is in `next` or multiple trains are affected.
 
 ### When Auto-Merge Is Blocked
 
-The auto-merge script will **not** enable auto-merge if the last merge-queue CI run for the PR concluded with `failure` or `cancelled`. Someone needs to either fix the issue and push, or force-merge.
+The auto-merge script will **not** enable auto-merge if the last merge-queue CI run for the PR concluded with `failure` or `cancelled`. Someone needs to either fix the issue (via a PR to the merge-train branch, as described in Option 1 above) or force-merge.
 
 ### Merge Conflicts from Next
 
 When merging `next` into a train branch causes conflicts, the `merge-next.sh` script:
 - Aborts the merge
 - Posts a comment on the latest `next` commit listing the conflicted files
-- The team must manually resolve conflicts on their train branch
+- The team must manually resolve conflicts by creating a PR that merges `next` into the train branch (resolving conflicts locally), then force-merging it with `ci-skip` and the **merge commit** method (not squash) to preserve the merge resolution
 
 ## Bypassing Checks / Force-Merging
 

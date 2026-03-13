@@ -58,29 +58,37 @@ describe('smoke test', () => {
     expect(info.enr).toMatch(/^enr:-/);
   });
 
-  it(
-    'should have a committee',
-    async () => {
-      const nodeInfo = await aztecNode.getNodeInfo();
-      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
-      const epochDuration = await rollup.getEpochDuration();
-      logger.info(`Epoch duration: ${epochDuration}`);
-      logger.info('Waiting for committee');
-      await retryUntil(
-        async () => {
-          const slot = await rollup.getSlotNumber();
-          logger.info(`Slot: ${slot}`);
+  it('should have a committee', async () => {
+    const nodeInfo = await aztecNode.getNodeInfo();
+    const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+    const [epochDuration, slotDuration, lag] = await Promise.all([
+      rollup.getEpochDuration(),
+      rollup.getSlotDuration(),
+      rollup.getLagInEpochsForValidatorSet(),
+    ]);
+    // Committee forms after `lag` epochs. Add 1 extra epoch as margin.
+    const epochSeconds = epochDuration * slotDuration;
+    const timeoutSeconds = (lag + 1) * epochSeconds;
+    jest.setTimeout(timeoutSeconds * 1000);
 
-          const committee = await rollup.getCurrentEpochCommittee();
-          return committee !== undefined;
-        },
-        'committee',
-        60 * 60 * 2, // wait up to 2 hours, since if the rollup was just deployed there will be no committee for 2 epochs
-        12, // 12 seconds between each check
-      );
-    },
-    60 * 60 * 1000,
-  );
+    logger.info(
+      `Epoch duration: ${epochDuration} slots, slot duration: ${slotDuration}s, validator set lag: ${lag} epochs`,
+    );
+    logger.info(`Expecting committee after ~${lag * epochSeconds}s, timeout set to ${timeoutSeconds}s`);
+    logger.info('Waiting for committee');
+
+    await retryUntil(
+      async () => {
+        const slot = await rollup.getSlotNumber();
+        logger.info(`Slot: ${slot}`);
+        const committee = await rollup.getCurrentEpochCommittee();
+        return committee !== undefined;
+      },
+      'committee',
+      timeoutSeconds,
+      12, // 12 seconds between each check
+    );
+  });
 
   it('should have mined a checkpoint', async () => {
     const nodeInfo = await aztecNode.getNodeInfo();

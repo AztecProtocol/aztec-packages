@@ -16,7 +16,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitEpochWithProposer, awaitOffenseDetected } from './shared.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
 
 const TEST_TIMEOUT = 600_000; // 10 minutes
 
@@ -211,18 +211,23 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
     ]);
     await awaitCommitteeExists({ rollup, logger: t.logger });
 
-    // Advance to an epoch where the malicious proposer is selected
+    // Find an epoch where the malicious proposer is selected, stopping one epoch before
+    // so we have time to start sequencers before the target epoch arrives
     const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
-    await awaitEpochWithProposer({
+    const { targetEpoch } = await advanceToEpochBeforeProposer({
       epochCache,
       cheatCodes: t.ctx.cheatCodes.rollup,
       targetProposer: maliciousProposerAddress,
       logger: t.logger,
     });
 
-    // Start all sequencers simultaneously
+    // Start all sequencers while still one epoch before the target
     t.logger.warn('Starting all sequencers');
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+
+    // Now warp to the target epoch — sequencers are already running
+    t.logger.warn(`Advancing to target epoch ${targetEpoch}`);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch);
 
     // Wait for offenses to be detected
     // We expect BOTH duplicate proposal AND duplicate attestation offenses

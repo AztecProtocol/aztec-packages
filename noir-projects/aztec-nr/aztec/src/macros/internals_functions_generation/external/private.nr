@@ -1,4 +1,5 @@
 use crate::macros::{
+    functions::initialization_utils::has_public_init_checked_functions,
     internals_functions_generation::external::helpers::{create_authorize_once_check, get_abi_relevant_attributes},
     utils::{
         fn_has_allow_phase_change, fn_has_authorize_once, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self,
@@ -77,9 +78,10 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     };
 
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
+        let has_public_fns_with_init_check = has_public_init_checked_functions(f.module());
         (
             quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_private(self.context); },
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_private_initializer(self.context, $has_public_fns_with_init_check); },
         )
     } else {
         (quote {}, quote {})
@@ -177,6 +179,9 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
 
     let body_quote = body.map(|expr| expr.quoted()).join(quote { });
 
+    // `mark_as_initialized` is placed after the user's function body. If it ran at the beginning, the contract
+    // would appear initialized while the initializer is still running, allowing contracts called by the initializer
+    // to re-enter into a half-initialized contract.
     let to_append = quote {
         $return_value
         $mark_as_initialized
