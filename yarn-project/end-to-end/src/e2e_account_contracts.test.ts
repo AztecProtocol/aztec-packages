@@ -1,6 +1,5 @@
 import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import { type Account, type AccountContract, BaseAccount, getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
@@ -99,11 +98,7 @@ const itShouldBehaveLikeAnAccountContract = (
 };
 
 describe('e2e_account_contracts', () => {
-  describe('schnorr single-key account', () => {
-    itShouldBehaveLikeAnAccountContract((encryptionKey: GrumpkinScalar) => new SingleKeyAccountContract(encryptionKey));
-  });
-
-  describe('schnorr multi-key account', () => {
+  describe('schnorr account', () => {
     itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
   });
 
