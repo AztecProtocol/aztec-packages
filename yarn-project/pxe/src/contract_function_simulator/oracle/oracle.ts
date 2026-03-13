@@ -25,10 +25,8 @@ export class UnavailableOracleError extends Error {
   }
 }
 
-function optionalAddressFromAcvmFields(scopeSome: ACVMField | undefined, scopeValue: ACVMField | undefined) {
-  return scopeSome !== undefined && Fr.fromString(scopeSome).toNumber() === 1 && scopeValue !== undefined
-    ? AztecAddress.fromField(Fr.fromString(scopeValue))
-    : undefined;
+function optionalAddressFromAcvmFields(scopeSome: ACVMField, scopeValue: ACVMField) {
+  return Fr.fromString(scopeSome).toNumber() === 1 ? AztecAddress.fromField(Fr.fromString(scopeValue)) : undefined;
 }
 
 /**
@@ -554,17 +552,8 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     capsule: ACVMField[],
-  ): Promise<ACVMField[]> {
-    return await this.aztec_utl_storeCapsuleV2([contractAddress], [slot], capsule);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_storeCapsuleV2(
-    [contractAddress]: ACVMField[],
-    [slot]: ACVMField[],
-    capsule: ACVMField[],
-    [scopeSome]: ACVMField[] = [],
-    [scopeValue]: ACVMField[] = [],
+    [scopeSome]: ACVMField[],
+    [scopeValue]: ACVMField[],
   ): Promise<ACVMField[]> {
     const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     await this.handlerAsUtility().storeCapsule(
@@ -581,17 +570,8 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    return await this.aztec_utl_loadCapsuleV2([contractAddress], [slot], [tSize]);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_loadCapsuleV2(
-    [contractAddress]: ACVMField[],
-    [slot]: ACVMField[],
-    [tSize]: ACVMField[],
-    [scopeSome]: ACVMField[] = [],
-    [scopeValue]: ACVMField[] = [],
+    [scopeSome]: ACVMField[],
+    [scopeValue]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     const values = await this.handlerAsUtility().loadCapsule(
@@ -612,16 +592,11 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_deleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]): Promise<ACVMField[]> {
-    return await this.aztec_utl_deleteCapsuleV2([contractAddress], [slot]);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_deleteCapsuleV2(
+  async aztec_utl_deleteCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
-    [scopeSome]: ACVMField[] = [],
-    [scopeValue]: ACVMField[] = [],
+    [scopeSome]: ACVMField[],
+    [scopeValue]: ACVMField[],
   ): Promise<ACVMField[]> {
     const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     await this.handlerAsUtility().deleteCapsule(
@@ -634,16 +609,6 @@ export class Oracle {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_copyCapsule(
-    [contractAddress]: ACVMField[],
-    [srcSlot]: ACVMField[],
-    [dstSlot]: ACVMField[],
-    [numEntries]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    return await this.aztec_utl_copyCapsuleV2([contractAddress], [srcSlot], [dstSlot], [numEntries]);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_copyCapsuleV2(
     [contractAddress]: ACVMField[],
     [srcSlot]: ACVMField[],
     [dstSlot]: ACVMField[],

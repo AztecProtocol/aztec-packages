@@ -14,7 +14,8 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     utilityLog: (...args: ACVMField[][]) => oracle.aztec_utl_log(args[0], args[1], args[2], args[3]),
     utilityAssertCompatibleOracleVersion: (...args: ACVMField[][]) =>
       oracle.aztec_utl_assertCompatibleOracleVersion(args[0]),
-    utilityLoadCapsule: (...args: ACVMField[][]) => oracle.aztec_utl_loadCapsule(args[0], args[1], args[2]),
+    utilityLoadCapsule: (...args: ACVMField[][]) =>
+      oracle.aztec_utl_loadCapsule(args[0], args[1], args[2], [new Fr(0).toString()], [new Fr(0).toString()]),
     privateStoreInExecutionCache: (...args: ACVMField[][]) => oracle.aztec_prv_storeInExecutionCache(args[0], args[1]),
     privateLoadFromExecutionCache: (...args: ACVMField[][]) => oracle.aztec_prv_loadFromExecutionCache(args[0]),
     privateCallPrivateFunction: (...args: ACVMField[][]) =>
@@ -28,9 +29,11 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     privateSetSenderForTags: (...args: ACVMField[][]) => oracle.aztec_prv_setSenderForTags(args[0]),
     utilityGetUtilityContext: () => oracle.aztec_utl_getUtilityContext(),
     utilityStorageRead: (...args: ACVMField[][]) => oracle.aztec_utl_storageRead(args[0], args[1], args[2], args[3]),
-    utilityStoreCapsule: (...args: ACVMField[][]) => oracle.aztec_utl_storeCapsule(args[0], args[1], args[2]),
+    utilityStoreCapsule: (...args: ACVMField[][]) =>
+      oracle.aztec_utl_storeCapsule(args[0], args[1], args[2], [new Fr(0).toString()], [new Fr(0).toString()]),
     utilityCopyCapsule: (...args: ACVMField[][]) => oracle.aztec_utl_copyCapsule(args[0], args[1], args[2], args[3]),
-    utilityDeleteCapsule: (...args: ACVMField[][]) => oracle.aztec_utl_deleteCapsule(args[0], args[1]),
+    utilityDeleteCapsule: (...args: ACVMField[][]) =>
+      oracle.aztec_utl_deleteCapsule(args[0], args[1], [new Fr(0).toString()], [new Fr(0).toString()]),
     utilityAes128Decrypt: (...args: ACVMField[][]) =>
       oracle.aztec_utl_aes128Decrypt(args[0], args[1], args[2], args[3]),
     utilityGetSharedSecret: (...args: ACVMField[][]) =>
