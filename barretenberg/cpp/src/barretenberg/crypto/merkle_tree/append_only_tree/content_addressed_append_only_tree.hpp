@@ -254,8 +254,8 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void checkpoint(const CheckpointCallback& on_completion);
     void commit_checkpoint(const CheckpointCommitCallback& on_completion);
     void revert_checkpoint(const CheckpointRevertCallback& on_completion);
-    void commit_all_checkpoints(const CheckpointCommitCallback& on_completion);
-    void revert_all_checkpoints(const CheckpointRevertCallback& on_completion);
+    void commit_all_checkpoints_to(const CheckpointCommitCallback& on_completion);
+    void revert_all_checkpoints_to(const CheckpointRevertCallback& on_completion);
     void commit_to_depth(uint32_t target_depth, const CheckpointCommitCallback& on_completion);
     void revert_to_depth(uint32_t target_depth, const CheckpointRevertCallback& on_completion);
     uint32_t checkpoint_depth() const;
@@ -1030,18 +1030,18 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_all_checkpoints(
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_all_checkpoints_to(
     const CheckpointCommitCallback& on_completion)
 {
-    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_all_checkpoints(); }, on_completion); };
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_all_checkpoints_to(); }, on_completion); };
     workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_all_checkpoints(
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_all_checkpoints_to(
     const CheckpointRevertCallback& on_completion)
 {
-    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_all_checkpoints(); }, on_completion); };
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_all_checkpoints_to(); }, on_completion); };
     workers_->enqueue(job);
 }
 

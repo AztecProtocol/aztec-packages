@@ -159,7 +159,7 @@ describe('public_processor', () => {
       expect(failed[0].error).toEqual(new Error(`Failed`));
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
     });
 
     it('if a tx errors with assertion failure, public processor returns failed tx with its assertion message', async function () {
@@ -174,7 +174,7 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Forced assertion failure/);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -315,13 +315,13 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Not enough balance/i);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
       expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(0);
     });
   });
 
   describe('checkpoint depth', () => {
-    it('calls revertAllCheckpoints with depth on tx failure', async function () {
+    it('calls revertAllCheckpointsTo with depth on tx failure', async function () {
       merkleTree.createCheckpoint.mockResolvedValue(2);
       publicTxSimulator.simulate.mockRejectedValue(new Error('Boom'));
 
@@ -330,7 +330,7 @@ describe('public_processor', () => {
 
       expect(processed).toEqual([]);
       expect(failed).toHaveLength(1);
-      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(2);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(2);
       expect(merkleTree.commitCheckpoint).not.toHaveBeenCalled();
     });
 
@@ -350,7 +350,7 @@ describe('public_processor', () => {
       expect(processed).toHaveLength(1);
       expect(failed).toEqual([]);
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(1);
-      expect(merkleTree.revertAllCheckpoints).not.toHaveBeenCalled();
+      expect(merkleTree.revertAllCheckpointsTo).not.toHaveBeenCalled();
     });
   });
 

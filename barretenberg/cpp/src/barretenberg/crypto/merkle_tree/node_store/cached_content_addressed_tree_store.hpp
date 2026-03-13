@@ -194,8 +194,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     uint32_t checkpoint();
     void revert_checkpoint();
     void commit_checkpoint();
-    void revert_all_checkpoints();
-    void commit_all_checkpoints();
+    void revert_all_checkpoints_to();
+    void commit_all_checkpoints_to();
     void commit_to_depth(uint32_t depth);
     void revert_to_depth(uint32_t depth);
     uint32_t checkpoint_depth() const;
@@ -297,13 +297,13 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     cache_.commit();
 }
 
-template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_all_checkpoints()
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_all_checkpoints_to()
 {
     std::unique_lock lock(mtx_);
     cache_.revert_all();
 }
 
-template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_all_checkpoints()
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_all_checkpoints_to()
 {
     std::unique_lock lock(mtx_);
     cache_.commit_all();

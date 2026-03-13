@@ -32,15 +32,15 @@ describe('ForkCheckpoint', () => {
     expect(fork.revertCheckpoint).toHaveBeenCalledTimes(1);
   });
 
-  it('revertToCheckpoint calls revertAllCheckpoints with depth', async () => {
-    fork.revertAllCheckpoints.mockResolvedValue();
+  it('revertToCheckpoint calls revertAllCheckpointsTo with depth', async () => {
+    fork.revertAllCheckpointsTo.mockResolvedValue();
     const checkpoint = await ForkCheckpoint.new(fork);
     await checkpoint.revertToCheckpoint();
-    expect(fork.revertAllCheckpoints).toHaveBeenCalledWith(5);
+    expect(fork.revertAllCheckpointsTo).toHaveBeenCalledWith(5);
   });
 
   it('revertToCheckpoint prevents subsequent commit', async () => {
-    fork.revertAllCheckpoints.mockResolvedValue();
+    fork.revertAllCheckpointsTo.mockResolvedValue();
     const checkpoint = await ForkCheckpoint.new(fork);
     await checkpoint.revertToCheckpoint();
     await checkpoint.commit();
@@ -48,11 +48,11 @@ describe('ForkCheckpoint', () => {
   });
 
   it('revertToCheckpoint is idempotent', async () => {
-    fork.revertAllCheckpoints.mockResolvedValue();
+    fork.revertAllCheckpointsTo.mockResolvedValue();
     const checkpoint = await ForkCheckpoint.new(fork);
     await checkpoint.revertToCheckpoint();
     await checkpoint.revertToCheckpoint();
-    expect(fork.revertAllCheckpoints).toHaveBeenCalledTimes(1);
+    expect(fork.revertAllCheckpointsTo).toHaveBeenCalledTimes(1);
   });
 
   it('commit is idempotent', async () => {

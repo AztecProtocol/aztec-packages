@@ -335,7 +335,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     await this.instance.call(WorldStateMessageType.REVERT_CHECKPOINT, { forkId: this.revision.forkId });
   }
 
-  public async commitAllCheckpoints(depth: number): Promise<void> {
+  public async commitAllCheckpointsTo(depth: number): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.COMMIT_ALL_CHECKPOINTS, {
       forkId: this.revision.forkId,
@@ -343,7 +343,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     });
   }
 
-  public async revertAllCheckpoints(depth: number): Promise<void> {
+  public async revertAllCheckpointsTo(depth: number): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.REVERT_ALL_CHECKPOINTS, {
       forkId: this.revision.forkId,

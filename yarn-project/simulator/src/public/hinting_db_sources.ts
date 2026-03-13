@@ -428,12 +428,12 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return depth;
   }
 
-  public commitAllCheckpoints(_depth: number): Promise<void> {
-    throw new Error('commitAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  public commitAllCheckpointsTo(_depth: number): Promise<void> {
+    throw new Error('commitAllCheckpointsTo is not supported in HintingMerkleWriteOperations.');
   }
 
-  public revertAllCheckpoints(_depth: number): Promise<void> {
-    throw new Error('revertAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  public revertAllCheckpointsTo(_depth: number): Promise<void> {
+    throw new Error('revertAllCheckpointsTo is not supported in HintingMerkleWriteOperations.');
   }
 
   public async commitCheckpoint(): Promise<void> {

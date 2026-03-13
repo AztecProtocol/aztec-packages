@@ -41,7 +41,7 @@ export class ForkCheckpoint {
       return;
     }
 
-    await this.fork.revertAllCheckpoints(this.depth);
+    await this.fork.revertAllCheckpointsTo(this.depth);
     this.completed = true;
   }
 }

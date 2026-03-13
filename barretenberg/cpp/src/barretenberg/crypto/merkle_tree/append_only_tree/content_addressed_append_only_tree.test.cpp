@@ -2171,7 +2171,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
     commit_checkpoint_tree(tree, false);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints_to)
 {
     constexpr size_t depth = 10;
     uint32_t blockSize = 16;
@@ -2223,7 +2223,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints)
     commit_checkpoint_tree(tree, false);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_all_checkpoints)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_all_checkpoints_to)
 {
     constexpr size_t depth = 10;
     uint32_t blockSize = 16;

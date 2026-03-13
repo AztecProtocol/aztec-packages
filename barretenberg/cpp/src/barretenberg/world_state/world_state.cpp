@@ -1145,7 +1145,7 @@ void WorldState::revert_checkpoint(const uint64_t& forkId)
     }
 }
 
-void WorldState::commit_all_checkpoints(const uint64_t& forkId, uint32_t depth)
+void WorldState::commit_all_checkpoints_to(const uint64_t& forkId, uint32_t depth)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -1173,7 +1173,7 @@ void WorldState::commit_all_checkpoints(const uint64_t& forkId, uint32_t depth)
     }
 }
 
-void WorldState::revert_all_checkpoints(const uint64_t& forkId, uint32_t depth)
+void WorldState::revert_all_checkpoints_to(const uint64_t& forkId, uint32_t depth)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));

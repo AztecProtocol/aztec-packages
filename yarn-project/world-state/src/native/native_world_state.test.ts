@@ -1594,7 +1594,7 @@ describe('NativeWorldState', () => {
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
-      await fork.commitAllCheckpoints(checkpointDepth);
+      await fork.commitAllCheckpointsTo(checkpointDepth);
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
@@ -1622,7 +1622,7 @@ describe('NativeWorldState', () => {
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
-      await fork.revertAllCheckpoints(checkpointDepth);
+      await fork.revertAllCheckpointsTo(checkpointDepth);
       await compareState(fork, siblingPathsAfter, false);
       await compareState(fork, siblingPathsBefore, true);
 
@@ -1863,7 +1863,7 @@ describe('NativeWorldState', () => {
       const afterDepth3Paths = await advanceState(fork);
 
       // Commit depths 3 and 2 into depth 1
-      await fork.commitAllCheckpoints(2);
+      await fork.commitAllCheckpointsTo(2);
 
       // State should reflect all changes
       await compareState(fork, afterDepth3Paths, true);
@@ -1888,7 +1888,7 @@ describe('NativeWorldState', () => {
       await advanceState(fork);
 
       // Revert depths 3 and 2
-      await fork.revertAllCheckpoints(2);
+      await fork.revertAllCheckpointsTo(2);
 
       // Should be back to after depth 1 state
       await compareState(fork, afterDepth1Paths, true);
@@ -1910,7 +1910,7 @@ describe('NativeWorldState', () => {
       await advanceState(fork);
 
       // Revert depth 2 only
-      await fork.revertAllCheckpoints(2);
+      await fork.revertAllCheckpointsTo(2);
 
       // Create new checkpoint at depth 2 with different changes
       await fork.createCheckpoint(); // depth 2 again
@@ -1938,7 +1938,7 @@ describe('NativeWorldState', () => {
       const finalPaths = await advanceState(fork);
 
       // depth 1 commits all checkpoints
-      await fork.commitAllCheckpoints(1);
+      await fork.commitAllCheckpointsTo(1);
 
       // State should reflect all changes
       await compareState(fork, finalPaths, true);
@@ -1957,7 +1957,7 @@ describe('NativeWorldState', () => {
       await advanceState(fork);
 
       // depth 1 reverts all checkpoints
-      await fork.revertAllCheckpoints(1);
+      await fork.revertAllCheckpointsTo(1);
 
       // Should be back to initial state
       await compareState(fork, initialPaths, true);
@@ -1977,7 +1977,7 @@ describe('NativeWorldState', () => {
       await advanceState(fork);
 
       // Revert depth 2
-      await fork.revertAllCheckpoints(2);
+      await fork.revertAllCheckpointsTo(2);
       await compareState(fork, afterDepth1Paths, true);
 
       // Create new depth 2
