@@ -1,4 +1,5 @@
 use super::TestBuilder;
+use protocol_test_utils::assert_claimed_length_array_eq;
 use types::{
     address::{AztecAddress, EthAddress},
     constants::{
@@ -13,7 +14,6 @@ use types::{
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     point::Point,
-    tests::utils::assert_claimed_length_array_eq,
     traits::{Empty, FromField},
     utils::arrays::subarray,
 };

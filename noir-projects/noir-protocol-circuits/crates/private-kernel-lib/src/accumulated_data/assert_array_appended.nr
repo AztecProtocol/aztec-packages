@@ -236,10 +236,10 @@ mod tests {
         append_reversed_to_empty_dest, append_to_empty_dest, assert_array_appended,
         assert_array_appended_and_scoped, assert_array_appended_reversed,
     };
+    use protocol_test_utils::make_fixture;
     use types::{
         address::aztec_address::AztecAddress,
         side_effect::Scoped,
-        tests::utils::make_fixture,
         traits::{Empty, FromField},
         utils::arrays::ClaimedLengthArray,
     };

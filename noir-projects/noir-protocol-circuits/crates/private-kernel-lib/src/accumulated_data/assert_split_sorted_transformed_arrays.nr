@@ -143,14 +143,13 @@ where
 }
 
 mod tests {
+    use crate::accumulated_data::test_value::TestValue;
     use super::{
         assert_split_sorted_transformed_arrays_with_hints,
         get_split_order_hints::{get_split_order_hints, SplitOrderHints},
     };
-    use types::{
-        tests::{types::TestValue, utils::pad_end},
-        utils::arrays::{ClaimedLengthArray, find_first_index},
-    };
+    use protocol_test_utils::pad_end;
+    use types::utils::arrays::{ClaimedLengthArray, find_first_index};
 
     struct TestBuilder<let N: u32> {
         original_array: ClaimedLengthArray<TestValue, N>,

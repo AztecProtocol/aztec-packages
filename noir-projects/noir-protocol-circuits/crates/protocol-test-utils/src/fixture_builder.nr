@@ -1,4 +1,11 @@
-use crate::{
+use crate::fixtures::{
+    self,
+    contract_functions::ContractFunction,
+    contracts::ContractData,
+    public_data_tree::empty_public_data_tree,
+    vk_tree::{get_vk_data, vk_tree_root},
+};
+use types::{
     abis::{
         accumulated_data::{
             avm_accumulated_data::{AvmAccumulatedData, AvmAccumulatedDataArrayLengths},
@@ -78,13 +85,6 @@ use crate::{
     public_keys::PublicKeys,
     side_effect::{Counted, Ordered, Scoped},
     storage::map::derive_storage_slot_in_map,
-    tests::fixtures::{
-        self,
-        contract_functions::ContractFunction,
-        contracts::ContractData,
-        public_data_tree::empty_public_data_tree,
-        vk_tree::{get_vk_data, vk_tree_root},
-    },
     traits::{Deserialize, Empty, FromField, Hash, Packable},
     utils::arrays::{ClaimedLengthArray, subarray},
 };

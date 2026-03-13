@@ -2,13 +2,13 @@ use crate::{
     abis::ParityPublicInputs,
     parity::parity_root::{self, ParityBaseProofData, ParityRootPrivateInputs},
 };
+use protocol_test_utils::{fixtures::vk_tree::{get_vk_data, vk_tree_root}, pad_end};
 use types::{
     constants::{
         NUM_BASE_PARITY_PER_ROOT_PARITY, PARITY_BASE_VK_INDEX, PARITY_ROOT_VK_INDEX,
         ULTRA_VK_LENGTH_IN_FIELDS,
     },
     proof::{proof_data::ProofData, vk_data::VkData},
-    tests::{fixtures::vk_tree::{get_vk_data, vk_tree_root}, utils::pad_end},
 };
 
 struct TestBuilder {
