@@ -610,6 +610,10 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
+// Chonk proof segment lengths (must match C++ static_asserts in mock_verifier_inputs.test.cpp)
+pub global MERGE_PROOF_LENGTH: u32 = 42;
+pub global ECCVM_PROOF_LENGTH: u32 = 608;
+pub global TRANSLATOR_PROOF_LENGTH: u32 = 483;
 pub global CHONK_PROOF_LENGTH: u32 = 1330;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key

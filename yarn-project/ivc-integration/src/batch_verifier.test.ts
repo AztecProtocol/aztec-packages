@@ -1,8 +1,8 @@
-import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
+import { AztecClientBackend, BackendType, Barretenberg, type ChonkProof, toChonkProof } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { Unpackr } from 'msgpackr';
+import { Decoder, Unpackr } from 'msgpackr';
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -91,27 +91,28 @@ function createFifo(label: string): { fifoPath: string; cleanup: () => void } {
   };
 }
 
-/** Serialize proof field arrays into a single concatenated byte buffer. */
-function flattenProofFields(proofFields: Uint8Array[]): Uint8Array {
-  return Buffer.concat(proofFields.map(f => Buffer.from(f)));
+/** Decode the msgpack-encoded proof buffer into a bb.js ChonkProof. */
+function decodeChonkProof(proofBuf: Uint8Array): ChonkProof {
+  return toChonkProof(new Decoder({ useRecords: false }).decode(proofBuf));
 }
 
-/** Corrupt a proof buffer at a specific offset. */
-function corruptProof(proofBytes: Uint8Array): Uint8Array {
-  const corrupted = Buffer.from(proofBytes);
-  corrupted[64] ^= 0xff;
-  corrupted[65] ^= 0xff;
-  return corrupted;
+/** Corrupt a structured ChonkProof by flipping bytes in the mega proof. */
+function corruptChonkProof(proof: ChonkProof): ChonkProof {
+  const corrupted = proof.megaProof.map(f => Uint8Array.from(f));
+  corrupted[2] = Uint8Array.from(corrupted[2]);
+  corrupted[2][0] ^= 0xff;
+  corrupted[2][1] ^= 0xff;
+  return { megaProof: corrupted, goblinProof: proof.goblinProof };
 }
 
 describe('Batch Chonk Verifier workloads', () => {
   let bb: Barretenberg;
   // Cache a proof + VK so we don't re-prove for every test
-  let validProofBytes: Uint8Array;
-  let invalidProofBytes: Uint8Array;
+  let validProof: ChonkProof;
+  let invalidProof: ChonkProof;
   let vk: Uint8Array;
   // Second proof from a different circuit stack (complex tx with reader app)
-  let validProofBytes2: Uint8Array;
+  let validProof2: ChonkProof;
   let vk2: Uint8Array;
 
   beforeAll(async () => {
@@ -122,17 +123,17 @@ describe('Batch Chonk Verifier workloads', () => {
     logger.info('Generating simple proof...');
     const [bytecodes1, witnesses1, , vks1] = await generateTestingIVCStack(1, 0);
     const backend1 = new AztecClientBackend(bytecodes1, bb);
-    const [proofFields1, , generatedVk1] = await backend1.prove(witnesses1, vks1);
-    validProofBytes = flattenProofFields(proofFields1);
-    invalidProofBytes = corruptProof(validProofBytes);
+    const [, proofBuf1, generatedVk1] = await backend1.prove(witnesses1, vks1);
+    validProof = decodeChonkProof(proofBuf1);
+    invalidProof = corruptChonkProof(validProof);
     vk = generatedVk1;
 
     // Generate proof from complex tx (1 creator, 1 reader) — different circuit stack, same VK type
     logger.info('Generating complex proof...');
     const [bytecodes2, witnesses2, , vks2] = await generateTestingIVCStack(1, 1);
     const backend2 = new AztecClientBackend(bytecodes2, bb);
-    const [proofFields2, , generatedVk2] = await backend2.prove(witnesses2, vks2);
-    validProofBytes2 = flattenProofFields(proofFields2);
+    const [, proofBuf2, generatedVk2] = await backend2.prove(witnesses2, vks2);
+    validProof2 = decodeChonkProof(proofBuf2);
     vk2 = generatedVk2;
 
     logger.info('Proofs generated, ready for batch tests');
@@ -159,7 +160,7 @@ describe('Batch Chonk Verifier workloads', () => {
       await bb.chonkBatchVerifierQueue({
         requestId: 7,
         vkIndex: 0,
-        proofFields: validProofBytes,
+        proof: validProof,
       });
 
       // Don't call stop — the coordinator processes immediately when idle
@@ -198,7 +199,7 @@ describe('Batch Chonk Verifier workloads', () => {
         await bb.chonkBatchVerifierQueue({
           requestId: i,
           vkIndex: 0,
-          proofFields: validProofBytes,
+          proof: validProof,
         });
       }
 
@@ -225,12 +226,12 @@ describe('Batch Chonk Verifier workloads', () => {
     const { fifoPath, cleanup } = createFifo('mixed');
 
     // Interleave valid and invalid proofs
-    const proofs: { id: number; bytes: Uint8Array; expectedStatus: number }[] = [
-      { id: 0, bytes: validProofBytes, expectedStatus: 0 },
-      { id: 1, bytes: invalidProofBytes, expectedStatus: 1 },
-      { id: 2, bytes: validProofBytes, expectedStatus: 0 },
-      { id: 3, bytes: invalidProofBytes, expectedStatus: 1 },
-      { id: 4, bytes: validProofBytes, expectedStatus: 0 },
+    const proofs: { id: number; proof: ChonkProof; expectedStatus: number }[] = [
+      { id: 0, proof: validProof, expectedStatus: 0 },
+      { id: 1, proof: invalidProof, expectedStatus: 1 },
+      { id: 2, proof: validProof, expectedStatus: 0 },
+      { id: 3, proof: invalidProof, expectedStatus: 1 },
+      { id: 4, proof: validProof, expectedStatus: 0 },
     ];
 
     try {
@@ -247,7 +248,7 @@ describe('Batch Chonk Verifier workloads', () => {
         await bb.chonkBatchVerifierQueue({
           requestId: p.id,
           vkIndex: 0,
-          proofFields: p.bytes,
+          proof: p.proof,
         });
       }
 
@@ -286,10 +287,10 @@ describe('Batch Chonk Verifier workloads', () => {
       const resultPromise = readFifoResults(fifoPath, 4);
 
       // Queue proofs against their respective VKs
-      await bb.chonkBatchVerifierQueue({ requestId: 0, vkIndex: 0, proofFields: validProofBytes });
-      await bb.chonkBatchVerifierQueue({ requestId: 1, vkIndex: 1, proofFields: validProofBytes2 });
-      await bb.chonkBatchVerifierQueue({ requestId: 2, vkIndex: 0, proofFields: validProofBytes });
-      await bb.chonkBatchVerifierQueue({ requestId: 3, vkIndex: 1, proofFields: validProofBytes2 });
+      await bb.chonkBatchVerifierQueue({ requestId: 0, vkIndex: 0, proof: validProof });
+      await bb.chonkBatchVerifierQueue({ requestId: 1, vkIndex: 1, proof: validProof2 });
+      await bb.chonkBatchVerifierQueue({ requestId: 2, vkIndex: 0, proof: validProof });
+      await bb.chonkBatchVerifierQueue({ requestId: 3, vkIndex: 1, proof: validProof2 });
 
       await bb.chonkBatchVerifierStop({});
       const results = await resultPromise;
@@ -327,7 +328,7 @@ describe('Batch Chonk Verifier workloads', () => {
           await bb.chonkBatchVerifierQueue({
             requestId: i,
             vkIndex: 0,
-            proofFields: validProofBytes,
+            proof: validProof,
           });
         }
 

@@ -1,4 +1,6 @@
-import { BackendType, Barretenberg } from '@aztec/bb.js';
+import { type ChonkProof as BBChonkProof, BackendType, Barretenberg } from '@aztec/bb.js';
+import { ECCVM_PROOF_LENGTH, IPA_PROOF_LENGTH, MERGE_PROOF_LENGTH, TRANSLATOR_PROOF_LENGTH } from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -104,6 +106,35 @@ interface PendingRequest {
   totalTimer: Timer;
 }
 
+/** Convert a flat array of Fr fields (with public inputs) into a structured bb.js ChonkProof. */
+function fieldsToChonkProof(fields: Fr[]): BBChonkProof {
+  const toBuffers = (frs: Fr[]) => frs.map(f => f.toBuffer());
+
+  // mega_proof is everything before the goblin sub-proofs
+  const goblinLen = MERGE_PROOF_LENGTH + ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + TRANSLATOR_PROOF_LENGTH;
+  const megaLen = fields.length - goblinLen;
+  let offset = 0;
+
+  const megaProof = toBuffers(fields.slice(offset, offset + megaLen));
+  offset += megaLen;
+
+  const mergeProof = toBuffers(fields.slice(offset, offset + MERGE_PROOF_LENGTH));
+  offset += MERGE_PROOF_LENGTH;
+
+  const eccvmProof = toBuffers(fields.slice(offset, offset + ECCVM_PROOF_LENGTH));
+  offset += ECCVM_PROOF_LENGTH;
+
+  const ipaProof = toBuffers(fields.slice(offset, offset + IPA_PROOF_LENGTH));
+  offset += IPA_PROOF_LENGTH;
+
+  const translatorProof = toBuffers(fields.slice(offset, offset + TRANSLATOR_PROOF_LENGTH));
+
+  return {
+    megaProof,
+    goblinProof: { mergeProof, eccvmProof, ipaProof, translatorProof },
+  };
+}
+
 /**
  * Batch verifier for Chonk IVC proofs. Uses the bb batch verifier service
  * which batches IPA verification into a single SRS MSM for better throughput.
@@ -194,9 +225,9 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
       throw new Error(`No VK index for circuit ${circuit}`);
     }
 
-    // Serialize proof as concatenated 32-byte field elements (with public inputs prepended)
+    // Convert flat Fr[] proof to structured bb.js ChonkProof (with public inputs in mega_proof)
     const proofWithPubInputs = tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields());
-    const proofFields = Buffer.concat(proofWithPubInputs.fieldsWithPublicInputs.map(f => f.toBuffer()));
+    const proof = fieldsToChonkProof(proofWithPubInputs.fieldsWithPublicInputs);
 
     // Create pending promise
     const resultPromise = new Promise<IVCProofVerificationResult>((resolve, reject) => {
@@ -208,7 +239,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
       await this.bb.chonkBatchVerifierQueue({
         requestId,
         vkIndex,
-        proofFields,
+        proof,
       });
     });
 

@@ -498,10 +498,6 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRe
         throw_or_abort("ChonkBatchVerifierQueue: service not running. Call ChonkBatchVerifierStart first.");
     }
 
-    // Convert raw field element bytes to structured ChonkProof
-    auto fields = many_from_buffer<fr>(proof_fields);
-    auto proof = ChonkProof::from_field_elements(fields);
-
     service_.enqueue(VerifyRequest{
         .request_id = request_id,
         .vk_index = vk_index,
