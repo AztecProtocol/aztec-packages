@@ -147,8 +147,8 @@ export type OffchainMessage = {
   payload: Fr[];
   /** The contract that emitted the message. */
   contractAddress: AztecAddress;
-  /** The timestamp by which this message expires and can be evicted from the inbox. */
-  expirationTimestamp: bigint;
+  /** Anchor block timestamp at message emission. */
+  anchorBlockTimestamp: bigint;
 };
 
 /** Groups all unproven outputs from private execution that are returned to the client. */
@@ -164,7 +164,7 @@ export type OffchainOutput = {
  * Effects whose data starts with `OFFCHAIN_MESSAGE_IDENTIFIER` are parsed as messages and removed
  * from the effects array.
  */
-export function extractOffchainOutput(effects: OffchainEffect[], txExpirationTimestamp: bigint): OffchainOutput {
+export function extractOffchainOutput(effects: OffchainEffect[], anchorBlockTimestamp: bigint): OffchainOutput {
   const offchainEffects: OffchainEffect[] = [];
   const offchainMessages: OffchainMessage[] = [];
 
@@ -174,7 +174,7 @@ export function extractOffchainOutput(effects: OffchainEffect[], txExpirationTim
         recipient: AztecAddress.fromField(effect.data[1]),
         payload: effect.data.slice(2),
         contractAddress: effect.contractAddress,
-        expirationTimestamp: txExpirationTimestamp,
+        anchorBlockTimestamp,
       });
     } else {
       offchainEffects.push(effect);
