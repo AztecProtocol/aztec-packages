@@ -204,6 +204,11 @@
         <input type="number" id="checkpointAssembleTime" step="0.5" min="0">
       </div>
       <div class="config-field">
+        <label for="lastBlockDuration"
+          title="Duration of the last block's window. Shorter = checkpoint broadcasts earlier, enabling early building. 0 = same as standard block duration.">Last Block Duration (s)</label>
+        <input type="number" id="lastBlockDuration" step="0.5" min="0">
+      </div>
+      <div class="config-field">
         <label for="l1SlotDuration"
           title="Duration of an Ethereum L1 slot in seconds. Always 12s on mainnet, but may be shorter in test environments.">L1
           Slot Duration (s)</label>
@@ -339,6 +344,18 @@
           Grace Period</span>
         <span class="info-value" id="ttGracePeriod">-</span>
       </div>
+      <div class="info-item" id="ttEffectiveInitItem" style="display:none;">
+        <span class="info-label"
+          title="Delay from slot boundary until the next proposer can start building. The next proposer starts re-executing the last block as soon as the checkpoint arrives (even before the slot boundary), so re-execution overlaps with the gap. If processing finishes before the slot starts, this is 0.">Effective
+          Init (pipelined)</span>
+        <span class="info-value" id="ttEffectiveInit">-</span>
+      </div>
+      <div class="info-item" id="ttEarlyStartItem" style="display:none;">
+        <span class="info-label"
+          title="If the next proposer starts building blocks as soon as checkpoint processing completes (before the slot boundary), this shows how early it can start. A negative value means the proposer can begin building before its slot officially starts.">Early
+          Start Offset</span>
+        <span class="info-value" id="ttEarlyStart">-</span>
+      </div>
       <div class="info-item" id="ttTimeReservedItem">
         <span class="info-label"
           title="Time reserved at the end of the slot after the last block. Without pipelining: block duration (re-exec) + checkpoint finalization. With pipelining: assembly + one-way P2P broadcast.">Time
@@ -351,7 +368,7 @@
   <div class="card">
     <h2>Slot Timeline</h2>
     <p style="font-size:0.85rem; color:#9a9ab0; margin-bottom:12px;">
-      Visual breakdown of how the L2 slot is divided into phases. With pipelining, attestation collection and L1 submission extend into the next slot (shown as overflow).
+      Visual breakdown of how the L2 slot is divided into phases. With pipelining, attestation collection and L1 submission extend into the next slot (shown as overflow), and a second diagram shows the cascading dependency between consecutive proposers.
     </p>
     <div id="slotTimeline" style="overflow-x:auto;"></div>
   </div>
@@ -382,6 +399,15 @@
       to complete within the build slot. This frees up time for more blocks, significantly shrinking the dead zone and
       reducing latency. Validators re-execute the last block and return attestations during a grace period that extends
       into the target slot.</p>
+    <p><strong>Cascading pipelining.</strong> With pipelining, the <em>next</em> proposer (for slot N+1) also builds
+      ahead. Non-last blocks from slot N are broadcast individually via P2P, so the next proposer's node syncs and
+      re-executes them in real time. Only the last block — bundled with the checkpoint proposal — arrives later.
+      Critically, the next proposer starts re-executing the last block <em>as soon as the checkpoint arrives</em>,
+      even before its slot officially begins. This overlaps re-execution with the gap before the slot boundary.
+      The effective init is: <code>max(0, checkpointArrival + lastBlockReExecTime - slotDuration)</code>.
+      If the checkpoint arrives early enough that re-execution completes before the slot starts, effective init is 0.
+      The "Cascading (early start)" overlay shows what happens if the next proposer begins building blocks immediately
+      when ready, even before the slot boundary — further reducing the dead zone spike.</p>
     <p>Note that this models "proposed chain" visibility -- the TX effects are visible locally before checkpoint
       confirmation on L1 or epoch proving.</p>
   </div>
@@ -403,6 +429,7 @@
         p2pPropagationTime: 2,
         checkpointInitializationTime: 1,
         checkpointAssembleTime: 1,
+        lastBlockDuration: 0,
         pipelining: false,
       };
     }
@@ -421,6 +448,7 @@
         p2pPropagationTime: 2,
         checkpointInitializationTime: 1,
         checkpointAssembleTime: 1,
+        lastBlockDuration: 0,
         pipelining: false,
       };
     }
@@ -453,6 +481,7 @@
           finite(config.checkpointInitializationTime, defaults.checkpointInitializationTime),
         ),
         checkpointAssembleTime: Math.max(0, finite(config.checkpointAssembleTime, defaults.checkpointAssembleTime)),
+        lastBlockDuration: Math.max(0, finite(config.lastBlockDuration, defaults.lastBlockDuration)),
         pipelining: !!config.pipelining,
       };
     }
@@ -463,6 +492,11 @@
     function computeTimetable(config) {
       config = validateConfig(config);
       const initializationOffset = config.checkpointInitializationTime;
+
+      // Resolve effective last block duration: 0 or >= standard block duration means "same as standard"
+      const lastBlockDur = config.lastBlockDuration > 0 && config.lastBlockDuration < config.l2BlockDuration
+        ? config.lastBlockDuration
+        : config.l2BlockDuration;
 
       const checkpointFinalizationTime =
         config.checkpointAssembleTime + 2 * config.p2pPropagationTime + config.l1PublishingTime;
@@ -481,19 +515,65 @@
       const timeAvailableForBlocks = config.l2SlotDuration - initializationOffset - timeReservedAtEnd;
       const maxBlocks = Math.max(1, Math.floor(timeAvailableForBlocks / config.l2BlockDuration)) || 1;
 
+      // Build block windows: last block uses lastBlockDur instead of l2BlockDuration
       const blockWindows = [];
       for (let i = 0; i < maxBlocks; i++) {
-        blockWindows.push({
-          start: initializationOffset + i * config.l2BlockDuration,
-          end: initializationOffset + (i + 1) * config.l2BlockDuration,
-        });
+        const dur = (i === maxBlocks - 1) ? lastBlockDur : config.l2BlockDuration;
+        const start = initializationOffset + i * config.l2BlockDuration;
+        blockWindows.push({ start, end: start + dur });
       }
 
       // When pipelining, attestation collection extends into the target slot.
-      // Grace period = validator re-execution (one block duration) + one-way attestation return.
+      // Grace period = validator re-execution (last block duration) + one-way attestation return.
       const pipeliningAttestationGracePeriod = config.pipelining
-        ? config.l2BlockDuration + config.p2pPropagationTime
+        ? lastBlockDur + config.p2pPropagationTime
         : 0;
+
+      // When pipelining, compute the effective init offset for the NEXT proposer.
+      // Non-last blocks are broadcast individually, so the next proposer's node syncs
+      // them as they arrive. Only the last block (bundled with the checkpoint) needs
+      // re-execution after the checkpoint arrives.
+      //
+      // The next proposer starts re-executing the last block as soon as the checkpoint
+      // arrives — even if that's before the slot boundary. Re-execution overlaps with
+      // the remaining time before the slot officially starts.
+      //
+      // pipeliningEffectiveInit: delay from slot boundary until the next proposer can
+      // start building. If checkpoint processing finishes before the slot starts, this is 0.
+      //
+      // pipeliningEarlyStartInit: if the next proposer could start building blocks as
+      // soon as checkpoint processing completes (before the slot boundary), this is the
+      // offset from when it starts building. Can be negative (meaning it starts early).
+      let pipeliningEffectiveInit = undefined;
+      let pipeliningEarlyStartInit = undefined;
+      if (config.pipelining) {
+        // Checkpoint broadcast: (maxBlocks-1) standard blocks + 1 short last block + assembly
+        const checkpointBroadcastTime = initializationOffset
+          + (maxBlocks - 1) * config.l2BlockDuration + lastBlockDur
+          + config.checkpointAssembleTime;
+        const checkpointArrival = checkpointBroadcastTime + config.p2pPropagationTime;
+        const arrivalRelativeToNextBuild = checkpointArrival - config.l2SlotDuration;
+        const lastBlockReExecTime = lastBlockDur * config.l2BlockFillPercent / 100;
+
+        // Re-execution starts at checkpoint arrival, finishes lastBlockReExecTime later.
+        // The delay relative to slot boundary is (arrival + reExec - slotBoundary).
+        // If negative, the next proposer is ready before the slot starts → effectiveInit = 0.
+        pipeliningEffectiveInit = Math.max(0, arrivalRelativeToNextBuild + lastBlockReExecTime);
+
+        // Early start: the next proposer begins building as soon as it finishes
+        // processing the checkpoint, even if that's before the slot boundary.
+        // This value is the time from checkpoint processing completion to the first block.
+        // When positive, it means a delay after the slot boundary (same as effectiveInit).
+        // When zero or negative, the proposer starts building early.
+        pipeliningEarlyStartInit = arrivalRelativeToNextBuild + lastBlockReExecTime;
+      }
+
+      // Dead zone excess: how much extra peak latency a wrapping TX experiences
+      // compared to a normal block cycle. When <= 0, there's no meaningful dead zone spike.
+      const wrappedInit = (config.pipelining && pipeliningEarlyStartInit !== undefined)
+        ? pipeliningEarlyStartInit
+        : initializationOffset;
+      const deadZoneExcess = config.l2SlotDuration + wrappedInit - initializationOffset - maxBlocks * config.l2BlockDuration;
 
       return {
         initializationOffset,
@@ -502,8 +582,12 @@
         timeReservedAtEnd,
         maxBlocks,
         blockWindows,
+        lastBlockDur,
+        deadZoneExcess,
         pipelining: config.pipelining,
         pipeliningAttestationGracePeriod,
+        pipeliningEffectiveInit,
+        pipeliningEarlyStartInit,
       };
     }
 
@@ -518,6 +602,7 @@
     function computeLatency(config, timetable, txSendTime) {
       const arrivalAtProposer = txSendTime + config.p2pPropagationTime;
       const executionTime = config.l2BlockDuration * config.l2BlockFillPercent / 100;
+      const lastBlockExecTime = timetable.lastBlockDur * config.l2BlockFillPercent / 100;
 
       let blockIndex;
       if (arrivalAtProposer <= timetable.initializationOffset) {
@@ -526,20 +611,41 @@
         blockIndex = Math.ceil((arrivalAtProposer - timetable.initializationOffset) / config.l2BlockDuration);
       }
 
+      // Check if TX fits in the shorter last block window
+      if (blockIndex === timetable.maxBlocks - 1) {
+        const lastBlockEnd = timetable.initializationOffset + (timetable.maxBlocks - 1) * config.l2BlockDuration + timetable.lastBlockDur;
+        if (arrivalAtProposer > lastBlockEnd) {
+          blockIndex = timetable.maxBlocks; // will trigger wrap
+        }
+      }
+
       let wrapsToNextSlot = false;
       let blockEnd;
       let isLastBlock = false;
+      let wrappedNextSlotInit;
 
       if (blockIndex >= timetable.maxBlocks) {
         wrapsToNextSlot = true;
-        blockIndex = 0;
-        blockEnd = config.l2SlotDuration + timetable.initializationOffset + executionTime;
-        // When wrapping to next slot, block 0 of next slot is only "last" if maxBlocks is 1
-        isLastBlock = timetable.maxBlocks === 1;
+        // With pipelining, the next proposer starts building as soon as it processes the
+        // previous checkpoint — potentially before the slot boundary.
+        wrappedNextSlotInit = (timetable.pipelining && timetable.pipeliningEarlyStartInit !== undefined)
+          ? timetable.pipeliningEarlyStartInit
+          : timetable.initializationOffset;
+        const nextSlotBuildStart = config.l2SlotDuration + wrappedNextSlotInit;
+        if (arrivalAtProposer <= nextSlotBuildStart) {
+          blockIndex = 0;
+        } else {
+          blockIndex = Math.ceil((arrivalAtProposer - nextSlotBuildStart) / config.l2BlockDuration);
+          blockIndex = Math.min(blockIndex, timetable.maxBlocks - 1);
+        }
+        isLastBlock = blockIndex === timetable.maxBlocks - 1;
+        const execTime = isLastBlock ? lastBlockExecTime : executionTime;
+        blockEnd = nextSlotBuildStart + blockIndex * config.l2BlockDuration + execTime;
       } else {
         const blockStart = timetable.initializationOffset + blockIndex * config.l2BlockDuration;
-        blockEnd = blockStart + executionTime;
         isLastBlock = blockIndex === timetable.maxBlocks - 1;
+        const execTime = isLastBlock ? lastBlockExecTime : executionTime;
+        blockEnd = blockStart + execTime;
       }
 
       // The last block is bundled with the checkpoint proposal, so its broadcast is
@@ -547,8 +653,12 @@
       const assemblyDelay = isLastBlock ? config.checkpointAssembleTime : 0;
       const proposalBroadcast = blockEnd + assemblyDelay;
       const proposalArrival = proposalBroadcast + config.p2pPropagationTime;
-      const effectsVisible = proposalArrival + executionTime;
+      // Re-execution time depends on block size: shorter last block → faster re-exec
+      const reExecTime = isLastBlock ? lastBlockExecTime : executionTime;
+      const effectsVisible = proposalArrival + reExecTime;
       const latency = effectsVisible - txSendTime;
+
+      const blockExecTime = isLastBlock ? lastBlockExecTime : executionTime;
 
       // Build human-readable timeline
       const timeline = [];
@@ -563,10 +673,11 @@
           time: arrivalAtProposer,
           event: `TX too late for current slot (missed all ${timetable.maxBlocks} blocks)`,
         });
-        const blockStart = config.l2SlotDuration + timetable.initializationOffset;
+        const blockStart = config.l2SlotDuration + wrappedNextSlotInit + blockIndex * config.l2BlockDuration;
+        const earlyNote = wrappedNextSlotInit < 0 ? ` (proposer starts ${Math.abs(wrappedNextSlotInit).toFixed(1)}s early via pipelining)` : '';
         timeline.push({
           time: blockStart,
-          event: `TX picked up for inclusion in block ${blockIndex} of next slot (block starts)`,
+          event: `TX picked up for inclusion in block ${blockIndex} of next slot${earlyNote}`,
         });
       } else {
         const blockStart = timetable.initializationOffset + blockIndex * config.l2BlockDuration;
@@ -575,7 +686,7 @@
 
       timeline.push({
         time: blockEnd,
-        event: `Block ${blockIndex} built (after ${executionTime}s execution)`,
+        event: `Block ${blockIndex} built (after ${blockExecTime}s execution)`,
       });
 
       if (isLastBlock) {
@@ -596,7 +707,7 @@
       });
       timeline.push({
         time: effectsVisible,
-        event: `Node re-executes block, effects visible (after ${executionTime}s re-execution)`,
+        event: `Node re-executes block, effects visible (after ${reExecTime}s re-execution)`,
       });
 
       return {
@@ -673,6 +784,7 @@
       'p2pPropagationTime',
       'checkpointInitializationTime',
       'checkpointAssembleTime',
+      'lastBlockDuration',
     ];
 
     const inputs = {};
@@ -706,7 +818,7 @@
     let latencyChart = null;
     let cdfChart = null;
 
-    function buildLatencyChart(latencies, timetable, slotDuration, allLatencies, config) {
+    function buildLatencyChart(latencies, timetable, slotDuration, allLatencies, config, cascadingLatencies, zeroInitLatencies) {
       const ctx = document.getElementById('latencyChart').getContext('2d');
 
       const chartData = latencies.map(d => ({ x: d.txSendTime, y: d.latency }));
@@ -714,40 +826,43 @@
       const annotations = {};
 
       // Dead zone: shaded region where TXs wrap to next slot
+      // Only render when wrapping causes a meaningful latency spike (excess > 1s)
       const hasWindows = timetable.blockWindows.length > 0;
       const lastBlockStart = hasWindows
         ? timetable.blockWindows[timetable.blockWindows.length - 1].start
         : timetable.initializationOffset;
       const deadZoneStart = lastBlockStart - config.p2pPropagationTime;
 
-      // Dead zone in slot 1
-      annotations['deadZone1'] = {
-        type: 'box',
-        xMin: deadZoneStart,
-        xMax: slotDuration,
-        backgroundColor: 'rgba(255,99,132,0.08)',
-        borderColor: 'rgba(255,99,132,0.3)',
-        borderWidth: 1,
-        label: {
-          display: true,
-          content: 'Dead zone',
-          position: { x: 'center', y: 'start' },
-          color: 'rgba(255,99,132,0.7)',
-          font: { size: 10 },
-          backgroundColor: 'rgba(34,34,64,0.85)',
-          padding: 3,
-        },
-      };
+      if (timetable.deadZoneExcess > 1) {
+        // Dead zone in slot 1
+        annotations['deadZone1'] = {
+          type: 'box',
+          xMin: deadZoneStart,
+          xMax: slotDuration,
+          backgroundColor: 'rgba(255,99,132,0.08)',
+          borderColor: 'rgba(255,99,132,0.3)',
+          borderWidth: 1,
+          label: {
+            display: true,
+            content: 'Dead zone',
+            position: { x: 'center', y: 'start' },
+            color: 'rgba(255,99,132,0.7)',
+            font: { size: 10 },
+            backgroundColor: 'rgba(34,34,64,0.85)',
+            padding: 3,
+          },
+        };
 
-      // Dead zone in slot 2
-      annotations['deadZone2'] = {
-        type: 'box',
-        xMin: slotDuration + deadZoneStart,
-        xMax: 2 * slotDuration,
-        backgroundColor: 'rgba(255,99,132,0.08)',
-        borderColor: 'rgba(255,99,132,0.3)',
-        borderWidth: 1,
-      };
+        // Dead zone in slot 2
+        annotations['deadZone2'] = {
+          type: 'box',
+          xMin: slotDuration + deadZoneStart,
+          xMax: 2 * slotDuration,
+          backgroundColor: 'rgba(255,99,132,0.08)',
+          borderColor: 'rgba(255,99,132,0.3)',
+          borderWidth: 1,
+        };
+      }
 
       // Add a prominent vertical line at the slot boundary
       annotations['slotBoundary'] = {
@@ -768,21 +883,53 @@
         },
       };
 
+      const datasets = [
+        {
+          label: 'Latency',
+          data: chartData,
+          borderColor: '#5b8def',
+          backgroundColor: 'rgba(91,141,239,0.15)',
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          tension: 0,
+        },
+      ];
+
+      if (cascadingLatencies) {
+        const cascadingData = cascadingLatencies.map(d => ({ x: d.txSendTime, y: d.latency }));
+        datasets.push({
+          label: 'Cascading (slot boundary start)',
+          data: cascadingData,
+          borderColor: '#4bc0c0',
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+          borderDash: [6, 3],
+          tension: 0,
+        });
+      }
+
+      if (zeroInitLatencies) {
+        const zeroData = zeroInitLatencies.map(d => ({ x: d.txSendTime, y: d.latency }));
+        datasets.push({
+          label: 'Zero init (theoretical best)',
+          data: zeroData,
+          borderColor: '#f0c040',
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+          borderDash: [3, 2],
+          tension: 0,
+        });
+      }
+
       const chartConfig = {
         type: 'line',
         data: {
-          datasets: [
-            {
-              label: 'Latency',
-              data: chartData,
-              borderColor: '#5b8def',
-              backgroundColor: 'rgba(91,141,239,0.15)',
-              pointRadius: 2,
-              pointHoverRadius: 5,
-              borderWidth: 2,
-              tension: 0,
-            },
-          ],
+          datasets,
         },
         options: {
           responsive: true,
@@ -808,7 +955,8 @@
           },
           plugins: {
             legend: {
-              display: false,
+              display: !!(cascadingLatencies || zeroInitLatencies),
+              labels: { color: '#9a9ab0', font: { size: 11 } },
             },
             annotation: {
               annotations,
@@ -1028,17 +1176,27 @@
       document.getElementById('ttLastBlockEnd').textContent = formatSeconds(lastBlockEnd);
       document.getElementById('ttExecTime').textContent = formatSeconds(execTimePerBlock);
       document.getElementById('ttBlockWindows').textContent = blockWindowsStr || '-';
-      document.getElementById('ttDeadZone').textContent = formatSeconds(deadZoneStart);
-      document.getElementById('ttDeadZoneDuration').textContent = formatSeconds(deadZoneDuration);
+      document.getElementById('ttDeadZone').textContent = timetable.deadZoneExcess > 1 ? formatSeconds(deadZoneStart) : 'None';
+      document.getElementById('ttDeadZoneDuration').textContent = timetable.deadZoneExcess > 1 ? formatSeconds(deadZoneDuration) : 'None';
       document.getElementById('ttTimeReserved').textContent = formatSeconds(timetable.timeReservedAtEnd);
 
       // Pipelining-specific fields
       const gracePeriodItem = document.getElementById('ttGracePeriodItem');
+      const effectiveInitItem = document.getElementById('ttEffectiveInitItem');
+      const earlyStartItem = document.getElementById('ttEarlyStartItem');
       if (timetable.pipelining) {
         gracePeriodItem.style.display = '';
         document.getElementById('ttGracePeriod').textContent = formatSeconds(timetable.pipeliningAttestationGracePeriod);
+        effectiveInitItem.style.display = '';
+        document.getElementById('ttEffectiveInit').textContent = formatSeconds(timetable.pipeliningEffectiveInit);
+        earlyStartItem.style.display = '';
+        const earlyVal = timetable.pipeliningEarlyStartInit;
+        document.getElementById('ttEarlyStart').textContent =
+          earlyVal <= 0 ? `${formatSeconds(Math.abs(earlyVal))} early` : formatSeconds(earlyVal);
       } else {
         gracePeriodItem.style.display = 'none';
+        effectiveInitItem.style.display = 'none';
+        earlyStartItem.style.display = 'none';
       }
 
       // Build charts
@@ -1046,7 +1204,7 @@
       const p95Elapsed = findPercentile(cdfData, 0.95);
       document.getElementById('infoP95Latency').textContent = formatSeconds(p95Elapsed);
 
-      buildLatencyChart(latencies, timetable, config.l2SlotDuration, latencies, config);
+      buildLatencyChart(latencies, timetable, config.l2SlotDuration, latencies, config, null, null);
       buildCdfChart(cdfData, medianElapsed, p95Elapsed);
       buildSlotTimeline(config, timetable);
     }
@@ -1070,12 +1228,12 @@
 
       let attestationEnd, l1SubmitEnd;
       if (config.pipelining) {
-        // Re-execution happens on validators (blockDuration), then attestation return (p2p)
-        attestationEnd = proposalArrival + config.l2BlockDuration + config.p2pPropagationTime;
+        // Re-execution happens on validators (last block duration), then attestation return (p2p)
+        attestationEnd = proposalArrival + timetable.lastBlockDur + config.p2pPropagationTime;
         l1SubmitEnd = attestationEnd + config.l1PublishingTime;
       } else {
-        // Attestation: proposal P2P + re-exec + attestation P2P back
-        attestationEnd = proposalArrival + config.l2BlockDuration + config.p2pPropagationTime;
+        // Attestation: proposal P2P + re-exec (last block) + attestation P2P back
+        attestationEnd = proposalArrival + timetable.lastBlockDur + config.p2pPropagationTime;
         l1SubmitEnd = attestationEnd + config.l1PublishingTime;
       }
 
@@ -1143,7 +1301,170 @@
       html += `</div>`;
 
       html += `</div>`;
+
+      // When pipelining, show a second timeline for the next proposer's cascading dependency
+      if (config.pipelining && timetable.pipeliningEffectiveInit !== undefined) {
+        html += buildCascadingTimeline(config, timetable);
+      }
+
       container.innerHTML = html;
+    }
+
+    /**
+     * Renders a two-slot cascading pipelining visualization showing how the next
+     * proposer's build window overlaps with the current slot's checkpoint broadcast.
+     */
+    function buildCascadingTimeline(config, timetable) {
+      const slot = config.l2SlotDuration;
+      const initOffset = timetable.initializationOffset;
+
+      // Key timings for Slot N (current proposer)
+      const lastBlockDur = timetable.lastBlockDur;
+      const checkpointBroadcast = initOffset + (timetable.maxBlocks - 1) * config.l2BlockDuration + lastBlockDur + config.checkpointAssembleTime;
+      const checkpointArrival = checkpointBroadcast + config.p2pPropagationTime;
+      const lastBlockReExecTime = lastBlockDur * config.l2BlockFillPercent / 100;
+      const effectiveInit = timetable.pipeliningEffectiveInit;
+      const earlyStartInit = timetable.pipeliningEarlyStartInit;
+
+      // Re-execution starts at checkpoint arrival, which may be before the slot boundary
+      const reExecStart = checkpointArrival; // absolute time
+      const reExecEnd = checkpointArrival + lastBlockReExecTime; // when proposer is ready
+
+      // We show two slots: Slot N (0..slot) and Slot N+1 (slot..2*slot)
+      const totalTime = 2 * slot;
+      const barHeight = 28;
+      const rowGap = 8;
+      const labelHeight = 18;
+      const legendHeight = 28;
+
+      let html = `<div style="margin-top:24px;">`;
+      html += `<h3 style="font-size:0.95rem; color:#c0c0d8; margin-bottom:8px; font-weight:600;">Cascading Pipelining</h3>`;
+      html += `<p style="font-size:0.82rem; color:#9a9ab0; margin-bottom:12px;">
+        The next proposer starts re-executing the last block as soon as the checkpoint arrives — even before the slot boundary.
+        Re-execution overlaps with the remaining time in Slot N.
+        ${earlyStartInit <= 0
+          ? `The next proposer is ready <strong>${formatSeconds(Math.abs(earlyStartInit))}</strong> before its slot starts and begins building blocks immediately.`
+          : `The next proposer is ready <strong>${formatSeconds(earlyStartInit)}</strong> after its slot starts.`}
+      </p>`;
+
+      html += `<div style="position:relative; height:${labelHeight + barHeight * 2 + rowGap + legendHeight + 40}px; min-width:600px;">`;
+
+      // Time markers
+      html += `<div style="position:absolute; top:0; left:0; font-size:0.7rem; color:#7a7a9a;">0s (Slot N start)</div>`;
+      const slotBoundaryX = (slot / totalTime) * 100;
+      html += `<div style="position:absolute; top:0; left:${slotBoundaryX}%; transform:translateX(-50%); font-size:0.7rem; color:#7a7a9a;">${slot}s (Slot N+1 start)</div>`;
+      html += `<div style="position:absolute; top:0; right:0; font-size:0.7rem; color:#7a7a9a;">${2 * slot}s</div>`;
+
+      // --- Slot N bar (current proposer) ---
+      const slotNTop = labelHeight;
+      html += `<div style="position:absolute; left:0; top:${slotNTop - 2}px; font-size:0.7rem; color:#9a9ab0; transform:translateY(-100%);">Slot N (proposer)</div>`;
+      html += `<div style="position:absolute; left:0; right:0; top:${slotNTop}px; height:${barHeight}px; background:#16162b; border-radius:4px; border:1px solid #2e2e50;">`;
+
+      // Slot N phases
+      const slotNPhases = [
+        { label: 'Init', start: 0, end: initOffset, color: '#4a4a80' },
+      ];
+      if (timetable.maxBlocks > 1) {
+        slotNPhases.push({ label: `Blocks 1..${timetable.maxBlocks - 1}`, start: initOffset, end: initOffset + (timetable.maxBlocks - 1) * config.l2BlockDuration, color: '#5b8def' });
+      }
+      const lastBlockStart = initOffset + (timetable.maxBlocks - 1) * config.l2BlockDuration;
+      const lastBlockEndTime = lastBlockStart + lastBlockDur;
+      slotNPhases.push(
+        { label: 'Last Block', start: lastBlockStart, end: lastBlockEndTime, color: '#3a7bdf' },
+        { label: 'Assembly', start: lastBlockEndTime, end: lastBlockEndTime + config.checkpointAssembleTime, color: '#8b6fcf' },
+        { label: 'Broadcast', start: lastBlockEndTime + config.checkpointAssembleTime, end: checkpointArrival, color: '#cf8b6f' },
+      );
+
+      for (const phase of slotNPhases) {
+        const left = (phase.start / totalTime) * 100;
+        const width = ((phase.end - phase.start) / totalTime) * 100;
+        if (width <= 0) continue;
+        html += `<div style="position:absolute; left:${left}%; width:${width}%; height:100%; background:${phase.color}; opacity:0.8;" title="${phase.label}: ${formatSeconds(phase.start)} → ${formatSeconds(phase.end)}"></div>`;
+      }
+
+      // Slot boundary line
+      html += `<div style="position:absolute; left:${slotBoundaryX}%; top:-2px; bottom:-2px; width:2px; background:rgba(255,255,255,0.5); z-index:10;"></div>`;
+      html += `</div>`;
+
+      // --- Slot N+1 bar (next proposer) ---
+      const slotN1Top = slotNTop + barHeight + rowGap;
+      html += `<div style="position:absolute; left:0; top:${slotN1Top - 2}px; font-size:0.7rem; color:#9a9ab0; transform:translateY(-100%);">Slot N+1 (next proposer)</div>`;
+      html += `<div style="position:absolute; left:0; right:0; top:${slotN1Top}px; height:${barHeight}px; background:#16162b; border-radius:4px; border:1px solid #2e2e50;">`;
+
+      // The next proposer starts re-executing at checkpoint arrival (may be before slot boundary).
+      // With early building, blocks start as soon as re-execution completes.
+      const buildStart = earlyStartInit < 0 ? reExecEnd : slot + effectiveInit;
+      const nextBlocksEnd = buildStart + timetable.maxBlocks * config.l2BlockDuration;
+
+      // Show re-execution starting at checkpoint arrival (may be before slot boundary)
+      const slotN1Phases = [];
+      if (reExecStart < slot) {
+        // Re-execution starts before the slot boundary — show it spanning the boundary
+        slotN1Phases.push({ label: 'Last block re-exec', start: reExecStart, end: reExecEnd, color: '#4bc0c0' });
+      } else {
+        // Checkpoint arrives after slot boundary — show wait then re-exec
+        slotN1Phases.push({ label: 'Waiting', start: slot, end: reExecStart, color: '#3a3a5c' });
+        slotN1Phases.push({ label: 'Last block re-exec', start: reExecStart, end: reExecEnd, color: '#4bc0c0' });
+      }
+
+      // Block building starts as soon as re-exec completes (early building) or at slot boundary
+      slotN1Phases.push({ label: `Blocks (${timetable.maxBlocks})`, start: buildStart, end: Math.min(nextBlocksEnd, 2 * slot), color: '#5b8def' });
+
+      const showEarlyStart = earlyStartInit < 0;
+
+      for (const phase of slotN1Phases) {
+        const left = (phase.start / totalTime) * 100;
+        const width = ((phase.end - phase.start) / totalTime) * 100;
+        if (width <= 0) continue;
+        html += `<div style="position:absolute; left:${left}%; width:${width}%; height:100%; background:${phase.color}; opacity:0.8;" title="${phase.label}: ${formatSeconds(phase.start)} → ${formatSeconds(phase.end)}"></div>`;
+      }
+
+      // If early start, show a marker where blocks begin (before slot boundary)
+      if (showEarlyStart) {
+        const earlyX = (buildStart / totalTime) * 100;
+        html += `<div style="position:absolute; left:${earlyX}%; top:0; bottom:0; width:2px; background:#f0c040; z-index:10;" title="Early start: blocks begin at ${formatSeconds(buildStart)} (${formatSeconds(Math.abs(earlyStartInit))} before slot boundary)"></div>`;
+      }
+
+      // Slot boundary line
+      html += `<div style="position:absolute; left:${slotBoundaryX}%; top:-2px; bottom:-2px; width:2px; background:rgba(255,255,255,0.5); z-index:10;"></div>`;
+      html += `</div>`;
+
+      // --- Connecting arrow from checkpoint arrival to re-exec start ---
+      const arrowStartX = (checkpointArrival / totalTime) * 100;
+      const arrowEndX = (reExecStart / totalTime) * 100;
+      const arrowStartY = slotNTop + barHeight;
+      const arrowEndY = slotN1Top;
+
+      html += `<svg style="position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; overflow:visible;">`;
+      html += `<line x1="${arrowStartX}%" y1="${arrowStartY}" x2="${arrowEndX}%" y2="${arrowEndY}" stroke="#cf8b6f" stroke-width="2" stroke-dasharray="4,3" />`;
+      html += `<circle cx="${arrowEndX}%" cy="${arrowEndY}" r="3" fill="#cf8b6f" />`;
+      html += `</svg>`;
+
+      // Legend
+      const legendTop = slotN1Top + barHeight + 10;
+      html += `<div style="position:absolute; top:${legendTop}px; left:0; display:flex; flex-wrap:wrap; gap:12px; font-size:0.75rem;">`;
+      const legendItems = [
+        { color: '#4bc0c0', label: `Re-exec last block (${formatSeconds(lastBlockReExecTime)})` },
+        { color: '#5b8def', label: 'Block building' },
+        { color: '#cf8b6f', label: 'Checkpoint broadcast + P2P' },
+      ];
+      if (showEarlyStart) {
+        legendItems.push({ color: '#f0c040', label: `Early start (${formatSeconds(Math.abs(earlyStartInit))} before slot)` });
+      }
+      for (const item of legendItems) {
+        html += `<div style="display:flex; align-items:center; gap:4px;">`;
+        html += `<div style="width:10px; height:10px; background:${item.color}; border-radius:2px; opacity:0.8;"></div>`;
+        html += `<span style="color:#9a9ab0;">${item.label}</span>`;
+        html += `</div>`;
+      }
+      html += `<div style="color:#4bc0c0; font-style:italic;">${earlyStartInit < 0
+        ? `Early building: proposer starts ${formatSeconds(Math.abs(earlyStartInit))} before slot boundary`
+        : `Effective init: ${formatSeconds(effectiveInit)} (re-exec overlaps with gap before slot)`}</div>`;
+      html += `</div>`;
+
+      html += `</div>`;
+      html += `</div>`;
+      return html;
     }
 
     // Debounce helper
