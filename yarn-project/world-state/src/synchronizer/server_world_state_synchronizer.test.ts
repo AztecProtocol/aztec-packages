@@ -202,6 +202,44 @@ describe('ServerWorldStateSynchronizer', () => {
     await expect(server.syncImmediate(BlockNumber(8))).rejects.toThrow(/unable to sync/i);
   });
 
+  it('returns early when blockHash matches at target block number', async () => {
+    void server.start();
+    await pushBlocks(1, 5);
+
+    const hashFr = Fr.random();
+    merkleTreeRead.getLeafValue.mockResolvedValue(hashFr);
+
+    await server.syncImmediate(BlockNumber(4), new BlockHash(hashFr));
+    expect(l2BlockStream.sync).not.toHaveBeenCalled();
+  });
+
+  it('triggers resync when blockHash mismatches at target block number', async () => {
+    void server.start();
+    await pushBlocks(1, 5);
+
+    const correctHash = new BlockHash(new Fr(123n));
+    // Return a hash that won't match the provided one on the first call (pre-sync)
+    merkleTreeRead.getLeafValue.mockResolvedValueOnce(new Fr(42n)); // mismatch
+    // Return the correct hash after sync
+    merkleTreeRead.getLeafValue.mockResolvedValueOnce(new Fr(123n)); // match
+
+    await server.syncImmediate(BlockNumber(4), correctHash);
+    expect(l2BlockStream.sync).toHaveBeenCalled();
+  });
+
+  it('throws when blockHash mismatches after sync', async () => {
+    void server.start();
+    await pushBlocks(1, 5);
+
+    l2BlockStream.sync.mockImplementation(() => pushBlocks(6, 8));
+
+    // Return wrong hash both before and after sync
+    merkleTreeRead.getLeafValue.mockResolvedValue(new Fr(999n));
+    const expectedHash = new BlockHash(new Fr(888n));
+
+    await expect(server.syncImmediate(BlockNumber(7), expectedHash)).rejects.toThrow(/block hash mismatch/i);
+  });
+
   it('throws if you try to immediate sync when not running', async () => {
     await expect(server.syncImmediate(BlockNumber(3))).rejects.toThrow(/is not running/i);
   });
