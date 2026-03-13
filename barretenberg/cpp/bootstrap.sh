@@ -316,6 +316,14 @@ function bench_cmds {
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
   prefix="$hash:CPUS=1"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify $native_build_dir/bin/chonk_bench VerificationOnly$"
+  # Batch verifier: each core count gets its own graph series
+  for cores in 4 8 12 16; do
+    echo "$hash:CPUS=$cores barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_batch_verify_${cores}c $native_build_dir/bin/chonk_bench BatchVerifyService/120/${cores}$"
+  done
+  # Batch verifier with bad proofs (bisection overhead), pinned at 8 cores
+  for bad in 1 5 15 30; do
+    echo "$hash:CPUS=8 barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_batch_verify_mixed_${bad}bad $native_build_dir/bin/chonk_bench BatchVerifyServiceMixed/120/8/${bad}$"
+  done
 }
 
 # Runs benchmarks sharded over machine cores.
