@@ -62,15 +62,10 @@ void ChonkBatchVerifier::coordinator_loop()
         {
             std::unique_lock lock(mutex_);
 
-            // Wait until we have a full batch, shutdown, or a partial-batch timeout.
-            // Once the first proof arrives, wait up to 100ms for more proofs to fill the batch.
+            // Wait until we have work or are told to shut down.
+            // No timeout needed: while we're processing a batch, new proofs
+            // accumulate in the queue. When idle, process whatever arrives immediately.
             cv_.wait(lock, [this] { return shutdown_ || !queue_.empty(); });
-
-            if (!shutdown_ && queue_.size() < batch_size_) {
-                // We have some proofs but not a full batch — wait briefly for more
-                cv_.wait_for(
-                    lock, std::chrono::milliseconds(100), [this] { return shutdown_ || queue_.size() >= batch_size_; });
-            }
 
             // Take up to batch_size_ items (may be a partial batch)
             size_t take = std::min(queue_.size(), static_cast<size_t>(batch_size_));

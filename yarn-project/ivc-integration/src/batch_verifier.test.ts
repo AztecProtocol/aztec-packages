@@ -162,7 +162,7 @@ describe('Batch Chonk Verifier workloads', () => {
         proofFields: validProofBytes,
       });
 
-      // Don't call stop — the result should arrive via the partial-batch timeout
+      // Don't call stop — the coordinator processes immediately when idle
       const results = await resultPromise;
 
       expect(results).toHaveLength(1);
