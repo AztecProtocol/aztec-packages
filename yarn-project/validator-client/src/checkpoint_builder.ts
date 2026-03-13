@@ -45,6 +45,9 @@ export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/serv
 export class CheckpointBuilder implements ICheckpointBlockBuilder {
   private log: Logger;
 
+  /** Persistent contracts DB shared across all blocks in this checkpoint. */
+  protected contractsDB: PublicContractsDB;
+
   constructor(
     private checkpointBuilder: LightweightCheckpointBuilder,
     private fork: MerkleTreeWriteOperations,
@@ -59,6 +62,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...bindings,
       instanceId: `checkpoint-${checkpointBuilder.checkpointNumber}`,
     });
+    this.contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
   }
 
   getConstantData(): CheckpointGlobalVariables {
@@ -103,34 +107,44 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...this.capLimitsByCheckpointBudgets(opts),
     };
 
-    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
-      processor.process(pendingTxs, cappedOpts, validator),
-    );
+    // Create a block-level checkpoint on the contracts DB so we can roll back on failure
+    this.contractsDB.createCheckpoint();
 
-    // Throw if we didn't collect a single valid tx and we're not allowed to build empty blocks
-    // (only the first block in a checkpoint can be empty)
-    if (processedTxs.length === 0 && this.checkpointBuilder.getBlockCount() > 0) {
-      throw new NoValidTxsError(failedTxs);
+    try {
+      const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
+        processor.process(pendingTxs, cappedOpts, validator),
+      );
+
+      // Throw if we didn't collect a single valid tx and we're not allowed to build empty blocks
+      // (only the first block in a checkpoint can be empty)
+      if (processedTxs.length === 0 && this.checkpointBuilder.getBlockCount() > 0) {
+        throw new NoValidTxsError(failedTxs);
+      }
+
+      // Add block to checkpoint
+      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+        expectedEndState: opts.expectedEndState,
+      });
+
+      this.contractsDB.commitCheckpoint();
+
+      this.log.debug('Built block within checkpoint', {
+        header: block.header.toInspect(),
+        processedTxs: processedTxs.map(tx => tx.hash.toString()),
+        failedTxs: failedTxs.map(tx => tx.tx.txHash.toString()),
+      });
+
+      return {
+        block,
+        publicProcessorDuration,
+        numTxs: processedTxs.length,
+        failedTxs,
+        usedTxs,
+      };
+    } catch (err) {
+      this.contractsDB.revertCheckpoint();
+      throw err;
     }
-
-    // Add block to checkpoint
-    const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
-      expectedEndState: opts.expectedEndState,
-    });
-
-    this.log.debug('Built block within checkpoint', {
-      header: block.header.toInspect(),
-      processedTxs: processedTxs.map(tx => tx.hash.toString()),
-      failedTxs: failedTxs.map(tx => tx.tx.txHash.toString()),
-    });
-
-    return {
-      block,
-      publicProcessorDuration,
-      numTxs: processedTxs.length,
-      failedTxs,
-      usedTxs,
-    };
   }
 
   /** Completes the checkpoint and returns it. */
@@ -219,7 +233,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...(await getDefaultAllowedSetupFunctions()),
       ...(this.config.txPublicSetupAllowListExtend ?? []),
     ];
-    const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
+    const contractsDB = this.contractsDB;
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
     const collectDebugLogs = this.debugLogStore.isEnabled;
