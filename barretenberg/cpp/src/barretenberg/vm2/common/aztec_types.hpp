@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
+#include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl/uint_128_t_adaptor.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
@@ -217,7 +217,7 @@ struct L2ToL1Message {
 
     bool operator==(const L2ToL1Message& other) const = default;
 
-    MSGPACK_FIELDS(recipient, content);
+    SERIALIZATION_FIELDS(recipient, content);
 };
 
 struct ScopedL2ToL1Message {
@@ -289,7 +289,7 @@ struct PublicLogs {
         return logs;
     }
 
-    MSGPACK_FIELDS(length, payload);
+    SERIALIZATION_FIELDS(length, payload);
 };
 
 struct PublicDataWrite {
@@ -392,7 +392,7 @@ struct ContractClassLogFields {
 
     bool operator==(const ContractClassLogFields& other) const = default;
 
-    MSGPACK_FIELDS(fields);
+    SERIALIZATION_FIELDS(fields);
 };
 
 struct ContractClassLog {
@@ -509,7 +509,7 @@ struct TreeState {
     uint32_t counter = 0;
 
     bool operator==(const TreeState& other) const = default;
-    MSGPACK_FIELDS(tree, counter);
+    SERIALIZATION_FIELDS(tree, counter);
 };
 
 struct TreeStates {

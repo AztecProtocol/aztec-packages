@@ -27,16 +27,16 @@ struct TreeMeta {
     block_number_t unfinalizedBlockHeight;
     block_number_t finalizedBlockHeight;
 
-    MSGPACK_FIELDS(name,
-                   depth,
-                   size,
-                   committedSize,
-                   root,
-                   initialSize,
-                   initialRoot,
-                   oldestHistoricBlock,
-                   unfinalizedBlockHeight,
-                   finalizedBlockHeight)
+    SERIALIZATION_FIELDS(name,
+                         depth,
+                         size,
+                         committedSize,
+                         root,
+                         initialSize,
+                         initialRoot,
+                         oldestHistoricBlock,
+                         unfinalizedBlockHeight,
+                         finalizedBlockHeight)
 
     TreeMeta(std::string n,
              uint32_t d,

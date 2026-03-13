@@ -126,8 +126,9 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
     libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
-    // Initialise the joint sumcheck round verifier.
-    SumcheckVerifierRound<MegaZKFlavorT> joint_round(libra_total_sum * libra_challenge);
+    // Use committed sumcheck infrastructure: defers per-round checks to Shplemini.
+    static constexpr bool UseCommittedSumcheck = true;
+    SumcheckVerifierRound<MegaZKFlavorT, UseCommittedSumcheck> joint_round(libra_total_sum * libra_challenge);
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
@@ -142,12 +143,9 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     joint_challenge.clear();
     joint_challenge.reserve(JOINT_LOG_N);
 
-    bool verified = true;
-
     // ==================== Real rounds 0..mega_zk_log_n-1 ====================
     for (size_t round_idx = 0; round_idx < mega_zk_log_n; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
-        verified = verified && !joint_round.round_failed;
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -172,7 +170,6 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
     for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
-        verified = verified && !joint_round.round_failed;
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -259,9 +256,12 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     frv_joint += libra_evaluation * libra_challenge;
 
-    // Final sumcheck check.
-    bool final_check = joint_round.perform_final_verification(frv_joint);
-    return final_check && verified;
+    // Final verification via committed sumcheck round: checks first-round sum and populates Shplemini data.
+    bool verified = joint_round.perform_final_verification(frv_joint);
+    round_univariate_commitments = std::move(joint_round.round_univariate_commitments);
+    round_univariate_evaluations = std::move(joint_round.round_univariate_evaluations);
+
+    return verified;
 }
 
 /**
@@ -325,14 +325,17 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     // All-ones padding for the joint Shplemini call (row-disabling already applied in FRV).
     std::vector<FF> joint_padding(JOINT_LOG_N, FF(1));
 
-    auto [opening_claim, consistency_checked] = MegaZKShplemini::compute_batch_opening_claim(joint_padding,
-                                                                                             joint_claim_batcher,
-                                                                                             joint_challenge,
-                                                                                             one_commitment,
-                                                                                             transcript,
-                                                                                             REPEATED_COMMITMENTS,
-                                                                                             libra_commitments,
-                                                                                             libra_evaluation);
+    auto [opening_claim, consistency_checked] =
+        MegaZKShplemini::compute_batch_opening_claim(joint_padding,
+                                                     joint_claim_batcher,
+                                                     joint_challenge,
+                                                     one_commitment,
+                                                     transcript,
+                                                     REPEATED_COMMITMENTS,
+                                                     libra_commitments,
+                                                     libra_evaluation,
+                                                     round_univariate_commitments,
+                                                     round_univariate_evaluations);
 
     auto pairing_points = MegaZKFlavorT::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 

@@ -127,9 +127,6 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         constexpr size_t JOINT_LOG_N = Trans::CONST_TRANSLATOR_LOG_N; // 17
         constexpr size_t LOG_MINI = Trans::LOG_MINI_CIRCUIT_SIZE;     // 13
 
-        // Joint univariate size = max batched partial length across both circuits.
-        constexpr size_t UNI = Trans::BATCHED_RELATION_PARTIAL_LENGTH; // 9
-
         TranscriptManifest m;
         size_t round = 0;
 
@@ -221,7 +218,9 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
             if (i == LOG_MINI) {
                 m.add_entry(round, "Sumcheck:minicircuit_evaluations", Trans::NUM_MINICIRCUIT_EVALUATIONS);
             }
-            m.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), UNI);
+            m.add_entry(round, "Sumcheck:univariate_comm_" + std::to_string(i), G);
+            m.add_entry(round, "Sumcheck:univariate_" + std::to_string(i) + "_eval_0", Fr);
+            m.add_entry(round, "Sumcheck:univariate_" + std::to_string(i) + "_eval_1", Fr);
             m.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
             round++;
         }

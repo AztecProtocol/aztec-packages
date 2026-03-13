@@ -68,6 +68,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
           role-session-name: ci3-${{ github.run_id }}
+          role-duration-seconds: 7200 # 2h – covers max AWS_SHUTDOWN_TIME (90 min ARM) + 30 min buffer
 
       - name: Determine CI Mode
         env:
@@ -191,6 +192,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
           role-session-name: ci3-network-scenario-${{ github.run_id }}
+          role-duration-seconds: 23400 # 6.5h – covers AWS_SHUTDOWN_TIME (360 min) + 30 min buffer
 
       - name: Run Network Scenarios
         timeout-minutes: 350
@@ -396,6 +398,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
           role-session-name: ci3-network-kind-${{ github.run_id }}
+          role-duration-seconds: 12600 # 3.5h – covers AWS_SHUTDOWN_TIME (180 min) + 30 min buffer
 
       - name: Run KIND Test
         env:

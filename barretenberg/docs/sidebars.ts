@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
       defaultStyle: true,
     },
     { type: "doc", id: "getting_started" },
+    { type: "doc", id: "cli_options", label: "CLI Options" },
     {
       type: "category",
       label: "How To Guides",
