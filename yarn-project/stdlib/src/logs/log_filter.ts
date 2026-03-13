@@ -1,3 +1,5 @@
+import type { Fr } from '@aztec/foundation/curves/bn254';
+
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
@@ -20,6 +22,8 @@ export type LogFilter = {
   afterLog?: LogId;
   /** The contract address to filter logs by. */
   contractAddress?: AztecAddress;
+  /** The tag (first field of the log) to filter logs by. */
+  tag?: Fr;
 };
 
 export const LogFilterSchema: ZodFor<LogFilter> = z.object({
@@ -28,4 +32,5 @@ export const LogFilterSchema: ZodFor<LogFilter> = z.object({
   toBlock: schemas.Integer.optional(),
   afterLog: LogId.schema.optional(),
   contractAddress: schemas.AztecAddress.optional(),
+  tag: schemas.Fr.optional(),
 });
