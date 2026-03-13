@@ -61,15 +61,6 @@ static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
     /*ecc_op_hash*/ FR_PUBLIC_INPUTS_SIZE +
     /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
 
-// Number of bb::fr elements used to represent the public inputs of the TAIL kernel
-// (same structure as original KernelIO but uses ecc_op_tables instead of ecc_op_hash)
-static constexpr std::size_t TAIL_KERNEL_PUBLIC_INPUTS_SIZE =
-    /*pairing_inputs*/ PAIRING_POINTS_SIZE +
-    /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*table_commitments*/ (GOBLIN_NUM_COLUMNS * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE) +
-    /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
-
 // Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
 static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 

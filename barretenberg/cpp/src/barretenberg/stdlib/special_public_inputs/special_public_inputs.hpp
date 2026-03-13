@@ -7,7 +7,8 @@
 // Special public inputs designed propagate data between Chonk and Rollup circuits.
 //
 // These structures are binding several Chonk components:
-//   - KernelIO:        Standard kernel outputs (pairing points, databus, ecc_op_tables, accum hash)
+//   - KernelIO:        Standard kernel outputs (pairing points, databus, ecc_op_hash, accum hash)
+//                      Used by all kernels including the tail kernel.
 //   - HidingKernelIO:  Final kernel outputs (no accum hash since folding terminates)
 //   - AppIO/DefaultIO: App circuit outputs (just pairing points)
 //   - RollupIO:        Rollup circuit outputs (pairing points + IPA claim)
@@ -31,34 +32,10 @@ static constexpr bb::curve::BN254::AffineElement DEFAULT_ECC_COMMITMENT(DEFAULT_
                                                                         DEFAULT_ECC_COMMITMENT_Y);
 
 /**
- * @brief Construct commitments to empty subtables
+ * @brief Manages the data that is propagated on the public inputs of a kernel circuit.
  *
- * @details In the first iteration of the Merge, the verifier sets the commitments to the previous full state of the
- * op_queue equal to the commitments to the empty tables. This ensures that prover cannot lie, as the starting point
- * of the merge is fixed.
- *
- * @param builder
- * @return std::array<typename bn254<Builder>::Group, GOBLIN_NUM_COLUMNS>
- */
-template <typename Builder>
-std::array<typename bn254<Builder>::Group, GOBLIN_NUM_COLUMNS> empty_ecc_op_tables(Builder& builder)
-{
-    std::array<typename bn254<Builder>::Group, GOBLIN_NUM_COLUMNS> empty_tables;
-    for (auto& table_commitment : empty_tables) {
-        table_commitment = bn254<Builder>::Group::constant_infinity(&builder);
-        // Sanity check: Verify the native value is actually at infinity
-        BB_ASSERT(table_commitment.get_value().is_point_at_infinity(),
-                  "empty_ecc_op_tables: T_prev must be initialized to point at infinity");
-    }
-
-    return empty_tables;
-}
-
-/**
- * @brief Manages the data that is propagated on the public inputs of an INIT/INNER/RESET kernel circuit.
- *
- * @details Uses ecc_op_hash (a running Poseidon2 hash over ECC op column commitments) instead of
- * ecc_op_tables. The tail kernel uses TailKernelIO which retains ecc_op_tables.
+ * @details Uses ecc_op_hash (a running Poseidon2 hash over ECC op column commitments).
+ * Used by all kernels including the tail kernel. The hiding kernel uses HidingKernelIO.
  */
 class KernelIO {
   public:
@@ -134,102 +111,6 @@ class KernelIO {
         inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         inputs.ecc_op_hash = FF::from_witness(&builder, typename FF::native(0));
-        inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
-        inputs.set_public();
-    }
-};
-
-/**
- * @brief Manages the data that is propagated on the public inputs of the TAIL kernel circuit.
- *
- * @details The tail kernel performs a single batch merge of all accumulated ECC op subtables.
- * Unlike regular KernelIO (which propagates a running hash), TailKernelIO outputs the merged
- * table commitments that the hiding kernel needs for its own merge.
- */
-class TailKernelIO {
-  public:
-    using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
-    using Curve = stdlib::bn254<Builder>; // curve is always bn254
-    using G1 = Curve::Group;
-    using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
-    using TableCommitments = std::array<G1, GOBLIN_NUM_COLUMNS>;
-
-    using PublicPoint = stdlib::PublicInputComponent<G1>;
-    using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
-    using PublicFF = stdlib::PublicInputComponent<FF>;
-
-    PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
-    G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
-    G1 app_return_data;             // Commitment to the return data of an app circuit
-    TableCommitments ecc_op_tables; // commitments to merged tables from the batch merge
-    FF output_hn_accum_hash;        // hash of the output HN verifier accumulator
-
-    // Total size of the tail kernel IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = TAIL_KERNEL_PUBLIC_INPUTS_SIZE;
-    static constexpr bool HasIPA = false;
-
-    /**
-     * @brief Reconstructs the IO components from a public inputs array.
-     *
-     * @param public_inputs Public inputs array containing the serialized tail kernel public inputs.
-     */
-    void reconstruct_from_public(const std::vector<FF>& public_inputs)
-    {
-        // Assumes that the tail-kernel-io public inputs are at the end of the public_inputs vector
-        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
-
-        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
-        index += PairingInputs::PUBLIC_INPUTS_SIZE;
-        kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
-        index += G1::PUBLIC_INPUTS_SIZE;
-        app_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
-        index += G1::PUBLIC_INPUTS_SIZE;
-        for (auto& table_commitment : ecc_op_tables) {
-            table_commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
-            index += G1::PUBLIC_INPUTS_SIZE;
-        }
-        output_hn_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
-        index += FF::PUBLIC_INPUTS_SIZE;
-    }
-
-    /**
-     * @brief Set each IO component to be a public input of the underlying circuit.
-     *
-     */
-    void set_public()
-    {
-        Builder* builder = output_hn_accum_hash.get_context();
-
-        pairing_inputs.set_public(builder);
-        kernel_return_data.set_public();
-        app_return_data.set_public();
-        for (auto& table_commitment : ecc_op_tables) {
-            table_commitment.set_public();
-        }
-        output_hn_accum_hash.set_public();
-
-        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        builder->finalize_public_inputs();
-    }
-
-    /**
-     * @brief Add default public inputs when they are not present
-     *
-     */
-    static void add_default(Builder& builder)
-    {
-        TailKernelIO inputs;
-
-        inputs.pairing_inputs = PairingInputs::construct_default();
-        inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
-                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
-                                  /*assert_on_curve=*/false);
-            table_commitment.convert_constant_to_fixed_witness(&builder);
-        }
         inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
         inputs.set_public();
     }

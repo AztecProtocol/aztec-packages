@@ -101,8 +101,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     const StdlibFF& running_hash,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
-    using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
-
     // PairingPoints to be returned for aggregation
     std::vector<PairingPoints> pairing_points;
 
@@ -172,8 +170,8 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
                      "Kernel circuits should be folded.");
 
         if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
-            // Hiding kernel: reconstruct TailKernelIO to get the batch-merged table commitments
-            TailKernelIO tail_input;
+            // Hiding kernel: reconstruct KernelIO from the tail kernel's public inputs
+            KernelIO tail_input;
             tail_input.reconstruct_from_public(public_inputs);
             // Add pairing points for aggregation
             pairing_points.emplace_back(tail_input.pairing_inputs);
@@ -195,7 +193,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
             tail_input.app_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_secondary_calldata);
 
             // Verify accumulator hash
-            info("Accumulator hash from TailKernelIO: ", tail_input.output_hn_accum_hash);
+            info("Accumulator hash from tail KernelIO: ", tail_input.output_hn_accum_hash);
             BB_ASSERT(prev_accum_hash.has_value());
             bool accum_hash_match = tail_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
             BB_ASSERT_DEBUG(accum_hash_match,
@@ -204,13 +202,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
                                 << prev_accum_hash->get_value());
             tail_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
-            // Use the batch-merged table commitments from the tail kernel for the hiding kernel's merge
-            MergeCommitments merge_commitments{ .t_commitments = interleaved_commitments.get_ecc_op_wires().get_copy(),
-                                                .T_prev_commitments = std::move(tail_input.ecc_op_tables) };
-            auto [merge_pairing_points, merged_table_commitments] =
-                goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
-            pairing_points.emplace_back(merge_pairing_points);
-            hiding_merged_tables = std::move(merged_table_commitments);
+            updated_hash = tail_input.ecc_op_hash;
 
             bus_depot.set_kernel_return_data_commitment(interleaved_commitments.interleaved_return_data);
         } else {
@@ -269,30 +261,35 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         bus_depot.set_app_return_data_commitment(interleaved_commitments.interleaved_return_data);
     }
 
-    // Update the running hash with this step's ECC op column commitments (Poseidon2 hash chain).
-    // For the hiding kernel (HN_FINAL), this update is skipped since the hash is no longer propagated.
-    if (verifier_inputs.type != QUEUE_TYPE::HN_FINAL) {
-        // Extract the ECC op column commitments for this accumulation step.
-        // Each RecursiveCommitment (goblin_element) has x() and y() coordinates as goblin_field,
-        // each with 2 limbs (lo=136-bit, hi=remainder), giving 4 StdlibFF elements per commitment.
-        auto ecc_op_col_commitments = interleaved_commitments.get_ecc_op_wires().get_copy();
+    // Extract the ECC op column commitments for this accumulation step.
+    // Each RecursiveCommitment (goblin_element) has x() and y() coordinates as goblin_field,
+    // each with 2 limbs (lo=136-bit, hi=remainder), giving 4 StdlibFF elements per commitment.
+    auto ecc_op_col_commitments = interleaved_commitments.get_ecc_op_wires().get_copy();
 
-        // Build the Poseidon2 input: columns || running_hash
-        std::vector<StdlibFF> hash_inputs;
-        if (verifier_inputs.type != QUEUE_TYPE::OINK) {
-            hash_inputs.push_back(updated_hash);
-            hash_inputs.back().set_origin_tag(OriginTag::constant());
+    // Build the Poseidon2 input: columns || running_hash
+    std::vector<StdlibFF> hash_inputs;
+    if (verifier_inputs.type != QUEUE_TYPE::OINK) {
+        hash_inputs.push_back(updated_hash);
+        hash_inputs.back().set_origin_tag(OriginTag::constant());
+    }
+    for (const auto& com : ecc_op_col_commitments) {
+        auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(com);
+        for (auto& el : com_serialized) {
+            el.set_origin_tag(OriginTag::constant());
         }
-        for (const auto& com : ecc_op_col_commitments) {
-            auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(com);
-            for (auto& el : com_serialized) {
-                el.set_origin_tag(OriginTag::constant());
-            }
-            hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
-        }
-        updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
-        updated_hash.unset_free_witness_tag();
-        updated_hash.set_origin_tag(OriginTag::constant());
+        hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
+    }
+    updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
+    info("Updated running hash: ", updated_hash.get_value());
+    updated_hash.unset_free_witness_tag();
+    updated_hash.set_origin_tag(OriginTag::constant());
+
+    if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
+        // Verify the batch merge using the full ECC op hash (covers all N subtables including the tail kernel)
+        auto [batch_merge_pairing_points, T_merged] =
+            goblin.recursively_verify_batch_merge(circuit, accumulation_recursive_transcript, updated_hash);
+        pairing_points.emplace_back(batch_merge_pairing_points);
+        hiding_merged_tables = std::move(T_merged);
     }
 
     return { output_verifier_accumulator, pairing_points, updated_hash, hiding_merged_tables };
@@ -394,15 +391,14 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Output differs based on kernel type:
     //   - HidingKernelIO (hiding kernel): no accum hash, no ecc_op_hash
-    //   - TailKernelIO (tail kernel): accum hash + ecc_op_tables from batch merge
-    //   - KernelIO (all other kernels): accum hash + running ecc_op_hash
+    //   - KernelIO (all other kernels, including tail): accum hash + running ecc_op_hash
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
         // ensure the Chonk proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_hiding(circuit);
 
-        // The hiding kernel merge (with T_prev from TailKernelIO) was handled inside
+        // The batch merge and the hiding kernel's APPEND merge were both handled inside
         // perform_recursive_verification_and_databus_consistency_checks for HN_FINAL type.
         // The merged table commitments are propagated back via hiding_merged_tables.
         BB_ASSERT(hiding_merged_tables.has_value(),
@@ -411,33 +407,6 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                       bus_depot.get_kernel_return_data_commitment(circuit),
                                       std::move(*hiding_merged_tables) };
         hiding_output.set_public();
-    } else if (is_tail_kernel) {
-        BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
-        // Extract native verifier accumulator from the stdlib accum to use it in the next round
-        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
-
-        // Perform batch merge verification
-        auto [merge_pairing_points, merged_tables] =
-            goblin.recursively_verify_batch_merge(circuit, accumulation_recursive_transcript, running_hash);
-
-        // TO DO: OPTIMIZE THIS AGGREGATION
-        pairing_points_aggregator.aggregate(merge_pairing_points);
-
-        TailKernelIO tail_output;
-        tail_output.pairing_inputs = pairing_points_aggregator;
-        tail_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
-        tail_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
-        tail_output.ecc_op_tables = merged_tables;
-        RecursiveTranscript hash_transcript;
-        tail_output.output_hn_accum_hash =
-            current_stdlib_verifier_accumulator->hash_with_origin_tagging(hash_transcript);
-        info("Tail kernel output accumulator hash: ", tail_output.output_hn_accum_hash);
-#ifndef NDEBUG
-        info("Chonk recursive verification: accumulator hash set in the public inputs matches the one "
-             "computed natively: ",
-             tail_output.output_hn_accum_hash.get_value() == native_verifier_accum_hash ? "true" : "false");
-#endif
-        tail_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
@@ -585,44 +554,35 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     // Merge proof handling (new delayed-merge protocol):
     // - OINK/HN: No per-circuit merge proof. Just reset the op queue subtable for the next circuit.
-    // - HN_TAIL: Create the batch merge proof covering all accumulated subtables (for tail kernel to verify).
-    //            The tail kernel circuit's complete_kernel_circuit_logic will dequeue and verify this proof.
+    // - HN_TAIL: Create the batch merge proof covering all accumulated subtables (for hiding kernel to verify).
+    //            The hiding kernel circuit's complete_kernel_circuit_logic will dequeue and verify this proof.
     // - HN_FINAL (tail kernel): Keep the individual merge proof for the tail kernel's own subtable.
     //            The hiding kernel circuit's complete_kernel_circuit_logic will dequeue and verify this proof.
     // - MEGA (hiding kernel): merge handled in goblin.prove() as before.
-    if (queue_entry.type == QUEUE_TYPE::OINK || queue_entry.type == QUEUE_TYPE::HN) {
+    if (queue_entry.type != QUEUE_TYPE::MEGA) {
 #ifndef NDEBUG
         // In debugging builds update native verifier accumulator
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
         // Reset the op queue subtable so the next circuit can start a fresh subtable.
         goblin.op_queue->merge();
-    } else if (queue_entry.type == QUEUE_TYPE::HN_TAIL) {
-#ifndef NDEBUG
-        update_native_verifier_accumulator(queue_entry, verifier_transcript);
-#endif
-        goblin.op_queue->merge();
-        goblin.prove_batch_merge(prover_accumulation_transcript);
-    } else if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
-#ifndef NDEBUG
-        update_native_verifier_accumulator(queue_entry, verifier_transcript);
-#endif
-        // The tail kernel's individual subtable is still merged individually so the hiding kernel
-        // can verify it (unchanged hiding kernel merge protocol).
-        goblin.prove_merge(prover_accumulation_transcript);
+        // If accumulating tail kernel, prove batch merge
+        if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
+            goblin.prove_batch_merge(prover_accumulation_transcript);
+        }
     }
-    // MEGA: no action here; goblin.prove() handles the hiding kernel merge.
 
     num_circuits_accumulated++;
 }
 
 /**
- * @brief Add a hiding op with fully random Px, Py field elements to prevent information leakage in Translator proof.
+ * @brief Add a hiding op with fully random Px, Py field elements to prevent information leakage in Translator
+ * proof.
  *
- * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue polynomials
- * in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in translator) is
- * included in the translator proof and verified against the equivalent computation performed by ECCVM (in
- * verify_translation, establishing equivalence between ECCVM and UltraOp format).
+ * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue
+ * polynomials in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in
+ * translator) is included in the translator proof and verified against the equivalent computation performed by
+ * ECCVM (in verify_translation, establishing equivalence between ECCVM and UltraOp format).
  *
  */
 void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
@@ -663,6 +623,7 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                         const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
+    info("Num gates: ", circuit.get_num_finalized_gates());
 
     // Hiding kernel is proven by a MultiMegaProver with ZK flavor
     MultiMegaProver_<MultiMegaZKFlavor> prover(hiding_prover_inst, verification_key, transcript);
@@ -687,9 +648,9 @@ ChonkProof Chonk::prove()
 
     // Returns a proof for the Hiding kernel and the Goblin proof. The latter consists of Translator and ECCVM proof
     // for the whole ecc op table and the merge proof for appending the subtable coming from the Hiding kernel. The
-    // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
-    // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
-    // evaluations of both the previous table and the incoming subtable.
+    // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to
+    // add randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments
+    // and evaluations of both the previous table and the incoming subtable.
     return ChonkProof{ mega_proof, goblin.prove() };
 };
 

@@ -222,6 +222,7 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
                 f.set_origin_tag(OriginTag::constant());
             }
             calculated_hash = stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs);
+            info("Calculated hash: ", calculated_hash.get_value());
             // The permutation leaves the output as a FREE_WITNESS witness_t.  Demote it to
             // CONSTANT so that subsequent arithmetic (next hash iteration, the final
             // expected_hash - calculated_hash comparison) does not clash with ORIGIN_TAGGED
