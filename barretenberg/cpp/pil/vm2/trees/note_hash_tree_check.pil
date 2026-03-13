@@ -66,8 +66,6 @@ include "../precomputed.pil";
  *
  * Preconditions:
  * - leaf_index < 2^constants.NOTE_HASH_TREE_HEIGHT
- *   - We don't enforce on write that the leaf at leaf_index is zero.
- *       It's important that the caller sets the leaf index to the next available leaf index.
  * - note_hash_index < constants.MAX_NOTE_HASHES_PER_TX
  *
  * Interactions:
@@ -205,13 +203,16 @@ namespace note_hash_tree_check;
     // ====== TREE CHECK ======
     // We get a hint of the previous leaf value. We'll pass this to merkle check:
     // - If reading, prev_leaf_value will be compared to the unique note hash to determine exists.
-    // - If writing, prev_leaf_value will be used to provide what was present at that tree index.
+    // - If writing, prev_leaf_value will be zero, ensuring we write to a never written leaf.
     pol commit prev_leaf_value;
 
     // exists = prev_leaf_value == unique_note_hash
     pol PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF = prev_leaf_value - unique_note_hash;
     pol commit prev_leaf_value_unique_note_hash_diff_inv; // @zero-check
     sel * (PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF * (exists * (1 - prev_leaf_value_unique_note_hash_diff_inv) + prev_leaf_value_unique_note_hash_diff_inv) - 1 + exists) = 0;
+
+    // Hardening: should not be necessary if next available leaf indices are managed correctly, but it's cheap.
+    write * prev_leaf_value = 0;
 
     pol commit next_leaf_value;
     // If reading, next_leaf_value is unconstrained. Tracegen must set it to zero (merkle check precondition).
