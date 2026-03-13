@@ -13,6 +13,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -38,6 +39,7 @@ describe('Oracle Version Check test suite', () => {
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
+  let messageContextService: ReturnType<typeof mock<MessageContextService>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -57,6 +59,7 @@ describe('Oracle Version Check test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
+    messageContextService = mock<MessageContextService>();
     assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
     assertCompatibleOracleVersionSpy.mockClear();
 
@@ -100,6 +103,7 @@ describe('Oracle Version Check test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
+      messageContextService,
     });
   });
 

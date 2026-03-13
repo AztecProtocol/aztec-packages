@@ -48,6 +48,13 @@ pub comptime fn aztec(m: Module) -> Quoted {
         quote {}
     };
 
+    if m.functions().any(|f| f.name() == quote { offchain_receive }) {
+        panic(
+            "User-defined 'offchain_receive' is not allowed. The function is auto-injected by the #[aztec] macro. See https://docs.aztec.network/errors/7",
+        );
+    }
+    let offchain_receive_fn_and_abi_export = generate_offchain_receive();
+
     let process_message_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { process_message }) {
         generate_process_message()
     } else {
@@ -65,6 +72,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
         $public_dispatch
         $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
+        $offchain_receive_fn_and_abi_export
     }
 }
 
@@ -263,6 +271,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
+/// Generates the `sync_state` utility function that performs message discovery.
 comptime fn generate_sync_state() -> Quoted {
     quote {
         pub struct sync_state_parameters {}
@@ -275,8 +284,11 @@ comptime fn generate_sync_state() -> Quoted {
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn sync_state() {
             let address = aztec::context::UtilityContext::new().this_address();
-            
-            aztec::messages::discovery::do_sync_state(address, _compute_note_hash_and_nullifier);
+            aztec::messages::discovery::do_sync_state(
+                address,
+                _compute_note_hash_and_nullifier,
+                Option::some(aztec::messages::processing::offchain::sync_inbox),
+            );
         }
     }
 }
@@ -310,6 +322,41 @@ comptime fn generate_process_message() -> Quoted {
             // At this point, the note is pending validation and storage in the database. We must call
             // validate_and_store_enqueued_notes_and_events to complete that process.
             aztec::messages::processing::validate_and_store_enqueued_notes_and_events(address);
+        }
+    }
+}
+
+/// Generates an `offchain_receive` utility function that lets callers add messages to the offchain message inbox.
+///
+/// For more details, see `aztec::messages::processing::offchain::receive`.
+comptime fn generate_offchain_receive() -> Quoted {
+    quote {
+        pub struct offchain_receive_parameters {
+            pub messages: BoundedVec<
+                aztec::messages::processing::offchain::OffchainMessage,
+                aztec::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+            >,
+        }
+
+        #[abi(functions)]
+        pub struct offchain_receive_abi {
+            parameters: offchain_receive_parameters,
+        }
+
+        /// Receives offchain messages into this contract's offchain inbox for subsequent processing.
+        ///
+        /// For more details, see `aztec::messages::processing::offchain::receive`.
+        ///
+        /// This function is automatically injected by the `#[aztec]` macro.
+        #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
+        unconstrained fn offchain_receive(
+            messages: BoundedVec<
+                aztec::messages::processing::offchain::OffchainMessage,
+                aztec::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+            >,
+        ) {
+            let address = aztec::context::UtilityContext::new().this_address();
+            aztec::messages::processing::offchain::receive(address, messages);
         }
     }
 }
