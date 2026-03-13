@@ -85,7 +85,17 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
+<<<<<<< HEAD
     build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
+=======
+    if [[ "$target" == *-windows ]]; then
+      # Windows builds exclude nodejs_module (N-API requires MSVC, not MinGW)
+      AVM_TRANSPILER=0 build_preset zig-$target --target barretenberg vm2_stub circuit_checker honk
+    else
+      (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
+      build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
+    fi
+>>>>>>> 1e99be6a95 (feat: Add Windows x86_64 cross-compilation via Zig)
   fi
 }
 
@@ -105,6 +115,19 @@ function build_cross {
   if [ "$is_macos" == "true" ]; then
     ldid -S build-zig-$target/bin/bb
   fi
+}
+
+# Cross compile Windows binary (bb.exe only, no nodejs_module).
+# Arg is target arch-os e.g. amd64-windows.
+function build_cross_windows {
+  set -eu
+  target=$1
+  if ! cache_download barretenberg-$target-$hash.zst; then
+    AVM_TRANSPILER=0 build_preset zig-$target --target bb --target bb-external
+    cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
+  fi
+  # Always inject version (even for cached binaries) to ensure correct version on release
+  inject_version build-zig-$target/bin/bb.exe
 }
 
 # Build static library (.a) for iOS using Zig cross-compilation from Linux.
@@ -251,6 +274,11 @@ function build_release_dir {
   # Package amd64-macos
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 
+  # Package amd64-windows
+  if [ -f build-zig-amd64-windows/bin/bb.exe ]; then
+    tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-zig-amd64-windows/bin bb.exe
+  fi
+
   # Package static libraries for FFI bindings
   if [ -f build/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C build/lib libbb-external.a
@@ -263,6 +291,9 @@ function build_release_dir {
   fi
   if [ -f build-zig-arm64-macos/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-zig-arm64-macos/lib libbb-external.a
+  fi
+  if [ -f build-zig-amd64-windows/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-amd64-windows.tar.gz -C build-zig-amd64-windows/lib libbb-external.a
   fi
 
   # Package iOS static libraries (cross-compiled with Zig from Linux)
@@ -282,7 +313,7 @@ function build_release_dir {
   fi
 }
 
-export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_cross_windows build_ios build_android build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
@@ -304,8 +335,14 @@ function build {
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
+<<<<<<< HEAD
       "build_cross amd64-macos true" \
       "build_cross arm64-macos true" \
+=======
+      "build_cross amd64-macos" \
+      "build_cross arm64-macos" \
+      "build_cross_windows amd64-windows" \
+>>>>>>> 1e99be6a95 (feat: Add Windows x86_64 cross-compilation via Zig)
       "build_ios zig-arm64-ios" \
       "build_ios zig-arm64-ios-sim" \
       "build_android zig-arm64-android" \

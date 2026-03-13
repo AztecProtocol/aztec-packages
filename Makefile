@@ -88,7 +88,10 @@ avm-transpiler-cross-arm64-macos:
 avm-transpiler-cross-arm64-linux:
 	$(call build,$@,avm-transpiler,build_cross arm64-linux)
 
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux
+avm-transpiler-cross-amd64-windows:
+	$(call build,$@,avm-transpiler,build_cross amd64-windows)
+
+avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux avm-transpiler-cross-amd64-windows
 
 #==============================================================================
 # Barretenberg
@@ -150,7 +153,42 @@ bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-
 bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
+<<<<<<< HEAD
 bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+=======
+bb-cpp-cross-amd64-windows-objects:
+	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-windows)
+
+# Cross-compile for AMD64 Windows (release only)
+bb-cpp-cross-amd64-windows: bb-cpp-cross-amd64-windows-objects avm-transpiler-cross-amd64-windows
+	$(call build,$@,barretenberg/cpp,build_cross_windows amd64-windows)
+
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-amd64-windows bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
+
+# iOS SDK download (shared by all iOS cross-compile targets)
+bb-cpp-ios-sdk:
+	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-ios-sdk.sh)
+
+# Android sysroot download (shared by all Android cross-compile targets)
+bb-cpp-android-sysroot:
+	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-android-sysroot.sh)
+
+# Cross-compile for ARM64 iOS (release only, static lib only)
+bb-cpp-cross-arm64-ios: bb-cpp-ios-sdk
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios)
+
+# Cross-compile for ARM64 iOS Simulator (release only, static lib only)
+bb-cpp-cross-arm64-ios-sim: bb-cpp-ios-sdk
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios-sim)
+
+# Cross-compile for ARM64 Android (release only, static lib only)
+bb-cpp-cross-arm64-android: bb-cpp-android-sysroot
+	$(call build,$@,barretenberg/cpp,build_android zig-arm64-android)
+
+# Cross-compile for x86_64 Android (release only, static lib only)
+bb-cpp-cross-x86_64-android: bb-cpp-android-sysroot
+	$(call build,$@,barretenberg/cpp,build_android zig-x86_64-android)
+>>>>>>> 1e99be6a95 (feat: Add Windows x86_64 cross-compilation via Zig)
 
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:

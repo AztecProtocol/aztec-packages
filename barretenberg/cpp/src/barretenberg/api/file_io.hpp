@@ -39,10 +39,35 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
         THROW std::runtime_error("Unable to open file: " + filename);
     }
 
+<<<<<<< HEAD
     // Unseekable, pipe or process substitution. We'll iterate over the stream and reallocate.
     if (!file.seekg(0, std::ios::end)) {
         file.clear();
         return { (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>() };
+=======
+    std::vector<uint8_t> fileData;
+    if (!file_size.has_value()) {
+        // Size unknown (pipe, device, etc.): read without pre-allocation.
+        fileData = read_chunked(fd, filename);
+    } else {
+        // Pre-allocate exactly what we need: either the caller's limit or the whole file.
+        // Using POSIX read() directly avoids the extra buffering layer of std::ifstream.
+        size_t to_read = bytes == 0 ? *file_size : bytes;
+        fileData.resize(to_read);
+        size_t total = 0;
+        while (total < to_read) {
+            ssize_t got = ::read(fd, fileData.data() + total, static_cast<unsigned int>(to_read - total));
+            if (got < 0) {
+                close(fd);
+                THROW std::runtime_error("Failed to read file: " + filename + " (" + strerror(errno) + ")");
+            }
+            if (got == 0) {
+                break; // Unexpected EOF (file shrunk between stat and read).
+            }
+            total += static_cast<size_t>(got);
+        }
+        fileData.resize(total); // Shrink if the file was shorter than expected.
+>>>>>>> 1e99be6a95 (feat: Add Windows x86_64 cross-compilation via Zig)
     }
 
     // Get the file size.
@@ -58,12 +83,31 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
 
 inline void write_file(const std::string& filename, std::vector<uint8_t> const& data)
 {
+<<<<<<< HEAD
     struct stat st;
     if (stat(filename.c_str(), &st) == 0 && S_ISFIFO(st.st_mode)) {
         // Writing to a pipe or file descriptor
         int fd = open(filename.c_str(), O_WRONLY);
         if (fd == -1) {
             THROW std::runtime_error("Failed to open file descriptor: " + filename);
+=======
+    // For regular files, truncate and create if missing (O_TRUNC | O_CREAT).
+    // For FIFOs/pipes the file already exists and O_CREAT/O_TRUNC are no-ops, so
+    // the same flags work uniformly for both cases — no need to stat() first.
+    int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) {
+        THROW std::runtime_error("Failed to open file for writing: " + filename + " (" + strerror(errno) + ")");
+    }
+
+    // Loop to handle short writes (required by POSIX, common on pipes and sockets).
+    size_t total_written = 0;
+    while (total_written < data.size()) {
+        ssize_t written =
+            ::write(fd, data.data() + total_written, static_cast<unsigned int>(data.size() - total_written));
+        if (written < 0) {
+            close(fd);
+            THROW std::runtime_error("Failed to write to file: " + filename + " (" + strerror(errno) + ")");
+>>>>>>> 1e99be6a95 (feat: Add Windows x86_64 cross-compilation via Zig)
         }
 
         size_t total_written = 0;
@@ -112,7 +156,7 @@ template <typename Fr> inline std::string field_elements_to_json(const std::vect
 inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
 {
     try {
-        return read_file(vk_path);
+        return read_file(vk_path.string());
     } catch (const std::runtime_error&) {
         THROW std::runtime_error("Unable to open file: " + vk_path.string() +
                                  "\nGenerate a vk during proving by running `bb prove` with an additional `--write_vk` "
@@ -120,4 +164,24 @@ inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
                                  "\nIf you already have a vk file, specify its path with `--vk_path <path>`.");
     }
 }
+
+// On Windows, std::filesystem::path uses wide strings (wchar_t) and doesn't implicitly convert
+// to std::string. On Linux/macOS (libstdc++), the conversion is implicit so these aren't needed.
+#ifdef _WIN32
+inline size_t get_file_size(const std::filesystem::path& filename)
+{
+    return get_file_size(filename.string());
+}
+
+inline std::vector<uint8_t> read_file(const std::filesystem::path& filename, size_t bytes = 0)
+{
+    return read_file(filename.string(), bytes);
+}
+
+inline void write_file(const std::filesystem::path& filename, std::span<const uint8_t> data)
+{
+    write_file(filename.string(), data);
+}
+#endif
+
 } // namespace bb
