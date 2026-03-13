@@ -291,8 +291,7 @@ namespace address_derivation;
 
     // Enforces the ivk is on the curve:
     //   - Note that this may not be strictly necessary since the hinted ivk is checked to be on the curve
-    //  during deployment in private through an implicit check in the bb dsl (TODO(MW): Update this when
-    //  checked explicitly).
+    //  during deployment in private.
     //   - However, the check is a cheap relation which allows us to explicitly meet ecc.pil's precondition.
     //   - It also enforces the ivk is not the point at infinity, since our (or any) representation
     //  of it does not satisfy the curve equation.
