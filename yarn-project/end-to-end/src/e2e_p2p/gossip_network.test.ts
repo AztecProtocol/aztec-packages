@@ -30,8 +30,6 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
-const AZTEC_SLOT_DURATION = 36;
-const AZTEC_EPOCH_DURATION = 4;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -63,8 +61,8 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        aztecEpochDuration: AZTEC_EPOCH_DURATION,
+        aztecSlotDuration: 36,
+        aztecEpochDuration: 4,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
@@ -207,15 +205,13 @@ describe('e2e_p2p_network', () => {
     }
 
     // Ensure prover node did its job and collected txs from p2p
-    // Timeout must exceed one full epoch (aztecSlotDuration * aztecEpochDuration = 36 * 4 = 144s)
-    // plus time for the prover to generate and submit the proof.
     await retryUntil(
       async () => {
         const provenBlock = await nodes[0].getProvenBlockNumber();
         return provenBlock > 0;
       },
       'proven block',
-      300,
+      120,
     );
   });
 });
