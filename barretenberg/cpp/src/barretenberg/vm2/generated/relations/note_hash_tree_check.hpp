@@ -14,8 +14,8 @@ template <typename FF_> class note_hash_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3,
-                                                                            3, 3, 4, 3, 3, 3, 5, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
+                                                                            3, 4, 3, 3, 3, 5, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
