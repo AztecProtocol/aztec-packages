@@ -36,7 +36,7 @@ struct WorldStateRevision {
     block_number_t blockNumber{ 0 };
     bool includeUncommitted{ false };
 
-    MSGPACK_FIELDS(forkId, blockNumber, includeUncommitted)
+    SERIALIZATION_FIELDS(forkId, blockNumber, includeUncommitted)
 
     static WorldStateRevision committed() { return WorldStateRevision{ .includeUncommitted = false }; }
     static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
@@ -49,7 +49,7 @@ struct WorldStateStatusSummary {
     index_t finalizedBlockNumber;
     index_t oldestHistoricalBlock;
     bool treesAreSynched;
-    MSGPACK_FIELDS(unfinalizedBlockNumber, finalizedBlockNumber, oldestHistoricalBlock, treesAreSynched);
+    SERIALIZATION_FIELDS(unfinalizedBlockNumber, finalizedBlockNumber, oldestHistoricalBlock, treesAreSynched);
 
     WorldStateStatusSummary() = default;
     WorldStateStatusSummary(const index_t& unfinalizedBlockNumber,
@@ -100,7 +100,8 @@ struct WorldStateDBStats {
     TreeDBStats publicDataTreeStats;
     TreeDBStats nullifierTreeStats;
 
-    MSGPACK_FIELDS(noteHashTreeStats, messageTreeStats, archiveTreeStats, publicDataTreeStats, nullifierTreeStats);
+    SERIALIZATION_FIELDS(
+        noteHashTreeStats, messageTreeStats, archiveTreeStats, publicDataTreeStats, nullifierTreeStats);
 
     WorldStateDBStats() = default;
     WorldStateDBStats(const TreeDBStats& noteHashStats,
@@ -156,7 +157,7 @@ struct WorldStateMeta {
     TreeMeta publicDataTreeMeta;
     TreeMeta nullifierTreeMeta;
 
-    MSGPACK_FIELDS(noteHashTreeMeta, messageTreeMeta, archiveTreeMeta, publicDataTreeMeta, nullifierTreeMeta);
+    SERIALIZATION_FIELDS(noteHashTreeMeta, messageTreeMeta, archiveTreeMeta, publicDataTreeMeta, nullifierTreeMeta);
 
     WorldStateMeta() = default;
     WorldStateMeta(const TreeMeta& noteHashMeta,
@@ -210,7 +211,7 @@ struct WorldStateStatusFull {
     WorldStateDBStats dbStats;
     WorldStateMeta meta;
 
-    MSGPACK_FIELDS(summary, dbStats, meta);
+    SERIALIZATION_FIELDS(summary, dbStats, meta);
 
     WorldStateStatusFull() = default;
     WorldStateStatusFull(const WorldStateStatusSummary& summary,

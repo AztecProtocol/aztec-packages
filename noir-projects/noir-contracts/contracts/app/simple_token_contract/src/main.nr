@@ -170,13 +170,7 @@ pub contract SimpleToken {
 
     #[internal("private")]
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
-        let partial_note = UintNote::partial(
-            to,
-            self.storage.balances.get_storage_slot(),
-            self.context,
-            to,
-            self.msg_sender(),
-        );
+        let partial_note = UintNote::partial(to, self.context, to, self.msg_sender());
 
         partial_note
     }
@@ -208,7 +202,12 @@ pub contract SimpleToken {
         let from_balance = balance_storage.read().sub(amount);
         balance_storage.write(from_balance);
 
-        partial_note.complete(self.context, from_and_completer, amount);
+        partial_note.complete(
+            self.context,
+            from_and_completer,
+            self.storage.balances.get_storage_slot(),
+            amount,
+        );
     }
 
     #[external("private")]
@@ -241,7 +240,12 @@ pub contract SimpleToken {
         let supply = self.storage.total_supply.read().add(amount);
         self.storage.total_supply.write(supply);
 
-        partial_note.complete(self.context, completer, amount);
+        partial_note.complete(
+            self.context,
+            completer,
+            self.storage.balances.get_storage_slot(),
+            amount,
+        );
     }
 
     #[external("public")]

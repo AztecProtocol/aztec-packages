@@ -46,9 +46,9 @@ export abstract class ArchiverDataSourceBase
 
   abstract getL2Tips(): Promise<L2Tips>;
 
-  abstract getL2SlotNumber(): Promise<SlotNumber | undefined>;
+  abstract getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 
-  abstract getL2EpochNumber(): Promise<EpochNumber | undefined>;
+  abstract getSyncedL2EpochNumber(): Promise<EpochNumber | undefined>;
 
   abstract isEpochComplete(epochNumber: EpochNumber): Promise<boolean>;
 
@@ -154,7 +154,7 @@ export abstract class ArchiverDataSourceBase
   }
 
   public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.store.getSettledTxReceipt(txHash);
+    return this.store.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
   public isPendingChainInvalid(): Promise<boolean> {

@@ -18,13 +18,13 @@ namespace bb {
  * | point_transition | round | slices          | skew   | scalar_sum                      |
  * | ---------------- | ----- | --------------- | ------ | ------------------------------- |
  * | 0                | 0     | s0,s1,s2,s3     | 0      | 0                               |
- * | 0                | 1     | s4,s5,s6,s7     | 0      | \sum_{i=0}^4 16^i * s_{3 - i}   |
- * | 0                | 2     | s8,s9,s10,s11   | 0      | \sum_{i=0}^8 16^i * s_{7 - i}   |
- * | 0                | 3     | s12,s13,s14,s14 | 0      | \sum_{i=0}^12 16^i * s_{11 - i} |
- * | 0                | 4     | s16,s17,s18,s19 | 0      | \sum_{i=0}^16 16^i * s_{15 - i} |
- * | 0                | 5     | s20,s21,s22,s23 | 0      | \sum_{i=0}^20 16^i * s_{19 - i} |
- * | 0                | 6     | s24,s25,s26,s27 | 0      | \sum_{i=0}^24 16^i * s_{23 - i} |
- * | 1                | 7     | s28,s29,s30,s31 | s_skew | \sum_{i=0}^28 16^i * s_{27 - i} |
+ * | 0                | 1     | s4,s5,s6,s7     | 0      | \sum_{i=0}^3 16^i * s_{3 - i}   |
+ * | 0                | 2     | s8,s9,s10,s11   | 0      | \sum_{i=0}^7 16^i * s_{7 - i}   |
+ * | 0                | 3     | s12,s13,s14,s15 | 0      | \sum_{i=0}^11 16^i * s_{11 - i} |
+ * | 0                | 4     | s16,s17,s18,s19 | 0      | \sum_{i=0}^15 16^i * s_{15 - i} |
+ * | 0                | 5     | s20,s21,s22,s23 | 0      | \sum_{i=0}^19 16^i * s_{19 - i} |
+ * | 0                | 6     | s24,s25,s26,s27 | 0      | \sum_{i=0}^23 16^i * s_{23 - i} |
+ * | 1                | 7     | s28,s29,s30,s31 | s_skew | \sum_{i=0}^27 16^i * s_{27 - i} |
  *
  * The value of the input scalar is equal to the following:
  *
@@ -59,10 +59,9 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     auto pc = View(in.precompute_pc); // note that this is a _point-counter_.
     auto pc_shift = View(in.precompute_pc_shift);
     // precompute_select is a boolean column that is 0 at the initial row and 1 at all subsequent active rows in the
-    // precompute table. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
-    // `precompute_select=1`. As a reminder, this latter is 0 at the initial row and then 1 at the rest of the (active)
-    // rows of the Precomputed table. The fact that `precompute_select` is correctly computed is mediated by the set
-    // relation.
+    // precompute table. We only evaluate the ecc_wnaf_relation if `precompute_select=1`. As a reminder, this latter is
+    // 0 at the initial row and then 1 at the rest of the (active) rows of the Precomputed table. The fact that
+    // `precompute_select` is correctly computed is mediated by the set relation.
     auto precompute_select = View(in.precompute_select);
 
     auto precompute_select_shift = View(in.precompute_select_shift);
@@ -78,13 +77,13 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
         acc += ((s - 1).sqr() - 1) * ((s - 2).sqr() - 1) * scaling_factor;
     };
 
-    // given two 2-bit numbers `s0, `s1`, convert to a wNAF digit (in {-15, -13, ..., 13, 15}) via the formula:
-    // `2(4s0 + s1) - 15`. (Here, `4s0 + s1` represents the 4-bit number corresponding to the concatenation of `s0` and
-    // `s1`.)
-    const auto convert_to_wnaf = [](const View& s0, const View& s1) {
-        auto t = s0 + s0;
+    // given two 2-bit numbers `hi`, `lo`, convert to a wNAF digit (in {-15, -13, ..., 13, 15}) via the formula:
+    // `2(4*hi + lo) - 15`. (Here, `4*hi + lo` represents the 4-bit number corresponding to the concatenation of `hi`
+    // and `lo`.)
+    const auto convert_to_wnaf = [](const View& hi, const View& lo) {
+        auto t = hi + hi;
         t += t;
-        t += s1;
+        t += lo;
         auto naf = t + t - 15;
         return naf;
     };
@@ -117,13 +116,13 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      *        We already know slice1 is in the range [0, ..., 15]
      *        To check the range [8, ..., 15] we validate the most significant 2 bits (s1) are >=2
      */
-    const auto s1_shift = View(in.precompute_s1hi_shift);
-    const auto s1_shift_msb_set = (s1_shift - 2) * (s1_shift - 3);
+    const auto s1hi_shift = View(in.precompute_s1hi_shift);
+    const auto s1hi_shift_msb_set = (s1hi_shift - 2) * (s1hi_shift - 3);
     const auto scaled_transition_plus_lagrange_first = scaled_transition + scaled_lagrange_first;
-    // away from row zero, add `scaled_transition * precompute_select_shift * s1_shift_msb_set`. however,
+    // away from row zero, add `scaled_transition * precompute_select_shift * s1hi_shift_msb_set`. however,
     // `q_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
     // `scaled_lagrange_first`.
-    std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1_shift_msb_set;
+    std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1hi_shift_msb_set;
     /**
      * @brief Convert each pair of 2-bit scalar slices into a 4-bit windowed-non-adjacent-form slice.
      * Conversion from binary -> wnaf = 2 * binary - 15.
