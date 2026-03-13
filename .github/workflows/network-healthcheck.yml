@@ -21,5 +21,5 @@ jobs:
       - name: Run healthcheck
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: ./ci3/network_healthcheck "${{ inputs.networks || 'v4-devnet-2,testnet,mainnet,staging-public,next-net' }}"

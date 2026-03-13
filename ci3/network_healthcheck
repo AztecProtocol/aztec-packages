@@ -2,25 +2,17 @@
 set -eu
 
 # Dispatches a ClaudeBox network healthcheck.
-# Posts a Slack message to #team-alpha, then dispatches the claudebox.yml workflow.
+# Posts a Slack message to #team-alpha, then dispatches claudebox.yml.
 #
 # Usage: network_healthcheck [networks]
 #   networks: comma-separated list (default: all known networks)
 #
 # Environment variables:
 #   SLACK_BOT_TOKEN  - Required for Slack notifications
-#   GITHUB_TOKEN     - Required for dispatching ClaudeBox workflow
+#   GH_TOKEN         - Required for gh workflow run
 
 NETWORKS="${1:-v4-devnet-2,testnet,mainnet,staging-public,next-net}"
 CHANNEL="#team-alpha"
-
-send_slack_message() {
-  local message=$1
-  curl -sS -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-    -H "Content-type: application/json" \
-    -d "$(jq -n --arg c "$CHANNEL" --arg t "$message" '{channel:$c, text:$t}')"
-}
 
 PROMPT="Run a network healthcheck for: ${NETWORKS}.
 
@@ -40,26 +32,23 @@ Format the respond_to_user message as a brief network status overview, e.g.:
 - devnet: WARNING - bot stopped (insufficient balance)
 Link to the gist for full details."
 
-# Post to Slack
+# Post to Slack, capture response for permalink
 TEXT="Starting network healthcheck for: ${NETWORKS}"
-RESP=$(send_slack_message "$TEXT")
+RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+  -H "Content-type: application/json" \
+  -d "$(jq -n --arg c "$CHANNEL" --arg t "$TEXT" '{channel:$c, text:$t}')")
 echo "Slack response: $RESP"
 TS=$(echo "$RESP" | jq -r '.ts // empty')
 CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
 
-# Dispatch ClaudeBox
-if [[ -n "$TS" && -n "$CHANNEL_ID" && -n "${GITHUB_TOKEN:-}" ]]; then
+LINK=""
+if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
   LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
-  curl -sS -X POST \
-    -H "Authorization: Bearer $GITHUB_TOKEN" \
-    -H "Accept: application/vnd.github.v3+json" \
-    "https://api.github.com/repos/AztecProtocol/aztec-packages/actions/workflows/claudebox.yml/dispatches" \
-    -d "$(jq -n --arg ref next \
-      --arg prompt "$PROMPT" \
-      --arg link "$LINK" \
-      '{ref:$ref, inputs:{prompt:$prompt, link:$link}}')"
-  echo "ClaudeBox dispatched."
-else
-  echo "WARNING: Could not dispatch ClaudeBox (missing Slack TS or GITHUB_TOKEN)"
-  exit 1
 fi
+
+# Dispatch ClaudeBox
+gh workflow run claudebox.yml \
+  -f prompt="$PROMPT" \
+  -f link="${LINK}"
+echo "ClaudeBox dispatched."
