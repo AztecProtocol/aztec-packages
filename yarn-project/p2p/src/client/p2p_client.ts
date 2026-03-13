@@ -669,9 +669,8 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   /**
-   * Returns true if the prune crossed a checkpoint boundary.
-   * If the old and new checkpoint numbers are the same, the prune is within a single checkpoint.
-   * If they differ, the prune spans across checkpoints (epoch prune).
+   * Returns true if the prune is an epoch prune (new checkpoint number is less than old).
+   * If the checkpoint number stays the same or increases, the prune is within a checkpoint.
    */
   private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
     const tips = await this.l2Tips.getL2Tips();
@@ -680,7 +679,7 @@ export class P2PClient extends WithTracer implements P2P {
       return false;
     }
     const newCheckpointNumber = newCheckpoint.number;
-    const isEpochPrune = oldCheckpointNumber !== newCheckpointNumber;
+    const isEpochPrune = newCheckpointNumber < oldCheckpointNumber;
     if (isEpochPrune) {
       this.log.info(`Detected epoch prune to ${newCheckpointNumber}`, { oldCheckpointNumber, newCheckpointNumber });
     }
