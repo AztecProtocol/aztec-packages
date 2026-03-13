@@ -9,7 +9,7 @@ use crate::messages::{
     processing::MessageContext,
 };
 
-use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format, aztecnr_warn_log_format};
+use crate::logging::{aztecnr_debug_log, aztecnr_warn_log_format};
 use crate::protocol::address::AztecAddress;
 
 /// Processes a message that can contain notes, partial notes, or events.
@@ -89,6 +89,6 @@ pub unconstrained fn process_message_plaintext<Env>(
             message_context.tx_hash,
         );
     } else {
-        aztecnr_debug_log_format!("Unknown msg type id {0}")([msg_type_id as Field]);
+        aztecnr_warn_log_format!("Unknown msg type id {0}")([msg_type_id as Field]);
     }
 }
