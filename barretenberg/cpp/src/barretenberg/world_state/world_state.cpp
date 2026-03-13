@@ -1087,7 +1087,7 @@ uint32_t WorldState::checkpoint(const uint64_t& forkId)
             throw std::runtime_error(m.message);
         }
     }
-    // All trees have the same depth; return it from the first tree's response
+    // All trees have the same checkpoint depth; return it from the first tree's response
     return local[0].inner.depth;
 }
 
