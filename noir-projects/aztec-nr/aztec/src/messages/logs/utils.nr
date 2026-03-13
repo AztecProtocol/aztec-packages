@@ -34,9 +34,9 @@ mod test {
 
         let expected_tag = 42;
 
-        // Mock the tagging oracles - note privateGetSenderForTags returns none
-        let _ = OracleMock::mock("privateGetSenderForTags").returns(Option::<AztecAddress>::none());
-        let _ = OracleMock::mock("privateGetNextAppTagAsSender").returns(expected_tag);
+        // Mock the tagging oracles - note aztec_prv_getSenderForTags returns none
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::<AztecAddress>::none());
+        let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(expected_tag);
 
         let log_without_tag = [1, 2, 3];
         let _ = prefix_with_tag(log_without_tag, recipient);
@@ -50,8 +50,8 @@ mod test {
         let expected_tag = 42;
 
         // Mock the tagging oracles
-        let _ = OracleMock::mock("privateGetSenderForTags").returns(Option::some(sender));
-        let _ = OracleMock::mock("privateGetNextAppTagAsSender").returns(expected_tag);
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
+        let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(expected_tag);
 
         let log_without_tag = [1, 2, 3];
         let log_with_tag = prefix_with_tag(log_without_tag, recipient);
