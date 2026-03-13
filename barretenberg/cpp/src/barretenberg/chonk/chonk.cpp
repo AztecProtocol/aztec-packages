@@ -280,7 +280,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
     }
     updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
-    info("Updated running hash: ", updated_hash.get_value());
     updated_hash.unset_free_witness_tag();
     updated_hash.set_origin_tag(OriginTag::constant());
 
@@ -623,7 +622,6 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                         const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
-    info("Num gates: ", circuit.get_num_finalized_gates());
 
     // Hiding kernel is proven by a MultiMegaProver with ZK flavor
     MultiMegaProver_<MultiMegaZKFlavor> prover(hiding_prover_inst, verification_key, transcript);

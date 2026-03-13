@@ -222,7 +222,6 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
                 f.set_origin_tag(OriginTag::constant());
             }
             calculated_hash = stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs);
-            info("Calculated hash: ", calculated_hash.get_value());
             // The permutation leaves the output as a FREE_WITNESS witness_t.  Demote it to
             // CONSTANT so that subsequent arithmetic (next hash iteration, the final
             // expected_hash - calculated_hash comparison) does not clash with ORIGIN_TAGGED
@@ -260,8 +259,6 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
         index += FF(1);
         auto index_diff_condition = index_diff == index;
         if constexpr (IsRecursive) {
-            info("EXTENDED HASH: ", extended_hash.back().get_value());
-
             index_diff_condition.unset_free_witness_tag();
             expected_hash = FF::conditional_assign(index_diff_condition, extended_hash.back(), expected_hash);
         } else {
@@ -270,8 +267,6 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
     }
 
     if constexpr (IsRecursive) {
-        info("HASH IN: ", hash.get_value());
-        info("CALCULATED: ", calculated_hash.get_value());
         FF hash_diff = expected_hash - calculated_hash;
         hash_verified &= (hash_diff.get_value() == 0);
         hash_diff.assert_equal(FF(0), "BatchMergeVerifier: column commitments hash mismatch");

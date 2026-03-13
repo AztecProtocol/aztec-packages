@@ -216,17 +216,6 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
         transcript->send_to_verifier("BATCH_MERGE_T_EVAL_" + std::to_string(col), t_evals[col]);
     }
 
-    for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-        FF reconstructed = c_evals[M - N][col];
-        FF pow_kappa = FF(1);
-        for (size_t i = M - N + 1; i < M; ++i) {
-            pow_kappa *= kappa.pow(shift_sizes[i - 1 - (M - N)] * BATCH_SIZE);
-            reconstructed += c_evals[i][col] * pow_kappa;
-        }
-        FF diff = reconstructed - t_evals[col];
-        info("DIFF: ", diff);
-    }
-
     // g_evals[col] = G_col(κ^{-1})
     FF reversed_cols_evals = reversed_batched_cols.evaluate(powers_of_kappa_inv);
     transcript->send_to_verifier("BATCH_MERGE_REVERSED_COLS_EVAL", reversed_cols_evals);
@@ -294,8 +283,6 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     OpeningClaim opening_claim{ std::move(shplonk_batched_quotient), { z, FF(0) } };
     opening_claim.polynomial.add_scaled(interleaved_at_kappa, FF(1));
     opening_claim.polynomial.add_scaled(interleaved_at_kappa_inv, (z - kappa) * (z - kappa_inv).invert());
-
-    info("EVAL opening claim: ", opening_claim.polynomial.evaluate(z));
 
     PCS::compute_opening_proof(pcs_commitment_key, opening_claim, transcript);
 
