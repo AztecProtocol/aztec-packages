@@ -46,14 +46,16 @@ function inject_version {
 
 # Inject version into all bb binaries in a directory (no-op if none exist).
 function inject_bb_versions {
-  local bin_dir=$1
-  for f in "$bin_dir"/bb "$bin_dir"/bb.exe "$bin_dir"/bb-avm; do
-    [ -f "$f" ] && inject_version "$f"
-  done
-}
+   local bin_dir=$1
+   for f in "$bin_dir"/bb "$bin_dir"/bb.exe "$bin_dir"/bb-avm; do
+     if [ -f "$f" ]; then
+       inject_version "$f"
+     fi
+   done
+ }
 
-# Define build commands for each preset
-function build_preset() {
+# Raw cmake configure + build. Internal helper.
+function cmake_build {
   local preset=$1
   shift
   local cmake_args=()
@@ -64,21 +66,38 @@ function build_preset() {
   cmake --build --preset "$preset" "$@"
 }
 
-# Generic: cache-download or build-preset + cache-upload, then inject bb versions.
-# Usage: build_cached <preset> [<cache_paths...>]
-# If no cache paths given, defaults to $build_dir/{bin,lib}.
-function build_cached {
+# Returns cache paths for a preset's build outputs.
+# If preset has explicit targets: finds those specific files in bin/ and lib/.
+# Otherwise: returns existing {bin,lib} dirs (catch-all).
+function preset_cache_paths {
+  local preset=$1
+  local build_dir=$2
+  local targets=$(jq -r --arg p "$preset" '
+    .buildPresets[] | select(.name==$p) | .targets // [] | .[]
+  ' CMakePresets.json)
+
+  if [ -z "$targets" ]; then
+    for d in $build_dir/bin $build_dir/lib; do
+      [ -d "$d" ] && echo "$d"
+    done
+  else
+    for t in $targets; do
+      find $build_dir/bin $build_dir/lib \
+        -maxdepth 1 \( -name "$t" -o -name "$t.exe" -o -name "$t.node" -o -name "lib${t}.a" \) \
+        2>/dev/null
+    done
+  fi
+}
+
+# Cache-aware build: download from cache or build + upload, then inject versions.
+# Usage: build_preset <preset>
+function build_preset {
   set -eu
   local preset=$1
   local build_dir=$(scripts/preset-build-dir $preset)
-  shift
   if ! cache_download barretenberg-$preset-$hash.zst; then
-    build_preset $preset
-    if [ $# -gt 0 ]; then
-      cache_upload barretenberg-$preset-$hash.zst "$@"
-    else
-      cache_upload barretenberg-$preset-$hash.zst $build_dir/{bin,lib}
-    fi
+    cmake_build $preset
+    cache_upload barretenberg-$preset-$hash.zst $(preset_cache_paths $preset $build_dir)
   fi
   inject_bb_versions $build_dir/bin
 }
@@ -102,49 +121,15 @@ function build_native_objects {
   fi
 }
 
-function build_native {
-  build_cached $native_preset
-}
-
-function build_cross {
-  build_cached zig-$1
-}
+function build_native { build_preset $native_preset; }
 
 # Builds object files early for cross compilation (parallel with avm-transpiler).
 function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
-    build_preset zig-$target --target barretenberg vm2_stub vm2_sim circuit_checker honk
+    cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk
   fi
-}
-
-function build_ios {
-  local build_dir=$(scripts/preset-build-dir $1)
-  build_cached $1 $build_dir/lib
-}
-
-function build_android {
-  local build_dir=$(scripts/preset-build-dir $1)
-  build_cached $1 $build_dir/lib
-}
-
-function build_asan_fast {
-  local targets=$(jq -r '.buildPresets[] | select(.name=="asan-fast") | .targets[]' CMakePresets.json)
-  build_cached asan-fast $(printf "build-asan-fast/bin/%s " $targets)
-}
-
-function build_wasm {
-  build_cached wasm
-}
-
-function build_wasm_threads {
-  build_cached wasm-threads
-}
-
-function build_wasm_threads_benches {
-  local targets=$(jq -r '.buildPresets[] | select(.name=="wasm-threads-bench") | .targets[]' CMakePresets.json)
-  build_cached wasm-threads-bench $(printf "build-wasm-threads/bin/%s " $targets)
 }
 
 # Build GCC - but only syntax check.
@@ -207,44 +192,35 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  # Version is injected in build_native/build_cross (always, even for cached binaries)
+  # Native (should be amd64-linux) builds.
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C $native_build_dir/bin bb
   tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C $native_build_dir/bin bb-avm
 
+  # Wasm.
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Package arm64-linux
-  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
+  # bb cross-compiles.
+  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-arm64-linux/bin bb
+  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-arm64-macos/bin bb
+  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-amd64-macos/bin bb
+  tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-amd64-windows/bin bb.exe
 
-  # Package arm64-macos
-  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-zig-arm64-macos/bin bb
-
-  # Package amd64-macos
-  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
-
-  # Package amd64-windows
-  tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-zig-amd64-windows/bin bb.exe
-
-  # Package static libraries for FFI bindings
+  # Package static libraries for FFI bindings.
   tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-amd64-darwin.tar.gz -C build-zig-amd64-macos/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-zig-arm64-macos/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-amd64-windows.tar.gz -C build-zig-amd64-windows/lib libbb-external.a
-
-  # Package iOS static libraries (cross-compiled with Zig from Linux)
-  tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-zig-arm64-ios/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-zig-arm64-ios-sim/lib libbb-external.a
-
-  # Package Android static libraries (cross-compiled with Zig from Linux)
-  tar -czf build-release/barretenberg-static-arm64-android.tar.gz -C build-zig-arm64-android/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-zig-x86_64-android/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-arm64-linux/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-amd64-darwin.tar.gz -C build-amd64-macos/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-arm64-macos/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-amd64-windows.tar.gz -C build-amd64-windows/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-arm64-ios/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-arm64-ios-sim/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-android.tar.gz -C build-arm64-android/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-x86_64-android/lib libbb-external.a
 }
 
-export -f build_preset build_cached build_format_check build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_wasm_threads_benches build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
+export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
 
 function build {
   echo_header "bb cpp build"
@@ -366,10 +342,10 @@ function bench_ivc {
 
   # Build both native and wasm benchmark binaries
   builds=(
-    "build_preset $native_preset --target bb"
+    "cmake_build $native_preset --target bb"
   )
   if [[ "${NO_WASM:-}" != "1" ]]; then
-    builds+=("build_preset wasm-threads --target bb")
+    builds+=("cmake_build wasm-threads --target bb")
   fi
   parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 

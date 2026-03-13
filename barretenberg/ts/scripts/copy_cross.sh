@@ -8,8 +8,8 @@ cd $(dirname $0)/..
 if [ -n "${1:-}" ]; then
   arch="$1"
   mkdir -p ./build/$arch
-  cp ../cpp/build-zig-$arch/bin/bb ./build/$arch
-  cp ../cpp/build-zig-$arch/lib/nodejs_module.node ./build/$arch
+  cp ../cpp/build-$arch/bin/bb ./build/$arch
+  cp ../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
 elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   # We're building a release.
   # We take host build for amd64-linux.
@@ -20,8 +20,8 @@ elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   # We also copy in all cross-compiled architectures for release builds.
   for arch in arm64-linux amd64-macos arm64-macos; do
     mkdir -p ./build/$arch
-    cp ../cpp/build-zig-$arch/bin/bb ./build/$arch
-    cp ../cpp/build-zig-$arch/lib/nodejs_module.node ./build/$arch
+    cp ../cpp/build-$arch/bin/bb ./build/$arch
+    cp ../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
   done
 
   llvm-strip-20 ./build/*/*
