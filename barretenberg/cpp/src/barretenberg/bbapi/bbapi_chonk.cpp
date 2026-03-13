@@ -501,7 +501,7 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRe
     service_.enqueue(VerifyRequest{
         .request_id = request_id,
         .vk_index = vk_index,
-        .proof = std::move(proof),
+        .proof = ChonkProof::from_field_elements(proof_fields),
     });
 
     return {};

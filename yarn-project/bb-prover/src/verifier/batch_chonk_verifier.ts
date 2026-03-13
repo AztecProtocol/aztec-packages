@@ -1,6 +1,4 @@
-import { type ChonkProof as BBChonkProof, BackendType, Barretenberg } from '@aztec/bb.js';
-import { ECCVM_PROOF_LENGTH, IPA_PROOF_LENGTH, JOINT_PROOF_LENGTH, MERGE_PROOF_LENGTH } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -106,33 +104,6 @@ interface PendingRequest {
   totalTimer: Timer;
 }
 
-/** Convert a flat array of Fr fields (with public inputs) into a structured bb.js ChonkProof. */
-function fieldsToChonkProof(fields: Fr[]): BBChonkProof {
-  const toBuffers = (frs: Fr[]) => frs.map(f => f.toBuffer());
-
-  // Layout: [hidingOinkProof][mergeProof][eccvmProof][ipaProof][jointProof]
-  // hidingOinkProof includes public inputs, so its length is variable.
-  const fixedTailLen = MERGE_PROOF_LENGTH + ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
-  const hidingOinkLen = fields.length - fixedTailLen;
-  let offset = 0;
-
-  const hidingOinkProof = toBuffers(fields.slice(offset, offset + hidingOinkLen));
-  offset += hidingOinkLen;
-
-  const mergeProof = toBuffers(fields.slice(offset, offset + MERGE_PROOF_LENGTH));
-  offset += MERGE_PROOF_LENGTH;
-
-  const eccvmProof = toBuffers(fields.slice(offset, offset + ECCVM_PROOF_LENGTH));
-  offset += ECCVM_PROOF_LENGTH;
-
-  const ipaProof = toBuffers(fields.slice(offset, offset + IPA_PROOF_LENGTH));
-  offset += IPA_PROOF_LENGTH;
-
-  const jointProof = toBuffers(fields.slice(offset, offset + JOINT_PROOF_LENGTH));
-
-  return { hidingOinkProof, mergeProof, eccvmProof, ipaProof, jointProof };
-}
-
 /**
  * Batch verifier for Chonk IVC proofs. Uses the bb batch verifier service
  * which batches IPA verification into a single SRS MSM for better throughput.
@@ -223,9 +194,9 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
       throw new Error(`No VK index for circuit ${circuit}`);
     }
 
-    // Convert flat Fr[] proof to structured bb.js ChonkProof (with public inputs in mega_proof)
+    // Attach public inputs to get the flat proof fields array (C++ splits into ChonkProof segments)
     const proofWithPubInputs = tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields());
-    const proof = fieldsToChonkProof(proofWithPubInputs.fieldsWithPublicInputs);
+    const proofFields = proofWithPubInputs.fieldsWithPublicInputs.map(f => f.toBuffer());
 
     // Create pending promise
     const resultPromise = new Promise<IVCProofVerificationResult>((resolve, reject) => {
@@ -237,7 +208,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
       await this.bb.chonkBatchVerifierQueue({
         requestId,
         vkIndex,
-        proof,
+        proofFields,
       });
     });
 

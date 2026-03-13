@@ -394,10 +394,10 @@ struct ChonkBatchVerifierQueue {
 
     uint64_t request_id = 0;
     uint32_t vk_index = 0;
-    ChonkProof proof;
+    std::vector<bb::fr> proof_fields;
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(request_id, vk_index, proof);
+    SERIALIZATION_FIELDS(request_id, vk_index, proof_fields);
     bool operator==(const ChonkBatchVerifierQueue&) const = default;
 };
 
