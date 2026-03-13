@@ -23,7 +23,6 @@ using fr = bb::fq;
 struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = true;
     static constexpr bool can_hash_to_curve = true;
-    static constexpr bool small_elements = true;
     static constexpr bool has_a = false;
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr bb::fr b{ 0xdd7056026000005a, 0x223fa97acb319311, 0xcc388229877910c0, 0x34394632b724eaa };
