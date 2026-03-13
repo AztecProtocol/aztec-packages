@@ -5,7 +5,6 @@ import { SetPublicAuthwitContractInteraction } from "@aztec/aztec.js/authorizati
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
-import { RollupContract } from "@aztec/ethereum/contracts";
 import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
@@ -47,8 +46,6 @@ const nodeInfo = await node.getNodeInfo();
 const registryAddress =
   nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
-const rollupAddress = nodeInfo.l1ContractAddresses.rollupAddress.toString();
-const rollup = new RollupContract(l1Client, rollupAddress);
 // docs:end:setup
 
 // docs:start:deploy_l1
@@ -438,10 +435,6 @@ const withdrawContentHash = sha256ToField([
   Buffer.from(withdrawContentEncoded.slice(2), "hex"),
 ]);
 
-// Get epoch for the swap receipt block
-const swapBlock = await node.getBlock(swapReceipt.blockNumber!);
-const swapEpoch = await rollup.getEpochNumberForCheckpoint(swapBlock!.checkpointNumber);
-
 // Message 1: Token bridge exit message
 const exitMsgLeaf = computeL2ToL1MessageHash({
   l2Sender: l2WethBridge.address,
@@ -455,9 +448,10 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
 // docs:start:consume_l1_messages_witnesses
 const exitWitness = await computeL2ToL1MembershipWitness(
   node,
-  swapEpoch,
   exitMsgLeaf,
+  swapReceipt.txHash,
 );
+const swapEpoch = exitWitness!.epochNumber;
 const exitSiblingPath = exitWitness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
@@ -507,8 +501,8 @@ const swapMsgLeaf = computeL2ToL1MessageHash({
 
 const swapWitness = await computeL2ToL1MembershipWitness(
   node,
-  swapEpoch,
   swapMsgLeaf,
+  swapReceipt.txHash,
 );
 const swapSiblingPath = swapWitness!.siblingPath
   .toBufferArray()
