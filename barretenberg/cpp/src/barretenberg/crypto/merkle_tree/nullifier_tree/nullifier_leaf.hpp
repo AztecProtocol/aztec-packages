@@ -18,7 +18,7 @@ struct indexed_nullifier_leaf {
     fr nextValue;
 
     // For serialization, update with any new fields
-    MSGPACK_FIELDS(value, nextIndex, nextValue);
+    SERIALIZATION_FIELDS(value, nextIndex, nextValue);
     bool operator==(indexed_nullifier_leaf const&) const = default;
 
     std::ostream& operator<<(std::ostream& os)

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function validate_and_store_enqueued_notes_and_events documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">validate_and_store_enqueued_notes_and_events</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module processing</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.MessageContext.html">MessageContext</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.validate_and_store_enqueued_notes_and_events.html">validate_and_store_enqueued_notes_and_events</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">processing</a></div>
+<h1>Function <span class="fn">validate_and_store_enqueued_notes_and_events</span></h1>
+<pre><code>pub unconstrained fn validate_and_store_enqueued_notes_and_events(
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+)</code></pre>
+
+<div class="comments">
+<p>Validates all note and event validation requests enqueued via <code>enqueue_note_for_validation</code> and
+<code>enqueue_event_for_validation</code>, inserting them into the note database and event store respectively, making them
+queryable via <code>get_notes</code> oracle and our TS API (PXE::getPrivateEvents).</p>
+<p>This automatically clears both validation request queues, so no further work needs to be done by the caller.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

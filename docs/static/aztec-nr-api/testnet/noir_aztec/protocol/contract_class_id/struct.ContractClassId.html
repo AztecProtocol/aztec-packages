@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct ContractClassId documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ContractClassId</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ContractClassId</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.inner">inner</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#assert_is_zero">assert_is_zero</a></li>
+<li><a href="#compute">compute</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-ContractClassId">Deserialize</a></li>
+<li><a href="#impl-Empty-for-ContractClassId">Empty</a></li>
+<li><a href="#impl-Eq-for-ContractClassId">Eq</a></li>
+<li><a href="#impl-FromField-for-ContractClassId">FromField</a></li>
+<li><a href="#impl-Packable-for-ContractClassId">Packable</a></li>
+<li><a href="#impl-Serialize-for-ContractClassId">Serialize</a></li>
+<li><a href="#impl-ToField-for-ContractClassId">ToField</a></li>
+</ul>
+<h2>In module contract_class_id</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ContractClassId.html">ContractClassId</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">contract_class_id</a></div>
+<h1>Struct <span id="struct" class="struct">ContractClassId</span></h1>
+<pre><code>pub struct ContractClassId {
+    pub inner: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.inner" class="struct-field"><code class="code-header">inner: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code id="compute" class="code-header">pub fn <a href="#compute"><span class="fn">compute</span></a>(
+    artifact_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    private_functions_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    public_bytecode_commitment: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+) -> Self</code>
+
+<code id="assert_is_zero" class="code-header">pub fn <a href="#assert_is_zero"><span class="fn">assert_is_zero</span></a>(self)</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-ContractClassId"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-ContractClassId"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-ContractClassId"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-FromField-for-ContractClassId"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.FromField.html" class="trait">FromField</a> for <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from_field</span>(value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+</div><h3 id="impl-Packable-for-ContractClassId"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-ContractClassId"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div><h3 id="impl-ToField-for-ContractClassId"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.ToField.html" class="trait">ToField</a> for <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">to_field</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

@@ -14,7 +14,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
@@ -166,10 +166,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
+   * Returns the tagging index ranges that were used in this execution (and that need to be stored in the db).
    */
-  public getUsedPreTags(): PreTag[] {
-    return this.taggingIndexCache.getUsedPreTags();
+  public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
+    return this.taggingIndexCache.getUsedTaggingIndexRanges();
   }
 
   /**
@@ -569,6 +569,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId: this.jobId,
       totalPublicCalldataCount: this.totalPublicCalldataCount,

@@ -67,6 +67,9 @@ export type TxMetaData = {
   /** Timestamp by which the transaction must be included (for expiration checks) */
   readonly expirationTimestamp: bigint;
 
+  /** Whether the tx's setup-phase calls pass the allow list check. Computed at receipt time. */
+  readonly allowedSetupCalls: boolean;
+
   /** Validator-compatible data, providing the same access patterns as Tx.data */
   readonly data: TxMetaValidationData;
 
@@ -84,8 +87,12 @@ export type TxState = 'pending' | 'protected' | 'mined' | 'deleted';
  * Builds TxMetaData from a full Tx object.
  * Extracts all relevant fields for efficient in-memory storage and querying.
  * Fr values are captured in closures for zero-cost re-validation.
+ *
+ * @param allowedSetupCalls - Whether the tx's setup-phase calls pass the allow list.
+ *   For gossip/RPC txs this is always `true` (already validated by PhasesTxValidator).
+ *   For req/resp txs this should be computed by the caller using the phases validator.
  */
-export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
+export async function buildTxMetaData(tx: Tx, allowedSetupCalls: boolean = true): Promise<TxMetaData> {
   const txHashObj = tx.getTxHash();
   const txHash = txHashObj.toString();
   const txHashBigInt = txHashObj.toBigInt();
@@ -112,6 +119,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     feeLimit,
     nullifiers,
     expirationTimestamp,
+    allowedSetupCalls,
     receivedAt: 0,
     estimatedSizeBytes,
     data: {
@@ -304,6 +312,7 @@ export function stubTxMetaData(
     nullifiers?: string[];
     expirationTimestamp?: bigint;
     anchorBlockHeaderHash?: string;
+    allowedSetupCalls?: boolean;
   } = {},
 ): TxMetaData {
   const txHashBigInt = Fr.fromHexString(txHash).toBigInt();
@@ -320,6 +329,7 @@ export function stubTxMetaData(
     feeLimit: overrides.feeLimit ?? 100n,
     nullifiers: overrides.nullifiers ?? [`0x${normalizedTxHash.slice(2)}null1`],
     expirationTimestamp,
+    allowedSetupCalls: overrides.allowedSetupCalls ?? true,
     receivedAt: 0,
     estimatedSizeBytes: 0,
     data: stubTxMetaValidationData({ expirationTimestamp }),
