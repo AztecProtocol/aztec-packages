@@ -1,4 +1,4 @@
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { ManaMinFeeComponents, RollupContract } from '@aztec/ethereum/contracts';
 import { InboxContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -10,6 +10,20 @@ import { EventEmitter } from 'events';
 
 import type { ViemClient } from '../types.js';
 
+/** L2 fee data reported by the chain monitor. */
+export type L2FeeData = ManaMinFeeComponents & {
+  /** Total minimum fee per mana in Fee Juice (sum of sequencerCost + proverCost + congestionCost). */
+  minFeePerMana: bigint;
+  /** L1 base fee observed by the oracle. */
+  l1BaseFee: bigint;
+  /** L1 blob fee observed by the oracle. */
+  l1BlobFee: bigint;
+  /** ETH per fee asset exchange rate (1e12 precision). */
+  ethPerFeeAsset: bigint;
+  /** Mana target per checkpoint. */
+  manaTarget: bigint;
+};
+
 export type ChainMonitorEventMap = {
   'l1-block': [{ l1BlockNumber: number; timestamp: bigint }];
   checkpoint: [
@@ -19,6 +33,7 @@ export type ChainMonitorEventMap = {
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
   'l2-epoch': [{ l2EpochNumber: EpochNumber; timestamp: bigint; committee: EthAddress[] | undefined }];
   'l2-slot': [{ l2SlotNumber: SlotNumber; timestamp: bigint }];
+  'l2-fees': [L2FeeData];
 };
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
@@ -45,6 +60,8 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   public l2EpochNumber!: EpochNumber;
   /** Current L2 slot number */
   public l2SlotNumber!: SlotNumber;
+  /** Current L2 fee data (components of the minimum fee per mana). */
+  public l2FeeData!: L2FeeData;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -77,7 +94,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     }
   }
 
-  private async getInbox() {
+  protected async getInbox() {
     if (!this.inbox) {
       const { inboxAddress } = await this.rollup.getRollupAddresses();
       this.inbox = new InboxContract(this.l1Client, inboxAddress);
@@ -158,12 +175,19 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       this.l2EpochNumber = l2Epoch;
       committee = await this.rollup.getCurrentEpochCommittee();
       this.emit('l2-epoch', { l2EpochNumber: l2Epoch, timestamp, committee });
-      msg += ` starting new epoch ${this.l2EpochNumber} `;
+      msg += ` starting new epoch ${this.l2EpochNumber}`;
     }
 
     if (l2SlotNumber !== this.l2SlotNumber) {
       this.l2SlotNumber = l2SlotNumber;
       this.emit('l2-slot', { l2SlotNumber, timestamp });
+    }
+
+    const feeData = await this.fetchFeeData(timestamp);
+    if (this.hasFeeDataChanged(feeData)) {
+      msg += ` with L2 min fee ${feeData.minFeePerMana}`;
+      this.l2FeeData = feeData;
+      this.emit('l2-fees', feeData);
     }
 
     this.logger.info(msg, {
@@ -176,6 +200,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       provenCheckpointNumber: this.provenCheckpointNumber,
       totalL2Messages: this.totalL2Messages,
       committee,
+      ...this.l2FeeData,
     });
 
     return this;
@@ -241,5 +266,37 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       };
       this.on('checkpoint', listener);
     });
+  }
+
+  private async fetchFeeData(timestamp: bigint): Promise<L2FeeData> {
+    const [components, minFeePerMana, l1Fees, ethPerFeeAsset, manaTarget] = await Promise.all([
+      this.rollup.getManaMinFeeComponentsAt(timestamp, true),
+      this.rollup.getManaMinFeeAt(timestamp, true),
+      this.rollup.getL1FeesAt(timestamp),
+      this.rollup.getEthPerFeeAsset(),
+      this.rollup.getManaTarget(),
+    ]);
+    return {
+      ...components,
+      minFeePerMana,
+      l1BaseFee: l1Fees.baseFee,
+      l1BlobFee: l1Fees.blobFee,
+      ethPerFeeAsset,
+      manaTarget,
+    };
+  }
+
+  private hasFeeDataChanged(newData: L2FeeData): boolean {
+    if (!this.l2FeeData) {
+      return true;
+    }
+    return (
+      this.l2FeeData.sequencerCost !== newData.sequencerCost ||
+      this.l2FeeData.proverCost !== newData.proverCost ||
+      this.l2FeeData.congestionCost !== newData.congestionCost ||
+      this.l2FeeData.l1BaseFee !== newData.l1BaseFee ||
+      this.l2FeeData.l1BlobFee !== newData.l1BlobFee ||
+      this.l2FeeData.ethPerFeeAsset !== newData.ethPerFeeAsset
+    );
   }
 }
