@@ -122,7 +122,7 @@ std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin:
     BB_ASSERT(batch_merge_proof.has_value(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
     const stdlib::Proof<MegaBuilder> stdlib_proof(builder, *batch_merge_proof);
 
-    BatchMergeRecursiveVerifier verifier{ CHONK_MAX_ACCUMULATION_STEPS, transcript };
+    BatchMergeRecursiveVerifier verifier{ transcript };
     auto result = verifier.reduce_to_pairing_check(stdlib_proof, hash);
 
     batch_merge_proof.reset(); // consume the proof

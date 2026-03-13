@@ -32,7 +32,7 @@ namespace bb {
  * @tparam BatchSize Number of individual wire polynomials interleaved into each column commitment
  * @tparam Curve     The curve type (native curve::BN254 or stdlib bn254<Builder>)
  */
-template <size_t BatchSize, typename Curve> class BatchMergeVerifier_ {
+template <size_t BatchSize, typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
   public:
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -60,12 +60,10 @@ template <size_t BatchSize, typename Curve> class BatchMergeVerifier_ {
         bool reduction_succeeded = false;
     };
 
-    size_t M;
     std::shared_ptr<Transcript> transcript;
 
-    explicit BatchMergeVerifier_(size_t M, std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
-        : M(M)
-        , transcript(std::move(transcript))
+    explicit BatchMergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
+        : transcript(std::move(transcript))
     {}
 
     /**
@@ -78,23 +76,41 @@ template <size_t BatchSize, typename Curve> class BatchMergeVerifier_ {
                                                                                                    const FF hash);
 
   private:
-    bool check_concatenation_identity(const std::vector<FF>& subtable_evals,
-                                      const FF& merged_eval,
-                                      const std::vector<size_t>& shift_sizes) const;
+    // Verify T(κ) = Σ_i C_i(κ) · κ^{offset_i} for every column.
+    bool check_concatenation_identity(const std::vector<std::vector<FF>>& c_evals,
+                                      const std::vector<FF>& t_evals,
+                                      const std::vector<FF>& shift_sizes,
+                                      const FF& kappa) const;
 
-    bool check_degree_identity(const std::vector<FF>& subtable_evals,
-                               const FF& degree_poly_eval,
+    // Verify G(κ⁻¹) = Σ_{i,col} α_{i,col} · C_i_col(κ) · κ^{1 − s_i·BS} (single combined check).
+    bool check_degree_identity(const std::vector<std::vector<FF>>& c_evals,
+                               const FF& reversed_cols_eval,
+                               const std::vector<FF>& shift_sizes,
+                               const std::vector<FF>& degree_check_challenges,
                                const FF& kappa,
-                               const std::vector<size_t>& shift_sizes,
-                               const std::vector<FF>& degree_check_challenges) const;
+                               const FF& kappa_inv) const;
+
+    // Verify that the column commitments in the proof match the running hash from accumulation.
+    bool check_hash_consistency(const std::vector<std::vector<Commitment>>& subtable_cols,
+                                const FF& hash,
+                                const std::vector<FF>& indicator_array,
+                                const Commitment& point_at_infinity) const
+        requires IsRecursive;
+
+    bool check_hash_consistency(const std::vector<std::vector<Commitment>>& subtable_cols,
+                                const FF& hash,
+                                const std::vector<FF>& indicator_array,
+                                const Commitment& point_at_infinity) const
+        requires(!IsRecursive);
 };
 
 // Type aliases for convenience
-template <size_t BatchSize> using BatchMergeVerifier = BatchMergeVerifier_<BatchSize, curve::BN254>;
+template <size_t BatchSize>
+using BatchMergeVerifier = BatchMergeVerifier_<BatchSize, curve::BN254, CHONK_MAX_ACCUMULATION_STEPS>;
 
 namespace stdlib::recursion::goblin {
 template <size_t BatchSize, typename Builder>
-using BatchMergeRecursiveVerifier = BatchMergeVerifier_<BatchSize, bn254<Builder>>;
+using BatchMergeRecursiveVerifier = BatchMergeVerifier_<BatchSize, bn254<Builder>, CHONK_MAX_ACCUMULATION_STEPS>;
 } // namespace stdlib::recursion::goblin
 
 } // namespace bb

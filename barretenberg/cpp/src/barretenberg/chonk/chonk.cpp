@@ -622,6 +622,7 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                         const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
+    info("Num gates: ", circuit.get_num_finalized_gates());
 
     // Hiding kernel is proven by a MultiMegaProver with ZK flavor
     MultiMegaProver_<MultiMegaZKFlavor> prover(hiding_prover_inst, verification_key, transcript);

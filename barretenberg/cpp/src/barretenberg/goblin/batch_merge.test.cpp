@@ -87,7 +87,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
 
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using BatchMergeVerifierType = BatchMergeVerifier_<BATCH_SIZE, Curve>;
+    using BatchMergeVerifierType = BatchMergeVerifier_<BATCH_SIZE, Curve, MAX_SUBTABLES>;
     using Transcript = typename BatchMergeVerifierType::Transcript;
     using Proof = typename BatchMergeVerifierType::Proof;
     using TableCommitments = typename BatchMergeVerifierType::TableCommitments;
@@ -261,22 +261,20 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
         TableCommitments merged_commitments;
     };
 
-    static Result prove_and_verify(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                   size_t M = MAX_SUBTABLES,
-                                   TamperMode tamper = TamperMode::None)
+    static Result prove_and_verify(const std::shared_ptr<ECCOpQueue>& op_queue, TamperMode tamper = TamperMode::None)
     {
         // 1. Prove — always native; the batch merge prover has no recursive counterpart.
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        BatchMergeProver<BATCH_SIZE> prover{ op_queue, prover_transcript, M };
+        BatchMergeProver<BATCH_SIZE> prover{ op_queue, prover_transcript, MAX_SUBTABLES };
         auto native_proof = prover.construct_proof();
 
         // 2. Compute the native running hash from the N actual column commitments.
         const size_t N = op_queue->get_num_subtables();
-        bb::fr native_hash = compute_running_hash(native_proof, N, M);
+        bb::fr native_hash = compute_running_hash(native_proof, N, MAX_SUBTABLES);
 
         // 3. Apply any proof tampering (not Hash mode — that corrupts the hash instead).
         if (tamper != TamperMode::None && tamper != TamperMode::Hash) {
-            tamper_proof(native_proof, tamper, M);
+            tamper_proof(native_proof, tamper, MAX_SUBTABLES);
         }
 
         // 4. Corrupt the hash if requested.
@@ -293,7 +291,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
 
         // 7. Verify.
         auto verifier_transcript = std::make_shared<Transcript>();
-        BatchMergeVerifierType verifier{ M, verifier_transcript };
+        BatchMergeVerifierType verifier{ verifier_transcript };
         auto result = verifier.reduce_to_pairing_check(proof, hash_ff);
 
         // 8. In recursive context, check that the constructed circuit is satisfied.
@@ -324,7 +322,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static void test_multiple_subtables_padded()
     {
         auto op_queue = make_op_queue_with_n_subtables(3);
-        auto res = prove_and_verify(op_queue, /*M=*/4);
+        auto res = prove_and_verify(op_queue);
         EXPECT_TRUE(res.pairing_ok);
         EXPECT_TRUE(res.reduction_ok);
         EXPECT_TRUE(res.circuit_ok);
@@ -336,7 +334,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static void test_subtables_fills_max()
     {
         auto op_queue = make_op_queue_with_n_subtables(MAX_SUBTABLES);
-        auto res = prove_and_verify(op_queue, /*M=*/MAX_SUBTABLES);
+        auto res = prove_and_verify(op_queue);
         EXPECT_TRUE(res.pairing_ok);
         EXPECT_TRUE(res.reduction_ok);
         EXPECT_TRUE(res.circuit_ok);
@@ -364,7 +362,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
                 prover_cmt.pcs_commitment_key.template commit_interleaved<BATCH_SIZE>(merged_batch[col]);
         }
 
-        auto res = prove_and_verify(op_queue, MAX_SUBTABLES);
+        auto res = prove_and_verify(op_queue);
         EXPECT_TRUE(res.pairing_ok);
         EXPECT_TRUE(res.reduction_ok);
         EXPECT_TRUE(res.circuit_ok);
@@ -381,7 +379,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static void test_failure_tampered_column_commitment()
     {
         auto op_queue = make_op_queue_with_n_subtables(2);
-        auto res = prove_and_verify(op_queue, MAX_SUBTABLES, TamperMode::ColumnCommitment);
+        auto res = prove_and_verify(op_queue, TamperMode::ColumnCommitment);
         EXPECT_FALSE(res.pairing_ok && res.reduction_ok);
     }
 
@@ -391,7 +389,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static void test_failure_tampered_merged_table_commitment()
     {
         auto op_queue = make_op_queue_with_n_subtables(2);
-        auto res = prove_and_verify(op_queue, MAX_SUBTABLES, TamperMode::MergedTableCommitment);
+        auto res = prove_and_verify(op_queue, TamperMode::MergedTableCommitment);
         EXPECT_FALSE(res.pairing_ok && res.reduction_ok);
     }
 
@@ -401,7 +399,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static void test_failure_tampered_evaluation()
     {
         auto op_queue = make_op_queue_with_n_subtables(2);
-        auto res = prove_and_verify(op_queue, MAX_SUBTABLES, TamperMode::ReversedColsEval);
+        auto res = prove_and_verify(op_queue, TamperMode::ReversedColsEval);
         EXPECT_FALSE(res.pairing_ok && res.reduction_ok);
     }
 
@@ -413,7 +411,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static void test_failure_wrong_hash()
     {
         auto op_queue = make_op_queue_with_n_subtables(2);
-        auto res = prove_and_verify(op_queue, MAX_SUBTABLES, TamperMode::Hash);
+        auto res = prove_and_verify(op_queue, TamperMode::Hash);
         EXPECT_FALSE(res.reduction_ok);
         if constexpr (IsRecursive) {
             EXPECT_FALSE(res.circuit_ok);
@@ -438,6 +436,8 @@ template <typename TestParams> class BatchMergeManifestTests : public testing::T
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     static constexpr size_t NUM_COLUMNS = NUM_WIRES / BATCH_SIZE;
     static constexpr size_t MAX_SUBTABLES = 4;
+
+    using BatchMergeVerifierType = BatchMergeVerifier_<BATCH_SIZE, bb::curve::BN254, MAX_SUBTABLES>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -480,7 +480,7 @@ template <typename TestParams> class BatchMergeManifestTests : public testing::T
         // Verifier with manifest enabled
         auto verifier_transcript = std::make_shared<NativeTranscript>();
         verifier_transcript->enable_manifest();
-        BatchMergeVerifier<BATCH_SIZE> verifier{ MAX_SUBTABLES, verifier_transcript };
+        BatchMergeVerifierType verifier{ verifier_transcript };
         auto result = verifier.reduce_to_pairing_check(proof, hash_val);
 
         // Verification must succeed before checking manifests
