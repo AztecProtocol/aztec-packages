@@ -564,7 +564,9 @@ export class BatchTxRequester {
       return;
     }
 
-    if (this.handleArchiveRootFromResponse(peerId, response)) {
+    const hasArchiveRootMismatch = this.blockTxsSource.archive.toString() !== response.archiveRoot.toString();
+    if (hasArchiveRootMismatch) {
+      this.handleArchiveRootMismatch(peerId, response);
       return;
     }
 
@@ -583,26 +585,18 @@ export class BatchTxRequester {
   }
 
   /**
-   * Validates the archive root in the response and handles any mismatch.
-   * Returns true if the caller should stop processing (i.e., there was a mismatch).
+   * Handles an archive root mismatch between local state and peer response.
    *
-   * - Archives match: returns false (continue processing).
-   * - Response archive is Fr.ZERO (peer pruned proposal, legitimate): marks peer dumb, returns true.
-   * - Non-zero archive mismatch (malicious response): penalises + marks dumb, returns true.
+   * - Response archive is Fr.ZERO (peer pruned proposal, legitimate): marks peer dumb.
+   * - Non-zero archive mismatch (malicious response): penalises + marks dumb.
    */
-  private handleArchiveRootFromResponse(peerId: PeerId, response: BlockTxsResponse): boolean {
-    const archiveRootsMatch = this.blockTxsSource.archive.toString() === response.archiveRoot.toString();
-    if (archiveRootsMatch) {
-      return false;
-    }
-
+  private handleArchiveRootMismatch(peerId: PeerId, response: BlockTxsResponse): void {
     if (!response.archiveRoot.isZero()) {
       this.peers.penalisePeer(peerId, PeerErrorSeverity.LowToleranceError);
     }
 
     this.peers.markPeerDumb(peerId);
     this.txsMetadata.clearPeerData(peerId);
-    return true;
   }
 
   private peerHasSomeTxsWeAreMissing(_peerId: PeerId, response: BlockTxsResponse): boolean {
