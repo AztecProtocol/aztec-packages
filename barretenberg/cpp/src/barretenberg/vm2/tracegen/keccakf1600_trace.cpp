@@ -3,16 +3,12 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
 #include "barretenberg/vm2/generated/relations/perms_keccakf1600.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
@@ -379,7 +375,12 @@ constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> MEM_VAL_COLS = {
     },
 };
 
-// Get inverse for a given index using static precomputed inverses.
+/**
+ * @brief Return the field inverse of @p index from a static cache of precomputed inverses.
+ *
+ * Indices 0..AVM_KECCAKF1600_STATE_SIZE are supported. The inverse of 0 is 0
+ * (batch_invert convention).
+ */
 const FF& get_precomputed_inverse(size_t index)
 {
     static const std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> precomputed_inverses = []() {
@@ -396,7 +397,18 @@ const FF& get_precomputed_inverse(size_t index)
 
 } // namespace
 
-// Populate a memory slice read or write operation for the Keccak permutation.
+/**
+ * @brief Populate a single memory-slice (read or write) for one event.
+ *
+ * Generates one row per state word. On a read with a tag error, stops at the first
+ * offending word. Uses the "triangle" pattern: row i sets val[0]..val[N-1-i] with
+ * slice values shifted by i.
+ *
+ * @param event The keccakf1600 event containing memory values and error info.
+ * @param write Whether this is a write slice (true) or read slice (false).
+ * @param row   Current row index (updated in-place).
+ * @param trace Trace to populate.
+ */
 void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600Event& event,
                                                    bool write,
                                                    uint32_t& row,
@@ -477,6 +489,15 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
     }
 }
 
+/**
+ * @brief Populate the keccakf1600 sub-trace from permutation events.
+ *
+ * For each event, generates 24 rows (one per round) on the happy path, or a single row
+ * when an error (out-of-range or tag error) occurred.
+ *
+ * @param events Container of KeccakF1600Event produced by simulation.
+ * @param trace  Trace to populate.
+ */
 void KeccakF1600TraceBuilder::process_permutation(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
@@ -642,6 +663,16 @@ void KeccakF1600TraceBuilder::process_permutation(
     }
 }
 
+/**
+ * @brief Populate the keccak_memory sub-trace for read/write memory slices.
+ *
+ * Skips events with out-of-range errors entirely. For tag-error events only the read slice
+ * is populated (up to the offending index). For success events both read and write slices
+ * are populated (25 rows each).
+ *
+ * @param events Container of KeccakF1600Event produced by simulation.
+ * @param trace  Trace to populate.
+ */
 void KeccakF1600TraceBuilder::process_memory_slices(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
