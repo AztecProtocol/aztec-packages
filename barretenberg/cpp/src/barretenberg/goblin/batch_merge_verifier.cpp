@@ -69,10 +69,10 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
     // -------------------------------------------------------------------------
     // Receive commitments to columns to be merged
     // -------------------------------------------------------------------------
-    std::vector<Commitment> subtable_cols(M * NUM_COLUMNS);
+    std::vector<std::vector<Commitment>> subtable_cols(M, std::vector<Commitment>(NUM_COLUMNS));
     for (size_t idx = 0; idx < M; ++idx) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            subtable_cols[idx * NUM_COLUMNS + col] = transcript->template receive_from_prover<Commitment>(
+            subtable_cols[idx][col] = transcript->template receive_from_prover<Commitment>(
                 "COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)));
         }
     }
@@ -207,9 +207,11 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
 
     std::vector<FF> hash_inputs;
     FF calculated_hash;
-    for (size_t idx = 0; idx < subtable_cols.size(); idx++) {
-        auto col_serialized = Transcript::Codec::serialize_to_fields(subtable_cols[subtable_cols.size() - idx - 1]);
-        hash_inputs.insert(hash_inputs.begin(), col_serialized.begin(), col_serialized.end());
+    for (size_t idx = 0; idx < M; idx++) {
+        for (size_t col = 0; col < NUM_COLUMNS; col++) {
+            auto com_serialized = Transcript::Codec::serialize_to_fields(subtable_cols[M - idx - 1][col]);
+            hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
+        }
         if constexpr (IsRecursive) {
             // The Poseidon2 permutation creates fresh witness_t elements (FREE_WITNESS) for
             // each round's new state.  When inputs exceed rate=3, an intermediate duplex fires
@@ -237,12 +239,12 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
     auto infinity_serialized = Transcript::Codec::serialize_to_fields(point_at_infinity);
 
     index = FF(0);
-    // Each padding subtable contributes NUM_COLUMNS column commitments to the hash, so the total
-    // number of extension steps needed to "catch up" with (M-N) padding subtables is (M-N)*NUM_COLUMNS.
-    FF index_diff = (FF(M) - N) * FF(NUM_COLUMNS);
-    for (size_t idx = 0; idx < (M - 1) * NUM_COLUMNS; idx++) {
-        hash_inputs_extend.insert(hash_inputs_extend.end(), infinity_serialized.begin(), infinity_serialized.end());
+    FF index_diff = (FF(M) - N);
+    for (size_t idx = 0; idx < (M - 1); idx++) {
         hash_inputs_extend.push_back(extended_hash.back());
+        for (size_t col = 0; col < NUM_COLUMNS; col++) {
+            hash_inputs_extend.insert(hash_inputs_extend.end(), infinity_serialized.begin(), infinity_serialized.end());
+        }
         if constexpr (IsRecursive) {
             extended_hash.push_back(stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs_extend));
             // Same reason as calculated_hash above: demote FREE_WITNESS output to CONSTANT so
@@ -304,7 +306,7 @@ typename BatchMergeVerifier_<BatchSize, Curve>::ReductionResult BatchMergeVerifi
     // [C_i_col] for each (i, col)
     for (size_t i = 0; i < M; ++i) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            batch_claim.commitments.emplace_back(subtable_cols[i * NUM_COLUMNS + col]);
+            batch_claim.commitments.emplace_back(subtable_cols[i][col]);
             const FF beta = betas[i * NUM_COLUMNS + col];
             batch_claim.scalars.emplace_back(beta);
             constant_term -= beta * c_evals[i][col];

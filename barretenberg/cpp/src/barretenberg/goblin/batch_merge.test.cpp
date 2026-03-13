@@ -225,29 +225,24 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     {
         static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
 
-        // The verifier's calculated_hash loop processes subtable_cols[M*NC-1] down to [0], using
-        // hash_inputs.insert(begin, col_serialized) followed by hash_inputs = {calculated_hash}.
-        // This means:
-        //   - iteration 0: hash_inputs = [col_fields]                 (no previous hash)
-        //   - iteration k: hash_inputs = [col_fields, prev_hash]
+        // The verifier's calculated_hash loop processes one subtable at a time (idx=0..M-1),
+        // accumulating all NUM_COLUMNS column fields per subtable into hash_inputs before hashing:
+        //   - iteration 0: hash_inputs = [all NC cols of subtable M-1]
+        //   - iteration k: hash_inputs = [prev_hash, all NC cols of subtable M-1-k]
         //
-        // Real subtables occupy slots M-N..M-1, so their columns are at proof positions
-        // (M*NC-1) down to (M-N)*NC in the column area (0-indexed from start of column area).
-        // The first N*NC iterations of the verifier process exactly these real entries.
-        //
-        // We replicate those N*NC iterations here to produce the intermediate hash that the
-        // extension loop expects as its starting point (the external `hash` argument).
+        // Real subtables occupy slots M-N..M-1.  We replicate the first N iterations to
+        // produce the intermediate hash that the extension loop expects as the `hash` argument.
         std::vector<bb::fr> hash_inputs;
         bb::fr hash_val(0);
-        for (size_t i = 0; i < N * NUM_COLUMNS; i++) {
-            // Proof column area starts at 1+M. Verifier processes flat index M*NC-1-i first.
-            const size_t base = 1 + M + (M * NUM_COLUMNS - 1 - i) * NUM_FRS_COMM;
-            std::vector<bb::fr> col_serialized;
-            for (size_t j = 0; j < NUM_FRS_COMM; j++) {
-                col_serialized.push_back(proof[base + j]);
+        for (size_t k = 0; k < N; k++) {
+            // Append all NUM_COLUMNS columns of subtable[M-1-k] to hash_inputs.
+            for (size_t col = 0; col < NUM_COLUMNS; col++) {
+                const size_t col_global_idx = (M - 1 - k) * NUM_COLUMNS + col;
+                const size_t base = 1 + M + col_global_idx * NUM_FRS_COMM;
+                for (size_t j = 0; j < NUM_FRS_COMM; j++) {
+                    hash_inputs.push_back(proof[base + j]);
+                }
             }
-            // Prepend col fields before the running hash, matching verifier's insert(begin, ...).
-            hash_inputs.insert(hash_inputs.begin(), col_serialized.begin(), col_serialized.end());
             hash_val = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
             hash_inputs = { hash_val };
         }
@@ -466,17 +461,18 @@ template <typename TestParams> class BatchMergeManifestTests : public testing::T
         static constexpr size_t NUM_FRS_COMM =
             NativeTranscript::Codec::template calc_num_fields<curve::BN254::AffineElement>();
         const size_t N = op_queue->get_num_subtables();
-        // Replicate the verifier's calculated_hash loop for the N*NC real subtable entries
+        // Replicate the verifier's calculated_hash loop for the N real subtable entries
         // (same logic as BatchMergeTests::compute_running_hash).
         std::vector<bb::fr> hash_inputs;
         bb::fr hash_val(0);
-        for (size_t i = 0; i < N * NUM_COLUMNS; i++) {
-            const size_t base = 1 + MAX_SUBTABLES + (MAX_SUBTABLES * NUM_COLUMNS - 1 - i) * NUM_FRS_COMM;
-            std::vector<bb::fr> col_serialized;
-            for (size_t j = 0; j < NUM_FRS_COMM; j++) {
-                col_serialized.push_back(proof[base + j]);
+        for (size_t k = 0; k < N; k++) {
+            for (size_t col = 0; col < NUM_COLUMNS; col++) {
+                const size_t col_global_idx = (MAX_SUBTABLES - 1 - k) * NUM_COLUMNS + col;
+                const size_t base = 1 + MAX_SUBTABLES + col_global_idx * NUM_FRS_COMM;
+                for (size_t j = 0; j < NUM_FRS_COMM; j++) {
+                    hash_inputs.push_back(proof[base + j]);
+                }
             }
-            hash_inputs.insert(hash_inputs.begin(), col_serialized.begin(), col_serialized.end());
             hash_val = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
             hash_inputs = { hash_val };
         }

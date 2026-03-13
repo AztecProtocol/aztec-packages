@@ -277,25 +277,22 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // each with 2 limbs (lo=136-bit, hi=remainder), giving 4 StdlibFF elements per commitment.
         auto ecc_op_col_commitments = interleaved_commitments.get_ecc_op_wires().get_copy();
 
-        // Build the Poseidon2 input: running_hash || x_lo || x_hi || y_lo || y_hi (for each column)
+        // Build the Poseidon2 input: columns || running_hash
         std::vector<StdlibFF> hash_inputs;
         if (verifier_inputs.type != QUEUE_TYPE::OINK) {
             hash_inputs.push_back(updated_hash);
             hash_inputs.back().set_origin_tag(OriginTag::constant());
         }
-        for (size_t idx = 0; idx < ecc_op_col_commitments.size(); idx++) {
-            auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(
-                ecc_op_col_commitments[ecc_op_col_commitments.size() - idx - 1]);
+        for (const auto& com : ecc_op_col_commitments) {
+            auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(com);
             for (auto& el : com_serialized) {
                 el.set_origin_tag(OriginTag::constant());
             }
-            hash_inputs.insert(hash_inputs.begin(), com_serialized.begin(), com_serialized.end());
-
-            updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
-            updated_hash.unset_free_witness_tag();
-            updated_hash.set_origin_tag(OriginTag::constant());
-            hash_inputs = { updated_hash };
+            hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
         }
+        updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
+        updated_hash.unset_free_witness_tag();
+        updated_hash.set_origin_tag(OriginTag::constant());
     }
 
     return { output_verifier_accumulator, pairing_points, updated_hash, hiding_merged_tables };
