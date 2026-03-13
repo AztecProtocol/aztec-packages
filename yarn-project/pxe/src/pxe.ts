@@ -427,14 +427,7 @@ export class PXE {
         scopes,
         jobId,
       );
-      return {
-        result,
-        // Utility functions can only emit effects from a single contract (unlike private execution, which can make
-        // nested calls to other contracts). The oracle doesn't track the emitting contract, so we stamp each effect
-        // with the call target here. Downstream, aztec.js uses the contractAddress when parsing effects into offchain
-        // messages for delivery.
-        offchainEffects: offchainEffects.map(e => ({ ...e, contractAddress: call.to })),
-      };
+      return { result, offchainEffects };
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractStore, this.log);
