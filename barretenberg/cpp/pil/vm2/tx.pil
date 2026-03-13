@@ -449,26 +449,28 @@ namespace tx;
    /***************************************************************************
     * Private Side Effect Insertions
     **************************************************************************/
-    pol commit sel_revertible_append_note_hash; // @boolean
-    pol commit sel_non_revertible_append_note_hash; // @boolean
-    pol commit sel_revertible_append_nullifier; // @boolean
-    pol commit sel_non_revertible_append_nullifier; // @boolean
-    pol commit sel_revertible_append_l2_l1_msg; // @boolean
-    pol commit sel_non_revertible_append_l2_l1_msg; // @boolean
+    pol commit sel_revertible_append_note_hash; // @boolean (on active rows)
+    pol commit sel_non_revertible_append_note_hash; // @boolean (on active rows)
+    pol commit sel_revertible_append_nullifier; // @boolean (on active rows)
+    pol commit sel_non_revertible_append_nullifier; // @boolean (on active rows)
+    pol commit sel_revertible_append_l2_l1_msg; // @boolean (on active rows)
+    pol commit sel_non_revertible_append_l2_l1_msg; // @boolean (on active rows)
     // The 6 above selectors are booleans thanks to #[READ_PHASE_SPEC] on active rows.
     // Furthermore, phase spec guarantees that they are mutually exclusive.
 
-    // A tree selector means we need to get the tree value
-    pol commit is_tree_insert_phase; // @boolean on active rows (follows from mutual exclusivity of the 6 above selectors)
+    // Boolean on active rows by mutual exclusivity of the 6 above selectors.
+    // Forced to zero on inactive rows by #[IS_TREE_INSERT_PHASE_ON_SEL].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit is_tree_insert_phase; // @boolean
     is_tree_insert_phase = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
     pol commit leaf_value;
     // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers, and L2 to L1 messages
     pol commit remaining_side_effects_inv;
 
+    #[IS_TREE_INSERT_PHASE_ON_SEL]
+    (1 - sel) * is_tree_insert_phase = 0;
+
     // Read the tree value from public inputs
-    // Note: A malicious prover could activate `is_tree_insert_phase` outside of the active
-    //       trace, but it does not affect security because "reading the public inputs" does
-    //       not create any side effects.
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.idx, public_inputs.cols[0] };

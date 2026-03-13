@@ -238,9 +238,14 @@ namespace to_radix_mem;
     // In the to_radix gadget, `found == 1` means the number has been reconstructed with the current limbs.
     // Refer to the trace table in to_radix.pil for a visual example.
     pol commit value_found; // @boolean (by lookup into to_radix when sel_should_decompose == 1)
-    pol commit sel_should_decompose; // @boolean (on active rows)
-    // At start == 1, sel_should_decompose is boolean by definition. On other active rows,
-    // it is propagated from the start row (see #[SEL_SHOULD_DECOMPOSE_CONTINUITY]).
+    // Boolean by definition (product of booleans) on start rows.
+    // Propagated on active rows by #[SEL_SHOULD_DECOMPOSE_CONTINUITY].
+    // Forced to zero on inactive rows by #[SHOULD_DECOMPOSE_ON_SEL].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit sel_should_decompose; // @boolean
+
+    #[SHOULD_DECOMPOSE_ON_SEL]
+    (1 - sel) * sel_should_decompose = 0;
 
     // On the start row: sel_should_decompose = !input_validation_error && !num_limbs_is_zero.
     // We can't inline input_validation_error because of the degree.

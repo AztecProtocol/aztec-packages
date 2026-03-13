@@ -138,9 +138,16 @@ sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.idx };
 //                Handling tag_out_of_range error
 // ****************************************************************************
 
-// Retrieved from precomputed.pil (instruction specification)
-pol commit sel_has_tag; // @boolean (by lookup only when sel_pc_in_range == 1) - With current instruction specs, tag can appear at op2 (SET_XXX) or op3 (CAST_8, CAST_16)
+// Retrieved from precomputed.pil (instruction specification).
+// Boolean by lookup when sel_pc_in_range == 1.
+// Forced to zero otherwise by #[SEL_HAS_TAG_ZERO].
+// Therefore, unconditionally boolean — required as a lookup source selector.
+// With current instruction specs, tag can appear at op2 (SET_XXX) or op3 (CAST_8, CAST_16).
+pol commit sel_has_tag; // @boolean
 pol commit sel_tag_is_op2; // @boolean (by lookup only when sel_pc_in_range == 1) - (sel_tag_is_op2 == 0 && sel_has_tag == 1) ==> op3 is a tag
+
+#[SEL_HAS_TAG_ZERO]
+sel_has_tag * (1 - sel_pc_in_range) = 0;
 
 // Value to validate as tag. According to our instruction specifications, there is a maximum of one tag per instruction
 // and it appears only at op2 or op3.
