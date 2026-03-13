@@ -185,13 +185,6 @@ export function extractOffchainOutput(effects: OffchainEffect[], anchorBlockTime
 }
 
 /**
- * Returns an empty `OffchainOutput` (no effects, no messages).
- */
-export function emptyOffchainOutput(): OffchainOutput {
-  return { offchainEffects: [], offchainMessages: [] };
-}
-
-/**
  * Represents the result of a simulation.
  * Always includes the return value and offchain output.
  * When `includeMetadata` or `fee.estimateGas` is set, also includes stats and gas estimation.

@@ -878,6 +878,7 @@ export class RPCTranslator {
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
+  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash TXE.
   // eslint-disable-next-line camelcase
   async aztec_utl_aes128Decrypt(
     foreignCiphertextBVecStorage: ForeignCallArray,
