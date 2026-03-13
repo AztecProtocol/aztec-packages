@@ -154,9 +154,8 @@ Options:
 Usage: wallet create-account [options]
 
 Creates an aztec account that can be used for sending transactions. Registers
-the account on the PXE and deploys an account contract. Uses a Schnorr
-single-key account which uses the same key for encryption and authentication
-(not secure for production usage).
+the account on the PXE and deploys an account contract. Uses a Schnorr account
+which uses an immutable key for authentication.
 
 Options:
   -f, --from <string>                                       Alias or address of the account performing the deployment
