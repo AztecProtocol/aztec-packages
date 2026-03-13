@@ -1,6 +1,9 @@
-#ifndef __wasm__
 #include "bbapi_batch_verifier.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+
+#ifndef __wasm__
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 
@@ -41,6 +44,10 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRe
         throw_or_abort("ChonkBatchVerifierQueue: service not running. Call ChonkBatchVerifierStart first.");
     }
 
+    // Convert raw field element bytes to structured ChonkProof
+    auto fields = many_from_buffer<fr>(proof_fields);
+    auto proof = ChonkProof::from_field_elements(fields);
+
     service_.enqueue(VerifyRequest{
         .request_id = request_id,
         .vk_index = vk_index,
@@ -61,4 +68,26 @@ ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(const BBApiRequ
 }
 
 } // namespace bb::bbapi
-#endif
+
+#else // __wasm__
+
+namespace bb::bbapi {
+
+ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(const BBApiRequest& /*request*/) &&
+{
+    throw_or_abort("ChonkBatchVerifierStart is not supported in WASM builds");
+}
+
+ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRequest& /*request*/) &&
+{
+    throw_or_abort("ChonkBatchVerifierQueue is not supported in WASM builds");
+}
+
+ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(const BBApiRequest& /*request*/) &&
+{
+    throw_or_abort("ChonkBatchVerifierStop is not supported in WASM builds");
+}
+
+} // namespace bb::bbapi
+
+#endif // __wasm__

@@ -114,7 +114,7 @@ BENCHMARK_DEFINE_F(ChonkBench, VerifyIndividual)(benchmark::State& state)
 }
 
 /**
- * @brief Benchmark batch verification of N Chonk proofs (single SRS MSM).
+ * @brief Benchmark batch verification of N Chonk proofs via the async batch verifier service.
  */
 BENCHMARK_DEFINE_F(ChonkBench, BatchVerify)(benchmark::State& state)
 {
@@ -123,13 +123,33 @@ BENCHMARK_DEFINE_F(ChonkBench, BatchVerify)(benchmark::State& state)
 
     // Generate a single proof and reuse it N times
     auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(1, precomputed_vks);
-    std::vector<ChonkBatchVerifier::Input> inputs(num_proofs);
-    for (size_t i = 0; i < num_proofs; i++) {
-        inputs[i] = { proof, vk_and_hash };
-    }
 
     for (auto _ : state) {
-        benchmark::DoNotOptimize(ChonkBatchVerifier::verify(inputs));
+        std::mutex mtx;
+        std::condition_variable cv;
+        std::vector<VerifyResult> results;
+
+        ChonkBatchVerifier verifier;
+        verifier.start({ vk_and_hash },
+                       /*num_cores=*/4,
+                       /*batch_size=*/static_cast<uint32_t>(num_proofs),
+                       [&](VerifyResult r) {
+                           std::lock_guard lock(mtx);
+                           results.push_back(std::move(r));
+                           cv.notify_one();
+                       });
+
+        for (size_t i = 0; i < num_proofs; i++) {
+            verifier.enqueue(VerifyRequest{ .request_id = i, .vk_index = 0, .proof = proof });
+        }
+
+        {
+            std::unique_lock lock(mtx);
+            cv.wait(lock, [&] { return results.size() >= num_proofs; });
+        }
+        verifier.stop();
+
+        benchmark::DoNotOptimize(results);
     }
 }
 

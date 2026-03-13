@@ -61,17 +61,23 @@ void ChonkBatchVerifier::coordinator_loop()
         std::vector<VerifyRequest> batch;
         {
             std::unique_lock lock(mutex_);
-            cv_.wait(lock, [this] { return shutdown_ || queue_.size() >= batch_size_; });
 
-            if (queue_.size() >= batch_size_) {
-                // Take exactly batch_size_ items
-                auto end = queue_.begin() + static_cast<ptrdiff_t>(batch_size_);
+            // Wait until we have a full batch, shutdown, or a partial-batch timeout.
+            // Once the first proof arrives, wait up to 100ms for more proofs to fill the batch.
+            cv_.wait(lock, [this] { return shutdown_ || !queue_.empty(); });
+
+            if (!shutdown_ && queue_.size() < batch_size_) {
+                // We have some proofs but not a full batch — wait briefly for more
+                cv_.wait_for(
+                    lock, std::chrono::milliseconds(100), [this] { return shutdown_ || queue_.size() >= batch_size_; });
+            }
+
+            // Take up to batch_size_ items (may be a partial batch)
+            size_t take = std::min(queue_.size(), static_cast<size_t>(batch_size_));
+            if (take > 0) {
+                auto end = queue_.begin() + static_cast<ptrdiff_t>(take);
                 batch.assign(std::make_move_iterator(queue_.begin()), std::make_move_iterator(end));
                 queue_.erase(queue_.begin(), end);
-            } else if (shutdown_ && !queue_.empty()) {
-                // Flush remaining on shutdown
-                batch.assign(std::make_move_iterator(queue_.begin()), std::make_move_iterator(queue_.end()));
-                queue_.clear();
             }
 
             if (batch.empty()) {

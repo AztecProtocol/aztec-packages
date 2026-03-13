@@ -1,5 +1,4 @@
 #pragma once
-#ifndef __wasm__
 /**
  * @file bbapi_batch_verifier.hpp
  * @brief BBAPI RPC commands for the batch verifier service.
@@ -10,12 +9,18 @@
  *   - ChonkBatchVerifierStop: stop the service and flush remaining results
  *
  * Results are streamed asynchronously via a named pipe (FIFO) specified at start time.
+ *
+ * Note: These commands are registered in the Command variant for both native and WASM builds
+ * (for schema generation), but execute() is only implemented for native builds.
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+
+#ifndef __wasm__
 #include "barretenberg/chonk/batch_verifier_types.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include "chonk_batch_verifier_service.hpp"
+#endif
 
 #include <string>
 #include <vector>
@@ -60,10 +65,10 @@ struct ChonkBatchVerifierQueue {
 
     uint64_t request_id = 0;
     uint32_t vk_index = 0;
-    ChonkProof proof;
+    std::vector<uint8_t> proof_fields; // Flat proof as concatenated 32-byte field elements
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(request_id, vk_index, proof);
+    SERIALIZATION_FIELDS(request_id, vk_index, proof_fields);
     bool operator==(const ChonkBatchVerifierQueue&) const = default;
 };
 
@@ -86,4 +91,3 @@ struct ChonkBatchVerifierStop {
 };
 
 } // namespace bb::bbapi
-#endif // __wasm__
