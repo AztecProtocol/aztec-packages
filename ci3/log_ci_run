@@ -70,8 +70,6 @@ if [ "$status" = "RUNNING" ]; then
 
   # To keep only the last 1000 entries (by score).
   redis_cli ZREMRANGEBYRANK $range_key 0 -1001 &>/dev/null
-
-  echo $key
 else
   # Retrieve the current entry.
   old_json=$(redis_cli ZRANGEBYSCORE $range_key $key $key)
