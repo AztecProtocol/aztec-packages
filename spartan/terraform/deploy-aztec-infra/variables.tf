@@ -409,6 +409,13 @@ variable "SEQ_BLOCK_DURATION_MS" {
   default     = null
 }
 
+variable "SEQ_LAST_BLOCK_DURATION_MS" {
+  description = "Duration of the last block in ms when building multiple blocks per slot"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" {
   description = "Time allocated for publishing to L1, in seconds"
   type        = string

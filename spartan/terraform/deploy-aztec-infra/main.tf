@@ -222,6 +222,7 @@ locals {
     "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"                = var.SEQ_MAX_TX_PER_CHECKPOINT
     "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"      = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
+    "validator.node.env.SEQ_LAST_BLOCK_DURATION_MS"              = var.SEQ_LAST_BLOCK_DURATION_MS
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
     "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"           = var.SEQ_ENABLE_PROPOSER_PIPELINING
