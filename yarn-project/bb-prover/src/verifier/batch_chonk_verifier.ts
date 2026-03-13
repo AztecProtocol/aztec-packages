@@ -1,5 +1,5 @@
 import { type ChonkProof as BBChonkProof, BackendType, Barretenberg } from '@aztec/bb.js';
-import { ECCVM_PROOF_LENGTH, IPA_PROOF_LENGTH, MERGE_PROOF_LENGTH, TRANSLATOR_PROOF_LENGTH } from '@aztec/constants';
+import { ECCVM_PROOF_LENGTH, IPA_PROOF_LENGTH, JOINT_PROOF_LENGTH, MERGE_PROOF_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -110,13 +110,14 @@ interface PendingRequest {
 function fieldsToChonkProof(fields: Fr[]): BBChonkProof {
   const toBuffers = (frs: Fr[]) => frs.map(f => f.toBuffer());
 
-  // mega_proof is everything before the goblin sub-proofs
-  const goblinLen = MERGE_PROOF_LENGTH + ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + TRANSLATOR_PROOF_LENGTH;
-  const megaLen = fields.length - goblinLen;
+  // Layout: [hidingOinkProof][mergeProof][eccvmProof][ipaProof][jointProof]
+  // hidingOinkProof includes public inputs, so its length is variable.
+  const fixedTailLen = MERGE_PROOF_LENGTH + ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+  const hidingOinkLen = fields.length - fixedTailLen;
   let offset = 0;
 
-  const megaProof = toBuffers(fields.slice(offset, offset + megaLen));
-  offset += megaLen;
+  const hidingOinkProof = toBuffers(fields.slice(offset, offset + hidingOinkLen));
+  offset += hidingOinkLen;
 
   const mergeProof = toBuffers(fields.slice(offset, offset + MERGE_PROOF_LENGTH));
   offset += MERGE_PROOF_LENGTH;
@@ -127,12 +128,9 @@ function fieldsToChonkProof(fields: Fr[]): BBChonkProof {
   const ipaProof = toBuffers(fields.slice(offset, offset + IPA_PROOF_LENGTH));
   offset += IPA_PROOF_LENGTH;
 
-  const translatorProof = toBuffers(fields.slice(offset, offset + TRANSLATOR_PROOF_LENGTH));
+  const jointProof = toBuffers(fields.slice(offset, offset + JOINT_PROOF_LENGTH));
 
-  return {
-    megaProof,
-    goblinProof: { mergeProof, eccvmProof, ipaProof, translatorProof },
-  };
+  return { hidingOinkProof, mergeProof, eccvmProof, ipaProof, jointProof };
 }
 
 /**

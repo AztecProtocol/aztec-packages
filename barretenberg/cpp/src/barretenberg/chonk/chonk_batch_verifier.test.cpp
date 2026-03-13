@@ -110,8 +110,8 @@ TEST_F(ChonkBatchVerifierTests, TamperedProofBisected)
     auto [bad_proof, vk2] = generate_chonk_proof();
 
     // Corrupt the IPA proof portion
-    ASSERT_FALSE(bad_proof.goblin_proof.ipa_proof.empty());
-    bad_proof.goblin_proof.ipa_proof[0] = bad_proof.goblin_proof.ipa_proof[0] + bb::fr(1);
+    ASSERT_FALSE(bad_proof.ipa_proof.empty());
+    bad_proof.ipa_proof[0] = bad_proof.ipa_proof[0] + bb::fr(1);
 
     ResultCollector collector;
     ChonkBatchVerifier verifier;

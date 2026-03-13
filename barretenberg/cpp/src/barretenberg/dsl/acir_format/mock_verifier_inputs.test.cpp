@@ -26,6 +26,7 @@ static_assert(MERGE_PROOF_SIZE == 42, "MERGE_PROOF_SIZE changed - update constan
 static_assert(ECCVMFlavor::PROOF_LENGTH == 608, "ECCVM proof size changed - update constants.nr");
 static_assert(IPA_PROOF_LENGTH == 64, "IPA_PROOF_LENGTH changed - update constants.nr");
 static_assert(TranslatorFlavor::PROOF_LENGTH == 483, "Translator proof size changed - update constants.nr");
+static_assert(ChonkProof::JOINT_PROOF_LENGTH == 492, "JOINT_PROOF_LENGTH changed - update constants.nr");
 
 // Full proof lengths (used in Noir)
 static_assert(

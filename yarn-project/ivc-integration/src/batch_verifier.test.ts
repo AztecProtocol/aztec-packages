@@ -96,13 +96,13 @@ function decodeChonkProof(proofBuf: Uint8Array): ChonkProof {
   return toChonkProof(new Decoder({ useRecords: false }).decode(proofBuf));
 }
 
-/** Corrupt a structured ChonkProof by flipping bytes in the mega proof. */
+/** Corrupt a structured ChonkProof by flipping bytes in the hiding oink proof. */
 function corruptChonkProof(proof: ChonkProof): ChonkProof {
-  const corrupted = proof.megaProof.map(f => Uint8Array.from(f));
+  const corrupted = proof.hidingOinkProof.map(f => Uint8Array.from(f));
   corrupted[2] = Uint8Array.from(corrupted[2]);
   corrupted[2][0] ^= 0xff;
   corrupted[2][1] ^= 0xff;
-  return { megaProof: corrupted, goblinProof: proof.goblinProof };
+  return { ...proof, hidingOinkProof: corrupted };
 }
 
 describe('Batch Chonk Verifier workloads', () => {

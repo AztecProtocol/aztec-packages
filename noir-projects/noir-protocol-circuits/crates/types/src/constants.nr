@@ -613,7 +613,7 @@ pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HON
 // Chonk proof segment lengths (must match C++ static_asserts in mock_verifier_inputs.test.cpp)
 pub global MERGE_PROOF_LENGTH: u32 = 42;
 pub global ECCVM_PROOF_LENGTH: u32 = 608;
-pub global TRANSLATOR_PROOF_LENGTH: u32 = 483;
+pub global JOINT_PROOF_LENGTH: u32 = 492;
 pub global CHONK_PROOF_LENGTH: u32 = 1330;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
