@@ -157,7 +157,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
     // First send the deploy transaction
     // Pay priority fee to ensure the deployment transaction gets processed first.
-    const maxPriorityFeesPerGas = new GasFees(1n, 0n);
+    const maxPriorityFeesPerGas = new GasFees(0n, 1n);
     const deployTxPromise = deployTx.send({
       from: defaultAccountAddress,
       fee: { gasSettings: { maxPriorityFeesPerGas } },
