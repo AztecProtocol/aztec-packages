@@ -74,11 +74,11 @@ mod tests {
     use super::{
         validate_note_log_linked_to_note_hash_with_hint, validate_note_logs_linked_to_note_hashes,
     };
+    use protocol_test_utils::{make_fixture, pad_end};
     use types::{
         abis::{note_hash::NoteHash, private_log::PrivateLogData},
         address::AztecAddress,
         side_effect::{Counted, Scoped},
-        tests::utils::{make_fixture, pad_end},
         traits::FromField,
         utils::arrays::ClaimedLengthArray,
     };

@@ -21,8 +21,9 @@ where
 }
 
 mod tests {
+    use crate::accumulated_data::test_value::TestValue;
     use super::{compare_for_ascending_sort_with_empty_padding, sort_by_counter};
-    use types::{tests::types::TestValue, traits::Empty};
+    use types::traits::Empty;
 
     unconstrained fn compare_test_items(value_1: u32, value_2: u32) -> bool {
         compare_for_ascending_sort_with_empty_padding(

@@ -1,9 +1,8 @@
 [package]
-name = "private_kernel_lib"
+name = "protocol_test_utils"
 type = "lib"
 authors = [""]
 compiler_version = ">=0.18.0"
 
 [dependencies]
 types = { path = "../types" }
-protocol_test_utils = { path = "../protocol-test-utils" }

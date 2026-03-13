@@ -267,18 +267,14 @@ where
 mod tests {
     use crate::accumulated_data::{
         assert_sorted_transformed_array::get_order_hints::get_order_hints,
-        sort_by_counter::sort_by_counter,
+        sort_by_counter::sort_by_counter, test_value::TestValue,
     };
     use super::{
         assert_sorted_padded_transformed_i_array_capped_size,
         assert_sorted_padded_transformed_i_array_capped_size_with_hints,
     };
-    use types::{
-        constants::MAX_U32_VALUE,
-        tests::{types::TestValue, utils::pad_end},
-        traits::Empty,
-        utils::arrays::ClaimedLengthArray,
-    };
+    use protocol_test_utils::pad_end;
+    use types::{constants::MAX_U32_VALUE, traits::Empty, utils::arrays::ClaimedLengthArray};
 
     fn transform_i(original: TestValue, sorted_index: u32) -> TestValue {
         let value = if original.value == 0 {
