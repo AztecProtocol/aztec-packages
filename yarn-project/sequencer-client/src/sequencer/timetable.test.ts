@@ -439,6 +439,65 @@ describe('sequencer-timetable', () => {
     });
   });
 
+  describe('uniform block cadence', () => {
+    const AZTEC_SLOT_DURATION = 72;
+    const BLOCK_DURATION_MS = 5500;
+
+    it('uses the same deadline spacing for every block', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      const blockDuration = BLOCK_DURATION_MS / 1000;
+
+      const firstResult = tt.canStartNextBlock(0);
+      expect(firstResult.canStart).toBe(true);
+      expect(firstResult.isLastBlock).toBe(false);
+      expect(firstResult.deadline).toBe(tt.initializationOffset + blockDuration);
+
+      const lastSlotStart = tt.initializationOffset + (tt.maxNumberOfBlocks - 1) * blockDuration;
+      const lastResult = tt.canStartNextBlock(lastSlotStart);
+      expect(lastResult.canStart).toBe(true);
+      expect(lastResult.isLastBlock).toBe(true);
+      expect(lastResult.deadline).toBe(tt.initializationOffset + tt.maxNumberOfBlocks * blockDuration);
+    });
+
+    it('keeps total block time within the available build window', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      const blockDuration = BLOCK_DURATION_MS / 1000;
+      const timeAvailableForBlocks =
+        AZTEC_SLOT_DURATION - tt.initializationOffset - (blockDuration + tt.checkpointFinalizationTime);
+
+      expect(tt.maxNumberOfBlocks * blockDuration).toBeLessThanOrEqual(timeAvailableForBlocks);
+      expect((tt.maxNumberOfBlocks + 1) * blockDuration).toBeGreaterThan(timeAvailableForBlocks);
+    });
+
+    it('fits 12 pipelined blocks in a 72s slot with 5.5s cadence', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+        pipelining: true,
+      });
+
+      expect(tt.maxNumberOfBlocks).toBe(12);
+      expect(tt.pipeliningAttestationGracePeriod).toBe(BLOCK_DURATION_MS / 1000 + tt.p2pPropagationTime);
+    });
+  });
+
   describe('pipelining mode', () => {
     const BLOCK_DURATION_MS = 8000;
 
