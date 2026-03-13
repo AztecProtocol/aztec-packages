@@ -383,16 +383,13 @@ impl MessageEncryption for AES128 {
         recipient: AztecAddress,
     ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>> {
         // Extract the ephemeral public key x-coordinate and masked fields, returning None for empty ciphertext.
-        Option::some(ciphertext)
-            .and_then(|ciphertext| {
-                if ciphertext.len() > 0 {
-                    let masked_fields: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS> =
-                        array::subbvec(ciphertext, EPH_PK_X_SIZE_IN_FIELDS);
-                    Option::some((ciphertext.get(0), masked_fields))
-                } else {
-                    Option::none()
-                }
-            })
+        if ciphertext.len() > 0 {
+            let masked_fields: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS> =
+                array::subbvec(ciphertext, EPH_PK_X_SIZE_IN_FIELDS);
+            Option::some((ciphertext.get(0), masked_fields))
+        } else {
+            Option::none()
+        }
             .and_then(|(eph_pk_x, masked_fields)| {
                 // With the x-coordinate of the ephemeral public key we can reconstruct the point as we know that the
                 // y-coordinate must be positive. This may fail however, as not all x-coordinates are on the curve. In

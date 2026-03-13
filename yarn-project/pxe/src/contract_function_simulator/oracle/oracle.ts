@@ -604,6 +604,7 @@ export class Oracle {
     return [];
   }
 
+  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash PXE.
   // eslint-disable-next-line camelcase
   async aztec_utl_aes128Decrypt(
     ciphertextBVecStorage: ACVMField[],

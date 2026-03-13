@@ -120,7 +120,9 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     // notes, private events, etc.
     let logs = get_private_logs(contract_address);
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
-        if pending_tagged_log.log.len() > 0 {
+        if pending_tagged_log.log.len() == 0 {
+            aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
+        } else {
             aztecnr_debug_log_format!("Processing log with tag {0}")([pending_tagged_log.log.get(0)]);
 
             // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
@@ -133,8 +135,6 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
                 message_ciphertext,
                 pending_tagged_log.context,
             );
-        } else {
-            aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
         }
 
         // We need to delete each log from the array so that we won't process them again. `CapsuleArray::for_each`
@@ -175,7 +175,9 @@ mod test {
         messages::{
             discovery::{CustomMessageHandler, do_sync_state, NoteHashAndNullifier},
             logs::note::MAX_NOTE_PACKED_LEN,
-            processing::{pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT},
+            processing::{
+                offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
+            },
         },
         test::helpers::test_environment::TestEnvironment,
     };
@@ -195,7 +197,13 @@ mod test {
             assert_eq(logs.len(), 1);
 
             let no_handler: Option<CustomMessageHandler<()>> = Option::none();
-            do_sync_state(contract_address, dummy_compute_nhnn, no_handler);
+            let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
+            do_sync_state(
+                contract_address,
+                dummy_compute_nhnn,
+                no_handler,
+                no_inbox_sync,
+            );
 
             assert_eq(logs.len(), 0);
         });
