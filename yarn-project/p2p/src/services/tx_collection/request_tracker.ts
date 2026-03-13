@@ -40,7 +40,7 @@ export class RequestTracker implements IRequestTracker {
   private constructor(
     public readonly missingTxHashes: Set<string>,
     public readonly deadline: Date,
-    dateProvider?: DateProvider,
+    private readonly dateProvider?: DateProvider,
   ) {
     this.cancellationTokenPromise = promiseWithResolvers<void>();
 
@@ -49,7 +49,7 @@ export class RequestTracker implements IRequestTracker {
       return;
     }
 
-    const now = dateProvider?.now() ?? Date.now();
+    const now = this.dateProvider?.now() ?? Date.now();
     const remaining = deadline.getTime() - now;
     if (remaining <= 0) {
       this.finish();
@@ -63,9 +63,6 @@ export class RequestTracker implements IRequestTracker {
   }
 
   markFetched(tx: Tx): boolean {
-    if (this.done) {
-      return false;
-    }
     if (this.missingTxHashes.delete(tx.txHash.toString())) {
       this.collectedTxs.push(tx);
       if (this.allFetched()) {
@@ -89,7 +86,17 @@ export class RequestTracker implements IRequestTracker {
   }
 
   get cancelled(): boolean {
-    return this.done;
+    if (this.done) {
+      return true;
+    }
+    // Synchronous fallback: check deadline even if setTimeout hasn't fired yet.
+    // This prevents macrotask starvation in tight async loops from blocking cancellation.
+    const now = this.dateProvider?.now() ?? Date.now();
+    if (now >= this.deadline.getTime()) {
+      this.finish();
+      return true;
+    }
+    return false;
   }
 
   get cancellationToken(): Promise<void> {
