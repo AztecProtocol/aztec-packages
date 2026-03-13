@@ -1,4 +1,4 @@
-import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import { BlockNumber, BlockNumberSchema, EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
 
 import { z } from 'zod';
 
@@ -58,6 +58,8 @@ export class TxReceipt {
     public blockHash?: BlockHash,
     /** The block number in which the transaction was included. */
     public blockNumber?: BlockNumber,
+    /** The epoch number in which the transaction was included. */
+    public epochNumber?: EpochNumber,
     /**
      * Debug logs collected during public function execution. Served only when the node is in test mode and placed on
      * the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined
@@ -109,6 +111,7 @@ export class TxReceipt {
         error: z.string().optional(),
         blockHash: BlockHash.schema.optional(),
         blockNumber: BlockNumberSchema.optional(),
+        epochNumber: EpochNumberSchema.optional(),
         transactionFee: schemas.BigInt.optional(),
         debugLogs: z.array(DebugLog.schema).optional(),
       })
@@ -123,6 +126,7 @@ export class TxReceipt {
     transactionFee?: bigint;
     blockHash?: BlockHash;
     blockNumber?: BlockNumber;
+    epochNumber?: EpochNumber;
     debugLogs?: DebugLog[];
   }) {
     return new TxReceipt(
@@ -133,6 +137,7 @@ export class TxReceipt {
       fields.transactionFee,
       fields.blockHash,
       fields.blockNumber,
+      fields.epochNumber,
       fields.debugLogs,
     );
   }
