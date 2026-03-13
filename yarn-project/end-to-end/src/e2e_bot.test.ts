@@ -139,9 +139,8 @@ describe('e2e_bot', () => {
         // approve/deposit calls in bridgeL1FeeJuice. Indices 8 and 9 are used by other tests below.
         l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
-        // Increase fee headroom to handle fee volatility from rapid block building in tests.
-        // Fees can escalate >10x due to blocks built by earlier tests and bridge operations.
-        minFeePadding: 99,
+        // Fee headroom to handle fee volatility from rapid block building in tests.
+        minFeePadding: 9,
       };
 
       {
@@ -180,10 +179,8 @@ describe('e2e_bot', () => {
         // See comment above — dedicated L1 account to avoid nonce races with the sequencer.
         l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
-        // Increase fee headroom to handle fee volatility from rapid block building in tests.
-        // This test is especially susceptible because changing salt triggers a new bridge claim,
-        // adding more block building on top of what earlier tests already produced.
-        minFeePadding: 99,
+        // Fee headroom to handle fee volatility from rapid block building in tests.
+        minFeePadding: 9,
       };
 
       {
