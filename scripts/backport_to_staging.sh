@@ -133,13 +133,33 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
     git checkout -B "$STAGING_BRANCH" "origin/$TARGET_BRANCH"
   fi
 
-  echo "Fetching PR diff..."
-
-  if ! gh pr diff "$PR_NUMBER" 2>/dev/null | git apply --verbose --reject; then
-    git status -s
-    echo "Error: Failed to apply diff. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
+  # Get merge commit SHA and cherry-pick (preserves author and message)
+  echo "Fetching merge commit..."
+  MERGE_COMMIT=$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')
+  if [[ -z "$MERGE_COMMIT" || "$MERGE_COMMIT" == "null" ]]; then
+    echo "Error: Could not find merge commit for PR #$PR_NUMBER" >&2
     exit 1
   fi
+  echo "Merge commit: $MERGE_COMMIT"
+  git fetch origin "$MERGE_COMMIT"
+
+  # Detect if merge commit has multiple parents (merge commit vs squash commit)
+  PARENT_COUNT=$(git rev-list --parents -n 1 "$MERGE_COMMIT" | wc -w)
+  # First word is the commit itself, remaining are parents
+  if [[ $PARENT_COUNT -gt 2 ]]; then
+    echo "Merge commit has multiple parents, using -m 1 for cherry-pick"
+    CHERRY_PICK_ARGS="-m 1"
+  else
+    CHERRY_PICK_ARGS=""
+  fi
+
+  echo "Cherry-picking $MERGE_COMMIT..."
+  if ! git cherry-pick $CHERRY_PICK_ARGS "$MERGE_COMMIT" --no-edit; then
+    git cherry-pick --abort 2>/dev/null || true
+    echo "Error: Failed to cherry-pick. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
+    exit 1
+  fi
+  echo "Cherry-pick applied successfully!"
 else
   echo "Continuing from previous failure..."
   # Verify we're on the correct branch
@@ -148,23 +168,18 @@ else
     echo "Error: Not on expected branch $STAGING_BRANCH (currently on $CURRENT_BRANCH)" >&2
     exit 1
   fi
-fi
 
-# Commit changes - base the commit details off of the PR title and body
-echo "Diff applied successfully! Committing changes..."
-
-# Ensure commit subject contains PR reference for get_meaningful_commits
-COMMIT_SUBJECT="$PR_TITLE"
-if ! echo "$COMMIT_SUBJECT" | grep -qE '\(#[0-9]+\)'; then
-  COMMIT_SUBJECT="$COMMIT_SUBJECT (#$PR_NUMBER)"
-fi
-
-# Use --author to preserve original PR author while keeping the committer
-# as whoever runs the script (so GPG signing works for local devs).
-git add -A
-git commit --author="$PR_AUTHOR <$PR_AUTHOR_EMAIL>" -m "$COMMIT_SUBJECT
+  # Commit the manually resolved changes
+  echo "Committing resolved changes..."
+  COMMIT_SUBJECT="$PR_TITLE"
+  if ! echo "$COMMIT_SUBJECT" | grep -qE '\(#[0-9]+\)'; then
+    COMMIT_SUBJECT="$COMMIT_SUBJECT (#$PR_NUMBER)"
+  fi
+  git add -A
+  git commit --author="$PR_AUTHOR <$PR_AUTHOR_EMAIL>" -m "$COMMIT_SUBJECT
 
 $PR_BODY"
+fi
 
 git log -1 --pretty=format:'Committed as %H by %an <%ae>%n%n%s%n%n%b'
 # Push staging branch
