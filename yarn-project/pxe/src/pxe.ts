@@ -420,7 +420,14 @@ export class PXE {
   ) {
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-      return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], anchorBlockHeader, scopes, jobId);
+      const { result, offchainEffects } = await contractFunctionSimulator.runUtility(
+        call,
+        authWitnesses ?? [],
+        anchorBlockHeader,
+        scopes,
+        jobId,
+      );
+      return { result, offchainEffects };
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractStore, this.log);
@@ -1055,7 +1062,7 @@ export class PXE {
           scopes,
         );
 
-        const executionResult = await this.#executeUtility(
+        const { result: executionResult, offchainEffects } = await this.#executeUtility(
           contractFunctionSimulator,
           call,
           authwits ?? [],
@@ -1076,7 +1083,12 @@ export class PXE {
         };
 
         const simulationStats = contractFunctionSimulator.getStats();
-        return { result: executionResult, stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls } };
+        return {
+          result: executionResult,
+          offchainEffects,
+          anchorBlockTimestamp: anchorBlockHeader.globalVariables.timestamp,
+          stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls },
+        };
       } catch (err: any) {
         const { to, name, args } = call;
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
