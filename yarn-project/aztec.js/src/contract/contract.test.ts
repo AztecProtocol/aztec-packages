@@ -13,6 +13,7 @@ import type {
   TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
+import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -226,6 +227,41 @@ describe('Contract Class', () => {
       expect.objectContaining({ scope: account.getAddress() }),
     );
     expect(result).toBe(42n);
+  });
+
+  it('should extract offchain messages with anchor block timestamp on simulate', async () => {
+    const recipient = await AztecAddress.random();
+    const msgPayload = [Fr.random(), Fr.random()];
+    const anchorBlockTimestamp = 9999n;
+
+    const txSimResult = mock<TxSimulationResult>();
+    txSimResult.getPrivateReturnValues.mockReturnValue({ nested: [{ values: [] }] } as any);
+    Object.defineProperty(txSimResult, 'offchainEffects', {
+      value: [
+        {
+          data: [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.toField(), ...msgPayload],
+          contractAddress,
+        },
+      ],
+    });
+    Object.defineProperty(txSimResult, 'publicInputs', {
+      value: {
+        constants: { anchorBlockHeader: { globalVariables: { timestamp: anchorBlockTimestamp } } },
+      },
+    });
+
+    wallet.simulateTx.mockResolvedValue(txSimResult);
+
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const result = await fooContract.methods.bar(1, 2).simulate({ from: account.getAddress() });
+
+    expect(result.offchainMessages).toHaveLength(1);
+    expect(result.offchainMessages[0]).toEqual({
+      recipient,
+      payload: msgPayload,
+      contractAddress,
+      anchorBlockTimestamp,
+    });
   });
 
   it('allows nullish values for Option parameters', () => {

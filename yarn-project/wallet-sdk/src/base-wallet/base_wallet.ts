@@ -390,7 +390,7 @@ export abstract class BaseWallet implements Wallet {
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const offchainOutput = extractOffchainOutput(
       provenTx.getOffchainEffects(),
-      provenTx.publicInputs.expirationTimestamp,
+      provenTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
     );
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
