@@ -34,7 +34,6 @@ export type FastCollectionRequestInput =
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
   requestTracker: IRequestTracker;
-  deadline: Date;
   blockInfo: L2BlockInfo;
 };
 

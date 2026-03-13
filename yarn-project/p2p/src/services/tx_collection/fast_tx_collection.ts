@@ -4,7 +4,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import type { L2BlockInfo } from '@aztec/stdlib/block';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -79,7 +78,6 @@ export class FastTxCollection {
       ...input,
       blockInfo,
       requestTracker: RequestTracker.create(txHashes, opts.deadline, this.dateProvider),
-      deadline: opts.deadline,
     };
 
     const [duration] = await elapsed(() => this.collectFast(request, { ...opts }));
@@ -96,16 +94,13 @@ export class FastTxCollection {
     return request.requestTracker.collectedTxs;
   }
 
-  protected async collectFast(
-    request: FastCollectionRequest,
-    opts: { proposal?: BlockProposal; deadline: Date; pinnedPeer?: PeerId },
-  ) {
+  protected async collectFast(request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) {
     this.requests.add(request);
     const { blockInfo } = request;
 
     this.log.debug(
       `Starting fast collection of ${request.requestTracker.numberOfMissingTxs} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
-      { ...blockInfo, requestType: request.type, deadline: opts.deadline },
+      { ...blockInfo, requestType: request.type, deadline: request.requestTracker.deadline },
     );
 
     try {
@@ -116,18 +111,20 @@ export class FastTxCollection {
       const waitBeforeReqResp = sleep(this.config.txCollectionFastNodesTimeoutBeforeReqRespMs);
       await Promise.race([request.requestTracker.cancellationToken, waitBeforeReqResp]);
 
-      // If we have collected all txs or the request was cancelled, we can stop here
+      // If we have collected all txs or the request was cancelled, we can stop here.
+      // Wait for node collection to settle so inner tasks finish before we return.
       if (request.requestTracker.cancelled) {
         if (request.requestTracker.allFetched()) {
           this.log.debug(`All txs collected for slot ${blockInfo.slotNumber} without reqresp`, blockInfo);
         }
+        await nodeCollectionPromise;
         return;
       }
 
       // Start blasting reqresp for the remaining txs. Note that node collection keeps running in parallel.
       // We stop when we have collected all txs, timed out, or both node collection and reqresp have given up.
-      const collectionPromise = Promise.allSettled([this.collectFastViaReqResp(request, opts), nodeCollectionPromise]);
-      await Promise.race([collectionPromise, request.requestTracker.cancellationToken]);
+      // Inner tasks observe requestTracker.cancelled and stop themselves, so this settles shortly after cancellation.
+      await Promise.allSettled([this.collectFastViaReqResp(request, opts), nodeCollectionPromise]);
     } catch (err) {
       this.log.error(`Error collecting txs for ${request.type} for slot ${blockInfo.slotNumber}`, err, {
         ...blockInfo,
@@ -238,9 +235,12 @@ export class FastTxCollection {
           activeRequestsToThisNode.delete(requestedTx.txHash);
         }
 
-        // Sleep a bit until hitting the node again (or not, depending on config)
+        // Sleep a bit until hitting the node again, but wake up immediately on cancellation
         if (notFinished()) {
-          await sleep(this.config.txCollectionFastNodeIntervalMs);
+          await Promise.race([
+            sleep(this.config.txCollectionFastNodeIntervalMs),
+            request.requestTracker.cancellationToken,
+          ]);
         }
       }
     };
@@ -250,21 +250,20 @@ export class FastTxCollection {
   }
 
   private async collectFastViaReqResp(request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) {
-    const timeoutMs = +request.deadline - this.dateProvider.now();
     const pinnedPeer = opts.pinnedPeer;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;
-    if (timeoutMs < 100) {
+    if (request.requestTracker.timeoutMs < 100) {
       this.log.warn(
         `Not initiating fast reqresp for txs for ${request.type} at slot ${blockInfo.slotNumber} due to timeout`,
-        { timeoutMs, ...blockInfo },
+        { timeoutMs: request.requestTracker.timeoutMs, ...blockInfo },
       );
       return;
     }
 
     this.log.debug(
       `Starting fast reqresp for ${request.requestTracker.numberOfMissingTxs} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
-      { ...blockInfo, timeoutMs, pinnedPeer },
+      { ...blockInfo, timeoutMs: request.requestTracker.timeoutMs, pinnedPeer },
     );
 
     try {

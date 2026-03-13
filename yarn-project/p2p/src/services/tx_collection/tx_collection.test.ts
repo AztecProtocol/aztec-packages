@@ -6,7 +6,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -537,12 +536,11 @@ describe('TxCollection', () => {
         expect(request).toBeDefined();
 
         request.requestTracker.cancel();
+        reqRespPromise.resolve([]);
 
         const collected = await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
         expect(collected).toEqual([]);
-
-        reqRespPromise.resolve([]);
       });
 
       // Step 18: skips reqresp when all txs found during initial wait
@@ -568,6 +566,32 @@ describe('TxCollection', () => {
         expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
         expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
         expect(collected).toEqual([]);
+      });
+
+      // Node loop sleep between retries is interruptible by cancellation
+      it('cancellation wakes node loop sleep immediately', async () => {
+        deadline = new Date(dateProvider.now() + 30_000);
+        config = {
+          ...config,
+          txCollectionFastNodesTimeoutBeforeReqRespMs: 30_000,
+          txCollectionFastNodeIntervalMs: 30_000,
+        };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        // Nodes return nothing, so node loops will sleep for 30s between retries
+        const getRequest = captureRequest();
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        // Wait for first node RPC call to complete, then node loop enters 30s sleep
+        await sleep(200);
+        expect(nodes[0].getTxsByHash).toHaveBeenCalled();
+
+        const startTime = dateProvider.now();
+        getRequest().requestTracker.cancel();
+        await collectionPromise;
+
+        // Should return almost immediately, not after 30s
+        expect(dateProvider.now() - startTime).toBeLessThan(1000);
       });
 
       // Step 2: cancellationToken in initial wait race (L124)
@@ -613,11 +637,10 @@ describe('TxCollection', () => {
         expect(reqResp.sendBatchRequest).toHaveBeenCalled();
 
         getRequest().requestTracker.cancel();
+        reqRespPromise.resolve([]);
 
         await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
-
-        reqRespPromise.resolve([]);
       });
 
       // Step 4: requestTracker.cancel() in finally block
@@ -647,9 +670,8 @@ describe('TxCollection', () => {
         await txCollection.stop();
 
         expect(request.requestTracker.cancelled).toBe(true);
-        await collectionPromise;
-
         reqRespPromise.resolve([]);
+        await collectionPromise;
       });
 
       // Step 8: stopCollectingForBlocksUpTo cancels in-flight fast collection
@@ -662,12 +684,11 @@ describe('TxCollection', () => {
 
         await sleep(100);
         txCollection.stopCollectingForBlocksUpTo(block.number);
+        reqRespPromise.resolve([]);
 
         const collected = await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
         expect(collected).toEqual([]);
-
-        reqRespPromise.resolve([]);
       });
 
       // Step 9: stopCollectingForBlocksAfter cancels in-flight fast collection
@@ -680,12 +701,11 @@ describe('TxCollection', () => {
 
         await sleep(100);
         txCollection.stopCollectingForBlocksAfter(BlockNumber(block.number - 1));
+        reqRespPromise.resolve([]);
 
         const collected = await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
         expect(collected).toEqual([]);
-
-        reqRespPromise.resolve([]);
       });
 
       // Step 17: request is cleaned up by finally block (not by stopCollectingForBlocks)
@@ -700,11 +720,10 @@ describe('TxCollection', () => {
         expect(txCollection.fastCollection.requests.size).toBe(1);
 
         txCollection.stopCollectingForBlocksUpTo(block.number);
+        reqRespPromise.resolve([]);
         await collectionPromise;
 
         expect(txCollection.fastCollection.requests.size).toBe(0);
-
-        reqRespPromise.resolve([]);
       });
     });
   });
@@ -775,10 +794,7 @@ describe('TxCollection', () => {
 class TestFastTxCollection extends FastTxCollection {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   declare requests: Set<FastCollectionRequest>;
-  declare collectFast: (
-    request: FastCollectionRequest,
-    opts: { proposal?: BlockProposal; deadline: Date; pinnedPeer?: PeerId },
-  ) => Promise<void>;
+  declare collectFast: (request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) => Promise<void>;
 }
 
 class TestTxCollection extends TxCollection {
