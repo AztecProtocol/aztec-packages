@@ -10,11 +10,12 @@ export class CapsuleStore implements StagedStore {
 
   #store: AztecAsyncKVStore;
 
-  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
+  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${scope}:${key}` when a scope is
+  // provided, and `${contractAddress}:${key}` otherwise to preserve legacy keys.
   #capsules: AztecAsyncMap<string, Buffer>;
 
-  // jobId => `${contractAddress}:${key}` => capsule data
-  // when `#stagedCapsules.get('some-job-id').get('${some-contract-address:some-key') === null`,
+  // jobId => `${contractAddress}:${scope}:${key}` => capsule data
+  // when `#stagedCapsules.get('some-job-id').get('${some-contract-address}:${some-scope}:${some-key}') === null`,
   // it signals that the capsule was deleted during the job, so it needs to be deleted on commit
   #stagedCapsules: Map<string, Map<string, Buffer | null>>;
 
@@ -134,8 +135,8 @@ export class CapsuleStore implements StagedStore {
    * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
    * network state it's backed by local PXE db.
    */
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string) {
-    const dbSlotKey = dbSlotToKey(contractAddress, slot);
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope?: AztecAddress) {
+    const dbSlotKey = dbSlotToKey(contractAddress, slot, scope);
 
     // A store overrides any pre-existing data on the slot
     this.#setOnStage(jobId, dbSlotKey, Buffer.concat(capsule.map(value => value.toBuffer())));
@@ -147,8 +148,13 @@ export class CapsuleStore implements StagedStore {
    * @param slot - The slot in the database to read.
    * @returns The stored data or `null` if no data is stored under the slot.
    */
-  async loadCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string): Promise<Fr[] | null> {
-    const dataBuffer = await this.#getFromStage(jobId, dbSlotToKey(contractAddress, slot));
+  async loadCapsule(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    jobId: string,
+    scope?: AztecAddress,
+  ): Promise<Fr[] | null> {
+    const dataBuffer = await this.#getFromStage(jobId, dbSlotToKey(contractAddress, slot, scope));
     if (!dataBuffer) {
       this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
@@ -165,9 +171,9 @@ export class CapsuleStore implements StagedStore {
    * @param contractAddress - The contract address under which the data is scoped.
    * @param slot - The slot in the database to delete.
    */
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string) {
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope?: AztecAddress) {
     // When we commit this, we will interpret null as a deletion, so we'll propagate the delete to the KV store
-    this.#deleteOnStage(jobId, dbSlotToKey(contractAddress, slot));
+    this.#deleteOnStage(jobId, dbSlotToKey(contractAddress, slot, scope));
   }
 
   /**
@@ -187,6 +193,7 @@ export class CapsuleStore implements StagedStore {
     dstSlot: Fr,
     numEntries: number,
     jobId: string,
+    scope?: AztecAddress,
   ): Promise<void> {
     // This transactional context gives us "copy atomicity":
     // there shouldn't be concurrent writes to what's being copied here.
@@ -203,8 +210,8 @@ export class CapsuleStore implements StagedStore {
       }
 
       for (const i of indexes) {
-        const currentSrcSlot = dbSlotToKey(contractAddress, srcSlot.add(new Fr(i)));
-        const currentDstSlot = dbSlotToKey(contractAddress, dstSlot.add(new Fr(i)));
+        const currentSrcSlot = dbSlotToKey(contractAddress, srcSlot.add(new Fr(i)), scope);
+        const currentDstSlot = dbSlotToKey(contractAddress, dstSlot.add(new Fr(i)), scope);
 
         const toCopy = await this.#getFromStage(jobId, currentSrcSlot);
         if (!toCopy) {
@@ -306,8 +313,13 @@ export class CapsuleStore implements StagedStore {
   }
 }
 
-function dbSlotToKey(contractAddress: AztecAddress, slot: Fr): string {
-  return `${contractAddress.toString()}:${slot.toString()}`;
+function dbSlotToKey(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): string {
+  const keyParts = [contractAddress.toString()];
+  if (scope) {
+    keyParts.push(scope.toString());
+  }
+  keyParts.push(slot.toString());
+  return keyParts.join(':');
 }
 
 function arraySlot(baseSlot: Fr, index: number) {

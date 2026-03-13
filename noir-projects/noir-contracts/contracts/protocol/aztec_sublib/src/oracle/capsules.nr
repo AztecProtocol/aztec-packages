@@ -10,6 +10,19 @@ where
     store_oracle(contract_address, slot, serialized);
 }
 
+pub unconstrained fn store_with_scope<T>(
+    contract_address: AztecAddress,
+    slot: Field,
+    value: T,
+    scope: Option<AztecAddress>,
+)
+where
+    T: Serialize,
+{
+    let serialized = value.serialize();
+    store_oracle_v2(contract_address, slot, serialized, scope);
+}
+
 /// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns Option::none()
 /// if nothing was stored at the given slot.
 pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field) -> Option<T>
@@ -20,9 +33,29 @@ where
     serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 
+pub unconstrained fn load_with_scope<T>(
+    contract_address: AztecAddress,
+    slot: Field,
+    scope: Option<AztecAddress>,
+) -> Option<T>
+where
+    T: Deserialize,
+{
+    let serialized_option = load_oracle_v2(contract_address, slot, <T as Deserialize>::N, scope);
+    serialized_option.map(|arr| Deserialize::deserialize(arr))
+}
+
 /// Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
 pub unconstrained fn delete(contract_address: AztecAddress, slot: Field) {
     delete_oracle(contract_address, slot);
+}
+
+pub unconstrained fn delete_with_scope(
+    contract_address: AztecAddress,
+    slot: Field,
+    scope: Option<AztecAddress>,
+) {
+    delete_oracle_v2(contract_address, slot, scope);
 }
 
 /// Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
@@ -38,11 +71,29 @@ pub unconstrained fn copy(
     copy_oracle(contract_address, src_slot, dst_slot, num_entries);
 }
 
+pub unconstrained fn copy_with_scope(
+    contract_address: AztecAddress,
+    src_slot: Field,
+    dst_slot: Field,
+    num_entries: u32,
+    scope: Option<AztecAddress>,
+) {
+    copy_oracle_v2(contract_address, src_slot, dst_slot, num_entries, scope);
+}
+
 #[oracle(aztec_utl_storeCapsule)]
 unconstrained fn store_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
     values: [Field; N],
+) {}
+
+#[oracle(aztec_utl_storeCapsuleV2)]
+unconstrained fn store_oracle_v2<let N: u32>(
+    contract_address: AztecAddress,
+    slot: Field,
+    values: [Field; N],
+    scope: Option<AztecAddress>,
 ) {}
 
 /// We need to pass in `array_len` (the value of N) as a parameter to tell the oracle how many fields the response must
@@ -59,8 +110,19 @@ unconstrained fn load_oracle<let N: u32>(
     array_len: u32,
 ) -> Option<[Field; N]> {}
 
+#[oracle(aztec_utl_loadCapsuleV2)]
+unconstrained fn load_oracle_v2<let N: u32>(
+    contract_address: AztecAddress,
+    slot: Field,
+    array_len: u32,
+    scope: Option<AztecAddress>,
+) -> Option<[Field; N]> {}
+
 #[oracle(aztec_utl_deleteCapsule)]
 unconstrained fn delete_oracle(contract_address: AztecAddress, slot: Field) {}
+
+#[oracle(aztec_utl_deleteCapsuleV2)]
+unconstrained fn delete_oracle_v2(contract_address: AztecAddress, slot: Field, scope: Option<AztecAddress>) {}
 
 #[oracle(aztec_utl_copyCapsule)]
 unconstrained fn copy_oracle(
@@ -68,4 +130,13 @@ unconstrained fn copy_oracle(
     src_slot: Field,
     dst_slot: Field,
     num_entries: u32,
+) {}
+
+#[oracle(aztec_utl_copyCapsuleV2)]
+unconstrained fn copy_oracle_v2(
+    contract_address: AztecAddress,
+    src_slot: Field,
+    dst_slot: Field,
+    num_entries: u32,
+    scope: Option<AztecAddress>,
 ) {}

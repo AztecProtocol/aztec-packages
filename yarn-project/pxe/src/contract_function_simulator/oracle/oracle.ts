@@ -24,6 +24,12 @@ export class UnavailableOracleError extends Error {
   }
 }
 
+function optionalAddressFromAcvmFields(scopeSome: ACVMField | undefined, scopeValue: ACVMField | undefined) {
+  return scopeSome !== undefined && Fr.fromString(scopeSome).toNumber() === 1 && scopeValue !== undefined
+    ? AztecAddress.fromField(Fr.fromString(scopeValue))
+    : undefined;
+}
+
 /**
  * A data source that has all the apis required by Aztec.nr.
  */
@@ -567,10 +573,23 @@ export class Oracle {
     [slot]: ACVMField[],
     capsule: ACVMField[],
   ): Promise<ACVMField[]> {
+    return await this.aztec_utl_storeCapsuleV2([contractAddress], [slot], capsule);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_storeCapsuleV2(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    capsule: ACVMField[],
+    [scopeSome]: ACVMField[] = [],
+    [scopeValue]: ACVMField[] = [],
+  ): Promise<ACVMField[]> {
+    const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     await this.handlerAsUtility().storeCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
       capsule.map(Fr.fromString),
+      scope,
     );
     return [];
   }
@@ -583,9 +602,22 @@ export class Oracle {
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
+    return await this.aztec_utl_loadCapsuleV2([contractAddress], [slot], [tSize]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_loadCapsuleV2(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    [tSize]: ACVMField[],
+    [scopeSome]: ACVMField[] = [],
+    [scopeValue]: ACVMField[] = [],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     const values = await this.handlerAsUtility().loadCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
+      scope,
     );
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
@@ -601,9 +633,21 @@ export class Oracle {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_deleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]): Promise<ACVMField[]> {
+    return await this.aztec_utl_deleteCapsuleV2([contractAddress], [slot]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_deleteCapsuleV2(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    [scopeSome]: ACVMField[] = [],
+    [scopeValue]: ACVMField[] = [],
+  ): Promise<ACVMField[]> {
+    const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     await this.handlerAsUtility().deleteCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
+      scope,
     );
     return [];
   }
@@ -615,11 +659,25 @@ export class Oracle {
     [dstSlot]: ACVMField[],
     [numEntries]: ACVMField[],
   ): Promise<ACVMField[]> {
+    return await this.aztec_utl_copyCapsuleV2([contractAddress], [srcSlot], [dstSlot], [numEntries]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_copyCapsuleV2(
+    [contractAddress]: ACVMField[],
+    [srcSlot]: ACVMField[],
+    [dstSlot]: ACVMField[],
+    [numEntries]: ACVMField[],
+    [scopeSome]: ACVMField[] = [],
+    [scopeValue]: ACVMField[] = [],
+  ): Promise<ACVMField[]> {
+    const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     await this.handlerAsUtility().copyCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(srcSlot),
       Fr.fromString(dstSlot),
       Fr.fromString(numEntries).toNumber(),
+      scope,
     );
     return [];
   }

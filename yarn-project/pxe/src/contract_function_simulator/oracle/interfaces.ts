@@ -137,10 +137,16 @@ export interface IUtilityExecutionOracle {
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
   ): Promise<void>;
-  storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
-  loadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
-  deleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;
-  copyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
+  storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope?: AztecAddress): Promise<void>;
+  loadCapsule(contractAddress: AztecAddress, key: Fr, scope?: AztecAddress): Promise<Fr[] | null>;
+  deleteCapsule(contractAddress: AztecAddress, key: Fr, scope?: AztecAddress): Promise<void>;
+  copyCapsule(
+    contractAddress: AztecAddress,
+    srcKey: Fr,
+    dstKey: Fr,
+    numEntries: number,
+    scope?: AztecAddress,
+  ): Promise<void>;
   aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
 }

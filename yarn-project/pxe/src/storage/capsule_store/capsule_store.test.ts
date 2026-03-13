@@ -66,6 +66,21 @@ describe('capsule data provider', () => {
       expect(result2).toEqual(values2);
     });
 
+    it('stores values for different scopes independently', async () => {
+      const scopeA = await AztecAddress.random();
+      const scopeB = await AztecAddress.random();
+      const slot = new Fr(1);
+      const valuesA = [new Fr(42)];
+      const valuesB = [new Fr(100)];
+
+      capsuleStore.storeCapsule(contract, slot, valuesA, 'test', scopeA);
+      capsuleStore.storeCapsule(contract, slot, valuesB, 'test', scopeB);
+
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeA)).toEqual(valuesA);
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test')).toBeNull();
+    });
+
     it('returns null for non-existent slots', async () => {
       const slot = Fr.random();
       const result = await capsuleStore.loadCapsule(contract, slot, 'test');
@@ -175,6 +190,19 @@ describe('capsule data provider', () => {
       await expect(capsuleStore.copyCapsule(contract, src, dst, 3, 'test')).rejects.toThrow(
         'Attempted to copy empty slot',
       );
+    });
+
+    it('copies values within a scope only', async () => {
+      const scope = await AztecAddress.random();
+      const src = new Fr(1);
+      const dst = new Fr(5);
+      const values = [new Fr(42)];
+
+      capsuleStore.storeCapsule(contract, src, values, 'test', scope);
+      await capsuleStore.copyCapsule(contract, src, dst, 1, 'test', scope);
+
+      expect(await capsuleStore.loadCapsule(contract, dst, 'test', scope)).toEqual(values);
+      expect(await capsuleStore.loadCapsule(contract, dst, 'test')).toBeNull();
     });
   });
 

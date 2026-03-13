@@ -603,42 +603,51 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope?: AztecAddress): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule, this.jobId);
+    this.capsuleStore.storeCapsule(contractAddress, slot, capsule, this.jobId, scope);
     return Promise.resolve();
   }
 
-  public async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  public async loadCapsule(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     return (
+      // Transient capsules are currently unscoped.
+      (scope === undefined
+        ? this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data
+        : undefined) ??
       // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
-      this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
-      (await this.capsuleStore.loadCapsule(this.contractAddress, slot, this.jobId))
+      (await this.capsuleStore.loadCapsule(contractAddress, slot, this.jobId, scope))
     );
   }
 
-  public deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    this.capsuleStore.deleteCapsule(this.contractAddress, slot, this.jobId);
+    this.capsuleStore.deleteCapsule(contractAddress, slot, this.jobId, scope);
     return Promise.resolve();
   }
 
-  public copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  public copyCapsule(
+    contractAddress: AztecAddress,
+    srcSlot: Fr,
+    dstSlot: Fr,
+    numEntries: number,
+    scope?: AztecAddress,
+  ): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleStore.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries, this.jobId);
+    return this.capsuleStore.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
