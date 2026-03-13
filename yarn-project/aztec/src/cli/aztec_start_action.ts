@@ -23,14 +23,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   const signalHandlers: Array<() => Promise<void>> = [];
   const services: NamespacedApiHandlers = {};
   const adminServices: NamespacedApiHandlers = {};
+  const packageVersion = getPackageVersion();
   let config: ChainConfig | undefined = undefined;
 
   if (options.localNetwork) {
-    const cliVersion = getPackageVersion() ?? 'unknown';
     const localNetwork = extractNamespacedOptions(options, 'local-network');
     localNetwork.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
-    userLog(`Setting up Aztec local network ${cliVersion}, please stand by...`);
+    userLog(`Setting up Aztec local network ${packageVersion ?? 'unknown'}, please stand by...`);
 
     const { node, stop } = await createLocalNetwork(
       {
@@ -90,13 +90,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   installSignalHandlers(debugLogger.info, signalHandlers);
   const versions = getVersions(config);
+  const versioningOpts = { packageVersion };
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       http200OnError: false,
       log: debugLogger,
-      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
+      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
     });
@@ -106,7 +107,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // If there are any admin services, start a separate JSON-RPC server for them
   if (Object.entries(adminServices).length > 0) {
-    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)];
+    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)];
 
     // Resolve the admin API key (auto-generated and persisted, or opt-out)
     const apiKeyResolution = await resolveAdminApiKey(

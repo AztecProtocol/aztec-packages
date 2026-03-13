@@ -160,7 +160,7 @@ export class SequencerClient {
     const l1PublishingTimeBasedOnChain = isAnvilTestChain(config.l1ChainId) ? 1 : ethereumSlotDuration;
     const l1PublishingTime = config.l1PublishingTime ?? l1PublishingTimeBasedOnChain;
 
-    const { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock } = computeBlockLimits(
+    const { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock, maxBlocksPerCheckpoint } = computeBlockLimits(
       config,
       rollupManaLimit,
       l1PublishingTime,
@@ -183,7 +183,7 @@ export class SequencerClient {
       deps.dateProvider,
       epochCache,
       rollupContract,
-      { ...config, l1PublishingTime, maxL2BlockGas, maxDABlockGas, maxTxsPerBlock },
+      { ...config, l1PublishingTime, maxL2BlockGas, maxDABlockGas, maxTxsPerBlock, maxBlocksPerCheckpoint },
       telemetryClient,
       log,
     );
@@ -257,7 +257,7 @@ export function computeBlockLimits(
   rollupManaLimit: number,
   l1PublishingTime: number,
   log: ReturnType<typeof createLogger>,
-): { maxL2BlockGas: number; maxDABlockGas: number; maxTxsPerBlock: number } {
+): { maxL2BlockGas: number; maxDABlockGas: number; maxTxsPerBlock: number; maxBlocksPerCheckpoint: number } {
   const maxNumberOfBlocks = new SequencerTimetable({
     ethereumSlotDuration: config.ethereumSlotDuration,
     aztecSlotDuration: config.aztecSlotDuration,
@@ -331,5 +331,5 @@ export function computeBlockLimits(
     multiplier,
   });
 
-  return { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock };
+  return { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock, maxBlocksPerCheckpoint: maxNumberOfBlocks };
 }
