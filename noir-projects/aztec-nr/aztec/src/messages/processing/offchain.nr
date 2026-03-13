@@ -33,9 +33,9 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 /// Tolerance added to the `MAX_TX_LIFETIME` cap for message expiration.
 global TX_EXPIRATION_TOLERANCE: u64 = 7200; // 2 hours
 
-/// Maximum time-to-live for a tx-bound offchain message: `MAX_TX_LIFETIME + TX_EXPIRATION_CAP_TOLERANCE`.
+/// Maximum time-to-live for a tx-bound offchain message.
 ///
-/// After `received_at + MAX_MSG_TTL`, the message is evicted regardless of the sender-provided expiration.
+/// After `anchor_block_timestamp + MAX_MSG_TTL`, the message is evicted from the inbox.
 global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 
 /// A function that manages offchain-delivered messages for processing during sync.
@@ -63,8 +63,8 @@ pub struct OffchainMessage {
     pub recipient: AztecAddress,
     /// The hash of the transaction that produced this message. `Option::none` indicates a tx-less message.
     pub tx_hash: Option<Field>,
-    /// The timestamp after which this message can be evicted from the inbox.
-    pub expiration_timestamp: u64,
+    /// Anchor block timestamp at message emission.
+    pub anchor_block_timestamp: u64,
 }
 
 /// An offchain message awaiting processing (or re-processing) in the inbox.
@@ -80,14 +80,11 @@ struct PendingOffchainMsg {
     recipient: AztecAddress,
     /// The hash of the transaction that produced this message. A value of 0 indicates a tx-less message.
     tx_hash: Field,
-    /// The timestamp after which this message can be evicted from the inbox (as provided by the sender).
-    expiration_timestamp: u64,
-    /// The timestamp at which this message was received (i.e. added to the inbox via `receive`).
+    /// Anchor block timestamp at message emission.
     ///
-    /// Used to cap the effective expiration of messages with an associated transaction: since a tx can only live for
-    /// `MAX_TX_LIFETIME`, we don't need to keep the message around longer than `received_at + MAX_MSG_TTL`,
-    /// regardless of the sender-provided `expiration_timestamp`.
-    received_at: u64,
+    /// Used to compute the effective expiration: messages are evicted after
+    /// `anchor_block_timestamp + MAX_MSG_TTL`.
+    anchor_block_timestamp: u64,
 }
 
 /// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
@@ -100,9 +97,8 @@ struct PendingOffchainMsg {
 /// Messages are processed when their originating transaction is found onchain (providing the context needed to
 /// validate resulting notes and events).
 ///
-/// Messages are kept in the inbox until their expiration timestamp is reached. For messages with an associated
-/// transaction, the effective expiration is capped to `received_at + MAX_MSG_TTL`, since there's no point in
-/// keeping a message around longer than its originating transaction could possibly live.
+/// Messages are kept in the inbox until they expire. The effective expiration is
+/// `anchor_block_timestamp + MAX_MSG_TTL`.
 ///
 /// Processing order is not guaranteed.
 pub unconstrained fn receive(
@@ -110,7 +106,6 @@ pub unconstrained fn receive(
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT);
-    let now = UtilityContext::new().timestamp();
     let mut i = 0;
     let messages_len = messages.len();
     while i < messages_len {
@@ -125,8 +120,7 @@ pub unconstrained fn receive(
                 ciphertext: msg.ciphertext,
                 recipient: msg.recipient,
                 tx_hash,
-                expiration_timestamp: msg.expiration_timestamp,
-                received_at: now,
+                anchor_block_timestamp: msg.anchor_block_timestamp,
             },
         );
         i += 1;
@@ -191,8 +185,8 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
         // process the message. We add the message to the `ready_to_process` CapsuleArray so that the `sync_state` loop
         // processes it.
         //
-        // In all cases, if the message has expired, or the associated TX is older than than `MAX_TX_LIFETIME`
-        // (24 hours), we remove it from the inbox.
+        // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL`), we remove it
+        // from the inbox.
         //
         // Note: the loop runs backwards because it might call `inbox.remove(j)` to purge expired messages and we also
         // need to align it with `resolved_contexts.get(j)`. Going from last to first simplifies the algorithm as
@@ -202,20 +196,7 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
         let msg = inbox.get(j);
 
         // Compute the message's effective expiration timestamp to determine if we can purge it from the inbox.
-        let effective_expiration = if msg.tx_hash != 0 {
-            // For messages with an associated transaction, we cap the sender-provided expiration timestamp to
-            // `received_at + MAX_MSG_TTL`: there's no point in keeping a message once the TX
-            // can no longer possibly be included in a block.
-            let tx_lifetime_cap = msg.received_at + MAX_MSG_TTL;
-            if msg.expiration_timestamp < tx_lifetime_cap {
-                msg.expiration_timestamp
-            } else {
-                tx_lifetime_cap
-            }
-        } else {
-            // Messages with no associated TX expire on their `expiration_timestamp`
-            msg.expiration_timestamp
-        };
+        let effective_expiration = msg.anchor_block_timestamp + MAX_MSG_TTL;
 
         // Message expired. We remove it from the inbox.
         if now > effective_expiration {
@@ -259,12 +240,12 @@ mod test {
     };
 
     /// Creates an `OffchainMessage` with dummy ciphertext/recipient.
-    fn make_msg(tx_hash: Option<Field>, expiration_timestamp: u64) -> OffchainMessage {
+    fn make_msg(tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
         OffchainMessage {
             ciphertext: BoundedVec::new(),
             recipient: AztecAddress::from_field(42),
             tx_hash,
-            expiration_timestamp,
+            anchor_block_timestamp,
         }
     }
 
@@ -289,27 +270,18 @@ mod test {
     }
 
     #[test]
-    unconstrained fn tx_bound_msg_expires_by_sender_timestamp() {
+    unconstrained fn tx_bound_msg_expires_after_max_msg_ttl() {
         let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
-        // Msg expiration attribute is well before the lifetime cap, so it is the effective expiration.
-        let sender_expiration_offset = 100;
+        let anchor_ts = advance_by(env, 10);
 
-        // Receive message with expiration at receive_time + offset.
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs
-                .push(
-                    make_msg(
-                        Option::some(random()),
-                        receive_time + sender_expiration_offset,
-                    ),
-                );
+            msgs.push(make_msg(Option::some(random()), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
-        // Advance past sender expiration but before the lifetime cap.
-        let _now = advance_by(env, sender_expiration_offset + 1);
+        // Advance past anchor_ts + MAX_MSG_TTL.
+        let _now = advance_by(env, MAX_MSG_TTL + 1);
 
         env.utility_context(|context| {
             let address = context.this_address();
@@ -322,76 +294,17 @@ mod test {
     }
 
     #[test]
-    unconstrained fn tx_bound_msg_expires_by_lifetime_cap() {
+    unconstrained fn tx_bound_msg_not_expired_before_max_msg_ttl() {
         let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
+        let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            // Sender's expiration is far in the future, so the standard TX lifetime cap kicks in.
-            msgs.push(make_msg(Option::some(random()), receive_time + 10 * MAX_MSG_TTL));
+            msgs.push(make_msg(Option::some(random()), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
-        // Advance past the lifetime cap.
-        let _now = advance_by(env, MAX_MSG_TTL + 1);
-
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-
-            assert_eq(result.len(), 0);
-            assert_eq(inbox.len(), 0); // capped expiration exceeded, removed
-        });
-    }
-
-    #[test]
-    unconstrained fn tx_bound_msg_not_expired_sender_timestamp_binding() {
-        let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
-        // Sender expiration is in the future and below the cap, so it is the binding expiration.
-        let sender_expiration_offset = 100;
-
-        env.utility_context(|context| {
-            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs
-                .push(
-                    make_msg(
-                        Option::some(random()),
-                        receive_time + sender_expiration_offset,
-                    ),
-                );
-            receive(context.this_address(), msgs);
-        });
-
-        // Advance, but not past sender expiration.
-        let _now = advance_by(env, sender_expiration_offset - 1);
-
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-
-            assert_eq(result.len(), 0); // context is None, not ready
-            assert_eq(inbox.len(), 1); // not expired, stays
-        });
-    }
-
-    #[test]
-    unconstrained fn tx_bound_msg_not_expired_lifetime_cap_binding() {
-        let env = TestEnvironment::new();
-
-        // Sender expiration is way beyond the cap, but `now` is still before the cap.
-        let receive_time = advance_by(env, 10);
-
-        env.utility_context(|context| {
-            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::some(random()), receive_time + 10 * MAX_MSG_TTL));
-            receive(context.this_address(), msgs);
-        });
-
-        // Advance, but not past the lifetime cap.
+        // Advance, but not past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, 100);
 
         env.utility_context(|context| {
@@ -405,64 +318,37 @@ mod test {
     }
 
     #[test]
-    unconstrained fn tx_less_msg_expires_by_sender_timestamp() {
+    unconstrained fn tx_less_msg_expires_after_max_msg_ttl() {
         let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
-        let sender_expiration_offset = 100;
+        let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::none(), receive_time + sender_expiration_offset));
+            msgs.push(make_msg(Option::none(), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
-        let _now = advance_by(env, sender_expiration_offset + 1);
-
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-
-            assert_eq(result.len(), 0);
-            assert_eq(inbox.len(), 0); // expired, removed
-        });
-    }
-
-    #[test]
-    unconstrained fn tx_less_msg_with_large_expiration_is_not_capped() {
-        let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
-
-        env.utility_context(|context| {
-            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::none(), receive_time + 10 * MAX_MSG_TTL));
-            receive(context.this_address(), msgs);
-        });
-
-        // Advance past what the lifetime cap would be for a tx-bound message.
+        // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
 
-        // The message is tx-less, so the lifetime cap does not apply and the sender's large
-        // expiration is trusted. Even though `now` is past what the cap would be for a tx-bound
-        // message, the message stays.
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert_eq(inbox.len(), 1); // tx-less, not capped, stays
+            assert_eq(inbox.len(), 0); // expired, removed
         });
     }
 
     #[test]
     unconstrained fn unresolved_tx_stays_in_inbox() {
         let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
+        let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::some(random()), receive_time + MAX_MSG_TTL));
+            msgs.push(make_msg(Option::some(random()), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
@@ -481,24 +367,25 @@ mod test {
     #[test]
     unconstrained fn multiple_messages_mixed_expiration() {
         let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
+        let anchor_ts = advance_by(env, 10);
 
         let survivor_tx_hash = random();
 
         env.utility_context(|context| {
             let address = context.this_address();
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            // Message 0: tx-bound, will expire after 50s.
-            msgs.push(make_msg(Option::some(random()), receive_time + 50));
-            // Message 1: tx-bound, will expire after 50_000s (the survivor).
-            msgs.push(make_msg(Option::some(survivor_tx_hash), receive_time + 50_000));
-            // Message 2: tx-less, will expire after 50s.
-            msgs.push(make_msg(Option::none(), receive_time + 50));
+            // Message 0: tx-bound, anchor_ts in the past so it expires at
+            // anchor_ts + MAX_MSG_TTL. We set anchor to 0 so it expires quickly.
+            msgs.push(make_msg(Option::some(random()), 0));
+            // Message 1: tx-bound, anchor_ts is recent so it survives.
+            msgs.push(make_msg(Option::some(survivor_tx_hash), anchor_ts));
+            // Message 2: tx-less, anchor_ts=0 so it also expires.
+            msgs.push(make_msg(Option::none(), 0));
             receive(address, msgs);
         });
 
-        // Advance past 50s but before 50_000s.
-        let _now = advance_by(env, 51);
+        // Advance past MAX_MSG_TTL for anchor_ts=0, but not for anchor_ts=anchor_ts.
+        let _now = advance_by(env, MAX_MSG_TTL);
 
         env.utility_context(|context| {
             let address = context.this_address();
@@ -506,7 +393,8 @@ mod test {
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // all contexts are None
-            // Only message 1 should remain: messages 0 and 2 expired.
+            // Message 0 expired (anchor=0), message 1 survived (anchor=anchor_ts),
+            // message 2 expired (anchor=0).
             assert_eq(inbox.len(), 1);
             assert_eq(inbox.get(0).tx_hash, survivor_tx_hash);
         });
@@ -521,11 +409,11 @@ mod test {
         // In TXE, tx hashes equal Fr(blockNumber), so Fr(1) is the tx effect from block 1.
         // We use this as a "known resolvable" tx hash.
         let known_tx_hash: Field = 1;
-        let receive_time = advance_by(env, 10);
+        let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::some(known_tx_hash), receive_time + MAX_MSG_TTL));
+            msgs.push(make_msg(Option::some(known_tx_hash), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
