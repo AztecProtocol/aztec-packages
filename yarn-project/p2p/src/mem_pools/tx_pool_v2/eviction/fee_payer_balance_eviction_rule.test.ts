@@ -75,7 +75,9 @@ describe('FeePayerBalanceEvictionRule', () => {
     db = mock<MerkleTreeReadOperations>();
     mockWorldState.getCommitted.mockReturnValue(db);
     mockWorldState.getSnapshot.mockReturnValue(db);
-    mockWorldState.syncImmediate.mockResolvedValue(BlockNumber(1));
+    mockWorldState.syncImmediate.mockImplementation((blockNumber?: number) =>
+      Promise.resolve(BlockNumber(blockNumber ?? 1)),
+    );
 
     feePayerBalances = new Map();
     setupBalances(feePayerBalances);
@@ -312,7 +314,7 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         await rule.evict(context, pool);
 
-        expect(mockWorldState.syncImmediate).toHaveBeenCalledWith(5);
+        expect(mockWorldState.syncImmediate).toHaveBeenCalledWith(5, true);
         expect(mockWorldState.getSnapshot).toHaveBeenCalledWith(5);
       });
 
@@ -336,6 +338,29 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([lowMeta.txHash]);
+      });
+
+      it('skips eviction gracefully when block was pruned (reorg race)', async () => {
+        const meta = createMeta('0x1111', { feeLimit: 100n });
+        const txsByFeePayer = new Map([[feePayer1, [meta]]]);
+        const pool = createPoolOps(txsByFeePayer);
+        setupBalances(new Map([[feePayer1, 0n]]));
+
+        // Simulate reorg: syncImmediate returns a block number less than the target
+        mockWorldState.syncImmediate.mockResolvedValue(BlockNumber(3));
+
+        const context: EvictionContext = {
+          event: EvictionEvent.BLOCK_MINED,
+          block: blockHeader, // block number 5
+          newNullifiers: [],
+          feePayers: [feePayer1],
+        };
+
+        const result = await rule.evict(context, pool);
+
+        expect(result.success).toBe(true);
+        expect(result.txsEvicted).toHaveLength(0);
+        expect(mockWorldState.getSnapshot).not.toHaveBeenCalled();
       });
     });
 
@@ -366,6 +391,32 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         expect(mockWorldState.syncImmediate).toHaveBeenCalledWith();
         expect(mockWorldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
+      });
+
+      it('reports failure when snapshot data is unavailable', async () => {
+        const meta = createMeta('0x1111', { feeLimit: 100n });
+        const txsByFeePayer = new Map([[feePayer1, [meta]]]);
+        const pool = createPoolOps(txsByFeePayer);
+
+        // Balance insufficient - would trigger eviction if snapshot were available
+        setupBalances(new Map([[feePayer1, 0n]]));
+
+        // Make getSnapshot return a db that throws (simulating pruned block data)
+        const dbFailing = mock<MerkleTreeReadOperations>();
+        dbFailing.getPreviousValueIndex.mockRejectedValue(new Error('Unable to find low leaf'));
+        mockWorldState.getSnapshot.mockReturnValue(dbFailing);
+
+        const context: EvictionContext = {
+          event: EvictionEvent.CHAIN_PRUNED,
+          blockNumber: BlockNumber(3),
+        };
+
+        const result = await rule.evict(context, pool);
+
+        // Error propagates to outer catch, reported as failure
+        expect(result.success).toBe(false);
+        expect(result.txsEvicted).toHaveLength(0);
+        expect(result.error).toBeDefined();
       });
 
       it('evicts txs when balance changed after prune', async () => {

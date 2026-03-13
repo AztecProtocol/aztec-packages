@@ -29,7 +29,15 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
       if (context.event === EvictionEvent.BLOCK_MINED) {
         const blockNumber = context.block.getBlockNumber();
-        await this.worldState.syncImmediate(blockNumber);
+        const syncedTo = await this.worldState.syncImmediate(blockNumber, true);
+        if (syncedTo < blockNumber) {
+          // Block was likely pruned due to a reorg. Skip eviction;
+          // the subsequent CHAIN_PRUNED event will re-evaluate all pending fee payers.
+          this.log.debug(
+            `Skipping BLOCK_MINED fee payer eviction: world state at block ${syncedTo}, expected ${blockNumber}`,
+          );
+          return { reason: this.reason, success: true, txsEvicted: [] };
+        }
         return await this.evictForFeePayers(context.feePayers, this.worldState.getSnapshot(blockNumber), pool);
       }
 
@@ -45,7 +53,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
         txsEvicted: [],
       };
     } catch (err) {
-      this.log.error('Failed to evict txs due to fee payer balance', { err });
+      this.log.warn('Failed to evict txs due to fee payer balance', { err });
       return {
         reason: this.reason,
         success: false,
