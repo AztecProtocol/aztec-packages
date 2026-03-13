@@ -1,20 +1,19 @@
 use super::machine::SideEffectCommand;
-use crate::wallet::{self, AccountId, WalletCommand};
+use crate::wallet::{AccountId, Bridge, WalletCommand};
 
-pub struct SideEffectSystem {
-    side_effect_artifact: String,
-    parent_artifact: String,
+pub struct SideEffectSystem<'a> {
+    side_effect_artifact: &'static str,
+    parent_artifact: &'static str,
+    bridge: &'a Bridge,
 }
 
 const CHILD_CONTRACT: &str = "contracts:test0";
 const PARENT_CONTRACT: &str = "contracts:parent0";
 
-impl TryFrom<&SideEffectCommand> for WalletCommand {
-    type Error = anyhow::Error;
-
-    fn try_from(cmd: &SideEffectCommand) -> anyhow::Result<Self> {
+impl From<&SideEffectCommand> for WalletCommand {
+    fn from(cmd: &SideEffectCommand) -> Self {
         use SideEffectCommand::*;
-        let (verb, method, from, args) = match cmd {
+        let (method, from, args) = match cmd {
             CreateNote {
                 value,
                 owner,
@@ -22,7 +21,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 from,
                 ..
             } => (
-                "send",
                 "call_create_note",
                 format!("accounts:test{from}"),
                 vec![
@@ -37,7 +35,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 value,
                 from,
             } => (
-                "send",
                 "call_create_and_complete_partial_note",
                 format!("accounts:test{from}"),
                 vec![
@@ -53,7 +50,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 offset,
                 from,
             } => (
-                "simulate",
                 "call_view_notes_many",
                 format!("accounts:test{from}"),
                 vec![
@@ -70,7 +66,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 offset,
                 from,
             } => (
-                "simulate",
                 "call_get_notes_many",
                 format!("accounts:test{from}"),
                 vec![
@@ -86,7 +81,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 from,
                 ..
             } => (
-                "send",
                 "call_destroy_note",
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
@@ -97,7 +91,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 from,
                 ..
             } => (
-                "send",
                 "test_note_inclusion",
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
@@ -105,7 +98,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
             EmitNullifier {
                 nullifier, from, ..
             } => (
-                "send",
                 "emit_nullifier",
                 format!("accounts:test{from}"),
                 vec![format!("{nullifier}")],
@@ -113,42 +105,46 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
             TestNullifierInclusion {
                 nullifier, from, ..
             } => (
-                "send",
-                "test_nullifier_inclusion",
+                "test_settled_nullifier_inclusion",
                 format!("accounts:test{from}"),
                 vec![format!("{nullifier}")],
             ),
         };
 
         let (contract, method, args) = if cmd.via_parent() {
-            (
-                PARENT_CONTRACT,
-                format!("forward_{method}"),
-                [vec![CHILD_CONTRACT.to_string()], args].concat(),
-            )
+            let mut parent_args = vec![CHILD_CONTRACT.to_string()];
+            parent_args.extend(args);
+            (PARENT_CONTRACT, format!("forward_{method}"), parent_args)
         } else {
             (CHILD_CONTRACT, method.to_string(), args)
         };
 
-        Ok(WalletCommand {
-            verb: verb.to_string(),
+        WalletCommand {
+            verb: cmd.verb(),
             method,
             contract: contract.to_string(),
             from,
             args,
-        })
+        }
     }
 }
 
-impl SideEffectSystem {
+impl<'a> SideEffectSystem<'a> {
     pub(crate) fn execute_command(&self, cmd: &SideEffectCommand) -> anyhow::Result<String> {
-        let wallet_cmd = WalletCommand::try_from(cmd)?;
-        wallet::execute(&wallet_cmd)
+        self.bridge.execute(&WalletCommand::from(cmd))
+    }
+
+    pub(crate) fn execute_command_batch(
+        &self,
+        cmds: &[SideEffectCommand],
+    ) -> Vec<anyhow::Result<String>> {
+        let wallet_cmds: Vec<WalletCommand> = cmds.iter().map(WalletCommand::from).collect();
+        self.bridge.execute_many(&wallet_cmds)
     }
 
     pub(crate) fn deploy_side_effect_contract(&self, account: AccountId) -> anyhow::Result<String> {
-        wallet::deploy(
-            &self.side_effect_artifact,
+        self.bridge.deploy(
+            self.side_effect_artifact,
             &format!("accounts:test{account}"),
             "test0",
             Some("initialize"),
@@ -157,8 +153,8 @@ impl SideEffectSystem {
     }
 
     pub(crate) fn deploy_parent_contract(&self, account: AccountId) -> anyhow::Result<String> {
-        wallet::deploy(
-            &self.parent_artifact,
+        self.bridge.deploy(
+            self.parent_artifact,
             &format!("accounts:test{account}"),
             "parent0",
             Some("initialize"),
@@ -166,14 +162,11 @@ impl SideEffectSystem {
         )
     }
 
-    pub(crate) fn new() -> Self {
-        let side_effect_artifact = std::env::var("SIDE_EFFECT_ARTIFACT_PATH")
-            .unwrap_or_else(|_| "/tmp/side_effect_contract-SideEffect.json".to_string());
-        let parent_artifact = std::env::var("PARENT_ARTIFACT_PATH")
-            .unwrap_or_else(|_| "/tmp/parent_contract-Parent.json".to_string());
+    pub(crate) fn new(bridge: &'a Bridge) -> Self {
         Self {
-            side_effect_artifact,
-            parent_artifact,
+            side_effect_artifact: "/tmp/side_effect_contract-SideEffect.json",
+            parent_artifact: "/tmp/parent_contract-Parent.json",
+            bridge,
         }
     }
 }

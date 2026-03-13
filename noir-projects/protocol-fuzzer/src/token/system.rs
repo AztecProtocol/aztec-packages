@@ -1,23 +1,21 @@
 use super::machine::{TokenCommand, TokenId};
-use crate::wallet::{self, AccountId, WalletCommand};
+use crate::wallet::{AccountId, Bridge, WalletCommand};
 
-#[derive(Default)]
-pub struct TokenSystem;
+pub struct TokenSystem<'a> {
+    bridge: &'a Bridge,
+}
 
-impl TryFrom<&TokenCommand> for WalletCommand {
-    type Error = anyhow::Error;
-
-    fn try_from(cmd: &TokenCommand) -> anyhow::Result<Self> {
+impl From<&TokenCommand> for WalletCommand {
+    fn from(cmd: &TokenCommand) -> Self {
         use TokenCommand::*;
         // authwit_nonce is always 0 because msg_sender == from in all commands.
-        let (verb, method, contract, from, args) = match cmd {
+        let (method, contract, from, args) = match cmd {
             MintPublic {
                 token,
                 amount,
                 from,
                 to,
             } => (
-                "send",
                 "mint_to_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -29,7 +27,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 from,
                 to,
             } => (
-                "send",
                 "mint_to_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -40,7 +37,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "burn_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -55,7 +51,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "burn_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -71,7 +66,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_in_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -88,7 +82,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_in_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -105,7 +98,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_to_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -117,7 +109,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_to_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -133,7 +124,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 from,
                 address,
             } => (
-                "simulate",
                 "balance_of_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -144,14 +134,12 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 from,
                 address,
             } => (
-                "simulate",
                 "balance_of_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{address}")],
             ),
             TotalSupply { token, from } => (
-                "simulate",
                 "total_supply",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -159,20 +147,27 @@ impl TryFrom<&TokenCommand> for WalletCommand {
             ),
         };
 
-        Ok(WalletCommand {
-            verb: verb.to_string(),
+        WalletCommand {
+            verb: cmd.verb(),
             method: method.to_string(),
             contract,
             from,
             args,
-        })
+        }
     }
 }
 
-impl TokenSystem {
+impl<'a> TokenSystem<'a> {
     pub(crate) fn execute_command(&self, cmd: &TokenCommand) -> anyhow::Result<String> {
-        let wallet_cmd = WalletCommand::try_from(cmd)?;
-        wallet::execute(&wallet_cmd)
+        self.bridge.execute(&WalletCommand::from(cmd))
+    }
+
+    pub(crate) fn execute_command_batch(
+        &self,
+        cmds: &[TokenCommand],
+    ) -> Vec<anyhow::Result<String>> {
+        let wallet_cmds: Vec<WalletCommand> = cmds.iter().map(WalletCommand::from).collect();
+        self.bridge.execute_many(&wallet_cmds)
     }
 
     pub(crate) fn deploy_token(
@@ -180,7 +175,7 @@ impl TokenSystem {
         account: AccountId,
         token: TokenId,
     ) -> anyhow::Result<String> {
-        wallet::deploy(
+        self.bridge.deploy(
             "TokenContractArtifact",
             &format!("accounts:test{account}"),
             &format!("token{token}"),
@@ -191,7 +186,7 @@ impl TokenSystem {
         )
     }
 
-    pub(crate) fn new() -> anyhow::Result<Self> {
-        Ok(Self)
+    pub(crate) fn new(bridge: &'a Bridge) -> Self {
+        Self { bridge }
     }
 }
