@@ -385,7 +385,7 @@ mod test {
         });
 
         // Advance past MAX_MSG_TTL for anchor_ts=0, but not for anchor_ts=anchor_ts.
-        let _now = advance_by(env, MAX_MSG_TTL + 1);
+        let _now = advance_by(env, MAX_MSG_TTL);
 
         env.utility_context(|context| {
             let address = context.this_address();
