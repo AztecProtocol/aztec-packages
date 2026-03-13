@@ -487,8 +487,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       if (processedTx.revertReason) {
         try {
           await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
-          // eslint-disable-next-line no-empty
-        } catch {}
+        } catch (err) {
+          this.logger.warn('Failed to enrich public simulation error', { err });
+        }
         throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
       } else {
         throw new Error('Contract execution has reverted');
@@ -639,8 +640,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       if (processedTx.revertReason) {
         try {
           await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
-          // eslint-disable-next-line no-empty
-        } catch {}
+        } catch (err) {
+          this.logger.warn('Failed to enrich public simulation error', { err });
+        }
         throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
       } else {
         throw new Error('Contract execution has reverted');
