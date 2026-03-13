@@ -83,8 +83,14 @@ class KernelIOSerde {
         };
 
         auto serialize_point = [&](const NativeG1& point) {
-            serialize_fq(point.x);
-            serialize_fq(point.y);
+            if (point.is_point_at_infinity()) {
+                for (size_t i = 0; i < NativeG1::PUBLIC_INPUTS_SIZE; ++i) {
+                    proof[idx++] = NativeFF::zero();
+                }
+            } else {
+                serialize_fq(point.x);
+                serialize_fq(point.y);
+            }
         };
 
         serialize_point(pairing_inputs.P0());
@@ -163,8 +169,14 @@ class HidingKernelIOSerde {
         };
 
         auto serialize_point = [&](const NativeG1& point) {
-            serialize_fq(point.x);
-            serialize_fq(point.y);
+            if (point.is_point_at_infinity()) {
+                for (size_t i = 0; i < NativeG1::PUBLIC_INPUTS_SIZE; ++i) {
+                    proof[idx++] = NativeFF::zero();
+                }
+            } else {
+                serialize_fq(point.x);
+                serialize_fq(point.y);
+            }
         };
 
         serialize_point(pairing_inputs.P0());
@@ -239,8 +251,14 @@ class AppIOSerde {
         };
 
         auto serialize_point = [&](const NativeG1& point) {
-            serialize_fq(point.x);
-            serialize_fq(point.y);
+            if (point.is_point_at_infinity()) {
+                for (size_t i = 0; i < NativeG1::PUBLIC_INPUTS_SIZE; ++i) {
+                    proof[idx++] = NativeFF::zero();
+                }
+            } else {
+                serialize_fq(point.x);
+                serialize_fq(point.y);
+            }
         };
 
         serialize_point(pairing_inputs.P0());

@@ -224,13 +224,17 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
 #ifndef NDEBUG
-        // Instant death tag causes exception on use
+        // Instant death tag causes exception on use.
+        // NOTE: We construct the element BEFORE poisoning its x coordinate.
+        // The 2-argument element_ct constructor sums the x limbs to detect the point at infinity,
+        // which would trigger the instant_death check if the tag were already set.
         affine_element input_death(element::random_element());
         auto x_death = element_ct::BaseField::from_witness(&builder, input_death.x);
         auto y_normal = element_ct::BaseField::from_witness(&builder, input_death.y);
-        x_death.set_origin_tag(instant_death_tag);
         y_normal.set_origin_tag(constant_tag);
         element_ct death_point(x_death, y_normal, /*assert_on_curve=*/false);
+        // Poison the x coordinate after construction so the throw happens inside operator+
+        death_point.x().set_origin_tag(instant_death_tag);
         EXPECT_THROW(death_point + death_point, std::runtime_error);
 
         // AUDITTODO: incomplete_assert_equal has inconsistent instant_death behavior between builders. (this was simply

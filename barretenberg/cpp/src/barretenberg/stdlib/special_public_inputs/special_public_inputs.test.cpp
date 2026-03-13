@@ -6,7 +6,7 @@ namespace bb::stdlib::recursion::honk {
 
 class SpecialPublicInputsTests : public testing::Test {
   public:
-    static void SetUpTestSuite() {}
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 // Demonstrates the basic functionality of the KernelIO class for propagating public inputs between circuits

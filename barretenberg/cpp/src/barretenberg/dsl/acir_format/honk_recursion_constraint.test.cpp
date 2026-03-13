@@ -357,6 +357,11 @@ TYPED_TEST_SUITE(HonkRecursionConstraintTestWithPredicate, HonkRecursionTypesWit
 
 TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GenerateVKFromConstraints)
 {
+#ifndef NDEBUG
+    // In debug mode we also perform the native check, which would fail because of BB_ASSERT_EQ on the vk hash.
+    BB_DISABLE_ASSERTS();
+#endif
+
     // The flavor with which we prove the outer circuit (the one verifying F_1, .., F_{s_1}) depends on what type of
     // data the inner circuits have propagated and the builder.
     using Flavor = std::conditional_t<IsMegaBuilder<typename TestFixture::Builder>,
