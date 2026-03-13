@@ -27,7 +27,6 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -49,7 +48,11 @@ export class BotFactory {
     private readonly store: BotStore,
     private readonly aztecNode: AztecNode,
     private readonly aztecNodeAdmin?: AztecNodeAdmin,
-  ) {}
+  ) {
+    // Set fee padding on the wallet so that all transactions during setup
+    // (token deploy, minting, etc.) use the configured padding, not the default.
+    this.wallet.setMinFeePadding(config.minFeePadding);
+  }
 
   /**
    * Initializes a new bot by setting up the sender account, registering the recipient,
@@ -218,13 +221,11 @@ export class BotFactory {
 
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.address, claim);
       const deployMethod = await accountManager.getDeployMethod();
-      const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
 
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await deployMethod.send({
           from: AztecAddress.ZERO,
-          fee: { gasSettings, paymentMethod },
+          fee: { paymentMethod },
           wait: NO_WAIT,
         });
         this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);

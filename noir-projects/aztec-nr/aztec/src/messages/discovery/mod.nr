@@ -1,4 +1,5 @@
-use crate::protocol::{address::AztecAddress, logging::{debug_log, debug_log_format}};
+use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format};
+use crate::protocol::address::AztecAddress;
 
 pub mod nonce_discovery;
 pub mod partial_notes;
@@ -7,11 +8,13 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
+    capsules::CapsuleArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            get_private_logs, offchain::OffchainInboxSync, OffchainMessageWithContext,
+            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -77,17 +80,15 @@ randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 pub unconstrained fn do_sync_state<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
-    debug_log("Performing state synchronization");
+    aztecnr_debug_log!("Performing state synchronization");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
     let mut logs = get_private_logs(contract_address);
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
-        debug_log_format(
-            "Processing log with tag {0}",
-            [pending_tagged_log.log.get(0)],
-        );
+        aztecnr_debug_log_format!("Processing log with tag {0}")([pending_tagged_log.log.get(0)]);
 
         // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
         let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);
@@ -100,6 +101,21 @@ pub unconstrained fn do_sync_state<Env>(
         );
         logs.remove(i);
     });
+
+    if offchain_inbox_sync.is_some() {
+        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address);
+        msgs.for_each(|i, msg| {
+            process_message_ciphertext(
+                contract_address,
+                compute_note_hash_and_nullifier,
+                msg.message_ciphertext,
+                msg.message_context,
+            );
+            // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
+            // volatile array with the to-process message, not the actual persistent storage of them.
+            msgs.remove(i);
+        });
+    }
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.

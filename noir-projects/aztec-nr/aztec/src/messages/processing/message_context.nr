@@ -1,16 +1,30 @@
-use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Deserialize};
+use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::{Deserialize, Serialize}};
 
 /// Additional information needed to process a message.
 ///
 /// All messages exist in the context of a transaction, and information about that transaction is typically required in
 /// order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
 /// hashes and the first nullifier in order to find the note's nonce.
-#[derive(Deserialize, Eq)]
+#[derive(Serialize, Deserialize, Eq)]
 pub struct MessageContext {
     pub tx_hash: Field,
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub first_nullifier_in_tx: Field,
     pub recipient: AztecAddress,
+}
+
+/// Transaction context needed to process a message.
+///
+/// Like [`MessageContext`], but `MessageTxContext` does not include the recipient. MessageTxContext's are kind of
+/// adhoc: they are just the minimal data structure that the contract needs to get from a PXE oracle to prepare
+/// offchain messages to be processed. We reify it with a type just because it crosses Noir<->TS boundaries.
+/// The contract knows how to pair the context data with a recipient: then it is able to build a `MessageContext` for
+/// subsequent processing.
+#[derive(Serialize, Deserialize, Eq)]
+pub(crate) struct MessageTxContext {
+    pub tx_hash: Field,
+    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+    pub first_nullifier_in_tx: Field,
 }
 
 mod test {
