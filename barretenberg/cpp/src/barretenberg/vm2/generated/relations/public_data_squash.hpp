@@ -35,7 +35,7 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
     static constexpr const std::string_view NAME = "public_data_squash";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_CONDITION = 1;
+    static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_CHECK_CLOCK_CONDITION = 5;
     static constexpr size_t SR_CHECK_SAME_LEAF_SLOT = 6;
     static constexpr size_t SR_CLK_DIFF_DECOMP = 7;
@@ -45,8 +45,8 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_START_CONDITION:
-            return "START_CONDITION";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_CHECK_CLOCK_CONDITION:
             return "CHECK_CLOCK_CONDITION";
         case SR_CHECK_SAME_LEAF_SLOT:

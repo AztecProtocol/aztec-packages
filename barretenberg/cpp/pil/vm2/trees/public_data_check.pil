@@ -45,7 +45,7 @@ include "public_data_squash.pil";
  * - clk must not repeat for writes to the same slot (asserted by public_data_squash interaction)
  * - low_leaf_index < 2^PUBLIC_DATA_TREE_HEIGHT (Merkle check requirement).
  * - tree_size_before_write < 2^PUBLIC_DATA_TREE_HEIGHT (Merkle check requirement).
- * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0).
+ * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0). See note in indexed_tree_check.pil
  * - Rows on this trace must come from permutations if write=1
  *
  * Interactions (destinations):
@@ -106,7 +106,7 @@ namespace public_data_check;
 
     // Next sel=1 implies current sel=1 or first_row=1
     // With this constraint, we can only have sel=1 for N rows after the first, where N could be zero.
-    #[START_CONDITION]
+    #[TRACE_CONTINUITY]
     sel' * (1 - sel) * (1 - precomputed.first_row) = 0;
 
     pol commit not_end; // @boolean (by definition)
@@ -114,7 +114,7 @@ namespace public_data_check;
 
     pol commit end; // @boolean (by definition)
     #[END_CONDITION]
-    end = sel * (1 - sel');
+    end = sel - not_end;
 
     // ============ INPUTS ============
     pol commit value;

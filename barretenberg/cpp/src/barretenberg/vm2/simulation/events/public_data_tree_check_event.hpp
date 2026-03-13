@@ -13,23 +13,23 @@ namespace bb::avm2::simulation {
 
 struct PublicDataWriteData {
     PublicDataTreeLeafPreimage updated_low_leaf_preimage;
-    FF updated_low_leaf_hash;
-    FF new_leaf_hash;
-    FF intermediate_root;
+    FF updated_low_leaf_hash = 0;
+    FF new_leaf_hash = 0;
+    FF intermediate_root = 0;
     AppendOnlyTreeSnapshot next_snapshot;
 
     bool operator==(const PublicDataWriteData& other) const = default;
 };
 
 struct PublicDataTreeReadWriteEvent {
-    AztecAddress contract_address;
-    FF slot;
-    FF value;
-    FF leaf_slot;
+    AztecAddress contract_address = 0;
+    FF slot = 0;
+    FF value = 0;
+    FF leaf_slot = 0;
     AppendOnlyTreeSnapshot prev_snapshot;
 
     PublicDataTreeLeafPreimage low_leaf_preimage;
-    FF low_leaf_hash;
+    FF low_leaf_hash = 0;
     uint64_t low_leaf_index = 0;
 
     std::optional<PublicDataWriteData> write_data = std::nullopt;

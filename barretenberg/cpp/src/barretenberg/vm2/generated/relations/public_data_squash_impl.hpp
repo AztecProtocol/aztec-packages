@@ -30,7 +30,7 @@ void public_data_squashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::public_data_squash_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // START_CONDITION
+    { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_squash_sel_shift)) *
                    (FF(1) - static_cast<View>(in.get(C::public_data_squash_sel))) *

@@ -14,7 +14,7 @@ template <typename FF_> class public_data_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 2, 3, 3,
+    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 2, 3, 3, 3, 3, 2, 3, 3,
                                                                             3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 3,
                                                                             3, 4, 3, 4, 2, 4, 3, 3, 3, 3, 3 };
 
@@ -37,7 +37,7 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static constexpr const std::string_view NAME = "public_data_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_CONDITION = 1;
+    static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_END_CONDITION = 3;
     static constexpr size_t SR_PROTOCOL_WRITE_CHECK = 8;
     static constexpr size_t SR_CLK_DIFF_DECOMP = 10;
@@ -54,8 +54,8 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_START_CONDITION:
-            return "START_CONDITION";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_END_CONDITION:
             return "END_CONDITION";
         case SR_PROTOCOL_WRITE_CHECK:

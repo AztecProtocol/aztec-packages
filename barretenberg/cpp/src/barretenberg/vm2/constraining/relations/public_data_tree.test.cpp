@@ -201,13 +201,13 @@ TEST(PublicDataTreeConstrainingTest, NegativeStartCondition)
                                    { C::public_data_check_sel, 1 },
                                } });
 
-    check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION);
+    check_relation<public_data_check>(trace, public_data_check::SR_TRACE_CONTINUITY);
 
     // Invalid: sel can't be activated if prev is not the first row
     trace.set(C::precomputed_first_row, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION),
-                              "START_CONDITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeExistsFlagCheck)
@@ -924,13 +924,13 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeStartCondition)
                                    { C::public_data_squash_sel, 1 },
                                } });
 
-    check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION);
+    check_relation<public_data_squash>(trace, public_data_squash::SR_TRACE_CONTINUITY);
 
     // Invalid: sel can't be activated if prev is not the first row
     trace.set(C::precomputed_first_row, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION),
-                              "START_CONDITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 }
 
 TEST(PublicDataTreeConstrainingTest, SquashingNegativeCheckClockCondition)

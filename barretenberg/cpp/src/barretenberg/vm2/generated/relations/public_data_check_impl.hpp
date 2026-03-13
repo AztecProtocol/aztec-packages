@@ -33,7 +33,7 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::public_data_check_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // START_CONDITION
+    { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_sel_shift)) *
                    (FF(1) - static_cast<View>(in.get(C::public_data_check_sel))) *
@@ -50,8 +50,8 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // END_CONDITION
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::public_data_check_end)) -
-                    static_cast<View>(in.get(C::public_data_check_sel)) *
-                        (FF(1) - static_cast<View>(in.get(C::public_data_check_sel_shift))));
+                    (static_cast<View>(in.get(C::public_data_check_sel)) -
+                     static_cast<View>(in.get(C::public_data_check_not_end))));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
