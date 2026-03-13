@@ -105,12 +105,15 @@ describe('computeBlockLimits', () => {
 
       const daLimit = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
       expect(result.maxDABlockGas).toBe(Math.min(daLimit, Math.ceil((daLimit / 5) * 1.2)));
+<<<<<<< HEAD
     });
 
     it('returns maxBlocksPerCheckpoint from timetable', () => {
       const config = makeConfig({ blockDurationMs: 8000 });
       const result = computeBlockLimits(config, 1_000_000, 12, log);
       expect(result.maxBlocksPerCheckpoint).toBe(5);
+=======
+>>>>>>> origin/v4
     });
   });
 });
