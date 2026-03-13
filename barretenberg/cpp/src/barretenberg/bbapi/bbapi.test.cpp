@@ -1,4 +1,7 @@
 #include "barretenberg/bbapi/bbapi.hpp"
+#ifndef __wasm__
+#include "barretenberg/bbapi/bbapi_batch_verifier.hpp"
+#endif
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
@@ -23,7 +26,16 @@ using Commands = ::testing::Types<bbapi::CircuitProve,
                                   bbapi::ChonkProve,
                                   bbapi::ChonkComputeVk,
                                   bbapi::ChonkCheckPrecomputedVk,
-                                  bbapi::ChonkBatchVerify>;
+                                  bbapi::ChonkBatchVerify
+#ifndef __wasm__
+                                  ,
+                                  bbapi::ChonkBatchVerifierStart,
+                                  bbapi::ChonkBatchVerifierQueue,
+                                  bbapi::ChonkBatchVerifierCancel,
+                                  bbapi::ChonkBatchVerifierCancelBySource,
+                                  bbapi::ChonkBatchVerifierStop
+#endif
+                                  >;
 
 // Typed test suites
 template <typename T> class BBApiMsgpack : public ::testing::Test {};

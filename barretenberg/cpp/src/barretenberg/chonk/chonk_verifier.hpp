@@ -116,6 +116,23 @@ template <bool IsRecursive> class ChonkVerifier {
     };
 
     /**
+     * @brief Like IPAReductionResult but with a deferred batch opening claim.
+     * @details The ECCVM's Shplonk MSM is deferred, allowing multiple proofs' claims to be batched
+     * into a single MSM. Call deferred_ipa_claim.finalize() to get the OpeningClaim.
+     */
+    using DeferredIPAClaim = typename GoblinVerifier::BatchReductionResult::DeferredIPAClaim;
+    using NativePairingPoints = bb::PairingPoints<curve::BN254>;
+    struct BatchIPAReductionResult {
+        DeferredIPAClaim deferred_ipa_claim;
+        ::bb::HonkProof ipa_proof;
+        // Deferred pairing points (3 sets per proof: MegaZK PCS, Merge, Translator)
+        NativePairingPoints mega_pcs_pairing_points;
+        NativePairingPoints merge_pairing_points;
+        NativePairingPoints translator_pairing_points;
+        bool all_checks_passed;
+    };
+
+    /**
      * @brief Run Chonk verification up to but not including IPA, returning the IPA claim for deferred verification.
      * @details Verifies the MegaZK proof, databus consistency, and Goblin proof (merge/eccvm/translator),
      * then returns the IPA opening claim and proof without performing the final IPA MSM.
@@ -125,6 +142,12 @@ template <bool IsRecursive> class ChonkVerifier {
      * @return IPAReductionResult containing the IPA claim/proof and whether all non-IPA checks passed
      */
     IPAReductionResult reduce_to_ipa_claim(const Proof& proof);
+
+    /**
+     * @brief Like reduce_to_ipa_claim but defers the ECCVM Shplonk MSM.
+     * @details Returns a BatchOpeningClaim that can be batched with other proofs before finalizing.
+     */
+    BatchIPAReductionResult reduce_to_batch_ipa_claim(const Proof& proof);
 
   private:
     // VK and hash of the hiding kernel

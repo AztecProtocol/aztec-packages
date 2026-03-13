@@ -14,17 +14,18 @@
 namespace bb {
 
 /**
- * @brief Verifies an ECCVM Honk proof for given program settings.
- * @details Works for both native verification and recursive (in-circuit) verification.
+ * @brief Reduce the ECCVM proof to a deferred batch opening claim (no final MSM).
+ * @details Performs all internal verification (sumcheck, Shplemini, translation) but defers the final
+ * Shplonk batch_mul via export_batch_opening_claim. The returned BatchOpeningClaim contains commitments
+ * and scalars that can be merged with other proofs for a batched MSM.
  */
 template <typename Flavor>
-typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
+typename ECCVMVerifier_<Flavor>::BatchReductionResult ECCVMVerifier_<Flavor>::reduce_to_batch_opening_claim()
 {
     BB_BENCH_NAME("ECCVMVerifier::reduce");
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using Shplonk = ShplonkVerifier_<Curve>;
-    using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
 
@@ -110,10 +111,6 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
                                                sumcheck_output.round_univariate_commitments,
                                                sumcheck_output.round_univariate_evaluations);
 
-    // Reduce the accumulator to a single opening claim
-    OpeningClaim multivariate_to_univariate_opening_claim =
-        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
-
     // Produce the opening claim for batch opening of `op`, `Px`, `Py`, `z1`, and `z2` wires as univariate
     // polynomials
 
@@ -124,9 +121,125 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
                                                         commitments.transcript_z2 };
     compute_translation_opening_claims(translation_commitments);
 
+    // Reduce the Shplemini accumulator to a single opening claim (Grumpkin MSM)
+    OpeningClaim multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
+
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
-    // Construct the combined opening claim
+    // Construct the combined opening claim via Shplonk reduction.
+    // We use reduce_verification_no_finalize + export_batch_opening_claim to defer the final MSM.
+    auto shplonk_verifier = Shplonk::reduce_verification_no_finalize(opening_claims, transcript);
+    BatchOpeningClaim<Curve> batch_claim = shplonk_verifier.export_batch_opening_claim(pcs_g1_identity);
+
+    bool sumcheck_verified = sumcheck_output.verified;
+    vinfo("ECCVM Verifier: sumcheck verified: ", sumcheck_verified);
+    vinfo("ECCVM Verifier: consistency checked: ", consistency_checked);
+    vinfo("ECCVM Verifier: translation masking consistency checked: ", translation_masking_consistency_checked);
+
+    compute_accumulated_result();
+
+    // Shplonk evaluation is always 0 (see ShplonkVerifier_ documentation)
+    using DeferredIPAClaim = typename ECCVMVerifier_<Flavor>::DeferredIPAClaim;
+    return { DeferredIPAClaim{ std::move(batch_claim), FF(0) },
+             sumcheck_verified && consistency_checked && translation_masking_consistency_checked };
+}
+
+/**
+ * @brief Verifies an ECCVM Honk proof for given program settings.
+ * @details Standalone implementation that performs the full Shplonk reduction (including MSM) eagerly.
+ * This is the standard path used by direct callers. The batch pipeline uses reduce_to_batch_opening_claim() instead.
+ */
+template <typename Flavor>
+typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
+{
+    BB_BENCH_NAME("ECCVMVerifier::reduce");
+    using Curve = typename Flavor::Curve;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using Shplonk = ShplonkVerifier_<Curve>;
+    using OpeningClaim = OpeningClaim<Curve>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = typename ClaimBatcher::Batch;
+
+    RelationParameters<FF> relation_parameters;
+
+    transcript->load_proof(proof);
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+
+    VerifierCommitments commitments{ key };
+    CommitmentLabels commitment_labels;
+
+    commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+        comm = transcript->template receive_from_prover<Commitment>(label);
+    }
+
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
+
+    auto beta_sqr = beta * beta;
+    auto beta_quartic = beta_sqr * beta_sqr;
+    relation_parameters.gamma = gamma;
+    relation_parameters.beta = beta;
+    relation_parameters.beta_sqr = beta_sqr;
+    relation_parameters.beta_cube = beta_sqr * beta;
+    relation_parameters.beta_quartic = beta_quartic;
+    auto first_term_tag = beta_quartic;
+    relation_parameters.eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
+    relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
+
+    commitments.lookup_inverses =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
+    commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
+
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_ECCVM_LOG_N);
+
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+    };
+
+    auto [sumcheck_batch_opening_claims, consistency_checked] =
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                               claim_batcher,
+                                               sumcheck_output.challenge,
+                                               pcs_g1_identity,
+                                               transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               libra_commitments,
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               sumcheck_output.round_univariate_commitments,
+                                               sumcheck_output.round_univariate_evaluations);
+
+    OpeningClaim multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
+
+    std::vector<Commitment> translation_comms = { commitments.transcript_op,
+                                                  commitments.transcript_Px,
+                                                  commitments.transcript_Py,
+                                                  commitments.transcript_z1,
+                                                  commitments.transcript_z2 };
+    compute_translation_opening_claims(translation_comms);
+
+    opening_claims.back() = multivariate_to_univariate_opening_claim;
+
     const OpeningClaim batch_opening_claim = Shplonk::reduce_verification(pcs_g1_identity, opening_claims, transcript);
 
     bool sumcheck_verified = sumcheck_output.verified;

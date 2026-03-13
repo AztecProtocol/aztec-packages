@@ -18,9 +18,11 @@
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include <atomic>
 #include <cstddef>
 #include <numeric>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -340,6 +342,19 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     };
 
     /**
+     * @brief Lightweight per-proof data for batch verification.
+     * @details Stores round_challenges_inv instead of the full s_vec, deferring s_vec
+     * construction to a fused butterfly that builds combined_s directly.
+     */
+    struct TranscriptDataLight {
+        GroupElement C_zero;
+        Fr b_zero;
+        std::vector<Fr> round_challenges_inv; ///< log_poly_length inverse round challenges
+        Fr gen_challenge;
+        Fr a_zero;
+    };
+
+    /**
      * @brief Process a single IPA proof's transcript, extracting all per-proof verification data.
      *
      * @param opening_claim Contains the commitment \f$C\f$ and opening pair \f$(\beta, f(\beta))\f$
@@ -427,6 +442,63 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         return { C_zero, b_zero, std::move(s_vec), generator_challenge, G_zero_from_prover, a_zero };
+    }
+
+    /**
+     * @brief Lightweight transcript processing for batch verification.
+     * @details Same as read_transcript_data but stores round_challenges_inv instead of building s_vec.
+     * The s_vec construction is deferred to a fused butterfly in batch_reduce_verify.
+     */
+    template <typename Transcript>
+    static TranscriptDataLight read_transcript_data_light(const OpeningClaim<Curve>& opening_claim,
+                                                          const std::shared_ptr<Transcript>& transcript)
+        requires(!Curve::is_stdlib_type)
+    {
+        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        if (generator_challenge.is_zero()) {
+            throw_or_abort("The generator challenge can't be zero");
+        }
+        const Commitment aux_generator = Commitment::one() * generator_challenge;
+        const GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
+
+        const auto pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Commitment> msm_elements(pippenger_size);
+        std::vector<Fr> msm_scalars(pippenger_size);
+
+        for (size_t i = 0; i < log_poly_length; i++) {
+            std::string index = std::to_string(log_poly_length - i - 1);
+            const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
+            const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
+            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            if (round_challenges[i].is_zero()) {
+                throw_or_abort("Round challenges can't be zero");
+            }
+            msm_elements[2 * i] = element_L;
+            msm_elements[2 * i + 1] = element_R;
+        }
+
+        std::vector<Fr> round_challenges_inv = round_challenges;
+        Fr::batch_invert(round_challenges_inv);
+
+        for (size_t i = 0; i < log_poly_length; i++) {
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
+        }
+
+        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
+            { 0, { &msm_scalars[0], pippenger_size } }, { &msm_elements[0], pippenger_size });
+        GroupElement C_zero = C_prime + LR_sums;
+
+        const Fr b_zero = evaluate_challenge_poly(round_challenges_inv, opening_claim.opening_pair.challenge);
+
+        // Skip s_vec construction — store round_challenges_inv for fused butterfly later
+        // Still need to advance transcript by receiving G_0 and a_0
+        [[maybe_unused]] Commitment G_zero_from_prover =
+            transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+
+        return { C_zero, b_zero, std::move(round_challenges_inv), generator_challenge, a_zero };
     }
 
     /**
@@ -671,24 +743,60 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         BB_ASSERT(num_claims == transcripts.size());
         BB_ASSERT(num_claims > 0);
 
-        // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
+        // ── Phase 1: transcript processing (parallel, work-stealing) ──────────
+        // Extract per-claim verification data from transcripts. Uses the lightweight
+        // variant that stores only round_challenges_inv (log_n values) instead of
+        // building full s_vecs (2^log_n elements each).
         std::vector<GroupElement> C_zeros(num_claims);
         std::vector<Fr> a_zeros(num_claims);
         std::vector<Fr> b_zeros(num_claims);
         std::vector<Fr> gen_challenges(num_claims);
-        std::vector<Polynomial<Fr>> s_vecs(num_claims);
+        std::vector<std::vector<Fr>> all_round_challenges_inv(num_claims);
 
-        for (size_t i = 0; i < num_claims; i++) {
-            add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
-            auto data = read_transcript_data(opening_claims[i], transcripts[i]);
-            C_zeros[i] = std::move(data.C_zero);
-            b_zeros[i] = data.b_zero;
-            s_vecs[i] = std::move(data.s_vec);
-            gen_challenges[i] = data.gen_challenge;
-            a_zeros[i] = data.a_zero;
+        {
+            std::atomic<size_t> work_index{ 0 };
+            const size_t saved_concurrency = get_num_cpus();
+
+            auto process_claims = [&]() {
+                set_parallel_for_concurrency(1); // each worker's inner pippenger is serial
+                while (true) {
+                    size_t i = work_index.fetch_add(1, std::memory_order_relaxed);
+                    if (i >= num_claims) {
+                        break;
+                    }
+                    add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
+                    auto data = read_transcript_data_light(opening_claims[i], transcripts[i]);
+                    C_zeros[i] = std::move(data.C_zero);
+                    b_zeros[i] = data.b_zero;
+                    all_round_challenges_inv[i] = std::move(data.round_challenges_inv);
+                    gen_challenges[i] = data.gen_challenge;
+                    a_zeros[i] = data.a_zero;
+                }
+            };
+
+            const size_t num_workers = std::min(num_claims, saved_concurrency);
+            if (num_workers <= 1) {
+                process_claims();
+            } else {
+                std::vector<std::thread> workers;
+                workers.reserve(num_workers - 1);
+                for (size_t w = 0; w < num_workers - 1; ++w) {
+                    workers.emplace_back(process_claims);
+                }
+                process_claims();
+                for (auto& t : workers) {
+                    t.join();
+                }
+            }
+            set_parallel_for_concurrency(saved_concurrency);
         }
 
-        // Phase 2: Batched computation using random challenge alpha
+        // ── Phase 2: fused butterfly + batched combine ────────────────────────
+        // Random linear combination: combined_s[j] = Σ_i α^i · a_zero_i · s_vec_i[j]
+        // Instead of building N separate s_vecs (32K elements each, ~120MB total),
+        // we fuse the butterfly construction with weighted accumulation. Each thread
+        // processes a subset of claims, building weight·s_vec via butterfly and
+        // accumulating into a thread-local buffer with pure additions.
         Fr alpha = Fr::random_element();
         std::vector<Fr> alpha_pows(num_claims);
         alpha_pows[0] = Fr::one();
@@ -696,34 +804,85 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             alpha_pows[i] = alpha_pows[i - 1] * alpha;
         }
 
-        // Combined s_vec: combined_s[j] = \sum \alpha^i * a_zero_i * s_vec_i[j]
-        Polynomial<Fr> combined_s(poly_length);
-        for (size_t i = 0; i < num_claims; i++) {
-            Fr scalar = alpha_pows[i] * a_zeros[i];
-            combined_s.add_scaled(s_vecs[i], scalar);
+        const size_t num_threads = get_num_cpus();
+        std::vector<std::vector<Fr>> thread_buffers(num_threads);
+
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t claims_per_thread = (num_claims + num_threads - 1) / num_threads;
+            const size_t claim_start = thread_idx * claims_per_thread;
+            const size_t claim_end = std::min(claim_start + claims_per_thread, num_claims);
+            if (claim_start >= claim_end) {
+                return;
+            }
+
+            // Thread-local accumulator and butterfly double-buffer
+            auto& local = thread_buffers[thread_idx];
+            local.resize(poly_length, Fr::zero());
+            std::vector<Fr> buf_a(poly_length);
+            std::vector<Fr> buf_b(poly_length / 2);
+
+            for (size_t i = claim_start; i < claim_end; i++) {
+                const auto& u_inv = all_round_challenges_inv[i];
+
+                // Set up double-buffer so final result lands in buf_a (the full-size buffer)
+                Fr* prev = buf_b.data();
+                Fr* curr = buf_a.data();
+                if ((log_poly_length & 1) == 0) {
+                    std::swap(prev, curr);
+                }
+
+                // Seed with weight = α^i · a_zero_i so output is pre-scaled
+                prev[0] = alpha_pows[i] * a_zeros[i];
+                for (size_t k = 0; k < log_poly_length; ++k) {
+                    const size_t half = static_cast<size_t>(1) << k;
+                    const Fr& c = u_inv[k];
+                    for (size_t j = 0; j < half; ++j) {
+                        curr[2 * j] = prev[j];
+                        curr[2 * j + 1] = prev[j] * c;
+                    }
+                    std::swap(prev, curr);
+                }
+
+                // Accumulate: prev now holds weight · s_vec
+                for (size_t j = 0; j < poly_length; ++j) {
+                    local[j] += prev[j];
+                }
+            }
+        });
+
+        // Merge thread-local buffers into thread_buffers[0]
+        auto& combined = thread_buffers[0];
+        for (size_t t = 1; t < num_threads; ++t) {
+            if (thread_buffers[t].empty()) {
+                continue;
+            }
+            for (size_t j = 0; j < poly_length; ++j) {
+                combined[j] += thread_buffers[t][j];
+            }
         }
 
-        // Single MSM over combined scalars
+        // ── Phase 3: final MSM + batched check ───────────────────────────────
+        Polynomial<Fr> combined_s(std::span<const Fr>(combined.data(), poly_length), poly_length);
+
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
         Commitment G_batch =
-            scalar_multiplication::pippenger_unsafe<Curve>(combined_s, { &srs_elements[0], /*size*/ poly_length });
+            scalar_multiplication::pippenger_unsafe<Curve>(combined_s, { &srs_elements[0], poly_length });
 
-        // Combined LHS: C_batch = \sum \alpha^i * C_zero_i
+        // C_batch = Σ α^i · C_zero_i
         GroupElement C_batch = C_zeros[0];
         for (size_t i = 1; i < num_claims; i++) {
             C_batch = C_batch + C_zeros[i] * alpha_pows[i];
         }
 
-        // Combined scalar for U terms: bU_scalar = \sum \alpha^i * a_zero_i * b_zero_i * gen_challenge_i
+        // bU_scalar = Σ α^i · a_zero_i · b_zero_i · gen_challenge_i
         Fr bU_scalar = Fr::zero();
         for (size_t i = 0; i < num_claims; i++) {
             bU_scalar += alpha_pows[i] * a_zeros[i] * b_zeros[i] * gen_challenges[i];
         }
 
-        // Check: C_batch == G_batch + bU_scalar * G
         GroupElement right_hand_side = G_batch + Commitment::one() * bU_scalar;
         return (C_batch.normalize() == right_hand_side.normalize());
     }

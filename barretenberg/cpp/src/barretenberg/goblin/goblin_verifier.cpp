@@ -11,12 +11,13 @@
 namespace bb {
 
 /**
- * @brief Reduce Goblin proof to pairing check and IPA opening claim
- * @details Processes Merge, ECCVM, and Translator sub-proofs sequentially. In native mode, performs immediate
- * pairing checks for early rejections and returns the default ReductionResult on failure.
+ * @brief Reduce Goblin proof to pairing check and deferred batch opening claim.
+ * @details Processes Merge, ECCVM, and Translator sub-proofs sequentially. The ECCVM's final Shplonk MSM
+ * is deferred (returned as a BatchOpeningClaim). In native mode, performs immediate pairing checks.
  */
 template <typename Curve>
-typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
+typename GoblinVerifier_<Curve>::BatchReductionResult GoblinVerifier_<
+    Curve>::reduce_to_pairing_check_and_batch_opening_claim()
 {
     BB_BENCH_NAME("GoblinVerifier::reduce");
     // Step 1: Verify the merge proof
@@ -27,23 +28,20 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
     if constexpr (!IsRecursive) {
         if (!merge_result.reduction_succeeded) {
             info("Goblin verification failed at Merge step");
-            return ReductionResult();
+            return BatchReductionResult();
         }
-        if (!merge_result.pairing_points.check()) {
-            info("Goblin verification failed at Merge pairing check");
-            return ReductionResult();
-        }
+        // Pairing check deferred for batch aggregation
     }
 
-    // Step 2: Verify the ECCVM proof
+    // Step 2: Verify the ECCVM proof (deferred Shplonk MSM)
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
-    auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
-    vinfo("Goblin: ECCVM reduced to IPA opening successfully: ", eccvm_result.reduction_succeeded ? "true" : "false");
+    auto eccvm_result = eccvm_verifier.reduce_to_batch_opening_claim();
+    vinfo("Goblin: ECCVM reduced to batch opening claim: ", eccvm_result.reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
         if (!eccvm_result.reduction_succeeded) {
             info("Goblin verification failed at ECCVM step");
-            return ReductionResult();
+            return BatchReductionResult();
         }
     }
 
@@ -51,8 +49,6 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
     // Step 3: Verify the Translator proof
-    // - Pass `merged_table_commitments` as op queue wire commitments to bind Translator and Merge to the same op_queue
-    // - `accumulated_result` and corresponding challenges ensure non-native computation matches ECCVM's native result
     TranslatorVerifier translator_verifier{ transcript,
                                             proof.translator_proof,
                                             translator_input.evaluation_challenge_x,
@@ -66,33 +62,45 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
     if constexpr (!IsRecursive) {
         if (!translator_result.reduction_succeeded) {
             info("Goblin verification failed at Translator step");
-            return ReductionResult();
+            return BatchReductionResult();
         }
-
-        if (!translator_result.pairing_points.check()) {
-            info("Goblin verification failed at Translator pairing check");
-            return ReductionResult();
-        }
+        // Pairing check deferred for batch aggregation
     }
 
-    // Combine all check results
-    // Recursive: must evaluate all booleans (circuit structure must be fixed)
-    // Native: redundant check (already returned early on failure), but kept for consistency
     bool all_checks_passed =
         merge_result.reduction_succeeded && eccvm_result.reduction_succeeded && translator_result.reduction_succeeded;
 
-    // Warning: `all_checks_passed` always excludes IPA verification (deferred in both modes).
-    // Native mode: pairing checks already performed above (fail-fast), included in all_checks_passed
-    // Recursive mode: pairing checks deferred, excluded from all_checks_passed (for in-circuit batching)
-    // In recursive mode, boolean flags are for circuit structure only (not actual verification).
-    // Note: Pairing points are NOT aggregated here - caller should use aggregate_multiple for efficiency
-    ReductionResult result{ .merge_pairing_points = std::move(merge_result.pairing_points),
-                            .translator_pairing_points = std::move(translator_result.pairing_points),
-                            .ipa_claim = std::move(eccvm_result.ipa_claim),
-                            .ipa_proof = proof.ipa_proof,
-                            .all_checks_passed = all_checks_passed };
+    return BatchReductionResult{ .merge_pairing_points = std::move(merge_result.pairing_points),
+                                 .translator_pairing_points = std::move(translator_result.pairing_points),
+                                 .deferred_ipa_claim = std::move(eccvm_result.deferred_ipa_claim),
+                                 .ipa_proof = proof.ipa_proof,
+                                 .all_checks_passed = all_checks_passed };
+}
 
-    return result;
+/**
+ * @brief Reduce Goblin proof to pairing check and IPA opening claim
+ * @details Calls reduce_to_pairing_check_and_batch_opening_claim and finalizes the deferred MSM.
+ */
+template <typename Curve>
+typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
+{
+    auto batch_result = reduce_to_pairing_check_and_batch_opening_claim();
+    if (!batch_result.all_checks_passed) {
+        return ReductionResult{
+            .merge_pairing_points = std::move(batch_result.merge_pairing_points),
+            .translator_pairing_points = std::move(batch_result.translator_pairing_points),
+            .all_checks_passed = false,
+        };
+    }
+
+    // Finalize the deferred ECCVM Shplonk MSM
+    auto ipa_claim = batch_result.deferred_ipa_claim.finalize();
+
+    return ReductionResult{ .merge_pairing_points = std::move(batch_result.merge_pairing_points),
+                            .translator_pairing_points = std::move(batch_result.translator_pairing_points),
+                            .ipa_claim = std::move(ipa_claim),
+                            .ipa_proof = std::move(batch_result.ipa_proof),
+                            .all_checks_passed = true };
 }
 
 // Explicit instantiations

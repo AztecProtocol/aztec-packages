@@ -10,7 +10,10 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -131,6 +134,77 @@ BENCHMARK_DEFINE_F(ChonkBench, BatchVerify)(benchmark::State& state)
     }
 }
 
+/**
+ * @brief Benchmark reduce_to_ipa_claim only (all non-IPA verification: MegaZK + databus + Goblin).
+ * This is the "sumcheck" phase cost per proof in the batch pipeline.
+ */
+BENCHMARK_DEFINE_F(ChonkBench, ReduceToIPAClaim)(benchmark::State& state)
+{
+    auto precomputed_vks = precompute_vks(1);
+    auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(1, precomputed_vks);
+
+    for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
+        ChonkNativeVerifier verifier(vk_and_hash);
+        benchmark::DoNotOptimize(verifier.reduce_to_ipa_claim(proof));
+    }
+}
+
+/**
+ * @brief Benchmark a single IPA reduce_verify (the MSM-heavy part).
+ * This isolates the IPA cost that gets amortized by batching.
+ */
+BENCHMARK_DEFINE_F(ChonkBench, IPAVerifySingle)(benchmark::State& state)
+{
+    auto precomputed_vks = precompute_vks(1);
+    auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(1, precomputed_vks);
+
+    // Pre-compute the IPA claim outside the benchmark loop
+    ChonkNativeVerifier verifier(vk_and_hash);
+    auto reduction = verifier.reduce_to_ipa_claim(proof);
+
+    for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
+        auto ipa_transcript = std::make_shared<NativeTranscript>(reduction.ipa_proof);
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        benchmark::DoNotOptimize(IPA<curve::Grumpkin>::reduce_verify(ipa_vk, reduction.ipa_claim, ipa_transcript));
+    }
+}
+
+/**
+ * @brief Benchmark batch IPA verification only (batch_reduce_verify with N cached claims).
+ * Measures the batched MSM cost that replaces N individual IPA verifications.
+ */
+BENCHMARK_DEFINE_F(ChonkBench, BatchIPAOnly)(benchmark::State& state)
+{
+    const size_t num_proofs = static_cast<size_t>(state.range(0));
+    auto precomputed_vks = precompute_vks(1);
+    auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(1, precomputed_vks);
+
+    // Pre-compute N IPA claims (same proof reused, each gets fresh verifier for distinct claims)
+    std::vector<OpeningClaim<curve::Grumpkin>> claims;
+    std::vector<HonkProof> ipa_proofs;
+    claims.reserve(num_proofs);
+    ipa_proofs.reserve(num_proofs);
+    for (size_t i = 0; i < num_proofs; i++) {
+        ChonkNativeVerifier verifier(vk_and_hash);
+        auto reduction = verifier.reduce_to_ipa_claim(proof);
+        claims.push_back(std::move(reduction.ipa_claim));
+        ipa_proofs.push_back(std::move(reduction.ipa_proof));
+    }
+
+    for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
+        std::vector<std::shared_ptr<NativeTranscript>> transcripts;
+        transcripts.reserve(num_proofs);
+        for (size_t i = 0; i < num_proofs; i++) {
+            transcripts.push_back(std::make_shared<NativeTranscript>(ipa_proofs[i]));
+        }
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        benchmark::DoNotOptimize(IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts));
+    }
+}
+
 #define ARGS Arg(ChonkBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
 
 BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
@@ -139,6 +213,17 @@ BENCHMARK_REGISTER_F(ChonkBench, ProofCompress)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, ProofDecompress)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, VerifyIndividual)->Unit(benchmark::kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 BENCHMARK_REGISTER_F(ChonkBench, BatchVerify)->Unit(benchmark::kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+BENCHMARK_REGISTER_F(ChonkBench, ReduceToIPAClaim)->Unit(benchmark::kMillisecond);
+BENCHMARK_REGISTER_F(ChonkBench, IPAVerifySingle)->Unit(benchmark::kMillisecond);
+BENCHMARK_REGISTER_F(ChonkBench, BatchIPAOnly)
+    ->Unit(benchmark::kMillisecond)
+    ->Arg(1)
+    ->Arg(2)
+    ->Arg(4)
+    ->Arg(8)
+    ->Arg(16)
+    ->Arg(32)
+    ->Arg(64);
 
 } // namespace
 
