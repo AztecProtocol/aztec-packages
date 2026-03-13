@@ -112,7 +112,8 @@ l1-contracts: &l1-contracts-defaults
 # These configure the slasher node's operational behavior.
 # Used by yarn-project/slasher for penalty calculation and offense tracking.
 
-slasher: &slasher # Minimum penalty percentage multiplier.
+slasher: &slasher
+  # Minimum penalty percentage multiplier.
   SLASH_MIN_PENALTY_PERCENTAGE: 0.5
   # Maximum penalty percentage multiplier.
   SLASH_MAX_PENALTY_PERCENTAGE: 2.0
@@ -214,16 +215,16 @@ networks:
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: 1
     AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 1
     # Network identity
-    L1_CHAIN_ID: 11155111 # Sepolia
+    L1_CHAIN_ID: 11155111  # Sepolia
     # Genesis state
-    TEST_ACCOUNTS: true # Fund test accounts with fee juice
-    SPONSORED_FPC: true # Fund sponsored FPC with fee juice
+    TEST_ACCOUNTS: true     # Fund test accounts with fee juice
+    SPONSORED_FPC: true     # Fund sponsored FPC with fee juice
     TRANSACTIONS_DISABLED: false
     # Sequencer
     SEQ_MAX_TX_PER_BLOCK: 18
     # Prover
-    PROVER_REAL_PROOFS: false # Use mock proofs
-    PXE_PROVER_ENABLED: false # Disable PXE proving
+    PROVER_REAL_PROOFS: false   # Use mock proofs
+    PXE_PROVER_ENABLED: false   # Disable PXE proving
     # Sync
     SYNC_SNAPSHOTS_URLS: ""
     SKIP_ARCHIVER_INITIAL_SYNC: false
@@ -268,7 +269,7 @@ networks:
     AZTEC_SLASH_AMOUNT_MEDIUM: 100000e18
     AZTEC_SLASH_AMOUNT_LARGE: 100000e18
     # Network identity
-    L1_CHAIN_ID: 11155111 # Sepolia
+    L1_CHAIN_ID: 11155111  # Sepolia
     # Genesis state
     TEST_ACCOUNTS: false
     SPONSORED_FPC: false
@@ -313,15 +314,15 @@ networks:
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: 1000
     AZTEC_MANA_TARGET: 75000000
     AZTEC_PROVING_COST_PER_MANA: 25000000
-    AZTEC_EXIT_DELAY_SECONDS: 345600 # 4 days
-    AZTEC_SLASHING_DISABLE_DURATION: 259200 # 3 days
+    AZTEC_EXIT_DELAY_SECONDS: 345600  # 4 days
+    AZTEC_SLASHING_DISABLE_DURATION: 259200  # 3 days
     AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE: 500
     AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE: 500
     AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN: 1
     AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT: 400
     AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE: 4
     # Network identity
-    L1_CHAIN_ID: 1 # Ethereum mainnet
+    L1_CHAIN_ID: 1  # Ethereum mainnet
     # Genesis state - no test accounts, no sponsored FPC
     TEST_ACCOUNTS: false
     SPONSORED_FPC: false
@@ -342,13 +343,13 @@ networks:
     # Slasher penalties - more lenient initially
     SLASH_PRUNE_PENALTY: 0
     SLASH_DATA_WITHHOLDING_PENALTY: 0
-    SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.7
+    SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.8
     SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 2
     SLASH_INACTIVITY_PENALTY: 2000e18
     SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY: 2000e18
-    SLASH_DUPLICATE_PROPOSAL_PENALTY: 0
-    SLASH_DUPLICATE_ATTESTATION_PENALTY: 0
+    SLASH_DUPLICATE_PROPOSAL_PENALTY: 2000e18
+    SLASH_DUPLICATE_ATTESTATION_PENALTY: 2000e18
     SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY: 2000e18
     SLASH_UNKNOWN_PENALTY: 2000e18
     SLASH_INVALID_BLOCK_PENALTY: 2000e18
-    SLASH_GRACE_PERIOD_L2_SLOTS: 8400
+    SLASH_GRACE_PERIOD_L2_SLOTS: 1200
