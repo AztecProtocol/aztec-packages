@@ -111,8 +111,6 @@ describe('e2e_multi_eoa', () => {
       const deployMethod = StatefulTestContract.deploy(wallet, defaultAccountAddress, 0);
       const deployMethodTx = await proveInteraction(wallet, deployMethod, {
         contractAddressSalt: Fr.random(),
-        skipClassPublication: true,
-        skipInstancePublication: true,
         from: defaultAccountAddress,
       });
 

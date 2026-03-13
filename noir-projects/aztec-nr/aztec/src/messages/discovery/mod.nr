@@ -8,13 +8,14 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
+    capsules::CapsuleArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, MessageContext, pending_tagged_log::PendingTaggedLog,
-            validate_and_store_enqueued_notes_and_events,
+            get_private_logs, MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
+            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -50,30 +51,34 @@ pub struct NoteHashAndNullifier {
 ///
 /// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
 /// for each contract by inspecting all note types in use and the storage layout. This injected function is a
-/// `#[contract_library_function]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
+/// `#[contract_library_method]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
 ///
 /// ```noir
 /// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
 ///     if note_type_id == MyNoteType::get_id() {
-///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
+///             Option::none()
+///         } else {
+///             let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
-///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
+///             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
+///             let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
+///                 HintedNote {
+///                     note, contract_address, owner, randomness, storage_slot,
+///                     metadata: SettledNoteMetadata::new(note_nonce).into(),
+///                 },
+///             );
 ///
-///         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-///         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///             HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
-///             storage_slot
-///         );
+///             let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 ///
-///         let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
-///
-///         Option::some(
-///             aztec::messages::discovery::NoteHashAndNullifier {
-///                 note_hash, inner_nullifier
-///             }
-///         )
+///             Option::some(
+///                 aztec::messages::discovery::NoteHashAndNullifier {
+///                     note_hash, inner_nullifier
+///                 }
+///             )
+///         }
 ///     } else if note_type_id == MyOtherNoteType::get_id() {
-///           ... // Similar to above but calling MyOtherNoteType::unpack_content
+///           ... // Similar to above but calling MyOtherNoteType::unpack
 ///     } else {
 ///         Option::none() // Unknown note type ID
 ///     };
@@ -107,6 +112,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
+    offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
 
@@ -133,6 +139,22 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
         // including any enqueued validation requests.
         logs.remove(i);
     });
+
+    if offchain_inbox_sync.is_some() {
+        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address);
+        msgs.for_each(|i, msg| {
+            process_message_ciphertext(
+                contract_address,
+                compute_note_hash_and_nullifier,
+                process_custom_message,
+                msg.message_ciphertext,
+                msg.message_context,
+            );
+            // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
+            // volatile array with the to-process message, not the actual persistent storage of them.
+            msgs.remove(i);
+        });
+    }
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
