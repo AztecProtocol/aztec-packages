@@ -366,22 +366,26 @@ impl PublicContext {
         unsafe { avm::emit_note_hash(note_hash) };
     }
 
-    /// Adds a new nullifier to the Aztec blockchain's global Nullifier Tree.
+    /// Creates a new [nullifier](crate::nullifier).
     ///
-    /// Whilst nullifiers are primarily intended as a _privacy-preserving_ record of a one-time action, they can also
-    /// be used to efficiently record _public_ one-time actions too. Hence why you're seeing this function within the
-    /// PublicContext. An example is to check whether a contract has been published: we emit a nullifier that is
-    /// deterministic, but whose preimage is _not_ private.
+    /// While nullifiers are primarily intended as a _privacy-preserving_ record of a one-time action, they can also
+    /// be used to efficiently record _public_ one-time actions. This function allows creating nullifiers from public
+    /// contract functions, which behave just like those created from private functions.
     ///
-    /// # Arguments
-    /// * `nullifier` - A unique field element that represents the consumed state
+    /// ## Safety
     ///
-    /// # Advanced
-    /// * Nullifier is immediately added to the global nullifier tree
-    /// * Emitted nullifiers are immediately visible to all subsequent transactions in the same block
-    /// * Automatically siloed with the contract address by the protocol
-    /// * Used for preventing double-spending and ensuring one-time actions
+    /// This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
     ///
+    /// In particular, callers must ensure all nullifiers created by a contract are properly domain-separated, so that
+    /// unrelated components don't interfere with one another (e.g. a transaction nullifier accidentally marking a
+    /// variable as initialized). Note nullifiers should only be created via
+    /// [`crate::context::PrivateContext::push_nullifier_for_note_hash`].
+    ///
+    /// ## Advanced
+    ///
+    /// The raw `nullifier` is not what is inserted into the Aztec state tree: it will be first siloed by contract
+    /// address via [`crate::protocol::hash::compute_siloed_nullifier`] in order to prevent accidental or malicious
+    /// interference of nullifiers from different contracts.
     pub fn push_nullifier(_self: Self, nullifier: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::emit_nullifier(nullifier) };

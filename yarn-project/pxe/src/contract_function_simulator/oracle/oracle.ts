@@ -85,13 +85,28 @@ export class Oracle {
     });
 
     // Build callback object and return it
-    return oracleNames.reduce((acc, name) => {
+    const callback = oracleNames.reduce((acc, name) => {
       const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
       acc[name] = method.bind(this);
       return acc;
     }, {} as ACIRCallback);
+
+    // Legacy oracle names used by alpha payload protocol contracts (ContractInstanceRegistry,
+    // ContractClassRegistry, FeeJuice). Their bytecode is committed and cannot be changed.
+    // TODO(F-416): Remove these aliases on v5 when protocol contracts are redeployed.
+    const legacyOracles: ACIRCallback = {
+      utilityLog: this.aztec_utl_log.bind(this),
+      utilityAssertCompatibleOracleVersion: this.aztec_utl_assertCompatibleOracleVersion.bind(this),
+      utilityLoadCapsule: this.aztec_utl_loadCapsule.bind(this),
+      privateStoreInExecutionCache: this.aztec_prv_storeInExecutionCache.bind(this),
+      privateLoadFromExecutionCache: this.aztec_prv_loadFromExecutionCache.bind(this),
+    };
+
+    return { ...callback, ...legacyOracles };
   }
 
+  // TODO(F-416): This oracle must never change its signature - it is called by the pinned alpha payload protocol
+  // contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) which cannot be redeployed.
   // eslint-disable-next-line camelcase
   aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
     this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
@@ -104,12 +119,16 @@ export class Oracle {
     return Promise.resolve([toACVMField(val)]);
   }
 
+  // TODO(F-416): This oracle must never change its signature - it is called by the pinned alpha payload protocol
+  // contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) which cannot be redeployed.
   // eslint-disable-next-line camelcase
   aztec_prv_storeInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsPrivate().storeInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
   }
 
+  // TODO(F-416): This oracle must never change its signature - it is called by the pinned alpha payload protocol
+  // contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) which cannot be redeployed.
   // eslint-disable-next-line camelcase
   async aztec_prv_loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
     const values = await this.handlerAsPrivate().loadFromExecutionCache(Fr.fromString(returnsHash));
@@ -426,6 +445,8 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
+  // TODO(F-416): This oracle must never change its signature - it is called by the pinned alpha payload protocol
+  // contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) which cannot be redeployed.
   // eslint-disable-next-line camelcase
   async aztec_utl_log(
     level: ACVMField[],
@@ -461,52 +482,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifyEnqueuedPublicFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifyEnqueuedPublicFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
+  async aztec_prv_validatePublicCalldata([calldataHash]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().validatePublicCalldata(Fr.fromString(calldataHash));
     return [];
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifySetPublicTeardownFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifySetPublicTeardownFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
-    return [];
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_prv_notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
-    ACVMField[]
-  > {
-    await this.handlerAsPrivate().notifySetMinRevertibleSideEffectCounter(
-      Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
-    );
+  async aztec_prv_notifyRevertiblePhaseStart([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().notifyRevertiblePhaseStart(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
     return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_isSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    const isRevertible = await this.handlerAsPrivate().isSideEffectCounterRevertible(
-      Fr.fromString(sideEffectCounter).toNumber(),
-    );
+  async aztec_prv_inRevertiblePhase([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(Fr.fromString(sideEffectCounter).toNumber());
     return Promise.resolve([toACVMField(isRevertible)]);
   }
 
@@ -530,11 +519,15 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
+    [maxNotePackedLen]: ACVMField[],
+    [maxEventSerializedLen]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(noteValidationRequestsArrayBaseSlot),
       Fr.fromString(eventValidationRequestsArrayBaseSlot),
+      Fr.fromString(maxNotePackedLen).toNumber(),
+      Fr.fromString(maxEventSerializedLen).toNumber(),
     );
 
     return [];
@@ -555,6 +548,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_utilityResolveMessageContexts(
+    [contractAddress]: ACVMField[],
+    [messageContextRequestsArrayBaseSlot]: ACVMField[],
+    [messageContextResponsesArrayBaseSlot]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(messageContextRequestsArrayBaseSlot),
+      Fr.fromString(messageContextResponsesArrayBaseSlot),
+    );
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_storeCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
@@ -568,6 +575,8 @@ export class Oracle {
     return [];
   }
 
+  // TODO(F-416): This oracle must never change its signature - it is called by the pinned alpha payload protocol
+  // contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) which cannot be redeployed.
   // eslint-disable-next-line camelcase
   async aztec_utl_loadCapsule(
     [contractAddress]: ACVMField[],

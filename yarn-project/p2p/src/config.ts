@@ -43,6 +43,12 @@ export interface P2PConfig
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;
 
+  /** Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected. */
+  validateMaxL2BlockGas?: number;
+
+  /** Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected. */
+  validateMaxDABlockGas?: number;
+
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -206,6 +212,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description:
       'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxL2BlockGas: {
+    env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
+    description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxDABlockGas: {
+    env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
+    description: 'Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
   p2pEnabled: {

@@ -44,14 +44,15 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
 
     // We need to find nonces (typically just one) that result in a note hash that, once siloed into a unique note
     // hash, is one of the note hashes created by the transaction.
-    unique_note_hashes_in_tx.for_eachi(|i, expected_unique_note_hash| {
-        // Nonces are computed by hashing the first nullifier in the transaction with the index of the note in the new
-        // note hashes array. We therefore know for each note in every transaction what its nonce is.
-        let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
+    // The nonce is meant to be derived from the index of the note hash in the transaction effects array. However, due
+    // to an issue in the kernels the nonce might actually use any of the possible note hash indices - not necessarily
+    // the one that corresponds to the note hash. Hence, we need to try them all.
+    for i in 0..MAX_NOTE_HASHES_PER_TX {
+        let nonce_for_i = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
-        // Given note nonce, note content and metadata, we can compute the note hash and silo it to check if it
-        // matches the note hash at the array index we're currently processing. This computation may fail, in which
-        // case we skip the candidate.
+        // Given note nonce, note content and metadata, we can compute the note hash and silo it to check if
+        // the resulting unique note matches any in the transaction. This computation may fail, in which case we
+        // skip the candidate.
         let maybe_hashes = compute_note_hash_and_nullifier(
             packed_note,
             owner,
@@ -59,28 +60,43 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
             note_type_id,
             contract_address,
             randomness,
-            candidate_nonce,
+            nonce_for_i,
         );
 
         if maybe_hashes.is_some() {
             let hashes = maybe_hashes.unwrap();
 
-            let siloed_note_hash = compute_siloed_note_hash(contract_address, hashes.note_hash);
-            let unique_note_hash = compute_unique_note_hash(candidate_nonce, siloed_note_hash);
+            let siloed_note_hash_for_i =
+                compute_siloed_note_hash(contract_address, hashes.note_hash);
+            let unique_note_hash_for_i =
+                compute_unique_note_hash(nonce_for_i, siloed_note_hash_for_i);
 
-            if unique_note_hash == expected_unique_note_hash {
-                // Note that while we did check that the note hash is the preimage of the expected unique note
-                // hash, we perform no validations on the nullifier - we fundamentally cannot, since only the
-                // application knows how to compute nullifiers. We simply trust it to have provided the correct
-                // one: if it hasn't, then PXE may fail to realize that a given note has been nullified already,
-                // and calls to the application could result in invalid transactions (with duplicate nullifiers).
-                // This is not a concern because an application already has more direct means of making a call to
-                // it fail the transaction.
+            let matching_notes = bvec_filter(
+                unique_note_hashes_in_tx,
+                |unique_note_hash_in_tx| unique_note_hash_in_tx == unique_note_hash_for_i,
+            );
+            if matching_notes.len() > 1 {
+                let identical_note_hashes = matching_notes.len();
+                // Note that we don't actually check that the note hashes array contains unique values, only
+                // that the note we found is unique. We don't expect for this to ever happen (it'd indicate a
+                // malicious node or PXE, which are both assumed to be cooperative) so testing for it just in
+                // case is unnecessary, but we _do_ need to handle it if we find a duplicate.
+                panic(
+                    f"Received {identical_note_hashes} identical note hashes for a transaction - these should all be unique",
+                )
+            } else if matching_notes.len() == 1 {
+                // Note that while we did check that the note hash is the preimage of a unique note hash, we
+                // perform no validations on the nullifier - we fundamentally cannot, since only the application
+                // knows how to compute nullifiers. We simply trust it to have provided the correct one: if it
+                // hasn't, then PXE may fail to realize that a given note has been nullified already, and calls
+                // to the application could result in invalid transactions (with duplicate nullifiers). This is
+                // not a concern because an application already has more direct means of making a call to it
+                // fail the transaction.
                 // TODO(F-265): consider the case for external notes even when nullifier is not computable
                 if hashes.inner_nullifier.is_some() {
                     discovered_notes.push(
                         DiscoveredNoteInfo {
-                            note_nonce: candidate_nonce,
+                            note_nonce: nonce_for_i,
                             note_hash: hashes.note_hash,
                             inner_nullifier: hashes.inner_nullifier.unwrap(),
                         },
@@ -92,7 +108,7 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
                     aztecnr_warn_log_format!(
                         "Skipping note with nonce {0}: nullifier not computable for note type {1} on contract {2}",
                     )(
-                        [candidate_nonce, note_type_id, contract_address.to_field()],
+                        [nonce_for_i, note_type_id, contract_address.to_field()],
                     );
                 }
 
@@ -101,11 +117,29 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
                 // happen due to notes containing random values in order to hide their contents.
             }
         }
-    });
+    }
 
-    aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")([discovered_notes.len() as Field]);
+    aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")(
+        [discovered_notes.len() as Field],
+    );
 
     *discovered_notes
+}
+
+// There is no BoundedVec::filter in the stdlib, so we use this until that is implemented.
+unconstrained fn bvec_filter<Env, T, let MAX_LEN: u32>(
+    bvec: BoundedVec<T, MAX_LEN>,
+    filter: fn[Env](T) -> bool,
+) -> BoundedVec<T, MAX_LEN> {
+    let filtered = &mut BoundedVec::new();
+
+    bvec.for_each(|value| {
+        if filter(value) {
+            filtered.push(value);
+        }
+    });
+
+    *filtered
 }
 
 mod test {
@@ -156,7 +190,8 @@ mod test {
                 },
             );
 
-            let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
+            let inner_nullifier =
+                note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         } else {
@@ -184,7 +219,10 @@ mod test {
             note_nonce,
         )
             .map(|hashes: NoteHashAndNullifier| {
-                NoteHashAndNullifier { note_hash: hashes.note_hash, inner_nullifier: Option::none() }
+                NoteHashAndNullifier {
+                    note_hash: hashes.note_hash,
+                    inner_nullifier: Option::none(),
+                }
             })
     }
 
@@ -262,7 +300,10 @@ mod test {
             compute_siloed_note_hash(CONTRACT_ADDRESS, note_hash),
         );
         let inner_nullifier = note
-            .compute_nullifier_unconstrained(OWNER, compute_note_hash_for_nullification(hinted_note))
+            .compute_nullifier_unconstrained(
+                OWNER,
+                compute_note_hash_for_nullification(hinted_note),
+            )
             .expect(f"Could not compute nullifier for note owned by {OWNER}");
 
         NoteAndData { note, note_nonce, note_hash, unique_note_hash, inner_nullifier }
@@ -341,8 +382,14 @@ mod test {
         let mut unique_note_hashes_in_tx = BoundedVec::from_array([
             random(), random(), random(), random(), random(), random(), random(),
         ]);
-        unique_note_hashes_in_tx.set(first_note_index_in_tx, first_note_and_data.unique_note_hash);
-        unique_note_hashes_in_tx.set(second_note_index_in_tx, second_note_and_data.unique_note_hash);
+        unique_note_hashes_in_tx.set(
+            first_note_index_in_tx,
+            first_note_and_data.unique_note_hash,
+        );
+        unique_note_hashes_in_tx.set(
+            second_note_index_in_tx,
+            second_note_and_data.unique_note_hash,
+        );
 
         let discovered_notes = attempt_note_nonce_discovery(
             unique_note_hashes_in_tx,
@@ -369,5 +416,97 @@ mod test {
                 & (discovered_note.note_hash == second_note_and_data.note_hash)
                 & (discovered_note.inner_nullifier == second_note_and_data.inner_nullifier)
         }));
+    }
+
+    #[test]
+    unconstrained fn single_note_misaligned_nonce() {
+        let note_index_in_tx = 2;
+        let note_and_data = construct_note(VALUE, note_index_in_tx);
+
+        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
+            random(), random(), random(), random(), random(), random(), random(),
+        ]);
+
+        // The note is not at the correct index
+        unique_note_hashes_in_tx.set(note_index_in_tx + 1, note_and_data.unique_note_hash);
+
+        let discovered_notes = attempt_note_nonce_discovery(
+            unique_note_hashes_in_tx,
+            FIRST_NULLIFIER_IN_TX,
+            compute_note_hash_and_nullifier,
+            CONTRACT_ADDRESS,
+            OWNER,
+            STORAGE_SLOT,
+            RANDOMNESS,
+            MockNote::get_id(),
+            BoundedVec::from_array(note_and_data.note.pack()),
+        );
+
+        assert_eq(discovered_notes.len(), 1);
+        let discovered_note = discovered_notes.get(0);
+
+        assert_eq(discovered_note.note_nonce, note_and_data.note_nonce);
+        assert_eq(discovered_note.note_hash, note_and_data.note_hash);
+        assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
+    }
+
+    #[test]
+    unconstrained fn single_note_nonce_with_index_past_note_hashes_in_tx() {
+        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
+            random(), random(), random(), random(), random(), random(), random(),
+        ]);
+
+        // The nonce is computed with an index that does not exist in the tx
+        let note_index_in_tx = unique_note_hashes_in_tx.len() + 5;
+        let note_and_data = construct_note(VALUE, note_index_in_tx);
+
+        // The note is inserted at an arbitrary index - its true index is out of the array's bounds
+        unique_note_hashes_in_tx.set(2, note_and_data.unique_note_hash);
+
+        let discovered_notes = attempt_note_nonce_discovery(
+            unique_note_hashes_in_tx,
+            FIRST_NULLIFIER_IN_TX,
+            compute_note_hash_and_nullifier,
+            CONTRACT_ADDRESS,
+            OWNER,
+            STORAGE_SLOT,
+            RANDOMNESS,
+            MockNote::get_id(),
+            BoundedVec::from_array(note_and_data.note.pack()),
+        );
+
+        assert_eq(discovered_notes.len(), 1);
+        let discovered_note = discovered_notes.get(0);
+
+        assert_eq(discovered_note.note_nonce, note_and_data.note_nonce);
+        assert_eq(discovered_note.note_hash, note_and_data.note_hash);
+        assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
+    }
+
+    #[test(should_fail_with = "identical note hashes for a transaction")]
+    unconstrained fn duplicate_unique_note_hashes() {
+        let note_index_in_tx = 2;
+        let note_and_data = construct_note(VALUE, note_index_in_tx);
+
+        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
+            random(), random(), random(), random(), random(), random(), random(),
+        ]);
+
+        // The same unique note hash is present in two indices in the array, which is not allowed. Note that we don't
+        // test all note hashes for uniqueness, only those that we actually find.
+        unique_note_hashes_in_tx.set(note_index_in_tx, note_and_data.unique_note_hash);
+        unique_note_hashes_in_tx.set(note_index_in_tx + 1, note_and_data.unique_note_hash);
+
+        let _ = attempt_note_nonce_discovery(
+            unique_note_hashes_in_tx,
+            FIRST_NULLIFIER_IN_TX,
+            compute_note_hash_and_nullifier,
+            CONTRACT_ADDRESS,
+            OWNER,
+            STORAGE_SLOT,
+            RANDOMNESS,
+            MockNote::get_id(),
+            BoundedVec::from_array(note_and_data.note.pack()),
+        );
     }
 }

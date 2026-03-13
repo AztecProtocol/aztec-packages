@@ -369,6 +369,7 @@ export class TXESession implements TXESessionStateHandler {
       contractSyncService: this.stateMachine.contractSyncService,
       jobId: this.currentJobId,
       scopes: 'ALL_SCOPES',
+      messageContextService: this.stateMachine.messageContextService,
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -437,6 +438,7 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.stateMachine.messageContextService,
       jobId: this.currentJobId,
       scopes: 'ALL_SCOPES',
     });
@@ -528,6 +530,7 @@ export class TXESession implements TXESessionStateHandler {
           senderAddressBookStore: this.senderAddressBookStore,
           capsuleStore: this.capsuleStore,
           privateEventStore: this.privateEventStore,
+          messageContextService: this.stateMachine.messageContextService,
           jobId: this.currentJobId,
           scopes,
         });

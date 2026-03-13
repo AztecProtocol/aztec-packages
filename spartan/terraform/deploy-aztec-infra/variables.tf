@@ -340,7 +340,7 @@ variable "TEST_ACCOUNTS" {
 variable "SEQ_MIN_TX_PER_BLOCK" {
   description = "Minimum number of sequencer transactions per block"
   type        = string
-  default     = "0"
+  default     = "1"
 }
 
 variable "SEQ_MAX_TX_PER_BLOCK" {
@@ -386,6 +386,12 @@ variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
   description = "Have sequencer build and publish an empty checkpoint if there are no txs"
   type        = string
   nullable    = true
+  default     = null
+}
+
+variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
+  description = "Per-block gas budget multiplier for both L2 and DA gas."
+  type        = string
   default     = null
 }
 
@@ -675,6 +681,13 @@ variable "PROVER_FAILED_PROOF_STORE" {
   default     = ""
 }
 
+variable "L1_TX_FAILED_STORE" {
+  description = "Optional GCS/URI to store failed L1 transaction inputs (e.g. gs://bucket/path)"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
 variable "PROVER_PROOF_STORE" {
   description = "Optional GCS/S3/file URI to store proof inputs and outputs (e.g. gs://bucket/path, s3://bucket/path, file:///path)"
   type        = string
@@ -771,7 +784,7 @@ variable "FISHERMAN_MODE" {
 variable "P2P_GOSSIPSUB_D" {
   description = "The P2P Gossipsub D parameter"
   type        = string
-  default     = "6"
+  default     = "8"
 }
 
 variable "P2P_GOSSIPSUB_DLO" {
