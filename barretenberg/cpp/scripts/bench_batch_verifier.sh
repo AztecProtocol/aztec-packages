@@ -33,7 +33,7 @@ function download_inputs {
 PRESET=${PRESET:-clang20-no-avm}
 BUILD_DIR=${BUILD_DIR:-build}
 BENCHMARK=chonk_bench
-FILTER="BatchVerifyService"
+FILTER="BatchVerify"
 
 if [[ "${1:-}" == "--remote" ]]; then
     # Remote mode: build locally, download inputs on remote, run there

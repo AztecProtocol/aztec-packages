@@ -330,6 +330,17 @@ function bench_cmds {
 function bench {
   echo_header "bb bench"
   rm -rf bench-out && mkdir -p bench-out
+
+  # Download pinned IVC inputs for batch verifier benchmarks
+  local pinned_hash="b99f5b94"
+  local pinned_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_hash}.tar.gz"
+  export IVC_INPUTS_DIR="/tmp/bb-chonk-inputs-${pinned_hash}"
+  if [[ ! -d "$IVC_INPUTS_DIR" ]] || ! ls "$IVC_INPUTS_DIR"/*/ivc-inputs.msgpack &>/dev/null; then
+    echo "Downloading pinned IVC inputs for batch verifier benchmarks..."
+    mkdir -p "$IVC_INPUTS_DIR"
+    curl -s -f "$pinned_url" | tar -xz -C "$IVC_INPUTS_DIR"
+  fi
+
   bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
