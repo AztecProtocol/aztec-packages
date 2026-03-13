@@ -1,4 +1,5 @@
 use super::{TEST_PUBLIC_DATA_SUBTREE_WIDTH, TestBuilder};
+use protocol_test_utils::pad_end;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, gas_fees::GasFees,
@@ -9,8 +10,7 @@ use types::{
         NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
         PUBLIC_DATA_TREE_HEIGHT,
     },
-    merkle_tree::{LeafPreimage, MembershipWitness},
-    tests::{merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end},
+    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
     traits::Empty,
 };
 

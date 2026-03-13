@@ -1,6 +1,7 @@
-use crate::{
+use crate::fixtures::contracts::get_protocol_contract;
+use types::{
     abis::protocol_contracts::ProtocolContracts, address::aztec_address::AztecAddress,
-    constants::MAX_PROTOCOL_CONTRACTS, tests::fixtures::contracts::get_protocol_contract,
+    constants::MAX_PROTOCOL_CONTRACTS,
 };
 
 global NUM_PROTOCOL_CONTRACTS_FOR_TESTING: u32 = 3;

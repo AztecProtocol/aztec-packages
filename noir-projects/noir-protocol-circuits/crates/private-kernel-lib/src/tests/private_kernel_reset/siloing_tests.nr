@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use types::tests::utils::{assert_array_eq, pad_end};
+use protocol_test_utils::{assert_array_eq, pad_end};
 
 #[test]
 fn squashing_and_siloing_and_ordering() {
