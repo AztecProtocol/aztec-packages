@@ -87,7 +87,7 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ): Promise<TxProvingResult> {
     const cancellationTxRequest = await this.createCancellationTxExecutionRequest(from, txNonce, increasedFee);
-    return await this.pxe.proveTx(cancellationTxRequest, this.scopesFor(from));
+    return await this.pxe.proveTx(cancellationTxRequest, this.scopesFrom(from));
   }
 
   override async getAccountFromAddress(address: AztecAddress) {

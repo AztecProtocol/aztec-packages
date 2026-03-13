@@ -94,12 +94,6 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  // When `from` is the zero address (e.g. when deploying a new account contract), we return an
-  // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
-  protected scopesFor(from: AztecAddress): AztecAddress[] {
-    return from.isZero() ? [] : [from];
-  }
-
   protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
     const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
