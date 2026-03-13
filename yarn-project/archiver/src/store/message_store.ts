@@ -14,6 +14,7 @@ import {
 } from '@aztec/kv-store';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 
+import { L1ToL2MessagesNotReadyError } from '../errors.js';
 import {
   type InboxMessage,
   deserializeInboxMessage,
@@ -40,6 +41,8 @@ export class MessageStore {
   #lastSynchedL1Block: AztecAsyncSingleton<Buffer>;
   /** Stores total messages stored */
   #totalMessageCount: AztecAsyncSingleton<bigint>;
+  /** Stores the checkpoint number whose message tree is currently being filled on L1. */
+  #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
 
   #log = createLogger('archiver:message_store');
 
@@ -48,6 +51,7 @@ export class MessageStore {
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
+    this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -185,7 +189,22 @@ export class MessageStore {
     return msg ? deserializeInboxMessage(msg) : undefined;
   }
 
+  /** Returns the inbox tree-in-progress checkpoint number from L1, or undefined if not yet set. */
+  public getInboxTreeInProgress(): Promise<bigint | undefined> {
+    return this.#inboxTreeInProgress.getAsync();
+  }
+
+  /** Persists the inbox tree-in-progress checkpoint number from L1 state. */
+  public async setInboxTreeInProgress(value: bigint): Promise<void> {
+    await this.#inboxTreeInProgress.set(value);
+  }
+
   public async getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    const treeInProgress = await this.#inboxTreeInProgress.getAsync();
+    if (treeInProgress !== undefined && BigInt(checkpointNumber) >= treeInProgress) {
+      throw new L1ToL2MessagesNotReadyError(checkpointNumber, treeInProgress);
+    }
+
     const messages: Fr[] = [];
 
     const [startIndex, endIndex] = InboxLeaf.indexRangeForCheckpoint(checkpointNumber);

@@ -90,6 +90,20 @@ export class OutOfOrderLogInsertionError extends Error {
   }
 }
 
+/** Thrown when L1 to L2 messages are requested for a checkpoint whose message tree hasn't been sealed yet. */
+export class L1ToL2MessagesNotReadyError extends Error {
+  constructor(
+    public readonly checkpointNumber: number,
+    public readonly inboxTreeInProgress: bigint,
+  ) {
+    super(
+      `Cannot get L1 to L2 messages for checkpoint ${checkpointNumber}: ` +
+        `inbox tree in progress is ${inboxTreeInProgress}, messages not yet sealed`,
+    );
+    this.name = 'L1ToL2MessagesNotReadyError';
+  }
+}
+
 /** Thrown when a proposed block conflicts with an already checkpointed block (different content). */
 export class CannotOverwriteCheckpointedBlockError extends Error {
   constructor(

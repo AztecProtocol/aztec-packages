@@ -606,6 +606,11 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
+  /** Persists the inbox tree-in-progress checkpoint number from L1 state. */
+  public setInboxTreeInProgress(value: bigint): Promise<void> {
+    return this.#messageStore.setInboxTreeInProgress(value);
+  }
+
   /** Returns an async iterator to all L1 to L2 messages on the range. */
   public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {
     return this.#messageStore.iterateL1ToL2Messages(range);
