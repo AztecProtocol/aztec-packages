@@ -32,7 +32,7 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
 
     // Perform address derivation to verify the derived_address is correctly calculated from the instance.
     // Emits AddressDerivationEvent (and corresponding Poseidon2HashEvents, Poseidon2PermutationEvents, ScalarMulEvent,
-    // and EccAddEvents) if we have yet to derive it.
+    // and EccAddEvents) if we have yet to derive it. Otherwise, ignores the instance and simply returns.
     address_derivation.assert_derivation(derived_address, instance.value());
     return instance;
 }

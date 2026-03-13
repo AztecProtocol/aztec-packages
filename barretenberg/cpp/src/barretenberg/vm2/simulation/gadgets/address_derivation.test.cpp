@@ -135,7 +135,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     EXPECT_THROW(address_derivation.assert_derivation(derived_address, instance), std::runtime_error);
     EXPECT_THAT(address_derivation_event_emitter.dump_events(), IsEmpty());
 
-    // TODO(MW): Possible completeness issue:
+    // TODO(MW): Rework below once behaviour unified.
 
     // Perform a successful deriv for the instance above.
     EXPECT_CALL(ecc, scalar_mul(g1, preaddress)).WillOnce(Return(preaddress_public_key));
