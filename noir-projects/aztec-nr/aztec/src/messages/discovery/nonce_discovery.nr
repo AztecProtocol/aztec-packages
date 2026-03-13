@@ -35,6 +35,8 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
 ) -> BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX> {
     let discovered_notes = &mut BoundedVec::new();
+    let mut had_hash_failure = false;
+    let mut had_nullifier_failure = false;
 
     aztecnr_debug_log_format!(
         "Attempting nonce discovery on {0} potential notes on contract {1} for storage slot {2}",
@@ -51,7 +53,8 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
         let nonce_for_i = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
         // Given note nonce, note content and metadata, we can compute the note hash and silo it to check if
-        // the resulting unique note matches any in the transaction. This computation may fail, in which case we
+        // the resulting unique note matches any in the transaction. The contract may not know how to handle this data
+        // (e.g. unrecognized note_type_id, incorrect packed_note length), in which case it returns None and we
         // skip the candidate.
         let maybe_hashes = compute_note_hash_and_nullifier(
             packed_note,
@@ -63,13 +66,13 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
             nonce_for_i,
         );
 
-        if maybe_hashes.is_some() {
+        if maybe_hashes.is_none() {
+            had_hash_failure = true;
+        } else {
             let hashes = maybe_hashes.unwrap();
 
-            let siloed_note_hash_for_i =
-                compute_siloed_note_hash(contract_address, hashes.note_hash);
-            let unique_note_hash_for_i =
-                compute_unique_note_hash(nonce_for_i, siloed_note_hash_for_i);
+            let siloed_note_hash_for_i = compute_siloed_note_hash(contract_address, hashes.note_hash);
+            let unique_note_hash_for_i = compute_unique_note_hash(nonce_for_i, siloed_note_hash_for_i);
 
             let matching_notes = bvec_filter(
                 unique_note_hashes_in_tx,
@@ -92,7 +95,6 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
                 // to the application could result in invalid transactions (with duplicate nullifiers). This is
                 // not a concern because an application already has more direct means of making a call to it
                 // fail the transaction.
-                // TODO(F-265): consider the case for external notes even when nullifier is not computable
                 if hashes.inner_nullifier.is_some() {
                     discovered_notes.push(
                         DiscoveredNoteInfo {
@@ -101,27 +103,34 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
                             inner_nullifier: hashes.inner_nullifier.unwrap(),
                         },
                     );
-                } else {
-                    // The nullifier could not be computed (e.g. the owner's nullifier secret key is not
-                    // available). We skip this note because without a nullifier we cannot track whether it
-                    // has been spent.
-                    aztecnr_warn_log_format!(
-                        "Skipping note with nonce {0}: nullifier not computable for note type {1} on contract {2}",
-                    )(
-                        [nonce_for_i, note_type_id, contract_address.to_field()],
-                    );
-                }
 
-                // We don't exit the loop - it is possible (though rare) for the exact same note content to be
-                // present multiple times in the same transaction with different nonces. This typically doesn't
-                // happen due to notes containing random values in order to hide their contents.
+                    // We don't exit the loop - it is possible (though rare) for the exact same note content to
+                    // be present multiple times in the same transaction with different nonces. This typically
+                    // doesn't happen due to notes containing random values in order to hide their contents.
+                } else {
+                    // TODO(F-265): consider the case for external notes even when nullifier is not computable
+                    had_nullifier_failure = true;
+                }
             }
         }
     }
 
-    aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")(
-        [discovered_notes.len() as Field],
-    );
+    if had_hash_failure {
+        aztecnr_warn_log_format!(
+            "Failed to compute note hash during discovery for note type {0} on contract {1}",
+        )(
+            [note_type_id, contract_address.to_field()],
+        );
+    }
+    if had_nullifier_failure {
+        aztecnr_warn_log_format!(
+            "Nullifier not computable for note type {0} on contract {1}, discarding note",
+        )(
+            [note_type_id, contract_address.to_field()],
+        );
+    }
+
+    aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")([discovered_notes.len() as Field]);
 
     *discovered_notes
 }
@@ -190,8 +199,7 @@ mod test {
                 },
             );
 
-            let inner_nullifier =
-                note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
+            let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         } else {
@@ -219,10 +227,7 @@ mod test {
             note_nonce,
         )
             .map(|hashes: NoteHashAndNullifier| {
-                NoteHashAndNullifier {
-                    note_hash: hashes.note_hash,
-                    inner_nullifier: Option::none(),
-                }
+                NoteHashAndNullifier { note_hash: hashes.note_hash, inner_nullifier: Option::none() }
             })
     }
 
@@ -300,10 +305,7 @@ mod test {
             compute_siloed_note_hash(CONTRACT_ADDRESS, note_hash),
         );
         let inner_nullifier = note
-            .compute_nullifier_unconstrained(
-                OWNER,
-                compute_note_hash_for_nullification(hinted_note),
-            )
+            .compute_nullifier_unconstrained(OWNER, compute_note_hash_for_nullification(hinted_note))
             .expect(f"Could not compute nullifier for note owned by {OWNER}");
 
         NoteAndData { note, note_nonce, note_hash, unique_note_hash, inner_nullifier }
@@ -382,14 +384,8 @@ mod test {
         let mut unique_note_hashes_in_tx = BoundedVec::from_array([
             random(), random(), random(), random(), random(), random(), random(),
         ]);
-        unique_note_hashes_in_tx.set(
-            first_note_index_in_tx,
-            first_note_and_data.unique_note_hash,
-        );
-        unique_note_hashes_in_tx.set(
-            second_note_index_in_tx,
-            second_note_and_data.unique_note_hash,
-        );
+        unique_note_hashes_in_tx.set(first_note_index_in_tx, first_note_and_data.unique_note_hash);
+        unique_note_hashes_in_tx.set(second_note_index_in_tx, second_note_and_data.unique_note_hash);
 
         let discovered_notes = attempt_note_nonce_discovery(
             unique_note_hashes_in_tx,
