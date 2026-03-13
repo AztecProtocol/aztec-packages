@@ -1,4 +1,5 @@
 #include <ranges>
+#include <sys/resource.h>
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
@@ -521,6 +522,41 @@ TEST_F(ChonkTests, EccOpTablesTamperingFailure)
 TEST_F(ChonkTests, KernelReturnDataPropagationConsistency)
 {
     ChonkTests::test_kernel_return_data_propagation();
+}
+
+/**
+ * @brief Measure peak memory during chonk proving with a single small (2^10) app circuit
+ * @details Accumulates a single small app and measures the peak RSS increase during the prove() phase.
+ * This isolates memory usage of the proving step when all accumulated apps are small.
+ */
+TEST_F(ChonkTests, SmallAppProvingMemory)
+{
+    auto get_peak_rss_mib = []() -> size_t {
+        struct rusage usage{};
+        getrusage(RUSAGE_SELF, &usage);
+        return static_cast<size_t>(usage.ru_maxrss) / 1024; // Linux: ru_maxrss is in KB
+    };
+
+    constexpr size_t LOG2_NUM_GATES = 10;
+    const size_t NUM_APP_CIRCUITS = 1;
+
+    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+    const size_t num_circuits = circuit_producer.total_num_circuits;
+    Chonk ivc{ num_circuits };
+    TestSettings settings{ .log2_num_gates = LOG2_NUM_GATES };
+
+    for (size_t j = 0; j < num_circuits; ++j) {
+        circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+    }
+
+    info("Peak RSS before prove: ", get_peak_rss_mib(), " MiB");
+
+    ChonkProof proof = ivc.prove();
+
+    info("Peak RSS after prove: ", get_peak_rss_mib(), " MiB");
+
+    // Verify the proof is valid
+    EXPECT_TRUE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
 }
 
 TEST_F(ChonkTests, ProofCompressionRoundtrip)
