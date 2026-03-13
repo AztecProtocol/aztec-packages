@@ -2782,6 +2782,24 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
+    it('"tag" filter param is respected', async () => {
+      // Get a random tag from the logs
+      const targetBlockIndex = randomInt(numBlocksForPublicLogs);
+      const targetBlock = publishedCheckpoints[targetBlockIndex].checkpoint.blocks[0];
+      const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
+      const targetLogIndex = randomInt(getPublicLogsPerTx(targetBlock, targetTxIndex));
+      const targetTag = targetBlock.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].fields[0];
+
+      const response = await store.getPublicLogs({ tag: targetTag });
+
+      expect(response.maxLogsHit).toBeFalsy();
+      expect(response.logs.length).toBeGreaterThan(0);
+
+      for (const extendedLog of response.logs) {
+        expect(extendedLog.log.fields[0].equals(targetTag)).toBeTruthy();
+      }
+    });
+
     it('"afterLog" filter param is respected', async () => {
       // Get a random log as reference
       const targetBlockIndex = randomInt(numBlocksForPublicLogs);

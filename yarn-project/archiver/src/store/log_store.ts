@@ -592,7 +592,10 @@ export class LogStore {
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {
       const log = txLogs[logIndex];
-      if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
+      if (
+        (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) &&
+        (!filter.tag || log.fields[0]?.equals(filter.tag))
+      ) {
         results.push(
           new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), blockHash, txHash, txIndex, logIndex), log),
         );
