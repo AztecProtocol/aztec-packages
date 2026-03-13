@@ -28,6 +28,7 @@ describe('smoke test', () => {
   const logger = createLogger('e2e:spartan-test:smoke');
   let aztecNode: AztecNode;
   let ethereumClient: ViemPublicClient;
+  let committeeTimeoutMs: number = 60 * 60 * 1000; // 1 hour default, overridden in beforeAll
   const endpoints: ServiceEndpoint[] = [];
 
   afterAll(() => {
@@ -48,207 +49,229 @@ describe('smoke test', () => {
       chain: chain.chainInfo,
       transport: fallback([http(ethEndpoint.url, { batch: false })]),
     });
-  });
 
-  it('should be able to get node enr', async () => {
-    const info = await aztecNode.getNodeInfo();
-
-    logger.info(`info: ${JSON.stringify(info)}`);
-    expect(info).toBeDefined();
-    expect(info.enr).toMatch(/^enr:-/);
-  });
-
-  it('should have a committee', async () => {
-    const nodeInfo = await aztecNode.getNodeInfo();
+    // Compute dynamic timeout for committee formation.
+    // Committee forms after `lag` epochs; add 1 extra epoch as margin.
     const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
     const [epochDuration, slotDuration, lag] = await Promise.all([
       rollup.getEpochDuration(),
       rollup.getSlotDuration(),
       rollup.getLagInEpochsForValidatorSet(),
     ]);
-    // Committee forms after `lag` epochs. Add 1 extra epoch as margin.
     const epochSeconds = epochDuration * slotDuration;
-    const timeoutSeconds = (lag + 1) * epochSeconds;
-    jest.setTimeout(timeoutSeconds * 1000);
-
+    committeeTimeoutMs = (lag + 1) * epochSeconds * 1000;
     logger.info(
-      `Epoch duration: ${epochDuration} slots, slot duration: ${slotDuration}s, validator set lag: ${lag} epochs`,
-    );
-    logger.info(`Expecting committee after ~${lag * epochSeconds}s, timeout set to ${timeoutSeconds}s`);
-    logger.info('Waiting for committee');
-
-    await retryUntil(
-      async () => {
-        const slot = await rollup.getSlotNumber();
-        logger.info(`Slot: ${slot}`);
-        const committee = await rollup.getCurrentEpochCommittee();
-        return committee !== undefined;
-      },
-      'committee',
-      timeoutSeconds,
-      12, // 12 seconds between each check
+      `Epoch duration: ${epochDuration} slots, slot duration: ${slotDuration}s, validator set lag: ${lag} epochs, committee timeout: ${committeeTimeoutMs}ms`,
     );
   });
 
-  it('should have mined a checkpoint', async () => {
-    const nodeInfo = await aztecNode.getNodeInfo();
-    const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
-    logger.info('Waiting for the first checkpoint to mine');
-    await retryUntil(
-      async () => {
-        const checkpointNumber = await rollup.getCheckpointNumber();
-        return checkpointNumber >= CheckpointNumber(1);
-      },
-      'get checkpoint number',
-      60 * 60, // This should be quick since the committee is already formed (see test case above)
-      12,
-    );
-  });
+  it(
+    'should be able to get node enr',
+    async () => {
+      const info = await aztecNode.getNodeInfo();
 
-  it('can add chaos', async () => {
-    const chaosValuesFile = process.env.CHAOS_SCENARIO_VALUES || 'prover-kill.yaml';
-    const spartanDir = `${getGitProjectRoot()}/spartan`;
-    logger.info(`Applying Chaos Mesh scenario: ${chaosValuesFile}`);
-    await installChaosMeshChart({
-      instanceName: 'smoke-chaos',
-      targetNamespace: config.NAMESPACE,
-      valuesFile: chaosValuesFile,
-      helmChartDir: `${spartanDir}/aztec-chaos-scenarios`,
-      logger,
-    });
-  });
+      logger.info(`info: ${JSON.stringify(info)}`);
+      expect(info).toBeDefined();
+      expect(info.enr).toMatch(/^enr:-/);
+    },
+    5 * 60 * 1000, // 5 minutes
+  );
 
-  it('can establish all port forwards used by spartan tests', async () => {
-    // This test validates all the port forwarding mechanisms used across the spartan test suite.
-    // It helps build confidence that the K8s infrastructure is accessible before running more complex tests.
+  it(
+    'should have a committee',
+    async () => {
+      const nodeInfo = await aztecNode.getNodeInfo();
+      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+      const timeoutSeconds = committeeTimeoutMs / 1000;
 
-    const testForwardProcesses: ChildProcess[] = [];
-    const RETRY_TIMEOUT_SECONDS = 60 * 60; // 1 hour
-    const RETRY_INTERVAL_SECONDS = 12;
+      logger.info(`Waiting for committee (timeout: ${timeoutSeconds}s)`);
 
-    try {
-      logger.info('Testing all port forwards...');
+      await retryUntil(
+        async () => {
+          const slot = await rollup.getSlotNumber();
+          logger.info(`Slot: ${slot}`);
+          const committee = await rollup.getCurrentEpochCommittee();
+          return committee !== undefined;
+        },
+        'committee',
+        timeoutSeconds,
+        12, // 12 seconds between each check
+      );
+    },
+    committeeTimeoutMs,
+  );
 
-      const [rpcResult, ethResult, promResult, adminResult] = await Promise.all([
-        // Test RPC port forward
-        retryUntil(
-          async () => {
-            try {
-              const { process: rpcProcess, port: rpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-              const rpcUrl = `http://127.0.0.1:${rpcPort}`;
-              const testNode = createAztecNodeClient(rpcUrl);
-              const nodeInfo = await testNode.getNodeInfo();
-              if (nodeInfo?.enr?.startsWith('enr:-')) {
-                return { process: rpcProcess, port: rpcPort };
-              }
-              rpcProcess.kill();
-              return undefined;
-            } catch {
-              return undefined;
-            }
-          },
-          'RPC port forward',
-          RETRY_TIMEOUT_SECONDS,
-          RETRY_INTERVAL_SECONDS,
-        ),
+  it(
+    'should have mined a checkpoint',
+    async () => {
+      const nodeInfo = await aztecNode.getNodeInfo();
+      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+      logger.info('Waiting for the first checkpoint to mine');
+      await retryUntil(
+        async () => {
+          const checkpointNumber = await rollup.getCheckpointNumber();
+          return checkpointNumber >= CheckpointNumber(1);
+        },
+        'get checkpoint number',
+        20 * 60, // This should be quick since the committee is already formed (see test case above)
+        12,
+      );
+    },
+    20 * 60 * 1000, // 20 minutes
+  );
 
-        // Test Ethereum port forward
-        retryUntil(
-          async () => {
-            try {
-              const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
-              const ethUrl = `http://127.0.0.1:${ethPort}`;
-              const testEthClient = createPublicClient({ transport: http(ethUrl) });
-              const blockNumber = await testEthClient.getBlockNumber();
-              if (blockNumber >= 0n) {
-                return { process: ethProcess, port: ethPort, blockNumber };
-              }
-              ethProcess.kill();
-              return undefined;
-            } catch {
-              return undefined;
-            }
-          },
-          'Ethereum port forward',
-          RETRY_TIMEOUT_SECONDS,
-          RETRY_INTERVAL_SECONDS,
-        ),
+  it(
+    'can add chaos',
+    async () => {
+      const chaosValuesFile = process.env.CHAOS_SCENARIO_VALUES || 'prover-kill.yaml';
+      const spartanDir = `${getGitProjectRoot()}/spartan`;
+      logger.info(`Applying Chaos Mesh scenario: ${chaosValuesFile}`);
+      await installChaosMeshChart({
+        instanceName: 'smoke-chaos',
+        targetNamespace: config.NAMESPACE,
+        valuesFile: chaosValuesFile,
+        helmChartDir: `${spartanDir}/aztec-chaos-scenarios`,
+        logger,
+      });
+    },
+    5 * 60 * 1000, // 5 minutes
+  );
 
-        // Test Prometheus port forward
-        retryUntil(
-          async () => {
-            // Try metrics namespace first
-            try {
-              const result = await startPortForward({
-                resource: `svc/metrics-prometheus-server`,
-                namespace: 'metrics',
-                containerPort: 80,
-              });
-              return { ...result, namespace: 'metrics' };
-            } catch {
-              // Fall back to test namespace
+  it(
+    'can establish all port forwards used by spartan tests',
+    async () => {
+      // This test validates all the port forwarding mechanisms used across the spartan test suite.
+      // It helps build confidence that the K8s infrastructure is accessible before running more complex tests.
+
+      const testForwardProcesses: ChildProcess[] = [];
+      const RETRY_TIMEOUT_SECONDS = 30 * 60; // 30 minutes
+      const RETRY_INTERVAL_SECONDS = 12;
+
+      try {
+        logger.info('Testing all port forwards...');
+
+        const [rpcResult, ethResult, promResult, adminResult] = await Promise.all([
+          // Test RPC port forward
+          retryUntil(
+            async () => {
               try {
-                const result = await startPortForward({
-                  resource: `svc/prometheus-server`,
-                  namespace: config.NAMESPACE,
-                  containerPort: 80,
-                });
-                return { ...result, namespace: config.NAMESPACE };
+                const { process: rpcProcess, port: rpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+                const rpcUrl = `http://127.0.0.1:${rpcPort}`;
+                const testNode = createAztecNodeClient(rpcUrl);
+                const nodeInfo = await testNode.getNodeInfo();
+                if (nodeInfo?.enr?.startsWith('enr:-')) {
+                  return { process: rpcProcess, port: rpcPort };
+                }
+                rpcProcess.kill();
+                return undefined;
               } catch {
                 return undefined;
               }
-            }
-          },
-          'Prometheus port forward',
-          RETRY_TIMEOUT_SECONDS,
-          RETRY_INTERVAL_SECONDS,
-        ),
+            },
+            'RPC port forward',
+            RETRY_TIMEOUT_SECONDS,
+            RETRY_INTERVAL_SECONDS,
+          ),
 
-        // Test validator admin port forward (uses dynamic discovery via label selectors)
-        retryUntil(
-          async () => {
-            try {
-              // Dynamically discover validator pods instead of hardcoding names
-              const validators = await getSequencers(config.NAMESPACE);
-              if (!validators.length) {
+          // Test Ethereum port forward
+          retryUntil(
+            async () => {
+              try {
+                const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
+                const ethUrl = `http://127.0.0.1:${ethPort}`;
+                const testEthClient = createPublicClient({ transport: http(ethUrl) });
+                const blockNumber = await testEthClient.getBlockNumber();
+                if (blockNumber >= 0n) {
+                  return { process: ethProcess, port: ethPort, blockNumber };
+                }
+                ethProcess.kill();
+                return undefined;
+              } catch {
                 return undefined;
               }
-              const result = await startPortForward({
-                resource: `pod/${validators[0]}`,
-                namespace: config.NAMESPACE,
-                containerPort: 8880,
-              });
-              return result;
-            } catch {
-              return undefined;
-            }
-          },
-          'Validator admin port forward',
-          RETRY_TIMEOUT_SECONDS,
-          RETRY_INTERVAL_SECONDS,
-        ),
-      ]);
+            },
+            'Ethereum port forward',
+            RETRY_TIMEOUT_SECONDS,
+            RETRY_INTERVAL_SECONDS,
+          ),
 
-      testForwardProcesses.push(rpcResult.process, ethResult.process, promResult.process, adminResult.process);
+          // Test Prometheus port forward
+          retryUntil(
+            async () => {
+              // Try metrics namespace first
+              try {
+                const result = await startPortForward({
+                  resource: `svc/metrics-prometheus-server`,
+                  namespace: 'metrics',
+                  containerPort: 80,
+                });
+                return { ...result, namespace: 'metrics' };
+              } catch {
+                // Fall back to test namespace
+                try {
+                  const result = await startPortForward({
+                    resource: `svc/prometheus-server`,
+                    namespace: config.NAMESPACE,
+                    containerPort: 80,
+                  });
+                  return { ...result, namespace: config.NAMESPACE };
+                } catch {
+                  return undefined;
+                }
+              }
+            },
+            'Prometheus port forward',
+            RETRY_TIMEOUT_SECONDS,
+            RETRY_INTERVAL_SECONDS,
+          ),
 
-      expect(rpcResult.port).toBeGreaterThan(0);
-      logger.info(`RPC port forward OK on port ${rpcResult.port}`);
+          // Test validator admin port forward (uses dynamic discovery via label selectors)
+          retryUntil(
+            async () => {
+              try {
+                // Dynamically discover validator pods instead of hardcoding names
+                const validators = await getSequencers(config.NAMESPACE);
+                if (!validators.length) {
+                  return undefined;
+                }
+                const result = await startPortForward({
+                  resource: `pod/${validators[0]}`,
+                  namespace: config.NAMESPACE,
+                  containerPort: 8880,
+                });
+                return result;
+              } catch {
+                return undefined;
+              }
+            },
+            'Validator admin port forward',
+            RETRY_TIMEOUT_SECONDS,
+            RETRY_INTERVAL_SECONDS,
+          ),
+        ]);
 
-      expect(ethResult.port).toBeGreaterThan(0);
-      logger.info(`Ethereum port forward OK on port ${ethResult.port}, block number: ${ethResult.blockNumber}`);
+        testForwardProcesses.push(rpcResult.process, ethResult.process, promResult.process, adminResult.process);
 
-      expect(promResult.port).toBeGreaterThan(0);
-      logger.info(`Prometheus port forward OK on port ${promResult.port} (${promResult.namespace} namespace)`);
+        expect(rpcResult.port).toBeGreaterThan(0);
+        logger.info(`RPC port forward OK on port ${rpcResult.port}`);
 
-      expect(adminResult.port).toBeGreaterThan(0);
-      logger.info(`Validator admin port forward OK on port ${adminResult.port}`);
+        expect(ethResult.port).toBeGreaterThan(0);
+        logger.info(`Ethereum port forward OK on port ${ethResult.port}, block number: ${ethResult.blockNumber}`);
 
-      logger.info('All port forward checks completed successfully');
-    } finally {
-      // Clean up all test port forwards
-      for (const proc of testForwardProcesses) {
-        proc.kill();
+        expect(promResult.port).toBeGreaterThan(0);
+        logger.info(`Prometheus port forward OK on port ${promResult.port} (${promResult.namespace} namespace)`);
+
+        expect(adminResult.port).toBeGreaterThan(0);
+        logger.info(`Validator admin port forward OK on port ${adminResult.port}`);
+
+        logger.info('All port forward checks completed successfully');
+      } finally {
+        // Clean up all test port forwards
+        for (const proc of testForwardProcesses) {
+          proc.kill();
+        }
       }
-    }
-  });
+    },
+    30 * 60 * 1000,
+  ); // 30 minutes
 });
