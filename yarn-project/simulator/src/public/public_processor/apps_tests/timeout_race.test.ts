@@ -139,8 +139,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       // Revert checkpoint
       await merkleTrees.revertCheckpoint();
 
-      // Clean up
-      await merkleTrees.revertAllCheckpoints();
+      // Clean up - revert all remaining checkpoints from depth 1
+      await merkleTrees.revertAllCheckpoints(1);
 
       // Wait for simulation promise for cleanup
       await Promise.race([simulationPromise.catch(() => {}), sleep(100)]);

@@ -319,9 +319,10 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     }
   }
 
-  public async createCheckpoint(): Promise<void> {
+  public async createCheckpoint(): Promise<number> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
-    await this.instance.call(WorldStateMessageType.CREATE_CHECKPOINT, { forkId: this.revision.forkId });
+    const resp = await this.instance.call(WorldStateMessageType.CREATE_CHECKPOINT, { forkId: this.revision.forkId });
+    return resp.depth;
   }
 
   public async commitCheckpoint(): Promise<void> {
@@ -334,14 +335,20 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     await this.instance.call(WorldStateMessageType.REVERT_CHECKPOINT, { forkId: this.revision.forkId });
   }
 
-  public async commitAllCheckpoints(): Promise<void> {
+  public async commitAllCheckpoints(depth: number): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
-    await this.instance.call(WorldStateMessageType.COMMIT_ALL_CHECKPOINTS, { forkId: this.revision.forkId });
+    await this.instance.call(WorldStateMessageType.COMMIT_ALL_CHECKPOINTS, {
+      forkId: this.revision.forkId,
+      depth,
+    });
   }
 
-  public async revertAllCheckpoints(): Promise<void> {
+  public async revertAllCheckpoints(depth: number): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
-    await this.instance.call(WorldStateMessageType.REVERT_ALL_CHECKPOINTS, { forkId: this.revision.forkId });
+    await this.instance.call(WorldStateMessageType.REVERT_ALL_CHECKPOINTS, {
+      forkId: this.revision.forkId,
+      depth,
+    });
   }
 }
 

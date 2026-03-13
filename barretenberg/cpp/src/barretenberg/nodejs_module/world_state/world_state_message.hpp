@@ -88,6 +88,17 @@ struct ForkIdOnlyRequest {
     SERIALIZATION_FIELDS(forkId);
 };
 
+struct ForkIdWithDepthRequest {
+    uint64_t forkId;
+    uint32_t depth;
+    SERIALIZATION_FIELDS(forkId, depth);
+};
+
+struct CheckpointDepthResponse {
+    uint32_t depth;
+    SERIALIZATION_FIELDS(depth);
+};
+
 struct TreeIdAndRevisionRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;

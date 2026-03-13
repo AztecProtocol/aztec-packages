@@ -1062,16 +1062,16 @@ bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaRespo
     return true;
 }
 
-void WorldState::checkpoint(const uint64_t& forkId)
+uint32_t WorldState::checkpoint(const uint64_t& forkId)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
-    std::array<Response, NUM_TREES> local;
+    std::array<TypedResponse<CheckpointResponse>, NUM_TREES> local;
     std::mutex mtx;
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &local, id, &mtx](auto&& wrapper) {
-                wrapper.tree->checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                wrapper.tree->checkpoint([&signal, &local, &mtx, id](TypedResponse<CheckpointResponse>& resp) {
                     {
                         std::lock_guard<std::mutex> lock(mtx);
                         local[id] = std::move(resp);
@@ -1087,6 +1087,8 @@ void WorldState::checkpoint(const uint64_t& forkId)
             throw std::runtime_error(m.message);
         }
     }
+    // All trees have the same depth; return it from the first tree's response
+    return local[0].inner.depth;
 }
 
 void WorldState::commit_checkpoint(const uint64_t& forkId)
@@ -1143,7 +1145,7 @@ void WorldState::revert_checkpoint(const uint64_t& forkId)
     }
 }
 
-void WorldState::commit_all_checkpoints(const uint64_t& forkId)
+void WorldState::commit_all_checkpoints(const uint64_t& forkId, uint32_t depth)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -1151,14 +1153,15 @@ void WorldState::commit_all_checkpoints(const uint64_t& forkId)
     std::mutex mtx;
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal, &local, id, &mtx](auto&& wrapper) {
-                wrapper.tree->commit_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+            [&signal, &local, id, &mtx, depth](auto&& wrapper) {
+                auto callback = [&signal, &local, &mtx, id](Response& resp) {
                     {
                         std::lock_guard<std::mutex> lock(mtx);
                         local[id] = std::move(resp);
                     }
                     signal.signal_decrement();
-                });
+                };
+                wrapper.tree->commit_to_depth(depth, callback);
             },
             tree);
     }
@@ -1170,7 +1173,7 @@ void WorldState::commit_all_checkpoints(const uint64_t& forkId)
     }
 }
 
-void WorldState::revert_all_checkpoints(const uint64_t& forkId)
+void WorldState::revert_all_checkpoints(const uint64_t& forkId, uint32_t depth)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -1178,14 +1181,15 @@ void WorldState::revert_all_checkpoints(const uint64_t& forkId)
     std::mutex mtx;
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal, &local, id, &mtx](auto&& wrapper) {
-                wrapper.tree->revert_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+            [&signal, &local, id, &mtx, depth](auto&& wrapper) {
+                auto callback = [&signal, &local, &mtx, id](Response& resp) {
                     {
                         std::lock_guard<std::mutex> lock(mtx);
                         local[id] = std::move(resp);
                     }
                     signal.signal_decrement();
-                });
+                };
+                wrapper.tree->revert_to_depth(depth, callback);
             },
             tree);
     }

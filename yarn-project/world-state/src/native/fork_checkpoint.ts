@@ -3,11 +3,14 @@ import type { MerkleTreeCheckpointOperations } from '@aztec/stdlib/interfaces/se
 export class ForkCheckpoint {
   private completed = false;
 
-  private constructor(private readonly fork: MerkleTreeCheckpointOperations) {}
+  private constructor(
+    private readonly fork: MerkleTreeCheckpointOperations,
+    public readonly depth: number,
+  ) {}
 
   static async new(fork: MerkleTreeCheckpointOperations): Promise<ForkCheckpoint> {
-    await fork.createCheckpoint();
-    return new ForkCheckpoint(fork);
+    const depth = await fork.createCheckpoint();
+    return new ForkCheckpoint(fork, depth);
   }
 
   async commit(): Promise<void> {
@@ -25,6 +28,20 @@ export class ForkCheckpoint {
     }
 
     await this.fork.revertCheckpoint();
+    this.completed = true;
+  }
+
+  /**
+   * Reverts all checkpoints at or above this checkpoint's depth (inclusive),
+   * destroying this checkpoint and any nested checkpoints created on top of it,
+   * while preserving any checkpoints created by callers below our depth.
+   */
+  async revertToCheckpoint(): Promise<void> {
+    if (this.completed) {
+      return;
+    }
+
+    await this.fork.revertAllCheckpoints(this.depth);
     this.completed = true;
   }
 }

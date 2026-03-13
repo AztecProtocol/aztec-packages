@@ -91,6 +91,7 @@ describe('public_processor', () => {
       new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO), /*nextKey=*/ Fr.ZERO, /*nextIndex=*/ 0n),
     );
     merkleTree.getStateReference.mockResolvedValue(stateReference);
+    merkleTree.createCheckpoint.mockResolvedValue(1);
 
     publicTxSimulator.simulate.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
@@ -158,7 +159,7 @@ describe('public_processor', () => {
       expect(failed[0].error).toEqual(new Error(`Failed`));
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(1);
     });
 
     it('if a tx errors with assertion failure, public processor returns failed tx with its assertion message', async function () {
@@ -173,7 +174,7 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Forced assertion failure/);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(1);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -314,8 +315,42 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Not enough balance/i);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(1);
       expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  describe('checkpoint depth', () => {
+    it('calls revertAllCheckpoints with depth on tx failure', async function () {
+      merkleTree.createCheckpoint.mockResolvedValue(2);
+      publicTxSimulator.simulate.mockRejectedValue(new Error('Boom'));
+
+      const tx = await mockTxWithPublicCalls();
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toEqual([]);
+      expect(failed).toHaveLength(1);
+      expect(merkleTree.revertAllCheckpoints).toHaveBeenCalledWith(2);
+      expect(merkleTree.commitCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('createCheckpoint is called for each tx', async function () {
+      const txs = await timesParallel(3, () => mockPrivateOnlyTx());
+
+      await processor.process(txs);
+
+      expect(merkleTree.createCheckpoint).toHaveBeenCalledTimes(3);
+    });
+
+    it('commits checkpoint on successful tx', async function () {
+      const tx = await mockTxWithPublicCalls();
+
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toHaveLength(1);
+      expect(failed).toEqual([]);
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpoints).not.toHaveBeenCalled();
     });
   });
 
