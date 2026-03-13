@@ -46,6 +46,7 @@
   },
   "typedocOptions": {
     "entryPoints": [
+      "./src/embedded/entrypoints/browser.ts",
       "./src/embedded/entrypoints/node.ts",
       "./src/testing.ts"
     ],

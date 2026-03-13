@@ -21,7 +21,7 @@ struct GoblinAvmProof {
 
     size_t size() const { return eccvm_proof.size() + ipa_proof.size() + translator_proof.size(); };
 
-    MSGPACK_FIELDS(eccvm_proof, ipa_proof, translator_proof);
+    SERIALIZATION_FIELDS(eccvm_proof, ipa_proof, translator_proof);
     bool operator==(const GoblinAvmProof& other) const = default;
 };
 

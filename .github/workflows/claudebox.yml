@@ -3,6 +3,8 @@ name: ClaudeBox
 on:
   issue_comment:
     types: [created]
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
     inputs:
       prompt:
@@ -169,5 +171,124 @@ jobs:
               echo "Session finished: status=$STATUS exit_code=$EXIT_CODE"
               echo "Log: $LOG_URL"
               exit "$EXIT_CODE"
+            fi
+          done
+
+  claude-review:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'claude-review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Setup SSH tunnel to ClaudeBox
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+
+          ssh -f -N -L 4001:localhost:3000 \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -o ConnectTimeout=15 \
+            -i ~/.ssh/build_instance_key \
+            ubuntu@ci.aztec-labs.com
+
+          for i in $(seq 1 15); do
+            if curl -s -o /dev/null --max-time 2 http://localhost:4001/ 2>/dev/null; then
+              echo "SSH tunnel ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: SSH tunnel failed to connect"
+          exit 1
+
+      - name: Post review status comment
+        id: status_comment
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ github.event.pull_request.number }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="**Claude Review**: Starting automated code review... [workflow run]($RUN_URL)"
+
+          COMMENT_ID=$(gh api \
+            repos/${{ github.repository }}/issues/$PR_NUM/comments \
+            -f body="$BODY" \
+            --jq '.id')
+          echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Posted review status comment: $COMMENT_ID"
+
+      - name: Trigger ClaudeBox review
+        timeout-minutes: 120
+        env:
+          CLAUDEBOX_URL: http://localhost:4001
+          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
+
+          PROMPT="Review PR #${PR_NUMBER}: ${PR_TITLE}
+          ${PR_URL}
+
+          Author: ${PR_AUTHOR}
+          Head branch: ${HEAD_REF}
+
+          Thoroughly review this PR. Read the diff, description, linked issues, and recent git history.
+          Focus on non-obvious bugs: edge cases, concurrency, security, correctness, compatibility.
+          If you find a direct fix, create a PR. When done, call manage_review_labels(pr_number=${PR_NUMBER})."
+
+          PAYLOAD=$(jq -n \
+            --arg prompt "$PROMPT" \
+            --arg user "review/${PR_AUTHOR}" \
+            --arg run_comment_id "$RUN_COMMENT_ID" \
+            --arg repo "$REPO" \
+            --arg run_url "$RUN_URL" \
+            --arg link "$PR_URL" \
+            --arg profile "review" \
+            '{prompt: $prompt, user: $user, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link, profile: $profile}')
+
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "$AUTH" -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
+            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
+            exit 1
+          fi
+
+          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
+          SESSION_ID=$(basename "$LOG_URL")
+          echo "Review session started: $LOG_URL"
+
+          # Poll until completed
+          while true; do
+            sleep 30
+            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
+            STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
+            echo "$(date -u +%H:%M:%S) status=$STATUS"
+            if [ "$STATUS" != "running" ]; then
+              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
+              echo "Review finished: status=$STATUS exit_code=$EXIT_CODE"
+              echo "Log: $LOG_URL"
+              # Don't fail the workflow on review errors — the review itself is informational
+              exit 0
             fi
           done
