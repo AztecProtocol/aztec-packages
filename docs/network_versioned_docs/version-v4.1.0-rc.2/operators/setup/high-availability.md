@@ -3,7 +3,6 @@ id: high_availability_sequencers
 displayed_sidebar: operatorsSidebar
 title: High Availability Sequencers
 description: Learn how to run highly available sequencers across multiple nodes with database-backed coordination to prevent double-signing and ensure redundancy.
-draft: true
 ---
 
 ## Overview
