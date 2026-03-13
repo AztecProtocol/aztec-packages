@@ -3,7 +3,6 @@ id: high_availability_sequencers
 displayed_sidebar: operatorsSidebar
 title: High Availability Sequencers
 description: Learn how to run highly available sequencers across multiple nodes with database-backed coordination to prevent double-signing and ensure redundancy.
-draft: true
 ---
 
 ## Overview
@@ -145,6 +144,7 @@ Never transmit private keys over unencrypted channels or store them in version c
 Generate a base keystore with multiple publishers using the Aztec CLI. This will create one attester identity with multiple publisher keys that can be distributed across your nodes.
 
 #if(testnet)
+
 ```bash
 # Generate base keystore with one attester and 3 publishers
 aztec validator-keys new \
@@ -156,7 +156,9 @@ aztec validator-keys new \
   --publisher-count 3 \
   --data-dir ~/ha-keys-temp
 ```
+
 #else
+
 ```bash
 # Generate base keystore with one attester and 2 publishers
 aztec validator-keys new \
@@ -169,6 +171,7 @@ aztec validator-keys new \
   --publisher-count 2 \
   --data-dir ~/ha-keys-temp
 ```
+
 #endif
 
 This command generates:
