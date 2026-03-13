@@ -25,7 +25,7 @@ jobs:
       - name: Run auto-merge script (backport-train)
         run: |
           GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
           BRANCH_PATTERN=backport-to- \
           MERGE_STRATEGY=merge \
           INACTIVITY_HOURS=8 \

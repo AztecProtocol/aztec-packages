@@ -1,0 +1,7 @@
+[package]
+name = "reserved_public_dispatch"
+type = "contract"
+authors = [""]
+
+[dependencies]
+aztec = { path = "../../../aztec" }
