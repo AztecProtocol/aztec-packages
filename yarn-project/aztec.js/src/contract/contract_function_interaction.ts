@@ -169,7 +169,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
     const offchainOutput = extractOffchainOutput(
       simulatedTx.offchainEffects,
-      simulatedTx.publicInputs.expirationTimestamp,
+      simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
     );
 
     if (options.includeMetadata || options.fee?.estimateGas) {
