@@ -194,9 +194,16 @@ describe('Utility Execution test suite', () => {
       returnTypes: artifact.returnTypes,
     });
 
-    const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test-job-id');
+    const { result, offchainEffects } = await acirSimulator.runUtility(
+      execRequest,
+      [],
+      anchorBlockHeader,
+      [],
+      'test-job-id',
+    );
 
     expect(result).toEqual([new Fr(9)]);
+    expect(offchainEffects).toEqual([]);
   }, 30_000);
 
   describe('UtilityExecutionOracle', () => {
