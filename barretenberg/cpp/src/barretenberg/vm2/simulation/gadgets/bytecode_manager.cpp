@@ -134,8 +134,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // First time seeing this bytecode - perform hashing and decomposition.
     // Emits BytecodeHashingEvent and corresponding Poseidon2HashEvent and Poseidon2PermutationEvent(s).
-    bytecode_hasher.assert_public_bytecode_commitment(
-        bytecode_id, klass.packed_bytecode, /*public_bytecode_commitment=*/bytecode_id);
+    bytecode_hasher.assert_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
 
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));

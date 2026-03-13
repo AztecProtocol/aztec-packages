@@ -644,8 +644,9 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     builder.process_hashing(
         {
             simulation::BytecodeHashingEvent{
-                .bytecode_id = 1,
-                .bytecode_length = 93,
+                .bytecode_id =
+                    FF(0xdeadbeef), // Not the real hash, but for tracegen testing we don't need the correct value.
+                .bytecode_length_in_bytes = 93,
                 .bytecode_fields = { 10, 20, 30 },
             },
         },
@@ -653,50 +654,45 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     const auto rows = trace.as_rows();
 
     // One extra empty row is prepended.
-    EXPECT_THAT(
-        rows.at(1),
-        AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
-              ROW_FIELD_EQ(bc_hashing_start, 1),
-              ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
-              ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
-              ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
-              ROW_FIELD_EQ(bc_hashing_latch, 0),
-              ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
-              ROW_FIELD_EQ(bc_hashing_pc_index, 0),
-              // We don't increment at start to account for the prepended first field length | separator:
-              ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
-              ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_0, simulation::compute_public_bytecode_first_field(93)),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
-              ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
-              ROW_FIELD_EQ(bc_hashing_input_len, 4),
-              ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
-              ROW_FIELD_EQ(bc_hashing_output_hash,
-                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
-              ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 0)));
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
+                      ROW_FIELD_EQ(bc_hashing_start, 1),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
+                      ROW_FIELD_EQ(bc_hashing_padding, 2),
+                      ROW_FIELD_EQ(bc_hashing_end, 0),
+                      ROW_FIELD_EQ(bc_hashing_bytecode_id, FF(0xdeadbeef)),
+                      ROW_FIELD_EQ(bc_hashing_pc_index, 0),
+                      // We don't increment at start to account for the prepended first field length | separator:
+                      ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
+                      ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_0, simulation::compute_public_bytecode_first_field(93)),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
+                      ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
+                      ROW_FIELD_EQ(bc_hashing_input_len, 4),
+                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 2)));
 
     // Latched row
-    EXPECT_THAT(
-        rows.at(2),
-        AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
-              ROW_FIELD_EQ(bc_hashing_start, 0),
-              ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
-              ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
-              ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),
-              ROW_FIELD_EQ(bc_hashing_latch, 1),
-              ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
-              ROW_FIELD_EQ(bc_hashing_pc_index, 62),
-              ROW_FIELD_EQ(bc_hashing_pc_index_1, 93),
-              ROW_FIELD_EQ(bc_hashing_pc_index_2, 124),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_0, 30),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_1, 0),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
-              ROW_FIELD_EQ(bc_hashing_input_len, 4),
-              ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
-              ROW_FIELD_EQ(bc_hashing_output_hash,
-                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
-              ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 62)));
+    EXPECT_THAT(rows.at(2),
+                AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
+                      ROW_FIELD_EQ(bc_hashing_start, 0),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),
+                      ROW_FIELD_EQ(bc_hashing_padding, 2),
+                      ROW_FIELD_EQ(bc_hashing_end, 1),
+                      ROW_FIELD_EQ(bc_hashing_bytecode_id, FF(0xdeadbeef)),
+                      ROW_FIELD_EQ(bc_hashing_pc_index, 62),
+                      ROW_FIELD_EQ(bc_hashing_pc_index_1, 93),
+                      ROW_FIELD_EQ(bc_hashing_pc_index_2, 124),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_0, 30),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_1, 0),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
+                      ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
+                      ROW_FIELD_EQ(bc_hashing_input_len, 4),
+                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 1)));
 }
 
 std::vector<Instruction> gen_random_instructions(std::span<const WireOpCode> opcodes)
