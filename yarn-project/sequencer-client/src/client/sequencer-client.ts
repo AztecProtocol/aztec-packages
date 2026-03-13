@@ -70,6 +70,7 @@ export class SequencerClient {
       dateProvider: DateProvider;
       epochCache?: EpochCache;
       l1TxUtils: L1TxUtils[];
+      funderL1TxUtils?: L1TxUtils;
       nodeKeyStore: KeystoreManager;
     },
   ) {
@@ -96,6 +97,7 @@ export class SequencerClient {
       l1TxUtils,
       getPublisherConfigFromSequencerConfig(config),
       log.getBindings(),
+      deps.funderL1TxUtils,
     );
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([

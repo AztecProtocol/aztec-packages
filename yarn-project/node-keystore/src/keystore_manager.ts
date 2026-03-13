@@ -270,6 +270,11 @@ export class KeystoreManager {
     return allPublishers;
   }
 
+  /** Create a signer for the top-level funding account, if configured. */
+  createFundingSigner(): EthSigner | undefined {
+    throw new Error('Not implemented');
+  }
+
   /**
    * Create signers for slasher accounts
    */

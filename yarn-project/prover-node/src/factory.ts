@@ -119,11 +119,29 @@ export async function createProverNode(
           { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
         );
 
+  // Create a funder L1TxUtils from the keystore funding account (if configured)
+  const fundingSigner = keyStoreManager?.createFundingSigner();
+  let funderL1TxUtils: L1TxUtils | undefined;
+  if (fundingSigner) {
+    const [funder] = await createL1TxUtilsFromSigners(
+      publicClient,
+      [fundingSigner],
+      { ...config, scope: 'prover' },
+      { telemetry, logger: log.createChild('l1-tx-utils:funder'), dateProvider },
+    );
+    funderL1TxUtils = funder;
+  }
+
   const publisherFactory =
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager(l1TxUtils, getPublisherConfigFromProverConfig(config), log.getBindings()),
+      publisherManager: new PublisherManager(
+        l1TxUtils,
+        getPublisherConfigFromProverConfig(config),
+        log.getBindings(),
+        funderL1TxUtils,
+      ),
       telemetry,
     });
 

@@ -27,19 +27,27 @@ const busyStates: TxUtilsState[] = [
 
 export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) => boolean;
 
+/** Config accepted by PublisherManager. */
+type PublisherManagerConfig = {
+  publisherAllowInvalidStates?: boolean;
+  publisherFundingThreshold?: bigint;
+  publisherFundingAmount?: bigint;
+};
+
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log: Logger;
-  private config: { publisherAllowInvalidStates?: boolean };
+  private config: PublisherManagerConfig;
 
   constructor(
     private publishers: UtilsType[],
-    config: { publisherAllowInvalidStates?: boolean },
+    config: PublisherManagerConfig,
     bindings?: LoggerBindings,
+    private funder?: UtilsType,
   ) {
     this.log = createLogger('publisher:manager', bindings);
     this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
     this.publishers = publishers;
-    this.config = pick(config, 'publisherAllowInvalidStates');
+    this.config = pick(config, 'publisherAllowInvalidStates', 'publisherFundingThreshold', 'publisherFundingAmount');
   }
 
   /** Loads the state of all publishers and resumes monitoring any pending txs */
@@ -104,5 +112,15 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
 
   public interrupt() {
     this.publishers.forEach(pub => pub.interrupt());
+  }
+
+  /** Check all publisher balances and fund those below threshold (background, non-blocking). */
+  private triggerFundingIfNeeded(_publishersWithBalance: { balance: bigint; publisher: UtilsType }[]): void {
+    // Stage 1 stub — no-op. Implementation in Stage 3.
+  }
+
+  /** Fund a single publisher by sending ETH from the funding account. */
+  private fundPublisher(_publisher: UtilsType): Promise<void> {
+    throw new Error('Not implemented');
   }
 }

@@ -8,6 +8,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -492,6 +493,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
             { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           );
 
+      // Create a funder L1TxUtils from the keystore funding account (if configured)
+      const fundingSigner = keyStoreManager!.createFundingSigner();
+      let funderL1TxUtils: L1TxUtils | undefined;
+      if (fundingSigner) {
+        const [funder] = await createL1TxUtilsFromSigners(
+          publicClient,
+          [fundingSigner],
+          { ...config, scope: 'sequencer' },
+          { telemetry, logger: log.createChild('l1-tx-utils:funder'), dateProvider },
+        );
+        funderL1TxUtils = funder;
+      }
+
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
         { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
@@ -506,6 +520,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         ...deps,
         epochCache,
         l1TxUtils,
+        funderL1TxUtils,
         validatorClient,
         p2pClient,
         worldStateSynchronizer,
