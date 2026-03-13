@@ -137,9 +137,21 @@ if(COVERAGE)
         message(FATAL_ERROR "Creating coverage is only available for clang")
     endif()
 
-    # Add profiling compile/link options and disable optimizations
+    # Add profiling compile options for coverage instrumentation
     add_definitions(-fprofile-instr-generate -fcoverage-mapping)
-    add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+    # When using zig as the compiler/linker, -fprofile-instr-generate at link
+    # time doesn't pull in the clang profiling runtime. Link the runtime
+    # explicitly with --whole-archive (its init runs via constructors).
+    find_library(CLANG_RT_PROFILE clang_rt.profile-x86_64
+        PATHS /usr/lib/llvm-20/lib/clang/20/lib/linux
+              /usr/lib/llvm-20/lib/clang/20/lib/x86_64-pc-linux-gnu
+        NO_DEFAULT_PATH)
+    if(CLANG_RT_PROFILE)
+        add_link_options(-Wl,--whole-archive ${CLANG_RT_PROFILE} -Wl,--no-whole-archive)
+    else()
+        # Fallback: let the compiler driver try to find it
+        add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+    endif()
 endif()
 
 include(cmake/build.cmake)
@@ -200,3 +212,4 @@ if(SYNTAX_ONLY)
   set(CMAKE_C_ARCHIVE_APPEND "touch <TARGET>")
   set(CMAKE_C_ARCHIVE_FINISH "touch <TARGET>")
 endif()
+
