@@ -56,8 +56,14 @@ export class GasFees {
       return this.clone();
     } else if (typeof scalar === 'bigint') {
       return new GasFees(this.feePerDaGas * scalar, this.feePerL2Gas * scalar);
+    } else if (Number.isInteger(scalar)) {
+      const s = BigInt(scalar);
+      return new GasFees(this.feePerDaGas * s, this.feePerL2Gas * s);
     } else {
-      return new GasFees(Number(this.feePerDaGas) * scalar, Number(this.feePerL2Gas) * scalar);
+      return new GasFees(
+        BigInt(Math.ceil(Number(this.feePerDaGas) * scalar)),
+        BigInt(Math.ceil(Number(this.feePerL2Gas) * scalar)),
+      );
     }
   }
 
