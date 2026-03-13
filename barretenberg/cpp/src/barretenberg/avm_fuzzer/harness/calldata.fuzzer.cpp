@@ -41,6 +41,7 @@ using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 using namespace bb::avm2::fuzzing;
 
+using bb::avm2::Column;
 using bb::avm2::FF;
 
 using calldata_rel = bb::avm2::calldata<FF>;
@@ -413,38 +414,38 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     // check_all_interactions<CalldataTraceBuilder>(trace);
 
     // Reset the shared trace for the next run
-    for (uint32_t i = 1; i < trace.get_column_rows(avm2::Column::calldata_sel); i++) {
+    for (uint32_t i = 1; i < trace.get_column_rows(Column::calldata_sel); i++) {
         trace.set(i,
                   { {
-                      { avm2::Column::calldata_sel, 0 },
-                      { avm2::Column::calldata_context_id, 0 },
-                      { avm2::Column::calldata_value, 0 },
-                      { avm2::Column::calldata_index, 0 },
-                      { avm2::Column::calldata_latch, 0 },
-                      { avm2::Column::calldata_diff_context_id, 0 },
+                      { Column::calldata_sel, 0 },
+                      { Column::calldata_context_id, 0 },
+                      { Column::calldata_value, 0 },
+                      { Column::calldata_index, 0 },
+                      { Column::calldata_latch, 0 },
+                      { Column::calldata_diff_context_id, 0 },
                   } });
     }
 
-    for (uint32_t i = 1; i < trace.get_column_rows(avm2::Column::calldata_hashing_sel); i++) {
+    for (uint32_t i = 1; i < trace.get_column_rows(Column::calldata_hashing_sel); i++) {
         trace.set(i,
                   { {
-                      { avm2::Column::calldata_hashing_sel, 0 },
-                      { avm2::Column::calldata_hashing_start, 0 },
-                      { avm2::Column::calldata_hashing_sel_not_start, 0 },
-                      { avm2::Column::calldata_hashing_context_id, 0 },
-                      { avm2::Column::calldata_hashing_calldata_size, 0 },
-                      { avm2::Column::calldata_hashing_input_len, 0 },
-                      { avm2::Column::calldata_hashing_rounds_rem, 0 },
-                      { avm2::Column::calldata_hashing_index_0_, 0 },
-                      { avm2::Column::calldata_hashing_index_1_, 0 },
-                      { avm2::Column::calldata_hashing_index_2_, 0 },
-                      { avm2::Column::calldata_hashing_input_0_, 0 },
-                      { avm2::Column::calldata_hashing_input_1_, 0 },
-                      { avm2::Column::calldata_hashing_input_2_, 0 },
-                      { avm2::Column::calldata_hashing_output_hash, 0 },
-                      { avm2::Column::calldata_hashing_sel_not_padding_1, 0 },
-                      { avm2::Column::calldata_hashing_sel_not_padding_2, 0 },
-                      { avm2::Column::calldata_hashing_latch, 0 },
+                      { Column::calldata_hashing_sel, 0 },
+                      { Column::calldata_hashing_start, 0 },
+                      { Column::calldata_hashing_sel_not_start, 0 },
+                      { Column::calldata_hashing_context_id, 0 },
+                      { Column::calldata_hashing_calldata_size, 0 },
+                      { Column::calldata_hashing_input_len, 0 },
+                      { Column::calldata_hashing_rounds_rem, 0 },
+                      { Column::calldata_hashing_index_0_, 0 },
+                      { Column::calldata_hashing_index_1_, 0 },
+                      { Column::calldata_hashing_index_2_, 0 },
+                      { Column::calldata_hashing_input_0_, 0 },
+                      { Column::calldata_hashing_input_1_, 0 },
+                      { Column::calldata_hashing_input_2_, 0 },
+                      { Column::calldata_hashing_output_hash, 0 },
+                      { Column::calldata_hashing_sel_not_padding_1, 0 },
+                      { Column::calldata_hashing_sel_not_padding_2, 0 },
+                      { Column::calldata_hashing_latch, 0 },
                   } });
     }
 

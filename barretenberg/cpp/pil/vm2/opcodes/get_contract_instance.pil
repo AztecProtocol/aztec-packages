@@ -42,7 +42,7 @@ include "../bytecode/contract_instance_retrieval.pil";
  * - is_init_hash
  * +-------+----------------------+---------------+-------------+---------------+
  * |  Row  | is_valid_member_enum | is_deployer   | is_class_id | is_init_hash  |
- * | (clk) |                      |               |             |               |
+ * | (idx) |                      |               |             |               |
  * +-------+----------------------+---------------+-------------+---------------+
  * |   0   |         1            |      1        |      0      |      0        |
  * |   1   |         1            |      0        |      1      |      0        |
