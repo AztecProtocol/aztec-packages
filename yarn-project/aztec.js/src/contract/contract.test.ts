@@ -6,13 +6,7 @@ import {
   type ContractInstanceWithAddress,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import type {
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-  TxSimulationResult,
-  UtilityExecutionResult,
-} from '@aztec/stdlib/tx';
+import type { TxExecutionRequest, TxReceipt, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

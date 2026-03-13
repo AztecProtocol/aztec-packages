@@ -80,10 +80,8 @@ struct PendingOffchainMsg {
     recipient: AztecAddress,
     /// The hash of the transaction that produced this message. A value of 0 indicates a tx-less message.
     tx_hash: Field,
-    /// Anchor block timestamp at message emission.
-    ///
-    /// Used to compute the effective expiration of messages: since a tx can only live for `MAX_TX_LIFETIME`, we evict
-    /// the message after `anchor_block_timestamp + MAX_MSG_TTL`.
+    /// Anchor block timestamp at message emission. Used to compute the effective expiration: messages are evicted
+    /// after `anchor_block_timestamp + MAX_MSG_TTL`.
     anchor_block_timestamp: u64,
 }
 
@@ -97,9 +95,8 @@ struct PendingOffchainMsg {
 /// Messages are processed when their originating transaction is found onchain (providing the context needed to
 /// validate resulting notes and events).
 ///
-/// Messages are kept in the inbox until they expire. For messages with an associated transaction, the effective
-/// expiration is `anchor_block_timestamp + MAX_MSG_TTL`, since there's no point in keeping a message around longer
-/// than its originating transaction could possibly live.
+/// Messages are kept in the inbox until they expire. The effective expiration is
+/// `anchor_block_timestamp + MAX_MSG_TTL`.
 ///
 /// Processing order is not guaranteed.
 pub unconstrained fn receive(
@@ -186,8 +183,8 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
         // process the message. We add the message to the `ready_to_process` CapsuleArray so that the `sync_state` loop
         // processes it.
         //
-        // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL` for tx-bound
-        // messages), we remove it from the inbox.
+        // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL`), we remove it
+        // from the inbox.
         //
         // Note: the loop runs backwards because it might call `inbox.remove(j)` to purge expired messages and we also
         // need to align it with `resolved_contexts.get(j)`. Going from last to first simplifies the algorithm as
@@ -197,18 +194,7 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
         let msg = inbox.get(j);
 
         // Compute the message's effective expiration timestamp to determine if we can purge it from the inbox.
-        let effective_expiration = if msg.tx_hash != 0 {
-            // For messages with an associated transaction, we expire them after
-            // `anchor_block_timestamp + MAX_MSG_TTL`: there's no point in keeping a message once the TX can no longer
-            // possibly be included in a block.
-            msg.anchor_block_timestamp + MAX_MSG_TTL
-        } else {
-            // Tx-less messages have no anchor block, so we can't derive an expiration from
-            // the chain. For now they never expire automatically; the contract is responsible
-            // for managing their lifecycle.
-            // TODO: revisit tx-less message expiration policy.
-            (2.pow_32(64) - 1) as u64
-        };
+        let effective_expiration = msg.anchor_block_timestamp + MAX_MSG_TTL;
 
         // Message expired. We remove it from the inbox.
         if now > effective_expiration {
@@ -330,7 +316,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn tx_less_msg_never_auto_expires() {
+    unconstrained fn tx_less_msg_expires_after_max_msg_ttl() {
         let env = TestEnvironment::new();
         let anchor_ts = advance_by(env, 10);
 
@@ -340,17 +326,16 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
-        // Advance well past what would expire a tx-bound message.
+        // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
 
-        // Tx-less messages never auto-expire; the contract manages their lifecycle.
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert_eq(inbox.len(), 1); // tx-less, never auto-expires, stays
+            assert_eq(inbox.len(), 0); // expired, removed
         });
     }
 
@@ -392,13 +377,13 @@ mod test {
             msgs.push(make_msg(Option::some(random()), 0));
             // Message 1: tx-bound, anchor_ts is recent so it survives.
             msgs.push(make_msg(Option::some(survivor_tx_hash), anchor_ts));
-            // Message 2: tx-less, never auto-expires.
+            // Message 2: tx-less, anchor_ts=0 so it also expires.
             msgs.push(make_msg(Option::none(), 0));
             receive(address, msgs);
         });
 
         // Advance past MAX_MSG_TTL for anchor_ts=0, but not for anchor_ts=anchor_ts.
-        let _now = advance_by(env, MAX_MSG_TTL + 1);
+        let _now = advance_by(env, MAX_MSG_TTL);
 
         env.utility_context(|context| {
             let address = context.this_address();
@@ -407,8 +392,8 @@ mod test {
 
             assert_eq(result.len(), 0); // all contexts are None
             // Message 0 expired (anchor=0), message 1 survived (anchor=anchor_ts),
-            // message 2 survived (tx-less, never expires).
-            assert_eq(inbox.len(), 2);
+            // Message 2 expired (anchor=0).
+            assert_eq(inbox.len(), 1);
             assert_eq(inbox.get(0).tx_hash, survivor_tx_hash);
         });
     }

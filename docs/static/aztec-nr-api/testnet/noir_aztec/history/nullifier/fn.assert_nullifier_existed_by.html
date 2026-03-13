@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function assert_nullifier_existed_by documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">assert_nullifier_existed_by</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module nullifier</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.assert_nullifier_did_not_exist_by.html">assert_nullifier_did_not_exist_by</a></div></li>
+<li><a href="fn.assert_nullifier_existed_by.html">assert_nullifier_existed_by</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">history</a>::<a href="index.html">nullifier</a></div>
+<h1>Function <span class="fn">assert_nullifier_existed_by</span></h1>
+<pre><code>pub fn assert_nullifier_existed_by(block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>, siloed_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code></pre>
+
+<div class="comments">
+<p>Asserts that a nullifier existed by the time a block was mined.</p>
+<p>This function takes a <em>siloed</em> nullifier, i.e. the value that is actually stored in the tree. Use
+<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> to convert an inner nullifier (what
+<a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>PrivateContext::push_nullifier</code></a> takes) into a siloed one.</p>
+<p>Note that this does not mean that the nullifier was created <strong>at</strong> <code>block_header</code>, only that it was present in the
+tree once all transactions from <code>block_header</code> were executed.</p>
+<p>In order to prove that a nullifier did <strong>not</strong> exist by <code>block_header</code>, use <a href="../../../noir_aztec/history/nullifier/fn.assert_nullifier_did_not_exist_by.html"><code>assert_nullifier_did_not_exist_by</code></a>.</p>
+<h2>Cost</h2>
+<p>This function performs a full merkle tree inclusion proof, which is in the order of 4k gates.</p>
+<p>If you don't need to assert existence at a <em>specific</em> past block, consider using
+<a href="../../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists"><code>PrivateContext::assert_nullifier_exists</code></a> instead, which
+is typically cheaper. Note that there are semantic differences though, as that function also considers <em>pending</em>
+nullifiers.</p></div>
+</main>
+</span>
+</body>
+</html>

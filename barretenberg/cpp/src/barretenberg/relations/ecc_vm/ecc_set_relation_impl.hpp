@@ -158,7 +158,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         const auto skew_input = precompute_point_transition * (skew + gamma + precompute_pc * beta +
                                                                (precompute_round4 + 4) * beta_sqr + first_term_tag) +
                                 (-precompute_point_transition + 1);
-        numerator *= skew_input; // degree-5
+        numerator *= skew_input; // degree-6
     }
     {
         // in `EccvmProver` and `ECCVMVerifier`, we see that `eccvm_set_permutation_delta` is initially computed as

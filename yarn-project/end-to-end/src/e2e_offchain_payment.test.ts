@@ -29,7 +29,9 @@ describe('e2e_offchain_payment', () => {
   jest.setTimeout(TIMEOUT);
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2));
+    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2, {
+      anvilSlotsInAnEpoch: 32,
+    }));
   });
 
   afterAll(() => teardown());
@@ -56,17 +58,22 @@ describe('e2e_offchain_payment', () => {
   }
 
   async function forceReorg(block: BlockNumber) {
+    // Pause sync as soon as the block is checkpointed so finalization doesn't race ahead
+    // of the rollback target. Without this, the archiver can finalize past the target block
+    // between the retryUntil returning and pauseSync executing.
     await retryUntil(
       async () => {
         const tips = await aztecNode.getL2Tips();
-        return tips.checkpointed.block.number >= block;
+        if (tips.checkpointed.block.number >= block) {
+          await aztecNodeAdmin.pauseSync();
+          return true;
+        }
+        return false;
       },
       'checkpointed block',
       30,
       1,
     );
-
-    await aztecNodeAdmin.pauseSync();
 
     await cheatCodes.eth.reorg(1);
     await aztecNodeAdmin.rollbackTo(Number(block) - 1);
