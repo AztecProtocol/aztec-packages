@@ -155,6 +155,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
+  lastBlockDurationMs: {
+    env: 'SEQ_LAST_BLOCK_DURATION_MS',
+    description:
+      'Duration of the last block in ms when building multiple blocks per slot. ' +
+      'When set and less than blockDurationMs, the checkpoint broadcasts earlier. ' +
+      'Defaults to blockDurationMs when 0 or unset.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
   },

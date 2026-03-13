@@ -15,6 +15,8 @@ export type TopicScoringNetworkParams = {
   targetCommitteeSize: number;
   /** Duration per block in milliseconds when building multiple blocks per slot. If undefined, single block mode. */
   blockDurationMs?: number;
+  /** Duration of the last block in milliseconds when shorter than blockDurationMs. */
+  lastBlockDurationMs?: number;
   /** Expected number of block proposals per slot for scoring override. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
   expectedBlockProposalsPerSlot?: number;
 };
@@ -27,8 +29,14 @@ export type TopicScoringNetworkParams = {
  * @param blockDurationMs - Duration per block in milliseconds (undefined = single block mode)
  * @returns Number of blocks per slot
  */
-export function calculateBlocksPerSlot(slotDurationMs: number, blockDurationMs: number | undefined): number {
-  return calculateMaxBlocksPerSlot(slotDurationMs / 1000, blockDurationMs ? blockDurationMs / 1000 : undefined);
+export function calculateBlocksPerSlot(
+  slotDurationMs: number,
+  blockDurationMs: number | undefined,
+  lastBlockDurationMs?: number,
+): number {
+  return calculateMaxBlocksPerSlot(slotDurationMs / 1000, blockDurationMs ? blockDurationMs / 1000 : undefined, {
+    lastBlockDurationSec: lastBlockDurationMs ? lastBlockDurationMs / 1000 : undefined,
+  });
 }
 
 /**
@@ -276,10 +284,10 @@ export class TopicScoreParamsFactory {
   };
 
   constructor(private readonly params: TopicScoringNetworkParams) {
-    const { slotDurationMs, heartbeatIntervalMs, blockDurationMs } = params;
+    const { slotDurationMs, heartbeatIntervalMs, blockDurationMs, lastBlockDurationMs } = params;
 
     // Compute values that are the same for all topics
-    this.blocksPerSlot = calculateBlocksPerSlot(slotDurationMs, blockDurationMs);
+    this.blocksPerSlot = calculateBlocksPerSlot(slotDurationMs, blockDurationMs, lastBlockDurationMs);
     this.heartbeatsPerSlot = slotDurationMs / heartbeatIntervalMs;
     this.invalidDecay = computeDecay(heartbeatIntervalMs, slotDurationMs, INVALID_DECAY_WINDOW_SLOTS);
 

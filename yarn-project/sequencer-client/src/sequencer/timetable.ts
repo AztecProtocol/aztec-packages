@@ -70,6 +70,10 @@ export class SequencerTimetable {
   /** Duration per block when building multiple blocks per slot (undefined = single block per slot) */
   public readonly blockDuration: number | undefined;
 
+  /** Duration of the last block when building multiple blocks per slot.
+   *  When different from blockDuration, the last sub-slot has a shorter deadline. */
+  public readonly lastBlockDuration: number | undefined;
+
   /** Maximum number of blocks that can be built in this slot configuration */
   public readonly maxNumberOfBlocks: number;
 
@@ -89,6 +93,7 @@ export class SequencerTimetable {
       l1PublishingTime: number;
       p2pPropagationTime?: number;
       blockDurationMs?: number;
+      lastBlockDurationMs?: number;
       enforce: boolean;
       pipelining?: boolean;
     },
@@ -103,6 +108,13 @@ export class SequencerTimetable {
     this.enforce = opts.enforce;
     this.pipelining = opts.pipelining ?? false;
 
+    // Last block duration: use if set, valid, and less than blockDuration
+    if (opts.lastBlockDurationMs && this.blockDuration && opts.lastBlockDurationMs / 1000 < this.blockDuration) {
+      this.lastBlockDuration = opts.lastBlockDurationMs / 1000;
+    } else {
+      this.lastBlockDuration = this.blockDuration;
+    }
+
     // Assume zero-cost propagation time and faster runs in test environments where L1 slot duration is shortened
     if (this.ethereumSlotDuration < 8) {
       this.p2pPropagationTime = 0;
@@ -116,9 +128,15 @@ export class SequencerTimetable {
       this.minExecutionTime = this.blockDuration;
     }
 
+    // Last block duration cannot be less than min execution time
+    if (this.lastBlockDuration !== undefined && this.lastBlockDuration < this.minExecutionTime) {
+      this.lastBlockDuration = this.minExecutionTime;
+    }
+
     this.checkpointTiming = new CheckpointTimingModel({
       aztecSlotDuration: this.aztecSlotDuration,
       blockDuration: this.blockDuration,
+      lastBlockDuration: this.lastBlockDuration,
       checkpointAssembleTime: this.checkpointAssembleTime,
       checkpointInitializationTime: this.checkpointInitializationTime,
       l1PublishingTime: this.l1PublishingTime,
@@ -151,6 +169,7 @@ export class SequencerTimetable {
         pipeliningAttestationGracePeriod: this.pipeliningAttestationGracePeriod,
         minWorkToDo: this.checkpointTiming.minimumBuildSlotWork,
         blockDuration: this.blockDuration,
+        lastBlockDuration: this.lastBlockDuration,
         maxNumberOfBlocks: this.maxNumberOfBlocks,
       },
     );
@@ -274,8 +293,12 @@ export class SequencerTimetable {
     // Otherwise, we're in multi-block-per-slot mode, the default when running in production
     // Find the next available sub-slot that has enough time remaining
     for (let subSlot = 1; subSlot <= this.maxNumberOfBlocks; subSlot++) {
-      // Calculate end for this sub-slot
-      const deadline = this.initializationOffset + subSlot * this.blockDuration;
+      // Calculate end for this sub-slot. The last sub-slot may have a shorter duration.
+      const isLastSubSlot = subSlot === this.maxNumberOfBlocks;
+      const deadline =
+        isLastSubSlot && this.lastBlockDuration !== undefined && this.lastBlockDuration !== this.blockDuration
+          ? this.initializationOffset + (subSlot - 1) * this.blockDuration + this.lastBlockDuration
+          : this.initializationOffset + subSlot * this.blockDuration;
 
       // Check if we have enough time to build a block with this deadline
       const timeUntilDeadline = deadline - secondsIntoSlot;

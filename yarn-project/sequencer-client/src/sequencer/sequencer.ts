@@ -123,6 +123,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         l1PublishingTime: this.l1PublishingTime,
         p2pPropagationTime,
         blockDurationMs: this.config.blockDurationMs,
+        lastBlockDurationMs: this.config.lastBlockDurationMs,
         enforce: this.config.enforceTimeTable,
         pipelining: this.epochCache.isProposerPipeliningEnabled(),
       },

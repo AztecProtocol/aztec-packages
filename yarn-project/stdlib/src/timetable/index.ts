@@ -28,6 +28,7 @@ export const MIN_EXECUTION_TIME = 2;
 export type CheckpointTimingConfig = {
   aztecSlotDuration: number;
   blockDuration?: number;
+  lastBlockDuration?: number;
   checkpointAssembleTime?: number;
   checkpointInitializationTime?: number;
   l1PublishingTime?: number;
@@ -46,6 +47,7 @@ export type CheckpointTimingConfig = {
 export class CheckpointTimingModel {
   public readonly aztecSlotDuration: number;
   public readonly blockDuration: number | undefined;
+  public readonly lastBlockDuration: number | undefined;
   public readonly checkpointAssembleTime: number;
   public readonly checkpointInitializationTime: number;
   public readonly l1PublishingTime: number;
@@ -56,6 +58,10 @@ export class CheckpointTimingModel {
   constructor(opts: CheckpointTimingConfig) {
     this.aztecSlotDuration = opts.aztecSlotDuration;
     this.blockDuration = opts.blockDuration;
+    this.lastBlockDuration =
+      opts.lastBlockDuration !== undefined && this.blockDuration !== undefined && opts.lastBlockDuration < this.blockDuration
+        ? opts.lastBlockDuration
+        : this.blockDuration;
     this.checkpointAssembleTime = opts.checkpointAssembleTime ?? CHECKPOINT_ASSEMBLE_TIME;
     this.checkpointInitializationTime = opts.checkpointInitializationTime ?? CHECKPOINT_INITIALIZATION_TIME;
     this.l1PublishingTime = opts.l1PublishingTime ?? DEFAULT_L1_PUBLISHING_TIME;
@@ -77,7 +83,7 @@ export class CheckpointTimingModel {
       return this.checkpointAssembleTime + this.p2pPropagationTime;
     }
 
-    return (this.blockDuration ?? 0) + this.checkpointFinalizationTime;
+    return (this.lastBlockDuration ?? this.blockDuration ?? 0) + this.checkpointFinalizationTime;
   }
 
   public get minimumBuildSlotWork(): number {
@@ -134,6 +140,10 @@ export class CheckpointTimingModel {
     }
 
     const timeAvailableForBlocks = this.aztecSlotDuration - this.checkpointInitializationTime - this.timeReservedAtEnd;
+    if (this.lastBlockDuration !== undefined && this.lastBlockDuration < this.blockDuration) {
+      return Math.max(1, Math.floor((timeAvailableForBlocks - this.lastBlockDuration) / this.blockDuration) + 1);
+    }
+
     return Math.max(1, Math.floor(timeAvailableForBlocks / this.blockDuration));
   }
 }
@@ -156,11 +166,13 @@ export function calculateMaxBlocksPerSlot(
     p2pPropagationTime?: number;
     l1PublishingTime?: number;
     pipelining?: boolean;
+    lastBlockDurationSec?: number;
   } = {},
 ): number {
   return new CheckpointTimingModel({
     aztecSlotDuration: aztecSlotDurationSec,
     blockDuration: blockDurationSec,
+    lastBlockDuration: opts.lastBlockDurationSec,
     checkpointAssembleTime: opts.checkpointAssembleTime,
     checkpointInitializationTime: opts.checkpointInitializationTime,
     l1PublishingTime: opts.l1PublishingTime,

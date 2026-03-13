@@ -439,6 +439,156 @@ describe('sequencer-timetable', () => {
     });
   });
 
+  describe('last block duration', () => {
+    const AZTEC_SLOT_DURATION = 72;
+    const BLOCK_DURATION_MS = 6000;
+
+    it('uses shorter deadline for last block', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        lastBlockDurationMs: 2000,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      const blockDuration = BLOCK_DURATION_MS / 1000;
+      const lastBlockDuration = 2;
+
+      // Non-last sub-slots should have standard deadlines
+      const firstResult = tt.canStartNextBlock(0);
+      expect(firstResult.canStart).toBe(true);
+      expect(firstResult.isLastBlock).toBe(false);
+      expect(firstResult.deadline).toBe(tt.initializationOffset + blockDuration);
+
+      // Last sub-slot should have shorter deadline
+      const lastSlotStart = tt.initializationOffset + (tt.maxNumberOfBlocks - 1) * blockDuration;
+      const lastResult = tt.canStartNextBlock(lastSlotStart);
+      expect(lastResult.canStart).toBe(true);
+      expect(lastResult.isLastBlock).toBe(true);
+      expect(lastResult.deadline).toBe(
+        tt.initializationOffset + (tt.maxNumberOfBlocks - 1) * blockDuration + lastBlockDuration,
+      );
+    });
+
+    it('increases maxNumberOfBlocks by one', () => {
+      const withoutLastBlock = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      const withLastBlock = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        lastBlockDurationMs: 2000,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(withLastBlock.maxNumberOfBlocks).toBe(withoutLastBlock.maxNumberOfBlocks + 1);
+    });
+
+    it('verifies total block time fits within available time', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        lastBlockDurationMs: 2000,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      const blockDuration = BLOCK_DURATION_MS / 1000;
+      const lastBlockDuration = 2;
+      const timeReservedAtEnd = lastBlockDuration + tt.checkpointFinalizationTime;
+      const timeAvailableForBlocks = AZTEC_SLOT_DURATION - tt.initializationOffset - timeReservedAtEnd;
+
+      // (N-1) full blocks + 1 shorter last block should fit
+      const totalBlockTime = (tt.maxNumberOfBlocks - 1) * blockDuration + lastBlockDuration;
+      expect(totalBlockTime).toBeLessThanOrEqual(timeAvailableForBlocks);
+
+      // Adding one more full block would exceed the available time
+      const totalBlockTimePlusOne = tt.maxNumberOfBlocks * blockDuration + lastBlockDuration;
+      expect(totalBlockTimePlusOne).toBeGreaterThan(timeAvailableForBlocks);
+    });
+
+    it('falls back to blockDuration when unset', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(tt.lastBlockDuration).toBe(tt.blockDuration);
+    });
+
+    it('ignores when >= blockDuration', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        lastBlockDurationMs: BLOCK_DURATION_MS, // equal to blockDuration
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(tt.lastBlockDuration).toBe(tt.blockDuration);
+
+      const ttLarger = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        lastBlockDurationMs: BLOCK_DURATION_MS + 1000, // larger than blockDuration
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(ttLarger.lastBlockDuration).toBe(ttLarger.blockDuration);
+    });
+
+    it('works with pipelining', () => {
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        lastBlockDurationMs: 2000,
+        enforce: ENFORCE_TIMETABLE,
+        pipelining: true,
+      });
+
+      const blockDuration = BLOCK_DURATION_MS / 1000;
+
+      // pipeliningAttestationGracePeriod should still use full blockDuration
+      expect(tt.pipeliningAttestationGracePeriod).toBe(blockDuration + tt.p2pPropagationTime);
+
+      // But last block deadline should be shorter
+      expect(tt.lastBlockDuration).toBe(2);
+    });
+
+    it('clamps to minExecutionTime', () => {
+      // With ethereumSlotDuration >= 8, minExecutionTime defaults to MIN_EXECUTION_TIME (2s)
+      // Set lastBlockDurationMs to 500ms (0.5s) which is less than minExecutionTime
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        l1PublishingTime: L1_PUBLISHING_TIME,
+        blockDurationMs: BLOCK_DURATION_MS,
+        lastBlockDurationMs: 500,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(tt.lastBlockDuration).toBe(tt.minExecutionTime);
+    });
+  });
+
   describe('pipelining mode', () => {
     const BLOCK_DURATION_MS = 8000;
 
