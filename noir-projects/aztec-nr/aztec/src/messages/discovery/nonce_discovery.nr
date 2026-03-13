@@ -115,19 +115,21 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
         }
     }
 
-    if had_hash_failure {
-        aztecnr_warn_log_format!(
-            "Failed to compute note hash during discovery for note type {0} on contract {1}",
-        )(
-            [note_type_id, contract_address.to_field()],
-        );
-    }
-    if had_nullifier_failure {
-        aztecnr_warn_log_format!(
-            "Nullifier not computable for note type {0} on contract {1}, discarding note",
-        )(
-            [note_type_id, contract_address.to_field()],
-        );
+    if discovered_notes.len() == 0 {
+        if had_hash_failure {
+            aztecnr_warn_log_format!(
+                "Could not compute note hash for note type {0} on contract {1}, discarding note",
+            )(
+                [note_type_id, contract_address.to_field()],
+            );
+        }
+        if had_nullifier_failure {
+            aztecnr_warn_log_format!(
+                "Could not compute nullifier for note type {0} on contract {1}, discarding note",
+            )(
+                [note_type_id, contract_address.to_field()],
+            );
+        }
     }
 
     aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")([discovered_notes.len() as Field]);
