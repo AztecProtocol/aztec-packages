@@ -132,7 +132,7 @@ export interface IUtilityExecutionOracle {
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void>;
-  utilityResolveMessageContexts(
+  resolveMessageContexts(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,

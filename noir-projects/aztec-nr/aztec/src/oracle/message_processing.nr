@@ -67,7 +67,7 @@ pub(crate) unconstrained fn resolve_message_contexts(
     );
 }
 
-#[oracle(aztec_utl_utilityResolveMessageContexts)]
+#[oracle(aztec_utl_resolveMessageContexts)]
 unconstrained fn resolve_message_contexts_oracle(
     contract_address: AztecAddress,
     message_context_requests_array_base_slot: Field,

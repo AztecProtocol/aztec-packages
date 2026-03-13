@@ -791,7 +791,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  public async aztec_utl_utilityResolveMessageContexts(
+  public async aztec_utl_resolveMessageContexts(
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
@@ -800,7 +800,7 @@ export class RPCTranslator {
     const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
     const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
 
-    await this.handlerAsUtility().utilityResolveMessageContexts(
+    await this.handlerAsUtility().resolveMessageContexts(
       contractAddress,
       messageContextRequestsArrayBaseSlot,
       messageContextResponsesArrayBaseSlot,

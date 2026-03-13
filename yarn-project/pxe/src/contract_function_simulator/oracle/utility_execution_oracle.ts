@@ -571,7 +571,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public async utilityResolveMessageContexts(
+  public async resolveMessageContexts(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,

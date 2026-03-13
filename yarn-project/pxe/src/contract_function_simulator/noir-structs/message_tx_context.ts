@@ -5,7 +5,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
 
 /**
  * Intermediate struct used to return resolved message contexts from PXE. The
- * `utilityResolveMessageContexts` oracle stores values of this type in a CapsuleArray.
+ * `resolveMessageContexts` oracle stores values of this type in a CapsuleArray.
  */
 export class MessageTxContext {
   constructor(
