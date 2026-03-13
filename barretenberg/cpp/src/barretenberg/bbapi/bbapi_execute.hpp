@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/bbapi/bbapi_batch_verifier.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
