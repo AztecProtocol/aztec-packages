@@ -37,31 +37,27 @@ jobs:
         run: echo "CI is not run on drafts." && exit 1
 
       - name: External Contributor Checks
-        env:
-          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HAS_CI_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once' }}
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           set -o pipefail
-          git fetch origin "$PR_BASE_REF" --depth=1 &>/dev/null
-          forbidden_changes=$(git diff --name-only "origin/$PR_BASE_REF" HEAD -- ci3 .github ci.sh scripts)
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1 &>/dev/null
+          forbidden_changes=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh scripts)
           if echo "$forbidden_changes" | grep -q .; then
             echo "Error: External PRs can't contain CI changes (forbidden files: $forbidden_changes)."
             exit 1
           fi
-          if [[ "$PR_BASE_REF" != "master" && \
-                "$PR_BASE_REF" != "staging" && \
-                "$PR_BASE_REF" != "next" && \
-                "$PR_BASE_REF" != merge-train/* ]]; then
-            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: $PR_BASE_REF."
+          if [[ "${{ github.event.pull_request.base.ref }}" != "master" && \
+                "${{ github.event.pull_request.base.ref }}" != "staging" && \
+                "${{ github.event.pull_request.base.ref }}" != "next" && \
+                "${{ github.event.pull_request.base.ref }}" != merge-train/* ]]; then
+            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: ${{ github.event.pull_request.base.ref }}."
             exit 1
           fi
-          if [ "$HAS_CI_LABEL" = false ]; then
+          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once'}}"
+          if [ "$labeled" = false ]; then
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
           fi
-          gh pr edit "$PR_NUMBER" --remove-label "ci-external-once"
+          GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
 
       - name: Determine CI Mode
         env:
@@ -69,11 +65,7 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
-        run: |
-          # Parse labels from JSON env var to avoid shell injection via label names
-          mapfile -t LABELS < <(echo "$PR_LABELS_JSON" | jq -r '.[]')
-          ./.github/ci3_labels_to_env.sh "${LABELS[@]}"
+        run: ./.github/ci3_labels_to_env.sh ${{ join(github.event.pull_request.labels.*.name, ' ') }}
 
       - name: Run
         env:
