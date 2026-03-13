@@ -21,14 +21,12 @@ export interface MissingTxsCollector {
    * @param requestTracker - The missing transactions tracker
    * @param blockTxsSource - The block or proposal containing the transactions
    * @param pinnedPeer - Optional peer expected to have the transactions
-   * @param timeoutMs - Timeout in milliseconds
    * @returns The collected transactions
    */
   collectTxs(
     requestTracker: IRequestTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    timeoutMs: number,
   ): Promise<Tx[]>;
 }
 
@@ -49,7 +47,6 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
     requestTracker: IRequestTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    _timeoutMs: number,
   ): Promise<Tx[]> {
     const {
       batchTxRequesterSmartParallelWorkerCount: smartParallelWorkerCount,
@@ -96,13 +93,12 @@ export class SendBatchRequestCollector implements MissingTxsCollector {
     requestTracker: IRequestTracker,
     _blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    timeoutMs: number,
   ): Promise<Tx[]> {
     const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
       ReqRespSubProtocol.TX,
       chunkTxHashesRequest(Array.from(requestTracker.missingTxHashes).map(TxHash.fromString)),
       pinnedPeer,
-      timeoutMs,
+      requestTracker.timeoutMs,
       this.maxPeers,
       this.maxRetryAttempts,
     );

@@ -46,7 +46,6 @@ export class BatchTxRequester {
   private readonly pinnedPeer: PeerId | undefined;
   private readonly p2pService: BatchTxRequesterLibP2PService;
   private readonly logger: Logger;
-  private readonly dateProvider: DateProvider;
   private readonly opts: BatchTxRequesterOptions;
   private readonly peers: IPeerCollection;
   private readonly txsMetadata: ITxMetadataCollection;
@@ -71,7 +70,6 @@ export class BatchTxRequester {
     this.pinnedPeer = pinnedPeer;
     this.p2pService = p2pService;
     this.logger = logger ?? createLogger('p2p:reqresp_batch');
-    this.dateProvider = dateProvider ?? new DateProvider();
     this.opts = opts ?? {};
 
     this.smartParallelWorkerCount =
@@ -89,7 +87,7 @@ export class BatchTxRequester {
       this.peers = new PeerCollection(
         this.p2pService.connectionSampler,
         this.pinnedPeer,
-        this.dateProvider,
+        dateProvider ?? new DateProvider(),
         badPeerThreshold,
         this.p2pService.peerScoring,
       );

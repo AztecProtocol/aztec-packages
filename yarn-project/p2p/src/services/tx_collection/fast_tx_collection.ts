@@ -276,19 +276,13 @@ export class FastTxCollection {
               request.requestTracker,
               request.blockProposal,
               pinnedPeer,
-              timeoutMs,
             );
           } else if (request.type === 'block') {
             const blockTxsSource = {
               txHashes: request.block.body.txEffects.map(e => e.txHash),
               archive: request.block.archive.root,
             };
-            result = await this.missingTxsCollector.collectTxs(
-              request.requestTracker,
-              blockTxsSource,
-              pinnedPeer,
-              timeoutMs,
-            );
+            result = await this.missingTxsCollector.collectTxs(request.requestTracker, blockTxsSource, pinnedPeer);
           } else {
             throw new Error(`Unknown request type: ${(request as any).type}`);
           }

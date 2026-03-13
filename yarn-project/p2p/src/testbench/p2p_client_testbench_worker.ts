@@ -276,7 +276,6 @@ async function runAggregatorBenchmark(
         RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
         blockProposal,
         pinnedPeer,
-        timeoutMs,
       );
       const durationMs = timer.ms();
       return {
@@ -296,7 +295,6 @@ async function runAggregatorBenchmark(
       RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
       blockProposal,
       pinnedPeer,
-      timeoutMs,
     );
     const durationMs = timer.ms();
     return {

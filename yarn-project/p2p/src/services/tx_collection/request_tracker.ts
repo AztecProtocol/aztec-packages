@@ -23,6 +23,8 @@ export interface IRequestTracker {
   get collectedTxs(): Tx[];
   /** The deadline for this request. */
   get deadline(): Date;
+  /** Remaining time in milliseconds until deadline. Returns 0 if already past. */
+  get timeoutMs(): number;
   /** Whether the request is cancelled (deadline expired or all fetched). */
   get cancelled(): boolean;
   /** Resolves when deadline expires or all txs are fetched. */
@@ -83,6 +85,11 @@ export class RequestTracker implements IRequestTracker {
 
   isMissing(txHash: string): boolean {
     return this.missingTxHashes.has(txHash.toString());
+  }
+
+  get timeoutMs(): number {
+    const now = this.dateProvider?.now() ?? Date.now();
+    return Math.max(0, this.deadline.getTime() - now);
   }
 
   get cancelled(): boolean {
