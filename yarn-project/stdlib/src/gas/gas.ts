@@ -91,8 +91,9 @@ export class Gas {
     return new Gas(this.daGas + other.daGas, this.l2Gas + other.l2Gas);
   }
 
+  /** Subtracts gas, clamping each dimension to a minimum of zero. */
   sub(other: Gas) {
-    return new Gas(this.daGas - other.daGas, this.l2Gas - other.l2Gas);
+    return new Gas(Math.max(0, this.daGas - other.daGas), Math.max(0, this.l2Gas - other.l2Gas));
   }
 
   mul(scalar: number) {
