@@ -126,6 +126,24 @@ describe("preprocessIncludeVersion", () => {
     });
   });
 
+  describe("#api_ref_version macro", () => {
+    const testCases = [
+      ["nightly", "nightly"],
+      ["devnet", "devnet"],
+      ["testnet", "testnet"],
+      ["mainnet", "next"],
+      ["ignition", "next"],
+    ];
+
+    testCases.forEach(([releaseType, expected]) => {
+      it(`resolves to ${expected} for ${releaseType}`, async () => {
+        setEnv({ RELEASE_TYPE: releaseType });
+        const { content } = await preprocessIncludeVersion("#api_ref_version", "test.md");
+        assert.strictEqual(content, expected);
+      });
+    });
+  });
+
   describe("integration", () => {
     it("processes conditionals before version macros", async () => {
       setEnv({ RELEASE_TYPE: "devnet", DEVNET_TAG: "3.0.0-devnet.5" });

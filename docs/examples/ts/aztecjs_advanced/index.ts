@@ -282,7 +282,7 @@ async function pollForTransferEvents() {
   const currentBlock = await node.getBlockNumber();
 
   if (currentBlock > lastProcessedBlock) {
-    const events = await getPublicEvents<Transfer>(
+    const { events } = await getPublicEvents<Transfer>(
       node,
       TokenContract.events.Transfer,
       {

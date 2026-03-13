@@ -73,7 +73,7 @@ template <typename LeafType> struct LeafUpdateWitnessData {
     LeafUpdateWitnessData& operator=(LeafUpdateWitnessData&& other) noexcept = default;
     bool operator==(const LeafUpdateWitnessData& other) const = default;
 
-    MSGPACK_FIELDS(leaf, index, path);
+    SERIALIZATION_FIELDS(leaf, index, path);
 };
 
 template <typename LeafValueType> struct AddIndexedDataResponse {
@@ -129,7 +129,7 @@ struct SiblingPathAndIndex {
     index_t index;
     fr_sibling_path path;
 
-    MSGPACK_FIELDS(index, path);
+    SERIALIZATION_FIELDS(index, path);
 
     SiblingPathAndIndex() = default;
     ~SiblingPathAndIndex() = default;
@@ -173,7 +173,7 @@ struct GetLowIndexedLeafResponse {
     bool is_already_present;
     index_t index;
 
-    MSGPACK_FIELDS(is_already_present, index);
+    SERIALIZATION_FIELDS(is_already_present, index);
 
     GetLowIndexedLeafResponse(bool p, const index_t& i)
         : is_already_present(p)

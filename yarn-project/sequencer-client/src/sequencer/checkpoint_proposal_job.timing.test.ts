@@ -330,6 +330,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     // Initialize test state

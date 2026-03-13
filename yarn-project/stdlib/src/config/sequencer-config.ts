@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
 
@@ -32,6 +32,6 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
     description: 'The maximum number of txs to include in a block.',
-    ...numberConfigHelper(DEFAULT_MAX_TXS_PER_BLOCK),
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
 };

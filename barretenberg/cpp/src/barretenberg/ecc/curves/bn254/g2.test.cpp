@@ -388,3 +388,14 @@ TEST(g2, InitializationCheck)
     EXPECT_NO_THROW(write<g2::affine_element>({}));
 }
 #endif
+
+TEST(g2, GeneratorIsCorrect)
+{
+    // Values taken from https://eips.ethereum.org/EIPS/eip-197
+    g2::affine_element generator{ Bn254G2Params::one_x, Bn254G2Params::one_y };
+    g2::affine_element expected{ fq2{ fq("0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"),
+                                      fq("0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2") },
+                                 fq2{ fq("0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"),
+                                      fq("0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b") } };
+    EXPECT_EQ(generator, expected);
+}

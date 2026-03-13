@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Used before releases to write version and rewrite 'workspace:^' URLs.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+set -euo pipefail
 version=$1
 
 tmp=$(mktemp)

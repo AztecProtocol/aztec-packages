@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to check that all environment variables used in Helm templates, values files, and Terraform scripts
 # are defined in yarn-project/foundation/src/config/env_var.ts
@@ -176,7 +176,7 @@ EXCLUDED_VARS_ARRAY=(
     "VALIDATOR_VALUES"
     "VALUES_FILE"
     "PUBLISHER_KEY_INDEX_START"
-    "PUBLISHERS_PER_VALIDATOR_KEY"
+    "VALIDATOR_PUBLISHERS_PER_REPLICA"
     "PUBLISHERS_PER_PROVER"
 )
 

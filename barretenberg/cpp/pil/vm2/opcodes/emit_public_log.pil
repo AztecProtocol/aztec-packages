@@ -13,8 +13,11 @@ include "../precomputed.pil";
  * The gadget generates a dynamic number of rows based on the actual log size.
  *
  * Opcode operands (from execution trace):
- * - register[0]: log_size (number of fields in the log)
- * - rop[1]: log_address (memory offset where log data starts)
+ * - register[0]: log_size (number of fields in the log).
+ * - rop[1]: log_address (memory offset where log data starts).
+ *
+ * From the instruction spec table entry for this opcode: num_addresses == 2 and one register
+ * is declared as U32. Therefore, log_size < 2^32 and log_address < MEMORY_SIZE.
  *
  * The interaction with the execution trace is only done on the start row. The subsequent rows are used for reading the log fields from memory and writing to public inputs.
  *
@@ -116,7 +119,7 @@ namespace emit_public_log;
     pol commit log_address; // Constrained by LOG_ADDRESS_INCREMENT
     // The following columns are only constrained on start rows (via start-gated relations)
     // and are unconstrained on worker rows.
-    pol commit log_size;
+    pol commit log_size; // (from execution trace: register[0] is tag checked to be U32)
     pol commit prev_num_public_log_fields;
     pol commit next_num_public_log_fields;
     pol commit is_static; // @boolean
@@ -124,7 +127,7 @@ namespace emit_public_log;
 
     // error is constrained to be boolean on start rows via the execution permutation.
     // It is only used in start-gated relations; sel_write_to_public_inputs absorbs
-    // the error value on the start row and propagates it to worker rows. 
+    // the error value on the start row and propagates it to worker rows.
     // No propagation or explicit boolean constraint is needed for error itself.
     pol commit error; // @boolean (on start rows, via execution permutation). Unconstrained on worker rows.
 
@@ -160,7 +163,7 @@ namespace emit_public_log;
     // Given that PUBLIC_LOG_HEADER_LENGTH > 0 the value of remaining_rows does not underflow
     pol commit remaining_rows;
     start * ((constants.PUBLIC_LOG_HEADER_LENGTH + log_size - 1) - remaining_rows) = 0;
-    // Since start and end cannot be on the same row, this constraint relies on 
+    // Since start and end cannot be on the same row, this constraint relies on
     // PUBLIC_LOG_HEADER_LENGTH >= 2 otherwise remaining_rows' will underflow
     #[REMAINING_ROWS_DECREMENT]
     NOT_END * ((remaining_rows - 1) - remaining_rows') = 0;
@@ -176,7 +179,7 @@ namespace emit_public_log;
     /* Memory Bounds Check */
     // Implicitly boolean by lookup into gt.res on start rows via CHECK_MEMORY_OUT_OF_BOUNDS,
     // then propagated (preserving boolean-ness) via ERROR_OUT_OF_BOUNDS_CONSISTENCY.
-    pol commit error_out_of_bounds; // @boolean 
+    pol commit error_out_of_bounds; // @boolean
 
     // Lookup constant support: Remove this column once constants in lookup columns are supported.
     pol commit max_mem_size;
@@ -186,6 +189,9 @@ namespace emit_public_log;
     pol commit end_log_address_upper_bound;
     start * (log_address + log_size - end_log_address_upper_bound) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `end_log_address_upper_bound` = log_address + log_size, both U32, so < 2^33.
+    // `max_mem_size` = AVM_MEMORY_SIZE = 2^32.
     #[CHECK_MEMORY_OUT_OF_BOUNDS]
     start { end_log_address_upper_bound, max_mem_size, error_out_of_bounds }
     in
@@ -198,7 +204,7 @@ namespace emit_public_log;
     /* Log Fields Count Within Tx Limit Check */
     // Implicitly boolean by lookup into gt.res on start = 1 rows via CHECK_LOG_FIELDS_COUNT
     // Does not need an explicity boolean constraint since not used on start = 0 rows
-    pol commit error_too_many_log_fields; // @boolean 
+    pol commit error_too_many_log_fields; // @boolean
 
     pol TOTAL_LOG_FIELDS_SIZE = constants.PUBLIC_LOG_HEADER_LENGTH + log_size;
     pol commit expected_next_log_fields;
@@ -209,6 +215,12 @@ namespace emit_public_log;
     pol commit max_public_logs_payload_length;
     start * (max_public_logs_payload_length - constants.FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `expected_next_log_fields` = prev_num_public_log_fields + PUBLIC_LOG_HEADER_LENGTH + log_size,
+    // all values are < 2^33, so the sum is < 2^35.
+    // Note that prev_num_public_log_fields is enforced to be 0 at transaction start (tx_context.pil)
+    // and then incremented by TOTAL_LOG_FIELDS_SIZE on each log emission but bounded by
+    // `max_public_logs_payload_length` = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, a protocol constant (< 2^32).
     #[CHECK_LOG_FIELDS_COUNT]
     start { expected_next_log_fields, max_public_logs_payload_length, error_too_many_log_fields }
     in
@@ -232,7 +244,7 @@ namespace emit_public_log;
 
     // `seen_wrong_tag` is implicitly a boolean from two relations
     // 1) INITIAL_SEEN_WRONG_TAG: At start == 1, `seen_wrong_tag` == 0
-    // 2) WRONG_TAG_CHECK: Sets and propagates `seen_wrong_tag` 
+    // 2) WRONG_TAG_CHECK: Sets and propagates `seen_wrong_tag`
     //    a) if WRONG_NEXT_TAG == 1 && `seen_wrong_tag` == 0, `seen_wrong_tag` = 1
     //    b) otherwise the boolean from (1) or (2a) is propagated
     pol commit seen_wrong_tag; // @boolean

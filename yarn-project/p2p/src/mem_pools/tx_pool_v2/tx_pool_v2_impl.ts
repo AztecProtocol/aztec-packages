@@ -214,7 +214,9 @@ export class TxPoolV2Impl {
     // in-memory reads, and buffered DB writes. Nothing here can throw an unhandled exception.
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddContext: PreAddContext | undefined =
-      opts.feeComparisonOnly !== undefined ? { feeComparisonOnly: opts.feeComparisonOnly } : undefined;
+      opts.feeComparisonOnly !== undefined
+        ? { feeComparisonOnly: opts.feeComparisonOnly, priceBumpPercentage: this.#config.priceBumpPercentage }
+        : undefined;
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -352,6 +354,7 @@ export class TxPoolV2Impl {
 
     // Check if already in pool
     if (this.#indices.has(txHashStr)) {
+      this.#log.verbose(`canAddPendingTx: tx ${txHashStr} already in pool`);
       return 'ignored';
     }
 
@@ -360,7 +363,13 @@ export class TxPoolV2Impl {
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
 
-    return preAddResult.shouldIgnore ? 'ignored' : 'accepted';
+    if (preAddResult.shouldIgnore) {
+      this.#log.verbose(`canAddPendingTx: tx ${txHashStr} ignored by pre-add rule`, {
+        reason: preAddResult.reason?.message ?? 'no reason provided',
+      });
+      return 'ignored';
+    }
+    return 'accepted';
   }
 
   async addProtectedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string }): Promise<void> {

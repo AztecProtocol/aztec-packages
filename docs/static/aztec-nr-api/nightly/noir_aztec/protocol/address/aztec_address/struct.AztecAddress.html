@@ -27,6 +27,7 @@
 <li><a href="#assert_is_zero">assert_is_zero</a></li>
 <li><a href="#compute">compute</a></li>
 <li><a href="#compute_from_class_id">compute_from_class_id</a></li>
+<li><a href="#is_valid">is_valid</a></li>
 <li><a href="#is_zero">is_zero</a></li>
 <li><a href="#to_address_point">to_address_point</a></li>
 <li><a href="#zero">zero</a></li>
@@ -60,13 +61,19 @@
 
 <div class="padded-methods"><code id="zero" class="code-header">pub fn <a href="#zero"><span class="fn">zero</span></a>() -> Self</code>
 
-<code id="to_address_point" class="code-header">pub fn <a href="#to_address_point"><span class="fn">to_address_point</span></a>(self) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../protocol_types/public_keys/struct.AddressPoint.html" class="struct">AddressPoint</a>&gt;</code>
+<code id="is_valid" class="code-header">pub fn <a href="#is_valid"><span class="fn">is_valid</span></a>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns an address's <code>AddressPoint</code>, which can be used to create shared secrets with the owner
-of the address. If the address is invalid (i.e. it is not a properly derived Aztec address), then this
-returns <code>Option::none()</code>, and no shared secrets can be created.</p>
+<p>Returns <code>true</code> if the address is valid.</p>
+<p>An invalid address is one that can be proven to not be correctly derived, meaning it contains no contract code,
+public keys, etc., and can therefore not receive messages nor execute calls.</p>
 </div>
+</div><code id="to_address_point" class="code-header">pub fn <a href="#to_address_point"><span class="fn">to_address_point</span></a>(self) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../protocol_types/public_keys/struct.AddressPoint.html" class="struct">AddressPoint</a>&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns an address's <a href="../../../../protocol_types/public_keys/struct.AddressPoint.html"><code>AddressPoint</code></a>.</p>
+<p>This can be used to create shared secrets with the owner of the address. If the address is invalid (see
+<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html#is_valid"><code>AztecAddress::is_valid</code></a>) then this returns <code>Option::none()</code>, and no shared secrets can be created.</p></div>
 </div><code id="compute" class="code-header">pub fn <a href="#compute"><span class="fn">compute</span></a>(public_keys: <a href="../../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a>, partial_address: <a href="../../../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a>) -> Self</code>
 
 <code id="compute_from_class_id" class="code-header">pub fn <a href="#compute_from_class_id"><span class="fn">compute_from_class_id</span></a>(

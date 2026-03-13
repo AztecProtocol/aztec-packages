@@ -115,8 +115,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, expect.any(SiblingPath)]);
   });
 
-  it('getL1ToL2MessageBlock', async () => {
-    const response = await context.client.getL1ToL2MessageBlock(Fr.random());
+  it('getL1ToL2MessageCheckpoint', async () => {
+    const response = await context.client.getL1ToL2MessageCheckpoint(Fr.random());
     expect(response).toEqual(5);
   });
 
@@ -209,6 +209,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe(BlockNumber(1));
   });
 
+  it('getCheckpointNumber', async () => {
+    const response = await context.client.getCheckpointNumber();
+    expect(response).toBe(CheckpointNumber(1));
+  });
+
   it('isReady', async () => {
     const response = await context.client.isReady();
     expect(response).toBe(true);
@@ -246,6 +251,11 @@ describe('AztecNodeApiSchema', () => {
 
   it('getCheckpointedBlocks', async () => {
     const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 1);
+    expect(response).toEqual([]);
+  });
+
+  it('getCheckpointsDataForEpoch', async () => {
+    const response = await context.client.getCheckpointsDataForEpoch(EpochNumber(1));
     expect(response).toEqual([]);
   });
 
@@ -532,6 +542,10 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve([]);
   }
 
+  getCheckpointsDataForEpoch(_epochNumber: EpochNumber) {
+    return Promise.resolve([]);
+  }
+
   findLeavesIndexes(
     referenceBlock: BlockParameter,
     treeId: MerkleTreeId,
@@ -578,9 +592,9 @@ class MockAztecNode implements AztecNode {
     expect(noteHash).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
   }
-  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+  getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
-    return Promise.resolve(BlockNumber(5));
+    return Promise.resolve(CheckpointNumber(5));
   }
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
@@ -657,6 +671,9 @@ class MockAztecNode implements AztecNode {
   }
   getCheckpointedBlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
+  }
+  getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(CheckpointNumber(1));
   }
   isReady(): Promise<boolean> {
     return Promise.resolve(true);

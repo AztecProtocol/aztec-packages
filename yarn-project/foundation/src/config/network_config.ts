@@ -10,6 +10,7 @@ export const NetworkConfigSchema = z
     l1ChainId: z.number(),
     blockDurationMs: z.number().positive().optional(),
     txPublicSetupAllowListExtend: z.string().optional(),
+    nodeVersion: z.string().optional(),
   })
   .passthrough(); // Allow additional unknown fields to pass through
 

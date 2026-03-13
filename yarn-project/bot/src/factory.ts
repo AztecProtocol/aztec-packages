@@ -162,11 +162,6 @@ export class BotFactory {
       const firstMsg = allMessages[0];
       await waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(firstMsg.msgHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
-        // Use forPublicConsumption: false so we wait until the message is in the current world
-        // state. With true, it returns one block early which causes gas estimation simulation to
-        // fail since it runs against the current state.
-        // See https://linear.app/aztec-labs/issue/A-548 for details.
-        forPublicConsumption: false,
       });
       this.log.info(`First L1→L2 message is ready`);
     }
@@ -524,7 +519,6 @@ export class BotFactory {
         await this.withNoMinTxsPerBlock(() =>
           waitForL1ToL2MessageReady(this.aztecNode, messageHash, {
             timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
-            forPublicConsumption: false,
           }),
         );
         return existingClaim.claim;
@@ -563,7 +557,6 @@ export class BotFactory {
     await this.withNoMinTxsPerBlock(() =>
       waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(claim.messageHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
-        forPublicConsumption: false,
       }),
     );
 

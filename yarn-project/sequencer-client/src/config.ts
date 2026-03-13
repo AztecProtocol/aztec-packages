@@ -13,7 +13,6 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
-  DEFAULT_MAX_TXS_PER_BLOCK,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
@@ -36,15 +35,12 @@ export type { SequencerConfig };
  * Default values for SequencerConfig.
  * Centralized location for all sequencer configuration defaults.
  */
-export const DefaultSequencerConfig: ResolvedSequencerConfig = {
+export const DefaultSequencerConfig = {
   sequencerPollingIntervalMS: 500,
-  maxTxsPerBlock: DEFAULT_MAX_TXS_PER_BLOCK,
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  maxL2BlockGas: 10e9,
-  maxDABlockGas: 10e9,
-  maxBlockSizeInBytes: 1024 * 1024,
+  perBlockAllocationMultiplier: 2,
   enforceTimeTable: true,
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
@@ -59,7 +55,7 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
-};
+} satisfies ResolvedSequencerConfig;
 
 /**
  * Configuration settings for the SequencerClient.
@@ -80,6 +76,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The number of ms to wait between polling for checking to build on the next slot.',
     ...numberConfigHelper(DefaultSequencerConfig.sequencerPollingIntervalMS),
   },
+  maxTxsPerCheckpoint: {
+    env: 'SEQ_MAX_TX_PER_CHECKPOINT',
+    description: 'The maximum number of txs across all blocks in a checkpoint.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
     description: 'The minimum number of txs to include in a block.',
@@ -97,12 +98,19 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
     description: 'The maximum L2 block gas.',
-    ...numberConfigHelper(DefaultSequencerConfig.maxL2BlockGas),
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
   maxDABlockGas: {
     env: 'SEQ_MAX_DA_BLOCK_GAS',
     description: 'The maximum DA block gas.',
-    ...numberConfigHelper(DefaultSequencerConfig.maxDABlockGas),
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  perBlockAllocationMultiplier: {
+    env: 'SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER',
+    description:
+      'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
+      ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
+    ...numberConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
   },
   coinbase: {
     env: 'COINBASE',
@@ -121,11 +129,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   acvmBinaryPath: {
     env: 'ACVM_BINARY_PATH',
     description: 'The path to the ACVM binary',
-  },
-  maxBlockSizeInBytes: {
-    env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
-    description: 'Max block size',
-    ...numberConfigHelper(DefaultSequencerConfig.maxBlockSizeInBytes),
   },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',

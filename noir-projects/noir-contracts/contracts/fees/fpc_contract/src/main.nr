@@ -6,6 +6,10 @@ use aztec::macros::aztec;
 /// Fee Payment Contract (FPC) allows users to pay for the transaction fee with an arbitrary asset. Supports private
 /// and public fee payment flows.
 ///
+/// **WARNING**: This is an example/reference implementation. FPC-based fee payment with custom tokens will NOT work
+/// on mainnet alpha because Token class IDs change with aztec-nr releases and are not included in the default public
+/// setup allowlist.
+///
 /// ***Note:***
 /// Accepted asset funds sent by the users to this contract stay in this contract and later on can
 /// be pulled by the admin using the `pull_funds` function.

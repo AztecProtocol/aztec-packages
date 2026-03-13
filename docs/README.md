@@ -37,7 +37,7 @@ Aztec Docs use **multi-instance versioning** with separate version tracks for de
 
 Each versioned docs folder is a complete copy of the documentation at that point in time, which allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `nightly` and `devnet`, while network docs show versions like `testnet` and `ignition`.
+When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `testnet`, `devnet`, and `nightly`, while network docs show versions like `testnet` and `ignition`.
 
 - Updating files in `docs-developers/` updates the "next" developer version
 - Updating files in `docs-network/` updates the "next" network version
@@ -93,6 +93,7 @@ Each docs instance has its own version file and lookup logic:
 ```javascript
 const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
 const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
+const developerTestnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
 ```
 
 **Network docs** (from `network_versions.json`):
@@ -107,7 +108,7 @@ This ensures that:
 - When nightly versions are removed by the cleanup script, the build doesn't break
 - Version configurations are conditionally included only if they exist
 - Array index shifts don't cause mismatched version configurations
-- The llms.txt plugin always points to the correct version (devnet)
+- The llms.txt plugin always points to the correct version (testnet)
 
 **Why this matters:** The [nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs `cleanup_nightly_versions.sh` before creating new versioned docs. Without dynamic lookup, removing versions would cause array indices to point to wrong versions, breaking the build.
 
@@ -570,24 +571,13 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
 - `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
 - `DRY_RUN=1` - Skip Slack notification, just print what would be sent
 
-**Implementation**: The automation is handled by `scripts/update_doc_references.sh`, which runs as part of the docs CI pipeline after `check_doc_references.sh`.
+**Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which detects changed references, requests devrel review, sends a Slack notification, and dispatches ClaudeBox — all in a single pass.
 
 **Script Architecture**:
 
-- `scripts/update_doc_references.sh` - Main script that orchestrates the workflow
+- `scripts/check_doc_references.sh` - Main script that handles detection, review requests, Slack, and ClaudeBox dispatch
 - `scripts/lib/extract_doc_references.sh` - Shared library for parsing frontmatter references
 - `scripts/lib/create_doc_update_pr.sh` - (Reserved for future use) PR creation logic
-- `scripts/test_update_doc_references.sh` - Local testing helper
-
-**Local Testing**:
-
-```bash
-# Find a PR with referenced file changes and test
-./scripts/test_update_doc_references.sh
-
-# Test against a specific PR
-LOCAL_TEST=1 DRY_RUN=1 ./scripts/update_doc_references.sh 19803
-```
 
 **Limitations**:
 
