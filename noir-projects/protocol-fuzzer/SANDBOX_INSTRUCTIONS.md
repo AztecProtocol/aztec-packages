@@ -65,7 +65,7 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 ## Performance
 
 Transaction throughput is dominated by the Aztec L2 slot duration -- each send must wait
-for the next block. Three things bring per-transaction time from ~35s down to ~4-5s:
+for the next block. Four things bring per-transaction time from ~35s down to ~4-5s:
 
 1. **Fast slots.** The setup script starts the sandbox with 5-second L1/L2 slot durations
    (default 36s/12s) and disables sequencer timetable enforcement.
@@ -247,7 +247,7 @@ Custom contract for testing note lifecycle and nullifier operations:
 - `call_create_note` / `call_create_and_complete_partial_note` -- create notes
 - `call_destroy_note` -- get notes sorted by value ASC, destroy the smallest
 - `call_view_notes_many` / `call_get_notes_many` -- query notes (returns `[u128; 2]`)
-- `emit_nullifier` / `test_nullifier_inclusion` -- nullifier operations
+- `emit_nullifier` / `test_settled_nullifier_inclusion` -- nullifier operations
 - `test_note_inclusion` -- prove note exists in the tree
 
 ### Parent contract (`contracts/parent_contract/`)
@@ -257,7 +257,7 @@ Forwards private calls to the SideEffect contract for cross-contract call testin
 - `forward_call_destroy_note`
 - `forward_test_note_inclusion`
 - `forward_emit_nullifier`
-- `forward_test_nullifier_inclusion`
+- `forward_test_settled_nullifier_inclusion`
 
 The fuzzer randomly chooses between direct calls and via-parent calls to exercise
 both code paths.

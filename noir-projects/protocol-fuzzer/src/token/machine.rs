@@ -296,8 +296,9 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
         u: &mut Unstructured,
         state: &Self::State,
     ) -> arbitrary::Result<Self::Command> {
-        // Sends have extra weight so queries (which flush the parallel
-        // batch) are ~15% of commands.
+        // Queries validate model-vs-sandbox consistency and are the only
+        // checkpoint for catching divergence from failed sends, so they
+        // need meaningful frequency (~25%).
         let choices = crate::util::weighted_choices(&[
             ("mint_public", 2),
             ("mint_private", 2),
@@ -307,9 +308,9 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
             ("transfer_private", 2),
             ("transfer_public_to_private", 2),
             ("transfer_private_to_public", 2),
-            ("balance_of_public", 1),
-            ("balance_of_private", 1),
-            ("total_supply", 1),
+            ("balance_of_public", 2),
+            ("balance_of_private", 2),
+            ("total_supply", 2),
         ]);
         let cmd = u.choose(&choices)?;
 

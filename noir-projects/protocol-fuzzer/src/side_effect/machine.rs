@@ -364,7 +364,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         }
 
         if !state.emitted_nullifiers.is_empty() {
-            choices.push("test_nullifier_inclusion");
+            choices.push("test_settled_nullifier_inclusion");
         }
 
         let cmd = *u.choose(&choices)?;
@@ -437,7 +437,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                 from: choose_account(u, state)?,
                 via_parent: bool::arbitrary(u)?,
             },
-            "test_nullifier_inclusion" => {
+            "test_settled_nullifier_inclusion" => {
                 let mut nullifiers: Vec<NullifierValue> =
                     state.emitted_nullifiers.iter().copied().collect();
                 nullifiers.sort();

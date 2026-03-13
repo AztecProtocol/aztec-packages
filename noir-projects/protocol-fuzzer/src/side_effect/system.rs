@@ -105,7 +105,7 @@ impl From<&SideEffectCommand> for WalletCommand {
             TestNullifierInclusion {
                 nullifier, from, ..
             } => (
-                "test_nullifier_inclusion",
+                "test_settled_nullifier_inclusion",
                 format!("accounts:test{from}"),
                 vec![format!("{nullifier}")],
             ),

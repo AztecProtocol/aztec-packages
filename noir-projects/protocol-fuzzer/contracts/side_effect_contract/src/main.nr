@@ -13,7 +13,7 @@ use aztec::macros::aztec;
 /// - Raw nullifier emission: `emit_nullifier`
 /// - Note read requests: `call_get_notes_many`
 /// - Unconstrained note queries: `call_view_notes_many`
-/// - Archive inclusion proofs: `test_note_inclusion`, `test_nullifier_inclusion`
+/// - Archive inclusion proofs: `test_note_inclusion`, `test_settled_nullifier_inclusion`
 ///
 /// Uses `UintNote` with caller-chosen storage slots (no declared storage)
 /// so the fuzzer can exercise multiple independent note sets.
@@ -98,9 +98,9 @@ pub contract SideEffect {
         destroy_note(self.context, confirmed_notes.get(0));
     }
 
-    // test_note_inclusion: get_notes proves that each returned note exists in the
-    // note hash tree (via a kernel note read request). We call .get(0) so the tx
-    // fails on empty slots (BoundedVec bounds check), exercising the inclusion
+    // test_note_inclusion: get_notes proves that a settled note exists in the
+    // note hash tree, and a pending note was emitted earlier in the tx. We
+    // assert len == 1 so the tx fails on empty slots, exercising the inclusion
     // proof path only when a note actually exists.
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
@@ -110,7 +110,7 @@ pub contract SideEffect {
             .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
 
         let confirmed_notes = get_notes(self.context, storage_slot, options);
-        let _note = confirmed_notes.get(0);
+        assert_eq(confirmed_notes.len(), 1);
     }
 
     // TODO: Sort by counter instead of value. Notes with the same value can be
@@ -170,7 +170,7 @@ pub contract SideEffect {
     }
 
     #[external("private")]
-    fn test_nullifier_inclusion(nullifier: Field) {
+    fn test_settled_nullifier_inclusion(nullifier: Field) {
         let header = self.context.get_anchor_block_header();
         let siloed = compute_siloed_nullifier(self.address, nullifier);
         assert_nullifier_existed_by(header, siloed);
