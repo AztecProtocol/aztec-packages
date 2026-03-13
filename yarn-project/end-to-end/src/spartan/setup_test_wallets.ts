@@ -129,16 +129,27 @@ export async function deploySponsoredTestAccountsWithTokens(
 }
 
 async function deployAccountWithDiagnostics(
-  account: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any },
+  account: { getDeployMethod: () => Promise<{ simulate: (opts: any) => any; send: (opts: any) => any }>; address: any },
   paymentMethod: SponsoredFeePaymentMethod,
   aztecNode: AztecNode,
   logger: Logger,
   accountLabel: string,
+  estimateGas?: boolean,
 ): Promise<void> {
   const deployMethod = await account.getDeployMethod();
   let txHash;
   try {
-    const deployResult = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT });
+    let gasSettings;
+    if (estimateGas) {
+      const sim = await deployMethod.simulate({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+      gasSettings = sim.estimatedGas;
+      logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
+    }
+    const deployResult = await deployMethod.send({
+      from: AztecAddress.ZERO,
+      fee: { paymentMethod, gasSettings },
+      wait: NO_WAIT,
+    });
     txHash = deployResult.txHash;
     await waitForTx(aztecNode, txHash, { timeout: 2400 });
     logger.info(`${accountLabel} deployed at ${account.address}`);
@@ -161,18 +172,29 @@ async function deployAccountWithDiagnostics(
 }
 
 async function deployAccountsInBatches(
-  accounts: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any }[],
+  accounts: {
+    getDeployMethod: () => Promise<{ simulate: (opts: any) => any; send: (opts: any) => any }>;
+    address: any;
+  }[],
   paymentMethod: SponsoredFeePaymentMethod,
   aztecNode: AztecNode,
   logger: Logger,
   labelPrefix: string,
   batchSize = 2,
+  estimateGas?: boolean,
 ): Promise<void> {
   for (let i = 0; i < accounts.length; i += batchSize) {
     const batch = accounts.slice(i, i + batchSize);
     await Promise.all(
       batch.map((account, idx) =>
-        deployAccountWithDiagnostics(account, paymentMethod, aztecNode, logger, `${labelPrefix}${i + idx + 1}`),
+        deployAccountWithDiagnostics(
+          account,
+          paymentMethod,
+          aztecNode,
+          logger,
+          `${labelPrefix}${i + idx + 1}`,
+          estimateGas,
+        ),
       ),
     );
   }
@@ -183,6 +205,7 @@ export async function deploySponsoredTestAccounts(
   aztecNode: AztecNode,
   logger: Logger,
   numberOfFundedWallets = 1,
+  opts?: { estimateGas?: boolean },
 ): Promise<TestAccountsWithoutTokens> {
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
@@ -192,8 +215,23 @@ export async function deploySponsoredTestAccounts(
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
 
-  await deployAccountWithDiagnostics(recipientAccount, paymentMethod, aztecNode, logger, 'Recipient account');
-  await deployAccountsInBatches(fundedAccounts, paymentMethod, aztecNode, logger, 'Funded account ', 2);
+  await deployAccountWithDiagnostics(
+    recipientAccount,
+    paymentMethod,
+    aztecNode,
+    logger,
+    'Recipient account',
+    opts?.estimateGas,
+  );
+  await deployAccountsInBatches(
+    fundedAccounts,
+    paymentMethod,
+    aztecNode,
+    logger,
+    'Funded account ',
+    2,
+    opts?.estimateGas,
+  );
 
   return {
     aztecNode,

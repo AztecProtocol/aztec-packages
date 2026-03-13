@@ -6,7 +6,7 @@ import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
-import { isActualProtocolContract } from '@aztec/protocol-contracts';
+import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -115,12 +115,21 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public assertCompatibleOracleVersion(version: number): void {
-    // Alpha payload protocol contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) shipped with
-    // committed bytecode that cannot be changed. Skip the version check for these contracts.
     // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
-    if (isActualProtocolContract(this.contractAddress)) {
+    // Protocol contracts/canonical contracts shipped with committed bytecode that cannot be changed. Assert they use
+    // the expected pinned version or the current one. We want to allow for both the pinned and the current versions
+    // because we want this code to work with both the pinned and unpinned version since some branches do not have the
+    // pinned contracts (like e.g. next)
+    const LEGACY_ORACLE_VERSION = 12;
+    if (isProtocolContract(this.contractAddress)) {
+      if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
+        throw new Error(
+          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} or current oracle version ${ORACLE_VERSION} for alpha payload contract at ${this.contractAddress}, got ${version}.`,
+        );
+      }
       return;
     }
+
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }

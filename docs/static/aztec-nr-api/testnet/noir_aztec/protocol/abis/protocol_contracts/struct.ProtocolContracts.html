@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct ProtocolContracts documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ProtocolContracts</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ProtocolContracts</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#assert_not_derived_protocol_contract_address">assert_not_derived_protocol_contract_address</a></li>
+<li><a href="#get_derived_address">get_derived_address</a></li>
+<li><a href="#hash">hash</a></li>
+<li><a href="#is_magic_protocol_contract_address">is_magic_protocol_contract_address</a></li>
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-ProtocolContracts">Deserialize</a></li>
+<li><a href="#impl-Empty-for-ProtocolContracts">Empty</a></li>
+<li><a href="#impl-Eq-for-ProtocolContracts">Eq</a></li>
+<li><a href="#impl-Serialize-for-ProtocolContracts">Serialize</a></li>
+</ul>
+<h2>In module protocol_contracts</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ProtocolContracts.html">ProtocolContracts</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">abis</a>::<a href="index.html">protocol_contracts</a></div>
+<h1>Struct <span id="struct" class="struct">ProtocolContracts</span></h1>
+<pre><code>pub struct ProtocolContracts
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(derived_addresses: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; 11]) -> Self</code>
+
+<code id="is_magic_protocol_contract_address" class="code-header">pub fn <a href="#is_magic_protocol_contract_address"><span class="fn">is_magic_protocol_contract_address</span></a>(contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Checks if the given address is a protocol contract address.</p>
+</div>
+</div><code id="assert_not_derived_protocol_contract_address" class="code-header">pub fn <a href="#assert_not_derived_protocol_contract_address"><span class="fn">assert_not_derived_protocol_contract_address</span></a>(self, contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>)</code>
+
+<code id="get_derived_address" class="code-header">pub fn <a href="#get_derived_address"><span class="fn">get_derived_address</span></a>(
+    self,
+    magic_protocol_contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Obtains the derived address for the given magic protocol contract address.</p>
+<p>Important! This assumes that the caller has already validated that the address is indeed a magic protocol contract
+address by calling <code>is_magic_protocol_contract_address</code> first, because this function fails if the input
+address is not a valid magic protocol contract address.</p>
+</div>
+</div><code id="hash" class="code-header">pub fn <a href="#hash"><span class="fn">hash</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-ProtocolContracts"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 11 * 1]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-ProtocolContracts"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-ProtocolContracts"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-ProtocolContracts"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 11 * 1]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

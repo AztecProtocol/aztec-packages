@@ -5,6 +5,7 @@ use crate::{
             internal_functions::generate_call_internal_struct,
         },
         dispatch::generate_public_dispatch,
+        emit_public_init_nullifier::generate_emit_public_init_nullifier,
         internals_functions_generation::{create_fn_abi_exports, process_functions},
         notes::NOTES,
         storage::STORAGE_LAYOUT_NAME,
@@ -137,7 +138,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     } else {
         quote {}
     };
-    let public_dispatch = generate_public_dispatch(m);
+    let (has_public_init_nullifier_fn, emit_public_init_nullifier_fn_body) = generate_emit_public_init_nullifier(m);
+    let public_dispatch = generate_public_dispatch(m, has_public_init_nullifier_fn);
 
     quote {
         $interface
@@ -149,6 +151,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         $public_dispatch
         $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
+        $emit_public_init_nullifier_fn_body
         $offchain_receive_fn_and_abi_export
     }
 }
@@ -268,34 +271,50 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // unpack function on it.
                         let expected_len = <$typ as $crate::protocol::traits::Packable>::N;
                         let actual_len = packed_note.len();
-                        assert(
-                            actual_len == expected_len,
-                            f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
-                        );
+                        if actual_len != expected_len {
+                            aztec::protocol::logging::warn_log_format(
+                                "[aztec-nr] Packed note length mismatch for note type id {2}: expected {0} fields, got {1}. Skipping note.",
+                                [expected_len as Field, actual_len as Field, note_type_id],
+                            );
+                            Option::none()
+                        } else {
+                            let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 
-                        let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
+                            let note_hash = $compute_note_hash(note, owner, storage_slot, randomness);
 
-                        let note_hash = $compute_note_hash(note, owner, storage_slot, randomness);
-    
-                        // The message discovery process finds settled notes, that is, notes that were created in prior transactions and are therefore already part of the note hash tree. We therefore compute the nullification note hash by treating the note as a settled note with the provided note nonce.
-                        let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-                            aztec::note::HintedNote{
+                            // The message discovery process finds settled notes, that is, notes that were created in
+                            // prior transactions and are therefore already part of the note hash tree. We therefore
+                            // compute the nullification note hash by treating the note as a settled note with the
+                            // provided note nonce.
+                            let note_hash_for_nullification =
+                                aztec::note::utils::compute_note_hash_for_nullification(
+                                    aztec::note::HintedNote {
+                                        note,
+                                        contract_address,
+                                        owner,
+                                        randomness,
+                                        storage_slot,
+                                        metadata:
+                                            aztec::note::note_metadata::SettledNoteMetadata::new(
+                                                note_nonce,
+                                            )
+                                            .into(),
+                                    },
+                                );
+
+                            let inner_nullifier = $compute_nullifier_unconstrained(
                                 note,
-                                contract_address,
                                 owner,
-                                randomness,
-                                storage_slot,
-                                metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
-                            }
-                        );
+                                note_hash_for_nullification,
+                            );
 
-                        let inner_nullifier = $compute_nullifier_unconstrained(note, owner, note_hash_for_nullification);
-
-                        Option::some(
-                            aztec::messages::discovery::NoteHashAndNullifier {
-                                note_hash, inner_nullifier
-                            }
-                        )
+                            Option::some(
+                                aztec::messages::discovery::NoteHashAndNullifier {
+                                    note_hash,
+                                    inner_nullifier,
+                                },
+                            )
+                        }
                     }
                 },
             );
@@ -321,6 +340,10 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
                 else {
+                    aztec::protocol::logging::warn_log_format(
+                        "[aztec-nr] Unknown note type id {0}. Skipping note.",
+                        [note_type_id],
+                    );
                     Option::none()
                 }
             }

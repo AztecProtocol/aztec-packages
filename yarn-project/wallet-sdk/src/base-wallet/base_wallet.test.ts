@@ -16,9 +16,13 @@ import {
   ExecutionPayload,
   GlobalVariables,
   NestedProcessReturnValues,
+  OFFCHAIN_MESSAGE_IDENTIFIER,
+  type OffchainEffect,
   PrivateExecutionResult,
+  Tx,
   TxEffect,
   TxHash,
+  TxProvingResult,
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
@@ -176,5 +180,59 @@ describe('BaseWallet', () => {
         metadata: { l2BlockNumber: packed2.l2BlockNumber, l2BlockHash: packed2.l2BlockHash, txHash: packed2.txHash },
       },
     ]);
+  });
+
+  it('should extract offchain messages with anchor block timestamp on sendTx', async () => {
+    pxe = mock<PXE>();
+    node = mock<AztecNode>();
+    const wallet = new BasicWallet(pxe, node);
+    const from = await AztecAddress.random();
+
+    const recipient = await AztecAddress.random();
+    const contractAddress = await AztecAddress.random();
+    const msgPayload = [Fr.random(), Fr.random()];
+    const anchorBlockTimestamp = 55555n;
+
+    const offchainEffects: OffchainEffect[] = [
+      {
+        data: [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.toField(), ...msgPayload],
+        contractAddress,
+      },
+    ];
+
+    // Mock the proven tx returned by pxe.proveTx
+    const provenTx = mock<TxProvingResult>();
+    provenTx.getOffchainEffects.mockReturnValue(offchainEffects);
+    Object.defineProperty(provenTx, 'publicInputs', {
+      value: {
+        constants: { anchorBlockHeader: { globalVariables: { timestamp: anchorBlockTimestamp } } },
+      },
+    });
+
+    const mockTx = mock<Tx>();
+    mockTx.getTxHash.mockReturnValue(TxHash.random());
+    provenTx.toTx.mockResolvedValue(mockTx);
+
+    // Mock dependencies for completeFeeOptions and createTxExecutionRequestFromPayloadAndFee
+    node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
+    node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
+    pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
+    wallet.mockAccount.createTxExecutionRequest.mockResolvedValue(mock());
+    pxe.proveTx.mockResolvedValue(provenTx);
+    node.getTxEffect.mockResolvedValue(undefined);
+    node.sendTx.mockResolvedValue();
+
+    const payload = new ExecutionPayload([await makeFunctionCall(FunctionType.PRIVATE, false, 'transfer')], [], []);
+
+    const result = await wallet.sendTx(payload, { from, wait: 'NO_WAIT' });
+
+    expect(result.offchainMessages).toHaveLength(1);
+    expect(result.offchainMessages[0]).toEqual({
+      recipient,
+      payload: msgPayload,
+      contractAddress,
+      anchorBlockTimestamp,
+    });
+    expect(result.offchainEffects).toEqual([]);
   });
 });

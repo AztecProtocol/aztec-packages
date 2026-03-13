@@ -99,13 +99,13 @@ struct TreeDBStats {
 
     ~TreeDBStats() = default;
 
-    MSGPACK_FIELDS(mapSize,
-                   physicalFileSize,
-                   blocksDBStats,
-                   nodesDBStats,
-                   leafPreimagesDBStats,
-                   leafIndicesDBStats,
-                   blockIndicesDBStats)
+    SERIALIZATION_FIELDS(mapSize,
+                         physicalFileSize,
+                         blocksDBStats,
+                         nodesDBStats,
+                         leafPreimagesDBStats,
+                         leafIndicesDBStats,
+                         blockIndicesDBStats)
 
     bool operator==(const TreeDBStats& other) const
     {

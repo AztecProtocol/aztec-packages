@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { BlockHash } from '../block/block_hash.js';
@@ -15,6 +15,7 @@ describe('TxReceipt', () => {
       1n,
       BlockHash.random(),
       BlockNumber(1),
+      EpochNumber(3),
     );
 
     expect(TxReceipt.schema.parse(JSON.parse(jsonStringify(receipt)))).toEqual(receipt);

@@ -13,7 +13,7 @@ use crate::{
     utils::array,
 };
 
-use crate::logging::aztecnr_debug_log_format;
+use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
@@ -38,26 +38,36 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     recipient: AztecAddress,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
+    tx_hash: Field,
 ) {
-    // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
-    // search for the public log that will complete it.
-    let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
-        decode_partial_note_private_message(msg_metadata, msg_content);
+    let decoded = decode_partial_note_private_message(msg_metadata, msg_content);
 
-    let pending = DeliveredPendingPartialNote {
-        owner,
-        randomness,
-        note_completion_log_tag,
-        note_type_id,
-        packed_private_note_content,
-        recipient,
-    };
+    if decoded.is_some() {
+        // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
+        // search for the public log that will complete it.
+        let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
 
-    CapsuleArray::at(
-        contract_address,
-        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
-    )
-        .push(pending);
+        let pending = DeliveredPendingPartialNote {
+            owner,
+            randomness,
+            note_completion_log_tag,
+            note_type_id,
+            packed_private_note_content,
+            recipient,
+        };
+
+        CapsuleArray::at(
+            contract_address,
+            DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+        )
+            .push(pending);
+    } else {
+        aztecnr_warn_log_format!(
+            "Could not decode partial note private message from tx {0}, ignoring",
+        )(
+            [tx_hash],
+        );
+    }
 }
 
 /// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes

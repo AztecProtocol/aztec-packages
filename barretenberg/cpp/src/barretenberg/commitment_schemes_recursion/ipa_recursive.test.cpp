@@ -450,4 +450,5 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifierMediumRandom)
          1UL << log_poly_length,
          " = ",
          root_rollup.get_num_finalized_gates());
+    EXPECT_TRUE(CircuitChecker::check(root_rollup));
 }

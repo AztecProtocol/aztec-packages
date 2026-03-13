@@ -392,16 +392,25 @@ export class RollupContract {
     epochDuration: number;
     proofSubmissionEpochs: number;
     targetCommitteeSize: number;
+    rollupManaLimit: number;
   }> {
-    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs, targetCommitteeSize] =
-      await Promise.all([
-        this.getL1StartBlock(),
-        this.getL1GenesisTime(),
-        this.getSlotDuration(),
-        this.getEpochDuration(),
-        this.getProofSubmissionEpochs(),
-        this.getTargetCommitteeSize(),
-      ]);
+    const [
+      l1StartBlock,
+      l1GenesisTime,
+      slotDuration,
+      epochDuration,
+      proofSubmissionEpochs,
+      targetCommitteeSize,
+      rollupManaLimit,
+    ] = await Promise.all([
+      this.getL1StartBlock(),
+      this.getL1GenesisTime(),
+      this.getSlotDuration(),
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+      this.getTargetCommitteeSize(),
+      this.getManaLimit(),
+    ]);
     return {
       l1StartBlock,
       l1GenesisTime,
@@ -409,6 +418,7 @@ export class RollupContract {
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
       targetCommitteeSize,
+      rollupManaLimit: Number(rollupManaLimit),
     };
   }
 
@@ -503,8 +513,9 @@ export class RollupContract {
     return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber());
   }
 
-  async getProvenCheckpointNumber(): Promise<CheckpointNumber> {
-    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber());
+  async getProvenCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber(options));
   }
 
   async getSlotNumber(): Promise<SlotNumber> {
