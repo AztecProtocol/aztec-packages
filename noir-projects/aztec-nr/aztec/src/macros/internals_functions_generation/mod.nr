@@ -27,12 +27,9 @@ comptime fn make_functions_uncallable<let N: u32>(functions: [FunctionDefinition
         // functions.
         let error_message = f"{error_message_template}{name}. See documentation for instructions on the proper invocation of functions.";
 
-        // We need to add the `contract_library_method` attribute to the function to prevent this function from being
+        // Disabling the function also adds a `contract_library_method` attribute to the function to prevent this function from being
         // compiled as an entrypoint function (function that's compiled as its own circuit).
-        function.add_attribute("contract_library_method");
-
-        let deprecated = f"deprecated(\"{error_message}\")";
-        function.add_attribute(deprecated.as_quoted_str!());
+        function.disable(error_message);
     });
 }
 
