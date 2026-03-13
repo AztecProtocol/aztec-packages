@@ -39,9 +39,7 @@ auth = HTTPBasicAuth()
 import fcntl
 import signal
 
-_ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
-if not os.path.isdir(_ci_metrics_dir):
-    _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
+_ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
 if os.path.isdir(_ci_metrics_dir):
     _lock_path = f'/tmp/ci-metrics-{CI_METRICS_PORT}.lock'
     try:

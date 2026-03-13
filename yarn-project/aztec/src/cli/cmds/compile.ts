@@ -1,3 +1,4 @@
+import { findBbBinary } from '@aztec/bb.js';
 import type { LogFn } from '@aztec/foundation/log';
 
 import { execFileSync } from 'child_process';
@@ -144,7 +145,7 @@ async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<vo
   }
 
   const nargo = process.env.NARGO ?? 'nargo';
-  const bb = process.env.BB ?? 'bb';
+  const bb = process.env.BB ?? findBbBinary() ?? 'bb';
 
   await run(nargo, ['compile', ...nargoArgs]);
 

@@ -89,6 +89,7 @@ import {
 
 import type { AccessScopes } from '../access_scopes.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { MessageContextService } from '../messages/message_context_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
@@ -138,6 +139,7 @@ export type ContractFunctionSimulatorArgs = {
   privateEventStore: PrivateEventStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
+  messageContextService: MessageContextService;
 };
 
 /**
@@ -157,6 +159,7 @@ export class ContractFunctionSimulator {
   private readonly privateEventStore: PrivateEventStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
+  private readonly messageContextService: MessageContextService;
 
   constructor(args: ContractFunctionSimulatorArgs) {
     this.contractStore = args.contractStore;
@@ -171,6 +174,7 @@ export class ContractFunctionSimulator {
     this.privateEventStore = args.privateEventStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
+    this.messageContextService = args.messageContextService;
     this.log = createLogger('simulator');
   }
 
@@ -241,6 +245,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId,
       totalPublicCalldataCount: 0,
@@ -335,6 +340,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       jobId,
       scopes,
     });

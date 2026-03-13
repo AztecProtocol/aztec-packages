@@ -1,6 +1,10 @@
 #pragma once
 
-#if defined(__linux__) || defined(__wasm__)
+#if defined(_WIN32)
+#include <winsock2.h>
+#define ntohll(x) __builtin_bswap64(x)
+#define htonll(x) __builtin_bswap64(x)
+#elif defined(__linux__) || defined(__wasm__)
 #include <arpa/inet.h>
 #include <endian.h>
 #define ntohll be64toh

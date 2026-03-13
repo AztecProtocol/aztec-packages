@@ -208,7 +208,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   let slasherClient: MockProxy<SlasherClientInterface>;
   let metrics: MockProxy<SequencerMetrics>;
 
-  let l1Constants: L1RollupConstants & { rollupManaLimit: number };
+  let l1Constants: L1RollupConstants;
   let config: ResolvedSequencerConfig;
 
   // Test state
@@ -330,7 +330,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
-      rollupManaLimit: Infinity,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     // Initialize test state

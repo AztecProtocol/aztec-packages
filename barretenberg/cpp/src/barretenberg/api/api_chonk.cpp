@@ -164,7 +164,7 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
 void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("ChonkAPI::gates");
-    chonk_gate_count(bytecode_path, flags.include_gates_per_opcode);
+    chonk_gate_count(bytecode_path.string(), flags.include_gates_per_opcode);
 }
 
 void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function for_i_only_in_0_ documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">for_i_only_in_0_</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module for_loop</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.for_i_in_.html">for_i_in_</a></div></li>
+<li><a href="fn.for_i_in_0_.html">for_i_in_0_</a></div></li>
+<li><a href="fn.for_i_only_in_.html">for_i_only_in_</a></div></li>
+<li><a href="fn.for_i_only_in_0_.html">for_i_only_in_0_</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.for_loop_no_op.html">for_loop_no_op</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">utils</a>::<a href="index.html">for_loop</a></div>
+<h1>Function <span class="fn">for_i_only_in_0_</span></h1>
+<pre><code>pub fn for_i_only_in_0_&lt;Env&gt;(
+    max: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+    MAX: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+    f_within: fn[Env](<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>),
+    assert_max_lte_MAX: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
+)</code></pre>
+
+<div class="comments">
+<p>Iterates between loop bounds and conditionally executes a function for min &lt;= i &lt; max,
+where:</p>
+<ul>
+<li><code>max</code> is a dynamic loop bound (known only at runtime).</li>
+<li><code>MAX</code> is a static loop bound (known at compile time).</li>
+</ul>
+<p>0 ------</p>
+<pre><code>       f_within is executed for 0 &lt;= i &lt; max    
+</code></pre>
+<p>&lt;=
+max ------
+&lt;=
+MAX ------</p>
+<p>Lambda functions of the form <code>|i| { my_array[i].assert_empty() }</code> (for example) can be specified.</p>
+<p>Strangely, this sometimes results in many more constraints than <code>for_i_in_0_</code> with
+the <code>for_loop_no_op</code> function. But other times, this one wins. I am confused.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

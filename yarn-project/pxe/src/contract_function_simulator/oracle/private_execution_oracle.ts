@@ -14,7 +14,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
@@ -166,10 +166,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
+   * Returns the tagging index ranges that were used in this execution (and that need to be stored in the db).
    */
-  public getUsedPreTags(): PreTag[] {
-    return this.taggingIndexCache.getUsedPreTags();
+  public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
+    return this.taggingIndexCache.getUsedTaggingIndexRanges();
   }
 
   /**
@@ -569,6 +569,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId: this.jobId,
       totalPublicCalldataCount: this.totalPublicCalldataCount,
@@ -608,7 +609,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     };
   }
 
-  #onNewPublicFunctionCall(calldataHash: Fr) {
+  /** Validates the calldata preimage exists in the cache and checks cumulative calldata size is within limits. */
+  public validatePublicCalldata(calldataHash: Fr) {
     const calldata = this.executionCache.getPreimage(calldataHash);
     if (!calldata) {
       throw new Error('Calldata for public call not found in cache');
@@ -618,47 +620,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (this.totalPublicCalldataCount > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
       throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
     }
-  }
-
-  /**
-   * Verify relevant information when a public function is enqueued.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param calldataHash - The hash of the function selector and arguments.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public notifyEnqueuedPublicFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
     return Promise.resolve();
   }
 
-  /**
-   * Verify relevant information when a public teardown function is set.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param argsHash - The arguments hash to pass to the function.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public notifySetPublicTeardownFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
-    return Promise.resolve();
-  }
-
-  public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+  public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  public isSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean> {
+  public inRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
     return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
   }
 

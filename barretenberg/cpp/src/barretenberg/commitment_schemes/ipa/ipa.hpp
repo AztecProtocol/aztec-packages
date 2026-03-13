@@ -99,6 +99,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
+    static_assert(log_poly_length >= 1, "log_poly_length must be at least 1");
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of
 // IPA specifically
@@ -168,14 +169,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
         // This yields the binding property because we assume it is computationally difficult to find a linear relation
         // between the CRS and `Commitment::one()`.
-        // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
-        // This yields the binding property because we assume it is computationally difficult to find a linear relation
-        // between the CRS and `Commitment::one()`.
         auto aux_generator = Commitment::one() * generator_challenge;
 
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
-        BB_ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
+        BB_ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))),
                   "The polynomial degree plus 1 should be positive and a power of two");
 
         // Step 4.
@@ -588,12 +586,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Step 7.
-        // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) - a₀ * b₀) ⋅ U
-        // If everything is correct, then R == -C, as C':= C + f(\beta) ⋅ U
-        msm_elements.emplace_back(-G_zero);
-        msm_elements.emplace_back(-Commitment::one(builder));
-        msm_scalars.emplace_back(a_zero);
-        msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation }));
+        // Compute R = ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (a₀ * b₀ - f(\beta)) ⋅ U
+        // If everything is correct, then R == -C.
+        msm_elements[(2 * log_poly_length)] = -G_zero;
+        msm_elements[(2 * log_poly_length) + 1] = -Commitment::one(builder);
+        msm_scalars[(2 * log_poly_length)] = a_zero;
+        msm_scalars[(2 * log_poly_length) + 1] =
+            generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation });
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         auto neg_commitment = -opening_claim.commitment;
 
@@ -804,8 +803,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Compute G_zero
-        // In the native verifier, this uses pippenger. Here we were batch_mul.
-        const std::vector<Commitment> srs_elements = vk.get_monomial_points();
+        // In the native verifier, this uses pippenger. Here we use batch_mul.
+        std::vector<Commitment> srs_elements = vk.get_monomial_points();
+        BB_ASSERT_GTE(srs_elements.size(), poly_length, "Not enough SRS points for IPA!");
+        srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
         claimed_G_zero.assert_equal(computed_G_zero);
@@ -872,7 +873,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         add_claim_to_hash_buffer(opening_claim, transcript);
-        return reduce_verify_internal_recursive(opening_claim, transcript).verifier_accumulator;
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
     /**
@@ -987,8 +988,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *
      * @details We create an IPA accumulator by running the partial IPA recursive verifier on each claim. Then, we
      * generate challenges, and use these challenges to compute the new accumulator. We also create the accumulated
-     * polynomial, and generate the IPA proof for the accumulated claim. More details are described here:
-     * https://hackmd.io/IXoLIPhVT_ej8yhZ_Ehvuw?both.
+     * polynomial, and generate the IPA proof for the accumulated claim.
      *
      * @param ck
      * @param transcript_1
@@ -1051,9 +1051,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         IPA<NativeCurve, log_poly_length>::compute_opening_proof(
             ck, { challenge_poly, opening_pair }, prover_transcript);
-        BB_ASSERT_EQ(challenge_poly.evaluate(bb::fq(output_claim.opening_pair.challenge.get_value())),
-                     bb::fq(output_claim.opening_pair.evaluation.get_value()),
-                     "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
         return { output_claim, prover_transcript->export_proof() };
