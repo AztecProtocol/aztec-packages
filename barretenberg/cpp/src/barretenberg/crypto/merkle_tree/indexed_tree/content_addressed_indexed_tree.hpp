@@ -42,8 +42,6 @@
 
 namespace bb::crypto::merkle_tree {
 
-template <typename Store, typename HashingPolicy> struct ContentAddressedIndexedTreeTestAccess;
-
 /**
  * @brief Implements a parallelized batch insertion indexed tree
  * Accepts template argument of the type of store backing the tree, the type of store containing the leaves and the
@@ -52,7 +50,6 @@ template <typename Store, typename HashingPolicy> struct ContentAddressedIndexed
  */
 template <typename Store, typename HashingPolicy>
 class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store, HashingPolicy> {
-
   public:
     using StoreType = Store;
 
@@ -165,8 +162,6 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     using ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
 
   private:
-    template <typename S, typename H> friend struct ContentAddressedIndexedTreeTestAccess;
-
     using typename ContentAddressedAppendOnlyTree<Store, HashingPolicy>::AppendCompletionCallback;
     using ReadTransaction = typename Store::ReadTransaction;
     using ReadTransactionPtr = typename Store::ReadTransactionPtr;
@@ -877,29 +872,16 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates_without_
             }
 
             if (opCount->count.fetch_sub(1) == 1) {
-
-                TypedResponse<UpdatesCompletionResponse> response;
-                if (!status->success) {
-                    response.success = false;
-                    response.message = status->message;
-                    completion(response);
-                    return;
-                }
-
                 std::vector<std::pair<index_t, fr>> hashes_at_level;
                 for (size_t i = 0; i < opCount->roots.size(); i++) {
                     if (opCount->roots[i].first) {
                         hashes_at_level.push_back(std::make_pair(i, opCount->roots[i].second));
                     }
                 }
-                try {
-                    sparse_batch_update(hashes_at_level, rootLevel);
-                    response.success = true;
-                } catch (std::exception& e) {
-                    response.success = false;
-                    response.message = e.what();
-                }
+                sparse_batch_update(hashes_at_level, rootLevel);
 
+                TypedResponse<UpdatesCompletionResponse> response;
+                response.success = true;
                 completion(response);
             }
         };
