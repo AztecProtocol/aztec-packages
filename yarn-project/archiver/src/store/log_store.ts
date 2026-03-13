@@ -588,6 +588,16 @@ export class LogStore {
     txLogs: PublicLog[],
     filter: LogFilter = {},
   ): boolean {
+    if (filter.fromBlock && blockNumber < filter.fromBlock) {
+      return false;
+    }
+    if (filter.toBlock && blockNumber >= filter.toBlock) {
+      return false;
+    }
+    if (filter.txHash && !txHash.equals(filter.txHash)) {
+      return false;
+    }
+
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {
@@ -619,6 +629,16 @@ export class LogStore {
     txLogs: ContractClassLog[],
     filter: LogFilter = {},
   ): boolean {
+    if (filter.fromBlock && blockNumber < filter.fromBlock) {
+      return false;
+    }
+    if (filter.toBlock && blockNumber >= filter.toBlock) {
+      return false;
+    }
+    if (filter.txHash && !txHash.equals(filter.txHash)) {
+      return false;
+    }
+
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {

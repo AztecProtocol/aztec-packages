@@ -2835,13 +2835,13 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
-    it('"txHash" filter param is ignored when "afterLog" is set', async () => {
-      // Get random txHash
+    it('"txHash" filter param is respected when "afterLog" is set', async () => {
+      // A random txHash should match nothing, even with afterLog set
       const txHash = TxHash.random();
       const afterLog = new LogId(BlockNumber(1), BlockHash.random(), TxHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
-      expect(response.logs.length).toBeGreaterThan(1);
+      expect(response.logs.length).toBe(0);
     });
 
     it('intersecting works', async () => {
