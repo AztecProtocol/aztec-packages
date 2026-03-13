@@ -61,9 +61,9 @@ TEST_F(ChonkBatchVerifierTests, BatchVerifyTamperedIPAProof)
     auto [proof1, vk1] = generate_chonk_proof();
     auto [proof2, vk2] = generate_chonk_proof();
 
-    // Corrupt a field element in the IPA proof portion of the goblin proof
-    ASSERT_FALSE(proof2.goblin_proof.ipa_proof.empty());
-    proof2.goblin_proof.ipa_proof[0] = proof2.goblin_proof.ipa_proof[0] + bb::fr(1);
+    // Corrupt a field element in the IPA proof
+    ASSERT_FALSE(proof2.ipa_proof.empty());
+    proof2.ipa_proof[0] = proof2.ipa_proof[0] + bb::fr(1);
 
     std::vector<ChonkBatchVerifier::Input> inputs = {
         { std::move(proof1), vk1 },
@@ -82,8 +82,11 @@ TEST_F(ChonkBatchVerifierTests, BatchVerifySwappedGoblinProofs)
     auto [proof1, vk1] = generate_chonk_proof();
     auto [proof2, vk2] = generate_chonk_proof();
 
-    // Swap goblin proofs: each mega_proof is now paired with the wrong goblin proof
-    std::swap(proof1.goblin_proof, proof2.goblin_proof);
+    // Swap non-MegaZK proof components: each hiding_oink_proof is now paired with the wrong sub-proofs
+    std::swap(proof1.merge_proof, proof2.merge_proof);
+    std::swap(proof1.eccvm_proof, proof2.eccvm_proof);
+    std::swap(proof1.ipa_proof, proof2.ipa_proof);
+    std::swap(proof1.joint_proof, proof2.joint_proof);
 
     std::vector<ChonkBatchVerifier::Input> inputs = {
         { std::move(proof1), vk1 },

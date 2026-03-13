@@ -74,5 +74,18 @@ inline std::string flavor_get_label(Container&& container, const Element& elemen
     return "(unknown label)";
 }
 
+// Whether a flavor includes a Gemini masking polynomial in its entities.
+// Defaults to Flavor::HasZK; flavors that define HasGeminiMasking = false (e.g., MegaZKFlavor)
+// opt out because a separate circuit provides the masking polynomial in the batched PCS.
+template <typename Flavor>
+constexpr bool flavor_has_gemini_masking()
+{
+    if constexpr (requires { Flavor::HasGeminiMasking; }) {
+        return Flavor::HasGeminiMasking;
+    } else {
+        return Flavor::HasZK;
+    }
+}
+
 // clang-format on
 } // namespace bb

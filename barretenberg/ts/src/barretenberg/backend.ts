@@ -336,11 +336,11 @@ export class AztecClientBackend {
     });
 
     const proofFields = [
-      proveResult.proof.megaProof,
-      proveResult.proof.goblinProof.mergeProof,
-      proveResult.proof.goblinProof.eccvmProof,
-      proveResult.proof.goblinProof.ipaProof,
-      proveResult.proof.goblinProof.translatorProof,
+      proveResult.proof.hidingOinkProof,
+      proveResult.proof.mergeProof,
+      proveResult.proof.eccvmProof,
+      proveResult.proof.ipaProof,
+      proveResult.proof.jointProof,
     ].flat();
 
     // Verify using native proof directly to avoid redundant encode/decode cycle

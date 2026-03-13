@@ -124,7 +124,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    response.proof = ChonkProof{ std::move(proof.mega_proof), std::move(proof.goblin_proof) };
+    response.proof = std::move(proof);
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;
@@ -142,11 +142,11 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     // Deserialize the hiding kernel verification key directly from buffer
     auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
 
-    // Validate proof size using VK's num_public_inputs before expensive verification
+    // Validate total proof size: must match num_public_inputs + fixed overhead
     const size_t expected_proof_size =
         static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
     if (proof.size() != expected_proof_size) {
-        throw_or_abort("proof has wrong size: expected " + std::to_string(expected_proof_size) + ", got " +
+        throw_or_abort("ChonkVerify: proof has wrong size: expected " + std::to_string(expected_proof_size) + ", got " +
                        std::to_string(proof.size()));
     }
 
