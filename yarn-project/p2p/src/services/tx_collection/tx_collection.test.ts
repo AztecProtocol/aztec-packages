@@ -515,7 +515,7 @@ describe('TxCollection', () => {
       const captureRequest = () => {
         let captured: FastCollectionRequest | undefined;
         const origCollectFast = txCollection.fastCollection.collectFast.bind(txCollection.fastCollection);
-        jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async (request, opts) => {
+        jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation((request, opts) => {
           captured = request;
           return origCollectFast(request, opts);
         });
