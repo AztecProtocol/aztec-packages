@@ -105,6 +105,18 @@ describe('Rollup', () => {
     });
   });
 
+  describe('getVkTreeRoot and getProtocolContractsHash', () => {
+    it('reads vkTreeRoot from storage', async () => {
+      const result = await rollup.getVkTreeRoot();
+      expect(result).toEqual(vkTreeRoot);
+    });
+
+    it('reads protocolContractsHash from storage', async () => {
+      const result = await rollup.getProtocolContractsHash();
+      expect(result).toEqual(protocolContractsHash);
+    });
+  });
+
   describe('getSlashingProposer', () => {
     it('returns a slashing proposer', async () => {
       const slashingProposer = await rollup.getSlashingProposer();
