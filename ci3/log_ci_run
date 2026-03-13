@@ -9,7 +9,7 @@ if [ -z "${RUN_ID:-}" ]; then
   exit
 fi
 
-if [ -z "$CI_DASHBOARD:-}" ]; then
+if [ -z "${CI_DASHBOARD:-}" ]; then
   # This path is deprecated. Set CI_DASHBOARD explicitly in ci.sh.
   # CI runs are grouped by:
   # - The 'release' group if tagged with a semver.

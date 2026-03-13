@@ -3,7 +3,7 @@ use crate::protocol::{constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT
 
 pub global MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION: u32 = MAX_NOTE_PACKED_LEN;
 
-global MAX_LOG_CONTENT_LEN: u32 = std::cmp::max(
+pub(crate) global MAX_LOG_CONTENT_LEN: u32 = std::cmp::max(
     MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION,
     PRIVATE_LOG_CIPHERTEXT_LEN,
 );

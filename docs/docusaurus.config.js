@@ -25,6 +25,7 @@ const networkVersions = require("./network_versions.json");
 // Find specific versions dynamically for Developer docs
 const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
 const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
+const developerTestnetVersion = developerVersions.find((v) => v.includes("rc"));
 
 // Find specific versions dynamically for Network docs
 const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
@@ -107,7 +108,7 @@ const config = {
     },
   ],
   plugins: [
-    // Developer docs instance - nightly/devnet versions
+    // Developer docs instance - testnet/devnet/nightly versions
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -123,12 +124,19 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: devnetVersion,
+        lastVersion: developerTestnetVersion,
         versions: {
+          ...(developerTestnetVersion && {
+            [developerTestnetVersion]: {
+              label: `Testnet (${developerTestnetVersion})`,
+              path: "",
+              banner: "none",
+            },
+          }),
           ...(devnetVersion && {
             [devnetVersion]: {
               label: `Devnet (${devnetVersion})`,
-              path: "",
+              path: "devnet",
               banner: "none",
             },
           }),
@@ -229,12 +237,12 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: devnetVersion
-          ? `developer_versioned_docs/version-${devnetVersion}/`
+        docsDir: developerTestnetVersion
+          ? `developer_versioned_docs/version-${developerTestnetVersion}/`
           : `developer_versioned_docs/version-${developerVersions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        version: devnetVersion || developerVersions[0],
+        version: developerTestnetVersion || developerVersions[0],
         pathTransformation: {
           ignorePaths: ["docs"],
         },

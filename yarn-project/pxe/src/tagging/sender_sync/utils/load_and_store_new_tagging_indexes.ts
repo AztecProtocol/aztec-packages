@@ -16,6 +16,7 @@ import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
  * @param end - The ending index (exclusive) of the window to process.
  * @param aztecNode - The Aztec node instance to query for logs.
  * @param taggingStore - The data provider to store pending indexes.
+ * @param anchorBlockHash - Hash of a block to use as reference block when querying node.
  * @param jobId - Job identifier, used to keep writes in-memory until they can be persisted in a data integrity
  * preserving way.
  */
@@ -34,12 +35,13 @@ export async function loadAndStoreNewTaggingIndexes(
   );
 
   const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);
-  const highestIndexMap = getTxHighestIndexMap(txsForTags, start, siloedTagsForWindow.length);
+  const txIndexesMap = getTxIndexesMap(txsForTags, start, siloedTagsForWindow.length);
 
-  // Now we iterate over the map, reconstruct the preTags and tx hash and store them in the db.
-  for (const [txHashStr, highestIndex] of highestIndexMap.entries()) {
+  // Now we iterate over the map, construct the tagging index ranges and store them in the db.
+  for (const [txHashStr, indexes] of txIndexesMap.entries()) {
     const txHash = TxHash.fromString(txHashStr);
-    await taggingStore.storePendingIndexes([{ extendedSecret, index: highestIndex }], txHash, jobId);
+    const ranges = [{ extendedSecret, lowestIndex: Math.min(...indexes), highestIndex: Math.max(...indexes) }];
+    await taggingStore.storePendingIndexes(ranges, txHash, jobId);
   }
 }
 
@@ -56,20 +58,28 @@ async function getTxsContainingTags(
   return allLogs.map(logs => logs.map(log => log.txHash));
 }
 
-// Returns a map of txHash to the highest index for that txHash.
-function getTxHighestIndexMap(txHashesForTags: TxHash[][], start: number, count: number): Map<string, number> {
+// Returns a map of txHash to all indexes for that txHash.
+function getTxIndexesMap(txHashesForTags: TxHash[][], start: number, count: number): Map<string, number[]> {
   if (txHashesForTags.length !== count) {
     throw new Error(`Number of tx hashes arrays does not match number of tags. ${txHashesForTags.length} !== ${count}`);
   }
 
-  const highestIndexMap = new Map<string, number>();
+  const indexesMap = new Map<string, number[]>();
+  // Iterate over indexes
   for (let i = 0; i < txHashesForTags.length; i++) {
     const taggingIndex = start + i;
     const txHashesForTag = txHashesForTags[i];
+    // iterate over tx hashes that used that index (tag)
     for (const txHash of txHashesForTag) {
       const key = txHash.toString();
-      highestIndexMap.set(key, Math.max(highestIndexMap.get(key) ?? 0, taggingIndex));
+      const existing = indexesMap.get(key);
+      // Add the index to the tx's indexes
+      if (existing) {
+        existing.push(taggingIndex);
+      } else {
+        indexesMap.set(key, [taggingIndex]);
+      }
     }
   }
-  return highestIndexMap;
+  return indexesMap;
 }

@@ -29,6 +29,7 @@ function handle_squash_merge {
   echo "Processing squash and merge..."
   # Reauth the git repo with our GITHUB_TOKEN
   git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
+  git config --unset-all http.https://github.com/.extraheader || true
   # Get the base commit (merge-base) for the PR
   ./scripts/merge-train/squash-pr.sh \
     "${PR_NUMBER}" \

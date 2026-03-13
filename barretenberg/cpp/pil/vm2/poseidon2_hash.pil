@@ -118,7 +118,7 @@ namespace poseidon2_hash;
     padding * (padding - 1) * (padding - 2) = 0;
 
     pol PADDED_LEN = input_len + padding;
-    // Check that the PADDED_LEN = num_rounds * 3 at the start of the computation
+    // Check that the PADDED_LEN = num_perm_rounds_rem * 3 at the start of the computation
     start * (num_perm_rounds_rem * 3 - PADDED_LEN) = 0;
 
     // If we still have rounds to perform, `num_perm_rounds_rem` is decremented.

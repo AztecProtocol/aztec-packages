@@ -34,7 +34,7 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
                    (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // DEPLOYER_PROTOCOL_CONTRACT_ADDRESS_CONSTANT
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
                    (CView(constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS) -
@@ -55,7 +55,7 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
                         (static_cast<View>(in.get(C::contract_instance_retrieval_address)) - FF(1)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // DERIVED_ADDRESS_PI_INDEX
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_is_protocol_contract)) *
                    ((CView(constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX) +
@@ -63,7 +63,7 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
                     static_cast<View>(in.get(C::contract_instance_retrieval_derived_address_pi_index)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // PROTOCOL_CONTRACT_EXISTS_CHECK
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::contract_instance_retrieval_is_protocol_contract)) *
@@ -83,14 +83,14 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
                         (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_is_protocol_contract))));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // NULLIFIER_TREE_HEIGHT_CONSTANT
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_should_check_nullifier)) *
                    (static_cast<View>(in.get(C::contract_instance_retrieval_nullifier_tree_height)) -
                     CView(constants_NULLIFIER_TREE_HEIGHT));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SILOING_SEPARATOR_CONSTANT
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_should_check_nullifier)) *
                    (static_cast<View>(in.get(C::contract_instance_retrieval_siloing_separator)) -

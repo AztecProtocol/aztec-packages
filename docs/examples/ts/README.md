@@ -85,6 +85,7 @@ The `AZTEC_NODE_URL` env var is used by both the runner script and the example `
 | `aztecjs_advanced` | NO_WAIT transactions, BatchCall, sponsored FPC, events |
 | `aztecjs_authwit` | Authentication witnesses for delegated actions |
 | `aztecjs_testing` | Test patterns: minting, transfers, revert testing |
+| `example_swap` | Cross-chain token swap via L1 uniswap portal (L2→L1→L2) |
 
 ### Examples Not Executed (Type-Checked Only)
 
@@ -109,7 +110,7 @@ contracts: []
 dependencies:
   - "@aztec/aztec.js"
   - "@aztec/accounts"
-  - "@aztec/test-wallet"
+  - "@aztec/wallets"
   - "@aztec/noir-contracts.js"
 ```
 

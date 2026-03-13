@@ -79,9 +79,7 @@ different users can have their own distinct parameters.</p>
 <li><code>Context</code> - The execution context (PrivateContext or UtilityContext).</li>
 </ul></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
-
-<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
@@ -112,7 +110,9 @@ and the transaction will not be provable.</p>
 <p>Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
 after initialization.</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
 <div class="where-clause">where

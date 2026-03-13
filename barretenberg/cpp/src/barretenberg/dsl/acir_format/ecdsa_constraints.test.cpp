@@ -18,9 +18,9 @@ using namespace acir_format;
 template <class Curve> class EcdsaTestingFunctions {
   public:
     using Builder = Curve::Builder;
-    using FrNative = Curve::fr;
-    using FqNative = Curve::fq;
-    using G1Native = Curve::g1;
+    using FrNative = Curve::ScalarFieldNative;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
     using AcirConstraint = EcdsaConstraint;
 
     struct InvalidWitness {

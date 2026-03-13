@@ -1,25 +1,28 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/perms_bc_hashing.hpp"
-#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
-
-using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
+#include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::tracegen {
+
+using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
+using C = Column;
 
 /**
  * @brief Process bytecode decomposition events and populate the relevant columns in the trace.
@@ -38,7 +41,6 @@ void BytecodeTraceBuilder::process_decomposition(
     const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
     TraceContainer& trace)
 {
-    using C = Column;
     // Since next_packed_pc - pc is always in the range [0, 31), we can precompute the inverses:
     std::vector<FF> next_packed_pc_min_pc_inverses = { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
                                                        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 };
@@ -169,67 +171,68 @@ void BytecodeTraceBuilder::process_decomposition(
                              C::bc_decomposition_windows_min_remaining_inv } });
 }
 
+/**
+ * @brief Process bytecode hashing events and populate the bc_hashing columns in the trace.
+ *  Corresponds to bc_hashing.pil.
+ *
+ *  For each bytecode, this function prepends a domain-separated length field to the bytecode
+ *  field elements, then lays out Poseidon2 hashing rounds (3 inputs per round). Padding fields
+ *  are added when the total field count is not a multiple of 3. The output hash equals the
+ *  bytecode_id and is propagated to every row of the hashing sub-trace.
+ *
+ * @param events The container of bytecode hashing events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_hashing(
     const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
 {
-    using C = Column;
+    // bc_hashing.pil uses some shifted columns and therefore we start from row 1.
     uint32_t row = 1;
 
     for (const auto& event : events) {
-        const auto id = event.bytecode_id;
         // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended field length | separator
-        std::vector<FF> fields = { simulation::compute_public_bytecode_first_field(event.bytecode_length) };
-        fields.reserve(1 + event.bytecode_fields.size());
+
+        const auto& id = event.bytecode_id;
+        const auto input_len = event.bytecode_fields.size() + 1; // +1 for the prepended field length | separator
+        const auto padding_amount = (3 - (input_len % 3)) % 3;
+
+        std::vector<FF> fields = { simulation::compute_public_bytecode_first_field(event.bytecode_length_in_bytes) };
+        fields.reserve(input_len + padding_amount);
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
-        auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
-        FF output_hash = Poseidon2::hash(fields);
-        auto padding_amount = (3 - (fields.size() % 3)) % 3;
-        auto num_rounds = (fields.size() + padding_amount) / 3;
-        uint32_t pc_index = 0;
-        for (uint32_t i = 0; i < fields.size(); i += 3) {
+        fields.insert(fields.end(), padding_amount, FF(0)); // Add padding fields.
+
+        const auto num_rounds = fields.size() / 3;
+
+        for (size_t i = 0; i < num_rounds; i++) {
             bool start_of_bytecode = i == 0;
-            bool end_of_bytecode = i + 3 >= fields.size();
+            bool end_of_bytecode = i == num_rounds - 1;
             // When we start the bytecode, we want to look up field 1 at pc = 0 in the decomposition trace, since we
-            // force field 0 to be the separator:
-            uint32_t pc_index_1 = start_of_bytecode ? 0 : pc_index + 31;
+            // force field 0 to be the separator.
+            // Layout is: PC_INDEX, PC_INDEX_1, PC_INDEX_2
+            //                 0         0           31
+            //                62        93          124
+            uint32_t pc_index_1 = 93 * static_cast<uint32_t>(i);
+            uint32_t pc_index = i > 0 ? pc_index_1 - 31 : 0;
             trace.set(row,
                       { { { C::bc_hashing_sel, 1 },
-                          { C::bc_hashing_start, start_of_bytecode },
-                          { C::bc_hashing_sel_not_start, !start_of_bytecode },
-                          { C::bc_hashing_latch, end_of_bytecode },
+                          { C::bc_hashing_start, start_of_bytecode ? 1 : 0 },
+                          { C::bc_hashing_sel_not_start, !start_of_bytecode ? 1 : 0 },
+                          { C::bc_hashing_end, end_of_bytecode ? 1 : 0 },
                           { C::bc_hashing_bytecode_id, id },
                           { C::bc_hashing_size_in_bytes,
-                            event.bytecode_length }, // Note: only needs to be constrained at start
-                          { C::bc_hashing_input_len, fields.size() },
-                          { C::bc_hashing_rounds_rem, num_rounds },
+                            event.bytecode_length_in_bytes }, // Note: only needs to be constrained at start
+                          { C::bc_hashing_input_len, input_len },
+                          { C::bc_hashing_rounds_rem, num_rounds - i },
                           { C::bc_hashing_pc_index, pc_index },
                           { C::bc_hashing_pc_index_1, pc_index_1 },
                           { C::bc_hashing_pc_index_2, pc_index_1 + 31 },
-                          { C::bc_hashing_packed_fields_0, bytecode_field_at(i) },
-                          { C::bc_hashing_packed_fields_1, bytecode_field_at(i + 1) },
-                          { C::bc_hashing_packed_fields_2, bytecode_field_at(i + 2) },
+                          { C::bc_hashing_packed_fields_0, fields[i * 3] },
+                          { C::bc_hashing_packed_fields_1, fields[(i * 3) + 1] },
+                          { C::bc_hashing_packed_fields_2, fields[(i * 3) + 2] },
                           { C::bc_hashing_sel_not_padding_1, end_of_bytecode && padding_amount == 2 ? 0 : 1 },
                           { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
-                          { C::bc_hashing_output_hash, output_hash } } });
-            if (end_of_bytecode) {
-                // Below sets the pc at which the final field starts. We only use/constrain it at latch == 1.
-                // Note: It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to
-                // force the first field to be the separator.
-                FF pc_at_final_field =
-                    padding_amount == 2
-                        // Two padding fields => we are currently at the final field:
-                        ? pc_index
-                        // One padding field => the final field starts at pc_index_1
-                        // No padding fields => the final field starts at pc_index_2 (= pc_index_1 + 31):
-                        : pc_index_1 + (31 * (1 - padding_amount));
-                trace.set(row,
-                          { {
-                              { C::bc_hashing_pc_at_final_field, pc_at_final_field },
-                          } });
-            }
-            pc_index = pc_index_1 + 62;
+                          { C::bc_hashing_padding, padding_amount } } });
             row++;
-            num_rounds--;
         }
     }
 }
@@ -251,8 +254,6 @@ void BytecodeTraceBuilder::process_retrieval(
     const simulation::EventEmitterInterface<simulation::BytecodeRetrievalEvent>::Container& events,
     TraceContainer& trace)
 {
-    using C = Column;
-
     uint32_t row = 0;
     for (const auto& event : events) {
         // Since the maximum is (currently) 21 and we prove incrementation of next_available_leaf_index
@@ -315,7 +316,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     const simulation::EventEmitterInterface<simulation::InstructionFetchingEvent>::Container& events,
     TraceContainer& trace)
 {
-    using C = Column;
     using simulation::InstructionFetchingEvent;
     using simulation::InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE;
     using simulation::InstrDeserializationEventError::OPCODE_OUT_OF_RANGE;
@@ -490,7 +490,10 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
         .add<perm_bc_hashing_bytecode_length_bytes_settings, InteractionType::Permutation>()
-        .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::MultiPermutation,
+             perm_bc_hashing_get_packed_field_0_settings,
+             perm_bc_hashing_get_packed_field_1_settings,
+             perm_bc_hashing_get_packed_field_2_settings>(C::bc_decomposition_sel_packed)
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
@@ -499,10 +502,6 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<InteractionType::MultiPermutation,
-             perm_bc_hashing_get_packed_field_0_settings,
-             perm_bc_hashing_get_packed_field_1_settings,
-             perm_bc_hashing_get_packed_field_2_settings>(Column::bc_decomposition_sel_packed)
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
