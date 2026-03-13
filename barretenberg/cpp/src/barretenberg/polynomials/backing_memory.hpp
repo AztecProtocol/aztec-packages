@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
 #include <sys/mman.h>
 #endif
 
@@ -33,7 +33,7 @@ template <typename Fr> struct BackingMemory {
     // Common raw data pointer used by all storage types
     Fr* raw_data = nullptr;
 
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
     // File-backed data substruct with cleanup metadata
     struct FileBackedData {
         size_t file_size;
@@ -67,7 +67,7 @@ template <typename Fr> struct BackingMemory {
 
     BackingMemory(BackingMemory&& other) noexcept
         : raw_data(other.raw_data)
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
         , file_backed(std::move(other.file_backed))
 #endif
         , aligned_memory(std::move(other.aligned_memory))
@@ -79,7 +79,7 @@ template <typename Fr> struct BackingMemory {
     {
         if (this != &other) {
             raw_data = other.raw_data;
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
             file_backed = std::move(other.file_backed);
 #endif
             aligned_memory = std::move(other.aligned_memory);
@@ -93,7 +93,7 @@ template <typename Fr> struct BackingMemory {
     static BackingMemory allocate(size_t size)
     {
         BackingMemory memory;
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
         if (slow_low_memory) {
             if (try_allocate_file_backed(memory, size)) {
                 return memory;
@@ -122,7 +122,7 @@ template <typename Fr> struct BackingMemory {
         memory.raw_data = ptr;
     }
 
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
     static bool try_allocate_file_backed(BackingMemory& memory, size_t size)
     {
         if (size == 0) {
