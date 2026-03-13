@@ -648,6 +648,12 @@ sel_op_truncate = sel_trunc_non_trivial + sel_trunc_trivial;
 #[TRUNC_TRIVIAL_CASE]
 sel_trunc_trivial * (ia - ic) = 0;
 
+// If the destination is FF, then the truncation is trivial.
+// This is important to ensure in #[TRUNC_LO_128_DECOMPOSITION] that max_value + 1
+// is a power of two and not zero (for field elements).
+#[DEST_FF_IS_TRIVIAL]
+sel_op_truncate * sel_is_ff * (1 - sel_trunc_trivial) = 0;
+
 // NOTE: reusing a_lo column from MUL in TRUNC:
 // For truncate, a_lo = 128-bit low limb of ia.
 // mid is a limb of `128 - max_bits` bits.
@@ -665,6 +671,9 @@ ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo };
 sel_trunc_lt_128 * (a_lo - ia) = 0;
 
 // a_lo = ic + mid * 2^ia_tag_bits, where 2^ia_tag_bits is max_value + 1.
+// For the above to hold, `sel_trunc_non_trivial` must be zero when the destination is FF
+// which is enforced by #[DEST_FF_IS_TRIVIAL] and the mutual exclusion of `sel_trunc_non_trivial`
+// and `sel_trunc_trivial`.
 #[TRUNC_LO_128_DECOMPOSITION]
 sel_trunc_non_trivial * (ic + mid * (max_value + 1) - a_lo) = 0;
 
