@@ -62,10 +62,28 @@ export async function syncSenderTaggingIndexes(
       break;
     }
 
-    const { txHashesToFinalize, txHashesToDrop } = await getStatusChangeOfPending(pendingTxHashes, aztecNode);
+    const { txHashesToFinalize, txHashesToDrop, txHashesWithExecutionReverted } = await getStatusChangeOfPending(
+      pendingTxHashes,
+      aztecNode,
+    );
 
     await taggingStore.dropPendingIndexes(txHashesToDrop, jobId);
     await taggingStore.finalizePendingIndexes(txHashesToFinalize, jobId);
+
+    if (txHashesWithExecutionReverted.length > 0) {
+      const indexedTxEffects = await Promise.all(
+        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxEffect(txHash)),
+      );
+      for (const indexedTxEffect of indexedTxEffects) {
+        if (indexedTxEffect === undefined) {
+          throw new Error(
+            'TxEffect not found for execution-reverted tx. This is either a bug or a reorg has occurred.',
+          );
+        }
+
+        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(indexedTxEffect.data, jobId);
+      }
+    }
 
     // We check if the finalized index has been updated.
     newFinalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);

@@ -5,6 +5,8 @@ import { OFFCHAIN_MESSAGE_IDENTIFIER, type OffchainEffect } from '@aztec/stdlib/
 import { extractOffchainOutput } from './interaction_options.js';
 
 describe('extractOffchainOutput', () => {
+  const expirationTimestamp = 1234567890n;
+
   const makeEffect = (data: Fr[], contractAddress?: AztecAddress): OffchainEffect => ({
     data,
     contractAddress: contractAddress ?? AztecAddress.fromField(Fr.random()),
@@ -21,14 +23,14 @@ describe('extractOffchainOutput', () => {
     );
 
   it('returns empty output for empty input', () => {
-    const result = extractOffchainOutput([]);
+    const result = extractOffchainOutput([], expirationTimestamp);
     expect(result.offchainEffects).toEqual([]);
     expect(result.offchainMessages).toEqual([]);
   });
 
   it('keeps non-message effects as-is', () => {
     const effects = [makeEffect([Fr.random(), Fr.random()]), makeEffect([Fr.random()])];
-    const result = extractOffchainOutput(effects);
+    const result = extractOffchainOutput(effects, expirationTimestamp);
     expect(result.offchainEffects).toEqual(effects);
     expect(result.offchainMessages).toEqual([]);
   });
@@ -39,7 +41,7 @@ describe('extractOffchainOutput', () => {
     const contractAddress = await AztecAddress.random();
     const effect = await makeMessageEffect(recipient, payload, contractAddress);
 
-    const result = extractOffchainOutput([effect]);
+    const result = extractOffchainOutput([effect], expirationTimestamp);
 
     expect(result.offchainEffects).toEqual([]);
     expect(result.offchainMessages).toHaveLength(1);
@@ -47,6 +49,7 @@ describe('extractOffchainOutput', () => {
       recipient,
       payload,
       contractAddress,
+      expirationTimestamp,
     });
   });
 
@@ -55,7 +58,7 @@ describe('extractOffchainOutput', () => {
     const plainEffect2 = makeEffect([Fr.random(), Fr.random()]);
     const messageEffect = await makeMessageEffect();
 
-    const result = extractOffchainOutput([plainEffect1, messageEffect, plainEffect2]);
+    const result = extractOffchainOutput([plainEffect1, messageEffect, plainEffect2], expirationTimestamp);
 
     expect(result.offchainEffects).toEqual([plainEffect1, plainEffect2]);
     expect(result.offchainMessages).toHaveLength(1);
@@ -65,7 +68,7 @@ describe('extractOffchainOutput', () => {
     const msg1 = await makeMessageEffect();
     const msg2 = await makeMessageEffect();
 
-    const result = extractOffchainOutput([msg1, msg2]);
+    const result = extractOffchainOutput([msg1, msg2], expirationTimestamp);
 
     expect(result.offchainEffects).toEqual([]);
     expect(result.offchainMessages).toHaveLength(2);
@@ -73,7 +76,7 @@ describe('extractOffchainOutput', () => {
 
   it('does not treat an effect as a message if data has only the identifier (no recipient)', () => {
     const effect = makeEffect([OFFCHAIN_MESSAGE_IDENTIFIER]);
-    const result = extractOffchainOutput([effect]);
+    const result = extractOffchainOutput([effect], expirationTimestamp);
 
     expect(result.offchainEffects).toEqual([effect]);
     expect(result.offchainMessages).toEqual([]);
