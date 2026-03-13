@@ -13,7 +13,7 @@ You are a network log analysis specialist for Aztec deployments on GCP. Your job
 You will receive:
 - **Namespace**: The deployment namespace (e.g., `testnet`, `devnet`, `mainnet`)
 - **Intent**: What to investigate (block production, errors, proving, specific pod, etc.)
-- **Time range**: Freshness value (e.g., `1h`, `3h`, `24h`)
+- **Time range**: Freshness value (e.g., `10m`, `3h`, `24h`) — default is `10m` for real-time queries
 - **Original question**: The user's natural language question
 
 ## Execution Strategy
@@ -36,7 +36,7 @@ You will receive:
 gcloud logging read '<filter>' \
   --limit=50 \
   --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.severity, jsonPayload.message.slice(0,200))' \
-  --freshness=1h \
+  --freshness=10m \
   --project=<project>
 ```
 
@@ -47,6 +47,8 @@ This outputs clean tab-separated text like:
 ```
 
 You can read this output directly — no parsing needed.
+
+**Tip**: When searching for tx hashes or other long identifiers, use `.slice(0,300)` instead of `.slice(0,200)` to avoid truncating the relevant data.
 
 ### Format variations
 
@@ -81,11 +83,15 @@ Pods follow the pattern `{namespace}-{component}-{index}`:
 | Validator | `{ns}-validator-{i}` | Block production & attestation |
 | Prover Node | `{ns}-prover-node-{i}` | Epoch proving coordination |
 | RPC Node | `{ns}-rpc-aztec-node-{i}` | Public API |
-| Bot | `{ns}-bot-transfers-{i}` | Transaction generation |
+| Bot | `{ns}-bot-{type}-{i}` | Transaction generation (types: transfers, swaps, etc.) |
 | Boot Node | `{ns}-boot-node-{i}` | P2P bootstrap |
 | Prover Agent | `{ns}-prover-agent-{i}` | Proof computation workers |
 | Prover Broker | `{ns}-prover-broker-{i}` | Proof job distribution |
 | HA Validator | `{ns}-validator-ha-{j}-{i}` | HA validator replicas |
+
+## Deployment-Specific Notes
+
+- **next-net** redeploys every morning at ~4am UTC. Always use timestamp range filters (not `--freshness`) when querying next-net for a specific date, and expect logs to only cover a single instance of the network.
 
 ## Filter Building
 
@@ -106,6 +112,13 @@ NOT jsonPayload.module="aztec:ethereum"
 ```
 resource.labels.pod_name=~"<namespace>-validator-"
 resource.labels.pod_name="<namespace>-prover-node-0"
+```
+
+### Timestamp ranges (for historical queries)
+When querying specific past dates instead of recent logs, use timestamp filters **instead of** `--freshness` (they are mutually exclusive):
+```
+timestamp>="2026-03-11T00:00:00Z"
+timestamp<="2026-03-12T00:00:00Z"
 ```
 
 ### Severity filtering
@@ -135,11 +148,11 @@ gcloud logging read '
   resource.labels.namespace_name="<ns>"
   resource.labels.container_name="aztec"
   resource.labels.pod_name=~"<ns>-validator-"
-  (jsonPayload.message=~"Validated block proposal" OR jsonPayload.message=~"Cannot propose" OR jsonPayload.message=~"committee")
-' --limit=50 --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.message.slice(0,200))' --freshness=1h --project=<project>
+  (jsonPayload.message=~"Validated block proposal" OR jsonPayload.message=~"Built block" OR jsonPayload.message=~"Cannot propose" OR jsonPayload.message=~"Published checkpoint")
+' --limit=50 --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.message.slice(0,200))' --freshness=10m --project=<project>
 ```
 
-**Look for**: "Validated block proposal" = blocks being produced. "Cannot propose...committee" = not on committee (normal if many validators). Check block numbers are incrementing.
+**Look for**: "Validated block proposal" = blocks being produced. "Built block N ... with X txs" = shows tx count per block (0 = empty). "Published checkpoint" = checkpoints landing on L1. "Cannot propose...committee" = not on committee (normal if many validators). Check block numbers are incrementing. **Note**: The `pod_name=~"<ns>-validator-"` filter also matches HA validator pods (e.g., `validator-ha-1-1`) — expect both regular and HA validators in results.
 
 ### 2. Proving Started
 
@@ -187,6 +200,9 @@ gcloud logging read '
   NOT jsonPayload.message=~"Could not publish message"
   NOT jsonPayload.message=~"Low peer count"
   NOT jsonPayload.message=~"Failed FINDNODE request"
+  NOT jsonPayload.message=~"No active peers"
+  NOT jsonPayload.message=~"Not enough txs"
+  NOT jsonPayload.message=~"StateView contract not found"
 ' --limit=100 --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.severity, jsonPayload.module, jsonPayload.message.slice(0,180))' --freshness=<freshness> --project=<project>
 ```
 
@@ -201,7 +217,7 @@ gcloud logging read '
   resource.labels.container_name="aztec"
   resource.labels.pod_name=~"<ns>-bot-"
   (jsonPayload.message=~"IVC proof" OR jsonPayload.message=~"transfer" OR jsonPayload.message=~"Sent tx")
-' --limit=30 --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.message.slice(0,200))' --freshness=1h --project=<project>
+' --limit=30 --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.message.slice(0,200))' --freshness=10m --project=<project>
 ```
 
 ### 6. Checkpoint / Proof Submission
@@ -227,8 +243,53 @@ gcloud logging read '
   resource.labels.namespace_name="<ns>"
   resource.labels.container_name="aztec"
   resource.labels.pod_name="<pod-name>"
-' --limit=100 --format='table[no-heading](timestamp.date("%H:%M:%S"), jsonPayload.severity, jsonPayload.module, jsonPayload.message.slice(0,180))' --freshness=1h --project=<project>
+' --limit=100 --format='table[no-heading](timestamp.date("%H:%M:%S"), jsonPayload.severity, jsonPayload.module, jsonPayload.message.slice(0,180))' --freshness=10m --project=<project>
 ```
+
+### 8. Transaction Debugging
+
+Trace a specific transaction by hash. Use the first 8-16 hex characters to search, and `.slice(0,300)` to avoid truncating hashes in output.
+
+```bash
+gcloud logging read '
+  resource.type="k8s_container"
+  resource.labels.namespace_name="<ns>"
+  resource.labels.container_name="aztec"
+  jsonPayload.message=~"<first 8-16 hex chars of tx hash>"
+' --limit=50 --format='table[no-heading](timestamp, resource.labels.pod_name, jsonPayload.module, jsonPayload.message.slice(0,300))' --freshness=24h --project=<project>
+```
+
+**Investigation steps**: Check which pod received the tx (RPC node vs validators). Look for "Received tx", "Added tx", "dropped", "rejected", "invalid", "revert". If only the RPC node has it, the tx wasn't propagated via P2P. Cross-reference with block production to see if blocks were empty during that period.
+
+### 9. Chain Health / Stability
+
+Check for chain pruning, L1 publish failures, and proposal validation issues.
+
+```bash
+gcloud logging read '
+  resource.type="k8s_container"
+  resource.labels.namespace_name="<ns>"
+  resource.labels.container_name="aztec"
+  (jsonPayload.message=~"Chain pruned" OR jsonPayload.message=~"Failed to publish" OR jsonPayload.message=~"L1 tx timed out" OR jsonPayload.message=~"proposal validation failed")
+' --limit=50 --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.message.slice(0,200))' --freshness=10m --project=<project>
+```
+
+**Look for**: Repeated chain pruning = L1 publishing pipeline issues. "L1 tx timed out" = Ethereum congestion or gas issues. "proposal validation failed" = block proposal rejected by peers.
+
+### 10. Network Status Overview
+
+For general "status" or "health" queries, run these three queries **in parallel** to get a comprehensive picture:
+
+1. **Block production** — use Recipe 1 (Block Production Check)
+2. **Errors** — use Recipe 4 (Unexpected Errors)
+3. **Proving** — use Recipe 3 (Proving Duration) with `--freshness=1h`
+
+Then synthesize into a single status report covering:
+- **Block production**: Are blocks being built? Latest block number/slot? How many validators participating?
+- **Proving**: What epoch was last proved? How long did it take?
+- **Warnings**: Any notable errors or warnings (excluding known noise)?
+
+This is the most common query pattern — prefer this composite approach over individual queries when the user asks for general status.
 
 ## Known Noise Patterns
 
@@ -238,6 +299,9 @@ These patterns appear frequently and are usually harmless — exclude or downpla
 - `Could not publish message` — Transient P2P gossip failures
 - `Low peer count` — Common during startup or network churn
 - `Failed FINDNODE request` — P2P discovery noise
+- `No active peers to send requests to` — P2P reqresp on isolated nodes (e.g., blob-sink)
+- `Not enough txs to build block` — Normal when transaction volume is low
+- `StateView contract not found` — Price oracle warning; Uniswap V4 StateView only exists on mainnet, so all other networks emit this. Safe to ignore unless namespace is `mainnet`
 
 ## Reference Tool
 
