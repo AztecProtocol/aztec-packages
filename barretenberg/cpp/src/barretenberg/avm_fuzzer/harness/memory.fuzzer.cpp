@@ -27,6 +27,7 @@ using namespace bb::avm2::simulation;
 using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 
+using bb::avm2::Column;
 using bb::avm2::FF;
 using bb::avm2::MemoryAddress;
 using bb::avm2::MemoryTag;
@@ -317,7 +318,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     // Memory is not entirely standalone, we need to set a relation  #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
     for (uint32_t i = 1; i <= num_of_entries; ++i) {
-        trace.set(avm2::Column::memory_sel_register_op_0_, i, 1);
+        trace.set(Column::memory_sel_register_op_0_, i, 1);
     }
     check_relation<memory_rel>(trace);
 
