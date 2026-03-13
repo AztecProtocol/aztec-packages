@@ -2,8 +2,15 @@
 #include <cstdio>
 #include <ctime>
 #include <string>
+#ifndef _WIN32
 #include <sys/resource.h>
 #include <sys/time.h>
+#else
+// clang-format off
+#include <windows.h>
+#include <psapi.h>
+// clang-format on
+#endif
 
 /**
  * @brief Get the execution between a block of code.
