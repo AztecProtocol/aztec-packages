@@ -568,8 +568,16 @@ describe('e2e_epochs/epochs_mbps', () => {
     expect(deployReceipt.blockNumber).toBeLessThan(callReceipt.blockNumber!);
 
     // Verify both blocks belong to the same checkpoint.
-    const [deployCheckpointedBlock] = await context.aztecNode.getCheckpointedBlocks(deployReceipt.blockNumber!, 1);
-    const [callCheckpointedBlock] = await context.aztecNode.getCheckpointedBlocks(callReceipt.blockNumber!, 1);
+    const deployCheckpointedBlock = await retryUntil(
+      async () => (await context.aztecNode.getCheckpointedBlocks(deployReceipt.blockNumber!, 1))[0],
+      'deploy checkpointed block',
+      timeout,
+    );
+    const callCheckpointedBlock = await retryUntil(
+      async () => (await context.aztecNode.getCheckpointedBlocks(callReceipt.blockNumber!, 1))[0],
+      'call checkpointed block',
+      timeout,
+    );
     expect(deployCheckpointedBlock.checkpointNumber).toBe(callCheckpointedBlock.checkpointNumber);
     logger.warn(`Both blocks in checkpoint ${deployCheckpointedBlock.checkpointNumber}`);
 
