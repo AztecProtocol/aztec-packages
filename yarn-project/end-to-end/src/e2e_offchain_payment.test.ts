@@ -58,17 +58,22 @@ describe('e2e_offchain_payment', () => {
   }
 
   async function forceReorg(block: BlockNumber) {
+    // Pause sync as soon as the block is checkpointed so finalization doesn't race ahead
+    // of the rollback target. Without this, the archiver can finalize past the target block
+    // between the retryUntil returning and pauseSync executing.
     await retryUntil(
       async () => {
         const tips = await aztecNode.getL2Tips();
-        return tips.checkpointed.block.number >= block;
+        if (tips.checkpointed.block.number >= block) {
+          await aztecNodeAdmin.pauseSync();
+          return true;
+        }
+        return false;
       },
       'checkpointed block',
       30,
       1,
     );
-
-    await aztecNodeAdmin.pauseSync();
 
     await cheatCodes.eth.reorg(1);
     await aztecNodeAdmin.rollbackTo(Number(block) - 1);
@@ -101,7 +106,7 @@ describe('e2e_offchain_payment', () => {
           ciphertext: messageForBob!.payload,
           recipient: bob,
           tx_hash: receipt.txHash.hash,
-          expiration_timestamp: messageForBob!.expirationTimestamp,
+          anchor_block_timestamp: messageForBob!.anchorBlockTimestamp,
         },
       ])
       .simulate({ from: bob });
@@ -133,7 +138,10 @@ describe('e2e_offchain_payment', () => {
     const txBlockNumber = receipt.blockNumber!;
     const txHash = provenTx.getTxHash();
 
-    const { offchainMessages } = extractOffchainOutput(provenTx.offchainEffects, provenTx.data.expirationTimestamp);
+    const { offchainMessages } = extractOffchainOutput(
+      provenTx.offchainEffects,
+      provenTx.data.constants.anchorBlockHeader.globalVariables.timestamp,
+    );
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
@@ -144,7 +152,7 @@ describe('e2e_offchain_payment', () => {
           ciphertext: messageForBob!.payload,
           recipient: bob,
           tx_hash: txHash.hash,
-          expiration_timestamp: messageForBob!.expirationTimestamp,
+          anchor_block_timestamp: messageForBob!.anchorBlockTimestamp,
         },
       ])
       .simulate({ from: bob });
