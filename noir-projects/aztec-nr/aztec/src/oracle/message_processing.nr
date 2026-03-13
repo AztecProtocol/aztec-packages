@@ -54,3 +54,22 @@ unconstrained fn bulk_retrieve_logs_oracle(
     log_retrieval_requests_array_base_slot: Field,
     log_retrieval_responses_array_base_slot: Field,
 ) {}
+
+pub(crate) unconstrained fn resolve_message_contexts(
+    contract_address: AztecAddress,
+    message_context_requests_array_base_slot: Field,
+    message_context_responses_array_base_slot: Field,
+) {
+    resolve_message_contexts_oracle(
+        contract_address,
+        message_context_requests_array_base_slot,
+        message_context_responses_array_base_slot,
+    );
+}
+
+#[oracle(aztec_utl_utilityResolveMessageContexts)]
+unconstrained fn resolve_message_contexts_oracle(
+    contract_address: AztecAddress,
+    message_context_requests_array_base_slot: Field,
+    message_context_responses_array_base_slot: Field,
+) {}
