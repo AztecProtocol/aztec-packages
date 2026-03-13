@@ -143,7 +143,6 @@ async function deployAccountWithDiagnostics(
   const deployMethod = await account.getDeployMethod();
   let txHash;
   try {
-<<<<<<< HEAD
     let gasSettings;
     if (estimateGas) {
       const sim = await deployMethod.simulate({ from: AztecAddress.ZERO, fee: { paymentMethod } });
@@ -152,19 +151,12 @@ async function deployAccountWithDiagnostics(
     }
     const deployResult = await deployMethod.send({
       from: AztecAddress.ZERO,
+      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
+      additionalScopes: [account.address],
       fee: { paymentMethod, gasSettings },
       wait: NO_WAIT,
     });
     txHash = deployResult.txHash;
-=======
-    txHash = await deployMethod.send({
-      from: AztecAddress.ZERO,
-      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-      additionalScopes: [account.address],
-      fee: { paymentMethod },
-      wait: NO_WAIT,
-    });
->>>>>>> bb33335bb0 (feat: add optional additional scopes to wallet transaction API (#20487))
     await waitForTx(aztecNode, txHash, { timeout: 2400 });
     logger.info(`${accountLabel} deployed at ${account.address}`);
   } catch (error) {

@@ -394,10 +394,7 @@ export abstract class BaseWallet implements Wallet {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
-<<<<<<< HEAD
     const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
-=======
->>>>>>> bb33335bb0 (feat: add optional additional scopes to wallet transaction API (#20487))
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
