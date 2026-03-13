@@ -391,18 +391,6 @@ template <class Params_> struct alignas(32) field {
         uint64_t data[8]; // NOLINT
     };
     BB_INLINE constexpr wide_array mul_512(const field& other) const noexcept;
-    BB_INLINE constexpr wide_array sqr_512() const noexcept;
-
-    BB_INLINE constexpr field conditionally_subtract_from_double_modulus(const uint64_t predicate) const noexcept
-    {
-        if (predicate != 0) {
-            constexpr field p{
-                twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3]
-            };
-            return p - *this;
-        }
-        return *this;
-    }
 
     /**
      * For short Weierstrass curves y^2 = x^3 + b mod r, if there exists a cube root of unity mod r,
@@ -543,13 +531,6 @@ template <class Params_> struct alignas(32) field {
     }
 
     BB_INLINE static void __copy(const field& a, field& r) noexcept { r = a; } // NOLINT
-    BB_INLINE static void __swap(field& src, field& dest) noexcept             // NOLINT
-    {
-        field T = dest;
-        dest = src;
-        src = T;
-    }
-
     static field random_element(numeric::RNG* engine = nullptr) noexcept;
 
     // For serialization
@@ -560,47 +541,6 @@ template <class Params_> struct alignas(32) field {
     static constexpr uint256_t twice_modulus = modulus + modulus;
     static constexpr uint256_t not_modulus = -modulus;
     static constexpr uint256_t twice_not_modulus = -twice_modulus;
-
-    struct wnaf_table {
-        uint8_t windows[64]; // NOLINT
-
-        constexpr wnaf_table(const uint256_t& target)
-            : windows{
-                static_cast<uint8_t>(target.data[0] & 15),         static_cast<uint8_t>((target.data[0] >> 4) & 15),
-                static_cast<uint8_t>((target.data[0] >> 8) & 15),  static_cast<uint8_t>((target.data[0] >> 12) & 15),
-                static_cast<uint8_t>((target.data[0] >> 16) & 15), static_cast<uint8_t>((target.data[0] >> 20) & 15),
-                static_cast<uint8_t>((target.data[0] >> 24) & 15), static_cast<uint8_t>((target.data[0] >> 28) & 15),
-                static_cast<uint8_t>((target.data[0] >> 32) & 15), static_cast<uint8_t>((target.data[0] >> 36) & 15),
-                static_cast<uint8_t>((target.data[0] >> 40) & 15), static_cast<uint8_t>((target.data[0] >> 44) & 15),
-                static_cast<uint8_t>((target.data[0] >> 48) & 15), static_cast<uint8_t>((target.data[0] >> 52) & 15),
-                static_cast<uint8_t>((target.data[0] >> 56) & 15), static_cast<uint8_t>((target.data[0] >> 60) & 15),
-                static_cast<uint8_t>(target.data[1] & 15),         static_cast<uint8_t>((target.data[1] >> 4) & 15),
-                static_cast<uint8_t>((target.data[1] >> 8) & 15),  static_cast<uint8_t>((target.data[1] >> 12) & 15),
-                static_cast<uint8_t>((target.data[1] >> 16) & 15), static_cast<uint8_t>((target.data[1] >> 20) & 15),
-                static_cast<uint8_t>((target.data[1] >> 24) & 15), static_cast<uint8_t>((target.data[1] >> 28) & 15),
-                static_cast<uint8_t>((target.data[1] >> 32) & 15), static_cast<uint8_t>((target.data[1] >> 36) & 15),
-                static_cast<uint8_t>((target.data[1] >> 40) & 15), static_cast<uint8_t>((target.data[1] >> 44) & 15),
-                static_cast<uint8_t>((target.data[1] >> 48) & 15), static_cast<uint8_t>((target.data[1] >> 52) & 15),
-                static_cast<uint8_t>((target.data[1] >> 56) & 15), static_cast<uint8_t>((target.data[1] >> 60) & 15),
-                static_cast<uint8_t>(target.data[2] & 15),         static_cast<uint8_t>((target.data[2] >> 4) & 15),
-                static_cast<uint8_t>((target.data[2] >> 8) & 15),  static_cast<uint8_t>((target.data[2] >> 12) & 15),
-                static_cast<uint8_t>((target.data[2] >> 16) & 15), static_cast<uint8_t>((target.data[2] >> 20) & 15),
-                static_cast<uint8_t>((target.data[2] >> 24) & 15), static_cast<uint8_t>((target.data[2] >> 28) & 15),
-                static_cast<uint8_t>((target.data[2] >> 32) & 15), static_cast<uint8_t>((target.data[2] >> 36) & 15),
-                static_cast<uint8_t>((target.data[2] >> 40) & 15), static_cast<uint8_t>((target.data[2] >> 44) & 15),
-                static_cast<uint8_t>((target.data[2] >> 48) & 15), static_cast<uint8_t>((target.data[2] >> 52) & 15),
-                static_cast<uint8_t>((target.data[2] >> 56) & 15), static_cast<uint8_t>((target.data[2] >> 60) & 15),
-                static_cast<uint8_t>(target.data[3] & 15),         static_cast<uint8_t>((target.data[3] >> 4) & 15),
-                static_cast<uint8_t>((target.data[3] >> 8) & 15),  static_cast<uint8_t>((target.data[3] >> 12) & 15),
-                static_cast<uint8_t>((target.data[3] >> 16) & 15), static_cast<uint8_t>((target.data[3] >> 20) & 15),
-                static_cast<uint8_t>((target.data[3] >> 24) & 15), static_cast<uint8_t>((target.data[3] >> 28) & 15),
-                static_cast<uint8_t>((target.data[3] >> 32) & 15), static_cast<uint8_t>((target.data[3] >> 36) & 15),
-                static_cast<uint8_t>((target.data[3] >> 40) & 15), static_cast<uint8_t>((target.data[3] >> 44) & 15),
-                static_cast<uint8_t>((target.data[3] >> 48) & 15), static_cast<uint8_t>((target.data[3] >> 52) & 15),
-                static_cast<uint8_t>((target.data[3] >> 56) & 15), static_cast<uint8_t>((target.data[3] >> 60) & 15)
-            }
-        {}
-    };
 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
     BB_INLINE static constexpr void wasm_madd(uint64_t& left_limb,
@@ -664,6 +604,22 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field reduce() const noexcept;
     BB_INLINE constexpr field add(const field& other) const noexcept;
     BB_INLINE constexpr field subtract(const field& other) const noexcept;
+
+    // Debug-only assertion: checks that the field element is in the strict coarse form [0, 2p).
+    // Only meaningful for "small" moduli (<=254 bits) which use the coarse representation.
+    // Not constexpr in debug builds (BB_ASSERT_DEBUG uses std::ostringstream).
+    // Callers must guard with `if (!std::is_constant_evaluated())` in constexpr functions.
+#ifdef NDEBUG
+    constexpr void assert_coarse_form() const noexcept {}
+#else
+    void assert_coarse_form() const noexcept
+    {
+        if constexpr (modulus.data[3] < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+            uint256_t val{ data[0], data[1], data[2], data[3] };
+            BB_ASSERT_DEBUG(val < twice_modulus, "field element exceeds coarse form [0, 2p)");
+        }
+    }
+#endif
     BB_INLINE constexpr field montgomery_mul(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_mul_big(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_square() const noexcept;
