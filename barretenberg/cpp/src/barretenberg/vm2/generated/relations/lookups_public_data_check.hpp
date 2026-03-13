@@ -100,7 +100,7 @@ struct lookup_public_data_check_low_leaf_slot_validation_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_check_leaf_slot,
         ColumnAndShifts::public_data_check_low_leaf_slot,
-        ColumnAndShifts::public_data_check_sel
+        ColumnAndShifts::public_data_check_leaf_not_exists
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
@@ -126,7 +126,7 @@ struct lookup_public_data_check_low_leaf_next_slot_validation_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_check_low_leaf_next_slot,
         ColumnAndShifts::public_data_check_leaf_slot,
-        ColumnAndShifts::public_data_check_sel
+        ColumnAndShifts::public_data_check_next_slot_is_nonzero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
@@ -369,7 +369,7 @@ struct lookup_public_data_check_new_leaf_merkle_check_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_new_leaf_merkle_check_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_new_leaf_merkle_check_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::public_data_check_sel,           ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::public_data_check_should_insert, ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::public_data_check_new_leaf_hash, ColumnAndShifts::public_data_check_tree_size_before_write,
         ColumnAndShifts::public_data_check_tree_height,   ColumnAndShifts::public_data_check_intermediate_root,
         ColumnAndShifts::public_data_check_write_root
@@ -394,7 +394,7 @@ struct lookup_public_data_check_write_public_data_to_public_inputs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_WRITE_PUBLIC_DATA_TO_PUBLIC_INPUTS";
     static constexpr std::string_view RELATION_NAME = "public_data_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::public_data_check_should_write_to_public_inputs;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_sel_write_to_public_inputs;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_public_data_check_write_public_data_to_public_inputs_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_write_public_data_to_public_inputs_inv;
