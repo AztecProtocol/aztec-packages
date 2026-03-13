@@ -63,3 +63,20 @@ unconstrained fn returns_none_for_empty_packed_note() {
 
     assert(result.is_none());
 }
+
+#[test]
+unconstrained fn returns_none_for_unknown_note_type_id() {
+    let packed_note = BoundedVec::from_array([42]);
+
+    let result = NoteHashAndNullifier::test_compute_note_hash_and_nullifier(
+        packed_note,
+        AztecAddress::zero(),
+        0,
+        0xdeadbeef,
+        AztecAddress::zero(),
+        0,
+        0,
+    );
+
+    assert(result.is_none());
+}
