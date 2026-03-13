@@ -100,12 +100,6 @@ export abstract class BaseWallet implements Wallet {
     return [...scopeSet].map(AztecAddress.fromString);
   }
 
-  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
-    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
-    const scopeSet = new Set(allScopes.map(address => address.toString()));
-    return [...scopeSet].map(AztecAddress.fromString);
-  }
-
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
 
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
