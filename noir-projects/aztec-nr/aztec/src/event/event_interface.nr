@@ -36,7 +36,7 @@ pub unconstrained fn compute_private_serialized_event_commitment(
     event_type_id: Field,
 ) -> Field {
     let mut commitment_preimage =
-        BoundedVec::<_, 1 + MAX_EVENT_SERIALIZED_LEN>::from_array([randomness, event_type_id]);
+        BoundedVec::<_, 2 + MAX_EVENT_SERIALIZED_LEN>::from_array([randomness, event_type_id]);
     commitment_preimage.extend_from_bounded_vec(serialized_event);
 
     poseidon2_hash_with_separator_bounded_vec(commitment_preimage, DOM_SEP__EVENT_COMMITMENT)
@@ -46,11 +46,18 @@ mod test {
     use crate::event::event_interface::{
         compute_private_event_commitment, compute_private_serialized_event_commitment, EventInterface,
     };
+    use crate::messages::logs::event::MAX_EVENT_SERIALIZED_LEN;
     use crate::protocol::traits::{Serialize, ToField};
     use crate::test::mocks::mock_event::MockEvent;
 
     global VALUE: Field = 7;
     global RANDOMNESS: Field = 10;
+
+    #[test]
+    unconstrained fn max_size_serialized_event_commitment() {
+        let serialized_event = BoundedVec::from_array([0; MAX_EVENT_SERIALIZED_LEN]);
+        let _ = compute_private_serialized_event_commitment(serialized_event, 0, 0);
+    }
 
     #[test]
     unconstrained fn event_commitment_equivalence() {

@@ -133,8 +133,6 @@ describe('e2e_reload_keystore', () => {
     const { txHash: sentTx1 } = await deployer.deploy(ownerAddress, ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(1),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
     const receipt1 = await waitForTx(aztecNode, sentTx1);
@@ -200,8 +198,6 @@ describe('e2e_reload_keystore', () => {
     const { txHash: sentTx2 } = await deployer.deploy(ownerAddress, ownerAddress, 2).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(2),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
     const receipt2 = await waitForTx(aztecNode, sentTx2);

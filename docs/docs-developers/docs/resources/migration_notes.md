@@ -9,6 +9,54 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+
+### [Aztec.js] `TxReceipt` now includes `epochNumber`
+
+`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
+
+### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+
+The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+
+**Migration:**
+
+```diff
+- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
+- // epoch was passed in by the caller
++ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
++ // epoch is now available on the returned witness
++ const epoch = witness.epochNumber;
+```
+
+The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+
+**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
+
+### Two separate init nullifiers for private and public
+
+Contract initialization now emits two separate nullifiers instead of one: a **private init nullifier** and a **public init nullifier**. Each nullifier gates its respective execution domain:
+
+- Private external functions check the private init nullifier.
+- Public external functions check the public init nullifier.
+
+**How initializers work:**
+
+- **Private initializers** emit the private init nullifier. If the contract has any external public functions, the protocol auto-enqueues a public call to emit the public init nullifier.
+- **Public initializers** emit both nullifiers directly.
+- Contracts with no public functions only emit the private init nullifier.
+
+**`only_self` functions no longer have init checks.** They behave as if marked `noinitcheck`.
+
+**External functions called during private initialization must be `#[only_self]`.** Init nullifiers are emitted at the end of the initializer, so any external functions called on the initializing contract (e.g. via `enqueue_self` or `call_self`) during initialization will fail the init check unless they skip it.
+
+**Breaking change for deployment:** If your contract has external public functions and a private initializer, the class must be registered onchain before initialization. You can no longer pass `skipClassPublication: true`, because the auto-enqueued public call requires the class to be available.
+
+```diff
+  const deployed = await MyContract.deploy(wallet, ...args).send({
+-   skipClassPublication: true,
+  }).deployed();
+```
+
 ### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
 
 This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous (constrained computation of nullifiers can be performed only on the `ConfirmedNote` type). If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
@@ -33,8 +81,6 @@ The `maxLogsHit` flag indicates whether the log limit was reached, meaning more 
 ### [Aztec.nr] Removed `get_random_bytes`
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
-
-## 4.1.0-rc.2
 
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 
@@ -2950,7 +2996,7 @@ Doing the changes is as straightforward as:
 
 `UintNote` has also been updated to use the native `u128` type.
 
-### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
+### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifier`
 
 This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
 
