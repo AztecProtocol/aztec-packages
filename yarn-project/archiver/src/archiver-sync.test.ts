@@ -27,6 +27,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
+import { L1ToL2MessagesNotReadyError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { KVArchiverDataStore } from './store/kv_archiver_store.js';
@@ -211,6 +212,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toEqual(msgs1);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(2))).toEqual(msgs2);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toEqual(msgs3);
+      await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
       // Verify logs for each block in the checkpoints
       for (const checkpoint of [cp1, cp2, cp3]) {
@@ -889,7 +891,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(0);
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(4);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(0);
+      await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
       // Simulate L1 reorg: remove last 2 messages from checkpoint 3, add new messages for checkpoints 4 and 5
       logger.warn('Reorging L1 to L2 messages');
