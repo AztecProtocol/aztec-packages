@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -108,14 +108,13 @@ template <class base, class T> constexpr void field2<base, T>::self_from_montgom
 
 template <class base, class T> constexpr field2<base, T> field2<base, T>::reduce_once() const noexcept
 {
-    return *this;
-    // return { c0.reduce_once(), c1.reduce_once() };
+    return { c0.reduce_once(), c1.reduce_once() };
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_reduce_once() noexcept
 {
-    // c0.self_reduce_once();
-    // c1.self_reduce_once();
+    c0.self_reduce_once();
+    c1.self_reduce_once();
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_neg() noexcept

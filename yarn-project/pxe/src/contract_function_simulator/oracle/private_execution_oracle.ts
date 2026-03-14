@@ -71,7 +71,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private newNotes: NoteAndSlot[] = [];
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   private readonly argsHash: Fr;
@@ -152,13 +151,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    */
   public getContractClassLogs() {
     return this.contractClassLogs;
-  }
-
-  /**
-   * Return the offchain effects emitted during this execution.
-   */
-  public getOffchainEffects() {
-    return this.offchainEffects;
   }
 
   /**
@@ -649,10 +641,5 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
-  }
-
-  public emitOffchainEffect(data: Fr[]): Promise<void> {
-    this.offchainEffects.push({ data });
-    return Promise.resolve();
   }
 }

@@ -1,6 +1,7 @@
 use super::TestBuilder;
+use protocol_test_utils::FixtureBuilder;
 use types::{
-    constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::compute_sha_tree_root, tests::FixtureBuilder,
+    constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::compute_sha_tree_root,
     utils::arrays::subarray,
 };
 

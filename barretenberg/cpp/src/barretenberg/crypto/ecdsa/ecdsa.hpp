@@ -24,7 +24,7 @@ template <typename Fr, typename G1> struct ecdsa_key_pair {
     G1::affine_element public_key;
 
     // For serialization, update with any new fields
-    MSGPACK_FIELDS(private_key, public_key);
+    SERIALIZATION_FIELDS(private_key, public_key);
 };
 
 struct ecdsa_signature {
@@ -33,7 +33,7 @@ struct ecdsa_signature {
     uint8_t v;
 
     // For serialization, update with any new fields
-    MSGPACK_FIELDS(r, s, v);
+    SERIALIZATION_FIELDS(r, s, v);
 };
 
 /**

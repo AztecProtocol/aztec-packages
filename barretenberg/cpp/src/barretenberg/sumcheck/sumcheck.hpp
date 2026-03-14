@@ -22,7 +22,7 @@ namespace bb {
  * @brief Handler for processing round univariates in sumcheck.
  * Default implementation: send evaluations directly to transcript.
  */
-template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> struct RoundUnivariateHandler {
+template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor>> struct RoundUnivariateHandler {
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using CommitmentKey = typename Flavor::CommitmentKey;

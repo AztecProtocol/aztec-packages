@@ -25,6 +25,7 @@ import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   type ContractClassPublic,
@@ -74,7 +75,12 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 export interface AztecNode
   extends Pick<
     L2BlockSource,
-    'getBlocks' | 'getCheckpoints' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpointedBlocks'
+    | 'getBlocks'
+    | 'getCheckpoints'
+    | 'getBlockHeader'
+    | 'getL2Tips'
+    | 'getCheckpointedBlocks'
+    | 'getCheckpointsDataForEpoch'
   > {
   /**
    * Returns the tips of the L2 chain.
@@ -566,6 +572,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(CheckpointedL2Block.schema)),
+
+  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
 
   getCurrentMinFees: z.function().returns(GasFees.schema),
 

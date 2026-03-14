@@ -1,14 +1,37 @@
 #include "barretenberg/vm2/simulation/gadgets/public_data_tree_check.hpp"
 
-#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include <algorithm>
+#include <limits>
+#include <stdexcept>
+
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Compute the siloed leaf slot from a contract address and storage slot.
+ *
+ * @param contract_address The contract address to silo with.
+ * @param slot The storage slot.
+ * @return The siloed leaf slot, computed as poseidon2(DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot).
+ */
 FF PublicDataTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
     return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 }
 
+/**
+ * @brief Validate that the low leaf's slot range covers (jumps over) the given leaf slot.
+ *
+ * Checks that low_leaf.slot < leaf_slot and (low_leaf.next_slot > leaf_slot or next_slot == 0 meaning infinity).
+ * This is used to prove non-membership of the leaf slot in the indexed tree.
+ *
+ * @param low_leaf_preimage The preimage of the low leaf.
+ * @param leaf_slot The siloed leaf slot to validate against.
+ * @throws std::runtime_error If low leaf slot is >= leaf slot.
+ * @throws std::runtime_error If leaf slot is >= low leaf next slot (when next slot is nonzero).
+ */
 void PublicDataTreeCheck::validate_low_leaf_jumps_over_slot(const PublicDataTreeLeafPreimage& low_leaf_preimage,
                                                             const FF& leaf_slot)
 {
@@ -21,6 +44,22 @@ void PublicDataTreeCheck::validate_low_leaf_jumps_over_slot(const PublicDataTree
     }
 }
 
+/**
+ * @brief Assert that a public data tree read is valid.
+ *
+ * Verifies a membership proof for the low leaf, then checks the value:
+ * - If the leaf exists (low_leaf.slot == leaf_slot), asserts that the stored value matches.
+ * - If the leaf does not exist, validates the low leaf range and asserts value is zero.
+ *
+ * @param slot The storage slot being read.
+ * @param contract_address The contract address to silo the slot with.
+ * @param value The expected value at this slot.
+ * @param low_leaf_preimage The preimage of the low leaf in the indexed tree.
+ * @param low_leaf_index The index of the low leaf in the tree.
+ * @param sibling_path The Merkle sibling path for the low leaf.
+ * @param snapshot The tree snapshot (root and size) to verify against.
+ * @throws std::runtime_error If the leaf value does not match or the non-membership proof fails.
+ */
 void PublicDataTreeCheck::assert_read(const FF& slot,
                                       const AztecAddress& contract_address,
                                       const FF& value,
@@ -60,6 +99,24 @@ void PublicDataTreeCheck::assert_read(const FF& slot,
     });
 }
 
+/**
+ * @brief Write a value to the public data tree.
+ *
+ * Updates the low leaf (value if slot exists, pointers if it doesn't)
+ * If the slot doesn't exist, also inserts a new leaf into the tree.
+ *
+ * @param slot The storage slot being written.
+ * @param contract_address The contract address to silo the slot with.
+ * @param value The value to write.
+ * @param low_leaf_preimage The preimage of the low leaf in the indexed tree.
+ * @param low_leaf_index The index of the low leaf in the tree.
+ * @param low_leaf_sibling_path The Merkle sibling path for the low leaf.
+ * @param prev_snapshot The tree snapshot before the write.
+ * @param insertion_sibling_path The Merkle sibling path for inserting a new leaf (used only if slot is new).
+ * @param is_protocol_write Whether this is a protocol-level write (e.g., fee payment).
+ * @return The new tree snapshot after the write.
+ * @throws std::runtime_error If low leaf / merkle validation fails
+ */
 AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
                                                   const AztecAddress& contract_address,
                                                   const FF& value,
@@ -136,16 +193,25 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
     return next_snapshot;
 }
 
+/**
+ * @brief Emit a checkpoint-created event for discard reconstruction.
+ */
 void PublicDataTreeCheck::on_checkpoint_created()
 {
     events.emit(CheckPointEventType::CREATE_CHECKPOINT);
 }
 
+/**
+ * @brief Emit a checkpoint-committed event for discard reconstruction.
+ */
 void PublicDataTreeCheck::on_checkpoint_committed()
 {
     events.emit(CheckPointEventType::COMMIT_CHECKPOINT);
 }
 
+/**
+ * @brief Emit a checkpoint-reverted event for discard reconstruction.
+ */
 void PublicDataTreeCheck::on_checkpoint_reverted()
 {
     events.emit(CheckPointEventType::REVERT_CHECKPOINT);
@@ -154,7 +220,7 @@ void PublicDataTreeCheck::on_checkpoint_reverted()
 /**
  * @brief Generates ff_gt events for squashing.
  *
- * @param written_leaf_slots The leaf slots that were written (unique).
+ * @param written_leaf_slots The leaf slots that were written in the tx (unique and nondiscarded).
  */
 void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(const std::vector<FF>& written_leaf_slots)
 {

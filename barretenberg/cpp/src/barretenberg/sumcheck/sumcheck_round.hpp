@@ -747,7 +747,7 @@ template <typename Flavor> class SumcheckProverRound {
  \left(P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right) \f$ implemented as
  * - \ref compute_full_relation_purported_value method needed at the last verification step.
  */
-template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> class SumcheckVerifierRound {
+template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor>> class SumcheckVerifierRound {
     using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
@@ -976,18 +976,14 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
 
         bool verified = false;
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            first_sumcheck_round_evaluations_sum.self_reduce();
-            target_total_sum.self_reduce();
-            // This bool is only needed for debugging
+            if constexpr (IsGrumpkinFlavor<Flavor>) {
+                first_sumcheck_round_evaluations_sum.self_reduce();
+                target_total_sum.self_reduce();
+                full_honk_purported_value.self_reduce();
+            }
             verified = (first_sumcheck_round_evaluations_sum.get_value() == target_total_sum.get_value());
-            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
-            // target total sum
             first_sumcheck_round_evaluations_sum.assert_equal(target_total_sum);
-
-            full_honk_purported_value.self_reduce();
         } else {
-            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
-            // target total sum
             verified = (first_sumcheck_round_evaluations_sum == target_total_sum);
         }
 

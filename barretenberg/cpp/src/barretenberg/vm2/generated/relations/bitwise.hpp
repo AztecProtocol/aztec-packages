@@ -41,7 +41,7 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
     static constexpr size_t SR_TRACE_CONTINUITY = 4;
     static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_BITW_NO_EXTERNAL_START_ON_ERROR = 9;
-    static constexpr size_t SR_LAST_ON_ERROR = 13;
+    static constexpr size_t SR_END_ON_ERROR = 13;
     static constexpr size_t SR_ERR_ONLY_ON_START = 14;
     static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 16;
     static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 17;
@@ -67,8 +67,8 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
             return "START_AFTER_LATCH";
         case SR_BITW_NO_EXTERNAL_START_ON_ERROR:
             return "BITW_NO_EXTERNAL_START_ON_ERROR";
-        case SR_LAST_ON_ERROR:
-            return "LAST_ON_ERROR";
+        case SR_END_ON_ERROR:
+            return "END_ON_ERROR";
         case SR_ERR_ONLY_ON_START:
             return "ERR_ONLY_ON_START";
         case SR_RES_TAG_SHOULD_MATCH_INPUT:

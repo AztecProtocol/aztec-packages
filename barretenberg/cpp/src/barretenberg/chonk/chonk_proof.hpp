@@ -167,7 +167,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         {}
     };
 
-    MSGPACK_FIELDS(mega_proof, goblin_proof);
+    SERIALIZATION_FIELDS(mega_proof, goblin_proof);
     bool operator==(const ChonkProof_& other) const = default;
 };
 

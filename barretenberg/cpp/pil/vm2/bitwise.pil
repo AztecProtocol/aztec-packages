@@ -142,9 +142,8 @@ start_sha256 * (1 - start_sha256) = 0;
 // Crucial constraint to prevent the vulnerability described in PR #19875 consisting
 // of maliciously setting start_keccak/start_sha256=1 on error rows (sel=1, err=1)
 // and forging arbitrary bitwise operation results.
-// keccak and sh256 only enforce that tag_a = U64/U32 respectively. An attacker is free to
+// keccak and sha256 only enforce that tag_a = U64/U32 respectively. An attacker is free to
 // set tag_b to any tag value and use the resulting tag mismatch error to return an invalid result
-// Since error rows have sel=1, we gate by err instead of (1 - sel).
 #[BITW_NO_EXTERNAL_START_ON_ERROR]
 (start_keccak + start_sha256) * err = 0;
 
@@ -152,7 +151,7 @@ start_sha256 * (1 - start_sha256) = 0;
 // This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
 // corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).
 // Consistency can be achieved with a lookup table between the tag and precomputed.tag_byte_length
-pol commit ctr; // when err=1, last=1 forces ctr in {0,1} via BITW_LAST_FOR_CTR_ONE; 0 is optimal
+pol commit ctr;
 
 // The error flags for this subtrace
 pol commit sel_tag_ff_err; // @boolean
@@ -163,7 +162,7 @@ sel_tag_mismatch_err * (1 - sel_tag_mismatch_err) = 0;
 // Consolidated error flag
 pol commit err; // @boolean (by definition)
 err = 1 - (1 - sel_tag_mismatch_err) * (1 - sel_tag_ff_err);
-#[LAST_ON_ERROR] // end = 1 if err = 1
+#[END_ON_ERROR] // end = 1 if err = 1
 err * (end - 1) = 0;
 
 // Error can only manifest on start rows (where tag checks are evaluated).

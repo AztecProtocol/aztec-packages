@@ -36,8 +36,10 @@ jobs:
 
       - name: Extract target branch from labels
         id: extract-branch
+        env:
+          LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
-          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          LABELS="$LABELS_JSON"
           echo "All labels: $LABELS"
 
           # Extract the branch name from backport-to-* label
@@ -94,12 +96,12 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          URL: ${{ github.event.pull_request.html_url }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
         run: |
-          PR="${{ github.event.pull_request.number }}"
-          TITLE="${{ github.event.pull_request.title }}"
-          URL="${{ github.event.pull_request.html_url }}"
-          AUTHOR="${{ github.event.pull_request.user.login }}"
-          BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
 
           # Post single message to #backports, derive permalink from response
           TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s` (author: %s) (🤖)' \

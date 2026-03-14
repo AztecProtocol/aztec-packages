@@ -218,7 +218,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
 
         FieldType x{};
         FieldType y{};
-        MSGPACK_FIELDS(x, y);
+        SERIALIZATION_FIELDS(x, y);
     };
 
     void msgpack_pack(auto& packer) const

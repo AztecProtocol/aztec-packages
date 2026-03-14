@@ -31,7 +31,7 @@ struct schnorr_signature {
     // `e` represents the verifier's challenge in the protocol. It is encoded as the 32-byte
     // output of a hash function modeling a random oracle in the Fiat-Shamir transform.
     std::array<uint8_t, 32> e;
-    MSGPACK_FIELDS(s, e);
+    SERIALIZATION_FIELDS(s, e);
 };
 
 template <typename Hash, typename Fq, typename Fr, typename G1>
