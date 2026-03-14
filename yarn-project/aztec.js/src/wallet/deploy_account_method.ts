@@ -9,15 +9,22 @@ import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
+  type DeployInteractionWaitOptions,
   DeployMethod,
+  type DeployOptions,
   type DeployOptionsWithoutWait,
   type RequestDeployOptions,
   type SimulateDeployOptions,
 } from '../contract/deploy_method.js';
-import type { FeePaymentMethodOption, InteractionWaitOptions } from '../contract/interaction_options.js';
+import type {
+  FeePaymentMethodOption,
+  InteractionWaitOptions,
+  ProfileInteractionOptions,
+} from '../contract/interaction_options.js';
+import type { WaitOpts } from '../contract/wait_opts.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
-import type { Wallet } from './index.js';
+import type { ProfileOptions, SendOptions, SimulateOptions, Wallet } from './index.js';
 
 /**
  * Extended fee payment method option for account deployments that includes entrypoint wrapping options
@@ -146,5 +153,35 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       // The fee payment method one way or another
       deployer: options.from,
     };
+  }
+
+  protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
+    options: DeployOptions<W>,
+    // eslint-disable-next-line jsdoc/require-jsdoc
+  ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
+    return super.convertDeployOptionsToSendOptions(this.injectContractAddressIntoScopes(options));
+  }
+
+  protected override convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {
+    return super.convertDeployOptionsToSimulateOptions(this.injectContractAddressIntoScopes(options));
+  }
+
+  protected override convertDeployOptionsToProfileOptions(
+    options: DeployOptionsWithoutWait & ProfileInteractionOptions,
+  ): ProfileOptions {
+    return super.convertDeployOptionsToProfileOptions(this.injectContractAddressIntoScopes(options));
+  }
+
+  /**
+   * Injects the contract's own address into scopes so the constructor can access its own keys.
+   * @param options - The deploy options to augment with the contract address.
+   */
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  private injectContractAddressIntoScopes<T extends { additionalScopes?: AztecAddress[] }>(options: T): T {
+    if (!this.address) {
+      throw new Error('Instance not yet constructed. This is a bug!');
+    }
+    const existing = options.additionalScopes ?? [];
+    return { ...options, additionalScopes: [...existing, this.address] };
   }
 }
