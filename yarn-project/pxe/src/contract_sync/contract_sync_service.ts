@@ -56,19 +56,18 @@ export class ContractSyncService implements StagedStore {
     jobId: string,
     scopes: AccessScopes,
   ): Promise<void> {
-    if (this.#shouldSkipSync(contractAddress, jobId, scopes)) {
+    if (this.#shouldSkipSync(jobId, contractAddress)) {
       return;
     }
 
-    const unsyncedScopes = this.#getUnsyncedScopes(contractAddress, scopes);
-    this.#startSyncIfNeeded(contractAddress, unsyncedScopes, () =>
+    this.#startSyncIfNeeded(contractAddress, scopes, scopesToSync =>
       this.#syncContract(
         contractAddress,
         functionToInvokeAfterSync,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
-        unsyncedScopes,
+        scopesToSync,
       ),
     );
 
@@ -78,7 +77,7 @@ export class ContractSyncService implements StagedStore {
   /** Clears sync cache entries for a specific contract across all scopes. */
   invalidateContract(contractAddress: AztecAddress): void {
     const prefix = `${contractAddress.toString()}:`;
-    // This scan over all keys should be fine given the cache is bounded by `num_syncedcontracts * 
+    // This scan over all keys should be fine given the cache is bounded by `num_syncedcontracts *
     // num_accounts`
     [...this.syncedContracts.keys()]
       .filter(key => key.startsWith(prefix))
@@ -130,37 +129,39 @@ export class ContractSyncService implements StagedStore {
     this.excludedFromSync.delete(jobId);
     return Promise.resolve();
   }
-
-  /** Filters out scopes that are already cached, returning only those that still need syncing. */
-  #getUnsyncedScopes(contractAddress: AztecAddress, scopes: AccessScopes): AccessScopes {
-    if (scopes === 'ALL_SCOPES') {
-      return scopes;
-    }
-    return scopes.filter(scope => !this.syncedContracts.has(toKey(contractAddress, scope)));
-  }
-
   /** Returns true if sync should be skipped for this contract */
-  #shouldSkipSync(contractAddress: AztecAddress, jobId: string, scopes: AccessScopes): boolean {
-    const excluded = this.excludedFromSync.get(jobId);
-    if (excluded?.has(contractAddress.toString())) {
-      return true;
-    }
-    const hasContractBeenSyncedForAllScopes = this.syncedContracts.has(toKey(contractAddress, 'ALL_SCOPES'));
-    const isScopeListEmpty = scopes !== 'ALL_SCOPES' && scopes.length === 0;
-    return hasContractBeenSyncedForAllScopes || isScopeListEmpty;
+  #shouldSkipSync(jobId: string, contractAddress: AztecAddress): boolean {
+    return !!this.excludedFromSync.get(jobId)?.has(contractAddress.toString());
   }
 
   /** If there are unsynced scopes, starts sync and stores the promise in cache with error cleanup. */
-  #startSyncIfNeeded(contractAddress: AztecAddress, unsyncedScopes: AccessScopes, syncFn: () => Promise<void>): void {
-    const keys = toKeys(contractAddress, unsyncedScopes);
+  #startSyncIfNeeded(
+    contractAddress: AztecAddress,
+    scopes: AccessScopes,
+    syncFn: (scopesToSync: AccessScopes) => Promise<void>,
+  ): void {
+    const scopesToSync = this.#getScopesToSync(contractAddress, scopes);
+    const keys = toKeys(contractAddress, scopesToSync);
     if (keys.length === 0) {
       return;
     }
-    const promise = syncFn().catch(err => {
+    const promise = syncFn(scopesToSync).catch(err => {
       keys.forEach(key => this.syncedContracts.delete(key));
       throw err;
     });
     keys.forEach(key => this.syncedContracts.set(key, promise));
+  }
+
+  /** Filters out scopes that are already cached, returning only those that still need syncing. */
+  #getScopesToSync(contractAddress: AztecAddress, scopes: AccessScopes): AccessScopes {
+    if (this.syncedContracts.has(toKey(contractAddress, 'ALL_SCOPES'))) {
+      // If we are already syncing all scopes, then return an empty list
+      return [];
+    }
+    if (scopes === 'ALL_SCOPES') {
+      return 'ALL_SCOPES';
+    }
+    return scopes.filter(scope => !this.syncedContracts.has(toKey(contractAddress, scope)));
   }
 
   /** Collects all relevant scope promises (including in-flight ones from concurrent calls) and awaits them. */

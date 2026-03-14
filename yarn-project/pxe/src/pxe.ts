@@ -924,8 +924,9 @@ export class PXE {
         const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
         const skipKernels = hasOverriddenContracts;
 
-        // Exclude overridden contracts from sync so the sync service skips them
         if (hasOverriddenContracts) {
+          // Overridden contracts don't have a sync function, so calling sync on them would fail.
+          // We exclude them so the sync service skips them entirely.
           this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
         }
 
