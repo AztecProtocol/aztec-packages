@@ -67,10 +67,11 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     // For ZK, the gemini_masking_poly (at dyadic_size) is already reflected in max_end_index.
     size_t key_size = prover_instance->polynomials.max_end_index();
     if constexpr (Flavor::HasZK) {
-        // SmallSubgroupIPA commits fixed-size polynomials (up to SUBGROUP_SIZE + 3). Ensure the
-        // CRS is large enough for tiny test circuits where max_end_index may be smaller.
+        // Masking tails extend A_0 to dyadic_size in Gemini, so the commitment key must
+        // accommodate the full dyadic circuit size (Shplonk quotient may be dyadic-sized).
+        // SmallSubgroupIPA also commits fixed-size polynomials (up to SUBGROUP_SIZE + 3).
         constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-        key_size = std::max(key_size, size_t{ 1 } << (log_subgroup_size + 1));
+        key_size = std::max({ key_size, prover_instance->dyadic_size(), size_t{ 1 } << (log_subgroup_size + 1) });
     }
     commitment_key = CommitmentKey(key_size);
 
