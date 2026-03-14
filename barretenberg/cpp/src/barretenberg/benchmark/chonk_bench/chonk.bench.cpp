@@ -189,6 +189,9 @@ BENCHMARK_DEFINE_F(ChonkBench, BatchIPAOnly)(benchmark::State& state)
     }
 }
 
+// Pinned-input helpers and batch verifier benchmarks require threads (not available in WASM)
+#ifndef __wasm__
+
 /**
  * @brief Generate a proof from pinned IVC inputs (realistic transaction circuits).
  *
@@ -371,6 +374,8 @@ BENCHMARK_REGISTER_F(ChonkBench, BatchVerifyServiceMixed)
     ->Args({ 120, 8, 5 })
     ->Args({ 120, 8, 15 })
     ->Args({ 120, 8, 30 });
+
+#endif // __wasm__
 
 } // namespace
 
