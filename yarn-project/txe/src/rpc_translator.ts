@@ -918,7 +918,9 @@ export class RPCTranslator {
   // eslint-disable-next-line camelcase
   async aztec_utl_invalidateContractSyncCache(foreignContractAddress: ForeignCallSingle) {
     const contractAddress = addressFromSingle(foreignContractAddress);
+    
     await this.handlerAsUtility().invalidateContractSyncCache(contractAddress);
+    
     return toForeignCallResult([]);
   }
 

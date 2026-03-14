@@ -78,7 +78,8 @@ export class ContractSyncService implements StagedStore {
   /** Clears sync cache entries for a specific contract across all scopes. */
   invalidateContract(contractAddress: AztecAddress): void {
     const prefix = `${contractAddress.toString()}:`;
-    // This scan over all keys should be fine given the cache is bounded by `num_contracts * num_accounts`
+    // This scan over all keys should be fine given the cache is bounded by `num_syncedcontracts * 
+    // num_accounts`
     [...this.syncedContracts.keys()]
       .filter(key => key.startsWith(prefix))
       .forEach(key => this.syncedContracts.delete(key));
