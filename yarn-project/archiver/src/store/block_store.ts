@@ -20,7 +20,7 @@ import {
   serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -846,7 +846,10 @@ export class BlockStore {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+  async getSettledTxReceipt(
+    txHash: TxHash,
+    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
+  ): Promise<TxReceipt | undefined> {
     const txEffect = await this.getTxEffect(txHash);
     if (!txEffect) {
       return undefined;
@@ -855,10 +858,11 @@ export class BlockStore {
     const blockNumber = BlockNumber(txEffect.l2BlockNumber);
 
     // Use existing archiver methods to determine finalization level
-    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
+    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, blockData] = await Promise.all([
       this.getProvenBlockNumber(),
       this.getCheckpointedL2BlockNumber(),
       this.getFinalizedL2BlockNumber(),
+      this.getBlockData(blockNumber),
     ]);
 
     let status: TxStatus;
@@ -872,6 +876,9 @@ export class BlockStore {
       status = TxStatus.PROPOSED;
     }
 
+    const epochNumber =
+      blockData && l1Constants ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, l1Constants) : undefined;
+
     return new TxReceipt(
       txHash,
       status,
@@ -880,6 +887,7 @@ export class BlockStore {
       txEffect.data.transactionFee.toBigInt(),
       txEffect.l2BlockHash,
       blockNumber,
+      epochNumber,
     );
   }
 

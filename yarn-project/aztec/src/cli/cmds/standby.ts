@@ -35,10 +35,33 @@ export async function computeExpectedGenesisRoot(config: GenesisStateConfig, use
   return { genesisArchiveRoot, prefilledPublicData };
 }
 
+async function checkRollupCompatibility(
+  rollup: RollupContract,
+  expected: { genesisArchiveRoot: Fr; vkTreeRoot: Fr; protocolContractsHash: Fr },
+): Promise<string[]> {
+  const mismatches: string[] = [];
+  const [l1Genesis, l1Vk, l1Protocol] = await Promise.all([
+    rollup.getGenesisArchiveTreeRoot(),
+    rollup.getVkTreeRoot(),
+    rollup.getProtocolContractsHash(),
+  ]);
+  if (!l1Genesis.equals(expected.genesisArchiveRoot)) {
+    mismatches.push(`genesis archive root (expected ${expected.genesisArchiveRoot}, got ${l1Genesis})`);
+  }
+  if (!l1Vk.equals(expected.vkTreeRoot)) {
+    mismatches.push(`VK tree root (expected ${expected.vkTreeRoot}, got ${l1Vk})`);
+  }
+  if (!l1Protocol.equals(expected.protocolContractsHash)) {
+    mismatches.push(`protocol contracts hash (expected ${expected.protocolContractsHash}, got ${l1Protocol})`);
+  }
+  return mismatches;
+}
+
 /**
- * Waits until the canonical rollup's genesis archive root matches the expected local genesis root.
- * If the rollup is not yet compatible (e.g. during L1 contract upgrades), enters standby mode:
- * starts a lightweight HTTP server for K8s liveness probes and polls every 60s until a compatible rollup appears.
+ * Waits until the canonical rollup's genesis archive root, VK tree root, and protocol contracts hash
+ * all match the expected local values. If the rollup is not yet compatible (e.g. during L1 contract upgrades),
+ * enters standby mode: starts a lightweight HTTP server for K8s liveness probes and polls every 60s
+ * until a compatible rollup appears.
  */
 export async function waitForCompatibleRollup(
   config: {
@@ -47,7 +70,7 @@ export async function waitForCompatibleRollup(
     l1Contracts: { registryAddress: EthAddress };
     rollupVersion?: number;
   },
-  expectedGenesisRoot: Fr,
+  expected: { genesisArchiveRoot: Fr; vkTreeRoot: Fr; protocolContractsHash: Fr },
   port: number | undefined,
   userLog: LogFn,
 ): Promise<void> {
@@ -58,21 +81,19 @@ export async function waitForCompatibleRollup(
   const rollupAddress = await registry.getRollupAddress(rollupVersion);
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
 
-  let l1GenesisRoot: Fr;
+  let mismatches: string[];
   try {
-    l1GenesisRoot = await rollup.getGenesisArchiveTreeRoot();
+    mismatches = await checkRollupCompatibility(rollup, expected);
   } catch (err: any) {
-    throw new Error(
-      `Could not retrieve genesis archive root from canonical rollup at ${rollupAddress}: ${err.message}`,
-    );
+    throw new Error(`Could not retrieve rollup config from canonical rollup at ${rollupAddress}: ${err.message}`);
   }
 
-  if (l1GenesisRoot.equals(expectedGenesisRoot)) {
+  if (mismatches.length === 0) {
     return;
   }
 
   userLog(
-    `Genesis root mismatch: expected ${expectedGenesisRoot}, got ${l1GenesisRoot} from rollup at ${rollupAddress}. ` +
+    `Rollup at ${rollupAddress} is incompatible: ${mismatches.join('; ')}. ` +
       `Entering standby mode. Will poll every ${ROLLUP_POLL_INTERVAL_S}s for a compatible rollup...`,
   );
 
@@ -85,20 +106,20 @@ export async function waitForCompatibleRollup(
         const currentRollupAddress = await registry.getRollupAddress(rollupVersion);
         const currentRollup = new RollupContract(publicClient, currentRollupAddress.toString());
 
-        let currentGenesisRoot: Fr;
+        let currentMismatches: string[];
         try {
-          currentGenesisRoot = await currentRollup.getGenesisArchiveTreeRoot();
+          currentMismatches = await checkRollupCompatibility(currentRollup, expected);
         } catch {
-          userLog(`Failed to fetch genesis root from rollup at ${currentRollupAddress}. Retrying...`);
+          userLog(`Failed to fetch rollup config from rollup at ${currentRollupAddress}. Retrying...`);
           return undefined;
         }
 
-        if (currentGenesisRoot.equals(expectedGenesisRoot)) {
+        if (currentMismatches.length === 0) {
           userLog(`Compatible rollup found at ${currentRollupAddress}. Exiting standby mode.`);
           return true;
         }
 
-        userLog(`Still waiting. Rollup at ${currentRollupAddress} has genesis root ${currentGenesisRoot}.`);
+        userLog(`Still waiting. Rollup at ${currentRollupAddress}: ${currentMismatches.join('; ')}.`);
         return undefined;
       },
       'compatible rollup',
