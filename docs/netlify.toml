@@ -800,3 +800,8 @@
     # Aztec-nr: user-defined 'offchain_receive' is not allowed
     from = "/errors/7"
     to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
+
+[[redirects]]
+    # derive(Packable) used on a struct with sub-Field members that could be packed more efficiently
+    from = "/errors/8"
+    to = "/aztec-nr-api/nightly/protocol_types/traits/trait.Packable.html"

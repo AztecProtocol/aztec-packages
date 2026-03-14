@@ -97,6 +97,25 @@ comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quo
     }
 }
 
+/// Recursively counts sub-Field slots for a type. Types that are smaller than a Field (booleans, integers) each occupy
+/// one slot. Arrays multiply element slots by length. Anything else returns 0 since it is either a Field (and is
+/// therefore optimally packed), or it is a generic struct with its own Packable implementation - if suboptimal, its
+/// derivation will be the one to emit the warning.
+comptime fn count_sub_field_slots(typ: Type) -> u32 {
+    if typ.is_bool() {
+        1
+    } else if typ.as_integer().is_some() {
+        1
+    } else if typ.as_array().is_some() {
+        let (elem_type, len_type) = typ.as_array().unwrap();
+        // Generic array lengths (e.g. [T; N]) can't be resolved at compile time - we assume the array will have at
+        // least one element
+        count_sub_field_slots(elem_type) * len_type.as_constant().unwrap_or(1)
+    } else {
+        0
+    }
+}
+
 /// Generates a [`Packable`](crate::traits::Packable) trait implementation for a given struct `s`.
 ///
 /// # Arguments
@@ -171,6 +190,19 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     // for the `Packable` trait.
     let generics_declarations = get_generics_declarations(s);
     let where_packable_clause = get_where_trait_clause(s, quote {Packable});
+
+    // Warn when multiple sub-Field members could be packed together more efficiently.
+    // We use println because comptime `warn` doesn't exist yet (see noir-lang/noir#7714).
+    let mut total_sub_field_slots: u32 = 0;
+    for i in 0..params.len() {
+        total_sub_field_slots += count_sub_field_slots(params[i].1);
+    }
+    if total_sub_field_slots >= 2 {
+        let name = s.name();
+        println(
+            f"warning: #[derive(Packable)] on '{name}' is sub-optimal because multiple sub-Field members could be packed together. Consider implementing Packable manually: https://docs.aztec.network/errors/8",
+        );
+    }
 
     // The following will give us:
     // <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
@@ -351,5 +383,4 @@ mod test {
         let unpacked = HasArrayWithGenerics::unpack(packed);
         assert(unpacked == struct_with_array_of_generics);
     }
-
 }
