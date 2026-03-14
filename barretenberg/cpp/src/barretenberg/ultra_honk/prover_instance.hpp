@@ -15,6 +15,7 @@
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/polynomials/polynomial_stats.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/sumcheck/masking_tail_data.hpp"
 
 namespace bb {
 
@@ -44,6 +45,8 @@ template <typename Flavor_> class ProverInstance_ {
     FF alpha; // challenge whose powers batch subrelation contributions during Sumcheck
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
+
+    MaskingTailData<Flavor> masking_tail_data; // ZK: stores masking values for short witness polys
 
     HonkProof ipa_proof; // utilized for rollup proofs (IO::HasIPA)
 

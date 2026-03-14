@@ -368,8 +368,8 @@ TEST_F(ECCVMTests, CommittedSumcheck)
                                    CONST_ECCVM_LOG_N);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
-
-    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
+    MaskingTailData<Flavor> masking_tail;
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
 

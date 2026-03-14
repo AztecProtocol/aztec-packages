@@ -110,7 +110,7 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 
     if constexpr (Flavor::HasZK) {
         zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-        sumcheck_output = sumcheck.prove(zk_sumcheck_data);
+        sumcheck_output = sumcheck.prove(zk_sumcheck_data, prover_instance->masking_tail_data);
     } else {
         sumcheck_output = sumcheck.prove();
     }
@@ -130,6 +130,13 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
     PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size(), prover_instance->polynomials.max_end_index());
     polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(prover_instance->polynomials.get_to_be_shifted());
+
+    // For ZK: register masking tail polynomials with the batcher so PCS includes them
+    if constexpr (Flavor::HasZK) {
+        if (prover_instance->masking_tail_data.is_active()) {
+            prover_instance->masking_tail_data.add_tails_to_batcher(prover_instance->polynomials, polynomial_batcher);
+        }
+    }
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {

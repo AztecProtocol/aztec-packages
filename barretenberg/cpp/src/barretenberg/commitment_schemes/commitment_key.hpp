@@ -138,10 +138,25 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
+        // Per-poly masking: if mask_flags[i] is true, mask_values[i] has random values to add at tail positions.
+        std::vector<bool> mask_flags;
+        std::vector<std::array<Fr, NUM_MASKED_ROWS>> mask_values;
+
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript,
                                                             size_t max_batch_size = std::numeric_limits<size_t>::max())
         {
             std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
+
+            // Adjust commitments for masked polys: C' = C_short + commit(tail_poly)
+            for (size_t i = 0; i < commitments.size(); ++i) {
+                if (mask_flags[i]) {
+                    size_t n = wires[i].virtual_size();
+                    // Commit to the NUM_MASKED_ROWS tail values using SRS points at {n-3, n-2, n-1}
+                    PolynomialSpan<const Fr> tail_span(n - NUM_MASKED_ROWS, mask_values[i]);
+                    commitments[i] = commitments[i] + key->commit(tail_span);
+                }
+            }
+
             for (size_t i = 0; i < commitments.size(); ++i) {
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
@@ -151,15 +166,22 @@ template <class Curve> class CommitmentKey {
 
         void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool mask)
         {
-            if (mask) {
-                poly.mask();
-            }
             wires.push_back(poly);
             labels.push_back(label);
+            mask_flags.push_back(mask);
+            if (mask) {
+                std::array<Fr, NUM_MASKED_ROWS> vals;
+                for (auto& v : vals) {
+                    v = Fr::random_element();
+                }
+                mask_values.push_back(vals);
+            } else {
+                mask_values.push_back({ Fr::zero(), Fr::zero(), Fr::zero() });
+            }
         }
     };
 
-    CommitBatch start_batch() { return CommitBatch{ this, {}, {} }; }
+    CommitBatch start_batch() { return CommitBatch{ this, {}, {}, {}, {} }; }
 };
 
 } // namespace bb

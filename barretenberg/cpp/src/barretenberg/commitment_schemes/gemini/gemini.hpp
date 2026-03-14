@@ -130,9 +130,19 @@ template <typename Curve> class GeminiProver_ {
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
 
+        // Batched tails: small polynomials covering only the tail region (e.g. last NUM_MASKED_ROWS positions).
+        // Populated during compute_batched if tails are registered.
+        Polynomial batched_unshifted_tail_;
+        Polynomial batched_shifted_tail_;
+
       public:
         RefVector<Polynomial> unshifted;            // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
+
+        // Tails: small polynomials (e.g. masking values) to be batched with the same rho scalar
+        // as their corresponding base polynomial. Pairs of (index in unshifted/shifted list, tail poly).
+        std::vector<std::pair<size_t, Polynomial>> unshifted_tails_;
+        std::vector<std::pair<size_t, Polynomial>> shifted_tails_;
 
         PolynomialBatcher(const size_t full_batched_size, const size_t actual_data_size = 0)
             : full_batched_size(full_batched_size)
@@ -148,6 +158,15 @@ template <typename Curve> class GeminiProver_ {
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
 
+        void add_unshifted_tail(size_t batcher_index, Polynomial&& tail)
+        {
+            unshifted_tails_.emplace_back(batcher_index, std::move(tail));
+        }
+        void add_shifted_tail(size_t batcher_index, Polynomial&& tail)
+        {
+            shifted_tails_.emplace_back(batcher_index, std::move(tail));
+        }
+
         /**
          * @brief Compute batched polynomial A₀ = F + G/X as the linear combination of all polynomials to be opened,
          * where F is the linear combination of the unshifted polynomials and G is the linear combination of the
@@ -158,9 +177,21 @@ template <typename Curve> class GeminiProver_ {
          */
         Polynomial compute_batched(const Fr& challenge)
         {
+            // Sort tails by batcher index for the batch lambda
+            if (!unshifted_tails_.empty()) {
+                std::sort(unshifted_tails_.begin(), unshifted_tails_.end(), [](const auto& a, const auto& b) {
+                    return a.first < b.first;
+                });
+            }
+            if (!shifted_tails_.empty()) {
+                std::sort(shifted_tails_.begin(), shifted_tails_.end(), [](const auto& a, const auto& b) {
+                    return a.first < b.first;
+                });
+            }
+
             Fr running_scalar(1);
             BB_BENCH_NAME("compute_batched");
-            // lambda for batching polynomials; updates the running scalar in place
+            // lambda for batching base polynomials; updates the running scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
                 for (auto& poly : polynomials_to_batch) {
                     batched.add_scaled(poly, running_scalar);
@@ -168,18 +199,51 @@ template <typename Curve> class GeminiProver_ {
                 }
             };
 
+            // lambda for batching tails into a small accumulator using the correct rho power per tail.
+            // base_scalar is the rho power at the start of this batch (1 for unshifted, rho^N for shifted).
+            auto batch_tails = [&](Polynomial& batched_tail,
+                                   const std::vector<std::pair<size_t, Polynomial>>& tails,
+                                   const Fr& base_scalar) {
+                if (tails.empty()) {
+                    return;
+                }
+                // Use the first tail's start_index/virtual_size as template for the accumulator
+                size_t tail_start = tails[0].second.start_index();
+                size_t tail_vsize = tails[0].second.virtual_size();
+                size_t tail_size = tails[0].second.size();
+                batched_tail = Polynomial(tail_size, tail_vsize, tail_start);
+                for (const auto& [idx, tail] : tails) {
+                    Fr scalar = base_scalar * challenge.pow(idx);
+                    batched_tail.add_scaled(tail, scalar);
+                }
+            };
+
             Polynomial full_batched(full_batched_size);
 
             // compute the linear combination F of the unshifted polynomials
+            Fr unshifted_base_scalar(1);
             if (has_unshifted()) {
                 batch(batched_unshifted, unshifted);
                 full_batched += batched_unshifted; // A₀ += F
             }
 
+            // Batch unshifted tails into a small poly and add to A₀
+            batch_tails(batched_unshifted_tail_, unshifted_tails_, unshifted_base_scalar);
+            if (!batched_unshifted_tail_.is_empty()) {
+                full_batched += batched_unshifted_tail_;
+            }
+
             // compute the linear combination G of the to-be-shifted polynomials
+            Fr shifted_base_scalar = running_scalar;
             if (has_to_be_shifted_by_one()) {
                 batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
                 full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ += G/X
+            }
+
+            // Batch shifted tails into a small poly and add shifted version to A₀
+            batch_tails(batched_shifted_tail_, shifted_tails_, shifted_base_scalar);
+            if (!batched_shifted_tail_.is_empty()) {
+                full_batched += batched_shifted_tail_.shifted();
             }
 
             return full_batched;
@@ -200,6 +264,14 @@ template <typename Curve> class GeminiProver_ {
                 A_0_pos += batched_unshifted; // A₀₊ += F
             }
 
+            // Add batched unshifted tail (small poly covering tail region only)
+            if (!batched_unshifted_tail_.is_empty()) {
+                // Extend A_0_pos to accommodate the tail region
+                Polynomial A_0_extended(A_0_pos, full_batched_size - A_0_pos.start_index());
+                A_0_extended += batched_unshifted_tail_;
+                A_0_pos = std::move(A_0_extended);
+            }
+
             Polynomial A_0_neg = A_0_pos;
 
             if (has_to_be_shifted_by_one()) {
@@ -208,6 +280,14 @@ template <typename Curve> class GeminiProver_ {
 
                 A_0_pos += batched_to_be_shifted_by_one; // A₀₊ += G/r
                 A_0_neg -= batched_to_be_shifted_by_one; // A₀₋ -= G/r
+            }
+
+            if (!batched_shifted_tail_.is_empty()) {
+                Fr r_inv = r_challenge.invert();
+                batched_shifted_tail_ *= r_inv;
+
+                A_0_pos += batched_shifted_tail_;
+                A_0_neg -= batched_shifted_tail_;
             }
 
             return { A_0_pos, A_0_neg };

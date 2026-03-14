@@ -176,7 +176,8 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
 
     // ZK Sumcheck: this will use RowDisablingPolynomial to mask the last 4 rows
     ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
-    SumcheckOutput<Flavor> prover_output = sumcheck_prover.prove(zk_sumcheck_data);
+    MaskingTailData<Flavor> masking_tail;
+    SumcheckOutput<Flavor> prover_output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
 
     // Verifier: Verify with padding_indicator_array
     auto verifier_transcript = Flavor::Transcript::test_verifier_init_empty(prover_transcript);

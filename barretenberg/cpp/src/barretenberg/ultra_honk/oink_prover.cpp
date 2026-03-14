@@ -22,7 +22,10 @@ namespace bb {
 template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 {
     BB_BENCH_NAME("OinkProver::prove");
-    commitment_key = CommitmentKey(prover_instance->polynomials.max_end_index());
+    // For ZK, we need SRS points up to dyadic_size for tail masking commitments
+    const size_t ck_size =
+        Flavor::HasZK ? prover_instance->dyadic_size() : prover_instance->polynomials.max_end_index();
+    commitment_key = CommitmentKey(ck_size);
     send_vk_hash_and_public_inputs();
     commit_to_masking_poly();
     commit_to_wires();
@@ -102,6 +105,16 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
             commitment = computed_commitments[commitment_idx++];
         }
     }
+
+    // Register masked polys in MaskingTailData
+    if constexpr (Flavor::HasZK) {
+        for (size_t i = 0; i < batch.wires.size(); i++) {
+            if (batch.mask_flags[i]) {
+                prover_instance->masking_tail_data.register_masked_poly_with_values(
+                    prover_instance->polynomials, batch.wires[i], batch.mask_values[i]);
+            }
+        }
+    }
 }
 
 /**
@@ -129,6 +142,16 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_
     prover_instance->commitments.lookup_read_counts = computed_commitments[0];
     prover_instance->commitments.lookup_read_tags = computed_commitments[1];
     prover_instance->commitments.w_4 = computed_commitments[2];
+
+    // Register masked polys in MaskingTailData
+    if constexpr (Flavor::HasZK) {
+        for (size_t i = 0; i < batch.wires.size(); i++) {
+            if (batch.mask_flags[i]) {
+                prover_instance->masking_tail_data.register_masked_poly_with_values(
+                    prover_instance->polynomials, batch.wires[i], batch.mask_values[i]);
+            }
+        }
+    }
 }
 
 /**
@@ -167,6 +190,16 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
             commitment_idx++;
         };
     }
+
+    // Register masked polys in MaskingTailData
+    if constexpr (Flavor::HasZK) {
+        for (size_t i = 0; i < batch.wires.size(); i++) {
+            if (batch.mask_flags[i]) {
+                prover_instance->masking_tail_data.register_masked_poly_with_values(
+                    prover_instance->polynomials, batch.wires[i], batch.mask_values[i]);
+            }
+        }
+    }
 }
 
 /**
@@ -180,13 +213,36 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 
     auto& z_perm = prover_instance->polynomials.z_perm;
     if constexpr (Flavor::HasZK) {
-        z_perm.mask();
-    }
-    {
-        BB_BENCH_NAME("COMMIT::z_perm");
-        prover_instance->commitments.z_perm = commitment_key.commit(z_perm);
+        // Generate mask values for z_perm and adjust commitment
+        std::array<FF, NUM_MASKED_ROWS> mask_vals;
+        for (auto& v : mask_vals) {
+            v = FF::random_element();
+        }
+        prover_instance->masking_tail_data.register_masked_poly_with_values(
+            prover_instance->polynomials, z_perm, mask_vals);
+
+        typename Flavor::Commitment z_perm_commitment;
+        {
+            BB_BENCH_NAME("COMMIT::z_perm");
+            z_perm_commitment = commitment_key.commit(z_perm);
+        }
+        // Adjust commitment with tail: C' = C + commit(tail)
+        size_t n = z_perm.virtual_size();
+        PolynomialSpan<const FF> tail_span(n - NUM_MASKED_ROWS, mask_vals);
+        z_perm_commitment = z_perm_commitment + commitment_key.commit(tail_span);
+        prover_instance->commitments.z_perm = z_perm_commitment;
+    } else {
+        {
+            BB_BENCH_NAME("COMMIT::z_perm");
+            prover_instance->commitments.z_perm = commitment_key.commit(z_perm);
+        }
     }
     transcript->send_to_verifier(commitment_labels.z_perm, prover_instance->commitments.z_perm);
+
+    // Register shifted entries in MaskingTailData (shifted polys inherit masks from their to-be-shifted sources)
+    if constexpr (Flavor::HasZK) {
+        prover_instance->masking_tail_data.register_shifted_polys(prover_instance->polynomials);
+    }
 }
 
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
