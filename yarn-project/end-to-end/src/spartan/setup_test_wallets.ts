@@ -147,13 +147,7 @@ async function deployAccountWithDiagnostics(
     }
     const deployResult = await deployMethod.send({
       from: AztecAddress.ZERO,
-<<<<<<< HEAD
-      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-      additionalScopes: [account.address],
       fee: { paymentMethod, gasSettings },
-=======
-      fee: { paymentMethod },
->>>>>>> 10bf49f112 (refactor: auto-inject contract address into scopes for account deploys)
       wait: NO_WAIT,
     });
     txHash = deployResult.txHash;
