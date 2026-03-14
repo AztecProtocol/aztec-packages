@@ -287,11 +287,25 @@ TEST_F(ECCVMTests, ProofLengthCheck)
 
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
-    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    auto get_poly_mem_mib = [](const auto& polynomials) -> size_t {
+        size_t bytes = 0;
+        for (const auto& poly : polynomials.get_all()) {
+            bytes += poly.size() * sizeof(FF);
+        }
+        return bytes / (1024 * 1024);
+    };
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProver prover = [&]() {
+        ECCVMCircuitBuilder builder = generate_circuit(&engine);
+        return ECCVMProver(builder, prover_transcript);
+    }();
+
+    info("ECCVM poly memory: ", get_poly_mem_mib(prover.key->polynomials), " MiB (pre-prove)");
+
     auto [proof, opening_claim] = prover.construct_proof();
+
+    info("ECCVM poly memory: ", get_poly_mem_mib(prover.key->polynomials), " MiB (post-prove)");
 
     auto ipa_transcript = std::make_shared<Transcript>();
     PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);

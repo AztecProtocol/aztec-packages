@@ -511,26 +511,29 @@ template <typename Flavor> class SumcheckProverRound {
 
         // In round 0, 4 disabled rows = 2 edge pairs. In rounds 1+, 1 edge pair.
         size_t start_edge_idx = round_size - excluded_tail_size;
-        size_t fc = masking_tail_data.get_folded_count();
+        size_t folded_count = masking_tail_data.get_folded_count();
+
+        // Hoist invariant refs outside the edge loop
+        auto all_masked = masking_tail_data.is_masked.get_all();
+        auto all_folded = masking_tail_data.folded.get_all();
+        auto all_poly_vals = polynomials.get_all();
 
         for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
-            // First, extend edges normally (reads from polynomials; gets zeros for short witness polys)
+            // Extend edges from polynomials (gets zeros for short witness polys at disabled positions)
             extend_edges(extended_edges, polynomials, edge_idx);
 
-            // Override masked witness poly entries with correct folded masking values.
-            // In round 0, folded_count=0 and (1-L)=0, so the entire result vanishes anyway.
-            if (fc > 0) {
+            // Override masked witness poly edges with correct folded masking values.
+            // In round 0: folded_count=0, (1-L)=0 → result vanishes; skip overrides.
+            // folded_count==2 (round 1): both edge positions are in the disabled zone.
+            // folded_count==1 (rounds 2+): even position is active (from PE), only odd is overridden.
+            if (folded_count > 0) {
                 auto all_edges = extended_edges.get_all();
-                auto all_masked = masking_tail_data.is_masked.get_all();
-                auto all_folded = masking_tail_data.folded.get_all();
-                auto all_poly_vals = polynomials.get_all();
-
                 for (size_t i = 0; i < all_masked.size(); i++) {
                     if (!all_masked[i]) {
                         continue;
                     }
-                    FF even_val = (fc == 2) ? all_folded[i][0] : all_poly_vals[i][edge_idx];
-                    FF odd_val = (fc == 2) ? all_folded[i][1] : all_folded[i][0];
+                    FF even_val = (folded_count == 2) ? all_folded[i][0] : all_poly_vals[i][edge_idx];
+                    FF odd_val = (folded_count == 2) ? all_folded[i][1] : all_folded[i][0];
                     auto base = bb::Univariate<FF, 2>({ even_val, odd_val });
                     if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                         all_edges[i] = base;

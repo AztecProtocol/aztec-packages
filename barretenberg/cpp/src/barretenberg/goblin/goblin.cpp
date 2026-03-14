@@ -35,8 +35,11 @@ void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const Me
 void Goblin::prove_eccvm()
 {
     BB_BENCH_NAME("Goblin::prove_eccvm");
-    ECCVMBuilder eccvm_builder(op_queue);
-    ECCVMProver eccvm_prover(eccvm_builder, transcript);
+    // Scope the builder so it (and any circuit data) is freed before proving
+    ECCVMProver eccvm_prover = [&]() {
+        ECCVMBuilder eccvm_builder(op_queue);
+        return ECCVMProver(eccvm_builder, transcript);
+    }();
     auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
     goblin_proof.eccvm_proof = std::move(eccvm_proof);
 
