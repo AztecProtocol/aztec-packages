@@ -152,7 +152,7 @@ while read -r hash msg; do
         break
     fi
 # Search recent origin/next commits (newest first) for matching noir submodule hash
-done < <(git log origin/next --oneline -200)
+done < <(git log origin/next --oneline -1000)
 
 if [ -z "$NIGHTLY_COMMIT" ]; then
     die "Could not find aztec-packages commit matching noir hash ${NIGHTLY_NOIR_HASH}.
