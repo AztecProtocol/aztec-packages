@@ -336,6 +336,8 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        // All witness entities are masked in ZK mode
+        auto get_masked() { return get_all(); }
     };
 
     /**

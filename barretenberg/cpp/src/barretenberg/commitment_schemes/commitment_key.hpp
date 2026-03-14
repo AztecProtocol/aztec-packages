@@ -138,22 +138,33 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
-        // Per-poly masking: if mask_flags[i] is true, mask_values[i] has random values to add at tail positions.
-        std::vector<bool> mask_flags;
-        std::vector<std::array<Fr, NUM_MASKED_ROWS>> mask_values;
 
+        /**
+         * @brief Batch-commit all wires, adjust commitments for masked polys using tail polynomials
+         * from MaskingTailData, and send to verifier.
+         *
+         * @param transcript The transcript to send commitments to.
+         * @param masking_tail_data If non-null, looks up tail polys for each wire and adjusts
+         *        commitments: C' = C_short + commit(tail_poly).
+         * @param prover_polys ProverPolynomials reference for data-pointer matching (needed when
+         *        masking_tail_data is provided).
+         */
+        template <typename MaskingTailDataT = std::nullptr_t, typename ProverPolynomials = std::nullptr_t>
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript,
-                                                            size_t max_batch_size = std::numeric_limits<size_t>::max())
+                                                            size_t max_batch_size = std::numeric_limits<size_t>::max(),
+                                                            MaskingTailDataT* masking_tail_data = nullptr,
+                                                            ProverPolynomials* prover_polys = nullptr)
         {
             std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
 
             // Adjust commitments for masked polys: C' = C_short + commit(tail_poly)
-            for (size_t i = 0; i < commitments.size(); ++i) {
-                if (mask_flags[i]) {
-                    size_t n = wires[i].virtual_size();
-                    // Commit to the NUM_MASKED_ROWS tail values using SRS points at {n-3, n-2, n-1}
-                    PolynomialSpan<const Fr> tail_span(n - NUM_MASKED_ROWS, mask_values[i]);
-                    commitments[i] = commitments[i] + key->commit(tail_span);
+            if constexpr (!std::is_same_v<MaskingTailDataT, std::nullptr_t>) {
+                if (masking_tail_data != nullptr && prover_polys != nullptr && masking_tail_data->is_active()) {
+                    for (size_t i = 0; i < commitments.size(); ++i) {
+                        if (auto* tail = masking_tail_data->get_tail_for_poly(*prover_polys, wires[i])) {
+                            commitments[i] = commitments[i] + key->commit(*tail);
+                        }
+                    }
                 }
             }
 
@@ -164,24 +175,14 @@ template <class Curve> class CommitmentKey {
             return commitments;
         }
 
-        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool mask)
+        void add_to_batch(Polynomial<Fr>& poly, const std::string& label)
         {
             wires.push_back(poly);
             labels.push_back(label);
-            mask_flags.push_back(mask);
-            if (mask) {
-                std::array<Fr, NUM_MASKED_ROWS> vals;
-                for (auto& v : vals) {
-                    v = Fr::random_element();
-                }
-                mask_values.push_back(vals);
-            } else {
-                mask_values.push_back({ Fr::zero(), Fr::zero(), Fr::zero() });
-            }
         }
     };
 
-    CommitBatch start_batch() { return CommitBatch{ this, {}, {}, {}, {} }; }
+    CommitBatch start_batch() { return CommitBatch{ this, {}, {} }; }
 };
 
 } // namespace bb

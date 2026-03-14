@@ -64,18 +64,15 @@ void ECCVMProver::execute_wire_commitments_round()
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
+    // Register all masked polys upfront (generates random tail values for all witness entities)
+    key->masking_tail_data.register_all_masked_polys(key->polynomials);
+
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
-        batch.add_to_batch(wire, label, /* mask for zk? */ true);
+        batch.add_to_batch(wire, label);
     }
-    batch.commit_and_send_to_verifier(transcript);
-
-    // Register masked polys in MaskingTailData
-    for (size_t i = 0; i < batch.wires.size(); i++) {
-        if (batch.mask_flags[i]) {
-            key->masking_tail_data.register_masked_poly(key->polynomials, batch.wires[i], batch.mask_values[i]);
-        }
-    }
+    batch.commit_and_send_to_verifier(
+        transcript, std::numeric_limits<size_t>::max(), &key->masking_tail_data, &key->polynomials);
 }
 
 /**
@@ -126,9 +123,7 @@ void ECCVMProver::execute_grand_product_computation_round()
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
     commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
-
-    // Register shifted entries (shifted polys inherit masks from their to-be-shifted sources)
-    key->masking_tail_data.register_shifted_polys(key->polynomials);
+    // Shifted entries were already registered in register_all_masked_polys
 }
 
 /**
@@ -379,10 +374,10 @@ void ECCVMProver::compute_translation_opening_claims()
  */
 void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
-    // Use CommitBatch to handle masking + commitment in one place
+    // Tail already registered in execute_wire_commitments_round via register_all_masked_polys
     auto batch = key->commitment_key.start_batch();
-    batch.add_to_batch(polynomial, label, /*mask?*/ true);
-    batch.commit_and_send_to_verifier(transcript);
-    key->masking_tail_data.register_masked_poly(key->polynomials, polynomial, batch.mask_values[0]);
+    batch.add_to_batch(polynomial, label);
+    batch.commit_and_send_to_verifier(
+        transcript, std::numeric_limits<size_t>::max(), &key->masking_tail_data, &key->polynomials);
 }
 } // namespace bb

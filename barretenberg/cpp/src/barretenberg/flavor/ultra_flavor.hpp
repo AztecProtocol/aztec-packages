@@ -174,6 +174,8 @@ class UltraFlavor {
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
         auto get_to_be_shifted() { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
+        // All witness entities are masked in ZK mode
+        auto get_masked() { return get_all(); }
     };
 
     /**
