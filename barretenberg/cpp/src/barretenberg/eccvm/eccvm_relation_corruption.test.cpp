@@ -276,12 +276,11 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params, "ECCVMMSMRelation");
     EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
 
-    const size_t num_rows = polynomials.get_polynomial_size();
     auto msm_polys = get_msm_polynomials(polynomials);
 
-    // Shift every MSM column down by 1: p[k] = p[k-1] for k = num_rows-1 down to 2, then p[1] = 0
+    // Shift every MSM column down by 1: p[k] = p[k-1] for k = end-1 down to 2, then p[1] = 0
     for (auto* poly : msm_polys) {
-        for (size_t k = num_rows - 1; k >= 2; k--) {
+        for (size_t k = poly->end_index() - 1; k >= 2; k--) {
             poly->at(k) = (*poly)[k - 1];
         }
         poly->at(1) = FF(0);
