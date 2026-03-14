@@ -383,7 +383,9 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
 
     fn new_system(&mut self, state: &Self::State) -> Self::System {
         let bridge = self.bridge.expect("bridge required for new_system()");
-        bridge.import_test_accounts().expect("could not import test accounts");
+        bridge
+            .import_test_accounts()
+            .expect("could not import test accounts");
         let system = TokenSystem::new(bridge);
         for token_no in &state.tokens {
             let acc_no = state
@@ -420,7 +422,11 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
                         .total_supply
                         .get(token)
                         .expect("total supply should be initialized");
-                    let balance = state.balances_public.get(&(*token, *to)).copied().unwrap_or(0);
+                    let balance = state
+                        .balances_public
+                        .get(&(*token, *to))
+                        .copied()
+                        .unwrap_or(0);
                     if let (Some(new_supply), Some(new_balance)) =
                         (supply.checked_add(*amount), balance.checked_add(*amount))
                     {
@@ -442,7 +448,11 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
                         .total_supply
                         .get(token)
                         .expect("total supply should be initialized");
-                    let balance = state.balances_private.get(&(*token, *to)).copied().unwrap_or(0);
+                    let balance = state
+                        .balances_private
+                        .get(&(*token, *to))
+                        .copied()
+                        .unwrap_or(0);
                     if let (Some(new_supply), Some(new_balance)) =
                         (supply.checked_add(*amount), balance.checked_add(*amount))
                     {
@@ -512,9 +522,7 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
                 }
             }
             // Query commands don't change state.
-            BalanceOfPublic { .. }
-            | BalanceOfPrivate { .. }
-            | TotalSupply { .. } => {}
+            BalanceOfPublic { .. } | BalanceOfPrivate { .. } | TotalSupply { .. } => {}
         };
 
         state
@@ -539,8 +547,11 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
                 let output = result.expect("BalanceOfPublic should succeed");
                 let amount = wallet::parse_simulation_result(&output)
                     .expect("failed to parse BalanceOfPublic simulation result");
-                let state_balance =
-                    pre_state.balances_public.get(&(*token, *address)).copied().unwrap_or(0);
+                let state_balance = pre_state
+                    .balances_public
+                    .get(&(*token, *address))
+                    .copied()
+                    .unwrap_or(0);
                 debug!(
                     "Checking public {} balance for {}: should be {}, is {}",
                     token, address, state_balance, amount
@@ -612,29 +623,62 @@ mod tests {
 
     #[test]
     fn same_token_conflicts() {
-        let a = TokenCommand::MintPublic { token: 0, to: 0, amount: 100, from: 0 };
-        let b = TokenCommand::TransferPublic { token: 0, to: 1, amount: 50, from: 0 };
+        let a = TokenCommand::MintPublic {
+            token: 0,
+            to: 0,
+            amount: 100,
+            from: 0,
+        };
+        let b = TokenCommand::TransferPublic {
+            token: 0,
+            to: 1,
+            amount: 50,
+            from: 0,
+        };
         assert!(a.conflicts(&b));
     }
 
     #[test]
     fn different_tokens_no_conflict() {
-        let a = TokenCommand::MintPublic { token: 0, to: 0, amount: 100, from: 0 };
-        let b = TokenCommand::MintPublic { token: 1, to: 0, amount: 100, from: 0 };
+        let a = TokenCommand::MintPublic {
+            token: 0,
+            to: 0,
+            amount: 100,
+            from: 0,
+        };
+        let b = TokenCommand::MintPublic {
+            token: 1,
+            to: 0,
+            amount: 100,
+            from: 0,
+        };
         assert!(!a.conflicts(&b));
     }
 
     #[test]
     fn query_conflicts_with_send() {
-        let query = TokenCommand::BalanceOfPublic { token: 1, from: 0, address: 0 };
-        let send = TokenCommand::MintPublic { token: 0, to: 0, amount: 100, from: 0 };
+        let query = TokenCommand::BalanceOfPublic {
+            token: 1,
+            from: 0,
+            address: 0,
+        };
+        let send = TokenCommand::MintPublic {
+            token: 0,
+            to: 0,
+            amount: 100,
+            from: 0,
+        };
         assert!(query.conflicts(&send));
         assert!(send.conflicts(&query));
     }
 
     #[test]
     fn queries_do_not_conflict() {
-        let a = TokenCommand::BalanceOfPublic { token: 0, from: 0, address: 0 };
+        let a = TokenCommand::BalanceOfPublic {
+            token: 0,
+            from: 0,
+            address: 0,
+        };
         let b = TokenCommand::TotalSupply { token: 1, from: 1 };
         assert!(!a.conflicts(&b));
     }

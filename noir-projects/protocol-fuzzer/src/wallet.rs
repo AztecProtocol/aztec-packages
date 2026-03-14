@@ -120,7 +120,8 @@ impl Bridge {
     /// POST JSON to the bridge and return the parsed response.
     /// Errors if the bridge returns `{ ok: false, error: "..." }`.
     fn post(&self, endpoint: &str, body: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
-        let resp = self.client
+        let resp = self
+            .client
             .post(format!("{}{endpoint}", self.url))
             .json(body)
             .send()
@@ -141,15 +142,18 @@ impl Bridge {
 
     /// Check that the bridge is reachable.
     pub fn check_connection(&self) -> anyhow::Result<()> {
-        let resp = self.client
+        let resp = self
+            .client
             .get(format!("{}/health", self.url))
             .timeout(Duration::from_secs(5))
             .send()
-            .map_err(|_| anyhow!(
-                "Bridge not reachable at {}.\n\
+            .map_err(|_| {
+                anyhow!(
+                    "Bridge not reachable at {}.\n\
                  Start it with: bash setup-nightly-sandbox.sh",
-                self.url
-            ))?;
+                    self.url
+                )
+            })?;
         if resp.status().is_success() {
             debug!("bridge health check OK ({})", self.url);
             Ok(())
@@ -224,11 +228,8 @@ impl Bridge {
     ) -> anyhow::Result<String> {
         let book = self.address_book.lock().unwrap();
         let resolved_from = book.resolve(from);
-        let resolved_args: Option<Vec<String>> = args.map(|a| {
-            a.split_whitespace()
-                .map(|arg| book.resolve(arg))
-                .collect()
-        });
+        let resolved_args: Option<Vec<String>> =
+            args.map(|a| a.split_whitespace().map(|arg| book.resolve(arg)).collect());
         drop(book);
 
         let body = json!({
@@ -266,11 +267,11 @@ impl Bridge {
     /// Returns results in the same order as the input commands.
     pub fn execute_many(&self, cmds: &[WalletCommand]) -> Vec<anyhow::Result<String>> {
         std::thread::scope(|s| {
-            let handles: Vec<_> = cmds.iter().map(|cmd| s.spawn(|| self.execute(cmd))).collect();
-            handles
-                .into_iter()
-                .map(|h| h.join().unwrap())
-                .collect()
+            let handles: Vec<_> = cmds
+                .iter()
+                .map(|cmd| s.spawn(|| self.execute(cmd)))
+                .collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
         })
     }
 }
@@ -283,8 +284,7 @@ impl Bridge {
 /// triggered by concurrent transactions).
 fn is_transient_error(e: &anyhow::Error) -> bool {
     let msg = e.to_string();
-    msg.contains("not found when querying world state")
-        || msg.contains("reorg has occurred")
+    msg.contains("not found when querying world state") || msg.contains("reorg has occurred")
 }
 
 /// Maximum number of automatic retries for transient errors.
@@ -298,7 +298,8 @@ fn with_retry<T>(label: &str, f: impl Fn() -> anyhow::Result<T>) -> anyhow::Resu
             Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
                 log::warn!(
                     "Transient error on {label} (attempt {}/{}): {e}, retrying...",
-                    attempt + 1, MAX_RETRIES
+                    attempt + 1,
+                    MAX_RETRIES
                 );
                 std::thread::sleep(Duration::from_secs(2));
             }
@@ -413,10 +414,16 @@ mod tests {
         let mut book = AddressBook::new();
         book.contracts.insert(
             "test0".into(),
-            ContractInfo { address: "0xddd".into(), artifact: "/tmp/a.json".into() },
+            ContractInfo {
+                address: "0xddd".into(),
+                artifact: "/tmp/a.json".into(),
+            },
         );
         assert_eq!(book.resolve("contracts:test0"), "0xddd");
-        assert_eq!(book.artifact_for("contracts:test0"), Some("/tmp/a.json".into()));
+        assert_eq!(
+            book.artifact_for("contracts:test0"),
+            Some("/tmp/a.json".into())
+        );
     }
 
     #[test]

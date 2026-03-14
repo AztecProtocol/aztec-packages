@@ -254,7 +254,11 @@ fn populated_slots(state: &SideEffectState) -> Vec<(StorageSlotId, AccountId)> {
 fn assert_expected(name: &str, expect_ok: bool, result: &anyhow::Result<String>) {
     if expect_ok {
         debug!("{name}: expecting success");
-        assert!(result.is_ok(), "{name} unexpectedly failed: {:?}", result.as_ref().err());
+        assert!(
+            result.is_ok(),
+            "{name} unexpectedly failed: {:?}",
+            result.as_ref().err()
+        );
     } else {
         debug!("{name}: expecting failure");
         assert!(result.is_err(), "{name} unexpectedly succeeded");
@@ -459,7 +463,9 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         // re-importing always yields the same addresses. Each deploy uses a
         // unique salt, so back-to-back runs get fresh contract instances.
         let bridge = self.bridge.expect("bridge required for new_system()");
-        bridge.import_test_accounts().expect("could not import test accounts");
+        bridge
+            .import_test_accounts()
+            .expect("could not import test accounts");
         let system = SideEffectSystem::new(bridge);
         system
             .deploy_side_effect_contract(0)
@@ -599,8 +605,13 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                     "{name} failed for owner {owner}, slot {storage_slot}: {:?}",
                     result.as_ref().err()
                 );
-                let expected =
-                    expected_notes(pre_state, *storage_slot, *owner, *active_or_nullified, *offset);
+                let expected = expected_notes(
+                    pre_state,
+                    *storage_slot,
+                    *owner,
+                    *active_or_nullified,
+                    *offset,
+                );
                 check_multi_note_query(name, *storage_slot, *owner, &result.unwrap(), &expected);
             }
         }
@@ -627,10 +638,18 @@ mod tests {
     #[test]
     fn same_slot_owner_conflicts() {
         let a = SideEffectCommand::CreateNote {
-            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+            value: 1,
+            owner: 0,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
         };
         let b = SideEffectCommand::CreateNote {
-            value: 2, owner: 0, storage_slot: 5, from: 1, via_parent: false,
+            value: 2,
+            owner: 0,
+            storage_slot: 5,
+            from: 1,
+            via_parent: false,
         };
         assert!(a.conflicts(&b));
     }
@@ -638,10 +657,18 @@ mod tests {
     #[test]
     fn different_slot_no_conflict() {
         let a = SideEffectCommand::CreateNote {
-            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+            value: 1,
+            owner: 0,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
         };
         let b = SideEffectCommand::CreateNote {
-            value: 2, owner: 0, storage_slot: 6, from: 0, via_parent: false,
+            value: 2,
+            owner: 0,
+            storage_slot: 6,
+            from: 0,
+            via_parent: false,
         };
         assert!(!a.conflicts(&b));
     }
@@ -649,10 +676,18 @@ mod tests {
     #[test]
     fn different_owner_no_conflict() {
         let a = SideEffectCommand::CreateNote {
-            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+            value: 1,
+            owner: 0,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
         };
         let b = SideEffectCommand::CreateNote {
-            value: 2, owner: 1, storage_slot: 5, from: 0, via_parent: false,
+            value: 2,
+            owner: 1,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
         };
         assert!(!a.conflicts(&b));
     }
@@ -660,10 +695,14 @@ mod tests {
     #[test]
     fn same_nullifier_conflicts() {
         let a = SideEffectCommand::EmitNullifier {
-            nullifier: 42, from: 0, via_parent: false,
+            nullifier: 42,
+            from: 0,
+            via_parent: false,
         };
         let b = SideEffectCommand::EmitNullifier {
-            nullifier: 42, from: 1, via_parent: false,
+            nullifier: 42,
+            from: 1,
+            via_parent: false,
         };
         assert!(a.conflicts(&b));
     }
@@ -671,10 +710,14 @@ mod tests {
     #[test]
     fn different_nullifier_no_conflict() {
         let a = SideEffectCommand::EmitNullifier {
-            nullifier: 42, from: 0, via_parent: false,
+            nullifier: 42,
+            from: 0,
+            via_parent: false,
         };
         let b = SideEffectCommand::EmitNullifier {
-            nullifier: 99, from: 0, via_parent: false,
+            nullifier: 99,
+            from: 0,
+            via_parent: false,
         };
         assert!(!a.conflicts(&b));
     }
@@ -682,10 +725,14 @@ mod tests {
     #[test]
     fn emit_and_test_nullifier_same_value_conflicts() {
         let a = SideEffectCommand::EmitNullifier {
-            nullifier: 42, from: 0, via_parent: false,
+            nullifier: 42,
+            from: 0,
+            via_parent: false,
         };
         let b = SideEffectCommand::TestNullifierInclusion {
-            nullifier: 42, from: 1, via_parent: false,
+            nullifier: 42,
+            from: 1,
+            via_parent: false,
         };
         assert!(a.conflicts(&b));
     }
@@ -693,10 +740,16 @@ mod tests {
     #[test]
     fn note_and_nullifier_no_conflict() {
         let a = SideEffectCommand::CreateNote {
-            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+            value: 1,
+            owner: 0,
+            storage_slot: 5,
+            from: 0,
+            via_parent: false,
         };
         let b = SideEffectCommand::EmitNullifier {
-            nullifier: 42, from: 0, via_parent: false,
+            nullifier: 42,
+            from: 0,
+            via_parent: false,
         };
         assert!(!a.conflicts(&b));
     }
@@ -704,10 +757,18 @@ mod tests {
     #[test]
     fn query_conflicts_with_send() {
         let query = SideEffectCommand::ViewNotesMany {
-            owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
+            owner: 0,
+            storage_slot: 1,
+            active_or_nullified: false,
+            offset: 0,
+            from: 0,
         };
         let send = SideEffectCommand::CreateNote {
-            value: 1, owner: 1, storage_slot: 2, from: 0, via_parent: false,
+            value: 1,
+            owner: 1,
+            storage_slot: 2,
+            from: 0,
+            via_parent: false,
         };
         assert!(query.conflicts(&send));
         assert!(send.conflicts(&query));
@@ -716,10 +777,17 @@ mod tests {
     #[test]
     fn queries_do_not_conflict() {
         let a = SideEffectCommand::ViewNotesMany {
-            owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
+            owner: 0,
+            storage_slot: 1,
+            active_or_nullified: false,
+            offset: 0,
+            from: 0,
         };
         let b = SideEffectCommand::TestNoteInclusion {
-            owner: 1, storage_slot: 2, from: 1, via_parent: false,
+            owner: 1,
+            storage_slot: 2,
+            from: 1,
+            via_parent: false,
         };
         assert!(!a.conflicts(&b));
     }

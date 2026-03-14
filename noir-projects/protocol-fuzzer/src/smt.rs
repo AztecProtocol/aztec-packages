@@ -143,9 +143,7 @@ where
 
         // Flush if the new command conflicts with anything in the batch or if
         // the batch is at capacity.
-        if batch_cmds.len() >= max_batch_size
-            || batch_cmds.iter().any(|prev| cmd.conflicts(prev))
-        {
+        if batch_cmds.len() >= max_batch_size || batch_cmds.iter().any(|prev| cmd.conflicts(prev)) {
             flush(t, &mut system, &batch_cmds, &batch_states);
             // check_system checks invariants and returns false to stop early.
             // The cmd arg is required by the trait but unused by current machines;

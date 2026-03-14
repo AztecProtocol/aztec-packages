@@ -155,8 +155,8 @@ mod integration_tests {
     fn init_test_env() -> &'static wallet::Bridge {
         static BRIDGE: LazyLock<wallet::Bridge> = LazyLock::new(|| {
             init_logger();
-            let url = std::env::var("BRIDGE_URL")
-                .unwrap_or_else(|_| "http://localhost:8089".to_string());
+            let url =
+                std::env::var("BRIDGE_URL").unwrap_or_else(|_| "http://localhost:8089".to_string());
             let bridge = wallet::Bridge::new(&url, false);
             bridge.check_connection().expect("connection check failed");
             bridge
@@ -174,7 +174,9 @@ mod integration_tests {
     #[serial]
     fn _0_sandbox_smoke() {
         let bridge = init_test_env();
-        bridge.import_test_accounts().expect("import test accounts failed");
+        bridge
+            .import_test_accounts()
+            .expect("import test accounts failed");
     }
 
     /// Deploys 1 token, runs 5 random operations. Requires a running sandbox.
@@ -266,7 +268,10 @@ mod integration_tests {
     #[serial]
     fn side_effect_note_inclusion_after_destroy() {
         let bridge = init_test_env();
-        let mut machine = side_effect::SideEffectMachine { storage_slots: 1, bridge: Some(bridge) };
+        let mut machine = side_effect::SideEffectMachine {
+            storage_slots: 1,
+            bridge: Some(bridge),
+        };
         let state = side_effect::machine::SideEffectState {
             accounts: vec![0, 1, 2],
             storage_slots: vec![1],
