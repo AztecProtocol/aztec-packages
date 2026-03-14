@@ -536,9 +536,8 @@ class ECCVMTranscriptBuilder {
         const bool msm_output_infinity = msm_output.is_point_at_infinity();
         const bool row_msm_infinity = row.transcript_msm_infinity;
 
-        transcript_msm_x_inverse_trace = (row_msm_infinity || msm_accumulator_trace.is_point_at_infinity())
-                                             ? 0
-                                             : (msm_accumulator_trace.x - offset_generator().x);
+        transcript_msm_x_inverse_trace =
+            (!msm_transition || row_msm_infinity) ? 0 : (msm_accumulator_trace.x - offset_generator().x);
 
         FF lhsx;
         FF lhsy;
