@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_tail::TestBuilder;
-use types::tests::utils::swap_items;
+use protocol_test_utils::swap_items;
 
 /**
  * l2_to_l1_msgs
