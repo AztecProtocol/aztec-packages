@@ -128,7 +128,7 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
-    cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk
+    cmake_build $target --target barretenberg vm2_stub circuit_checker honk
   fi
 }
 
