@@ -61,8 +61,8 @@ template <typename Flavor> class SumcheckProverRound {
 
     // Number of rows excluded from the main sumcheck loop and handled by compute_disabled_contribution.
     // In round 0, the RowDisablingPolynomial disables 4 rows (2 edge pairs). After partial evaluation
-    // in round 1+, this collapses to 2 rows (1 edge pair). Set to 0 for non-ZK flavors.
-    size_t excluded_tail_size = Flavor::HasZK ? 4 : 0;
+    // in round 1+, this collapses to 2 rows (1 edge pair). Only non-zero for flavors that use row disabling.
+    size_t excluded_tail_size = UseRowDisablingPolynomial<Flavor> ? 4 : 0;
 
     /**
      * @brief Number of batched sub-relations in \f$F\f$ specified by Flavor.
@@ -112,18 +112,17 @@ template <typename Flavor> class SumcheckProverRound {
                 max_end_index = std::max(max_end_index, witness_poly.end_index());
             }
         } else {
-            if constexpr (Flavor::HasZK) {
-                return (round_size >= excluded_tail_size) ? round_size - excluded_tail_size : 0;
-            } else {
-                return round_size;
-            }
+            return (excluded_tail_size > 0) ? round_size - excluded_tail_size : round_size;
         }
 
         size_t effective = max_end_index + (max_end_index % 2); // round up to next even
-        if constexpr (Flavor::HasZK) {
-            // Exclude disabled rows at the end; their contribution is handled separately.
-            size_t cap = (round_size >= excluded_tail_size) ? round_size - excluded_tail_size : size_t{ 0 };
+        if (excluded_tail_size > 0) {
+            // Exclude disabled rows at the end; their contribution is handled by compute_disabled_contribution.
+            size_t cap = round_size - excluded_tail_size;
             return std::min(cap, effective);
+        } else if constexpr (Flavor::HasZK) {
+            // ZK flavors without row disabling (e.g. Translator) must iterate over the full round_size.
+            return round_size;
         } else {
             return std::min(round_size, effective);
         }

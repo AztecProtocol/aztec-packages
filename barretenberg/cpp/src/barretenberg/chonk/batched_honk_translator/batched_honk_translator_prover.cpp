@@ -5,6 +5,7 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
+#include "barretenberg/sumcheck/masking_tail_data.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 
 namespace bb {
@@ -150,6 +151,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         translator_round.round_size >>= 1;
     };
 
+    auto& masking_tail = mega_zk_inst->masking_tail_data;
+
     // Per-round helper: compute U_joint = U_MZK + α^{K_H}·U_translator from given polynomial
     // sources, add Libra masking, send to verifier, and return the round challenge.
     // hpolys/tpolys are the full tables on round 0, the partial-eval tables on subsequent rounds.
@@ -157,8 +160,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         U_joint = SumcheckRoundUnivariate::zero();
 
         auto U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas);
-        U_H -= mega_zk_round.compute_disabled_contribution(
-            hpolys, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas, round_idx, rdp);
+        U_H += mega_zk_round.compute_disabled_contribution(
+            hpolys, mega_zk_params, mega_zk_gate_sep, mega_zk_alphas, rdp, masking_tail);
         U_joint += U_H;
 
         auto U_T = translator_round.compute_univariate(
@@ -178,13 +181,17 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         MegaZKSumcheck::partially_evaluate(mega_zk_polys, mega_zk_partial, u);
         TransSumcheck::partially_evaluate(translator_polys, translator_partial, u);
         rdp.update_evaluations(u, 0);
+        masking_tail.fold_masking_values(u, 0, mega_zk_round.round_size, &mega_zk_polys);
         mega_zk_round.round_size >>= 1;
+        mega_zk_round.excluded_tail_size = 2; // After round 0, disabled zone collapses to 1 edge pair
         update_round_state(0, u);
     }
 
     // ==================== Real rounds 1..mega_zk_log_n-1 ====================
     for (size_t round_idx = 1; round_idx < mega_zk_log_n; round_idx++) {
         const FF u = do_round(mega_zk_partial, translator_partial, round_idx);
+        // Fold masking values BEFORE partially_evaluate (rounds 2+ read PE at active positions)
+        masking_tail.fold_masking_values(u, round_idx, mega_zk_round.round_size, &mega_zk_partial);
         MegaZKSumcheck::partially_evaluate_in_place(mega_zk_partial, u);
         TransSumcheck::partially_evaluate_in_place(translator_partial, u);
         rdp.update_evaluations(u, round_idx);
@@ -203,6 +210,22 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     for (auto [eval, poly] : zip_view(mega_zk_claimed_evals.get_all(), mega_zk_partial.get_all())) {
         eval = poly[0];
     }
+
+    // Apply masking tail corrections: short witness polys have zeros at tail positions,
+    // so claimed evals need Lagrange-basis corrections using the first mega_zk_log_n challenges.
+    if (masking_tail.is_active()) {
+        auto real_challenges = std::span<const FF>(joint_challenge.data(), mega_zk_log_n);
+        masking_tail.apply_claimed_eval_corrections(mega_zk_claimed_evals, real_challenges);
+
+        // Write corrected values back into mega_zk_partial so that compute_virtual_contribution
+        // in virtual rounds uses the corrected evaluations.
+        for (auto [eval, poly] : zip_view(mega_zk_claimed_evals.get_all(), mega_zk_partial.get_all())) {
+            if (poly.end_index() > 0) {
+                poly.at(0) = eval;
+            }
+        }
+    }
+
     transcript->send_to_verifier("Sumcheck:evaluations", mega_zk_claimed_evals.get_all());
 
     // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
@@ -299,6 +322,11 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
     auto trans_shifted = translator_key->proving_key->polynomials.get_pcs_to_be_shifted();
     auto joint_shifted = concatenate(mega_zk_shifted, trans_shifted);
     polynomial_batcher.set_to_be_shifted_by_one(joint_shifted);
+
+    // Register MegaZK masking tails with the joint batcher
+    if (mega_zk_inst->masking_tail_data.is_active()) {
+        mega_zk_inst->masking_tail_data.add_tails_to_batcher(mega_zk_inst->polynomials, polynomial_batcher);
+    }
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(joint_circuit_size,

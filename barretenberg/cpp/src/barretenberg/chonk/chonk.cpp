@@ -411,12 +411,15 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     // MegaZK Oink → Merge → ECCVM → Translator Oink + Joint Sumcheck + Joint PCS.
     if (queue_type == QUEUE_TYPE::MEGA) {
         vinfo("Constructing hiding kernel instance (proving deferred to prove())");
+        info("Chonk: constructing hiding kernel instance...");
         hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
+        info("Chonk: hiding kernel dyadic_size=", hiding_prover_inst->dyadic_size());
         // Free circuit block memory now that trace data has been copied to prover polynomials
         for (auto& block : circuit.blocks.get()) {
             block.free_data();
         }
         hiding_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
+        info("Chonk: hiding kernel instance constructed, VK created");
 
         // Push VK to queue so get_hiding_kernel_vk_and_hash() can find it.
         VerifierInputs queue_entry{ {}, precomputed_vk, queue_type, /*is_kernel=*/true };
@@ -471,13 +474,15 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
             prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
         break;
     case QUEUE_TYPE::HN_FINAL: {
-        vinfo("Accumulating tail kernel");
+        info("Chonk: accumulating tail kernel (HN_FINAL)");
         // Move old accumulator into fold, receive new accumulator back
         std::tie(proof, prover_accumulator) =
             prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
+        info("Chonk: tail kernel folded, running decider");
         // Decider uses the NEW prover_accumulator (result of fold)
         DeciderProver decider(prover_accumulation_transcript);
         decider_proof = decider.construct_proof(prover_accumulator);
+        info("Chonk: decider proof done");
         break;
     }
     default:
@@ -558,10 +563,12 @@ ChonkProof Chonk::prove()
     goblin.transcript = transcript;
 
     // Phase 1: MegaZK Oink on the shared transcript.
+    info("Chonk::prove phase 1: MegaZK Oink");
     BatchedHonkTranslatorProver batched_prover(hiding_prover_inst, hiding_vk, transcript);
     auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
 
     // Phase 2: Merge proof on the shared transcript (APPEND — hiding kernel's subtable).
+    info("Chonk::prove phase 2: Merge");
     goblin.prove_merge(transcript, MergeSettings::APPEND);
     BB_ASSERT_EQ(goblin.merge_verification_queue.size(),
                  1U,

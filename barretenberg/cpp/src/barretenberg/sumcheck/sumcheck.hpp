@@ -557,7 +557,9 @@ template <typename Flavor> class SumcheckProver {
         row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
         gate_separators.partially_evaluate(round_challenge);
         round.round_size = round.round_size >> 1;
-        round.excluded_tail_size = 2; // After round 0, disabled zone collapses to 1 edge pair
+        if constexpr (UseRowDisablingPolynomial<Flavor>) {
+            round.excluded_tail_size = 2; // After round 0, disabled zone collapses to 1 edge pair
+        }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
 

@@ -125,15 +125,7 @@ template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(C
         NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS + std::max(tables_size, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
-    size_t dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
-
-    // MegaZK is batched with translator (2^17) in the Chonk flow; ensure polynomial virtual_size matches
-    // so masking and row-disabling positions align with the joint circuit size.
-    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
-        dyadic_size = std::max(dyadic_size, static_cast<size_t>(1UL << Flavor::VIRTUAL_LOG_N));
-    }
-
-    return dyadic_size;
+    return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
