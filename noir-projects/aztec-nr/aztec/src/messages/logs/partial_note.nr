@@ -104,53 +104,25 @@ where
 pub(crate) unconstrained fn decode_partial_note_private_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-<<<<<<< HEAD
-) -> (AztecAddress, Field, Field, Field, Field, BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>) {
-    let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
-=======
-) -> Option<(AztecAddress, Field, Field, Field, BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>)> {
+) -> Option<(AztecAddress, Field, Field, Field, Field, BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>)> {
     if msg_content.len() < PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
         Option::none()
     } else {
         let note_type_id: Field = msg_metadata as Field; // TODO: make note type id not be a full field
->>>>>>> 7a485d139a (fix(aztec-nr): return Option from decode functions and fix event commitment capacity (#21264))
 
         // If PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail,
         // then the destructuring of the partial note private message encoding below must be updated as well.
         std::static_assert(
-            PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN == 3,
+            PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN == 4,
             "unexpected value for PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_NON_NOTE_FIELDS_LEN",
         );
 
-<<<<<<< HEAD
-    // If PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then
-    // the destructuring of the partial note private message encoding below must be updated as well.
-    std::static_assert(
-        PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN == 4,
-        "unexpected value for PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_NON_NOTE_FIELDS_LEN",
-    );
-
-    // We currently have four fields that are not the partial note's packed representation, which are the owner, the
-    // storage slot, the randomness, and the note completion log tag.
-    let owner = AztecAddress::from_field(
-        msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_OWNER_INDEX),
-    );
-    let storage_slot = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_STORAGE_SLOT_INDEX);
-    let randomness = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RANDOMNESS_INDEX);
-    let note_completion_log_tag = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_NOTE_COMPLETION_LOG_TAG_INDEX);
-
-    let packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN> = array::subbvec(
-        msg_content,
-        PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN,
-    );
-
-    (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content)
-=======
-        // We currently have three fields that are not the partial note's packed representation, which are the owner,
-        // the randomness, and the note completion log tag.
+        // We currently have four fields that are not the partial note's packed representation, which are the owner,
+        // the storage slot, the randomness, and the note completion log tag.
         let owner = AztecAddress::from_field(
             msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_OWNER_INDEX),
         );
+        let storage_slot = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_STORAGE_SLOT_INDEX);
         let randomness = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RANDOMNESS_INDEX);
         let note_completion_log_tag = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_NOTE_COMPLETION_LOG_TAG_INDEX);
 
@@ -160,10 +132,9 @@ pub(crate) unconstrained fn decode_partial_note_private_message(
         );
 
         Option::some(
-            (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content),
+            (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content),
         )
     }
->>>>>>> 7a485d139a (fix(aztec-nr): return Option from decode functions and fix event commitment capacity (#21264))
 }
 
 mod test {
@@ -202,13 +173,8 @@ mod test {
 
         assert_eq(msg_type_id, PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID);
 
-<<<<<<< HEAD
         let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_note) =
-            decode_partial_note_private_message(msg_metadata, msg_content);
-=======
-        let (owner, randomness, note_completion_log_tag, note_type_id, packed_note) =
             decode_partial_note_private_message(msg_metadata, msg_content).unwrap();
->>>>>>> 7a485d139a (fix(aztec-nr): return Option from decode functions and fix event commitment capacity (#21264))
 
         assert_eq(note_type_id, MockNote::get_id());
         assert_eq(owner, OWNER);
@@ -226,8 +192,8 @@ mod test {
 
     #[test]
     unconstrained fn decode_succeeds_with_only_reserved_fields() {
-        let content = BoundedVec::from_array([0, 0, 0]);
-        let (_, _, _, _, packed_note) = decode_partial_note_private_message(0, content).unwrap();
+        let content = BoundedVec::from_array([0, 0, 0, 0]);
+        let (_, _, _, _, _, packed_note) = decode_partial_note_private_message(0, content).unwrap();
         assert_eq(packed_note.len(), 0);
     }
 }

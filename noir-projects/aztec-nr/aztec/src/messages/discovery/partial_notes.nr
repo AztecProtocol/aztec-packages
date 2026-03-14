@@ -12,17 +12,12 @@ use crate::{
     utils::array,
 };
 
-<<<<<<< HEAD
 use crate::protocol::{
     address::AztecAddress,
     hash::sha256_to_field,
     logging::debug_log_format,
     traits::{Deserialize, Serialize},
 };
-=======
-use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
->>>>>>> 7a485d139a (fix(aztec-nr): return Option from decode functions and fix event commitment capacity (#21264))
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
 pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
@@ -49,32 +44,16 @@ pub unconstrained fn process_partial_note_private_msg(
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
 ) {
-<<<<<<< HEAD
-    // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
-    // search for the public log that will complete it.
-    let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
-        decode_partial_note_private_message(msg_metadata, msg_content);
-
-    let pending = DeliveredPendingPartialNote {
-        owner,
-        storage_slot,
-        randomness,
-        note_completion_log_tag,
-        note_type_id,
-        packed_private_note_content,
-        recipient,
-    };
-=======
     let decoded = decode_partial_note_private_message(msg_metadata, msg_content);
 
     if decoded.is_some() {
         // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
         // search for the public log that will complete it.
-        let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
->>>>>>> 7a485d139a (fix(aztec-nr): return Option from decode functions and fix event commitment capacity (#21264))
+        let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
 
         let pending = DeliveredPendingPartialNote {
             owner,
+            storage_slot,
             randomness,
             note_completion_log_tag,
             note_type_id,
@@ -88,9 +67,8 @@ pub unconstrained fn process_partial_note_private_msg(
         )
             .push(pending);
     } else {
-        aztecnr_warn_log_format!(
+        debug_log_format(
             "Could not decode partial note private message from tx {0}, ignoring",
-        )(
             [tx_hash],
         );
     }
