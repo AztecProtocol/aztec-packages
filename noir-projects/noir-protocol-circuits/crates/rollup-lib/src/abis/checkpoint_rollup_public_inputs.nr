@@ -1,11 +1,11 @@
 use blob::abis::{BlobAccumulator, FinalBlobBatchingChallenges};
+use protocol_test_utils::make_fixture;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, epoch_constant_data::EpochConstantData,
         fee_recipient::FeeRecipient,
     },
     constants::{CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH, MAX_CHECKPOINTS_PER_EPOCH},
-    tests::utils::make_fixture,
     traits::{Deserialize, Empty, Serialize},
     utils::arrays::array_length,
 };
