@@ -98,6 +98,9 @@ pub unconstrained fn process_message_plaintext<Env>(
             debug_log_format("Unknown msg type id {0}", [msg_type_id as Field]);
         }
     } else {
-        debug_log_format("Could not decode message plaintext from tx {0}, ignoring", [message_context.tx_hash]);
+        debug_log_format(
+            "Could not decode message plaintext from tx {0}, ignoring",
+            [message_context.tx_hash],
+        );
     }
 }

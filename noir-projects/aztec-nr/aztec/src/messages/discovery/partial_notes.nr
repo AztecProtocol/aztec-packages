@@ -49,7 +49,8 @@ pub unconstrained fn process_partial_note_private_msg(
     if decoded.is_some() {
         // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
         // search for the public log that will complete it.
-        let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
+        let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
+            decoded.unwrap();
 
         let pending = DeliveredPendingPartialNote {
             owner,

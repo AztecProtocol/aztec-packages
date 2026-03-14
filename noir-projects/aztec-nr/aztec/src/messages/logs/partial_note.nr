@@ -131,9 +131,9 @@ pub(crate) unconstrained fn decode_partial_note_private_message(
             PARTIAL_NOTE_PRIVATE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN,
         );
 
-        Option::some(
-            (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content),
-        )
+        Option::some((
+            owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content,
+        ))
     }
 }
 
