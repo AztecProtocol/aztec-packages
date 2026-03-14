@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use types::tests::fixtures::vk_tree::VK_MERKLE_TREE;
+use protocol_test_utils::fixtures::vk_tree::{update_vk_hash, VK_MERKLE_TREE};
 
 #[test]
 unconstrained fn default_setup_success() {
@@ -23,7 +23,11 @@ unconstrained fn public_chonk_verifier_vk_hash_not_in_vk_tree() {
 
     // Change the public chonk verifier vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.public_chonk_verifier_vk_index, 999);
+    update_vk_hash(
+        &mut new_vk_tree,
+        builder.public_chonk_verifier_vk_index,
+        999,
+    );
 
     builder.private_tail.constants.vk_tree_root = new_vk_tree.get_root();
 

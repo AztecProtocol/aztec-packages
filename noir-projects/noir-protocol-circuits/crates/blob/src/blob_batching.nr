@@ -139,12 +139,8 @@ mod tests {
     use bigcurve::{BigCurve, curves::bls12_381::BLS12_381 as BLSPoint};
     use bignum::{BigNum, BLS12_381_Fr};
     use bignum::fields::bls12_381Fq::BLS12_381_Fq;
-    use types::{
-        constants::FIELDS_PER_BLOB,
-        hash::sha256_to_field,
-        tests::utils::{pad_end, pad_end_with},
-        traits::Empty,
-    };
+    use protocol_test_utils::{pad_end, pad_end_with};
+    use types::{constants::FIELDS_PER_BLOB, hash::sha256_to_field, traits::Empty};
 
     #[test]
     unconstrained fn test_1_blob_batched() {

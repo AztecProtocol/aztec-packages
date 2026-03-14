@@ -1,7 +1,6 @@
 use super::TestBuilder;
-use types::{
-    constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::compute_sha_tree_root, tests::FixtureBuilder,
-};
+use protocol_test_utils::FixtureBuilder;
+use types::{constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::compute_sha_tree_root};
 
 #[test]
 unconstrained fn empty_l2_to_l1_msgs() {

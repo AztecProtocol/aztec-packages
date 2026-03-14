@@ -1,8 +1,6 @@
 use super::TestBuilder;
-use types::{
-    constants::{CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_ROLLUP_VK_INDEX},
-    tests::fixtures::vk_tree::VK_MERKLE_TREE,
-};
+use protocol_test_utils::fixtures::vk_tree::{update_vk_hash, VK_MERKLE_TREE};
+use types::constants::{CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_ROLLUP_VK_INDEX};
 
 #[test]
 fn default_setup_success() {
@@ -49,7 +47,7 @@ fn left_rollup_vk_not_in_vk_tree() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.left_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.left_rollup_vk_index, 999);
 
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
     builder.right_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -63,7 +61,7 @@ fn right_rollup_vk_not_in_vk_tree() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.right_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.right_rollup_vk_index, 999);
     // Make sure the vk indices are different, so that it won't fail when validating the left rollup.
     assert(builder.right_rollup_vk_index != builder.left_rollup_vk_index);
 
@@ -79,7 +77,7 @@ fn single_rollup_vk_not_in_vk_tree() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.left_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.left_rollup_vk_index, 999);
 
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
     builder.right_rollup.constants.vk_tree_root = new_vk_tree.get_root();
