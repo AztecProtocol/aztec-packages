@@ -73,8 +73,7 @@ void ECCVMProver::execute_wire_commitments_round()
     // Register masked polys in MaskingTailData
     for (size_t i = 0; i < batch.wires.size(); i++) {
         if (batch.mask_flags[i]) {
-            key->masking_tail_data.register_masked_poly_with_values(
-                key->polynomials, batch.wires[i], batch.mask_values[i]);
+            key->masking_tail_data.register_masked_poly(key->polynomials, batch.wires[i], batch.mask_values[i]);
         }
     }
 }
@@ -178,12 +177,6 @@ void ECCVMProver::execute_pcs_rounds()
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    // Inject mask values into all masked polys — translation polys need them for univariate evaluation,
-    // and since all polys are extended, the batcher gets full-size polys (no tails needed).
-    if (key->masking_tail_data.is_active()) {
-        key->masking_tail_data.inject_into_polynomials(key->polynomials);
-    }
-
     SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
                                                sumcheck_output.challenge,
                                                sumcheck_output.claimed_libra_evaluation,
@@ -196,6 +189,11 @@ void ECCVMProver::execute_pcs_rounds()
     PolynomialBatcher polynomial_batcher(key->circuit_size);
     polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
+
+    // Add small tail polynomials for masked witness polys (avoids extending all polys to full dyadic size)
+    if (key->masking_tail_data.is_active()) {
+        key->masking_tail_data.add_tails_to_batcher(key->polynomials, polynomial_batcher);
+    }
 
     OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
@@ -288,12 +286,36 @@ void ECCVMProver::compute_translation_opening_claims()
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
 
-    // Collect the polynomials to be batched
-    RefArray translation_polynomials{ key->polynomials.transcript_op,
-                                      key->polynomials.transcript_Px,
-                                      key->polynomials.transcript_Py,
-                                      key->polynomials.transcript_z1,
-                                      key->polynomials.transcript_z2 };
+    // Create local copies of translation polys with mask values injected at tail positions.
+    // Only translation polys need full-size copies (for univariate evaluation); all other witness
+    // polys remain short and use tail batching in PCS instead.
+    auto extend_with_masking = [&](const Polynomial& poly) -> Polynomial {
+        size_t target_size = poly.virtual_size() - poly.start_index();
+        Polynomial extended(poly, target_size);
+        auto all_polys = key->polynomials.get_all();
+        auto all_masked = key->masking_tail_data.is_masked.get_all();
+        auto all_tails = key->masking_tail_data.tails.get_all();
+        size_t n = key->masking_tail_data.dyadic_size;
+        size_t start = n - NUM_MASKED_ROWS;
+        for (size_t i = 0; i < all_polys.size(); i++) {
+            if (all_polys[i].data() == poly.data() && all_polys[i].start_index() == poly.start_index() &&
+                all_masked[i]) {
+                for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+                    extended.at(start + j) = all_tails[i].at(start + j);
+                }
+                break;
+            }
+        }
+        return extended;
+    };
+
+    Polynomial masked_op = extend_with_masking(key->polynomials.transcript_op);
+    Polynomial masked_Px = extend_with_masking(key->polynomials.transcript_Px);
+    Polynomial masked_Py = extend_with_masking(key->polynomials.transcript_Py);
+    Polynomial masked_z1 = extend_with_masking(key->polynomials.transcript_z1);
+    Polynomial masked_z2 = extend_with_masking(key->polynomials.transcript_z2);
+
+    RefArray translation_polynomials{ masked_op, masked_Px, masked_Py, masked_z1, masked_z2 };
 
     // Extract the masking terms of `translation_polynomials`, concatenate them in the Lagrange basis over SmallSubgroup
     // H, mask the resulting polynomial, and commit to it
@@ -357,21 +379,10 @@ void ECCVMProver::compute_translation_opening_claims()
  */
 void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
-    // Generate random mask values for the tail positions
-    std::array<FF, NUM_MASKED_ROWS> mask_vals;
-    for (auto& v : mask_vals) {
-        v = FF::random_element();
-    }
-    key->masking_tail_data.register_masked_poly_with_values(key->polynomials, polynomial, mask_vals);
-
-    // Commit to the polynomial (without mask values written in-place)
-    auto commitment = key->commitment_key.commit(polynomial);
-
-    // Adjust commitment with tail: C' = C + commit(tail_poly)
-    size_t n = polynomial.virtual_size();
-    PolynomialSpan<const FF> tail_span(n - NUM_MASKED_ROWS, mask_vals);
-    commitment = commitment + key->commitment_key.commit(tail_span);
-
-    transcript->send_to_verifier(label, commitment);
+    // Use CommitBatch to handle masking + commitment in one place
+    auto batch = key->commitment_key.start_batch();
+    batch.add_to_batch(polynomial, label, /*mask?*/ true);
+    batch.commit_and_send_to_verifier(transcript);
+    key->masking_tail_data.register_masked_poly(key->polynomials, polynomial, batch.mask_values[0]);
 }
 } // namespace bb

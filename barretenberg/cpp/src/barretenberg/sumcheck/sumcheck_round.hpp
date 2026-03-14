@@ -511,48 +511,31 @@ template <typename Flavor> class SumcheckProverRound {
 
         // In round 0, 4 disabled rows = 2 edge pairs. In rounds 1+, 1 edge pair.
         size_t start_edge_idx = round_size - excluded_tail_size;
-        size_t folded_count = masking_tail_data.get_folded_count();
+        size_t fc = masking_tail_data.get_folded_count();
 
         for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
             // First, extend edges normally (reads from polynomials; gets zeros for short witness polys)
             extend_edges(extended_edges, polynomials, edge_idx);
 
             // Override masked witness poly entries with correct folded masking values.
-            // Only when folded values exist (rounds 1+, after fold_masking_values has been called).
-            // In round 0, folded is empty and (1-L) = 0 so the entire result vanishes anyway.
-            if (folded_count > 0) {
+            // In round 0, folded_count=0 and (1-L)=0, so the entire result vanishes anyway.
+            if (fc > 0) {
                 auto all_edges = extended_edges.get_all();
-                auto override_edge = [&](size_t poly_idx, FF even_val, FF odd_val) {
+                auto all_masked = masking_tail_data.is_masked.get_all();
+                auto all_folded = masking_tail_data.folded.get_all();
+                auto all_poly_vals = polynomials.get_all();
+
+                for (size_t i = 0; i < all_masked.size(); i++) {
+                    if (!all_masked[i]) {
+                        continue;
+                    }
+                    FF even_val = (fc == 2) ? all_folded[i][0] : all_poly_vals[i][edge_idx];
+                    FF odd_val = (fc == 2) ? all_folded[i][1] : all_folded[i][0];
                     auto base = bb::Univariate<FF, 2>({ even_val, odd_val });
                     if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                        all_edges[poly_idx] = base;
+                        all_edges[i] = base;
                     } else {
-                        all_edges[poly_idx] = base.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-                    }
-                };
-
-                for (size_t e = 0; e < masking_tail_data.entries.size(); e++) {
-                    size_t poly_idx = masking_tail_data.entries[e].all_entities_index;
-                    auto [folded_val_0, folded_val_1] = masking_tail_data.get_entry_folded_values(e);
-                    if (folded_count == 2) {
-                        // Round 1: both positions are in disabled zone
-                        override_edge(poly_idx, folded_val_0, folded_val_1);
-                    } else {
-                        // Rounds 2+: even position is active (correct in PE), only override odd.
-                        // The single folded masking value is in folded_val_0 (values[0]).
-                        FF actual_even = polynomials.get_all()[poly_idx][edge_idx];
-                        override_edge(poly_idx, actual_even, folded_val_0);
-                    }
-                }
-                // Override shifted entries similarly
-                for (size_t s = 0; s < masking_tail_data.shifted_entries.size(); s++) {
-                    size_t poly_idx = masking_tail_data.shifted_entries[s].all_entities_index;
-                    auto [folded_val_0, folded_val_1] = masking_tail_data.get_shifted_entry_folded_values(s);
-                    if (folded_count == 2) {
-                        override_edge(poly_idx, folded_val_0, folded_val_1);
-                    } else {
-                        FF actual_even = polynomials.get_all()[poly_idx][edge_idx];
-                        override_edge(poly_idx, actual_even, folded_val_0);
+                        all_edges[i] = base.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
                     }
                 }
             }
