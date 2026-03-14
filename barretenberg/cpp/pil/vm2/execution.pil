@@ -537,7 +537,7 @@ sel_gas_sstore * (written_slots_tree_siloing_separator - constants.DOM_SEP__PUBL
 #[CHECK_WRITTEN_STORAGE_SLOT]
 sel_gas_sstore {
     dynamic_da_gas_factor,
-    register[1], // value
+    register[1], // slot
     prev_written_public_data_slots_tree_root,
     written_slots_tree_height,
     sel_gas_sstore, // sel_silo = 1

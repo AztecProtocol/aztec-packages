@@ -99,8 +99,7 @@ mod tests {
             scheduled_delay_change::ScheduledDelayChange,
             scheduled_value_change::ScheduledValueChange,
         },
-        merkle_tree::MembershipWitness,
-        tests::merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
+        merkle_tree::{MembershipWitness, test_utils::SingleSubtreeMerkleTree},
         traits::{Empty, FromField, Hash},
     };
     use super::{

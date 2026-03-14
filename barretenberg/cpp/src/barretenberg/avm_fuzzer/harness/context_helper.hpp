@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"

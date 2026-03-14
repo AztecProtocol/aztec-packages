@@ -30,6 +30,7 @@ using namespace bb::avm2::simulation;
 using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 
+using bb::avm2::Column;
 using bb::avm2::FF;
 using bb::avm2::MemoryTag;
 using bb::avm2::MemoryValue;
@@ -298,25 +299,25 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         if (input.op_id == AVM_EXEC_OP_ID_ALU_TRUNCATE) {
             // For truncate we will test using a CAST
             return TestTraceContainer({ {
-                { avm2::Column::execution_register_0_, input.a.as_ff() },                            // = ia
-                { avm2::Column::execution_register_1_, input.c.as_ff() },                            // = ic
-                { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ic_tag
-                { avm2::Column::execution_rop_2_, static_cast<uint8_t>(input.b.get_tag()) }, // = truncate to tag
-                { avm2::Column::execution_sel_exec_dispatch_cast, 1 },                       // = sel
-                { avm2::Column::execution_sel_opcode_error, 0 },                             // = sel_err
+                { Column::execution_register_0_, input.a.as_ff() },                            // = ia
+                { Column::execution_register_1_, input.c.as_ff() },                            // = ic
+                { Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ic_tag
+                { Column::execution_rop_2_, static_cast<uint8_t>(input.b.get_tag()) },         // = truncate to tag
+                { Column::execution_sel_exec_dispatch_cast, 1 },                               // = sel
+                { Column::execution_sel_opcode_error, 0 },                                     // = sel_err
             } });
         }
         // Otherwise standard initialization of trace container and execution trace columns
         return TestTraceContainer({ {
-            { avm2::Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(input.a.get_tag()) }, // = ia_tag
-            { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ib_tag
-            { avm2::Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(input.c.get_tag()) }, // = ic_tag
-            { avm2::Column::execution_register_0_, input.a.as_ff() },                            // = ia
-            { avm2::Column::execution_register_1_, input.b.as_ff() },                            // = ib
-            { avm2::Column::execution_register_2_, input.c.as_ff() },                            // = ic
-            { avm2::Column::execution_sel_exec_dispatch_alu, 1 },                                // = sel
-            { avm2::Column::execution_sel_opcode_error, error ? 1 : 0 },                         // = sel_err
-            { avm2::Column::execution_subtrace_operation_id, input.op_id },                      // = alu_op_id
+            { Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(input.a.get_tag()) }, // = ia_tag
+            { Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ib_tag
+            { Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(input.c.get_tag()) }, // = ic_tag
+            { Column::execution_register_0_, input.a.as_ff() },                            // = ia
+            { Column::execution_register_1_, input.b.as_ff() },                            // = ib
+            { Column::execution_register_2_, input.c.as_ff() },                            // = ic
+            { Column::execution_sel_exec_dispatch_alu, 1 },                                // = sel
+            { Column::execution_sel_opcode_error, error ? 1 : 0 },                         // = sel_err
+            { Column::execution_subtrace_operation_id, input.op_id },                      // = alu_op_id
         } });
     }();
 

@@ -3,11 +3,11 @@ mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
 
 use crate::components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator;
+use protocol_test_utils::FixtureBuilder;
 use types::{
     abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
     constants::PRIVATE_KERNEL_INIT_VK_INDEX,
     hash::{compute_siloed_nullifier, create_protocol_nullifier},
-    tests::fixture_builder::FixtureBuilder,
     traits::Empty,
 };
 

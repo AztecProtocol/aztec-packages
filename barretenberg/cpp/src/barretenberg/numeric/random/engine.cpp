@@ -23,6 +23,9 @@ extern "C" int getentropy(void* buffer, size_t length); // getentropy on iOS
 // Android API 24 doesn't have getrandom/getentropy, use /dev/urandom
 #include <fcntl.h>
 #include <unistd.h>
+#elif defined(_WIN32)
+#include <bcrypt.h>
+#include <windows.h>
 #else
 #include <sys/random.h>
 #endif
@@ -37,6 +40,11 @@ namespace {
 // so there is no point in creating a larger buffer
 constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
+
+#elif defined(_WIN32)
+
+// BCryptGenRandom can fill arbitrary sizes, but keep a reasonable buffer
+constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
 
 #else
 
@@ -89,6 +97,11 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
                 urandom_fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
             }
             ssize_t read_bytes = ::read(urandom_fd, current_offset, BYTES_PER_GETENTROPY_READ);
+#elif defined(_WIN32)
+            // Use BCryptGenRandom on Windows
+            NTSTATUS status =
+                BCryptGenRandom(NULL, current_offset, static_cast<ULONG>(bytes_left), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+            ssize_t read_bytes = (status == 0) ? static_cast<ssize_t>(bytes_left) : -1;
 #else
             // Sample from urandom on native
             auto read_bytes = getrandom(current_offset, bytes_left, 0);
