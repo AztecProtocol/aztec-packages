@@ -144,9 +144,6 @@ bb-cpp-cross-amd64-macos-objects: bb-cpp-yarn
 bb-cpp-cross-arm64-macos-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
-bb-cpp-cross-amd64-windows-objects:
-	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-windows)
-
 # Cross-compile for ARM64 Linux (release only)
 bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
@@ -160,7 +157,7 @@ bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-
 	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
 # Cross-compile for AMD64 Windows (release only)
-bb-cpp-cross-amd64-windows: bb-cpp-cross-amd64-windows-objects avm-transpiler-cross-amd64-windows
+bb-cpp-cross-amd64-windows: avm-transpiler-cross-amd64-windows
 	$(call build,$@,barretenberg/cpp,build_preset amd64-windows)
 
 # iOS SDK download (shared by all iOS cross-compile targets)
