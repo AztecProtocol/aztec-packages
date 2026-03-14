@@ -341,6 +341,8 @@ BENCHMARK_DEFINE_F(ChonkBench, BatchVerifyServiceMixed)(benchmark::State& state)
     }
 }
 
+#endif // __wasm__ (batch verifier benchmarks and helpers)
+
 #define ARGS Arg(ChonkBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
 
 BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
@@ -360,6 +362,8 @@ BENCHMARK_REGISTER_F(ChonkBench, BatchIPAOnly)
     ->Arg(32)
     ->Arg(64)
     ->Arg(120);
+
+#ifndef __wasm__
 // BatchVerifyService: 120 proofs × {4, 8, 12, 16} cores (all valid)
 BENCHMARK_REGISTER_F(ChonkBench, BatchVerifyService)
     ->Unit(benchmark::kMillisecond)
@@ -374,7 +378,6 @@ BENCHMARK_REGISTER_F(ChonkBench, BatchVerifyServiceMixed)
     ->Args({ 120, 8, 5 })
     ->Args({ 120, 8, 15 })
     ->Args({ 120, 8, 30 });
-
 #endif // __wasm__
 
 } // namespace
