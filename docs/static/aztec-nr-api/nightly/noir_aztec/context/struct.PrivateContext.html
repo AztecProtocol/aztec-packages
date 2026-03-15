@@ -378,61 +378,41 @@ functionality should be added to aztec-nr.</p>
 </div><code id="push_nullifier" class="code-header">pub fn <a href="#push_nullifier"><span class="fn">push_nullifier</span></a>(&mut self, nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree (a state tree).</p>
-<p>See also: <code>push_nullifier_for_note_hash</code>.</p>
-<p>Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
-variables (see <code>../state_vars/</code>) are designed to understand when to create and push new nullifiers.</p>
-<p>A nullifier can only be emitted once. Duplicate nullifier insertions are rejected by the protocol.</p>
-<p>Generally, a nullifier is emitted to prevent an action from happening more than once, in such a way that the
-action cannot be linked (by an observer of the blockchain) to any earlier transactions.</p>
-<p>I.e. a nullifier is a random-looking, but deterministic record of a private, one-time action, which does not
-leak what action has been taken, and which preserves the property of &quot;tx unlinkability&quot;.</p>
-<p>Usually, a nullifier will be emitted to &quot;spend&quot; a note (a piece of private state), without revealing which
-specific note is being spent.</p>
-<p>(Important: in such cases, use the below <code>push_nullifier_for_note_hash</code>).</p>
-<p>Sometimes, a nullifier might be emitted completely unrelated to any notes. Examples include initialization of a
-new contract; initialization of a PrivateMutable, or signalling in Semaphore-like applications. This
-<code>push_nullifier</code> function serves such use cases.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>nullifier</code></li>
-</ul>
+<p>Creates a new <a href="../../noir_aztec/nullifier/index.html">nullifier</a>.</p>
+<h4>Safety</h4>
+<p>This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
+Instead of calling this function, consider using the higher-level <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html"><code>crate::state_vars::SingleUseClaim</code></a>.</p>
+<p>In particular, callers must ensure all nullifiers created by a contract are properly domain-separated, so that
+unrelated components don't interfere with one another (e.g. a transaction nullifier accidentally marking a
+variable as initialized). Only <a href="../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_for_note_hash"><code>PrivateContext::push_nullifier_for_note_hash</code></a> should be used for note
+nullifiers, never this one.</p>
 <h4>Advanced</h4>
-<p>From here, the protocol's kernel circuits will take over and insert the nullifier into the protocol's
-&quot;nullifier tree&quot; (in the Base Rollup circuit). Before insertion, the protocol will:</p>
-<ul>
-<li>&quot;Silo&quot; the <code>nullifier</code> with the contract address of this function, to yield a <code>siloed_nullifier</code>. This
-prevents state collisions between different smart contracts.</li>
-<li>Ensure the <code>siloed_nullifier</code> is unique (the nullifier tree is an indexed merkle tree which supports
-efficient non-membership proofs).</li>
-</ul>
-</div>
+<p>The raw <code>nullifier</code> is not what is inserted into the Aztec state tree: it will be first siloed by contract
+address via <a href="../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> in order to prevent accidental or malicious
+interference of nullifiers from different contracts.</p></div>
 </div><code id="push_nullifier_for_note_hash" class="code-header">pub fn <a href="#push_nullifier_for_note_hash"><span class="fn">push_nullifier_for_note_hash</span></a>(
     &mut self,
     nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    nullified_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    nullification_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code>
 
 <div class="padded-description"><div class="comments">
-<p>Pushes a nullifier that corresponds to a specific note hash.</p>
-<p>Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
-variables (see <code>../state_vars/</code>) are designed to understand when to create and push new nullifiers.</p>
-<p>This is a specialized version of <code>push_nullifier</code> that links a nullifier to the specific note hash it's
-nullifying. This is the most common usage pattern for nullifiers. See <code>push_nullifier</code> for more explanation on
-nullifiers.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>nullifier</code></li>
-<li><code>nullified_note_hash</code> - The note hash of the note being nullified</li>
-</ul>
-<h4>Advanced</h4>
-<p>Important: usage of this function doesn't mean that the world will <em>see</em> that this nullifier relates to the
-given nullified_note_hash (as that would violate &quot;tx unlinkability&quot;); it simply informs the user's PXE about
-the relationship (via <code>notify_nullified_note</code>). The PXE can then use this information to feed hints to the
-kernel circuits for &quot;squashing&quot; purposes: If a note is nullified during the same tx which created it, we can
-&quot;squash&quot; (delete) the note and nullifier (and any private logs associated with the note), to save on data
-emission costs.</p>
-</div>
+<p>Creates a new <a href="../../noir_aztec/nullifier/index.html">nullifier</a> associated with a note.</p>
+<p>This is a variant of <a href="../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>PrivateContext::push_nullifier</code></a> that is used for note nullifiers, i.e. nullifiers that
+correspond to a note. If a note and its nullifier are created in the same transaction, then the private kernels
+will 'squash' these values, deleting them both as if they never existed and reducing transaction fees.</p>
+<p>The <code>nullification_note_hash</code> must be the result of calling
+<a href="../../noir_aztec/note/utils/fn.compute_confirmed_note_hash_for_nullification.html"><code>crate::note::utils::compute_confirmed_note_hash_for_nullification</code></a> for pending notes, and <code>0</code> for settled
+notes (which cannot be squashed).</p>
+<h4>Safety</h4>
+<p>This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
+Instead of calling this function, consider using the higher-level <a href="../../noir_aztec/note/lifecycle/fn.destroy_note.html"><code>crate::note::lifecycle::destroy_note</code></a>.</p>
+<p>The precautions listed for <a href="../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>PrivateContext::push_nullifier</code></a> apply here as well, and callers should
+additionally ensure <code>nullification_note_hash</code> corresponds to a note emitted by this contract, with its hash
+computed in the same transaction execution phase as the call to this function. Finally, only this function
+should be used for note nullifiers, never <a href="../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>PrivateContext::push_nullifier</code></a>.</p>
+<p>Failure to do these things can result in unprovable contexts, accidental deletion of notes, or double-spend
+attacks.</p></div>
 </div><code id="get_anchor_block_header" class="code-header">pub fn <a href="#get_anchor_block_header"><span class="fn">get_anchor_block_header</span></a>(self) -> <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code>
 
 <div class="padded-description"><div class="comments">
