@@ -62,8 +62,7 @@ mod tests {
     use crate::{
         constants::PUBLIC_DATA_TREE_HEIGHT,
         data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-        merkle_tree::MembershipWitness,
-        tests::merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
+        merkle_tree::{MembershipWitness, test_utils::SingleSubtreeMerkleTree},
         traits::{Empty, Hash},
     };
     use super::public_data_storage_read;
