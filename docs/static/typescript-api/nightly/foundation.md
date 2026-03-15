@@ -1,6 +1,6 @@
 # @aztec/foundation
 
-Version: v5.0.0-nightly.20260312
+Version: v5.0.0-nightly.20260315
 
 ## Quick Import Reference
 
@@ -1085,7 +1085,7 @@ Resets the actor-to-color mapping. Useful for testing.
 
 ### resolveLogger
 ```typescript
-function resolveLogger(module: string, loggerOrBindings?: LoggerBindings | Logger) => Logger
+function resolveLogger(module: string, loggerOrBindings?: Logger | LoggerBindings) => Logger
 ```
 Returns a logger for the given module. If loggerOrBindings is already a Logger, returns it directly. Otherwise, creates a new logger with the given module name and bindings.
 
@@ -1454,7 +1454,7 @@ type logFilters = LogFilters
 
 ### logLevel
 ```typescript
-type logLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "verbose" | "silent"
+type logLevel = "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "debug" | "trace"
 ```
 
 ### logger
