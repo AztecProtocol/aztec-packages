@@ -234,10 +234,10 @@ export interface MerkleTreeCheckpointOperations {
   /** Reverts the current checkpoint. */
   revertCheckpoint(): Promise<void>;
 
-  /** Commits all checkpoints at the given depth and above (inclusive). */
+  /** Commits all checkpoints above the given depth, leaving checkpoint depth at the given value. */
   commitAllCheckpointsTo(depth: number): Promise<void>;
 
-  /** Reverts all checkpoints at the given depth and above (inclusive). */
+  /** Reverts all checkpoints above the given depth, leaving checkpoint depth at the given value. */
   revertAllCheckpointsTo(depth: number): Promise<void>;
 }
 

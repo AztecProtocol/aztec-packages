@@ -159,7 +159,7 @@ describe('public_processor', () => {
       expect(failed[0].error).toEqual(new Error(`Failed`));
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(0);
     });
 
     it('if a tx errors with assertion failure, public processor returns failed tx with its assertion message', async function () {
@@ -174,7 +174,7 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Forced assertion failure/);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(0);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -315,7 +315,7 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Not enough balance/i);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(0);
       expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(0);
     });
   });
@@ -330,7 +330,7 @@ describe('public_processor', () => {
 
       expect(processed).toEqual([]);
       expect(failed).toHaveLength(1);
-      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(2);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
       expect(merkleTree.commitCheckpoint).not.toHaveBeenCalled();
     });
 

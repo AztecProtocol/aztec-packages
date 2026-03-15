@@ -635,8 +635,8 @@ TEST_F(ContentAddressedCacheTest, commit_to_depth_partial)
 
     CacheType final_cache = cache;
 
-    // Commit depths 3 and 2 (inclusive), preserve depth 1
-    cache.commit_to_depth(2);
+    // Commit down to depth 1 (commits depths 3 and 2), preserve depth 1
+    cache.commit_to_depth(1);
     EXPECT_EQ(cache.depth(), 1u);
 
     // Data from depth 2+3 is merged into depth 1's scope
@@ -666,15 +666,15 @@ TEST_F(ContentAddressedCacheTest, revert_to_depth_partial)
     cache.checkpoint();
     add_to_cache(cache, 300, 100, 1000);
 
-    // Revert depths 3 and 2 (inclusive), preserve depth 1
-    cache.revert_to_depth(2);
+    // Revert down to depth 1 (reverts depths 3 and 2), preserve depth 1
+    cache.revert_to_depth(1);
     EXPECT_EQ(cache.depth(), 1u);
 
     // Data from depth 2+3 is gone, state matches after depth 1 changes
     EXPECT_TRUE(after_depth1_cache.is_equivalent_to(cache));
 }
 
-TEST_F(ContentAddressedCacheTest, commit_to_depth_1_is_commit_all)
+TEST_F(ContentAddressedCacheTest, commit_to_depth_0_is_commit_all)
 {
     CacheType cache = create_cache(40);
     add_to_cache(cache, 0, 100, 1000);
@@ -686,7 +686,7 @@ TEST_F(ContentAddressedCacheTest, commit_to_depth_1_is_commit_all)
     add_to_cache(cache, 300, 100, 1000);
     CacheType final_cache = cache;
 
-    cache.commit_to_depth(1);
+    cache.commit_to_depth(0);
     EXPECT_EQ(cache.depth(), 0u);
     EXPECT_TRUE(final_cache.is_equivalent_to(cache));
 
@@ -695,7 +695,7 @@ TEST_F(ContentAddressedCacheTest, commit_to_depth_1_is_commit_all)
     EXPECT_THROW(cache.revert(), std::runtime_error);
 }
 
-TEST_F(ContentAddressedCacheTest, revert_to_depth_1_is_revert_all)
+TEST_F(ContentAddressedCacheTest, revert_to_depth_0_is_revert_all)
 {
     CacheType cache = create_cache(40);
     add_to_cache(cache, 0, 100, 1000);
@@ -708,7 +708,7 @@ TEST_F(ContentAddressedCacheTest, revert_to_depth_1_is_revert_all)
     cache.checkpoint();
     add_to_cache(cache, 300, 100, 1000);
 
-    cache.revert_to_depth(1);
+    cache.revert_to_depth(0);
     EXPECT_EQ(cache.depth(), 0u);
     EXPECT_TRUE(original_cache.is_equivalent_to(cache));
 
@@ -729,9 +729,9 @@ TEST_F(ContentAddressedCacheTest, commit_to_depth_at_current_is_single_commit)
     add_to_cache(cache, 300, 100, 1000);
     CacheType final_cache = cache;
 
-    // Commit only the top checkpoint (depth 3)
+    // Commit only the top checkpoint (depth 3), leaving depth at 2
     EXPECT_EQ(cache.depth(), 3u);
-    cache.commit_to_depth(3);
+    cache.commit_to_depth(2);
     EXPECT_EQ(cache.depth(), 2u);
     EXPECT_TRUE(final_cache.is_equivalent_to(cache));
 }
@@ -750,9 +750,9 @@ TEST_F(ContentAddressedCacheTest, revert_to_depth_at_current_is_single_revert)
     cache.checkpoint();
     add_to_cache(cache, 300, 100, 1000);
 
-    // Revert only the top checkpoint (depth 3)
+    // Revert only the top checkpoint (depth 3), leaving depth at 2
     EXPECT_EQ(cache.depth(), 3u);
-    cache.revert_to_depth(3);
+    cache.revert_to_depth(2);
     EXPECT_EQ(cache.depth(), 2u);
     EXPECT_TRUE(after_depth2_cache.is_equivalent_to(cache));
 }
@@ -772,9 +772,9 @@ TEST_F(ContentAddressedCacheTest, revert_to_depth_preserves_lower_data)
     cache.checkpoint();
     add_to_cache(cache, 200, 100, 1000);
 
-    // Revert depth 2 only
+    // Revert depth 2 only, leaving depth at 1
     EXPECT_EQ(cache.depth(), 2u);
-    cache.revert_to_depth(2);
+    cache.revert_to_depth(1);
     EXPECT_EQ(cache.depth(), 1u);
     EXPECT_TRUE(after_depth1_cache.is_equivalent_to(cache));
 
@@ -791,8 +791,9 @@ TEST_F(ContentAddressedCacheTest, commit_to_depth_invalid_depth_throws)
     cache.checkpoint();
     EXPECT_EQ(cache.depth(), 2u);
 
-    EXPECT_THROW(cache.commit_to_depth(0), std::runtime_error);
+    // target_depth >= current depth is invalid
+    EXPECT_THROW(cache.commit_to_depth(2), std::runtime_error);
     EXPECT_THROW(cache.commit_to_depth(3), std::runtime_error);
-    EXPECT_THROW(cache.revert_to_depth(0), std::runtime_error);
+    EXPECT_THROW(cache.revert_to_depth(2), std::runtime_error);
     EXPECT_THROW(cache.revert_to_depth(3), std::runtime_error);
 }

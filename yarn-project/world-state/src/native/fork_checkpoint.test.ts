@@ -36,7 +36,7 @@ describe('ForkCheckpoint', () => {
     fork.revertAllCheckpointsTo.mockResolvedValue();
     const checkpoint = await ForkCheckpoint.new(fork);
     await checkpoint.revertToCheckpoint();
-    expect(fork.revertAllCheckpointsTo).toHaveBeenCalledWith(5);
+    expect(fork.revertAllCheckpointsTo).toHaveBeenCalledWith(4);
   });
 
   it('revertToCheckpoint prevents subsequent commit', async () => {

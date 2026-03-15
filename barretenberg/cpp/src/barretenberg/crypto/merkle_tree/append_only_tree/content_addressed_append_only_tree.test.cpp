@@ -2311,8 +2311,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_to_depth)
     add_values(tree, create_values(blockSize));
     fr_sibling_path after_depth3_path = get_sibling_path(tree, 0);
 
-    // Commit depths 3 and 2 into depth 1
-    commit_tree_to_depth(tree, 2);
+    // Commit depths 3 and 2 into depth 1, leaving depth at 1
+    commit_tree_to_depth(tree, 1);
 
     // Data from all depths should be present
     check_sibling_path(tree, 0, after_depth3_path);
@@ -2354,8 +2354,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_to_depth)
     checkpoint_tree(tree);
     add_values(tree, create_values(blockSize));
 
-    // Revert depths 3 and 2
-    revert_tree_to_depth(tree, 2);
+    // Revert depths 3 and 2, leaving depth at 1
+    revert_tree_to_depth(tree, 1);
 
     // Should be back to after depth 1 state
     check_sibling_path(tree, 0, after_depth1_path);

@@ -288,9 +288,9 @@ interface CreateCheckpointResponse {
   depth: number;
 }
 
-/** Request to commit/revert all checkpoints at a specific depth and above (inclusive). */
+/** Request to commit/revert all checkpoints down to a target depth. The resulting depth after the operation equals the given depth. */
 interface CheckpointDepthRequest extends WithForkId {
-  /** Commit/revert checkpoints at this depth and above (inclusive). */
+  /** The target depth after the operation. All checkpoints above this depth are committed/reverted. */
   depth: number;
 }
 

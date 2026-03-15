@@ -251,20 +251,20 @@ template <typename LeafValueType> uint32_t ContentAddressedCache<LeafValueType>:
 
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit_to_depth(uint32_t target_depth)
 {
-    if (target_depth == 0 || target_depth > journals_.size()) {
+    if (target_depth >= journals_.size()) {
         throw std::runtime_error("Invalid depth for commit_to_depth");
     }
-    while (journals_.size() >= target_depth) {
+    while (journals_.size() > target_depth) {
         commit();
     }
 }
 
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert_to_depth(uint32_t target_depth)
 {
-    if (target_depth == 0 || target_depth > journals_.size()) {
+    if (target_depth >= journals_.size()) {
         throw std::runtime_error("Invalid depth for revert_to_depth");
     }
-    while (journals_.size() >= target_depth) {
+    while (journals_.size() > target_depth) {
         revert();
     }
 }

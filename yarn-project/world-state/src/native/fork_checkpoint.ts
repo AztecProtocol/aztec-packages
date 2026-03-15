@@ -32,16 +32,15 @@ export class ForkCheckpoint {
   }
 
   /**
-   * Reverts all checkpoints at or above this checkpoint's depth (inclusive),
-   * destroying this checkpoint and any nested checkpoints created on top of it,
-   * while preserving any checkpoints created by callers below our depth.
+   * Reverts this checkpoint and any nested checkpoints created on top of it,
+   * leaving the checkpoint depth at the level it was before this checkpoint was created.
    */
   async revertToCheckpoint(): Promise<void> {
     if (this.completed) {
       return;
     }
 
-    await this.fork.revertAllCheckpointsTo(this.depth);
+    await this.fork.revertAllCheckpointsTo(this.depth - 1);
     this.completed = true;
   }
 }
