@@ -8,7 +8,7 @@
  * Detailed performance benchmarks live in C++ (chonk.bench.cpp) alongside
  * pinned IVC inputs.
  */
-import { AztecClientBackend, BackendType, Barretenberg, type ChonkProof, toChonkProof } from '@aztec/bb.js';
+import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -100,19 +100,13 @@ function createFifo(label: string): { fifoPath: string; cleanup: () => void } {
   };
 }
 
-function decodeChonkProof(proofBuf: Uint8Array): ChonkProof {
-  const unpackr = new Unpackr({ useRecords: false });
-  return toChonkProof(unpackr.unpack(proofBuf));
-}
-
-/** Create a corrupted ChonkProof by incrementing a field element in the mega proof. */
-function corruptChonkProof(proof: ChonkProof): ChonkProof {
-  if (proof.megaProof.length <= 2) {
-    throw new Error(`Cannot corrupt proof: megaProof has only ${proof.megaProof.length} elements`);
-  }
-  const corruptedMega = proof.megaProof.map(f => Uint8Array.from(f));
-  corruptedMega[2][31] = (corruptedMega[2][31] + 1) & 0xff;
-  return { megaProof: corruptedMega, goblinProof: proof.goblinProof };
+/** Corrupt flat proof fields by flipping bytes in an early field element. */
+function corruptProofFields(fields: Uint8Array[]): Uint8Array[] {
+  const corrupted = fields.map(f => Uint8Array.from(f));
+  corrupted[2] = Uint8Array.from(corrupted[2]);
+  corrupted[2][0] ^= 0xff;
+  corrupted[2][1] ^= 0xff;
+  return corrupted;
 }
 
 /** Run the batch verifier with the given workload and collect all results. */
@@ -122,7 +116,7 @@ async function runBatchVerifier(
     vks: Uint8Array[];
     numCores: number;
     batchSize: number;
-    proofs: { vkIndex: number; proof: ChonkProof }[];
+    proofs: { vkIndex: number; proofFields: Uint8Array[] }[];
   },
 ): Promise<FifoVerifyResult[]> {
   const { fifoPath, cleanup } = createFifo(`${opts.numCores}c-${opts.proofs.length}p-bs${opts.batchSize}`);
@@ -140,7 +134,7 @@ async function runBatchVerifier(
       await bb.chonkBatchVerifierQueue({
         requestId: i,
         vkIndex: opts.proofs[i].vkIndex,
-        proof: opts.proofs[i].proof,
+        proofFields: opts.proofs[i].proofFields,
       });
     }
 
@@ -153,8 +147,8 @@ async function runBatchVerifier(
 
 describe('Batch Chonk Verifier Queue', () => {
   let bb: Barretenberg;
-  let validProof: ChonkProof;
-  let invalidProof: ChonkProof;
+  let validProofFields: Uint8Array[];
+  let invalidProofFields: Uint8Array[];
   let vk: Uint8Array;
 
   beforeAll(async () => {
@@ -164,9 +158,9 @@ describe('Batch Chonk Verifier Queue', () => {
     logger.info('Generating proof for tests...');
     const [bytecodes, witnesses, , vks] = await generateTestingIVCStack(1, 0);
     const backend = new AztecClientBackend(bytecodes, bb);
-    const [, proofBuf, generatedVk] = await backend.prove(witnesses, vks);
-    validProof = decodeChonkProof(proofBuf);
-    invalidProof = corruptChonkProof(validProof);
+    const [proofFields, , generatedVk] = await backend.prove(witnesses, vks);
+    validProofFields = proofFields;
+    invalidProofFields = corruptProofFields(validProofFields);
     vk = generatedVk;
     logger.info('Proof generated');
   });
@@ -182,7 +176,7 @@ describe('Batch Chonk Verifier Queue', () => {
       vks: [vk],
       numCores: 4,
       batchSize: 8,
-      proofs: [{ vkIndex: 0, proof: validProof }],
+      proofs: [{ vkIndex: 0, proofFields: validProofFields }],
     });
     expect(results).toHaveLength(1);
     expect(results[0].status).toBe(0);
@@ -194,7 +188,7 @@ describe('Batch Chonk Verifier Queue', () => {
       vks: [vk],
       numCores: 4,
       batchSize: 8,
-      proofs: [{ vkIndex: 0, proof: invalidProof }],
+      proofs: [{ vkIndex: 0, proofFields: invalidProofFields }],
     });
     expect(results).toHaveLength(1);
     expect(results[0].status).toBe(1);
@@ -204,7 +198,7 @@ describe('Batch Chonk Verifier Queue', () => {
 
   for (const n of [1, 2, 3, 5, 7]) {
     it(`flushes ${n} proof(s) with batch_size=8`, async () => {
-      const proofs = Array.from({ length: n }, () => ({ vkIndex: 0, proof: validProof }));
+      const proofs = Array.from({ length: n }, () => ({ vkIndex: 0, proofFields: validProofFields }));
       const results = await runBatchVerifier(bb, { vks: [vk], numCores: 4, batchSize: 8, proofs });
       expect(results).toHaveLength(n);
       expect(results.every(r => r.status === 0)).toBe(true);
@@ -218,7 +212,7 @@ describe('Batch Chonk Verifier Queue', () => {
       vks: [vk],
       numCores: 4,
       batchSize: 4,
-      proofs: Array.from({ length: 4 }, () => ({ vkIndex: 0, proof: validProof })),
+      proofs: Array.from({ length: 4 }, () => ({ vkIndex: 0, proofFields: validProofFields })),
     });
     expect(results).toHaveLength(4);
     expect(results.every(r => r.status === 0)).toBe(true);
@@ -229,7 +223,7 @@ describe('Batch Chonk Verifier Queue', () => {
       vks: [vk],
       numCores: 4,
       batchSize: 4,
-      proofs: Array.from({ length: 5 }, () => ({ vkIndex: 0, proof: validProof })),
+      proofs: Array.from({ length: 5 }, () => ({ vkIndex: 0, proofFields: validProofFields })),
     });
     expect(results).toHaveLength(5);
     expect(results.every(r => r.status === 0)).toBe(true);
@@ -239,10 +233,10 @@ describe('Batch Chonk Verifier Queue', () => {
 
   it('batch_size=1 verifies each proof individually', async () => {
     const proofs = [
-      { vkIndex: 0, proof: validProof },
-      { vkIndex: 0, proof: invalidProof },
-      { vkIndex: 0, proof: validProof },
-      { vkIndex: 0, proof: invalidProof },
+      { vkIndex: 0, proofFields: validProofFields },
+      { vkIndex: 0, proofFields: invalidProofFields },
+      { vkIndex: 0, proofFields: validProofFields },
+      { vkIndex: 0, proofFields: invalidProofFields },
     ];
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 4, batchSize: 1, proofs });
     expect(results).toHaveLength(4);
@@ -256,7 +250,7 @@ describe('Batch Chonk Verifier Queue', () => {
   // -- All invalid --
 
   it('all proofs invalid', async () => {
-    const proofs = Array.from({ length: 8 }, () => ({ vkIndex: 0, proof: invalidProof }));
+    const proofs = Array.from({ length: 8 }, () => ({ vkIndex: 0, proofFields: invalidProofFields }));
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 4, batchSize: 4, proofs });
     expect(results).toHaveLength(8);
     expect(results.every(r => r.status === 1)).toBe(true);
@@ -267,7 +261,7 @@ describe('Batch Chonk Verifier Queue', () => {
   it('1 bad out of 8 (bisection identifies it)', async () => {
     const proofs = Array.from({ length: 8 }, (_, i) => ({
       vkIndex: 0,
-      proof: i === 3 ? invalidProof : validProof,
+      proofFields: i === 3 ? invalidProofFields : validProofFields,
     }));
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 4, batchSize: 8, proofs });
     expect(results).toHaveLength(8);
@@ -279,7 +273,7 @@ describe('Batch Chonk Verifier Queue', () => {
   it('bad proofs at batch boundaries', async () => {
     const proofs = Array.from({ length: 8 }, (_, i) => ({
       vkIndex: 0,
-      proof: i === 0 || i === 4 ? invalidProof : validProof,
+      proofFields: i === 0 || i === 4 ? invalidProofFields : validProofFields,
     }));
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 4, batchSize: 4, proofs });
     expect(results).toHaveLength(8);
@@ -292,7 +286,7 @@ describe('Batch Chonk Verifier Queue', () => {
   it('half bad proofs', async () => {
     const proofs = Array.from({ length: 16 }, (_, i) => ({
       vkIndex: 0,
-      proof: i % 2 === 0 ? invalidProof : validProof,
+      proofFields: i % 2 === 0 ? invalidProofFields : validProofFields,
     }));
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 8, batchSize: 8, proofs });
     expect(results).toHaveLength(16);
@@ -303,14 +297,14 @@ describe('Batch Chonk Verifier Queue', () => {
   // -- Core count extremes --
 
   it('works with numCores=1', async () => {
-    const proofs = Array.from({ length: 4 }, () => ({ vkIndex: 0, proof: validProof }));
+    const proofs = Array.from({ length: 4 }, () => ({ vkIndex: 0, proofFields: validProofFields }));
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 1, batchSize: 4, proofs });
     expect(results).toHaveLength(4);
     expect(results.every(r => r.status === 0)).toBe(true);
   });
 
   it('16 cores, batch_size=16, 32 proofs', async () => {
-    const proofs = Array.from({ length: 32 }, () => ({ vkIndex: 0, proof: validProof }));
+    const proofs = Array.from({ length: 32 }, () => ({ vkIndex: 0, proofFields: validProofFields }));
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 16, batchSize: 16, proofs });
     expect(results).toHaveLength(32);
     expect(results.every(r => r.status === 0)).toBe(true);
@@ -320,7 +314,7 @@ describe('Batch Chonk Verifier Queue', () => {
 
   it('returns correct request_ids for all proofs', async () => {
     const n = 12;
-    const proofs = Array.from({ length: n }, () => ({ vkIndex: 0, proof: validProof }));
+    const proofs = Array.from({ length: n }, () => ({ vkIndex: 0, proofFields: validProofFields }));
     const results = await runBatchVerifier(bb, { vks: [vk], numCores: 4, batchSize: 4, proofs });
     const ids = results.map(r => r.request_id).sort((a, b) => a - b);
     expect(ids).toEqual(Array.from({ length: n }, (_, i) => i));
@@ -333,7 +327,7 @@ describe('Batch Chonk Verifier Queue', () => {
       vks: [vk],
       numCores: 4,
       batchSize: 4,
-      proofs: Array.from({ length: 4 }, () => ({ vkIndex: 0, proof: validProof })),
+      proofs: Array.from({ length: 4 }, () => ({ vkIndex: 0, proofFields: validProofFields })),
     });
     expect(results1).toHaveLength(4);
     expect(results1.every(r => r.status === 0)).toBe(true);
@@ -343,9 +337,9 @@ describe('Batch Chonk Verifier Queue', () => {
       numCores: 8,
       batchSize: 2,
       proofs: [
-        { vkIndex: 0, proof: validProof },
-        { vkIndex: 0, proof: invalidProof },
-        { vkIndex: 0, proof: validProof },
+        { vkIndex: 0, proofFields: validProofFields },
+        { vkIndex: 0, proofFields: invalidProofFields },
+        { vkIndex: 0, proofFields: validProofFields },
       ],
     });
     expect(results2).toHaveLength(3);
