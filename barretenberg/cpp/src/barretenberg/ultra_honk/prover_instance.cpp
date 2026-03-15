@@ -234,21 +234,17 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     const size_t return_data_size = circuit.get_return_data().size();
 
     // Allocate only enough space for the databus data. For ZK, masking values are stored in MaskingTailData.
-    const size_t calldata_poly_size = calldata_size;
-    const size_t sec_calldata_poly_size = sec_calldata_size;
-    const size_t return_data_poly_size = return_data_size;
+    polynomials.calldata = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_counts = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_tags = Polynomial(calldata_size, dyadic_size());
 
-    polynomials.calldata = Polynomial(calldata_poly_size, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(calldata_poly_size, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(calldata_poly_size, dyadic_size());
+    polynomials.secondary_calldata = Polynomial(sec_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_tags = Polynomial(sec_calldata_size, dyadic_size());
 
-    polynomials.secondary_calldata = Polynomial(sec_calldata_poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(sec_calldata_poly_size, dyadic_size());
-
-    polynomials.return_data = Polynomial(return_data_poly_size, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(return_data_poly_size, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(return_data_poly_size, dyadic_size());
+    polynomials.return_data = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_counts = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_tags = Polynomial(return_data_size, dyadic_size());
 
     // Databus lookup inverses: used in the log-derivative lookup argument
     // Must cover both the databus gate block (where reads occur) and the databus data itself

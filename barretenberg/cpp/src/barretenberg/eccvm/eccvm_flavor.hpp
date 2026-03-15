@@ -338,6 +338,7 @@ class ECCVMFlavor {
         }
         // All witness entities are masked in ZK mode
         auto get_masked() { return get_all(); }
+        auto get_masked() const { return get_all(); }
     };
 
     /**
@@ -433,7 +434,9 @@ class ECCVMFlavor {
                                WitnessEntities<DataType>::get_all());
         };
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
+        auto get_to_be_shifted() const { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 

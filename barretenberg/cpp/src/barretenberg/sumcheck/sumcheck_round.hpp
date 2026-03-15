@@ -813,7 +813,6 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
     /**
      * @brief Check that the round target sum is correct
      */
-    size_t round_idx = 0; // debug counter
     void check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
     {
         // OriginTag false positive: The univariate is constrained by the sumcheck relation S^i(0) + S^i(1) =
@@ -836,19 +835,6 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
         } else {
             sumcheck_round_failed = (target_total_sum != total_sum);
         }
-        if (sumcheck_round_failed) {
-            info("SUMCHECK ROUND FAILED: round_idx=",
-                 round_idx,
-                 " target=",
-                 target_total_sum,
-                 " got=",
-                 total_sum,
-                 " S(0)=",
-                 univariate.value_at(0),
-                 " S(1)=",
-                 univariate.value_at(1));
-        }
-        round_idx++;
         round_failed = round_failed || sumcheck_round_failed;
     };
 

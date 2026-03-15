@@ -123,7 +123,6 @@ void ECCVMProver::execute_grand_product_computation_round()
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
     commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
-    // Shifted entries were already registered in register_all_masked_polys
 }
 
 /**
@@ -281,34 +280,21 @@ void ECCVMProver::compute_translation_opening_claims()
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
 
-    // Create local copies of translation polys with mask values injected at tail positions.
-    // Only translation polys need full-size copies (for univariate evaluation); all other witness
-    // polys remain short and use tail batching in PCS instead.
-    auto extend_with_masking = [&](const Polynomial& poly) -> Polynomial {
-        size_t target_size = poly.virtual_size() - poly.start_index();
-        Polynomial extended(poly, target_size);
-        auto all_polys = key->polynomials.get_all();
-        auto all_masked = key->masking_tail_data.is_masked.get_all();
-        auto all_tails = key->masking_tail_data.tails.get_all();
-        size_t n = key->masking_tail_data.dyadic_size;
-        size_t start = n - NUM_MASKED_ROWS;
-        for (size_t i = 0; i < all_polys.size(); i++) {
-            if (all_polys[i].data() == poly.data() && all_polys[i].start_index() == poly.start_index() &&
-                all_masked[i]) {
-                for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
-                    extended.at(start + j) = all_tails[i].at(start + j);
-                }
-                break;
-            }
-        }
+    // Create full-size copies of translation polys with masking tail values merged in.
+    // Only translation polys need this (for univariate evaluation); all other witness polys
+    // remain short and use tail batching in PCS instead.
+    auto& mtd = key->masking_tail_data;
+    auto extend_with_tail = [&](const Polynomial& poly, const Polynomial& tail) -> Polynomial {
+        Polynomial extended(poly, poly.virtual_size() - poly.start_index());
+        extended += tail;
         return extended;
     };
 
-    Polynomial masked_op = extend_with_masking(key->polynomials.transcript_op);
-    Polynomial masked_Px = extend_with_masking(key->polynomials.transcript_Px);
-    Polynomial masked_Py = extend_with_masking(key->polynomials.transcript_Py);
-    Polynomial masked_z1 = extend_with_masking(key->polynomials.transcript_z1);
-    Polynomial masked_z2 = extend_with_masking(key->polynomials.transcript_z2);
+    Polynomial masked_op = extend_with_tail(key->polynomials.transcript_op, mtd.tails.transcript_op);
+    Polynomial masked_Px = extend_with_tail(key->polynomials.transcript_Px, mtd.tails.transcript_Px);
+    Polynomial masked_Py = extend_with_tail(key->polynomials.transcript_Py, mtd.tails.transcript_Py);
+    Polynomial masked_z1 = extend_with_tail(key->polynomials.transcript_z1, mtd.tails.transcript_z1);
+    Polynomial masked_z2 = extend_with_tail(key->polynomials.transcript_z2, mtd.tails.transcript_z2);
 
     RefArray translation_polynomials{ masked_op, masked_Px, masked_Py, masked_z1, masked_z2 };
 

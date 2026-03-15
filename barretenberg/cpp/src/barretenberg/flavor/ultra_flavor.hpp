@@ -176,6 +176,7 @@ class UltraFlavor {
         auto get_to_be_shifted() { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
         // All witness entities are masked in ZK mode
         auto get_masked() { return get_all(); }
+        auto get_masked() const { return get_all(); }
     };
 
     /**
@@ -191,6 +192,7 @@ class UltraFlavor {
                               z_perm_shift) // column 4
 
         auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
+        auto get_shifted() const { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
     /**

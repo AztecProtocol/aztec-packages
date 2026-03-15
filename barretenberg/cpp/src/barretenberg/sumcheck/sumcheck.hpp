@@ -511,6 +511,14 @@ template <typename Flavor> class SumcheckProver {
      * @param zk_sumcheck_data
      * @return SumcheckOutput<Flavor>
      */
+    // Overload for ZK flavors without masking tails (e.g. Translator)
+    SumcheckOutput<Flavor> prove(ZKData& zk_sumcheck_data)
+        requires(Flavor::HasZK && !UseRowDisablingPolynomial<Flavor>)
+    {
+        MaskingTailData<Flavor> empty_masking_tail;
+        return prove(zk_sumcheck_data, empty_masking_tail);
+    }
+
     SumcheckOutput<Flavor> prove(ZKData& zk_sumcheck_data, MaskingTailData<Flavor>& masking_tail)
         requires Flavor::HasZK
     {
@@ -550,7 +558,9 @@ template <typename Flavor> class SumcheckProver {
             partially_evaluate_first_round(full_polynomials, round_challenge);
 
         // Fold masking values for the next round
-        masking_tail.fold_masking_values(round_challenge, round_idx, round.round_size, &full_polynomials);
+        if constexpr (UseRowDisablingPolynomial<Flavor>) {
+            masking_tail.fold_masking_values(round_challenge, round_idx, round.round_size, &full_polynomials);
+        }
 
         // Prepare ZK Sumcheck data for the next round
         zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
@@ -589,8 +599,10 @@ template <typename Flavor> class SumcheckProver {
             multivariate_challenge.emplace_back(round_challenge);
 
             // Fold masking values BEFORE partially_evaluate (need to read PE at active positions)
-            masking_tail.fold_masking_values(
-                round_challenge, round_idx, round.round_size, &partially_evaluated_polynomials);
+            if constexpr (UseRowDisablingPolynomial<Flavor>) {
+                masking_tail.fold_masking_values(
+                    round_challenge, round_idx, round.round_size, &partially_evaluated_polynomials);
+            }
 
             // Prepare sumcheck book-keeping table for the next round.
             partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
@@ -633,7 +645,7 @@ template <typename Flavor> class SumcheckProver {
         // Use only the first multivariate_d challenges: masking positions are at {n-3, n-2, n-1}
         // where n = dyadic_size = 2^multivariate_d, so the Lagrange basis products only involve
         // the real sumcheck challenges, not any padding challenges from virtual rounds.
-        if (masking_tail.is_active()) {
+        if constexpr (UseRowDisablingPolynomial<Flavor>) {
             auto real_challenges = std::span<const FF>(multivariate_challenge.data(), multivariate_d);
             masking_tail.apply_claimed_eval_corrections(multivariate_evaluations, real_challenges);
         }

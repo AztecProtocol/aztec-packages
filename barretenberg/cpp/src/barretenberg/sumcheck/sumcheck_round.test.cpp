@@ -322,7 +322,7 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
     const size_t round_size = full_size;
     SumcheckProverRound<Flavor> round(round_size);
 
-    // Create polynomials - ZK flavor always uses full size
+    // Create polynomials for ZK flavor
     std::vector<bb::Polynomial<FF>> random_polynomials(Flavor::NUM_ALL_ENTITIES);
     for (auto& poly : random_polynomials) {
         poly = bb::Polynomial<FF>(full_size);

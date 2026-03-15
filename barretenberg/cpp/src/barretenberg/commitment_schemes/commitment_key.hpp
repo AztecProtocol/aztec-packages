@@ -144,9 +144,9 @@ template <class Curve> class CommitmentKey {
          * from MaskingTailData, and send to verifier.
          *
          * @param transcript The transcript to send commitments to.
-         * @param masking_tail_data If non-null, looks up tail polys for each wire and adjusts
+         * @param masking_tail_data If non-null, iterates masked polys and adjusts matching
          *        commitments: C' = C_short + commit(tail_poly).
-         * @param prover_polys ProverPolynomials reference for data-pointer matching (needed when
+         * @param prover_polys ProverPolynomials reference for pointer matching (needed when
          *        masking_tail_data is provided).
          */
         template <typename MaskingTailDataT = std::nullptr_t, typename ProverPolynomials = std::nullptr_t>
@@ -160,9 +160,14 @@ template <class Curve> class CommitmentKey {
             // Adjust commitments for masked polys: C' = C_short + commit(tail_poly)
             if constexpr (!std::is_same_v<MaskingTailDataT, std::nullptr_t>) {
                 if (masking_tail_data != nullptr && prover_polys != nullptr && masking_tail_data->is_active()) {
-                    for (size_t i = 0; i < commitments.size(); ++i) {
-                        if (auto* tail = masking_tail_data->get_tail_for_poly(*prover_polys, wires[i])) {
-                            commitments[i] = commitments[i] + key->commit(*tail);
+                    auto masked_polys = prover_polys->get_masked();
+                    auto masked_tails = masking_tail_data->tails.get_masked();
+                    for (size_t m = 0; m < masked_polys.size(); ++m) {
+                        for (size_t i = 0; i < wires.size(); ++i) {
+                            if (wires[i].data() == masked_polys[m].data()) {
+                                commitments[i] = commitments[i] + key->commit(masked_tails[m]);
+                                break;
+                            }
                         }
                     }
                 }

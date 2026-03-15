@@ -162,8 +162,7 @@ void TranslatorProver::execute_relation_check_rounds()
 
     zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
-    MaskingTailData<Flavor> masking_tail;
-    sumcheck_output = sumcheck.prove(zk_sumcheck_data, masking_tail);
+    sumcheck_output = sumcheck.prove(zk_sumcheck_data);
 }
 
 /**
