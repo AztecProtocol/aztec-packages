@@ -68,8 +68,9 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
 
     // Note: the below ecc calls assume points are on the curve. We know preaddress_public_key is (by definition),
     // but it may be possible that incoming_viewing_key is not.
-    // The circuit enforces that the point is on the curve to meet ecc's precondition. Here, ecc will throw an
-    // unexpected exception (TODO(MW): add an assert here to match with circuit?).
+    // The circuit enforces that the point is on the curve to meet ecc's precondition and we replicate this here.
+    BB_ASSERT(instance.public_keys.incoming_viewing_key.on_curve(),
+              "Incoming viewing key is not on the curve when asserting contract address derivation");
 
     // Emits ScalarMulEvent and EccAddEvents, see #[PREADDRESS_SCALAR_MUL] in address_derivation.pil.
     EmbeddedCurvePoint preaddress_public_key = ecc.scalar_mul(EmbeddedCurvePoint::one(), preaddress);

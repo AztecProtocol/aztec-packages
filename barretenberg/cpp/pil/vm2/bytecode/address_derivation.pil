@@ -25,8 +25,9 @@ include "../scalar_mul.pil";
  * for details on how we enforce each step. This process follows Noir's AztecAddress::compute().
  *
  * Note: DOM_SEP__PARTIAL_ADDRESS is reused for both the salted initialization hash and the partial
- * address computations (steps 1 and 2). TODO(MW): Find out more (possibly just reused to avoid defining more seps -
- * reuse is safe here because the two hashes have different lengths => IVs => cannot collide)
+ * address computations (steps 1 and 2). This cannot lead to a collision since the preimages are of
+ * different lengths, hence will have different IV values. Unfortunately, why this is the case is not
+ * documented in the protocol.
  *
  * PRECONDITIONS: The correctness of the preimage members is not constrained here and must be
  *               enforced by the calling circuits. Like class_id_derivation, this trace can be seen
@@ -175,7 +176,6 @@ namespace address_derivation;
     // Enforces the single round of partial_address. Since input_len=3 fills exactly one permutation,
     // this start lookup is also the final round and no separate end lookup is needed (the poseidon trace
     // constrains this using num_perm_rounds_rem).
-    // TODO(MW): Could add sel == end to the lookup tuple to harden/for clarity?
     #[PARTIAL_ADDRESS_POSEIDON2]
     sel { partial_address_domain_separator, class_id, salted_init_hash, partial_address, const_three }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
@@ -242,7 +242,6 @@ namespace address_derivation;
     // Enforces the single round of preaddress. Since input_len=3 fills exactly one permutation,
     // this start lookup is also the final round and no separate end lookup is needed (the poseidon trace
     // constrains this using num_perm_rounds_rem).
-    // TODO(MW): Could add sel == end to the lookup tuple to harden/for clarity?
     #[PREADDRESS_POSEIDON2]
     sel { preaddress_domain_separator, public_keys_hash, partial_address, preaddress, const_three }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
@@ -319,7 +318,6 @@ namespace address_derivation;
         ecc.r_x, ecc.r_y, ecc.r_is_inf
     };
 
-    // TODO(MW): Possibly remove this section, TMI?
     // Note: We can safely assume the address point is not infinity since that would imply either
     // the ivk and preaddress public key are both infinity (which they cannot be, as explained above) or
     // inverses of each other i.e. preaddress_public_key_x == incoming_viewing_key_x, and
