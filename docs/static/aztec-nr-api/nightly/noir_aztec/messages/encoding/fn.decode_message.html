@@ -35,10 +35,11 @@
 <h1>Function <span class="fn">decode_message</span></h1>
 <pre><code>pub unconstrained fn decode_message(
     message: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 12&gt;,
-) -> (<a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 11&gt;)</code></pre>
+) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;(<a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 11&gt;)&gt;</code></pre>
 
 <div class="comments">
 <p>Decodes a standard aztec-nr message, i.e. one created via <code>encode_message</code>, returning the original encoded values.</p>
+<p>Returns <code>None</code> if the message is empty or has invalid (&gt;128 bit) expanded metadata.</p>
 <p>Note that <code>encode_message</code> returns a fixed size array while this function takes a <code>BoundedVec</code>: this is because
 prior to decoding the message type is unknown, and consequentially not known at compile time. If working with
 fixed-size messages, consider using <code>BoundedVec::from_array</code> to convert them.</p>
