@@ -646,8 +646,10 @@ template <typename Flavor> class SumcheckProver {
         // where n = dyadic_size = 2^multivariate_d, so the Lagrange basis products only involve
         // the real sumcheck challenges, not any padding challenges from virtual rounds.
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            auto real_challenges = std::span<const FF>(multivariate_challenge.data(), multivariate_d);
-            masking_tail.apply_claimed_eval_corrections(multivariate_evaluations, real_challenges);
+            if (masking_tail.is_active()) {
+                auto real_challenges = std::span<const FF>(multivariate_challenge.data(), multivariate_d);
+                masking_tail.apply_claimed_eval_corrections(multivariate_evaluations, real_challenges);
+            }
         }
 
         // For Translator: send only the full-circuit evaluations (computable precomputed and minicircuit wires

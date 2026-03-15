@@ -22,7 +22,6 @@ where `P_i` are multilinear witness/selector polynomials, `F` is the batched rel
 - `sumcheck_output.hpp` — Output struct (challenge vector, claimed evaluations, ZK data)
 - `zk_sumcheck_data.hpp` — Libra masking polynomials and running sums
 - `masking_tail_data.hpp` — ZK masking values stored separately from short witness polys
-- `MASKING_TAIL_OPTIMIZATION.md` — Detailed documentation of the masking tail approach
 - `Sumcheck.md` — Detailed mathematical documentation
 
 ### Supporting:
@@ -177,10 +176,12 @@ Masking tail fold timing:
 
 ### 3. Witness Masking in PCS
 `MaskingTailData::tails` stores small `Polynomial` objects (3 coefficients at positions {n-3, n-2, n-1},
-full virtual_size). Commitments are adjusted as `C' = C_short + commit(tail_poly)` via `CommitBatch`.
-In the PCS, tail polynomials are batched alongside base polynomials via `add_tails_to_batcher`
-(Ultra Honk, Batched Translator) or mask values are injected back into polynomials via
-`inject_into_polynomials` (ECCVM, which needs univariate evaluation of translation polys).
+full virtual_size). Commitments are adjusted as `C' = C_short + commit(tail_poly)` at `add_to_batch`
+time — callers pass `&tails.field_name` directly or use `zip_view` over parallel getters (e.g.,
+`zip_view(polys.get_wires(), tails.get_wires(), labels.get_wires())`). Non-masked tails are empty
+and skipped automatically. In the PCS, tail polynomials are batched alongside base polynomials via
+`add_tails_to_batcher` (Ultra Honk, Batched Translator). For ECCVM translation polys (which need
+univariate evaluation at full size), tails are merged via `extended += tail` using named fields.
 A Gemini masking polynomial ensures PCS opening proofs remain zero-knowledge.
 
 ### Batched Honk Translator Integration
@@ -265,9 +266,12 @@ The Fiat-Shamir transcript is the backbone of non-interactive soundness. Any inc
   corrections are applied to the PE multivariates (not just the claimed evals struct), so
   `compute_virtual_contribution` reads the right values.
 - **MaskingTailData uses AllEntities pattern** — `is_masked`, `tails`, `folded` are all
-  `AllEntities<T>` structs, enabling zip-iteration with `extended_edges`. Shifted poly tails are
-  derived from the source's tail at registration time (shift[k] = unshifted[k+1]), distinguished
-  by `tail.start_index()` being `n-4` instead of `n-3`.
+  `AllEntities<T>` structs, enabling direct iteration via `get_masked()`/`get_shifted()` without
+  pointer matching or index lookups. Registration, folding, eval corrections, and PCS batching
+  all use these parallel getters. Shifted tails are derived at registration time
+  (shift[k] = unshifted[k+1]). Callers access tails by named field (e.g., `tails.w_l`) or
+  `zip_view` over parallel getters. Only `compute_disabled_contribution` in `sumcheck_round.hpp`
+  uses `is_masked.get_all()` with index-based access (to correlate with `extended_edges`).
 
 ### Merge and Refactoring Safety
 

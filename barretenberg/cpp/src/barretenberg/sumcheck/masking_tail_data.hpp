@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
@@ -10,15 +11,16 @@ namespace bb {
  * @brief Stores ZK masking values for witness polynomials and manages their folding across sumcheck rounds.
  *
  * @details When witness polynomials are allocated to trace_active_range (not full dyadic_size), the masking
- * values at the last NUM_MASKED_ROWS positions are stored here as small "tail" polynomials. This struct:
- * 1. Holds the tail polynomials (NUM_MASKED_ROWS coefficients at positions {n-3, n-2, n-1}, full virtual_size)
- * 2. Tracks which entities are masked via an AllEntities<bool> flag
+ * values at the tail positions are stored here as small polynomials. This struct:
+ * 1. Holds tail polynomials (NUM_MASKED_ROWS coefficients; unshifted at {n-3,n-2,n-1}, shifted at {n-4,n-3,n-2})
+ * 2. Tracks which entities are masked via AllEntities<bool> (used by compute_disabled_contribution)
  * 3. Manages folded masking values across sumcheck rounds
  * 4. Computes claimed evaluation corrections via Lagrange products of challenges
- * 5. Provides tail polynomials for PCS batching
+ * 5. Stores tails for PCS commitment adjustment and Gemini batching
  *
  * Only used for flavors with UseRowDisablingPolynomial (not Translator, which uses a different ZK technique).
- * Uses the AllEntities pattern: parallel structures indexed identically to ProverPolynomials.
+ * Uses the AllEntities pattern: callers access tails by named field (e.g. tails.w_l) or via
+ * get_masked()/get_shifted() for iteration — no pointer-matching lookups needed.
  */
 template <typename Flavor> struct MaskingTailData {
     using FF = typename Flavor::FF;
@@ -34,7 +36,7 @@ template <typename Flavor> struct MaskingTailData {
     AllEntities<Polynomial> tails{};
 
     // Folded masking values tracked across sumcheck rounds.
-    // [0]=even position value, [1]=odd position value.
+    // [0]=even position value, [1]=odd position value. Default {0,0} for non-masked entities.
     AllEntities<std::array<FF, 2>> folded{};
 
     // Global folding state: 0 = not yet folded, 2 = after round 0, 1 = after round 1+.
@@ -53,33 +55,29 @@ template <typename Flavor> struct MaskingTailData {
      * / get_shifted() which are guaranteed parallel arrays.
      * Call once before any commits (e.g., at start of OinkProver::prove()).
      */
-    template <typename ProverPolynomials> void register_all_masked_polys([[maybe_unused]] ProverPolynomials& polys)
+    void register_all_masked_polys()
     {
         size_t start = dyadic_size - NUM_MASKED_ROWS;
 
         // 1. Mark masked entities and generate random tail values
-        auto masked_flags = is_masked.get_masked();
-        auto masked_tails = tails.get_masked();
-        for (size_t i = 0; i < masked_flags.size(); i++) {
-            masked_flags[i] = true;
-            masked_tails[i] = Polynomial(NUM_MASKED_ROWS, dyadic_size, start);
+        for (auto [flag, tail] : zip_view(is_masked.get_masked(), tails.get_masked())) {
+            flag = true;
+            tail = Polynomial(NUM_MASKED_ROWS, dyadic_size, start);
             for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
-                masked_tails[i].at(start + j) = FF::random_element();
+                tail.at(start + j) = FF::random_element();
             }
         }
         active = true;
 
         // 2. Derive shifted tails: get_to_be_shifted() and get_shifted() are parallel arrays.
         // All to-be-shifted sources are in get_masked(), so all shifted entries are active.
-        auto src_tails = tails.get_to_be_shifted();
-        auto shifted_flags = is_masked.get_shifted();
-        auto shifted_tails = tails.get_shifted();
         size_t shift_start = start - 1;
-        for (size_t s = 0; s < shifted_tails.size(); s++) {
-            shifted_flags[s] = true;
-            shifted_tails[s] = Polynomial(NUM_MASKED_ROWS, dyadic_size, shift_start);
+        for (auto [src_tail, shifted_flag, shifted_tail] :
+             zip_view(tails.get_to_be_shifted(), is_masked.get_shifted(), tails.get_shifted())) {
+            shifted_flag = true;
+            shifted_tail = Polynomial(NUM_MASKED_ROWS, dyadic_size, shift_start);
             for (size_t k = 0; k < NUM_MASKED_ROWS; k++) {
-                shifted_tails[s].at(shift_start + k) = src_tails[s].at(start + k);
+                shifted_tail.at(shift_start + k) = src_tail.at(start + k);
             }
         }
     }
@@ -89,7 +87,8 @@ template <typename Flavor> struct MaskingTailData {
      * @param challenge The round challenge u_i.
      * @param round_idx The sumcheck round index (0-based).
      * @param round_size The round size BEFORE halving (2^{d-i}).
-     * @param pe Pointer to PE multivariates (needed for rounds 2+).
+     * @param pe Pointer to PE multivariates (needed for rounds 2+: the even-position
+     *        value comes from the partially-evaluated table, not from folded masking state).
      */
     template <typename PolynomialCollection>
     void fold_masking_values(FF challenge,
@@ -105,49 +104,45 @@ template <typename Flavor> struct MaskingTailData {
             size_t start = dyadic_size - NUM_MASKED_ROWS;
 
             // Unshifted masked: positions {n-3, n-2, n-1} have values {m0, m1, m2}, position n-4 = 0
-            auto masked_tails = tails.get_masked();
-            auto masked_folded = folded.get_masked();
-            for (size_t i = 0; i < masked_tails.size(); i++) {
-                FF m0 = masked_tails[i].at(start);
-                FF m1 = masked_tails[i].at(start + 1);
-                FF m2 = masked_tails[i].at(start + 2);
-                masked_folded[i][0] = challenge * m0;
-                masked_folded[i][1] = m1 + challenge * (m2 - m1);
+            for (auto [tail, f] : zip_view(tails.get_masked(), folded.get_masked())) {
+                FF m0 = tail.at(start);
+                FF m1 = tail.at(start + 1);
+                FF m2 = tail.at(start + 2);
+                f[0] = challenge * m0;
+                f[1] = m1 + challenge * (m2 - m1);
             }
 
             // Shifted: positions {n-4, n-3, n-2} have values {m0, m1, m2}, position n-1 = 0
-            auto shifted_tails = tails.get_shifted();
-            auto shifted_folded = folded.get_shifted();
-            for (size_t s = 0; s < shifted_tails.size(); s++) {
-                FF m0 = shifted_tails[s].at(start - 1);
-                FF m1 = shifted_tails[s].at(start);
-                FF m2 = shifted_tails[s].at(start + 1);
-                shifted_folded[s][0] = m0 + challenge * (m1 - m0);
-                shifted_folded[s][1] = m2 * (FF::one() - challenge);
+            for (auto [tail, f] : zip_view(tails.get_shifted(), folded.get_shifted())) {
+                FF m0 = tail.at(start - 1);
+                FF m1 = tail.at(start);
+                FF m2 = tail.at(start + 1);
+                f[0] = m0 + challenge * (m1 - m0);
+                f[1] = m2 * (FF::one() - challenge);
             }
             folded_count = 2;
         } else if (round_idx == 1) {
             // Same formula for both unshifted and shifted: collapse two folded values into one
-            auto fold_round1 = [&](auto folded_refs) {
-                for (size_t i = 0; i < folded_refs.size(); i++) {
-                    folded_refs[i][0] += challenge * (folded_refs[i][1] - folded_refs[i][0]);
+            auto fold = [&](auto folded_refs) {
+                for (auto& f : folded_refs) {
+                    f[0] += challenge * (f[1] - f[0]);
                 }
             };
-            fold_round1(folded.get_masked());
-            fold_round1(folded.get_shifted());
+            fold(folded.get_masked());
+            fold(folded.get_shifted());
             folded_count = 1;
         } else {
             BB_ASSERT(pe != nullptr);
             size_t even_pos = round_size - 2;
             // Interpolate between PE value and folded value
-            auto fold_round2_plus = [&](auto folded_refs, auto pe_refs) {
-                for (size_t i = 0; i < folded_refs.size(); i++) {
-                    FF even_val = pe_refs[i][even_pos];
-                    folded_refs[i][0] = even_val + challenge * (folded_refs[i][0] - even_val);
+            auto fold = [&](auto folded_refs, auto pe_refs) {
+                for (auto [f, p] : zip_view(folded_refs, pe_refs)) {
+                    FF even_val = p[even_pos];
+                    f[0] = even_val + challenge * (f[0] - even_val);
                 }
             };
-            fold_round2_plus(folded.get_masked(), pe->get_masked());
-            fold_round2_plus(folded.get_shifted(), pe->get_shifted());
+            fold(folded.get_masked(), pe->get_masked());
+            fold(folded.get_shifted(), pe->get_shifted());
         }
     }
 
@@ -168,24 +163,20 @@ template <typename Flavor> struct MaskingTailData {
         size_t start = dyadic_size - NUM_MASKED_ROWS;
 
         // Unshifted masked: Lagrange basis at positions {n-3, n-2, n-1}
-        auto masked_evals = evaluations.get_masked();
-        auto masked_tails = tails.get_masked();
-        for (size_t i = 0; i < masked_tails.size(); i++) {
-            FF m0 = masked_tails[i].at(start);
-            FF m1 = masked_tails[i].at(start + 1);
-            FF m2 = masked_tails[i].at(start + 2);
-            masked_evals[i] += common * (m0 * u0 * (FF::one() - u1) + m1 * (FF::one() - u0) * u1 + m2 * u0 * u1);
+        for (auto [eval, tail] : zip_view(evaluations.get_masked(), tails.get_masked())) {
+            FF m0 = tail.at(start);
+            FF m1 = tail.at(start + 1);
+            FF m2 = tail.at(start + 2);
+            eval += common * (m0 * u0 * (FF::one() - u1) + m1 * (FF::one() - u0) * u1 + m2 * u0 * u1);
         }
 
         // Shifted: Lagrange basis at positions {n-4, n-3, n-2}
-        auto shifted_evals = evaluations.get_shifted();
-        auto shifted_tails = tails.get_shifted();
-        for (size_t s = 0; s < shifted_tails.size(); s++) {
-            FF m0 = shifted_tails[s].at(start - 1);
-            FF m1 = shifted_tails[s].at(start);
-            FF m2 = shifted_tails[s].at(start + 1);
-            shifted_evals[s] += common * (m0 * (FF::one() - u0) * (FF::one() - u1) + m1 * u0 * (FF::one() - u1) +
-                                          m2 * (FF::one() - u0) * u1);
+        for (auto [eval, tail] : zip_view(evaluations.get_shifted(), tails.get_shifted())) {
+            FF m0 = tail.at(start - 1);
+            FF m1 = tail.at(start);
+            FF m2 = tail.at(start + 1);
+            eval += common * (m0 * (FF::one() - u0) * (FF::one() - u1) + m1 * u0 * (FF::one() - u1) +
+                              m2 * (FF::one() - u0) * u1);
         }
     }
 
@@ -202,20 +193,18 @@ template <typename Flavor> struct MaskingTailData {
             return;
         }
 
-        auto masked_polys = prover_polynomials.get_masked();
-        auto masked_tails = tails.get_masked();
-
-        for (size_t i = 0; i < masked_polys.size(); i++) {
-            const auto& poly = masked_polys[i];
+        // Pointer-matching against batcher lists is needed here since the batcher is an external
+        // structure without flavor-aware getters.
+        for (auto [poly, tail] : zip_view(prover_polynomials.get_masked(), tails.get_masked())) {
             for (size_t u = 0; u < batcher.unshifted.size(); u++) {
                 if (batcher.unshifted[u].data() == poly.data()) {
-                    batcher.add_unshifted_tail(u, Polynomial(masked_tails[i]));
+                    batcher.add_unshifted_tail(u, Polynomial(tail));
                     break;
                 }
             }
             for (size_t s = 0; s < batcher.to_be_shifted_by_one.size(); s++) {
                 if (batcher.to_be_shifted_by_one[s].data() == poly.data()) {
-                    batcher.add_shifted_tail(s, Polynomial(masked_tails[i]));
+                    batcher.add_shifted_tail(s, Polynomial(tail));
                     break;
                 }
             }

@@ -29,7 +29,7 @@ template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 
     // Register all masked polys upfront (generates random tail values)
     if constexpr (Flavor::HasZK) {
-        prover_instance->masking_tail_data.register_all_masked_polys(prover_instance->polynomials);
+        prover_instance->masking_tail_data.register_all_masked_polys();
     }
 
     send_vk_hash_and_public_inputs();

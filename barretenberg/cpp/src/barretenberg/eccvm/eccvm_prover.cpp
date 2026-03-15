@@ -65,7 +65,7 @@ void ECCVMProver::execute_wire_commitments_round()
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     // Register all masked polys upfront (generates random tail values for all witness entities)
-    key->masking_tail_data.register_all_masked_polys(key->polynomials);
+    key->masking_tail_data.register_all_masked_polys();
 
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, tail, label] : zip_view(
