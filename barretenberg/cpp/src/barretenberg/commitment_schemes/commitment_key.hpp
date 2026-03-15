@@ -138,52 +138,29 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
+        std::vector<const Polynomial<Fr>*> tail_polys; // optional ZK masking tails (parallel to wires)
 
-        /**
-         * @brief Batch-commit all wires, adjust commitments for masked polys using tail polynomials
-         * from MaskingTailData, and send to verifier.
-         *
-         * @param transcript The transcript to send commitments to.
-         * @param masking_tail_data If non-null, iterates masked polys and adjusts matching
-         *        commitments: C' = C_short + commit(tail_poly).
-         * @param prover_polys ProverPolynomials reference for pointer matching (needed when
-         *        masking_tail_data is provided).
-         */
-        template <typename MaskingTailDataT = std::nullptr_t, typename ProverPolynomials = std::nullptr_t>
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript,
-                                                            size_t max_batch_size = std::numeric_limits<size_t>::max(),
-                                                            MaskingTailDataT* masking_tail_data = nullptr,
-                                                            ProverPolynomials* prover_polys = nullptr)
+                                                            size_t max_batch_size = std::numeric_limits<size_t>::max())
         {
             std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
 
-            // Adjust commitments for masked polys: C' = C_short + commit(tail_poly)
-            if constexpr (!std::is_same_v<MaskingTailDataT, std::nullptr_t>) {
-                if (masking_tail_data != nullptr && prover_polys != nullptr && masking_tail_data->is_active()) {
-                    auto masked_polys = prover_polys->get_masked();
-                    auto masked_tails = masking_tail_data->tails.get_masked();
-                    for (size_t m = 0; m < masked_polys.size(); ++m) {
-                        for (size_t i = 0; i < wires.size(); ++i) {
-                            if (wires[i].data() == masked_polys[m].data()) {
-                                commitments[i] = commitments[i] + key->commit(masked_tails[m]);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
+            // Adjust commitments for wires with masking tails: C' = C_short + commit(tail)
             for (size_t i = 0; i < commitments.size(); ++i) {
+                if (i < tail_polys.size() && tail_polys[i] != nullptr && !tail_polys[i]->is_empty()) {
+                    commitments[i] = commitments[i] + key->commit(*tail_polys[i]);
+                }
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
 
             return commitments;
         }
 
-        void add_to_batch(Polynomial<Fr>& poly, const std::string& label)
+        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, const Polynomial<Fr>* tail = nullptr)
         {
             wires.push_back(poly);
             labels.push_back(label);
+            tail_polys.push_back(tail);
         }
     };
 

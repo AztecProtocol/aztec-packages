@@ -68,11 +68,11 @@ void ECCVMProver::execute_wire_commitments_round()
     key->masking_tail_data.register_all_masked_polys(key->polynomials);
 
     auto batch = key->commitment_key.start_batch();
-    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
-        batch.add_to_batch(wire, label);
+    for (const auto& [wire, tail, label] : zip_view(
+             key->polynomials.get_wires(), key->masking_tail_data.tails.get_wires(), commitment_labels.get_wires())) {
+        batch.add_to_batch(wire, label, &tail);
     }
-    batch.commit_and_send_to_verifier(
-        transcript, std::numeric_limits<size_t>::max(), &key->masking_tail_data, &key->polynomials);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -110,7 +110,10 @@ void ECCVMProver::execute_log_derivative_commitments_round()
                                   typename Flavor::LookupRelation,
                                   typename Flavor::ProverPolynomials,
                                   true>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
+    auto& li = key->polynomials.lookup_inverses;
+    transcript->send_to_verifier(commitment_labels.lookup_inverses,
+                                 key->commitment_key.commit(li) +
+                                     key->commitment_key.commit(key->masking_tail_data.tails.lookup_inverses));
 }
 
 /**
@@ -122,7 +125,10 @@ void ECCVMProver::execute_grand_product_computation_round()
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
+    auto& zp = key->polynomials.z_perm;
+    transcript->send_to_verifier(commitment_labels.z_perm,
+                                 key->commitment_key.commit(zp) +
+                                     key->commitment_key.commit(key->masking_tail_data.tails.z_perm));
 }
 
 /**
@@ -358,12 +364,4 @@ void ECCVMProver::compute_translation_opening_claims()
  * @param polynomial
  * @param label
  */
-void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
-{
-    // Tail already registered in execute_wire_commitments_round via register_all_masked_polys
-    auto batch = key->commitment_key.start_batch();
-    batch.add_to_batch(polynomial, label);
-    batch.commit_and_send_to_verifier(
-        transcript, std::numeric_limits<size_t>::max(), &key->masking_tail_data, &key->polynomials);
-}
 } // namespace bb
