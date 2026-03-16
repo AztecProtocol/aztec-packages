@@ -9,6 +9,7 @@ use crate::{
     tests::RollupFixtureBuilder,
     tx_base::public_tx_base_rollup::{self, PublicTxBaseRollupPrivateInputs},
 };
+use protocol_test_utils::fixture_builder::FixtureBuilder;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
@@ -21,7 +22,6 @@ use types::{
         MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_CHONK_VERIFIER_VK_INDEX,
     },
     hash::compute_l2_to_l1_message_hash,
-    tests::fixture_builder::FixtureBuilder,
 };
 
 struct TestBuilder {

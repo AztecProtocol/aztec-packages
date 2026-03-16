@@ -7,11 +7,11 @@ use crate::{
     abis::PaddedSideEffectAmounts,
     private_kernel_tail_to_public::{self, PrivateKernelTailToPublicCircuitPrivateInputs},
 };
+use protocol_test_utils::FixtureBuilder;
 use types::{
     abis::{gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs},
     address::AztecAddress,
     constants::PRIVATE_KERNEL_INNER_VK_INDEX,
-    tests::fixture_builder::FixtureBuilder,
     traits::{Empty, FromField},
 };
 

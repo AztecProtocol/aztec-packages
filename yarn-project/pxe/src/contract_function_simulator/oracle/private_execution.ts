@@ -103,7 +103,7 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
-    offchainEffects,
+    offchainEffects.map(e => ({ data: e.data })),
     taggingIndexRanges,
     nestedExecutionResults,
     contractClassLogs,

@@ -97,7 +97,7 @@ include "../public_inputs.pil";
  * Preconditions:
  * - low_leaf_index < 2^tree_height (Merkle check requirement)
  * - tree_size_before_write < 2^tree_height (Merkle check requirement)
- * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0).
+ * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0). See note.
  *
  * Interactions:
  * - poseidon2_hash: Conditional siloing (sel_silo), low leaf hash, updated low leaf hash (sel_insert), new leaf hash (sel_insert)
@@ -105,6 +105,12 @@ include "../public_inputs.pil";
  * - merkle_check: Low leaf membership/update (sel_insert), new leaf insertion (sel_insert)
  * - ff_gt: Low leaf value validation (not_exists), next value validation (next_value_is_nonzero)
  * - public_inputs: Write siloed value to public inputs (sel_write_to_public_inputs)
+ *
+ * Irreproducible hash for uninitialized leaves:
+ * An indexed tree genesis state must have at least one populated leaf to serve as low leaf for further operations.
+ * All other leaves (unpopulated) must have a hash that cannot be reproduced by hashing a structured, valid leaf.
+ * For that, we typically use a value of zero for unpopulated leaves, since there is no valid leaf that hashes to zero.
+ * With this, we forbid using unpopulated leaves as low leaves for any operation.
  *
  **/
 namespace indexed_tree_check;
