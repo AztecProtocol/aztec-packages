@@ -17,11 +17,12 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
   type FullNodeBlockBuilderConfig,
+  InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
-  NoValidTxsError,
   type PublicProcessorLimits,
   type PublicProcessorValidator,
 } from '@aztec/stdlib/interfaces/server';
+import { TxHash } from '@aztec/stdlib/tx';
 import type { CheckpointGlobalVariables, GlobalVariables, ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -139,9 +140,7 @@ describe('CheckpointBuilder', () => {
       expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
     });
 
-    it('allows building an empty first block in a checkpoint', async () => {
-      lightweightCheckpointBuilder.getBlockCount.mockReturnValue(0);
-
+    it('allows building an empty block when minValidTxs is 0', async () => {
       const expectedBlock = await L2Block.random(blockNumber, { txsPerBlock: 0 });
       lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
@@ -154,16 +153,14 @@ describe('CheckpointBuilder', () => {
         [], // debugLogs
       ]);
 
-      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
+      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, { minValidTxs: 0 });
 
       expect(result.block).toBe(expectedBlock);
       expect(result.numTxs).toBe(0);
       expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
     });
 
-    it('throws NoValidTxsError when no valid transactions and not first block in checkpoint', async () => {
-      lightweightCheckpointBuilder.getBlockCount.mockReturnValue(1);
-
+    it('throws InsufficientValidTxsError when fewer txs than minValidTxs', async () => {
       const failedTx = { tx: { txHash: Fr.random() } as unknown as Tx, error: new Error('tx failed') };
       processor.process.mockResolvedValue([
         [], // processedTxs - empty
@@ -173,9 +170,45 @@ describe('CheckpointBuilder', () => {
         [], // debugLogs
       ]);
 
-      await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n)).rejects.toThrow(NoValidTxsError);
+      await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n, { minValidTxs: 1 })).rejects.toThrow(
+        InsufficientValidTxsError,
+      );
 
       expect(lightweightCheckpointBuilder.addBlock).not.toHaveBeenCalled();
+    });
+
+    it('does not update state when some txs succeed but below minValidTxs', async () => {
+      const processedTx = mock<ProcessedTx>();
+      processedTx.hash = TxHash.random();
+      const failedTx = { tx: { txHash: Fr.random() } as unknown as Tx, error: new Error('tx failed') };
+      processor.process.mockResolvedValue([
+        [processedTx], // processedTxs - 1 succeeded
+        [failedTx], // failedTxs - 1 failed
+        [], // usedTxs
+        [], // returnValues
+        [], // debugLogs
+      ]);
+
+      const err = await checkpointBuilder
+        .buildBlock([], blockNumber, 1000n, { minValidTxs: 2 })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(InsufficientValidTxsError);
+      expect((err as InsufficientValidTxsError).processedCount).toBe(1);
+      expect((err as InsufficientValidTxsError).minRequired).toBe(2);
+      expect(lightweightCheckpointBuilder.addBlock).not.toHaveBeenCalled();
+    });
+
+    it('defaults to minValidTxs=0 when not specified, allowing empty blocks', async () => {
+      const expectedBlock = await L2Block.random(blockNumber, { txsPerBlock: 0 });
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+
+      processor.process.mockResolvedValue([[], [], [], [], []]);
+
+      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
+
+      expect(result.numTxs).toBe(0);
+      expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
     });
   });
 
