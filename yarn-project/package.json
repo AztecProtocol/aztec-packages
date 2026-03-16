@@ -18,7 +18,6 @@
   "workspaces": [
     "accounts",
     "archiver",
-    "aztec-faucet",
     "aztec-node",
     "aztec.js",
     "aztec",
