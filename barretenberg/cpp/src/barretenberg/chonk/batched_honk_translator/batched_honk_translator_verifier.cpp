@@ -53,8 +53,8 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
 
     return OinkResult{
         .public_inputs = mega_zk_verifier_instance->public_inputs,
-        .calldata_commitment = mega_zk_verifier_instance->witness_commitments.calldata,
-        .ecc_op_wires = mega_zk_verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(),
+        .calldata_commitment = mega_zk_verifier_instance->received_commitments.calldata,
+        .ecc_op_wires = mega_zk_verifier_instance->received_commitments.get_ecc_op_wires().get_copy(),
     };
 }
 
@@ -352,7 +352,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
 {
     // Reconstruct MegaZK commitments from the stored verifier instance.
     MegaZKVerifierCommitments mega_zk_commitments{ mega_zk_verifier_instance->get_vk(),
-                                                   mega_zk_verifier_instance->witness_commitments };
+                                                   mega_zk_verifier_instance->received_commitments };
     mega_zk_commitments.gemini_masking_poly = mega_zk_verifier_instance->gemini_masking_commitment;
 
     auto trans_commitments = verify_translator_oink(

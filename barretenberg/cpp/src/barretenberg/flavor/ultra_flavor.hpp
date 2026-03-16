@@ -10,6 +10,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/prover_polynomials.hpp"
+#include "barretenberg/flavor/mega_interleaving_entities.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -178,6 +179,9 @@ class UltraFlavor {
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
         auto get_to_be_shifted() { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
+        auto get_to_be_shifted() const { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
+        auto get_shiftable() { return get_to_be_shifted(); }
+        auto get_shiftable() const { return get_to_be_shifted(); }
     };
 
     /**
@@ -220,9 +224,24 @@ class UltraFlavor {
                                PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_all());
         };
+        auto get_unshifted() const
+        {
+            return concatenate(MaskingEntities<DataType, HasZK_>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities<DataType>::get_all());
+        };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
+        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_to_be_shifted()
+        {
+            return WitnessEntities<DataType>::get_to_be_shifted();
+        }
+        auto get_to_be_shifted() const
+        {
+            return WitnessEntities<DataType>::get_to_be_shifted();
+        }
     };
 
     // Default AllEntities alias (no ZK)
@@ -235,16 +254,52 @@ class UltraFlavor {
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
 
-    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
+    // ================================================================
+    // Interleaving group accessors (BS=1: each polynomial is its own group)
+    // ================================================================
 
-    // Size of the final PCS MSM after KZG adds quotient commitment:
-    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-    // (shifted commitments are removed as duplicates)
+    template <typename FF_>
+    static auto compute_lagrange_basis(std::span<const FF_> interleaving_challenges)
+    {
+        return compute_lagrange_basis_impl<INTERLEAVING_BATCH_SIZE>(interleaving_challenges);
+    }
+
+    template <typename Entities>
+    static auto get_unshifted_groups(Entities& e)
+    {
+        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<true>(e);
+    }
+
+    template <typename Entities>
+    static auto get_unshifted_groups_mut(Entities& e)
+    {
+        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<false>(e);
+    }
+
+    template <typename Entities>
+    static auto get_to_be_shifted_groups(Entities& e)
+    {
+        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_to_be_shifted_groups(e);
+    }
+
+    template <typename Entities>
+    static auto get_shifted_groups(Entities& e)
+    {
+        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_shifted_groups(e);
+    }
+
+    // ================================================================
+    // PCS constants (via InterleavingConstants_<1>)
+    // ================================================================
+
+    using IC = InterleavingConstants_<INTERLEAVING_BATCH_SIZE>;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        IC::make_repeated_commitments(NUM_PRECOMPUTED_ENTITIES, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
+
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
+        return IC::final_pcs_msm_size(NUM_UNSHIFTED_ENTITIES, log_n);
     }
 
     /**

@@ -94,19 +94,6 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
                 commit_interleaved_and_send<4>(batch, interleaved_labels.interleaved_ecc_op_wires);
         }
 
-        // Individual ecc_op_wire commits for merge protocol compatibility
-        {
-            auto& comms = prover_instance->commitments;
-            comms.ecc_op_wire_1 = commitment_key.commit(polys.ecc_op_wire_1);
-            comms.ecc_op_wire_2 = commitment_key.commit(polys.ecc_op_wire_2);
-            comms.ecc_op_wire_3 = commitment_key.commit(polys.ecc_op_wire_3);
-            comms.ecc_op_wire_4 = commitment_key.commit(polys.ecc_op_wire_4);
-            transcript->send_to_verifier(commitment_labels.ecc_op_wire_1, comms.ecc_op_wire_1);
-            transcript->send_to_verifier(commitment_labels.ecc_op_wire_2, comms.ecc_op_wire_2);
-            transcript->send_to_verifier(commitment_labels.ecc_op_wire_3, comms.ecc_op_wire_3);
-            transcript->send_to_verifier(commitment_labels.ecc_op_wire_4, comms.ecc_op_wire_4);
-        }
-
         // W₃: [calldata, ZERO, ZERO, ZERO]
         {
             std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.calldata) };

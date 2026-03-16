@@ -19,11 +19,7 @@ template <typename T>
 concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor,  MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
 
 template <typename T>
-concept IsMultiMegaFlavor = IsAnyOf<T, MultiMegaFlavor, MultiMegaZKFlavor,
-                                       MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                       MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
+concept IsMultiMegaFlavor = requires { T::INTERLEAVING_BATCH_SIZE; } && (T::INTERLEAVING_BATCH_SIZE > 1);
 
 template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor, MultiMegaZKFlavor,

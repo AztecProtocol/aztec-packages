@@ -5,7 +5,9 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include <array>
 #include <cstddef>
 #include <string>
@@ -20,6 +22,9 @@ namespace bb {
 // Each has explicit specializations for BS=1 (individual, the base case)
 // and BS=4 (interleaved). To add a new batch size (e.g. BS=2), add
 // specializations here.
+//
+// MegaFlavor_ delegates ALL batch-size-dependent logic here so that
+// the flavor class itself is fully agnostic to BS.
 
 /**
  * @brief ZK-specific masking entities, specialized per (DataType, BATCH_SIZE, HasZK).
@@ -87,6 +92,7 @@ template <typename DataType> class MegaInterleavedWitnessCommitments_<DataType, 
 
     auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
     auto get_shiftable() const { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
+    auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires }; }
 };
 
 // BS=4, ZK: 12 interleaved witness commitments (11 base + masking)
@@ -108,6 +114,7 @@ template <typename DataType> class MegaInterleavedWitnessCommitments_<DataType, 
         interleaved_z_perm)             // W₁₁: [z_perm, 0, 0, 0] - shiftable
 
     auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
+    auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires }; }
 };
 
 /**
@@ -145,15 +152,111 @@ template <typename DataType_> class MegaInterleavedPrecomputedCommitments_<DataT
 };
 
 // ============================================================
-// Interleaving constants (BS-dependent)
+// VK precomputed type selector (BS-dependent)
 // ============================================================
 
-template <size_t BS> struct MegaInterleavingConstants {
-    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS = (BS == 1) ? 0 : 8;
-    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = (BS == 1) ? 0 : 11;
+/**
+ * @brief Selects the VK precomputed commitment type based on batch size.
+ * BS=1: individual precomputed commitments (PrecomputedEntities<Commitment>).
+ * BS>1: interleaved precomputed commitments.
+ */
+template <size_t BS, typename Commitment, typename PrecomputedEntitiesCommitment> struct VKPrecomputedType_ {
+    using type = PrecomputedEntitiesCommitment; // BS=1 default
+};
+template <typename Commitment, typename PrecomputedEntitiesCommitment>
+struct VKPrecomputedType_<4, Commitment, PrecomputedEntitiesCommitment> {
+    using type = MegaInterleavedPrecomputedCommitments_<Commitment, 4>;
+};
+
+// ============================================================
+// VerifierCommitments initialization (BS-dependent)
+// ============================================================
+
+/**
+ * @brief Populates VerifierCommitments from VK and witness commitments.
+ * BS=1: copies individual precomputed + witness commitments into AllEntities slots.
+ * BS>1: no-op (verifier uses interleaved commitments directly for PCS).
+ */
+template <size_t BS> struct VerifierCommitmentsInit_;
+
+template <> struct VerifierCommitmentsInit_<1> {
+    template <typename Self, typename VK, typename WC>
+    static void init(Self& self, const std::shared_ptr<VK>& verification_key, const std::optional<WC>& witness_comms)
+    {
+        for (auto [dest, src] : zip_view(self.get_precomputed(), verification_key->get_all())) {
+            dest = src;
+        }
+        if (witness_comms.has_value()) {
+            for (auto [dest, src] : zip_view(self.get_witness(), witness_comms->get_all())) {
+                dest = src;
+            }
+            for (auto [dest, src] : zip_view(self.get_shifted(), witness_comms->get_to_be_shifted())) {
+                dest = src;
+            }
+        }
+    }
+};
+
+template <> struct VerifierCommitmentsInit_<4> {
+    template <typename Self, typename VK, typename WC>
+    static void init(Self&, const std::shared_ptr<VK>&, const std::optional<WC>&)
+    {
+        // For BS > 1: individual precomputed/witness slots are not populated from the VK
+        // because the VK stores interleaved commitments. The verifier uses interleaved
+        // commitments directly for PCS verification.
+    }
+};
+
+// ============================================================
+// Interleaving constants (BS-dependent, fully specialized)
+// ============================================================
+
+template <size_t BS> struct InterleavingConstants_;
+
+template <> struct InterleavingConstants_<1> {
+    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS = 0;
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 0;
+    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS = 0;
+    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = 0;
+
+    // For BS=1, PCS uses individual commitments directly.
+    // original_start = NUM_PRECOMPUTED (shiftable polys start at beginning of witness block)
+    // duplicate_start = NUM_PRECOMPUTED + NUM_WITNESS (shifted entities follow unshifted)
+    static constexpr RepeatedCommitmentsData make_repeated_commitments(size_t num_precomputed,
+                                                                       size_t num_unshifted,
+                                                                       size_t num_shifted)
+    {
+        return RepeatedCommitmentsData(num_precomputed, num_unshifted, num_shifted);
+    }
+
+    static constexpr size_t final_pcs_msm_size(size_t num_unshifted, size_t log_n)
+    {
+        return num_unshifted + log_n + 2;
+    }
+};
+
+template <> struct InterleavingConstants_<4> {
+    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS = 8;
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 11;
     static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
         NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS + NUM_INTERLEAVED_WITNESS_COMMITMENTS;
-    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = (BS == 1) ? 0 : 3;
+    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = 3;
+
+    // For BS=4, PCS uses interleaved commitments. Shiftable groups are at the end.
+    static constexpr RepeatedCommitmentsData make_repeated_commitments(size_t /*num_precomputed*/,
+                                                                       size_t /*num_unshifted*/,
+                                                                       size_t /*num_shifted*/)
+    {
+        return RepeatedCommitmentsData(NUM_ALL_INTERLEAVED_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS,
+                                       NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                       NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
+    }
+
+    static constexpr size_t final_pcs_msm_size(size_t /*num_unshifted*/, size_t log_n)
+    {
+        constexpr size_t LOG_K = 2; // log2(4)
+        return NUM_ALL_INTERLEAVED_COMMITMENTS + log_n + LOG_K + 2;
+    }
 };
 
 // ============================================================
@@ -238,90 +341,154 @@ template <> class MegaInterleavedPrecomputedLabels_<4> : public MegaInterleavedP
 };
 
 // ============================================================
-// Lagrange basis computation
+// Lagrange basis computation (unified for all BS)
 // ============================================================
 
 /**
  * @brief Compute Lagrange basis evaluations for interleaving.
- * @details For k=2 (batch_size=4): L₀(u₀,u₁) = (1-u₀)(1-u₁), L₁ = u₀(1-u₁), L₂ = (1-u₀)u₁, L₃ = u₀·u₁
+ * @details BS=1: trivially {1} (no interleaving challenges needed).
+ *          BS=4: L₀(u₀,u₁) = (1-u₀)(1-u₁), L₁ = u₀(1-u₁), L₂ = (1-u₀)u₁, L₃ = u₀·u₁
  */
 template <size_t BS, typename FF>
-static std::array<FF, BS> compute_mega_lagrange_basis(const FF& u0, const FF& u1)
-    requires(BS == 4)
+static std::array<FF, BS> compute_lagrange_basis_impl([[maybe_unused]] std::span<const FF> interleaving_challenges)
 {
-    auto one_minus_u0 = FF(1) - u0;
-    auto one_minus_u1 = FF(1) - u1;
-    return { one_minus_u0 * one_minus_u1, u0 * one_minus_u1, one_minus_u0 * u1, u0 * u1 };
+    if constexpr (BS == 1) {
+        return { FF(1) };
+    } else {
+        static_assert(BS == 4, "Only BS=1 and BS=4 are currently supported");
+        const auto& u0 = interleaving_challenges[0];
+        const auto& u1 = interleaving_challenges[1];
+        auto one_minus_u0 = FF(1) - u0;
+        auto one_minus_u1 = FF(1) - u1;
+        return { one_minus_u0 * one_minus_u1, u0 * one_minus_u1, one_minus_u0 * u1, u0 * u1 };
+    }
 }
 
 // ============================================================
-// Group accessors (for interleaved PCS, BS > 1 only)
+// Group accessors (BS-dependent, fully specialized)
 // ============================================================
 
 /**
- * @brief Return interleaved groups of pointers into entities for PCS batching.
- * @details Defines the mapping from individual polynomials/evaluations to interleaved groups.
- *          Works for both ProverPolynomials (DataType=Polynomial) and AllValues (DataType=FF).
- *          Order: 8 precomputed groups (P₁-P₈) + 11 witness groups (W₁-W₁₁).
- *          Shiftable groups (W₁, W₈, W₁₁) are placed at the end for REPEATED_COMMITMENTS.
- *
- * @tparam IsConst If true, returns const pointers (for read-only access).
- *                 If false, returns mutable pointers (for clearing after consumption).
+ * @brief BS-specialized group accessors for PCS batching.
+ * BS=1: each polynomial forms its own group of size 1 (identity interleaving).
+ * BS=4: explicit interleaved groups of 4, with shiftable groups at the end.
  */
-template <bool IsConst, typename Entities> static auto get_mega_unshifted_groups(Entities& e)
-{
-    using T = std::decay_t<decltype(e.w_l)>;
-    using Ptr = std::conditional_t<IsConst, T const*, T*>;
-    using Group = std::vector<Ptr>;
-    return std::vector<Group>{
-        // P₁-P₈: precomputed (sequential chunks of PrecomputedEntities)
-        { &e.q_m, &e.q_c, &e.q_l, &e.q_r },
-        { &e.q_o, &e.q_4, &e.q_busread, &e.q_lookup },
-        { &e.q_arith, &e.q_delta_range, &e.q_elliptic, &e.q_memory },
-        { &e.q_nnf, &e.q_poseidon2_external, &e.q_poseidon2_internal, &e.sigma_1 },
-        { &e.sigma_2, &e.sigma_3, &e.sigma_4, &e.id_1 },
-        { &e.id_2, &e.id_3, &e.id_4, &e.table_1 },
-        { &e.table_2, &e.table_3, &e.table_4, &e.lagrange_first },
-        { &e.lagrange_last, &e.lagrange_ecc_op, &e.databus_id, nullptr },
-        // W₂-W₁₀: unshiftable witness groups
-        { &e.ecc_op_wire_1, &e.ecc_op_wire_2, &e.ecc_op_wire_3, &e.ecc_op_wire_4 },
-        { &e.calldata, nullptr, nullptr, nullptr },
-        { &e.secondary_calldata, nullptr, nullptr, nullptr },
-        { &e.calldata_read_counts,
-          &e.calldata_read_tags,
-          &e.secondary_calldata_read_counts,
-          &e.secondary_calldata_read_tags },
-        { &e.return_data_read_tags, &e.return_data_read_counts, nullptr, nullptr },
-        { &e.return_data, nullptr, nullptr, nullptr },
-        { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr },
-        { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
-        // W₁, W₈, W₁₁: shiftable witness groups at end
-        { &e.w_l, &e.w_r, &e.w_o, nullptr },
-        { &e.w_4, nullptr, nullptr, nullptr },
-        { &e.z_perm, nullptr, nullptr, nullptr },
-    };
-}
+template <size_t BS> struct GroupAccessors_;
 
-template <typename Entities> static auto get_mega_to_be_shifted_groups(Entities& e)
-{
-    using T = std::decay_t<decltype(e.w_l)>;
-    using Group = std::vector<T const*>;
-    return std::vector<Group>{
-        { &e.w_l, &e.w_r, &e.w_o, nullptr },
-        { &e.w_4, nullptr, nullptr, nullptr },
-        { &e.z_perm, nullptr, nullptr, nullptr },
-    };
-}
+// BS=1: groups of size 1, built from entity accessors
+template <> struct GroupAccessors_<1> {
+    template <bool IsConst, typename Entities>
+    static auto get_unshifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Ptr = std::conditional_t<IsConst, T const*, T*>;
+        using Group = std::vector<Ptr>;
 
-template <typename Entities> static auto get_mega_shifted_groups(Entities& e)
-{
-    using T = std::decay_t<decltype(e.w_l)>;
-    using Group = std::vector<T const*>;
-    return std::vector<Group>{
-        { &e.w_l_shift, &e.w_r_shift, &e.w_o_shift, nullptr },
-        { &e.w_4_shift, nullptr, nullptr, nullptr },
-        { &e.z_perm_shift, nullptr, nullptr, nullptr },
-    };
-}
+        auto unshifted = e.get_unshifted();
+        std::vector<Group> groups;
+        groups.reserve(unshifted.size());
+        for (size_t i = 0; i < unshifted.size(); ++i) {
+            groups.push_back(Group{ static_cast<Ptr>(&unshifted[i]) });
+        }
+        return groups;
+    }
+
+    template <typename Entities>
+    static auto get_to_be_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+
+        auto to_be_shifted = e.get_to_be_shifted();
+        std::vector<Group> groups;
+        groups.reserve(to_be_shifted.size());
+        for (size_t i = 0; i < to_be_shifted.size(); ++i) {
+            groups.push_back(Group{ &to_be_shifted[i] });
+        }
+        return groups;
+    }
+
+    template <typename Entities>
+    static auto get_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+
+        auto shifted = e.get_shifted();
+        std::vector<Group> groups;
+        groups.reserve(shifted.size());
+        for (size_t i = 0; i < shifted.size(); ++i) {
+            groups.push_back(Group{ &shifted[i] });
+        }
+        return groups;
+    }
+};
+
+// BS=4: explicit interleaved groups
+template <> struct GroupAccessors_<4> {
+    /**
+     * @brief Return interleaved groups of pointers into entities for PCS batching.
+     * @details Order: 8 precomputed groups (P₁-P₈) + 11 witness groups (W₁-W₁₁).
+     *          Shiftable groups (W₁, W₈, W₁₁) are placed at the end for REPEATED_COMMITMENTS.
+     */
+    template <bool IsConst, typename Entities>
+    static auto get_unshifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Ptr = std::conditional_t<IsConst, T const*, T*>;
+        using Group = std::vector<Ptr>;
+        return std::vector<Group>{
+            // P₁-P₈: precomputed (sequential chunks of PrecomputedEntities)
+            { &e.q_m, &e.q_c, &e.q_l, &e.q_r },
+            { &e.q_o, &e.q_4, &e.q_busread, &e.q_lookup },
+            { &e.q_arith, &e.q_delta_range, &e.q_elliptic, &e.q_memory },
+            { &e.q_nnf, &e.q_poseidon2_external, &e.q_poseidon2_internal, &e.sigma_1 },
+            { &e.sigma_2, &e.sigma_3, &e.sigma_4, &e.id_1 },
+            { &e.id_2, &e.id_3, &e.id_4, &e.table_1 },
+            { &e.table_2, &e.table_3, &e.table_4, &e.lagrange_first },
+            { &e.lagrange_last, &e.lagrange_ecc_op, &e.databus_id, nullptr },
+            // W₂-W₁₀: unshiftable witness groups
+            { &e.ecc_op_wire_1, &e.ecc_op_wire_2, &e.ecc_op_wire_3, &e.ecc_op_wire_4 },
+            { &e.calldata, nullptr, nullptr, nullptr },
+            { &e.secondary_calldata, nullptr, nullptr, nullptr },
+            { &e.calldata_read_counts,
+              &e.calldata_read_tags,
+              &e.secondary_calldata_read_counts,
+              &e.secondary_calldata_read_tags },
+            { &e.return_data_read_tags, &e.return_data_read_counts, nullptr, nullptr },
+            { &e.return_data, nullptr, nullptr, nullptr },
+            { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr },
+            { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
+            // W₁, W₈, W₁₁: shiftable witness groups at end
+            { &e.w_l, &e.w_r, &e.w_o, nullptr },
+            { &e.w_4, nullptr, nullptr, nullptr },
+            { &e.z_perm, nullptr, nullptr, nullptr },
+        };
+    }
+
+    template <typename Entities>
+    static auto get_to_be_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        return std::vector<Group>{
+            { &e.w_l, &e.w_r, &e.w_o, nullptr },
+            { &e.w_4, nullptr, nullptr, nullptr },
+            { &e.z_perm, nullptr, nullptr, nullptr },
+        };
+    }
+
+    template <typename Entities>
+    static auto get_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        return std::vector<Group>{
+            { &e.w_l_shift, &e.w_r_shift, &e.w_o_shift, nullptr },
+            { &e.w_4_shift, nullptr, nullptr, nullptr },
+            { &e.z_perm_shift, nullptr, nullptr, nullptr },
+        };
+    }
+};
 
 } // namespace bb

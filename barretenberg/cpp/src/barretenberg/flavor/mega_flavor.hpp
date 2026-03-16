@@ -212,6 +212,7 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
                               return_data_read_tags,          // column 22
                               return_data_inverses);          // column 23
         auto get_to_be_shifted() { return RefArray{ z_perm }; };
+        auto get_to_be_shifted() const { return RefArray{ z_perm }; };
     };
 
     /**
@@ -250,6 +251,12 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
         {
             return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
         }
+        auto get_to_be_shifted() const
+        {
+            return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
+        }
+        auto get_shiftable() { return get_to_be_shifted(); }
+        auto get_shiftable() const { return get_to_be_shifted(); }
     };
 
     // Default WitnessEntities alias
@@ -363,12 +370,8 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
     // Verification Key
     // ================================================================
 
-    // VK precomputed commitment type depends on BATCH_SIZE:
-    // BS=1: 31 individual precomputed commitments
-    // BS>1: ceil(31/BS) interleaved precomputed commitments
-    using VKPrecomputedType = std::conditional_t<BATCH_SIZE_ == 1,
-                                                 PrecomputedEntities<Commitment>,
-                                                 MegaInterleavedPrecomputedCommitments_<Commitment, BATCH_SIZE_>>;
+    using VKPrecomputedType =
+        typename VKPrecomputedType_<BATCH_SIZE_, Commitment, PrecomputedEntities<Commitment>>::type;
 
     using VerificationKey = NativeVerificationKey_<VKPrecomputedType, Codec, HashFunction, CommitmentKey, BATCH_SIZE_>;
 
@@ -485,31 +488,7 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
         VerifierCommitments_(const std::shared_ptr<VerificationKey_>& verification_key,
                              const std::optional<WitnessEntities<Commitment_>>& witness_commitments = std::nullopt)
         {
-            if constexpr (BATCH_SIZE_ == 1) {
-                // Copy the precomputed polynomial commitments into this
-                for (auto [precomputed, precomputed_in] :
-                     zip_view(this->get_precomputed(), verification_key->get_all())) {
-                    precomputed = precomputed_in;
-                }
-
-                // If provided, copy the witness polynomial commitments into this
-                if (witness_commitments.has_value()) {
-                    for (auto [witness, witness_in] :
-                         zip_view(this->get_witness(), witness_commitments.value().get_all())) {
-                        witness = witness_in;
-                    }
-
-                    // Set shifted commitments
-                    this->w_l_shift = witness_commitments->w_l;
-                    this->w_r_shift = witness_commitments->w_r;
-                    this->w_o_shift = witness_commitments->w_o;
-                    this->w_4_shift = witness_commitments->w_4;
-                    this->z_perm_shift = witness_commitments->z_perm;
-                }
-            }
-            // For BATCH_SIZE > 1: individual precomputed slots are not populated from the VK
-            // because the VK stores interleaved commitments. The verifier uses interleaved
-            // commitments directly for PCS verification.
+            VerifierCommitmentsInit_<BATCH_SIZE_>::init(*this, verification_key, witness_commitments);
         }
     };
     // Specialize for Mega (general case used in MegaRecursive).
@@ -540,59 +519,48 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
     using InterleavedPrecomputedLabels = MegaInterleavedPrecomputedLabels_<BATCH_SIZE_>;
 
     // ================================================================
-    // Interleaved constants (from MegaInterleavingConstants)
+    // Interleaved constants (from InterleavingConstants_)
     // ================================================================
 
-    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS =
-        MegaInterleavingConstants<BATCH_SIZE_>::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS;
-    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS =
-        MegaInterleavingConstants<BATCH_SIZE_>::NUM_INTERLEAVED_WITNESS_COMMITMENTS;
-    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
-        MegaInterleavingConstants<BATCH_SIZE_>::NUM_ALL_INTERLEAVED_COMMITMENTS;
-    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS =
-        MegaInterleavingConstants<BATCH_SIZE_>::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+    using IC = InterleavingConstants_<BATCH_SIZE_>;
+
+    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS = IC::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS;
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = IC::NUM_INTERLEAVED_WITNESS_COMMITMENTS;
+    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS = IC::NUM_ALL_INTERLEAVED_COMMITMENTS;
+    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = IC::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
 
     // ================================================================
-    // Group accessors (delegate to free functions in mega_interleaving_entities.hpp)
+    // Group accessors (delegate to GroupAccessors_ in mega_interleaving_entities.hpp)
     // ================================================================
 
-    // Lagrange basis for interleaving: BS=1 → {1}, BS=4 → {L₀,L₁,L₂,L₃}
     template <typename FF_>
-    static auto compute_lagrange_basis([[maybe_unused]] std::span<const FF_> interleaving_challenges)
+    static auto compute_lagrange_basis(std::span<const FF_> interleaving_challenges)
     {
-        if constexpr (BATCH_SIZE_ == 1) {
-            return std::array<FF_, 1>{ FF_(1) };
-        } else {
-            return compute_mega_lagrange_basis<BATCH_SIZE_>(interleaving_challenges[0], interleaving_challenges[1]);
-        }
+        return compute_lagrange_basis_impl<BATCH_SIZE_>(interleaving_challenges);
     }
 
     template <typename Entities>
     static auto get_unshifted_groups(Entities& e)
-        requires(BATCH_SIZE_ > 1)
     {
-        return get_mega_unshifted_groups<true>(e);
+        return GroupAccessors_<BATCH_SIZE_>::template get_unshifted_groups<true>(e);
     }
 
     template <typename Entities>
     static auto get_unshifted_groups_mut(Entities& e)
-        requires(BATCH_SIZE_ > 1)
     {
-        return get_mega_unshifted_groups<false>(e);
+        return GroupAccessors_<BATCH_SIZE_>::template get_unshifted_groups<false>(e);
     }
 
     template <typename Entities>
     static auto get_to_be_shifted_groups(Entities& e)
-        requires(BATCH_SIZE_ > 1)
     {
-        return get_mega_to_be_shifted_groups(e);
+        return GroupAccessors_<BATCH_SIZE_>::get_to_be_shifted_groups(e);
     }
 
     template <typename Entities>
     static auto get_shifted_groups(Entities& e)
-        requires(BATCH_SIZE_ > 1)
     {
-        return get_mega_shifted_groups(e);
+        return GroupAccessors_<BATCH_SIZE_>::get_shifted_groups(e);
     }
 
     // ================================================================
@@ -601,23 +569,11 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
     // ================================================================
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        (BATCH_SIZE_ == 1)
-            ? RepeatedCommitmentsData(
-                  NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES)
-            : RepeatedCommitmentsData(NUM_ALL_INTERLEAVED_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS,
-                                      NUM_ALL_INTERLEAVED_COMMITMENTS,
-                                      NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
+        IC::make_repeated_commitments(NUM_PRECOMPUTED_ENTITIES, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
-    // Size of the final PCS MSM after KZG adds quotient commitment
-    // = 1 (Shplonk Q) + NUM_COMMITMENTS (after dedup) + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
-        if constexpr (BATCH_SIZE_ == 1) {
-            return NUM_UNSHIFTED_ENTITIES + log_n + 2;
-        } else {
-            const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-            return NUM_ALL_INTERLEAVED_COMMITMENTS + pcs_log_n + 2;
-        }
+        return IC::final_pcs_msm_size(NUM_UNSHIFTED_ENTITIES, log_n);
     }
 };
 

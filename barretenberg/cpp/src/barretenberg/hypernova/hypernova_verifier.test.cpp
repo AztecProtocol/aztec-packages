@@ -105,9 +105,9 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         recursive_instance->alpha = FF::from_witness(builder, native_instance->alpha);
 
         // Convert witness commitments
-        auto native_comms = native_instance->witness_commitments.get_all();
+        auto native_comms = native_instance->received_commitments.get_all();
         for (auto [native_comm, recursive_comm] :
-             zip_view(native_comms, recursive_instance->witness_commitments.get_all())) {
+             zip_view(native_comms, recursive_instance->received_commitments.get_all())) {
             recursive_comm = Commitment::from_witness(builder, native_comm);
         }
 

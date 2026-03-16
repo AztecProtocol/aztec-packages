@@ -93,7 +93,7 @@ TEST_F(OinkTests, OinkProverCommitments)
     verifier.verify();
 
     Flavor::VerifierCommitments verifier_commitments(verifier_instance->get_vk(),
-                                                     verifier_instance->witness_commitments);
+                                                     verifier_instance->received_commitments);
 
     for (auto [prover_comm, verifier_comm, label] : zip_view(
              prover_commitments.get_all(), verifier_commitments.get_all(), Flavor::VerifierCommitments::get_labels())) {

@@ -201,27 +201,25 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     /**
      * @brief Get witness commitments from the verifier instance
      */
-    const typename Flavor::WitnessCommitments& get_witness_commitments() const
-    {
-        return verifier_instance->witness_commitments;
-    }
+    const auto& get_received_commitments() const { return verifier_instance->received_commitments; }
 
     /**
-     * @brief Get calldata commitment (MegaFlavor only)
+     * @brief Get calldata commitment (BS=1 only — individual calldata commitment)
      */
     const Commitment& get_calldata_commitment() const
-        requires IsMegaFlavor<Flavor>
+        requires(IsMegaFlavor<Flavor> && !IsMultiMegaFlavor<Flavor>)
     {
-        return verifier_instance->witness_commitments.calldata;
+        return verifier_instance->received_commitments.calldata;
     }
 
     /**
-     * @brief Get ECC op wire commitments as an array (MegaFlavor only)
+     * @brief Get ECC op wire commitments from received_commitments.
+     * BS=1: returns 4 individual commitments. BS>1: returns 1 interleaved commitment.
      */
-    auto get_ecc_op_wires() const
+    auto get_ecc_op_wires()
         requires IsMegaFlavor<Flavor>
     {
-        return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+        return verifier_instance->received_commitments.get_ecc_op_wires().get_copy();
     }
 
   protected:

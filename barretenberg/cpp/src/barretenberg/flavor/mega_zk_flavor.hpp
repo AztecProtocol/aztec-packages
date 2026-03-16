@@ -82,37 +82,43 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         if constexpr (BATCH_SIZE_ == 1) {
+            // BS=1 ZK: use individual entity count (includes gemini_masking_poly)
             return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
         } else {
+            // BS>1 ZK: use interleaved commitment count (includes masking group)
             const size_t pcs_log_n = log_n + Base::INTERLEAVING_LOG_K;
             return NUM_ALL_INTERLEAVED_COMMITMENTS + pcs_log_n + 2 + NUM_LIBRA_COMMITMENTS;
         }
     }
 
-    // BS>1 ZK: override group accessors to include masking chunks before the shiftable groups
+    // ZK override: include masking chunks before shiftable groups.
+    // For BS=1, delegates to base (no masking chunks in entity layout).
+    // For BS>1, inserts the masking chunk group.
     template <typename Entities>
     static auto get_unshifted_groups(Entities& e)
-        requires(BATCH_SIZE_ > 1)
     {
         auto groups = Base::get_unshifted_groups(e);
-        using T = std::decay_t<decltype(e.w_l)>;
-        using Group = std::vector<T const*>;
-        auto insert_pos = groups.end() - Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
-        groups.insert(insert_pos,
-                      Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
+        if constexpr (BATCH_SIZE_ > 1) {
+            using T = std::decay_t<decltype(e.w_l)>;
+            using Group = std::vector<T const*>;
+            auto insert_pos = groups.end() - Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+            groups.insert(insert_pos,
+                          Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
+        }
         return groups;
     }
 
     template <typename Entities>
     static auto get_unshifted_groups_mut(Entities& e)
-        requires(BATCH_SIZE_ > 1)
     {
         auto groups = Base::get_unshifted_groups_mut(e);
-        using T = std::decay_t<decltype(e.w_l)>;
-        using Group = std::vector<T*>;
-        auto insert_pos = groups.end() - Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
-        groups.insert(insert_pos,
-                      Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
+        if constexpr (BATCH_SIZE_ > 1) {
+            using T = std::decay_t<decltype(e.w_l)>;
+            using Group = std::vector<T*>;
+            auto insert_pos = groups.end() - Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+            groups.insert(insert_pos,
+                          Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
+        }
         return groups;
     }
 };

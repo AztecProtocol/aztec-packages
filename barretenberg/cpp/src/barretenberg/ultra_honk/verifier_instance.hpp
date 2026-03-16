@@ -13,11 +13,13 @@
 
 namespace bb {
 
-// Resolve InterleavedCommitments type: the real type for MultiMega flavors, empty struct otherwise
-template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct InterleavedCommitmentsOf {
-    struct type {};
+// Resolve the type for commitments received during Oink verification.
+// BS=1: individual witness commitments (WitnessCommitments).
+// BS>1: interleaved witness commitments (InterleavedCommitments).
+template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct ReceivedCommitmentsOf {
+    using type = typename Flavor::WitnessCommitments;
 };
-template <typename Flavor> struct InterleavedCommitmentsOf<Flavor, true> {
+template <typename Flavor> struct ReceivedCommitmentsOf<Flavor, true> {
     using type = typename Flavor::InterleavedCommitments;
 };
 
@@ -42,12 +44,13 @@ template <typename Flavor_> class VerifierInstance_ {
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
 
-    WitnessCommitments witness_commitments;
+    // Commitments received during Oink verification.
+    // For BS=1: individual witness commitments (WitnessCommitments).
+    // For BS>1: interleaved witness commitments (InterleavedCommitments).
+    // Both provide get_all() and get_shiftable().
+    typename ReceivedCommitmentsOf<Flavor>::type received_commitments;
 
-    // For MultiMega flavors (BATCH_SIZE > 1): stores interleaved witness commitments from oink
-    typename InterleavedCommitmentsOf<Flavor>::type interleaved_commitments;
-
-    Commitment gemini_masking_commitment; // ZK: Gemini masking polynomial commitment
+    Commitment gemini_masking_commitment; // ZK BS=1: Gemini masking polynomial commitment
 
     explicit VerifierInstance_(std::shared_ptr<VKAndHash> vk_and_hash)
         : vk_and_hash(vk_and_hash)

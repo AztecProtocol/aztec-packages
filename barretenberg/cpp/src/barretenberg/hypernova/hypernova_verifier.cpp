@@ -45,7 +45,7 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
     }
 
     // Batch commitments
-    VerifierCommitments verifier_commitments(instance->get_vk(), instance->witness_commitments);
+    VerifierCommitments verifier_commitments(instance->get_vk(), instance->received_commitments);
 
     Commitment batched_unshifted_commitment = batch_mul(verifier_commitments.get_unshifted(), unshifted_challenges);
     Commitment batched_shifted_commitment = batch_mul(verifier_commitments.get_to_be_shifted(), shifted_challenges);
@@ -131,7 +131,7 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     const auto [unshifted_challenges, shifted_challenges] =
         get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
-    VerifierCommitments verifier_commitments(instance->get_vk(), instance->witness_commitments);
+    VerifierCommitments verifier_commitments(instance->get_vk(), instance->received_commitments);
 
     MultilinearBatchingVerifier batching_verifier(transcript);
     auto [sumcheck_batching_result, new_accumulator] =

@@ -156,7 +156,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     }
 
     // Extract the witness commitments and public inputs from the incoming verifier instance
-    WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
+    WitnessCommitments witness_commitments = std::move(verifier_instance->received_commitments);
     std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     if (verifier_inputs.is_kernel) {

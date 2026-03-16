@@ -24,43 +24,38 @@ namespace bb {
 
 /**
  * @brief Assemble PCS commitments from the verifier instance.
- * @details For BS=1: wraps individual commitments from VerifierCommitments.
- *          For BS>1: concatenates interleaved precomputed + witness commitments.
+ * @details Uniform for all batch sizes: unshifted = [ZK masking] ++ VK precomputed ++ received witness.
+ *          to_be_shifted = shiftable subset of received commitments.
  */
 template <typename Flavor, typename Instance> static auto build_pcs_commitments(Instance& instance)
 {
     using Commitment = typename Flavor::Commitment;
-    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
     struct Result {
         std::vector<Commitment> unshifted;
         std::vector<Commitment> to_be_shifted;
     };
 
+    auto vk = instance.get_vk();
+    auto& received = instance.received_commitments;
+
     Result result;
 
-    if constexpr (BATCH_SIZE > 1) {
-        auto vk = instance.get_vk();
-        auto& interleaved = instance.interleaved_commitments;
-        auto refs = concatenate(vk->get_all(), interleaved.get_all());
-        result.unshifted.reserve(refs.size());
-        for (auto& c : refs) {
-            result.unshifted.push_back(c);
-        }
-        for (auto& c : interleaved.get_shiftable()) {
-            result.to_be_shifted.push_back(c);
-        }
-    } else {
-        typename Flavor::VerifierCommitments commitments{ instance.get_vk(), instance.witness_commitments };
-        if constexpr (Flavor::HasZK) {
-            commitments.gemini_masking_poly = instance.gemini_masking_commitment;
-        }
-        for (auto& c : commitments.get_unshifted()) {
-            result.unshifted.push_back(c);
-        }
-        for (auto& c : commitments.get_to_be_shifted()) {
-            result.to_be_shifted.push_back(c);
-        }
+    // For BS=1 ZK: prepend Gemini masking commitment (matches AllEntities ordering)
+    if constexpr (Flavor::HasZK && Flavor::INTERLEAVING_BATCH_SIZE == 1) {
+        result.unshifted.push_back(instance.gemini_masking_commitment);
+    }
+
+    // VK precomputed + received witness commitments
+    auto all_comms = concatenate(vk->get_all(), received.get_all());
+    result.unshifted.reserve(result.unshifted.size() + all_comms.size());
+    for (auto& c : all_comms) {
+        result.unshifted.push_back(c);
+    }
+
+    // Shiftable subset
+    for (auto& c : received.get_shiftable()) {
+        result.to_be_shifted.push_back(c);
     }
 
     return result;
@@ -68,8 +63,9 @@ template <typename Flavor, typename Instance> static auto build_pcs_commitments(
 
 /**
  * @brief Compute PCS evaluations from sumcheck claimed evaluations.
- * @details For BS=1: evaluations are used directly (identity).
- *          For BS>1: groups individual evaluations and combines via Lagrange basis.
+ * @details Groups individual evaluations and combines via Lagrange basis.
+ *          For BS=1: Lagrange basis is {1} and groups are singletons, so this is identity.
+ *          For BS>1: groups evaluations and combines via multivariate Lagrange evaluations.
  */
 template <typename Flavor>
 static auto build_pcs_evaluations(typename Flavor::AllValues& claimed_evaluations,
@@ -83,37 +79,24 @@ static auto build_pcs_evaluations(typename Flavor::AllValues& claimed_evaluation
         std::vector<FF> shifted;
     };
 
-    Result result;
+    auto lagrange_basis = Flavor::compute_lagrange_basis(interleaving_challenges);
 
-    if constexpr (BATCH_SIZE > 1) {
-        auto lagrange_basis = Flavor::compute_lagrange_basis(interleaving_challenges);
-
-        auto compute_group_evals = [&](const auto& eval_groups) {
-            std::vector<FF> group_evals(eval_groups.size());
-            for (size_t i = 0; i < eval_groups.size(); i++) {
-                FF eval(0);
-                for (size_t j = 0; j < BATCH_SIZE; j++) {
-                    if (j < eval_groups[i].size() && eval_groups[i][j] != nullptr) {
-                        eval += *eval_groups[i][j] * lagrange_basis[j];
-                    }
+    auto compute_group_evals = [&](const auto& eval_groups) {
+        std::vector<FF> group_evals(eval_groups.size());
+        for (size_t i = 0; i < eval_groups.size(); i++) {
+            FF eval(0);
+            for (size_t j = 0; j < BATCH_SIZE; j++) {
+                if (j < eval_groups[i].size() && eval_groups[i][j] != nullptr) {
+                    eval += *eval_groups[i][j] * lagrange_basis[j];
                 }
-                group_evals[i] = eval;
             }
-            return group_evals;
-        };
-
-        result.unshifted = compute_group_evals(Flavor::get_unshifted_groups(claimed_evaluations));
-        result.shifted = compute_group_evals(Flavor::get_shifted_groups(claimed_evaluations));
-    } else {
-        for (auto& e : claimed_evaluations.get_unshifted()) {
-            result.unshifted.push_back(e);
+            group_evals[i] = eval;
         }
-        for (auto& e : claimed_evaluations.get_shifted()) {
-            result.shifted.push_back(e);
-        }
-    }
+        return group_evals;
+    };
 
-    return result;
+    return Result{ compute_group_evals(Flavor::get_unshifted_groups(claimed_evaluations)),
+                   compute_group_evals(Flavor::get_shifted_groups(claimed_evaluations)) };
 }
 
 template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_log_n() const

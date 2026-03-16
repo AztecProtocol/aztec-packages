@@ -16,8 +16,9 @@ namespace bb {
 
 /**
  * @brief Prepare polynomial data for PCS and configure the batcher.
- * @details For BS>1: interleaves polynomial groups into new polynomials, configures batcher with them.
- *          For BS=1: configures batcher directly with the prover instance's polynomials.
+ * @details Uses the flavor's group accessors to map polynomials into PCS groups, then
+ *          interleaves each group into a single polynomial. For singleton groups (BS=1,
+ *          or BS>1 groups with one non-null entry), the polynomial is moved instead of copied.
  *          Returns storage that must outlive the batcher (RefVectors point into it).
  */
 template <typename Flavor>
@@ -28,9 +29,8 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
     constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
     struct Result {
-        // BS=1: heap-allocated so RefVectors survive Result move. BS>1: used as interleaving source then freed.
         std::unique_ptr<typename Flavor::ProverPolynomials> polynomials_storage;
-        std::vector<Polynomial> unshifted_storage; // BS>1: interleaved polynomials
+        std::vector<Polynomial> unshifted_storage;
         std::vector<Polynomial> shifted_storage;
         PolynomialBatcher batcher;
     };
@@ -40,48 +40,51 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
                    {},
                    PolynomialBatcher(pcs_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE) };
 
-    if constexpr (BATCH_SIZE > 1) {
-        auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);
-        auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
+    auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);
+    auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
 
-        auto interleave = [&](const auto& group, bool shiftable) -> Polynomial {
-            Polynomial p = shiftable ? Polynomial::shiftable(pcs_size, pcs_size, BATCH_SIZE) : Polynomial(pcs_size);
-            const size_t start = shiftable ? 1 : 0;
-            for (size_t i = start; i < n; i++) {
-                for (size_t j = 0; j < BATCH_SIZE; j++) {
-                    if (j < group.size() && group[j] != nullptr) {
-                        p.at(BATCH_SIZE * i + j) = (*group[j])[i];
-                    }
-                }
+    // Interleave a group of polynomials into a single polynomial of size n*BS.
+    // For singleton groups with BS=1, moves the polynomial directly (O(1)).
+    auto interleave = [&](auto& group, [[maybe_unused]] bool shiftable) -> Polynomial {
+        if constexpr (BATCH_SIZE == 1) {
+            // BS=1: every group is a singleton — move the polynomial directly
+            if (group.size() == 1 && group[0] != nullptr) {
+                return std::move(*group[0]);
             }
-            return p;
-        };
-
-        // Process shifted groups first (they share source polys with last unshifted groups)
-        result.shifted_storage.reserve(shifted_groups.size());
-        for (const auto& group : shifted_groups) {
-            result.shifted_storage.push_back(interleave(group, /*shiftable=*/true));
         }
-
-        // Process unshifted groups with greedy freeing of source polynomials
-        result.unshifted_storage.reserve(unshifted_groups.size());
-        for (auto& group : unshifted_groups) {
-            result.unshifted_storage.push_back(interleave(group, /*shiftable=*/false));
-            for (auto* ptr : group) {
-                if (ptr != nullptr) {
-                    *ptr = Polynomial();
+        // General path: interleave multiple polynomials
+        Polynomial p = shiftable ? Polynomial::shiftable(pcs_size, pcs_size, BATCH_SIZE) : Polynomial(pcs_size);
+        const size_t start = shiftable ? 1 : 0;
+        for (size_t i = start; i < n; i++) {
+            for (size_t j = 0; j < BATCH_SIZE; j++) {
+                if (j < group.size() && group[j] != nullptr) {
+                    p.at(BATCH_SIZE * i + j) = (*group[j])[i];
                 }
             }
         }
-        result.polynomials_storage.reset(); // free remaining source memory
-        vinfo("interleaved polynomial groups");
+        return p;
+    };
 
-        result.batcher.set_unshifted(RefVector<Polynomial>(result.unshifted_storage));
-        result.batcher.set_to_be_shifted(RefVector<Polynomial>(result.shifted_storage));
-    } else {
-        result.batcher.set_unshifted(result.polynomials_storage->get_unshifted());
-        result.batcher.set_to_be_shifted(result.polynomials_storage->get_to_be_shifted());
+    // Process shifted groups first (they share source polys with last unshifted groups)
+    result.shifted_storage.reserve(shifted_groups.size());
+    for (auto& group : shifted_groups) {
+        result.shifted_storage.push_back(interleave(group, /*shiftable=*/true));
     }
+
+    // Process unshifted groups with greedy freeing of source polynomials
+    result.unshifted_storage.reserve(unshifted_groups.size());
+    for (auto& group : unshifted_groups) {
+        result.unshifted_storage.push_back(interleave(group, /*shiftable=*/false));
+        for (auto* ptr : group) {
+            if (ptr != nullptr) {
+                *ptr = Polynomial();
+            }
+        }
+    }
+    result.polynomials_storage.reset();
+
+    result.batcher.set_unshifted(RefVector<Polynomial>(result.unshifted_storage));
+    result.batcher.set_to_be_shifted(RefVector<Polynomial>(result.shifted_storage));
 
     return result;
 }
