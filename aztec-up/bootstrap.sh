@@ -43,7 +43,8 @@ EOF
   echo 'testuser:$2y$05$R1tRwE1mM3iT1dJ8hG16fOCTq7tFhFJ0IWrZ1bMCGJ6W9unQF3H3K' > /tmp/htpasswd
 
   if ! command -v verdaccio &>/dev/null; then
-    npm i -g verdaccio
+    npm i -g --prefix=${HOME:-/tmp}/.local verdaccio
+    export PATH="${HOME:-/tmp}/.local/bin:$PATH"
   fi
 
   local base_hash=$(cache_content_hash ^aztec-up/Dockerfile.base)
