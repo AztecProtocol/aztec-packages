@@ -1,4 +1,30 @@
-use crate::{traits::{Deserialize, Empty}, utils::arrays::ClaimedLengthArray};
+use types::{traits::{Deserialize, Empty}, utils::arrays::ClaimedLengthArray};
+
+pub fn pad_end_with<T, let N: u32, let M: u32>(items: [T; N], padded_item: T) -> [T; M] {
+    let mut output = [padded_item; M];
+    for i in 0..N {
+        output[i] = items[i];
+    }
+    output
+}
+
+pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
+where
+    T: Empty,
+{
+    pad_end_with(items, T::empty())
+}
+
+pub fn make_fixture<T>(seed: Field) -> T
+where
+    T: Deserialize,
+{
+    let mut fields = [0; <T as Deserialize>::N];
+    for i in 0..<T as Deserialize>::N {
+        fields[i] = seed + i as Field;
+    }
+    T::deserialize(fields)
+}
 
 pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
 where
@@ -30,30 +56,4 @@ pub fn swap_items<T, let N: u32>(vec: &mut BoundedVec<T, N>, from_index: u32, to
     let tmp = vec.get(from_index);
     vec.set(from_index, vec.get(to_index));
     vec.set(to_index, tmp);
-}
-
-pub fn pad_end_with<T, let N: u32, let M: u32>(items: [T; N], padded_item: T) -> [T; M] {
-    let mut output = [padded_item; M];
-    for i in 0..N {
-        output[i] = items[i];
-    }
-    output
-}
-
-pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
-where
-    T: Empty,
-{
-    pad_end_with(items, T::empty())
-}
-
-pub fn make_fixture<T>(seed: Field) -> T
-where
-    T: Deserialize,
-{
-    let mut fields = [0; <T as Deserialize>::N];
-    for i in 0..<T as Deserialize>::N {
-        fields[i] = seed + i as Field;
-    }
-    T::deserialize(fields)
 }

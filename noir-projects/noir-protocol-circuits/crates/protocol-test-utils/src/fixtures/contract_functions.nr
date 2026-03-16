@@ -1,4 +1,4 @@
-use crate::{
+use types::{
     abis::{function_data::FunctionData, function_selector::FunctionSelector},
     constants::{FUNCTION_TREE_HEIGHT, MEGA_VK_LENGTH_IN_FIELDS},
     merkle_tree::MembershipWitness,

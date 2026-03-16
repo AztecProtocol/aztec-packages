@@ -32,10 +32,11 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
       if (context.event === EvictionEvent.BLOCK_MINED) {
         const blockNumber = context.block.getBlockNumber();
+        const blockHash = await context.block.hash();
         // Ensure world state is synced to this block before accessing the snapshot.
         // This handles the race where a block is added to the archiver
         // but the world state hasn't synced it yet.
-        await this.worldState.syncImmediate(blockNumber);
+        await this.worldState.syncImmediate(blockNumber, blockHash);
         return await this.evictForFeePayers(context.feePayers, this.worldState.getSnapshot(blockNumber), txPool);
       }
 

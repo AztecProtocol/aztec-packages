@@ -161,7 +161,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
     // 3) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
-    await crowdfundingContract.methods.withdraw(donationAmount).send({ from: operatorAddress });
+    await crowdfundingContract.methods
+      .withdraw(donationAmount)
+      // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
+      .send({ from: operatorAddress, additionalScopes: [crowdfundingContract.address] });
 
     const { result: balanceDNTAfterWithdrawal } = await donationToken.methods
       .balance_of_private(operatorAddress)
@@ -285,9 +288,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     await crowdfundingContract.methods.donate(donationAmount).send({ from: donor2Address, authWitnesses: [witness] });
 
     // The following should fail as msg_sender != operator
-    await expect(crowdfundingContract.methods.withdraw(donationAmount).send({ from: donor2Address })).rejects.toThrow(
-      'Assertion failed: Not an operator',
-    );
+    await expect(
+      crowdfundingContract.methods
+        .withdraw(donationAmount)
+        // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
+        .send({ from: donor2Address, additionalScopes: [crowdfundingContract.address] }),
+    ).rejects.toThrow('Assertion failed: Not an operator');
   });
 
   it('cannot donate after a deadline', async () => {

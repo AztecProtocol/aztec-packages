@@ -14,7 +14,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
@@ -73,7 +73,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private newNotes: NoteAndSlot[] = [];
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   private readonly argsHash: Fr;
@@ -159,17 +158,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Return the offchain effects emitted during this execution.
+   * Returns the tagging index ranges that were used in this execution (and that need to be stored in the db).
    */
-  public getOffchainEffects() {
-    return this.offchainEffects;
-  }
-
-  /**
-   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
-   */
-  public getUsedPreTags(): PreTag[] {
-    return this.taggingIndexCache.getUsedPreTags();
+  public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
+    return this.taggingIndexCache.getUsedTaggingIndexRanges();
   }
 
   /**
@@ -530,22 +522,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    // When scopes are set and the target contract is a registered account (has keys in the keyStore),
-    // expand scopes to include it so nested private calls can sync and read the contract's own notes.
-    // We only expand for registered accounts because the log service needs the recipient's keys to derive
-    // tagging secrets, which are only available for registered accounts.
-    const expandedScopes =
-      this.scopes !== 'ALL_SCOPES' && (await this.keyStore.hasAccount(targetContractAddress))
-        ? [...this.scopes, targetContractAddress]
-        : this.scopes;
-
     await this.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
       this.utilityExecutor,
       this.anchorBlockHeader,
       this.jobId,
-      expandedScopes,
+      this.scopes,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
@@ -583,8 +566,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       jobId: this.jobId,
       totalPublicCalldataCount: this.totalPublicCalldataCount,
       sideEffectCounter,
+      scopes: this.scopes,
       log: this.logger,
-      scopes: expandedScopes,
       senderForTags: this.senderForTags,
       simulator: this.simulator!,
     });
@@ -662,10 +645,5 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
-  }
-
-  public emitOffchainEffect(data: Fr[]): Promise<void> {
-    this.offchainEffects.push({ data });
-    return Promise.resolve();
   }
 }

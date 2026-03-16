@@ -1,5 +1,6 @@
 use super::{TEST_HINT_LEN, TestBuilder};
-use types::{side_effect::Scoped, tests::utils::assert_array_eq, traits::Empty};
+use protocol_test_utils::assert_array_eq;
+use types::{side_effect::Scoped, traits::Empty};
 
 #[test]
 fn clear_all_succeeds() {

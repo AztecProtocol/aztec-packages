@@ -32,8 +32,6 @@ pub mod meta;
 
 pub mod delayed_public_mutable;
 
-pub mod tests;
-
 pub use abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
 };

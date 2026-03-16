@@ -7,6 +7,7 @@ pub mod assert_split_sorted_transformed_arrays;
 pub mod assert_split_transformed_arrays_from_sorted_padded_array;
 pub mod assert_transformed_array;
 pub mod sort_by_counter;
+pub(crate) mod test_value;
 
 pub use assert_array_appended::{
     assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,

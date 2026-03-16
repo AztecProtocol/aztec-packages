@@ -1,8 +1,4 @@
-pub(crate) mod test_leaf_preimage;
-
-pub use test_leaf_preimage::TestLeafPreimage;
-
-use crate::{side_effect::Ordered, traits::{Deserialize, Empty, Serialize}};
+use types::{side_effect::Ordered, traits::{Deserialize, Empty, Serialize}};
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TestValue {

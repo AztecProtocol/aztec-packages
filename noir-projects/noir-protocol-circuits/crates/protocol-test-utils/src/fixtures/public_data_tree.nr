@@ -1,7 +1,7 @@
-use crate::{
+use types::{
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    tests::merkle_tree_utils::SingleSubtreeMerkleTree, traits::Hash,
+    merkle_tree::test_utils::SingleSubtreeMerkleTree, traits::Hash,
 };
 
 pub fn empty_public_data_tree<let SubtreeWidth: u32, let SubtreeHeight: u32>(

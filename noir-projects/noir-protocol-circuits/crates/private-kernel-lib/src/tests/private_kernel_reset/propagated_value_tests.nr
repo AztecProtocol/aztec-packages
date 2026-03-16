@@ -1,5 +1,6 @@
 use super::TestBuilder;
-use types::{address::AztecAddress, tests::utils::assert_array_eq, traits::{Empty, FromField}};
+use protocol_test_utils::assert_array_eq;
+use types::{address::AztecAddress, traits::{Empty, FromField}};
 
 // Values that may be squashed in the reset circuit are tested in other tests.
 

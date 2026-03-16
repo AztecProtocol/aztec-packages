@@ -10,8 +10,6 @@
     "./ecdsa/lazy": "./dest/ecdsa/lazy.js",
     "./schnorr": "./dest/schnorr/index.js",
     "./schnorr/lazy": "./dest/schnorr/lazy.js",
-    "./single_key": "./dest/single_key/index.js",
-    "./single_key/lazy": "./dest/single_key/lazy.js",
     "./stub": "./dest/stub/index.js",
     "./stub/lazy": "./dest/stub/lazy.js",
     "./testing": "./dest/testing/index.js",
@@ -25,7 +23,6 @@
       "./src/defaults/index.ts",
       "./src/ecdsa/index.ts",
       "./src/schnorr/index.ts",
-      "./src/single_key/index.ts",
       "./src/testing/index.ts"
     ],
     "name": "Accounts",

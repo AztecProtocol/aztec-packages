@@ -1,4 +1,5 @@
-use crate::protocol::{address::AztecAddress, logging::{debug_log, debug_log_format}};
+use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format, aztecnr_warn_log_format};
+use crate::protocol::address::AztecAddress;
 
 pub mod nonce_discovery;
 pub mod partial_notes;
@@ -81,26 +82,33 @@ pub unconstrained fn do_sync_state<Env>(
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
-    debug_log("Performing state synchronization");
+    aztecnr_debug_log!("Performing state synchronization");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
     let mut logs = get_private_logs(contract_address);
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
-        debug_log_format(
-            "Processing log with tag {0}",
-            [pending_tagged_log.log.get(0)],
-        );
+        if pending_tagged_log.log.len() == 0 {
+            aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
+        } else {
+            aztecnr_debug_log_format!("Processing log with tag {0}")([pending_tagged_log.log.get(0)]);
 
-        // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
-        let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);
+            // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
+            let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);
 
-        process_message_ciphertext(
-            contract_address,
-            compute_note_hash_and_nullifier,
-            message_ciphertext,
-            pending_tagged_log.context,
-        );
+            process_message_ciphertext(
+                contract_address,
+                compute_note_hash_and_nullifier,
+                message_ciphertext,
+                pending_tagged_log.context,
+            );
+        }
+
+        // We need to delete each log from the array so that we won't process them again.
+        // `CapsuleArray::for_each` allows deletion of the current element during iteration,
+        // so this is safe.
+        // Note that this (and all other database changes) will only be committed if contract
+        // execution succeeds, including any enqueued validation requests.
         logs.remove(i);
     });
 
@@ -126,4 +134,51 @@ pub unconstrained fn do_sync_state<Env>(
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
     validate_and_store_enqueued_notes_and_events(contract_address);
+}
+
+mod test {
+    use crate::{
+        capsules::CapsuleArray,
+        messages::{
+            discovery::{do_sync_state, NoteHashAndNullifier},
+            logs::note::MAX_NOTE_PACKED_LEN,
+            processing::{
+                offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
+            },
+        },
+        test::helpers::test_environment::TestEnvironment,
+    };
+    use crate::protocol::address::AztecAddress;
+
+    #[test]
+    unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
+        let env = TestEnvironment::new();
+
+        let contract_address = AztecAddress { inner: 0xdeadbeef };
+
+        env.utility_context_at(contract_address, |_| {
+            let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
+
+            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot);
+            logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
+            assert_eq(logs.len(), 1);
+
+            let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
+            do_sync_state(contract_address, dummy_compute_nhnn, no_inbox_sync);
+
+            assert_eq(logs.len(), 0);
+        });
+    }
+
+    unconstrained fn dummy_compute_nhnn(
+        _packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+        _owner: AztecAddress,
+        _storage_slot: Field,
+        _note_type_id: Field,
+        _contract_address: AztecAddress,
+        _randomness: Field,
+        _note_nonce: Field,
+    ) -> Option<NoteHashAndNullifier> {
+        Option::none()
+    }
 }

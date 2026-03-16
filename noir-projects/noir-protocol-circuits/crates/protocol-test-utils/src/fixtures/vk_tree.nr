@@ -1,4 +1,5 @@
-use crate::{
+use crate::utils::pad_end;
+use types::{
     constants::{
         HIDING_KERNEL_TO_PUBLIC_VK_INDEX, MEGA_VK_LENGTH_IN_FIELDS, PARITY_BASE_VK_INDEX,
         PARITY_ROOT_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX, ROOT_ROLLUP_VK_INDEX,
@@ -6,7 +7,6 @@ use crate::{
     },
     merkle_tree::merkle_tree::MerkleTree,
     proof::{verification_key::VerificationKey, vk_data::VkData},
-    tests::utils::pad_end,
 };
 
 pub global VK_TREE_WIDTH: u32 = (1 as u8 << VK_TREE_HEIGHT as u8) as u32;
@@ -60,10 +60,8 @@ pub global VK_MERKLE_TREE: MerkleTree<VK_TREE_WIDTH> = {
     MerkleTree::new(leaves)
 };
 
-impl MerkleTree<VK_TREE_WIDTH> {
-    pub fn update_vk_hash(&mut self, vk_index: u32, vk_hash: Field) {
-        self.update_leaf::<VK_TREE_HEIGHT>(vk_index, vk_hash);
-    }
+pub fn update_vk_hash(vk_tree: &mut MerkleTree<VK_TREE_WIDTH>, vk_index: u32, vk_hash: Field) {
+    vk_tree.update_leaf_unsafe::<VK_TREE_HEIGHT>(vk_index, vk_hash);
 }
 
 pub global vk_tree_root: Field = VK_MERKLE_TREE.get_root();

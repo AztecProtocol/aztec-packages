@@ -1,7 +1,5 @@
-use crate::{
-    proof::proof_data::{ProofData, ProofDataForFixedVk},
-    tests::{fixtures::vk_tree::get_vk_data, utils::pad_end},
-};
+use crate::{fixtures::vk_tree::get_vk_data, utils::pad_end};
+use types::proof::proof_data::{ProofData, ProofDataForFixedVk};
 
 pub fn make_proof<let ProofLen: u32>(seed: u32) -> [Field; ProofLen] {
     let value_offset = seed as Field * 193268;

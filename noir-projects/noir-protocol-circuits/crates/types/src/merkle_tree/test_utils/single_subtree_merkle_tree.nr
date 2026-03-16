@@ -88,7 +88,7 @@ impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleS
         assert(self.is_leaf_index_in_subtree(leaf_index), "Cannot update leaf at given index");
 
         let index_in_subtree = (leaf_index as u64 % SubtreeWidth as u64) as u32;
-        self.subtree.update_leaf::<SubtreeHeight>(index_in_subtree, value);
+        self.subtree.update_leaf_unsafe::<SubtreeHeight>(index_in_subtree, value);
 
         let subtree_root = self.subtree.get_root();
         let subtree_root_index = (leaf_index as u64 >> SubtreeHeight as u64) as Field;
