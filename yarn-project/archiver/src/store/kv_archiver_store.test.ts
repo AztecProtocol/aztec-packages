@@ -2997,6 +2997,24 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
+    it('"tag" filter param is respected', async () => {
+      // Get a random tag from the logs
+      const targetBlockIndex = randomInt(numBlocksForPublicLogs);
+      const targetBlock = publishedCheckpoints[targetBlockIndex].checkpoint.blocks[0];
+      const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
+      const targetLogIndex = randomInt(getPublicLogsPerTx(targetBlock, targetTxIndex));
+      const targetTag = targetBlock.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].fields[0];
+
+      const response = await store.getPublicLogs({ tag: targetTag });
+
+      expect(response.maxLogsHit).toBeFalsy();
+      expect(response.logs.length).toBeGreaterThan(0);
+
+      for (const extendedLog of response.logs) {
+        expect(extendedLog.log.fields[0].equals(targetTag)).toBeTruthy();
+      }
+    });
+
     it('"afterLog" filter param is respected', async () => {
       // Get a random log as reference
       const targetBlockIndex = randomInt(numBlocksForPublicLogs);
@@ -3032,13 +3050,13 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
-    it('"txHash" filter param is ignored when "afterLog" is set', async () => {
-      // Get random txHash
+    it('"txHash" filter param is respected when "afterLog" is set', async () => {
+      // A random txHash should match nothing, even with afterLog set
       const txHash = TxHash.random();
       const afterLog = new LogId(BlockNumber(1), BlockHash.random(), TxHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
-      expect(response.logs.length).toBeGreaterThan(1);
+      expect(response.logs.length).toBe(0);
     });
 
     it('intersecting works', async () => {
