@@ -37,6 +37,7 @@ type PublisherManagerConfig = {
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log: Logger;
   private config: PublisherManagerConfig;
+  private isFunding = false;
 
   constructor(
     private publishers: UtilsType[],
@@ -107,6 +108,8 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
       return lastUsedComparison;
     });
 
+    void this.triggerFundingIfNeeded().catch(err => this.log.error('Error in funding check', { err }));
+
     return sortedPublishers[0].publisher;
   }
 
@@ -115,12 +118,47 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   }
 
   /** Check all publisher balances and fund those below threshold (background, non-blocking). */
-  private triggerFundingIfNeeded(_publishersWithBalance: { balance: bigint; publisher: UtilsType }[]): void {
-    // Stage 1 stub — no-op. Implementation in Stage 3.
+  private async triggerFundingIfNeeded(): Promise<void> {
+    const { funder, config } = this;
+    if (!funder || config.publisherFundingThreshold === undefined || config.publisherFundingAmount === undefined) {
+      return;
+    }
+    if (this.isFunding) {
+      return;
+    }
+
+    this.isFunding = true;
+    try {
+      const allBalances = await Promise.all(
+        this.publishers.map(async pub => ({ balance: await pub.getSenderBalance(), publisher: pub })),
+      );
+      const lowBalance = allBalances.filter(p => p.balance < config.publisherFundingThreshold!);
+      if (lowBalance.length === 0) {
+        return;
+      }
+
+      // TODO: check funder balance before funding, warn if < 10x fundingAmount, skip if < fundingAmount
+      // TODO: re-read funder balance after each fund, break if exhausted
+      await this.fundPublishers(lowBalance.map(p => p.publisher));
+    } finally {
+      this.isFunding = false;
+    }
   }
 
-  /** Fund a single publisher by sending ETH from the funding account. */
-  private async fundPublisher(_publisher: UtilsType): Promise<void> {
-    // Stage 1 stub — no-op. Implementation in Stage 3.
+  /** Fund publishers sequentially. */
+  private async fundPublishers(publishers: UtilsType[]): Promise<void> {
+    const fundingAmount = this.config.publisherFundingAmount!;
+
+    for (const publisher of publishers) {
+      const address = publisher.getSenderAddress();
+      try {
+        // TODO: log funding amount in ETH, not wei
+        this.log.info(`Funding publisher ${address} with ${fundingAmount} wei`);
+        await this.funder!.sendAndMonitorTransaction({ to: address.toString(), data: '0x', value: fundingAmount });
+        this.log.info(`Funded publisher ${address}`);
+      } catch (err) {
+        this.log.error(`Failed to fund publisher ${address}`, { err });
+      }
+    }
   }
 }

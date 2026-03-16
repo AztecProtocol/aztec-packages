@@ -272,7 +272,11 @@ export class KeystoreManager {
 
   /** Create a signer for the top-level funding account, if configured. */
   createFundingSigner(): EthSigner | undefined {
-    return undefined;
+    const fundingAccount = this.keystore.fundingAccount;
+    if (!fundingAccount) {
+      return undefined;
+    }
+    return this.createSignerFromEthAccount(fundingAccount, this.keystore.remoteSigner);
   }
 
   /**
