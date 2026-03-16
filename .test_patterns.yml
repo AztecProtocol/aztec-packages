@@ -343,3 +343,10 @@ tests:
     error_regex: "timeout: sending signal"
     owners:
       - *charlie
+
+  # http://ci.aztec-labs.com/178008d500789810
+  # Browser WASM test flakes on CRS/resource fetch timeout in CI
+  - regex: "ivc-integration/src/chonk_browser.test.ts"
+    error_regex: "Failed to fetch"
+    owners:
+      - *luke
