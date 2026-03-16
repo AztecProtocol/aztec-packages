@@ -2,50 +2,41 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `load`. If
 /// data was already stored at this slot, it is overwritten.
-pub unconstrained fn store<T>(contract_address: AztecAddress, slot: Field, value: T)
+pub unconstrained fn store<T>(contract_address: AztecAddress, slot: Field, value: T, scope: Option<AztecAddress>)
 where
     T: Serialize,
 {
     let serialized = value.serialize();
-    // TODO(@mverzilli): bubble scope param up, for now none=global scope
-    store_oracle(contract_address, slot, serialized, Option::none());
+    store_oracle(contract_address, slot, serialized, scope);
 }
 
-/// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns Option::none()
-/// if nothing was stored at the given slot.
-pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field) -> Option<T>
+/// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns
+/// Option::none() if nothing was stored at the given slot.
+pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field, scope: Option<AztecAddress>) -> Option<T>
 where
     T: Deserialize,
 {
-    // TODO(@mverzilli): bubble scope param up, for now none=global scope
-    let serialized_option = load_oracle(
-        contract_address,
-        slot,
-        <T as Deserialize>::N,
-        Option::none(),
-    );
+    let serialized_option = load_oracle(contract_address, slot, <T as Deserialize>::N, scope);
     serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 
 /// Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
-pub unconstrained fn delete(contract_address: AztecAddress, slot: Field) {
-    // TODO(@mverzilli): bubble scope param up, for now none=global scope
-    delete_oracle(contract_address, slot, Option::none());
+pub unconstrained fn delete(contract_address: AztecAddress, slot: Field, scope: Option<AztecAddress>) {
+    delete_oracle(contract_address, slot, scope);
 }
 
 /// Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
 /// structures by avoiding repeated calls to `loadCapsule` and `storeCapsule`. Supports overlapping source and
 /// destination regions (which will result in the overlapped source values being overwritten). All copied slots must
 /// exist in the database (i.e. have been stored and not deleted)
-pub unconstrained fn copy(contract_address: AztecAddress, src_slot: Field, dst_slot: Field, num_entries: u32) {
-    // TODO(@mverzilli): bubble scope param up, for now none=global scope
-    copy_oracle(
-        contract_address,
-        src_slot,
-        dst_slot,
-        num_entries,
-        Option::none(),
-    );
+pub unconstrained fn copy(
+    contract_address: AztecAddress,
+    src_slot: Field,
+    dst_slot: Field,
+    num_entries: u32,
+    scope: Option<AztecAddress>,
+) {
+    copy_oracle(contract_address, src_slot, dst_slot, num_entries, scope);
 }
 
 #[oracle(aztec_utl_storeCapsule)]
@@ -95,6 +86,7 @@ mod test {
     use crate::protocol::{address::AztecAddress, traits::{FromField, ToField}};
 
     global SLOT: Field = 1;
+    global SCOPE: Option<AztecAddress> = Option::none();
 
     #[test]
     unconstrained fn stores_and_loads() {
@@ -103,9 +95,9 @@ mod test {
             let contract_address = context.this_address();
 
             let value = MockStruct::new(5, 6);
-            store(contract_address, SLOT, value);
+            store(contract_address, SLOT, value, SCOPE);
 
-            assert_eq(load(contract_address, SLOT).unwrap(), value);
+            assert_eq(load(contract_address, SLOT, SCOPE).unwrap(), value);
         });
     }
 
@@ -116,12 +108,12 @@ mod test {
             let contract_address = context.this_address();
 
             let value = MockStruct::new(5, 6);
-            store(contract_address, SLOT, value);
+            store(contract_address, SLOT, value, SCOPE);
 
             let new_value = MockStruct::new(7, 8);
-            store(contract_address, SLOT, new_value);
+            store(contract_address, SLOT, new_value, SCOPE);
 
-            assert_eq(load(contract_address, SLOT).unwrap(), new_value);
+            assert_eq(load(contract_address, SLOT, SCOPE).unwrap(), new_value);
         });
     }
 
@@ -131,7 +123,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let loaded_value: Option<MockStruct> = load(contract_address, SLOT);
+            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, SCOPE);
             assert_eq(loaded_value, Option::none());
         });
     }
@@ -143,10 +135,10 @@ mod test {
             let contract_address = context.this_address();
 
             let value = MockStruct::new(5, 6);
-            store(contract_address, SLOT, value);
-            delete(contract_address, SLOT);
+            store(contract_address, SLOT, value, SCOPE);
+            delete(contract_address, SLOT, SCOPE);
 
-            let loaded_value: Option<MockStruct> = load(contract_address, SLOT);
+            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, SCOPE);
             assert_eq(loaded_value, Option::none());
         });
     }
@@ -157,8 +149,8 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            delete(contract_address, SLOT);
-            let loaded_value: Option<MockStruct> = load(contract_address, SLOT);
+            delete(contract_address, SLOT, SCOPE);
+            let loaded_value: Option<MockStruct> = load(contract_address, SLOT, SCOPE);
             assert_eq(loaded_value, Option::none());
         });
     }
@@ -172,16 +164,16 @@ mod test {
             let src = 5;
 
             let values = [MockStruct::new(5, 6), MockStruct::new(7, 8), MockStruct::new(9, 10)];
-            store(contract_address, src, values[0]);
-            store(contract_address, src + 1, values[1]);
-            store(contract_address, src + 2, values[2]);
+            store(contract_address, src, values[0], SCOPE);
+            store(contract_address, src + 1, values[1], SCOPE);
+            store(contract_address, src + 2, values[2], SCOPE);
 
             let dst = 10;
-            copy(contract_address, src, dst, 3);
+            copy(contract_address, src, dst, 3, SCOPE);
 
-            assert_eq(load(contract_address, dst).unwrap(), values[0]);
-            assert_eq(load(contract_address, dst + 1).unwrap(), values[1]);
-            assert_eq(load(contract_address, dst + 2).unwrap(), values[2]);
+            assert_eq(load(contract_address, dst, SCOPE).unwrap(), values[0]);
+            assert_eq(load(contract_address, dst + 1, SCOPE).unwrap(), values[1]);
+            assert_eq(load(contract_address, dst + 2, SCOPE).unwrap(), values[2]);
         });
     }
 
@@ -194,21 +186,21 @@ mod test {
             let src = 1;
 
             let values = [MockStruct::new(5, 6), MockStruct::new(7, 8), MockStruct::new(9, 10)];
-            store(contract_address, src, values[0]);
-            store(contract_address, src + 1, values[1]);
-            store(contract_address, src + 2, values[2]);
+            store(contract_address, src, values[0], SCOPE);
+            store(contract_address, src + 1, values[1], SCOPE);
+            store(contract_address, src + 2, values[2], SCOPE);
 
             let dst = 2;
-            copy(contract_address, src, dst, 3);
+            copy(contract_address, src, dst, 3, SCOPE);
 
-            assert_eq(load(contract_address, dst).unwrap(), values[0]);
-            assert_eq(load(contract_address, dst + 1).unwrap(), values[1]);
-            assert_eq(load(contract_address, dst + 2).unwrap(), values[2]);
+            assert_eq(load(contract_address, dst, SCOPE).unwrap(), values[0]);
+            assert_eq(load(contract_address, dst + 1, SCOPE).unwrap(), values[1]);
+            assert_eq(load(contract_address, dst + 2, SCOPE).unwrap(), values[2]);
 
             // src[1] and src[2] should have been overwritten since they are also dst[0] and dst[1]
-            assert_eq(load(contract_address, src).unwrap(), values[0]); // src[0] (unchanged)
-            assert_eq(load(contract_address, src + 1).unwrap(), values[0]); // dst[0]
-            assert_eq(load(contract_address, src + 2).unwrap(), values[1]); // dst[1]
+            assert_eq(load(contract_address, src, SCOPE).unwrap(), values[0]); // src[0] (unchanged)
+            assert_eq(load(contract_address, src + 1, SCOPE).unwrap(), values[0]); // dst[0]
+            assert_eq(load(contract_address, src + 2, SCOPE).unwrap(), values[1]); // dst[1]
         });
     }
 
@@ -221,21 +213,21 @@ mod test {
             let src = 2;
 
             let values = [MockStruct::new(5, 6), MockStruct::new(7, 8), MockStruct::new(9, 10)];
-            store(contract_address, src, values[0]);
-            store(contract_address, src + 1, values[1]);
-            store(contract_address, src + 2, values[2]);
+            store(contract_address, src, values[0], SCOPE);
+            store(contract_address, src + 1, values[1], SCOPE);
+            store(contract_address, src + 2, values[2], SCOPE);
 
             let dst = 1;
-            copy(contract_address, src, dst, 3);
+            copy(contract_address, src, dst, 3, SCOPE);
 
-            assert_eq(load(contract_address, dst).unwrap(), values[0]);
-            assert_eq(load(contract_address, dst + 1).unwrap(), values[1]);
-            assert_eq(load(contract_address, dst + 2).unwrap(), values[2]);
+            assert_eq(load(contract_address, dst, SCOPE).unwrap(), values[0]);
+            assert_eq(load(contract_address, dst + 1, SCOPE).unwrap(), values[1]);
+            assert_eq(load(contract_address, dst + 2, SCOPE).unwrap(), values[2]);
 
             // src[0] and src[1] should have been overwritten since they are also dst[1] and dst[2]
-            assert_eq(load(contract_address, src).unwrap(), values[1]); // dst[1]
-            assert_eq(load(contract_address, src + 1).unwrap(), values[2]); // dst[2]
-            assert_eq(load(contract_address, src + 2).unwrap(), values[2]); // src[2] (unchanged)
+            assert_eq(load(contract_address, src, SCOPE).unwrap(), values[1]); // dst[1]
+            assert_eq(load(contract_address, src + 1, SCOPE).unwrap(), values[2]); // dst[2]
+            assert_eq(load(contract_address, src + 2, SCOPE).unwrap(), values[2]); // src[2] (unchanged)
         });
     }
 
@@ -245,7 +237,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            copy(contract_address, SLOT, SLOT, 1);
+            copy(contract_address, SLOT, SLOT, 1, SCOPE);
         });
     }
 
@@ -257,7 +249,7 @@ mod test {
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
             let value = MockStruct::new(5, 6);
-            store(other_contract_address, SLOT, value);
+            store(other_contract_address, SLOT, value, SCOPE);
         });
     }
 
@@ -268,7 +260,7 @@ mod test {
             let contract_address = context.this_address();
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
-            let _: Option<MockStruct> = load(other_contract_address, SLOT);
+            let _: Option<MockStruct> = load(other_contract_address, SLOT, SCOPE);
         });
     }
 
@@ -279,7 +271,7 @@ mod test {
             let contract_address = context.this_address();
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
-            delete(other_contract_address, SLOT);
+            delete(other_contract_address, SLOT, SCOPE);
         });
     }
 
@@ -290,7 +282,7 @@ mod test {
             let contract_address = context.this_address();
             let other_contract_address = AztecAddress::from_field(contract_address.to_field() + 1);
 
-            copy(other_contract_address, SLOT, SLOT, 0);
+            copy(other_contract_address, SLOT, SLOT, 0, SCOPE);
         });
     }
 }

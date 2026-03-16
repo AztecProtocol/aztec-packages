@@ -192,7 +192,7 @@ mod test {
         env.utility_context_at(contract_address, |_| {
             let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
 
-            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot);
+            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at_global_scope(contract_address, base_slot);
             logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
             assert_eq(logs.len(), 1);
 

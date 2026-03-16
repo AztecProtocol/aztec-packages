@@ -2,27 +2,40 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `load`. If
 /// data was already stored at this slot, it is overwritten.
-pub unconstrained fn store<T>(contract_address: AztecAddress, slot: Field, value: T)
+pub unconstrained fn store<T>(
+    contract_address: AztecAddress,
+    slot: Field,
+    value: T,
+    scope: Option<AztecAddress>,
+)
 where
     T: Serialize,
 {
     let serialized = value.serialize();
-    store_oracle(contract_address, slot, serialized, Option::none());
+    store_oracle(contract_address, slot, serialized, scope);
 }
 
-/// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns Option::none()
-/// if nothing was stored at the given slot.
-pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field) -> Option<T>
+/// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns
+/// Option::none() if nothing was stored at the given slot.
+pub unconstrained fn load<T>(
+    contract_address: AztecAddress,
+    slot: Field,
+    scope: Option<AztecAddress>,
+) -> Option<T>
 where
     T: Deserialize,
 {
-    let serialized_option = load_oracle(contract_address, slot, <T as Deserialize>::N, Option::none());
+    let serialized_option = load_oracle(contract_address, slot, <T as Deserialize>::N, scope);
     serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 
 /// Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
-pub unconstrained fn delete(contract_address: AztecAddress, slot: Field) {
-    delete_oracle(contract_address, slot, Option::none());
+pub unconstrained fn delete(
+    contract_address: AztecAddress,
+    slot: Field,
+    scope: Option<AztecAddress>,
+) {
+    delete_oracle(contract_address, slot, scope);
 }
 
 /// Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data
@@ -34,8 +47,9 @@ pub unconstrained fn copy(
     src_slot: Field,
     dst_slot: Field,
     num_entries: u32,
+    scope: Option<AztecAddress>,
 ) {
-    copy_oracle(contract_address, src_slot, dst_slot, num_entries, Option::none());
+    copy_oracle(contract_address, src_slot, dst_slot, num_entries, scope);
 }
 
 #[oracle(aztec_utl_storeCapsule)]

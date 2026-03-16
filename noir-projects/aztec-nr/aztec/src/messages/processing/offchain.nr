@@ -103,7 +103,7 @@ pub unconstrained fn receive(
     contract_address: AztecAddress,
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
-    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT);
+    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(contract_address, OFFCHAIN_INBOX_SLOT);
     let mut i = 0;
     let messages_len = messages.len();
     while i < messages_len {
@@ -132,12 +132,13 @@ pub unconstrained fn receive(
 /// Messages remain in the inbox and are reprocessed on each sync until their originating transaction is no longer at
 /// risk of being dropped by a reorg.
 pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainMessageWithContext> {
-    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-    let context_resolution_requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
+    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(address, OFFCHAIN_INBOX_SLOT);
+    let context_resolution_requests: CapsuleArray<Field> =
+        CapsuleArray::at_global_scope(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
     let resolved_contexts: CapsuleArray<Option<MessageTxContext>> =
-        CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
+        CapsuleArray::at_global_scope(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
     let ready_to_process: CapsuleArray<OffchainMessageWithContext> =
-        CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
+        CapsuleArray::at_global_scope(address, OFFCHAIN_READY_MESSAGES_SLOT);
 
     // Clear any stale ready messages from a previous run.
     ready_to_process.for_each(|i, _| { ready_to_process.remove(i); });
@@ -260,7 +261,7 @@ mod test {
         env.utility_context(|context| {
             let result = sync_inbox(context.this_address());
             let inbox: CapsuleArray<PendingOffchainMsg> =
-                CapsuleArray::at(context.this_address(), OFFCHAIN_INBOX_SLOT);
+                CapsuleArray::at_global_scope(context.this_address(), OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0);
             assert_eq(inbox.len(), 0);
@@ -284,7 +285,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 0); // expired, removed
@@ -308,7 +309,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
@@ -332,7 +333,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 0); // expired, removed
@@ -355,7 +356,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // not resolved, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
@@ -388,7 +389,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(address, OFFCHAIN_INBOX_SLOT);
 
             assert_eq(result.len(), 0); // all contexts are None
             // Message 0 expired (anchor=0), message 1 survived (anchor=anchor_ts),
@@ -420,7 +421,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at_global_scope(address, OFFCHAIN_INBOX_SLOT);
 
             // The message should be ready to process since its tx context was resolved.
             assert_eq(result.len(), 1);

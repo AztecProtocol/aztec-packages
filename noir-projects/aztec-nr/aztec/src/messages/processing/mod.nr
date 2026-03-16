@@ -61,7 +61,7 @@ pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> 
     // oracle. This makes PXE synchronize tags, download logs and store the pending tagged logs in a capsule array.
     oracle::message_processing::fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
-    CapsuleArray::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT)
+    CapsuleArray::at_global_scope(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT)
 }
 
 /// Enqueues a note for validation and storage by PXE.
@@ -100,7 +100,7 @@ pub unconstrained fn enqueue_note_for_validation(
 ) {
     // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
     // Noir `NoteValidationRequest`
-    CapsuleArray::at(contract_address, NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
+    CapsuleArray::at_global_scope(contract_address, NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
         NoteValidationRequest {
             contract_address,
             owner,
@@ -139,7 +139,7 @@ pub unconstrained fn enqueue_event_for_validation(
 ) {
     // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
     // Noir `EventValidationRequest`
-    CapsuleArray::at(contract_address, EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
+    CapsuleArray::at_global_scope(contract_address, EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
         EventValidationRequest {
             contract_address,
             event_type_id,
@@ -197,7 +197,8 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
 ) -> CapsuleArray<Option<LogRetrievalResponse>> {
-    let log_retrieval_requests = CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
+    let log_retrieval_requests =
+        CapsuleArray::at_global_scope(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
     // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
     // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
@@ -219,5 +220,5 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
         LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
     );
 
-    CapsuleArray::at(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT)
+    CapsuleArray::at_global_scope(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT)
 }
