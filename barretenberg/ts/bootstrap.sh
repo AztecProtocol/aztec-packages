@@ -43,6 +43,8 @@ function test_cmds {
   for test in **/*.test.js; do
     # Skip benchmarks here.
     [[ "$test" =~ \.bench\.test\.js$ ]] && continue
+    # Skip network-dependent CRS test (flaky in CI due to external HTTP timeouts).
+    [[ "$test" == "crs/net_crs.test.js" ]] && continue
 
     local prefix=$hash
     # Extra resource.
