@@ -52,6 +52,18 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description: 'Number of threads to use for IVC verification',
     ...numberConfigHelper(1),
   },
+  bbRpcVerifyBatchSize: {
+    env: 'BB_RPC_VERIFY_BATCH_SIZE',
+    description: 'Batch size for RPC proof verification (QueuedIVCVerifier concurrency)',
+    parseEnv: (val: string) => (val ? Number(val) : Number(process.env.BB_NUM_IVC_VERIFIERS ?? '8')),
+    defaultValue: Number(process.env.BB_NUM_IVC_VERIFIERS ?? '8'),
+  },
+  bbPeerVerifyBatchSize: {
+    env: 'BB_PEER_VERIFY_BATCH_SIZE',
+    description: 'Batch size for P2P peer proof verification (BatchChonkVerifier batch)',
+    parseEnv: (val: string) => (val ? Number(val) : Number(process.env.BB_NUM_IVC_VERIFIERS ?? '8')),
+    defaultValue: Number(process.env.BB_NUM_IVC_VERIFIERS ?? '8'),
+  },
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {

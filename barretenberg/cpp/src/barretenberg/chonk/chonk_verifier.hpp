@@ -69,6 +69,17 @@ template <bool IsRecursive> class ChonkVerifier {
         bool all_checks_passed;       // Reduction checks passed (sumcheck, evaluations, etc.)
     };
 
+    /**
+     * @brief Result of reducing Chonk verification to an IPA opening claim (native mode only).
+     * @details Contains the IPA claim and proof from non-IPA verification,
+     * allowing batch IPA verification across multiple Chonk proofs.
+     */
+    struct IPAReductionResult {
+        IPAClaim ipa_claim;
+        IPAProof ipa_proof;
+        bool all_checks_passed;
+    };
+
     using Output = std::conditional_t<IsRecursive, ReductionResult, bool>;
     using VKAndHash = typename HidingKernelVerifier::VKAndHash;
     using VK = typename HidingKernelVerifier::VerificationKey;
@@ -103,6 +114,17 @@ template <bool IsRecursive> class ChonkVerifier {
      * @return Output (ReductionResult for recursive, bool for native)
      */
     [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const Proof& proof);
+
+    /**
+     * @brief Run Chonk verification up to but not including IPA, returning the IPA claim for deferred verification.
+     * @details Verifies the MegaZK proof, databus consistency, and Goblin proof (merge/eccvm/translator),
+     * then returns the IPA opening claim and proof without performing the final IPA MSM.
+     * This enables batch IPA verification across multiple Chonk proofs.
+     *
+     * @param proof The Chonk proof to partially verify
+     * @return IPAReductionResult containing the IPA claim/proof and whether all non-IPA checks passed
+     */
+    IPAReductionResult reduce_to_ipa_claim(const Proof& proof);
 
   private:
     // VK and hash of the hiding kernel

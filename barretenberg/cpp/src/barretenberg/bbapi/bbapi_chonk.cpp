@@ -2,6 +2,8 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -9,8 +11,14 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+
+#ifndef __wasm__
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 namespace bb::bbapi {
 
@@ -266,5 +274,254 @@ ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest&
     size_t mega_num_pub = ProofCompressor::compressed_mega_num_public_inputs(compressed_proof.size());
     return { .proof = ProofCompressor::decompress_chonk_proof(compressed_proof, mega_num_pub) };
 }
+
+ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*request*/) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    if (proofs.size() != vks.size()) {
+        throw_or_abort("ChonkBatchVerify: proofs.size() (" + std::to_string(proofs.size()) + ") != vks.size() (" +
+                       std::to_string(vks.size()) + ")");
+    }
+    if (proofs.empty()) {
+        throw_or_abort("ChonkBatchVerify: no proofs provided");
+    }
+
+    using VerificationKey = Chonk::MegaVerificationKey;
+
+    // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
+    std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
+    std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
+    ipa_claims.reserve(proofs.size());
+    ipa_transcripts.reserve(proofs.size());
+
+    for (size_t i = 0; i < proofs.size(); ++i) {
+        validate_vk_size<VerificationKey>(vks[i]);
+        auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vks[i]));
+
+        const size_t expected_proof_size =
+            static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+        if (proofs[i].size() != expected_proof_size) {
+            throw_or_abort("ChonkBatchVerify: proof[" + std::to_string(i) + "] has wrong size: expected " +
+                           std::to_string(expected_proof_size) + ", got " + std::to_string(proofs[i].size()));
+        }
+
+        auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
+        ChonkNativeVerifier verifier(vk_and_hash);
+        auto result = verifier.reduce_to_ipa_claim(std::move(proofs[i]));
+        if (!result.all_checks_passed) {
+            return { .valid = false };
+        }
+        ipa_claims.push_back(std::move(result.ipa_claim));
+        ipa_transcripts.push_back(std::make_shared<NativeTranscript>(std::move(result.ipa_proof)));
+    }
+
+    // Phase 2: Batch IPA verification with single SRS MSM
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    const bool verified = IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, ipa_claims, ipa_transcripts);
+
+    return { .valid = verified };
+}
+
+// ── Batch Verifier Service ──────────────────────────────────────────────────
+
+#ifndef __wasm__
+
+void ChonkBatchVerifierService::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks,
+                                      BatchVerifierConfig config,
+                                      const std::string& fifo_path)
+{
+    if (running_) {
+        info("ChonkBatchVerifierService: already running, ignoring start()");
+        return;
+    }
+
+    uint32_t num_cores = config.num_cores;
+    if (num_cores == 0) {
+        num_cores = static_cast<uint32_t>(std::thread::hardware_concurrency());
+        if (num_cores == 0) {
+            num_cores = 1;
+        }
+    }
+
+    writer_shutdown_ = false;
+    running_ = true;
+
+    writer_thread_ = std::thread([this, path = fifo_path]() { writer_loop(path); });
+
+    verifier_.start(std::move(vks), num_cores, config.batch_size, [this](VerifyResult result) {
+        {
+            std::lock_guard lock(result_mutex_);
+            result_queue_.push(std::move(result));
+        }
+        result_cv_.notify_one();
+    });
+
+    info("ChonkBatchVerifierService started, fifo=", fifo_path);
+}
+
+void ChonkBatchVerifierService::enqueue(VerifyRequest request)
+{
+    verifier_.enqueue(std::move(request));
+}
+
+void ChonkBatchVerifierService::stop()
+{
+    if (!running_) {
+        return;
+    }
+
+    verifier_.stop();
+
+    {
+        std::lock_guard lock(result_mutex_);
+        writer_shutdown_ = true;
+    }
+    result_cv_.notify_one();
+
+    if (writer_thread_.joinable()) {
+        writer_thread_.join();
+    }
+
+    running_ = false;
+    info("ChonkBatchVerifierService stopped");
+}
+
+ChonkBatchVerifierService::~ChonkBatchVerifierService()
+{
+    if (running_) {
+        stop();
+    }
+}
+
+void ChonkBatchVerifierService::writer_loop(const std::string& fifo_path)
+{
+    int fd = open(fifo_path.c_str(), O_WRONLY);
+    if (fd < 0) {
+        info("ChonkBatchVerifierService: failed to open FIFO '", fifo_path, "': ", strerror(errno));
+        return;
+    }
+
+    auto write_all = [fd](const void* data, size_t len) -> bool {
+        const auto* ptr = static_cast<const uint8_t*>(data);
+        size_t remaining = len;
+        while (remaining > 0) {
+            auto written = ::write(fd, ptr, remaining);
+            if (written <= 0) {
+                return false;
+            }
+            ptr += written;
+            remaining -= static_cast<size_t>(written);
+        }
+        return true;
+    };
+
+    while (true) {
+        VerifyResult result;
+        {
+            std::unique_lock lock(result_mutex_);
+            result_cv_.wait(lock, [this] { return writer_shutdown_ || !result_queue_.empty(); });
+
+            if (!result_queue_.empty()) {
+                result = std::move(result_queue_.front());
+                result_queue_.pop();
+            } else if (writer_shutdown_) {
+                break;
+            } else {
+                continue;
+            }
+        }
+
+        msgpack::sbuffer buf;
+        msgpack::pack(buf, result);
+
+        uint32_t len = static_cast<uint32_t>(buf.size());
+        uint8_t len_bytes[4] = {
+            static_cast<uint8_t>((len >> 24) & 0xFF),
+            static_cast<uint8_t>((len >> 16) & 0xFF),
+            static_cast<uint8_t>((len >> 8) & 0xFF),
+            static_cast<uint8_t>(len & 0xFF),
+        };
+
+        if (!write_all(len_bytes, 4) || !write_all(buf.data(), buf.size())) {
+            info("ChonkBatchVerifierService: FIFO write failed, stopping writer");
+            break;
+        }
+    }
+
+    close(fd);
+}
+
+static ChonkBatchVerifierService service_;
+
+ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(const BBApiRequest& /*request*/) &&
+{
+    if (service_.is_running()) {
+        throw_or_abort("ChonkBatchVerifierStart: service already running. Call ChonkBatchVerifierStop first.");
+    }
+
+    using VerificationKey = Chonk::MegaVerificationKey;
+
+    std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> parsed_vks;
+    parsed_vks.reserve(vks.size());
+
+    for (size_t i = 0; i < vks.size(); ++i) {
+        validate_vk_size<VerificationKey>(vks[i]);
+        auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vks[i]));
+        parsed_vks.push_back(std::make_shared<MegaZKFlavor::VKAndHash>(vk));
+    }
+
+    BatchVerifierConfig config{
+        .num_cores = num_cores,
+        .batch_size = batch_size,
+    };
+
+    service_.start(std::move(parsed_vks), config, fifo_path);
+    return {};
+}
+
+ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRequest& /*request*/) &&
+{
+    if (!service_.is_running()) {
+        throw_or_abort("ChonkBatchVerifierQueue: service not running. Call ChonkBatchVerifierStart first.");
+    }
+
+    service_.enqueue(VerifyRequest{
+        .request_id = request_id,
+        .vk_index = vk_index,
+        .proof = ChonkProof::from_field_elements(proof_fields),
+    });
+
+    return {};
+}
+
+ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(const BBApiRequest& /*request*/) &&
+{
+    if (!service_.is_running()) {
+        throw_or_abort("ChonkBatchVerifierStop: service not running.");
+    }
+
+    service_.stop();
+    return {};
+}
+
+#else // __wasm__
+
+ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(const BBApiRequest& /*request*/) &&
+{
+    throw_or_abort("ChonkBatchVerifierStart is not supported in WASM builds");
+}
+
+ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRequest& /*request*/) &&
+{
+    throw_or_abort("ChonkBatchVerifierQueue is not supported in WASM builds");
+}
+
+ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(const BBApiRequest& /*request*/) &&
+{
+    throw_or_abort("ChonkBatchVerifierStop is not supported in WASM builds");
+}
+
+#endif // __wasm__
 
 } // namespace bb::bbapi

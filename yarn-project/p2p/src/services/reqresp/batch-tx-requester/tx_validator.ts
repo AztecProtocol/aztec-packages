@@ -6,7 +6,7 @@ import { createTxValidatorForReqResponseReceivedTxs } from '../../../msg_validat
 export interface BatchRequestTxValidatorConfig {
   l1ChainId: number;
   rollupVersion: number;
-  proofVerifier: ClientProtocolCircuitVerifier;
+  proofVerifier: ClientProtocolCircuitVerifier | undefined;
 }
 
 export interface IBatchRequestTxValidator {

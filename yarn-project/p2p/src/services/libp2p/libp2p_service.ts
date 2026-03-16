@@ -191,7 +191,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     protected mempools: MemPools,
     protected archiver: L2BlockSource & ContractDataSource,
     private epochCache: EpochCacheInterface,
-    private proofVerifier: ClientProtocolCircuitVerifier,
+    private proofVerifier: ClientProtocolCircuitVerifier | undefined,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
     logger: Logger = createLogger('p2p:libp2p_service'),
@@ -271,7 +271,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       mempools: MemPools;
       l2BlockSource: L2BlockSource & ContractDataSource;
       epochCache: EpochCacheInterface;
-      proofVerifier: ClientProtocolCircuitVerifier;
+      proofVerifier: ClientProtocolCircuitVerifier | undefined;
       worldStateSynchronizer: WorldStateSynchronizer;
       peerStore: AztecAsyncKVStore;
       telemetry: TelemetryClient;

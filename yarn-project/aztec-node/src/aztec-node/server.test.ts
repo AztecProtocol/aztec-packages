@@ -1,4 +1,3 @@
-import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -188,7 +187,8 @@ describe('aztec node', () => {
       globalVariablesBuilder,
       epochCache,
       getPackageVersion() ?? '',
-      new TestCircuitVerifier(),
+      undefined,
+      undefined,
     );
   });
 
@@ -589,7 +589,8 @@ describe('aztec node', () => {
           globalVariablesBuilder,
           epochCache,
           getPackageVersion() ?? '',
-          new TestCircuitVerifier(),
+          undefined,
+          undefined,
           undefined,
           undefined,
           undefined,
@@ -777,7 +778,8 @@ describe('aztec node', () => {
           globalVariablesBuilder,
           epochCache,
           getPackageVersion() ?? '',
-          new TestCircuitVerifier(),
+          undefined,
+          undefined,
           undefined,
           undefined,
           undefined,

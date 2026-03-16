@@ -44,7 +44,7 @@ export const P2P_ATTESTATION_STORE_NAME = 'p2p-attestation';
 export async function createP2PClient(
   inputConfig: P2PConfig & DataStoreConfig & ChainConfig,
   archiver: L2BlockSource & ContractDataSource,
-  proofVerifier: ClientProtocolCircuitVerifier,
+  proofVerifier: ClientProtocolCircuitVerifier | undefined,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
   packageVersion: string,
@@ -190,7 +190,7 @@ export async function createP2PClient(
 async function createP2PService(
   config: P2PConfig & DataStoreConfig,
   archiver: L2BlockSource & ContractDataSource,
-  proofVerifier: ClientProtocolCircuitVerifier,
+  proofVerifier: ClientProtocolCircuitVerifier | undefined,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
   store: AztecAsyncKVStore,

@@ -11,7 +11,18 @@
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <string>
 #include <vector>
+
+#ifndef __wasm__
+#include "barretenberg/chonk/batch_verifier_types.hpp"
+#include "barretenberg/chonk/chonk_batch_verifier.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <thread>
+#endif
 
 namespace bb::bbapi {
 
@@ -281,6 +292,129 @@ struct ChonkDecompressProof {
     Response execute(const BBApiRequest& request = {}) &&;
     MSGPACK_FIELDS(compressed_proof);
     bool operator==(const ChonkDecompressProof&) const = default;
+};
+
+/**
+ * @struct ChonkBatchVerify
+ * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
+ */
+struct ChonkBatchVerify {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerify";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifyResponse";
+        bool valid;
+        MSGPACK_FIELDS(valid);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<ChonkProof> proofs;
+    std::vector<std::vector<uint8_t>> vks;
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(proofs, vks);
+    bool operator==(const ChonkBatchVerify&) const = default;
+};
+
+#ifndef __wasm__
+/**
+ * @brief FIFO-streaming batch verification service for Chonk proofs.
+ *
+ * Wraps ChonkBatchVerifier and streams results over a named pipe (FIFO)
+ * as size-delimited msgpack payloads: [4-byte big-endian length][msgpack payload].
+ *
+ * Lifecycle: start() → enqueue() × N → stop()
+ */
+class ChonkBatchVerifierService {
+  public:
+    ChonkBatchVerifierService() = default;
+    ~ChonkBatchVerifierService();
+
+    ChonkBatchVerifierService(const ChonkBatchVerifierService&) = delete;
+    ChonkBatchVerifierService& operator=(const ChonkBatchVerifierService&) = delete;
+
+    void start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks,
+               BatchVerifierConfig config,
+               const std::string& fifo_path);
+    void enqueue(VerifyRequest request);
+    void stop();
+    bool is_running() const { return running_; }
+
+  private:
+    void writer_loop(const std::string& fifo_path);
+
+    ChonkBatchVerifier verifier_;
+
+    std::mutex result_mutex_;
+    std::condition_variable result_cv_;
+    std::queue<VerifyResult> result_queue_;
+    bool writer_shutdown_ = false;
+    std::thread writer_thread_;
+
+    bool running_ = false;
+};
+#endif // __wasm__
+
+/**
+ * @struct ChonkBatchVerifierStart
+ * @brief Start the batch verifier service.
+ */
+struct ChonkBatchVerifierStart {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStart";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStartResponse";
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<std::vector<uint8_t>> vks; // Serialized verification keys
+    uint32_t num_cores = 0;                // 0 = auto
+    uint32_t batch_size = 4;
+    std::string fifo_path;
+
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(vks, num_cores, batch_size, fifo_path);
+    bool operator==(const ChonkBatchVerifierStart&) const = default;
+};
+
+/**
+ * @struct ChonkBatchVerifierQueue
+ * @brief Enqueue a proof for batch verification.
+ */
+struct ChonkBatchVerifierQueue {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierQueue";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierQueueResponse";
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+
+    uint64_t request_id = 0;
+    uint32_t vk_index = 0;
+    std::vector<bb::fr> proof_fields;
+
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(request_id, vk_index, proof_fields);
+    bool operator==(const ChonkBatchVerifierQueue&) const = default;
+};
+
+/**
+ * @struct ChonkBatchVerifierStop
+ * @brief Stop the batch verifier service.
+ */
+struct ChonkBatchVerifierStop {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStop";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStopResponse";
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+
+    Response execute(const BBApiRequest& request = {}) &&;
+    void msgpack(auto&& pack_fn) { pack_fn(); }
+    bool operator==(const ChonkBatchVerifierStop&) const = default;
 };
 
 } // namespace bb::bbapi

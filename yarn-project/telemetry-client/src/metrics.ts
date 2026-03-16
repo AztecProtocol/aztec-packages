@@ -1518,3 +1518,10 @@ export const IVC_VERIFIER_AGG_DURATION_AVG: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.DOUBLE,
 };
+
+export const IVC_VERIFIER_QUEUE_DEPTH: MetricDefinition = {
+  name: 'aztec.ivc_verifier.queue_depth',
+  description: 'Number of proofs pending verification in the batch verifier',
+  unit: '{proofs}',
+  valueType: ValueType.INT,
+};
