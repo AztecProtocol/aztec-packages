@@ -8,6 +8,7 @@
 // See: chonk/README.md
 //
 #pragma once
+#include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_verifier.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -54,8 +55,8 @@ template <bool IsRecursive> class ChonkVerifier {
     using IPAProof = typename GoblinVerifier::ReductionResult::IPAProof;
     using MergeCommitments = typename GoblinVerifier::MergeVerifier::InputCommitments;
 
-    // Number of pairing point sets aggregated in recursive verification (PI, PCS, Merge, Translator)
-    static constexpr size_t NUM_PAIRING_POINTS = 4;
+    // Number of pairing point sets aggregated in recursive verification (PI, Merge, Batched PCS)
+    static constexpr size_t NUM_PAIRING_POINTS = 3;
 
   public:
     /**
