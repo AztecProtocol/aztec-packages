@@ -56,7 +56,7 @@ function check_circuit_vks {
   local output
   local exit_code=0
 
-  output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack") || exit_code=$?
+  output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
 
   if [[ $exit_code -ne 0 ]]; then
     # Check if this is actually a VK change
