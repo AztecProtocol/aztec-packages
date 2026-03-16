@@ -1,4 +1,5 @@
 import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
+import { FifoFrameReader } from '@aztec/foundation/fifo';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -28,50 +29,32 @@ interface FifoVerifyResult {
 function readFifoResults(fifoPath: string, count: number): Promise<FifoVerifyResult[]> {
   return new Promise((resolve, reject) => {
     const unpackr = new Unpackr({ useRecords: false });
-    const stream = fs.createReadStream(fifoPath, { highWaterMark: 64 * 1024 });
+    const reader = new FifoFrameReader();
     const results: FifoVerifyResult[] = [];
-    let pendingBuf: Buffer = Buffer.alloc(0);
 
-    stream.on('data', (chunk: Buffer | string) => {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      pendingBuf = pendingBuf.length > 0 ? Buffer.concat([pendingBuf, buf]) : buf;
-
-      while (pendingBuf.length >= 4) {
-        const payloadLen = pendingBuf.readUInt32BE(0);
-        if (payloadLen === 0 || payloadLen > 10 * 1024 * 1024) {
-          stream.destroy();
-          reject(new Error(`Invalid payload length: ${payloadLen}`));
-          return;
-        }
-        const frameLen = 4 + payloadLen;
-        if (pendingBuf.length < frameLen) {
-          break;
-        }
-        const payloadBuf = pendingBuf.subarray(4, frameLen);
-        pendingBuf = pendingBuf.subarray(frameLen);
-        results.push(unpackr.unpack(payloadBuf) as FifoVerifyResult);
-
-        if (results.length >= count) {
-          stream.destroy();
-          resolve(results);
-          return;
-        }
-      }
-    });
-
-    stream.on('error', err => {
+    reader.on('frame', (payload: Buffer) => {
+      results.push(unpackr.unpack(payload) as FifoVerifyResult);
       if (results.length >= count) {
-        return;
+        reader.stop();
+        resolve(results);
       }
-      reject(err);
     });
-    stream.on('end', () => {
+
+    reader.on('error', err => {
+      if (results.length < count) {
+        reject(err);
+      }
+    });
+
+    reader.on('end', () => {
       if (results.length >= count) {
         resolve(results);
       } else {
         reject(new Error(`FIFO ended after ${results.length}/${count} results`));
       }
     });
+
+    reader.start(fifoPath);
   });
 }
 

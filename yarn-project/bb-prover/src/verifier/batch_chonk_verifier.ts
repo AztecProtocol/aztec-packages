@@ -1,4 +1,5 @@
 import { BackendType, Barretenberg } from '@aztec/bb.js';
+import { FifoFrameReader } from '@aztec/foundation/fifo';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -120,8 +121,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   private nextRequestId = 0;
   private pendingRequests = new Map<number, PendingRequest>();
   private sendQueue: SerialQueue;
-  private fifoStream: fs.ReadStream | null = null;
-  private fifoReaderRunning = false;
+  private fifoReader: FifoFrameReader;
   private metrics: BatchVerifierMetrics;
   private logger = createLogger('bb-prover:batch_chonk_verifier');
   /** Maps artifact name to VK index in the batch verifier. */
@@ -135,6 +135,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   ) {
     this.fifoPath = path.join(os.tmpdir(), `bb-batch-${label}-${process.pid}-${Date.now()}.fifo`);
     this.metrics = new BatchVerifierMetrics(telemetry);
+    this.fifoReader = new FifoFrameReader();
     this.sendQueue = new SerialQueue();
     this.sendQueue.start(1);
   }
@@ -239,11 +240,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     }
 
     // Stop FIFO reader
-    this.fifoReaderRunning = false;
-    if (this.fifoStream) {
-      this.fifoStream.destroy();
-      this.fifoStream = null;
-    }
+    this.fifoReader.stop();
 
     // Clean up FIFO file
     try {
@@ -265,54 +262,26 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   }
 
   private startFifoReader(): void {
-    this.fifoReaderRunning = true;
     const unpackr = new Unpackr({ useRecords: false });
 
-    const stream = fs.createReadStream(this.fifoPath, { highWaterMark: 64 * 1024 });
-    this.fifoStream = stream;
-
-    // State machine for parsing length-delimited msgpack frames
-    let pendingBuf: Buffer = Buffer.alloc(0);
-
-    stream.on('data', (chunk: Buffer | string) => {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      pendingBuf = pendingBuf.length > 0 ? Buffer.concat([pendingBuf, buf]) : buf;
-
-      // Process all complete frames in the buffer
-      while (pendingBuf.length >= 4) {
-        const payloadLen = pendingBuf.readUInt32BE(0);
-        if (payloadLen === 0 || payloadLen > 10 * 1024 * 1024) {
-          this.logger.warn(`FIFO: invalid payload length ${payloadLen}`);
-          stream.destroy();
-          return;
-        }
-
-        const frameLen = 4 + payloadLen;
-        if (pendingBuf.length < frameLen) {
-          break; // Wait for more data
-        }
-
-        const payloadBuf = pendingBuf.subarray(4, frameLen);
-        pendingBuf = pendingBuf.subarray(frameLen);
-
-        try {
-          const result = unpackr.unpack(payloadBuf) as FifoVerifyResult;
-          this.handleResult(result);
-        } catch (err) {
-          this.logger.error(`FIFO: failed to decode msgpack result: ${err}`);
-        }
+    this.fifoReader.on('frame', (payload: Buffer) => {
+      try {
+        const result = unpackr.unpack(payload) as FifoVerifyResult;
+        this.handleResult(result);
+      } catch (err) {
+        this.logger.error(`FIFO: failed to decode msgpack result: ${err}`);
       }
     });
 
-    stream.on('error', (err: Error) => {
-      if (this.fifoReaderRunning) {
-        this.logger.error(`FIFO reader error: ${err}`);
-      }
+    this.fifoReader.on('error', (err: Error) => {
+      this.logger.error(`FIFO reader error: ${err}`);
     });
 
-    stream.on('end', () => {
+    this.fifoReader.on('end', () => {
       this.logger.debug('FIFO reader: stream ended');
     });
+
+    this.fifoReader.start(this.fifoPath);
   }
 
   private handleResult(result: FifoVerifyResult): void {
