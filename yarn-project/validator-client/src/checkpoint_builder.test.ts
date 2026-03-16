@@ -200,7 +200,7 @@ describe('CheckpointBuilder', () => {
 
     it('defaults to minValidTxs=0 when not specified, allowing empty blocks', async () => {
       const expectedBlock = await L2Block.random(blockNumber, { txsPerBlock: 0 });
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue(expectedBlock);
 
       processor.process.mockResolvedValue([[], [], [], [], []]);
 

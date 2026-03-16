@@ -122,7 +122,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       await forkCheckpoint.commit();
 
       // Add block to checkpoint
-      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+      const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
         expectedEndState: opts.expectedEndState,
       });
 
