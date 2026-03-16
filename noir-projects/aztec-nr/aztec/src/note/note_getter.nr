@@ -33,7 +33,7 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
     let mut acc: Field = 1;
     for i in 0..32 {
         if i < length {
-            value_field += value[(31 + offset - i) as u32] as Field * acc;
+            value_field += value[(31 - offset - i) as u32] as Field * acc;
             acc = acc * 256;
         }
     }

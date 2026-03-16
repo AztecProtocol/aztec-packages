@@ -323,3 +323,14 @@ unconstrained fn constrain_view_note_rejects_mismatched_owner() {
         let _ = confirm_hinted_note(context, note, Option::some(owner), storage_slot);
     });
 }
+
+#[test]
+unconstrained fn extract_property_value_from_selector_with_nonzero_offset() {
+    // 256 as a Field in big-endian bytes is [0, 0, ..., 0, 1, 0] (byte[30]=1, byte[31]=0).
+    // With offset: 1 and length: 1, we skip 1 byte from the least-significant end,
+    // so we should read byte[30] which is 1.
+    let packed = [256 as Field];
+    let selector = PropertySelector { index: 0, offset: 1, length: 1 };
+    let result = super::extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 1);
+}
