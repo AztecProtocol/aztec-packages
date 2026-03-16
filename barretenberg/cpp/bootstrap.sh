@@ -8,6 +8,7 @@ else
 fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 export native_build_dir=$(scripts/native-preset-build-dir)
+export native_cache_key="barretenberg-$native_preset-$hash"
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -61,7 +62,7 @@ function build_preset() {
 # This is a noop if the final artifacts exist in the cache.
 function build_native_objects {
   set -eu
-  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+  if ! cache_exists $native_cache_key.zst; then
     (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
@@ -72,12 +73,12 @@ function build_native_objects {
 # Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-$native_preset-$hash.zst; then
+  if ! cache_download $native_cache_key.zst; then
     ./format.sh check
     build_preset $native_preset
     # Build bb-external for barretenberg-rs FFI backend (not part of default targets)
     cmake --build --preset $native_preset --target bb-external
-    cache_upload barretenberg-$native_preset-$hash.zst ${native_build_dir}/{bin,lib}
+    cache_upload $native_cache_key.zst ${native_build_dir}/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
   inject_version $native_build_dir/bin/bb
