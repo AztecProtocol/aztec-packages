@@ -1,5 +1,6 @@
-export { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 export type { PeerId } from '@libp2p/interface';
+
+export { createSecp256k1PeerId } from './util.js';
 
 export * from './bootstrap/bootstrap.js';
 export * from './client/index.js';

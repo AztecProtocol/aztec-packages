@@ -11,6 +11,7 @@ import type { MsgIdStr, PeerIdStr, PublishOpts, TopicStr } from '@chainsafe/libp
 import {
   type Libp2pStatus,
   type PeerId,
+  type PrivateKey,
   type PublishResult,
   type TopicValidatorResult,
   TypedEventEmitter,
@@ -47,6 +48,7 @@ export function getMockPubSubP2PServiceFactory(
   return (
     config: P2PConfig,
     peerId: PeerId,
+    _privateKey: PrivateKey,
     deps: {
       packageVersion: string;
       mempools: MemPools;

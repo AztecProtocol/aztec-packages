@@ -5,10 +5,11 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import type { IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { jest } from '@jest/globals';
+import { generateKeyPair } from '@libp2p/crypto/keys';
 import type { PeerId } from '@libp2p/interface';
-import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
-import type { IDiscv5CreateOptions } from '@nethermindeth/discv5';
+import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
@@ -66,8 +67,7 @@ describe('Discv5Service', () => {
 
   const startNodes = (...nodes: { start: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.start()));
   const stopNodes = (...nodes: { stop: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.stop()));
-  const getPeers = (node: DiscV5Service) =>
-    Promise.all(node.getKadValues().map(async peer => (await peer.peerId()).toString()));
+  const getPeers = (node: DiscV5Service) => node.getKadValues().map(peer => peer.peerId.toString());
 
   it('should initialize with default values', async () => {
     const node = await createNode();
@@ -76,7 +76,7 @@ describe('Discv5Service', () => {
     expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
     const kadValues = node.getKadValues();
     const bootnode = kadValues[0];
-    expect((await bootnode.peerId()).toString()).toEqual(bootNodePeerId.toString());
+    expect(bootnode.peerId.toString()).toEqual(bootNodePeerId.toString());
     await node.stop();
   });
 
@@ -198,7 +198,7 @@ describe('Discv5Service', () => {
 
     await runDiscoveryUntil([node1, node2], () => node2.getKadValues().length >= 1);
 
-    const node2Peers = await Promise.all(node2.getKadValues().map(async peer => (await peer.peerId()).toString()));
+    const node2Peers = node2.getKadValues().map(peer => peer.peerId.toString());
     // NOTE: bootnode seems to still be present in list of peers sometimes, will investigate
     // expect(node2Peers).toHaveLength(1);
     expect(node2Peers).toContain(node1.getPeerId().toString());
@@ -311,7 +311,8 @@ describe('Discv5Service', () => {
   const createNode = async (overrides: Partial<P2PConfig & IDiscv5CreateOptions> = {}, useBootnode = true) => {
     const port = ++basePort;
     const bootnodeAddr = bootNode.getENR().encodeTxt();
-    const peerId = await createSecp256k1PeerId();
+    const libp2pPrivateKey = await generateKeyPair('secp256k1');
+    const peerId = peerIdFromPrivateKey(libp2pPrivateKey);
     const config: P2PConfig = {
       ...getP2PDefaultConfig(),
       ...emptyChainConfig,
@@ -325,6 +326,6 @@ describe('Discv5Service', () => {
       l2QueueSize: 100,
       ...overrides,
     };
-    return new DiscV5Service(peerId, config, testPackageVersion, undefined, undefined, overrides);
+    return new DiscV5Service(peerId, libp2pPrivateKey, config, testPackageVersion, undefined, undefined, overrides);
   };
 });

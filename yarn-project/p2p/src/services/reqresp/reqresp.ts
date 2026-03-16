@@ -793,16 +793,20 @@ export class ReqResp implements ReqRespInterface {
   ): PeerErrorSeverity | undefined {
     const logTags = { peerId: peerId.toString(), subProtocol };
     // Do not punish if we are stopping the service
-    if (e instanceof AbortError || e?.code == 'ABORT_ERR') {
+    if (e instanceof AbortError || e?.code == 'ABORT_ERR' || e?.name === 'AbortError') {
       this.logger.debug(`Request aborted: ${e.message}`, logTags);
       return undefined;
     }
 
     // Do not punish if we are the ones closing the connection
+    // Check both .code (v1) and .name (v2) for libp2p errors
     if (
       e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
+      e?.name === 'ConnectionClosingError' ||
       e?.code === 'ERR_CONNECTION_CLOSED' ||
+      e?.name === 'ConnectionClosedError' ||
       e?.code === 'ERR_TRANSIENT_CONNECTION' ||
+      e?.name === 'LimitedConnectionError' ||
       e?.message?.includes('Muxer already closed') ||
       e?.message?.includes('muxer closed') ||
       e?.message?.includes('ended pushable')
@@ -814,7 +818,7 @@ export class ReqResp implements ReqRespInterface {
       return undefined;
     }
 
-    // Pubishable errors
+    // Punishable errors
     // Connection reset errors in the networking stack are punished with high severity
     // it just signals an unreliable peer
     // We assume that the requesting node has a functioning networking stack.
@@ -833,7 +837,7 @@ export class ReqResp implements ReqRespInterface {
       return PeerErrorSeverity.HighToleranceError;
     }
 
-    if (e?.code === 'ERR_UNSUPPORTED_PROTOCOL') {
+    if (e?.code === 'ERR_UNSUPPORTED_PROTOCOL' || e?.name === 'UnsupportedProtocolError') {
       this.logger.debug(`Sub protocol not supported by peer: ${peerId.toString()}`, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }

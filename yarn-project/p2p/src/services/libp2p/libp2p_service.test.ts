@@ -88,7 +88,7 @@ describe('LibP2PService', () => {
         sequenceNumber: BigInt(1),
         from: mockPeerId,
         signature: new Uint8Array(),
-        key: new Uint8Array(),
+        key: mockPeerId.publicKey!,
       };
 
       const msgId = 'test-msg-id';
@@ -112,7 +112,7 @@ describe('LibP2PService', () => {
         sequenceNumber: BigInt(1),
         from: mockPeerId,
         signature: new Uint8Array(),
-        key: new Uint8Array(),
+        key: mockPeerId.publicKey!,
       };
 
       const msgId = 'test-msg-id-2';

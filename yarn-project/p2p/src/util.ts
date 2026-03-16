@@ -4,11 +4,11 @@ import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
-import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
+import { generateKeyPair, privateKeyFromProtobuf, privateKeyToProtobuf } from '@libp2p/crypto/keys';
 import type { Identify } from '@libp2p/identify';
 import type { PeerId, PrivateKey } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
-import { createFromPrivKey } from '@libp2p/peer-id-factory';
+import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { resolve } from 'dns/promises';
 import { promises as fs } from 'fs';
 import type { Libp2p } from 'libp2p';
@@ -185,7 +185,7 @@ export async function getPeerIdPrivateKey(
 
   // Generate and persist a new private key
   const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-  const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+  const privateKeyString = Buffer.from(privateKeyToProtobuf(newPeerIdPrivateKey)).toString('hex');
   if (peerIdPrivateKeyFilePath) {
     logger.verbose(`Creating new peer ID private key and persisting it to ${peerIdPrivateKeyFilePath}`);
     await writePrivateKeyToFile(peerIdPrivateKeyFilePath, privateKeyString);
@@ -209,8 +209,21 @@ export async function createLibP2PPeerIdFromPrivateKey(privateKey: string): Prom
     throw new Error('No peer private key provided');
   }
 
-  const asLibp2pPrivateKey: PrivateKey<'secp256k1'> = await unmarshalPrivateKey(
-    new Uint8Array(Buffer.from(privateKey, 'hex')),
-  );
-  return await createFromPrivKey(asLibp2pPrivateKey);
+  const asLibp2pPrivateKey: PrivateKey = await privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKey, 'hex')));
+  return peerIdFromPrivateKey(asLibp2pPrivateKey);
+}
+
+/**
+ * Unmarshal a hex-encoded private key string into a libp2p PrivateKey object.
+ * @param privateKeyHex - The hex-encoded private key string.
+ * @returns The libp2p PrivateKey object.
+ */
+export async function unmarshalLibP2PPrivateKey(privateKeyHex: string): Promise<PrivateKey> {
+  return await privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKeyHex, 'hex')));
+}
+
+/** Creates a new secp256k1 peer ID. */
+export async function createSecp256k1PeerId(): Promise<PeerId> {
+  const privateKey = await generateKeyPair('secp256k1');
+  return peerIdFromPrivateKey(privateKey);
 }
