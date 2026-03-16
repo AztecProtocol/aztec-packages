@@ -6,3 +6,4 @@ compiler_version = ">=0.18.0"
 
 [dependencies]
 types = { path = "../types" }
+protocol_test_utils = { path = "../protocol-test-utils" }

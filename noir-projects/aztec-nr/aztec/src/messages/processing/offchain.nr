@@ -80,10 +80,8 @@ struct PendingOffchainMsg {
     recipient: AztecAddress,
     /// The hash of the transaction that produced this message. A value of 0 indicates a tx-less message.
     tx_hash: Field,
-    /// Anchor block timestamp at message emission.
-    ///
-    /// Used to compute the effective expiration: messages are evicted after
-    /// `anchor_block_timestamp + MAX_MSG_TTL`.
+    /// Anchor block timestamp at message emission. Used to compute the effective expiration: messages are evicted
+    /// after `anchor_block_timestamp + MAX_MSG_TTL`.
     anchor_block_timestamp: u64,
 }
 
@@ -394,7 +392,7 @@ mod test {
 
             assert_eq(result.len(), 0); // all contexts are None
             // Message 0 expired (anchor=0), message 1 survived (anchor=anchor_ts),
-            // message 2 expired (anchor=0).
+            // Message 2 expired (anchor=0).
             assert_eq(inbox.len(), 1);
             assert_eq(inbox.get(0).tx_hash, survivor_tx_hash);
         });

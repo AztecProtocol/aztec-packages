@@ -22,6 +22,7 @@ import {
 } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import { OutOfOrderLogInsertionError } from '../errors.js';
 import type { BlockStore } from './block_store.js';
 
 /**
@@ -165,10 +166,21 @@ export class LogStore {
 
     for (const taggedLogBuffer of currentPrivateTaggedLogs) {
       if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
-        privateTaggedLogs.set(
-          taggedLogBuffer.tag,
-          taggedLogBuffer.logBuffers!.concat(privateTaggedLogs.get(taggedLogBuffer.tag)!),
-        );
+        const newLogs = privateTaggedLogs.get(taggedLogBuffer.tag)!;
+        if (newLogs.length === 0) {
+          continue;
+        }
+        const lastExisting = TxScopedL2Log.fromBuffer(taggedLogBuffer.logBuffers.at(-1)!);
+        const firstNew = TxScopedL2Log.fromBuffer(newLogs[0]);
+        if (lastExisting.blockNumber > firstNew.blockNumber) {
+          throw new OutOfOrderLogInsertionError(
+            'private',
+            taggedLogBuffer.tag,
+            lastExisting.blockNumber,
+            firstNew.blockNumber,
+          );
+        }
+        privateTaggedLogs.set(taggedLogBuffer.tag, taggedLogBuffer.logBuffers.concat(newLogs));
       }
     }
 
@@ -200,10 +212,21 @@ export class LogStore {
 
     for (const taggedLogBuffer of currentPublicTaggedLogs) {
       if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
-        publicTaggedLogs.set(
-          taggedLogBuffer.tag,
-          taggedLogBuffer.logBuffers!.concat(publicTaggedLogs.get(taggedLogBuffer.tag)!),
-        );
+        const newLogs = publicTaggedLogs.get(taggedLogBuffer.tag)!;
+        if (newLogs.length === 0) {
+          continue;
+        }
+        const lastExisting = TxScopedL2Log.fromBuffer(taggedLogBuffer.logBuffers.at(-1)!);
+        const firstNew = TxScopedL2Log.fromBuffer(newLogs[0]);
+        if (lastExisting.blockNumber > firstNew.blockNumber) {
+          throw new OutOfOrderLogInsertionError(
+            'public',
+            taggedLogBuffer.tag,
+            lastExisting.blockNumber,
+            firstNew.blockNumber,
+          );
+        }
+        publicTaggedLogs.set(taggedLogBuffer.tag, taggedLogBuffer.logBuffers.concat(newLogs));
       }
     }
 
@@ -322,17 +345,30 @@ export class LogStore {
    * array implies no logs match that tag.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    * @returns An array of log arrays, one per tag. Returns at most MAX_LOGS_PER_TAG logs per tag per page. If
    * MAX_LOGS_PER_TAG logs are returned for a tag, the caller should fetch the next page to check for more logs.
    */
-  async getPrivateLogsByTags(tags: SiloedTag[], page: number = 0): Promise<TxScopedL2Log[][]> {
+  async getPrivateLogsByTags(
+    tags: SiloedTag[],
+    page: number = 0,
+    upToBlockNumber?: BlockNumber,
+  ): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(tags.map(tag => this.#privateLogsByTag.getAsync(tag.toString())));
+
     const start = page * MAX_LOGS_PER_TAG;
     const end = start + MAX_LOGS_PER_TAG;
 
-    return logs.map(
-      logBuffers => logBuffers?.slice(start, end).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
-    );
+    return logs.map(logBuffers => {
+      const deserialized = logBuffers?.slice(start, end).map(buf => TxScopedL2Log.fromBuffer(buf)) ?? [];
+      if (upToBlockNumber !== undefined) {
+        const cutoff = deserialized.findIndex(log => log.blockNumber > upToBlockNumber);
+        if (cutoff !== -1) {
+          return deserialized.slice(0, cutoff);
+        }
+      }
+      return deserialized;
+    });
   }
 
   /**
@@ -341,6 +377,7 @@ export class LogStore {
    * @param contractAddress - The contract address to search logs for.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    * @returns An array of log arrays, one per tag. Returns at most MAX_LOGS_PER_TAG logs per tag per page. If
    * MAX_LOGS_PER_TAG logs are returned for a tag, the caller should fetch the next page to check for more logs.
    */
@@ -348,6 +385,7 @@ export class LogStore {
     contractAddress: AztecAddress,
     tags: Tag[],
     page: number = 0,
+    upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(
       tags.map(tag => {
@@ -358,9 +396,16 @@ export class LogStore {
     const start = page * MAX_LOGS_PER_TAG;
     const end = start + MAX_LOGS_PER_TAG;
 
-    return logs.map(
-      logBuffers => logBuffers?.slice(start, end).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
-    );
+    return logs.map(logBuffers => {
+      const deserialized = logBuffers?.slice(start, end).map(buf => TxScopedL2Log.fromBuffer(buf)) ?? [];
+      if (upToBlockNumber !== undefined) {
+        const cutoff = deserialized.findIndex(log => log.blockNumber > upToBlockNumber);
+        if (cutoff !== -1) {
+          return deserialized.slice(0, cutoff);
+        }
+      }
+      return deserialized;
+    });
   }
 
   /**
@@ -588,11 +633,24 @@ export class LogStore {
     txLogs: PublicLog[],
     filter: LogFilter = {},
   ): boolean {
+    if (filter.fromBlock && blockNumber < filter.fromBlock) {
+      return false;
+    }
+    if (filter.toBlock && blockNumber >= filter.toBlock) {
+      return false;
+    }
+    if (filter.txHash && !txHash.equals(filter.txHash)) {
+      return false;
+    }
+
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {
       const log = txLogs[logIndex];
-      if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
+      if (
+        (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) &&
+        (!filter.tag || log.fields[0]?.equals(filter.tag))
+      ) {
         results.push(
           new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), blockHash, txHash, txIndex, logIndex), log),
         );
@@ -616,6 +674,16 @@ export class LogStore {
     txLogs: ContractClassLog[],
     filter: LogFilter = {},
   ): boolean {
+    if (filter.fromBlock && blockNumber < filter.fromBlock) {
+      return false;
+    }
+    if (filter.toBlock && blockNumber >= filter.toBlock) {
+      return false;
+    }
+    if (filter.txHash && !txHash.equals(filter.txHash)) {
+      return false;
+    }
+
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {

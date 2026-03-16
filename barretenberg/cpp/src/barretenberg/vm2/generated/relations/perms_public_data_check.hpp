@@ -23,7 +23,7 @@ struct perm_public_data_check_squashing_settings_ {
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
         ColumnAndShifts::public_data_check_leaf_slot,
         ColumnAndShifts::public_data_check_clk,
-        ColumnAndShifts::public_data_check_should_write_to_public_inputs,
+        ColumnAndShifts::public_data_check_sel_write_to_public_inputs,
         ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_final_value
     };

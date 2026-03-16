@@ -473,6 +473,10 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
             ) -> Option<Field> {
                 $if_note_type_id_match_statements
                 else {
+                    aztec::protocol::logging::warn_log_format(
+                        "[aztec-nr] Unknown note type id {0}. Skipping note.",
+                        [note_type_id],
+                    );
                     Option::none()
                 }
             }

@@ -23,19 +23,18 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 ### secp256k1 Curve
 12. `ecc/curves/secp256k1/secp256k1.hpp`
-13. `ecc/curves/secp256k1/secp256k1_endo_notes.hpp`
 
 ### secp256r1 Curve
-14. `ecc/curves/secp256r1/secp256r1.hpp`
+13. `ecc/curves/secp256r1/secp256r1.hpp`
 
 ### Common Types
-15. `ecc/curves/types.hpp`
+14. `ecc/curves/types.hpp`
 
 ### Stdlib Curve Primitives
-16. `stdlib/primitives/curves/bn254.hpp`
-17. `stdlib/primitives/curves/grumpkin.hpp`
-18. `stdlib/primitives/curves/secp256k1.hpp`
-19. `stdlib/primitives/curves/secp256r1.hpp`
+15. `stdlib/primitives/curves/bn254.hpp`
+16. `stdlib/primitives/curves/grumpkin.hpp`
+17. `stdlib/primitives/curves/secp256k1.hpp`
+18. `stdlib/primitives/curves/secp256r1.hpp`
 
 ## Summary of Module
 

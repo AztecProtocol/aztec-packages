@@ -19,7 +19,7 @@ import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage } from '../../contract_logging.js';
@@ -75,6 +75,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isUtility = true as const;
 
   private contractLogger: Logger | undefined;
+  private offchainEffects: OffchainEffect[] = [];
 
   protected readonly contractAddress: AztecAddress;
   protected readonly authWitnesses: AuthWitness[];
@@ -670,5 +671,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     return deriveEcdhSharedSecret(addressSecret, ephPk);
+  }
+
+  public emitOffchainEffect(data: Fr[]): Promise<void> {
+    this.offchainEffects.push({ data, contractAddress: this.contractAddress });
+    return Promise.resolve();
+  }
+
+  /** Returns offchain effects collected during execution. */
+  public getOffchainEffects(): OffchainEffect[] {
+    return this.offchainEffects;
   }
 }

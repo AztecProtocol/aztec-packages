@@ -8,6 +8,16 @@ namespace bb::avm2::simulation {
 
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
+/**
+ * @brief Encodes the @p bytecode into a vector of field elements. Each field element represents
+ *        31 bytes of the @p bytecode. The field encoding is performed in big-endian order, i.e.,
+ *        the ith field element is
+ *        2^240 * bytecode[31*i] + 2^232 * bytecode[31*i + 1] + ... + 2^8 * bytecode[31*i + 30] + bytecode[31*i + 31].
+ * @note This function follows TS `bufferAsFields`.
+ *
+ * @param bytecode The bytecode to encode.
+ * @return std::vector<FF> The encoded bytecode.
+ */
 std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
 {
     size_t bytecode_len = bytecode.size();
@@ -22,7 +32,9 @@ std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
             tail.resize(32, 0);
             as_int = from_buffer<uint256_t>(tail, 0);
         }
-        return as_int >> 8;
+        // We can pack only 31 bytes per field but as we deserialized 32 bytes (uint256_t)
+        // we need to shift by 8 bits to get the correct value.
+        return FF(as_int >> 8);
     };
 
     std::vector<FF> contract_bytecode_fields;
@@ -46,7 +58,7 @@ FF compute_public_bytecode_first_field(size_t bytecode_size)
     // Fr<0x00000000000000000000000000000000000000000000000000016b480f8411f1> From: max fields in bytes = 3000 * 31 =
     // 16b48, Dom sep = f8411f1
     static_assert(DOM_SEP__PUBLIC_BYTECODE <= UINT32_MAX, "Public bytecode domain separator must fit in 32 bits");
-    return uint256_t(DOM_SEP__PUBLIC_BYTECODE) + uint256_t(bytecode_size << 32);
+    return FF(uint256_t(DOM_SEP__PUBLIC_BYTECODE) + uint256_t(bytecode_size << 32));
 }
 
 FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)

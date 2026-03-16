@@ -25,8 +25,8 @@ import {
   FullNodeBlockBuilderConfigKeys,
   type ICheckpointBlockBuilder,
   type ICheckpointsBuilder,
+  InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
-  NoValidTxsError,
   type PublicProcessorLimits,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -34,6 +34,7 @@ import { type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type CheckpointGlobalVariables, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { ForkCheckpoint } from '@aztec/world-state';
 
 // Re-export for backward compatibility
 export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/server';
@@ -73,7 +74,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits & { expectedEndState?: StateReference } = {},
+    opts: PublicProcessorLimits & { expectedEndState?: StateReference; minValidTxs?: number } = {},
   ): Promise<BuildBlockInCheckpointResult> {
     const slot = this.checkpointBuilder.constants.slotNumber;
 
@@ -103,34 +104,47 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...this.capLimitsByCheckpointBudgets(opts),
     };
 
-    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
-      processor.process(pendingTxs, cappedOpts, validator),
-    );
+    // We execute all merkle tree operations on a world state fork checkpoint
+    // This enables us to discard all modifications in the event that we fail to successfully process sufficient transactions
+    const forkCheckpoint = await ForkCheckpoint.new(this.fork);
 
-    // Throw if we didn't collect a single valid tx and we're not allowed to build empty blocks
-    // (only the first block in a checkpoint can be empty)
-    if (processedTxs.length === 0 && this.checkpointBuilder.getBlockCount() > 0) {
-      throw new NoValidTxsError(failedTxs);
+    try {
+      const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
+        processor.process(pendingTxs, cappedOpts, validator),
+      );
+      // Throw before updating state if we don't have enough valid txs
+      const minValidTxs = opts.minValidTxs ?? 0;
+      if (processedTxs.length < minValidTxs) {
+        throw new InsufficientValidTxsError(processedTxs.length, minValidTxs, failedTxs);
+      }
+
+      // Commit the fork checkpoint
+      await forkCheckpoint.commit();
+
+      // Add block to checkpoint
+      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+        expectedEndState: opts.expectedEndState,
+      });
+
+      this.log.debug('Built block within checkpoint', {
+        header: block.header.toInspect(),
+        processedTxs: processedTxs.map(tx => tx.hash.toString()),
+        failedTxs: failedTxs.map(tx => tx.tx.txHash.toString()),
+      });
+
+      return {
+        block,
+        publicProcessorDuration,
+        numTxs: processedTxs.length,
+        failedTxs,
+        usedTxs,
+      };
+    } catch (err) {
+      // If we reached the point of committing the checkpoint, this does nothing
+      // Otherwise it reverts any changes made to the fork for this failed block
+      await forkCheckpoint.revert();
+      throw err;
     }
-
-    // Add block to checkpoint
-    const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
-      expectedEndState: opts.expectedEndState,
-    });
-
-    this.log.debug('Built block within checkpoint', {
-      header: block.header.toInspect(),
-      processedTxs: processedTxs.map(tx => tx.hash.toString()),
-      failedTxs: failedTxs.map(tx => tx.tx.txHash.toString()),
-    });
-
-    return {
-      block,
-      publicProcessorDuration,
-      numTxs: processedTxs.length,
-      failedTxs,
-      usedTxs,
-    };
   }
 
   /** Completes the checkpoint and returns it. */
@@ -178,23 +192,31 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const blockEndOverhead = getNumBlockEndBlobFields(isFirstBlock);
     const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
 
-    // Cap L2 gas by remaining checkpoint mana
-    const cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? remainingMana, remainingMana);
+    // When redistributeCheckpointBudget is enabled (default), compute a fair share of remaining budget
+    // across remaining blocks scaled by the multiplier, instead of letting one block consume it all.
+    const redistribute = this.config.redistributeCheckpointBudget !== false;
+    const remainingBlocks = Math.max(1, (this.config.maxBlocksPerCheckpoint ?? 1) - existingBlocks.length);
+    const multiplier = this.config.perBlockAllocationMultiplier ?? 1.2;
 
-    // Cap DA gas by remaining checkpoint DA gas budget
-    const cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? remainingDAGas, remainingDAGas);
+    // Cap L2 gas by remaining checkpoint mana (with fair share when redistributing)
+    const fairShareL2 = redistribute ? Math.ceil((remainingMana / remainingBlocks) * multiplier) : Infinity;
+    const cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? Infinity, fairShareL2, remainingMana);
 
-    // Cap blob fields by remaining checkpoint blob capacity
-    const cappedBlobFields =
-      opts.maxBlobFields !== undefined ? Math.min(opts.maxBlobFields, maxBlobFieldsForTxs) : maxBlobFieldsForTxs;
+    // Cap DA gas by remaining checkpoint DA gas budget (with fair share when redistributing)
+    const fairShareDA = redistribute ? Math.ceil((remainingDAGas / remainingBlocks) * multiplier) : Infinity;
+    const cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? remainingDAGas, fairShareDA, remainingDAGas);
 
-    // Cap transaction count by remaining checkpoint tx budget
+    // Cap blob fields by remaining checkpoint blob capacity (with fair share when redistributing)
+    const fairShareBlobs = redistribute ? Math.ceil((maxBlobFieldsForTxs / remainingBlocks) * multiplier) : Infinity;
+    const cappedBlobFields = Math.min(opts.maxBlobFields ?? Infinity, fairShareBlobs, maxBlobFieldsForTxs);
+
+    // Cap transaction count by remaining checkpoint tx budget (with fair share when redistributing)
     let cappedMaxTransactions: number | undefined;
     if (this.config.maxTxsPerCheckpoint !== undefined) {
       const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
       const remainingTxs = Math.max(0, this.config.maxTxsPerCheckpoint - usedTxs);
-      cappedMaxTransactions =
-        opts.maxTransactions !== undefined ? Math.min(opts.maxTransactions, remainingTxs) : remainingTxs;
+      const fairShareTxs = redistribute ? Math.ceil((remainingTxs / remainingBlocks) * multiplier) : Infinity;
+      cappedMaxTransactions = Math.min(opts.maxTransactions ?? Infinity, fairShareTxs, remainingTxs);
     } else {
       cappedMaxTransactions = opts.maxTransactions;
     }
