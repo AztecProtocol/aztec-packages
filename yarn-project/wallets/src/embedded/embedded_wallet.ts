@@ -1,5 +1,7 @@
 import { type Account, SignerlessAccount } from '@aztec/aztec.js/account';
-import type { Aliased } from '@aztec/aztec.js/wallet';
+import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
+import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
+import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -8,12 +10,14 @@ import type { AccessScopes, PXEConfig, PXECreationOptions } from '@aztec/pxe/cli
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import {
   ExecutionPayload,
   SimulationOverrides,
   type TxSimulationResult,
+  collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
 import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
@@ -33,6 +37,8 @@ export type EmbeddedWalletOptions = {
 };
 
 export class EmbeddedWallet extends BaseWallet {
+  protected estimatedGasPadding = 0.5;
+
   constructor(
     pxe: PXE,
     aztecNode: AztecNode,
@@ -77,6 +83,61 @@ export class EmbeddedWallet extends BaseWallet {
       }
     }
     return storedSenders;
+  }
+
+  public override async sendTx<W extends InteractionWaitOptions = undefined>(
+    executionPayload: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>> {
+    const feeOptions = await this.completeFeeOptionsForEstimation(
+      opts.from,
+      executionPayload.feePayer,
+      opts.fee?.gasSettings,
+    );
+
+    const simulationResult = await this.simulateViaEntrypoint(
+      executionPayload,
+      opts.from,
+      feeOptions,
+      this.scopesFrom(opts.from),
+      true,
+      true,
+    );
+
+    const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
+    const authWitnesses = await Promise.all(
+      offchainEffects.map(async effect => {
+        try {
+          const authRequest = await CallAuthorizationRequest.fromFields(effect.data);
+          return this.createAuthWit(opts.from, {
+            consumer: effect.contractAddress,
+            innerHash: authRequest.innerHash,
+          });
+        } catch {
+          return undefined; // Not a CallAuthorizationRequest, skip
+        }
+      }),
+    );
+    for (const authwit of authWitnesses) {
+      if (authwit) {
+        executionPayload.authWitnesses.push(authwit);
+      }
+    }
+    const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, this.estimatedGasPadding);
+    this.log.verbose(
+      `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+    );
+    const gasSettings = GasSettings.from({
+      ...opts.fee?.gasSettings,
+      maxFeesPerGas: feeOptions.gasSettings.maxFeesPerGas,
+      maxPriorityFeesPerGas: feeOptions.gasSettings.maxPriorityFeesPerGas,
+      gasLimits,
+      teardownGasLimits,
+    });
+    return super.sendTx(executionPayload, {
+      ...opts,
+      fee: { ...opts.fee, gasSettings },
+    });
   }
 
   /**
@@ -218,6 +279,10 @@ export class EmbeddedWallet extends BaseWallet {
 
   setMinFeePadding(value?: number) {
     this.minFeePadding = value ?? 0.5;
+  }
+
+  setEstimatedGasPadding(value?: number) {
+    this.estimatedGasPadding = value ?? 0.5;
   }
 
   stop() {
