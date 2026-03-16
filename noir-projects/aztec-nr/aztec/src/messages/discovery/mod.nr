@@ -88,6 +88,14 @@ pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note
  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
 randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
+pub type ComputeNoteHash = unconstrained fn(/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
+ owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
+randomness */ Field) -> Option<Field>;
+
+pub type ComputeNullifier = unconstrained fn(/* unique_note_hash */Field, /* packed_note */ BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
+ owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
+randomness */ Field) -> Option<Field>;
+
 /// A handler for custom messages.
 ///
 /// Contracts that emit custom messages (i.e. any with a message type that is not in [`crate::messages::msg_type`])
@@ -108,9 +116,10 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 ///
 /// The private state will be synchronized up to the block that will be used for private transactions (i.e. the anchor
 /// block. This will typically be close to the tip of the chain.
-pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
+pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
+    compute_note_hash: ComputeNoteHash,
+    compute_nullifier: ComputeNullifier,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
@@ -127,7 +136,8 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
 
         process_message_ciphertext(
             contract_address,
-            compute_note_hash_and_nullifier,
+            compute_note_hash,
+            compute_nullifier,
             process_custom_message,
             message_ciphertext,
             pending_tagged_log.context,
@@ -145,7 +155,8 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
-                compute_note_hash_and_nullifier,
+                compute_note_hash,
+                compute_nullifier,
                 process_custom_message,
                 msg.message_ciphertext,
                 msg.message_context,
@@ -158,7 +169,11 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    partial_notes::fetch_and_process_partial_note_completion_logs(contract_address, compute_note_hash_and_nullifier);
+    partial_notes::fetch_and_process_partial_note_completion_logs(
+        contract_address,
+        compute_note_hash,
+        compute_nullifier,
+    );
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).

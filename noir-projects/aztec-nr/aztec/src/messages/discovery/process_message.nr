@@ -1,6 +1,6 @@
 use crate::messages::{
     discovery::{
-        ComputeNoteHashAndNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
+        ComputeNoteHash, ComputeNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
         private_events::process_private_event_msg, private_notes::process_private_note_msg,
     },
     encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
@@ -26,9 +26,10 @@ use crate::protocol::address::AztecAddress;
 ///
 /// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 /// enqueueing the event data and commitment for validation.
-pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
+pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
+    compute_note_hash: ComputeNoteHash,
+    compute_nullifier: ComputeNullifier,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
@@ -38,7 +39,8 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
     if message_plaintext_option.is_some() {
         process_message_plaintext(
             contract_address,
-            compute_note_hash_and_nullifier,
+            compute_note_hash,
+            compute_nullifier,
             process_custom_message,
             message_plaintext_option.unwrap(),
             message_context,
@@ -48,9 +50,10 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
     }
 }
 
-pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
+pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
+    compute_note_hash: ComputeNoteHash,
+    compute_nullifier: ComputeNullifier,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
     message_context: MessageContext,
@@ -73,7 +76,8 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
                 message_context.unique_note_hashes_in_tx,
                 message_context.first_nullifier_in_tx,
                 message_context.recipient,
-                compute_note_hash_and_nullifier,
+                compute_note_hash,
+                compute_nullifier,
                 msg_metadata,
                 msg_content,
             );
