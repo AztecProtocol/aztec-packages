@@ -287,12 +287,6 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
         }
     }();
 
-    // Build joint claim batchers from both circuits' commitments and evaluations.
-    RefVector<Commitment> joint_unshifted_comms = mega_zk_commitments.get_unshifted();
-    RefVector<FF> joint_unshifted_evals = mega_zk_evals.get_unshifted();
-    RefVector<Commitment> joint_shifted_comms = mega_zk_commitments.get_to_be_shifted();
-    RefVector<FF> joint_shifted_evals = mega_zk_evals.get_shifted();
-
     // Translator claim components.
     auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
         trans_evals.get_groups_to_be_concatenated_shifted(), std::span<const FF>(joint_challenge));
@@ -302,13 +296,22 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     auto trans_shifted_comms = trans_commitments.get_pcs_to_be_shifted();
     auto trans_pcs_shifted_evals = trans_evals.get_pcs_shifted();
 
-    // Extend joint RefVectors with translator entries.
-    for (auto& comm : trans_unshifted_comms) {
+    // Build joint claim batchers: translator-first in unshifted, MegaZK-first in shifted (matching prover).
+    RefVector<Commitment> joint_unshifted_comms = trans_unshifted_comms;
+    RefVector<FF> joint_unshifted_evals = trans_unshifted_evals;
+
+    // Extend unshifted with MegaZK entries.
+    for (auto& comm : mega_zk_commitments.get_unshifted()) {
         joint_unshifted_comms.push_back(comm);
     }
-    for (auto& eval : trans_unshifted_evals) {
+    for (auto& eval : mega_zk_evals.get_unshifted()) {
         joint_unshifted_evals.push_back(eval);
     }
+
+    // Shifted: MegaZK first, then translator (matching prover ordering).
+    RefVector<Commitment> joint_shifted_comms = mega_zk_commitments.get_to_be_shifted();
+    RefVector<FF> joint_shifted_evals = mega_zk_evals.get_shifted();
+
     for (auto& comm : trans_shifted_comms) {
         joint_shifted_comms.push_back(comm);
     }
@@ -353,7 +356,6 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     // Reconstruct MegaZK commitments from the stored verifier instance.
     MegaZKVerifierCommitments mega_zk_commitments{ mega_zk_verifier_instance->get_vk(),
                                                    mega_zk_verifier_instance->received_commitments };
-    mega_zk_commitments.gemini_masking_poly = mega_zk_verifier_instance->received_commitments.masking_commitment;
 
     auto trans_commitments = verify_translator_oink(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);

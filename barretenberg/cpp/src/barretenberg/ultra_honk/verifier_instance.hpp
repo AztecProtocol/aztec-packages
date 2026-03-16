@@ -19,24 +19,26 @@ namespace bb {
  *          The masking_commitment field and label are provided uniformly so that
  *          oink_verifier and build_pcs_commitments don't need to branch on BS.
  */
-template <typename WitnessCommitments_, typename Commitment_> struct WitnessCommitmentsWithMasking
-    : public WitnessCommitments_ {
+template <typename WitnessCommitments_, typename Commitment_>
+struct WitnessCommitmentsWithMasking : public WitnessCommitments_ {
     Commitment_ masking_commitment;
 };
 
 // Resolve the type for commitments received during Oink verification.
-// BS=1 non-ZK: WitnessCommitments
-// BS=1 ZK: WitnessCommitmentsWithMasking (wraps WitnessCommitments + masking field)
-// BS>1: InterleavedCommitments (includes masking for ZK via interleaved_masking member)
-template <typename Flavor, bool IsMulti = IsMultiMegaFlavor<Flavor>, bool HasZK = Flavor::HasZK>
+// BS=1 without Gemini masking: WitnessCommitments (e.g., UltraFlavor, MegaFlavor, MegaZKFlavor)
+// BS=1 with Gemini masking: WitnessCommitmentsWithMasking (e.g., UltraZKFlavor)
+// BS>1: InterleavedCommitments (includes masking for ZK via masking_commitment member)
+template <typename Flavor,
+          bool IsMulti = IsMultiMegaFlavor<Flavor>,
+          bool HasMasking = flavor_has_gemini_masking<Flavor>()>
 struct ReceivedCommitmentsOf {
-    using type = typename Flavor::WitnessCommitments; // BS=1, non-ZK
+    using type = typename Flavor::WitnessCommitments; // BS=1, no Gemini masking
 };
 template <typename Flavor> struct ReceivedCommitmentsOf<Flavor, false, true> {
-    using type =
-        WitnessCommitmentsWithMasking<typename Flavor::WitnessCommitments, typename Flavor::Commitment>; // BS=1, ZK
+    using type = WitnessCommitmentsWithMasking<typename Flavor::WitnessCommitments,
+                                               typename Flavor::Commitment>; // BS=1 + masking
 };
-template <typename Flavor, bool HasZK> struct ReceivedCommitmentsOf<Flavor, true, HasZK> {
+template <typename Flavor, bool HasMasking> struct ReceivedCommitmentsOf<Flavor, true, HasMasking> {
     using type = typename Flavor::InterleavedCommitments; // BS>1 (ZK or not)
 };
 

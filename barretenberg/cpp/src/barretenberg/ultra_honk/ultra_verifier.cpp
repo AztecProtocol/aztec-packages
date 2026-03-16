@@ -41,8 +41,8 @@ template <typename Flavor, typename Instance> static auto build_pcs_commitments(
 
     Result result;
 
-    // For BS=1 ZK: prepend masking commitment (matches AllEntities ordering: MaskingEntities first)
-    if constexpr (Flavor::HasZK && Flavor::INTERLEAVING_BATCH_SIZE == 1) {
+    // For BS=1 ZK with Gemini masking: prepend masking commitment (matches AllEntities ordering: MaskingEntities first)
+    if constexpr (flavor_has_gemini_masking<Flavor>()) {
         result.unshifted.push_back(instance.received_commitments.masking_commitment);
     }
 
