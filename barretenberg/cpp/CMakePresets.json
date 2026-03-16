@@ -408,6 +408,7 @@
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "CXXFLAGS": "-DBB_VERBOSE",
+        "LDFLAGS": "--no-wasm-opt",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
         "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
       },
@@ -460,7 +461,7 @@
       "binaryDir": "build-xray"
     },
     {
-      "name": "zig-base",
+      "name": "cross-base",
       "displayName": "Zig (base)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-${presetName}",
@@ -478,9 +479,9 @@
       }
     },
     {
-      "name": "zig-amd64-linux",
+      "name": "amd64-linux",
       "displayName": "Build for linux amd64 with Zig",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target x86_64-linux-gnu.2.35",
         "CXX": "zig c++ -target x86_64-linux-gnu.2.35",
@@ -493,8 +494,8 @@
       }
     },
     {
-      "name": "zig-arm64-linux",
-      "inherits": "zig-base",
+      "name": "arm64-linux",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target aarch64-linux-gnu.2.35",
         "CXX": "zig c++ -target aarch64-linux-gnu.2.35",
@@ -507,10 +508,10 @@
       }
     },
     {
-      "name": "zig-amd64-macos",
+      "name": "amd64-macos",
       "displayName": "Build for macOS amd64 with Zig",
       "description": "Cross-compile for intel macOS using Zig",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target x86_64-macos -mcpu=baseline",
         "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
@@ -523,10 +524,10 @@
       }
     },
     {
-      "name": "zig-arm64-macos",
+      "name": "arm64-macos",
       "displayName": "Build for macOS arm64 with Zig",
       "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
         "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14"
@@ -539,10 +540,10 @@
       }
     },
     {
-      "name": "zig-amd64-windows",
+      "name": "amd64-windows",
       "displayName": "Build for Windows amd64 with Zig",
       "description": "Cross-compile for Windows x86_64 using Zig (MinGW). Excludes ipc/lmdb/world_state/nodejs_module (no Windows support).",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target x86_64-windows-gnu",
         "CXX": "zig c++ -target x86_64-windows-gnu",
@@ -552,15 +553,15 @@
         "CMAKE_SYSTEM_NAME": "Windows",
         "CMAKE_SYSTEM_PROCESSOR": "x86_64",
         "TARGET_ARCH": "skylake",
-        "MOBILE": "ON",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-pc-windows-gnu/release/libavm_transpiler.a"
+        "BB_LITE": "ON",
+        "AVM_TRANSPILER_LIB": ""
       }
     },
     {
-      "name": "zig-arm64-ios",
+      "name": "arm64-ios",
       "displayName": "iOS arm64 static library (Zig)",
       "description": "Cross-compile static libraries for iOS arm64 devices using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
         "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
@@ -569,14 +570,14 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     },
     {
-      "name": "zig-arm64-ios-sim",
+      "name": "arm64-ios-sim",
       "displayName": "iOS Simulator arm64 static library (Zig)",
       "description": "Cross-compile static libraries for iOS Simulator on ARM64 using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
         "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
@@ -585,14 +586,14 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     },
     {
-      "name": "zig-arm64-android",
+      "name": "arm64-android",
       "displayName": "Android arm64 static library (Zig)",
       "description": "Cross-compile static libraries for Android arm64 devices using Zig. Only supports static library targets (no linking).",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android",
         "CXX": "zig c++ -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android"
@@ -601,14 +602,14 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     },
     {
-      "name": "zig-x86_64-android",
+      "name": "x86_64-android",
       "displayName": "Android x86_64 static library (Zig)",
       "description": "Cross-compile static libraries for Android x86_64 emulator using Zig. Only supports static library targets (no linking).",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android",
         "CXX": "zig c++ -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android"
@@ -617,7 +618,7 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     }
   ],
@@ -686,7 +687,13 @@
     {
       "name": "asan-fast",
       "inherits": "default",
-      "configurePreset": "asan-fast"
+      "configurePreset": "asan-fast",
+      "targets": [
+        "commitment_schemes_recursion_tests",
+        "chonk_tests",
+        "ultra_honk_tests",
+        "dsl_tests"
+      ]
     },
     {
       "name": "gcc",
@@ -759,7 +766,9 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": [
-        "barretenberg.wasm.gz"
+        "barretenberg.wasm",
+        "barretenberg.wasm.gz",
+        "barretenberg-debug.wasm"
       ]
     },
     {
@@ -767,10 +776,7 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm",
-        "bb"
-      ]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads",
@@ -778,8 +784,13 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": [
+        "barretenberg.wasm",
         "barretenberg.wasm.gz",
-        "ecc_tests"
+        "barretenberg-debug.wasm",
+        "ecc_tests",
+        "ultra_honk_bench",
+        "chonk_bench",
+        "bb"
       ]
     },
     {
@@ -788,49 +799,58 @@
       "inherits": "default"
     },
     {
-      "name": "zig-amd64-linux",
-      "configurePreset": "zig-amd64-linux",
-      "inheritConfigureEnvironment": true
+      "name": "amd64-linux",
+      "configurePreset": "amd64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
-      "name": "zig-arm64-linux",
-      "configurePreset": "zig-arm64-linux",
-      "inheritConfigureEnvironment": true
+      "name": "arm64-linux",
+      "configurePreset": "arm64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
-      "name": "zig-amd64-macos",
-      "configurePreset": "zig-amd64-macos",
-      "inheritConfigureEnvironment": true
+      "name": "amd64-macos",
+      "configurePreset": "amd64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
-      "name": "zig-arm64-macos",
-      "configurePreset": "zig-arm64-macos",
-      "inheritConfigureEnvironment": true
+      "name": "arm64-macos",
+      "configurePreset": "arm64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
-      "name": "zig-amd64-windows",
-      "configurePreset": "zig-amd64-windows",
-      "inheritConfigureEnvironment": true
+      "name": "amd64-windows",
+      "configurePreset": "amd64-windows",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "bb-external"]
     },
     {
-      "name": "zig-arm64-ios",
-      "configurePreset": "zig-arm64-ios",
-      "inheritConfigureEnvironment": true
+      "name": "arm64-ios",
+      "configurePreset": "arm64-ios",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     },
     {
-      "name": "zig-arm64-ios-sim",
-      "configurePreset": "zig-arm64-ios-sim",
-      "inheritConfigureEnvironment": true
+      "name": "arm64-ios-sim",
+      "configurePreset": "arm64-ios-sim",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     },
     {
-      "name": "zig-arm64-android",
-      "configurePreset": "zig-arm64-android",
-      "inheritConfigureEnvironment": true
+      "name": "arm64-android",
+      "configurePreset": "arm64-android",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     },
     {
-      "name": "zig-x86_64-android",
-      "configurePreset": "zig-x86_64-android",
-      "inheritConfigureEnvironment": true
+      "name": "x86_64-android",
+      "configurePreset": "x86_64-android",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     }
   ],
   "testPresets": [
