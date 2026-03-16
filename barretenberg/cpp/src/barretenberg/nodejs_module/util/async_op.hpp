@@ -114,7 +114,12 @@ class ThreadedAsyncOperation {
                 _success = false;
             }
 
-            // Post completion back to the JS main thread
+            // Post completion back to the JS main thread.
+            // Release and delete must happen AFTER BlockingCall returns on this thread,
+            // not inside the callback. Release() drops the TSFN refcount to 0, which can
+            // tear down internal state (mutex/condvar) that BlockingCall still needs to
+            // unwind through. Doing either inside the callback caused SIGBUS on macOS
+            // (magazine malloc unmaps freed pages) and segfaults on Linux.
             _completion_tsfn.BlockingCall(
                 this, [](Napi::Env env, Napi::Function /*js_callback*/, ThreadedAsyncOperation* op) {
                     if (op->_success) {
@@ -124,10 +129,9 @@ class ThreadedAsyncOperation {
                         auto error = Napi::Error::New(env, op->_error);
                         op->_deferred->Reject(error.Value());
                     }
-                    // Release the TSFN and self-destruct
-                    op->_completion_tsfn.Release();
-                    delete op;
                 });
+            _completion_tsfn.Release();
+            delete this;
         }).detach();
     }
 
