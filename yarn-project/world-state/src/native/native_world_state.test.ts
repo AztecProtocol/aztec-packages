@@ -1578,7 +1578,8 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork();
       await advanceState(fork);
       const siblingPathsBefore = await getSiblingPaths(fork);
-      await fork.createCheckpoint();
+      const checkpointDepth = await fork.createCheckpoint();
+      expect(checkpointDepth).toEqual(1);
 
       await compareState(fork, siblingPathsBefore, true);
 
@@ -1593,7 +1594,7 @@ describe('NativeWorldState', () => {
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
-      await fork.commitAllCheckpoints();
+      await fork.commitAllCheckpointsTo(checkpointDepth - 1);
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
@@ -1604,7 +1605,8 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork();
       await advanceState(fork);
       const siblingPathsBefore = await getSiblingPaths(fork);
-      await fork.createCheckpoint();
+      const checkpointDepth = await fork.createCheckpoint();
+      expect(checkpointDepth).toEqual(1);
 
       await compareState(fork, siblingPathsBefore, true);
 
@@ -1612,14 +1614,15 @@ describe('NativeWorldState', () => {
       let siblingPathsAfter: SiblingPath<number>[] = [];
 
       for (let i = 0; i < numCommits; i++) {
-        await fork.createCheckpoint();
+        const newCheckpointDepth = await fork.createCheckpoint();
+        expect(newCheckpointDepth).toEqual(checkpointDepth + i + 1);
         siblingPathsAfter = await advanceState(fork);
       }
 
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
-      await fork.revertAllCheckpoints();
+      await fork.revertAllCheckpointsTo(checkpointDepth - 1);
       await compareState(fork, siblingPathsAfter, false);
       await compareState(fork, siblingPathsBefore, true);
 
@@ -1832,6 +1835,162 @@ describe('NativeWorldState', () => {
       expect(size).toBe(initialSize);
       expect(await getLeaf(size - 1n)).toEqual(initialLeaf);
       expect(await getPath(size - 1n)).toEqual(initialPath);
+
+      await fork.close();
+    });
+
+    it('createCheckpoint returns depth', async () => {
+      const fork = await ws.fork();
+      expect(await fork.createCheckpoint()).toBe(1);
+      expect(await fork.createCheckpoint()).toBe(2);
+      expect(await fork.createCheckpoint()).toBe(3);
+      await fork.close();
+    });
+
+    it('can commit all to depth', async () => {
+      const fork = await ws.fork();
+
+      // Create 3 checkpoints with state changes between each
+      const initialPaths = await getSiblingPaths(fork);
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 3
+      const afterDepth3Paths = await advanceState(fork);
+
+      // Commit depths 3 and 2 into depth 1, leaving depth at 1
+      await fork.commitAllCheckpointsTo(1);
+
+      // State should reflect all changes
+      await compareState(fork, afterDepth3Paths, true);
+
+      // Revert depth 1 — should go back to initial state
+      await fork.revertCheckpoint();
+      await compareState(fork, initialPaths, true);
+
+      await fork.close();
+    });
+
+    it('can revert all to depth', async () => {
+      const fork = await ws.fork();
+
+      await fork.createCheckpoint(); // depth 1
+      const afterDepth1Paths = await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 3
+      await advanceState(fork);
+
+      // Revert depths 3 and 2, leaving depth at 1
+      await fork.revertAllCheckpointsTo(1);
+
+      // Should be back to after depth 1 state
+      await compareState(fork, afterDepth1Paths, true);
+
+      // Depth 1 still active — commit it
+      await fork.commitCheckpoint();
+      await compareState(fork, afterDepth1Paths, true);
+
+      await fork.close();
+    });
+
+    it('revert to depth preserves lower checkpoints', async () => {
+      const fork = await ws.fork();
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      // Revert depth 2 only, leaving depth at 1
+      await fork.revertAllCheckpointsTo(1);
+
+      // Create new checkpoint at depth 2 with different changes
+      await fork.createCheckpoint(); // depth 2 again
+      const newDepth2Paths = await advanceState(fork);
+
+      // Commit depth 2
+      await fork.commitCheckpoint();
+
+      // Commit depth 1
+      await fork.commitCheckpoint();
+
+      // Final state should include the new depth 2 changes
+      await compareState(fork, newDepth2Paths, true);
+
+      await fork.close();
+    });
+
+    it('commit all with depth 0 commits everything', async () => {
+      const fork = await ws.fork();
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      const finalPaths = await advanceState(fork);
+
+      // depth 0 commits all checkpoints
+      await fork.commitAllCheckpointsTo(0);
+
+      // State should reflect all changes
+      await compareState(fork, finalPaths, true);
+
+      await fork.close();
+    });
+
+    it('revert all with depth 0 reverts everything', async () => {
+      const fork = await ws.fork();
+      const initialPaths = await getSiblingPaths(fork);
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      // depth 0 reverts all checkpoints
+      await fork.revertAllCheckpointsTo(0);
+
+      // Should be back to initial state
+      await compareState(fork, initialPaths, true);
+
+      await fork.close();
+    });
+
+    it('depth is consistent across multiple checkpoint cycles', async () => {
+      const fork = await ws.fork();
+
+      // Create checkpoint depth 1
+      expect(await fork.createCheckpoint()).toBe(1);
+      const afterDepth1Paths = await advanceState(fork);
+
+      // Create checkpoint depth 2
+      expect(await fork.createCheckpoint()).toBe(2);
+      await advanceState(fork);
+
+      // Revert depth 2, leaving depth at 1
+      await fork.revertAllCheckpointsTo(1);
+      await compareState(fork, afterDepth1Paths, true);
+
+      // Create new depth 2
+      expect(await fork.createCheckpoint()).toBe(2);
+      const newDepth2Paths = await advanceState(fork);
+
+      // Commit depth 2
+      await fork.commitCheckpoint();
+      await compareState(fork, newDepth2Paths, true);
+
+      // Commit depth 1
+      await fork.commitCheckpoint();
+      await compareState(fork, newDepth2Paths, true);
 
       await fork.close();
     });

@@ -332,7 +332,6 @@ networks:
     # Prover
     PROVER_REAL_PROOFS: true
     # Sync
-    SYNC_SNAPSHOTS_URLS: "https://aztec-labs-snapshots.com/mainnet/"
     BLOB_ALLOW_EMPTY_SOURCES: true
     # P2P
     P2P_MAX_PENDING_TX_COUNT: 1000

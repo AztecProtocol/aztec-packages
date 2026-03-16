@@ -22,9 +22,8 @@ import { Checkpoint, type CheckpointData, L1PublishedData } from '@aztec/stdlib/
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockInCheckpointResult,
+  InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
-  NoValidTxsError,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -774,7 +773,7 @@ describe('CheckpointProposalJob', () => {
 
       const checkpointBuilder = mock<CheckpointBuilder>();
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
-      checkpointBuilder.buildBlock.mockResolvedValue({ failedTxs, numTxs: 1 } as BuildBlockInCheckpointResult);
+      checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(1, 2, failedTxs));
 
       const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
@@ -795,7 +794,7 @@ describe('CheckpointProposalJob', () => {
 
       const checkpointBuilder = mock<CheckpointBuilder>();
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
-      checkpointBuilder.buildBlock.mockRejectedValue(new NoValidTxsError(failedTxs));
+      checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(0, 3, failedTxs));
 
       const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
@@ -897,6 +896,22 @@ describe('CheckpointProposalJob', () => {
 
       expect(checkpoint).toBeUndefined();
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
+    });
+
+    it('aborts checkpoint when syncing proposed block to archiver fails', async () => {
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+
+      // Mock blockSink.addBlock to reject, simulating a consistency error
+      blockSink.addBlock.mockRejectedValue(new Error('Consistency error: block does not match world state'));
+
+      const checkpoint = await job.execute();
+
+      // The checkpoint should be aborted since the archiver sync failure now propagates
+      expect(checkpoint).toBeUndefined();
+      expect(blockSink.addBlock).toHaveBeenCalledWith(block);
+      // Should not attempt to collect attestations since the error aborts the loop
+      expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
     });
 
     it('handles empty committee gracefully', async () => {

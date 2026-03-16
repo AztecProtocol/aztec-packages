@@ -3,6 +3,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
@@ -27,7 +28,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { L1Metrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 import type { SpecificProverNodeConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
@@ -95,7 +96,7 @@ export async function createProverNode(
 
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
+    transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
     pollingInterval: config.viemPollingIntervalMS,
   });
 

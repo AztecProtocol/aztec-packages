@@ -225,30 +225,20 @@ export interface MerkleTreeReadOperations {
 }
 
 export interface MerkleTreeCheckpointOperations {
-  /**
-   * Checkpoints the current fork state
-   */
-  createCheckpoint(): Promise<void>;
+  /** Checkpoints the current fork state. Returns the depth of the new checkpoint. */
+  createCheckpoint(): Promise<number>;
 
-  /**
-   * Commits the current checkpoint
-   */
+  /** Commits the current checkpoint. */
   commitCheckpoint(): Promise<void>;
 
-  /**
-   * Reverts the current checkpoint
-   */
+  /** Reverts the current checkpoint. */
   revertCheckpoint(): Promise<void>;
 
-  /**
-   * Commits all checkpoints
-   */
-  commitAllCheckpoints(): Promise<void>;
+  /** Commits all checkpoints above the given depth, leaving checkpoint depth at the given value. */
+  commitAllCheckpointsTo(depth: number): Promise<void>;
 
-  /**
-   * Reverts all checkpoints
-   */
-  revertAllCheckpoints(): Promise<void>;
+  /** Reverts all checkpoints above the given depth, leaving checkpoint depth at the given value. */
+  revertAllCheckpointsTo(depth: number): Promise<void>;
 }
 
 export interface MerkleTreeWriteOperations
