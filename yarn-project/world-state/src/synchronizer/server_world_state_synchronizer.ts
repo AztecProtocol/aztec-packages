@@ -5,6 +5,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
+  type BlockHash,
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Block,
   type L2BlockId,
@@ -177,13 +178,10 @@ export class ServerWorldStateSynchronizer
   /**
    * Forces an immediate sync.
    * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
-   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
+   * @param blockHash - If provided, verifies the block at targetBlockNumber matches this hash. On mismatch, triggers a resync (reorg detection).
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public async syncImmediate(
-    targetBlockNumber?: BlockNumber,
-    skipThrowIfTargetNotReached?: boolean,
-  ): Promise<BlockNumber> {
+  public async syncImmediate(targetBlockNumber?: BlockNumber, blockHash?: BlockHash): Promise<BlockNumber> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running. Unable to perform sync.`);
     }
@@ -195,7 +193,19 @@ export class ServerWorldStateSynchronizer
     // If we have been given a block number to sync to and we have reached that number then return
     const currentBlockNumber = await this.getLatestBlockNumber();
     if (targetBlockNumber !== undefined && targetBlockNumber <= currentBlockNumber) {
-      return currentBlockNumber;
+      if (blockHash === undefined) {
+        return currentBlockNumber;
+      }
+
+      // If a block hash was provided, verify we're on the expected fork
+      const currentHash = await this.getL2BlockHash(targetBlockNumber);
+      if (currentHash === blockHash.toString()) {
+        return currentBlockNumber;
+      }
+      // Hash mismatch: a reorg may have occurred, fall through to trigger sync
+      this.log.debug(
+        `World state block hash mismatch at ${targetBlockNumber} (expected ${blockHash}, got ${currentHash}). Triggering resync.`,
+      );
     }
     this.log.debug(`World State at ${currentBlockNumber} told to sync to ${targetBlockNumber ?? 'latest'}`);
 
@@ -213,7 +223,7 @@ export class ServerWorldStateSynchronizer
 
     // If we have been given a block number to sync to and we have not reached that number then fail
     const updatedBlockNumber = await this.getLatestBlockNumber();
-    if (!skipThrowIfTargetNotReached && targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
+    if (targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
       throw new WorldStateSynchronizerError(
         `Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`,
         {
@@ -225,6 +235,24 @@ export class ServerWorldStateSynchronizer
           },
         },
       );
+    }
+
+    // If a block hash was provided, verify we're on the expected fork after syncing, throw otherwise
+    if (blockHash !== undefined && targetBlockNumber !== undefined) {
+      const updatedHash = await this.getL2BlockHash(targetBlockNumber);
+      if (updatedHash !== blockHash.toString()) {
+        throw new WorldStateSynchronizerError(
+          `Block hash mismatch at block ${targetBlockNumber} (expected ${blockHash} but got ${updatedHash})`,
+          {
+            cause: {
+              reason: 'block_hash_mismatch',
+              targetBlockNumber,
+              expectedHash: blockHash.toString(),
+              actualHash: updatedHash,
+            },
+          },
+        );
+      }
     }
 
     return updatedBlockNumber;

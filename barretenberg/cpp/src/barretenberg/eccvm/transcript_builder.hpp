@@ -313,6 +313,8 @@ class ECCVMTranscriptBuilder {
                 add_lambda_denominator[i] = 0;
                 inverse_trace_x[i] = 0;
                 inverse_trace_y[i] = 0;
+                transcript_msm_x_inverse_trace[i] = 0;
+                msm_count_at_transition_inverse_trace[i] = 0;
             }
         }
 
@@ -534,7 +536,9 @@ class ECCVMTranscriptBuilder {
         const bool msm_output_infinity = msm_output.is_point_at_infinity();
         const bool row_msm_infinity = row.transcript_msm_infinity;
 
-        transcript_msm_x_inverse_trace = row_msm_infinity ? 0 : (msm_accumulator_trace.x - offset_generator().x);
+        transcript_msm_x_inverse_trace = (row_msm_infinity || msm_accumulator_trace.is_point_at_infinity())
+                                             ? 0
+                                             : (msm_accumulator_trace.x - offset_generator().x);
 
         FF lhsx;
         FF lhsy;

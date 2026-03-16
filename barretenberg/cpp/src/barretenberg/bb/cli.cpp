@@ -534,6 +534,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(batch_verify);
 
     /***************************************************************************************************************
+     * Subcommand: proof_stats
+     ***************************************************************************************************************/
+    CLI::App* proof_stats =
+        app.add_subcommand("proof_stats", "Output proof statistics (compressed size, number of public inputs).");
+
+    add_help_extended_flag(proof_stats);
+    add_scheme_option(proof_stats);
+    add_proof_path_option(proof_stats);
+    add_output_path_option(proof_stats, output_path);
+    add_verbose_flag(proof_stats);
+
+    /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
      ***************************************************************************************************************/
     CLI::App* write_solidity_verifier =
@@ -977,6 +989,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 const bool verified = api.batch_verify(flags, batch_verify_proofs_dir);
                 vinfo("batch verified: ", verified);
                 return verified ? 0 : 1;
+            }
+            if (proof_stats->parsed()) {
+                api.proof_stats(proof_path, output_path);
+                return 0;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {

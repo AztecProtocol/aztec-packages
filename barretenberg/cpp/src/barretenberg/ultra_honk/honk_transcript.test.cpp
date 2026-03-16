@@ -1,6 +1,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
@@ -91,8 +92,8 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), data_types_per_Frs);
         }
 
-        // For ZK flavors: Gemini masking polynomial commitment is sent at end of oink
-        if constexpr (Flavor::HasZK) {
+        // For flavors with Gemini masking: masking polynomial commitment is sent at end of oink
+        if constexpr (flavor_has_gemini_masking<Flavor>()) {
             manifest_expected.add_entry(round, "Gemini:masking_poly_comm", data_types_per_G);
         }
         manifest_expected.add_entry(round, "W_L", data_types_per_G);

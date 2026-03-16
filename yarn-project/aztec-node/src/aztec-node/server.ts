@@ -5,11 +5,11 @@ import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
-import { getPublicClient } from '@aztec/ethereum/client';
+import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray, pick, unique } from '@aztec/foundation/collection';
+import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -113,7 +113,7 @@ import {
 } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -257,7 +257,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
+      transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -797,18 +797,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPrivateLogsByTags(tags, page);
+    return this.logsSource.getPrivateLogsByTags(tags, page, upToBlockNumber);
   }
 
   public async getPublicLogsByTagsFromContract(
@@ -817,18 +821,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
   }
 
   /**
@@ -970,7 +978,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
       leafValues.map(x => x.toBuffer()),
@@ -1038,7 +1046,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
       ? undefined
@@ -1049,7 +1057,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
       MerkleTreeId.NOTE_HASH_TREE,
       [noteHash],
@@ -1063,7 +1071,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const db = await this.#getWorldState(referenceBlock);
+    const db = await this.getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
     if (!witness) {
       return undefined;
@@ -1096,19 +1104,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
     // Assumes `getCheckpointedBlocksForEpoch` returns blocks in ascending order of block number.
     const checkpointedBlocks = await this.blockSource.getCheckpointedBlocksForEpoch(epoch);
-    const blocksInCheckpoints: L2Block[][] = [];
-    let previousSlotNumber = SlotNumber.ZERO;
-    let checkpointIndex = -1;
-    for (const checkpointedBlock of checkpointedBlocks) {
-      const block = checkpointedBlock.block;
-      const slotNumber = block.header.globalVariables.slotNumber;
-      if (slotNumber !== previousSlotNumber) {
-        checkpointIndex++;
-        blocksInCheckpoints.push([]);
-        previousSlotNumber = slotNumber;
-      }
-      blocksInCheckpoints[checkpointIndex].push(block);
-    }
+    const blocksInCheckpoints = chunkBy(checkpointedBlocks, cb => cb.block.header.globalVariables.slotNumber).map(
+      group => group.map(cb => cb.block),
+    );
     return blocksInCheckpoints.map(blocks =>
       blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
@@ -1118,7 +1116,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const db = await this.#getWorldState(referenceBlock);
+    const db = await this.getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
     if (!witness) {
       return undefined;
@@ -1137,7 +1135,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     if (!findResult) {
       return undefined;
@@ -1155,7 +1153,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   async getPublicDataWitness(referenceBlock: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
       return undefined;
@@ -1170,7 +1168,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -1601,7 +1599,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @returns An instance of a committed MerkleTreeOperations
    */
-  async #getWorldState(block: BlockParameter) {
+  protected async getWorldState(block: BlockParameter) {
     let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
     try {
       // Attempt to sync the world state if necessary
@@ -1615,6 +1613,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
+    // Get the block number, either directly from the parameter or by quering the archiver with the block hash
+    let blockNumber: BlockNumber;
     if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
@@ -1628,22 +1628,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
-      const blockNumber = header.getBlockNumber();
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-      return this.worldStateSynchronizer.getSnapshot(blockNumber);
+
+      blockNumber = header.getBlockNumber();
+    } else {
+      blockNumber = block as BlockNumber;
     }
 
-    // Block number provided
-    {
-      const blockNumber = block as BlockNumber;
+    // Check it's within world state sync range
+    if (blockNumber > blockSyncedTo) {
+      throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+    }
+    this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
 
-      if (blockNumber > blockSyncedTo) {
-        throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+    const snapshot = this.worldStateSynchronizer.getSnapshot(blockNumber);
+
+    // Double-check world-state synced to the same block hash as was requested
+    if (BlockHash.isBlockHash(block)) {
+      const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
+      if (!blockHash || !new BlockHash(blockHash).equals(block)) {
+        throw new Error(
+          `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+        );
       }
-
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-      return this.worldStateSynchronizer.getSnapshot(blockNumber);
     }
+
+    return snapshot;
   }
 
   /**

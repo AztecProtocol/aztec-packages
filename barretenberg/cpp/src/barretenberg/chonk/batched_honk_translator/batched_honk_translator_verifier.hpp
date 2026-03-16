@@ -57,32 +57,32 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     using TransBF = typename TransFlavor::BF;
 
     // Joint RepeatedCommitmentsData for Shplemini's remove_repeated_commitments optimization.
-    // After Shplemini's offset=2 (Q_commitment + gemini_masking_poly), the virtual layout is:
-    //   Unshifted: [MegaZK_precomputed(P) | MegaZK_witness(W) | Trans_PCS_unshifted(TU)]
-    //   Shifted:   [MegaZK_shifted(S) | Trans_PCS_shifted(TS)]
+    // Joint unshifted = [Trans_unshifted(TU), MZK_unshifted(P+W)]. The translator's gemini_masking_poly
+    // is at position 0 of unshifted and is consumed by Shplemini's offset=2 (Q + masking).
+    // After Shplemini's offset=2, the virtual layout is:
+    //   Unshifted: [Trans_rest(TU-1) | MZK_precomputed(P) | MZK_witness(W)]
+    //   Shifted:   [MZK_shifted(S) | Trans_shifted(TS)]
     //
-    // Range 1 (MegaZK): witness[0..S-1] ↔ mega_zk_shifted[0..S-1]
-    // Range 2 (Translator merged): ordered(5)+z_perm(1)+concat(5) in unshifted ↔ same in shifted
+    // Range 1 (Translator merged): ordered(5)+z_perm(1)+concat(5) in unshifted ↔ same in shifted
+    // Range 2 (MegaZK): witness[0..S-1] ↔ mega_zk_shifted[0..S-1]
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = [] {
+        constexpr size_t TU = TranslatorFlavor::NUM_PCS_UNSHIFTED; // includes masking(1)
         constexpr size_t P = MegaZKFlavorT::NUM_PRECOMPUTED_ENTITIES;
-        // W = MegaFlavor::NUM_WITNESS_ENTITIES (without masking, which is handled by Shplemini's offset)
-        constexpr size_t W = MegaZKFlavorT::REPEATED_COMMITMENTS.first.duplicate_start -
-                             MegaZKFlavorT::REPEATED_COMMITMENTS.first.original_start;
+        constexpr size_t W = MegaZKFlavorT::NUM_WITNESS_ENTITIES;
         constexpr size_t S = MegaZKFlavorT::NUM_SHIFTED_ENTITIES;
-        constexpr size_t TU = TranslatorFlavor::NUM_PCS_UNSHIFTED;
-        // Skip before repeated entries: masking(1)+ordered_extra(1)+op(1)=3 in unshifted, op_queue(3) in shifted
-        constexpr size_t TRANS_UNSHIFTED_SKIP = TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start + 1;
-        constexpr size_t TRANS_SHIFTED_SKIP =
-            TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED -
-            (TranslatorFlavor::REPEATED_COMMITMENTS.first.count + TranslatorFlavor::REPEATED_COMMITMENTS.second.count);
-        return RepeatedCommitmentsData(
-            P,                                   // MegaZK original: start of witness in unshifted
-            P + W + TU,                          // MegaZK duplicate: start of mega_zk_shifted
-            S,                                   // MegaZK count
-            P + W + TRANS_UNSHIFTED_SKIP,        // Translator original: ordered+z_perm+concat in unshifted
-            P + W + TU + S + TRANS_SHIFTED_SKIP, // Translator duplicate: same entries in shifted
-            TranslatorFlavor::REPEATED_COMMITMENTS.first.count +
-                TranslatorFlavor::REPEATED_COMMITMENTS.second.count); // Translator count
+        // Translator repeated: ordered(5)+z_perm(1)+concat(5) in Trans_rest ↔ Trans_shifted
+        // Trans_rest starts at virtual 0; repeated starts at ordered_extra(1)+op(1)=2
+        constexpr size_t TRANS_REPEAT_START = TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start;
+        constexpr size_t TRANS_REPEAT_COUNT =
+            TranslatorFlavor::REPEATED_COMMITMENTS.first.count + TranslatorFlavor::REPEATED_COMMITMENTS.second.count;
+        // In shifted section: op_queue entries precede the repeated entries
+        constexpr size_t TRANS_SHIFTED_SKIP = TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED - TRANS_REPEAT_COUNT;
+        return RepeatedCommitmentsData(TRANS_REPEAT_START,                        // Translator original in unshifted
+                                       (TU - 1) + P + W + S + TRANS_SHIFTED_SKIP, // Translator duplicate in shifted
+                                       TRANS_REPEAT_COUNT,                        // Translator count
+                                       (TU - 1) + P,     // MegaZK original: witness start in unshifted
+                                       (TU - 1) + P + W, // MegaZK duplicate: shifted start
+                                       S);               // MegaZK count
     }();
 
     /**

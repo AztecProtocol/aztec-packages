@@ -191,7 +191,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
-    if constexpr (Flavor::HasZK) {
+    if constexpr (flavor_has_gemini_masking<Flavor>()) {
         // Create a random masking polynomial for Gemini
         const size_t polynomial_size = prover_instance->dyadic_size();
         prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);

@@ -92,12 +92,15 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
     auto x_death = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].x);
     auto y_normal = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].y);
 
-    x_death.set_origin_tag(instant_death_tag);
     // Set constant tags on the other elements so they can be merged with instant_death_tag
     y_normal.set_origin_tag(constant_tag);
 
     // Use assert_on_curve=false to avoid triggering instant_death during validate_on_curve()
     cycle_group_ct b(x_death, y_normal, /*assert_on_curve=*/false);
+
+    // Poison the x coordinate after construction so the throw happens inside operator+
+    b.x().set_origin_tag(instant_death_tag);
+
     // Even requesting the tag of the whole structure can cause instant death
     EXPECT_THROW(b.get_origin_tag(), std::runtime_error);
 #endif

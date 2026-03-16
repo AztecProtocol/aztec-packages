@@ -1,7 +1,7 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -16,7 +16,8 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { BlockHash, type BlockParameter, CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { L1PublishedData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -35,6 +36,7 @@ import {
   TX_ERROR_INVALID_EXPIRATION_TIMESTAMP,
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
+  TxEffect,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -62,13 +64,20 @@ class MockDateProvider extends DateProvider {
   }
 }
 
+class TestAztecNodeService extends AztecNodeService {
+  public override getWorldState(block: BlockParameter) {
+    return super.getWorldState(block);
+  }
+}
+
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
+  let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let lastBlockNumber: BlockNumber;
-  let node: AztecNodeService;
+  let node: TestAztecNodeService;
   let feePayer: AztecAddress;
   let epochCache: EpochCache;
   let nodeConfig: AztecNodeConfig;
@@ -130,9 +139,10 @@ describe('aztec node', () => {
       }
     });
 
-    const worldState = mock<WorldStateSynchronizer>({
+    worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });
+    worldState.syncImmediate.mockImplementation(() => Promise.resolve(lastBlockNumber));
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getBlockNumber.mockImplementation(() => Promise.resolve(lastBlockNumber));
@@ -170,7 +180,7 @@ describe('aztec node', () => {
       new MockDateProvider(),
     );
 
-    node = new AztecNodeService(
+    node = new TestAztecNodeService(
       nodeConfig,
       p2p,
       l2BlockSource,
@@ -548,6 +558,89 @@ describe('aztec node', () => {
         );
       });
     });
+
+    describe('getWorldState', () => {
+      let snapshotMerkleTreeOps: MockProxy<MerkleTreeReadOperations>;
+      let initialHeader: BlockHeader;
+
+      beforeEach(() => {
+        lastBlockNumber = BlockNumber(5);
+        initialHeader = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
+        });
+        merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
+        snapshotMerkleTreeOps = mock<MerkleTreeReadOperations>();
+        worldState.getSnapshot.mockReturnValue(snapshotMerkleTreeOps);
+      });
+
+      it('returns committed db for latest', async () => {
+        const result = await node.getWorldState('latest');
+        expect(result).toBe(merkleTreeOps);
+        expect(worldState.getSnapshot).not.toHaveBeenCalled();
+      });
+
+      it('returns snapshot for a block number within sync range', async () => {
+        const result = await node.getWorldState(BlockNumber(3));
+        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
+      });
+
+      it('throws for a block number beyond sync range', async () => {
+        await expect(node.getWorldState(BlockNumber(10))).rejects.toThrow(/not yet synced/);
+      });
+
+      it('throws for a block hash whose block number is beyond sync range', async () => {
+        const blockHash = BlockHash.random();
+        const header = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(10) }),
+        });
+        l2BlockSource.getBlockHeaderByHash.mockResolvedValue(header);
+
+        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not yet synced/);
+      });
+
+      it('resolves block hash to block number via archiver and returns snapshot', async () => {
+        const blockHash = BlockHash.random();
+        const header = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }),
+        });
+        l2BlockSource.getBlockHeaderByHash.mockResolvedValue(header);
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
+
+        const result = await node.getWorldState(blockHash);
+        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
+      });
+
+      it('throws when block hash is not found in archiver', async () => {
+        const blockHash = BlockHash.random();
+        l2BlockSource.getBlockHeaderByHash.mockResolvedValue(undefined);
+
+        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found when querying world state/);
+      });
+
+      it('throws when world-state block hash does not match requested hash (reorg)', async () => {
+        const blockHash = BlockHash.random();
+        const differentHash = BlockHash.random();
+        const header = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }),
+        });
+        l2BlockSource.getBlockHeaderByHash.mockResolvedValue(header);
+        // World state returns a different hash for the same block number
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(differentHash);
+
+        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found in world state at block number/);
+      });
+
+      it('returns snapshot at block 0 for initial header hash', async () => {
+        const initialHash = await initialHeader.hash();
+        const initialBlockHash = new BlockHash(initialHash);
+
+        const result = await node.getWorldState(initialBlockHash);
+        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
+        expect(result).toBe(snapshotMerkleTreeOps);
+      });
+    });
   });
 
   describe('simulatePublicCalls', () => {
@@ -835,6 +928,56 @@ describe('aztec node', () => {
         // reload rejected before mutation
         expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('getL2ToL1Messages', () => {
+    const makeCheckpointedBlock = (slotNumber: number, l2ToL1MsgsByTx: Fr[][]): CheckpointedL2Block => {
+      const block = L2Block.empty(
+        BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(slotNumber) }),
+        }),
+      );
+      // Override the body's txEffects with our custom l2ToL1Msgs
+      unfreeze(block.body).txEffects = l2ToL1MsgsByTx.map(msgs => ({ l2ToL1Msgs: msgs }) as TxEffect);
+      return new CheckpointedL2Block(CheckpointNumber(0), block, new L1PublishedData(0n, 0n, '0x0'), []);
+    };
+
+    it('groups blocks by slot number into checkpoints', async () => {
+      const msg1 = Fr.random();
+      const msg2 = Fr.random();
+      const msg3 = Fr.random();
+
+      // Two blocks in slot 1, one block in slot 2
+      const blocks = [
+        makeCheckpointedBlock(1, [[msg1]]),
+        makeCheckpointedBlock(1, [[msg2]]),
+        makeCheckpointedBlock(2, [[msg3]]),
+      ];
+
+      l2BlockSource.getCheckpointedBlocksForEpoch.mockResolvedValue(blocks);
+
+      const result = await node.getL2ToL1Messages(EpochNumber(0));
+
+      // First checkpoint (slot 1): 2 blocks, each with 1 tx with 1 message
+      // Second checkpoint (slot 2): 1 block with 1 tx with 1 message
+      expect(result).toEqual([[[[msg1]], [[msg2]]], [[[msg3]]]]);
+    });
+
+    it('correctly includes blocks in slot zero', async () => {
+      const msg1 = Fr.random();
+      const msg2 = Fr.random();
+
+      // Block in slot 0, block in slot 1
+      const blocks = [makeCheckpointedBlock(0, [[msg1]]), makeCheckpointedBlock(1, [[msg2]])];
+
+      l2BlockSource.getCheckpointedBlocksForEpoch.mockResolvedValue(blocks);
+
+      const result = await node.getL2ToL1Messages(EpochNumber(0));
+
+      // First checkpoint (slot 0): 1 block with 1 tx with 1 message
+      // Second checkpoint (slot 1): 1 block with 1 tx with 1 message
+      expect(result).toEqual([[[[msg1]]], [[[msg2]]]]);
     });
   });
 });
