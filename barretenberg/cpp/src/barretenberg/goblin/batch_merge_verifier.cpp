@@ -93,12 +93,12 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     // -------------------------------------------------------------------------
     // Receive degree check challenges α_0..α_{M-1}
     // -------------------------------------------------------------------------
-    std::vector<std::string> alpha_labels;
-    alpha_labels.reserve(NUM_COLUMNS * MaxMergeSize);
-    for (size_t i = 0; i < NUM_COLUMNS * MaxMergeSize; ++i) {
-        alpha_labels.emplace_back("BATCH_MERGE_DEGREE_CHECK_" + std::to_string(i));
+    std::vector<FF> degree_check_challenges;
+    degree_check_challenges.reserve(NUM_COLUMNS * MaxMergeSize);
+    degree_check_challenges = { transcript->template get_challenge<FF>("DEGREE_CHECK_CHALLENGE") };
+    for (size_t idx = 0; idx < NUM_COLUMNS * MaxMergeSize - 1; idx++) {
+        degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenges[0]);
     }
-    std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(alpha_labels);
 
     // -------------------------------------------------------------------------
     // Receive [G] commitments from proof
@@ -110,12 +110,12 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     // Receive Shplonk batching challenges
     // -------------------------------------------------------------------------
     const size_t num_shplonk_challenges = (MaxMergeSize + 1) * NUM_COLUMNS + 1;
-    std::vector<std::string> beta_labels;
-    beta_labels.reserve(num_shplonk_challenges);
-    for (size_t i = 0; i < num_shplonk_challenges; ++i) {
-        beta_labels.emplace_back("BATCH_MERGE_SHPLONK_" + std::to_string(i));
+    std::vector<FF> betas;
+    betas.reserve(num_shplonk_challenges);
+    betas = { transcript->template get_challenge<FF>("SHPLONK_CHALLENGE") };
+    for (size_t idx = 0; idx < num_shplonk_challenges; idx++) {
+        betas.push_back(betas.back() * betas[0]);
     }
-    std::vector<FF> betas = transcript->template get_challenges<FF>(beta_labels);
 
     // -------------------------------------------------------------------------
     // Receive evaluation challenge κ
