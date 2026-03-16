@@ -1,18 +1,22 @@
-use crate::messages::{
-    discovery::{
-        ComputeNoteHashAndNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
-        private_events::process_private_event_msg, private_notes::process_private_note_msg,
+use crate::{
+    logging::{aztecnr_debug_log, aztecnr_warn_log_format},
+    messages::{
+        discovery::{
+            ComputeNoteHashAndNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
+            private_events::process_private_event_msg, private_notes::process_private_note_msg,
+        },
+        encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
+        encryption::{aes128::{AES128, DecryptError}, message_encryption::MessageEncryption},
+        msg_type::{
+            MIN_CUSTOM_MSG_TYPE_ID, PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID,
+            PRIVATE_NOTE_MSG_TYPE_ID,
+        },
+        processing::MessageContext,
     },
-    encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
-    encryption::{aes128::AES128, message_encryption::MessageEncryption},
-    msg_type::{
-        MIN_CUSTOM_MSG_TYPE_ID, PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
-    },
-    processing::MessageContext,
+    protocol::address::AztecAddress,
+    utils::errors::warn_with_reason,
 };
-
-use crate::logging::{aztecnr_debug_log, aztecnr_warn_log_format};
-use crate::protocol::address::AztecAddress;
+use std::meta::ctstring::AsCtString;
 
 /// Processes a message that can contain notes, partial notes, or events.
 ///
@@ -33,19 +37,21 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
-    let message_plaintext_option = AES128::decrypt(message_ciphertext, message_context.recipient);
-
-    if message_plaintext_option.is_some() {
-        process_message_plaintext(
-            contract_address,
-            compute_note_hash_and_nullifier,
-            process_custom_message,
-            message_plaintext_option.unwrap(),
-            message_context,
-        );
-    } else {
-        aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([message_context.tx_hash]);
-    }
+    let _ = AES128::decrypt(message_ciphertext, message_context.recipient)
+        .map(|plaintext| {
+            process_message_plaintext(
+                contract_address,
+                compute_note_hash_and_nullifier,
+                process_custom_message,
+                plaintext,
+                message_context,
+            );
+        })
+        .map_err(warn_with_reason!(
+            DecryptError::metadata(),
+            |reason| f"Could not decrypt message ciphertext from tx {{0}}, ignoring. Reason: {reason}".as_ctstring(),
+            quote { [message_context.tx_hash] },
+        ));
 }
 
 pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(

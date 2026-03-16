@@ -4,6 +4,8 @@ pub mod array;
 pub mod comparison;
 pub mod conversion;
 pub mod point;
+pub mod errors;
+pub mod result;
 mod with_hash;
 pub use with_hash::WithHash;
 pub mod remove_constraints;

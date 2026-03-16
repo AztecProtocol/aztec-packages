@@ -1,5 +1,6 @@
 use crate::messages::encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN};
 use crate::protocol::address::AztecAddress;
+use crate::utils::result::Result;
 
 /// Trait for encrypting and decrypting messages in the Aztec protocol.
 ///
@@ -17,6 +18,9 @@ use crate::protocol::address::AztecAddress;
 /// indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
 /// standardized length.
 pub trait MessageEncryption {
+    /// The error type returned by [`MessageEncryption::decrypt`] on failure.
+    type DecryptError;
+
     /// Encrypts a plaintext message to `recipient`.
     ///
     /// The returned message ciphertext can be passed to [`MessageEncryption::decrypt`] in order to obtain the
@@ -45,9 +49,9 @@ pub trait MessageEncryption {
     /// functions.
     ///
     /// Not all ciphertexts are valid - among other things, the ephemeral public key included in it may not correspond
-    /// to a point on the curve. In all such cases, [`Option::none`] is returned instead.
+    /// to a point on the curve. In all such cases, a [`Self::DecryptError`] describing the failure is returned.
     unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
-    ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>>;
+    ) -> Result<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>, Self::DecryptError>;
 }
