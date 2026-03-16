@@ -169,7 +169,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         for (auto& eval : U_T.evaluations) {
             eval *= alpha_power_KH;
         }
-        U_joint += U_T;
+        U_joint += U_T.template extend_to<SumcheckRoundUnivariate::LENGTH>();
 
         return send_round(round_idx);
     };
@@ -245,7 +245,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         for (auto& eval : U_T.evaluations) {
             eval *= alpha_power_KH;
         }
-        U_joint += U_T;
+        U_joint += U_T.template extend_to<SumcheckRoundUnivariate::LENGTH>();
 
         const FF u = send_round(round_idx);
 
