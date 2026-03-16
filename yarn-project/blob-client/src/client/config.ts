@@ -3,6 +3,7 @@ import {
   SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 
 import { type BlobArchiveApiConfig, blobArchiveApiConfigMappings } from '../archive/config.js';
@@ -55,6 +56,9 @@ export interface BlobClientConfig extends BlobArchiveApiConfig {
    * Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
    */
   blobHealthcheckUploadIntervalMinutes?: number;
+
+  /** Timeout for HTTP requests to the L1 RPC node in ms. */
+  l1HttpTimeoutMS?: number;
 }
 
 export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
@@ -107,6 +111,11 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
     env: 'BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES',
     description: 'Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
+  },
+  l1HttpTimeoutMS: {
+    env: 'ETHEREUM_HTTP_TIMEOUT_MS',
+    description: 'Timeout for HTTP requests to the L1 RPC node in ms.',
+    ...optionalNumberConfigHelper(),
   },
   ...blobArchiveApiConfigMappings,
 };

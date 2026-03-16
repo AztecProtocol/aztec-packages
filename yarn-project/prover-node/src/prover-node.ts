@@ -279,13 +279,15 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const fromCheckpoint = epochData.checkpoints[0].number;
     const toCheckpoint = epochData.checkpoints.at(-1)!.number;
     const fromBlock = epochData.checkpoints[0].blocks[0].number;
-    const toBlock = epochData.checkpoints.at(-1)!.blocks.at(-1)!.number;
+    const lastBlock = epochData.checkpoints.at(-1)!.blocks.at(-1)!;
+    const toBlock = lastBlock.number;
     this.log.verbose(
       `Creating proving job for epoch ${epochNumber} for checkpoint range ${fromCheckpoint} to ${toCheckpoint} and block range ${fromBlock} to ${toBlock}`,
     );
 
     // Fast forward world state to right before the target block and get a fork
-    await this.worldState.syncImmediate(toBlock);
+    const lastBlockHash = await lastBlock.header.hash();
+    await this.worldState.syncImmediate(toBlock, lastBlockHash);
 
     // Create a processor factory
     const publicProcessorFactory = new PublicProcessorFactory(

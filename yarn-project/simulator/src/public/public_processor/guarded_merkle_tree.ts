@@ -134,7 +134,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   ): Promise<(BlockNumber | undefined)[]> {
     return this.guardAndPush(() => this.target.getBlockNumbersForLeafIndices(treeId, leafIndices));
   }
-  createCheckpoint(): Promise<void> {
+  createCheckpoint(): Promise<number> {
     return this.guardAndPush(() => this.target.createCheckpoint());
   }
   commitCheckpoint(): Promise<void> {
@@ -143,11 +143,11 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   revertCheckpoint(): Promise<void> {
     return this.guardAndPush(() => this.target.revertCheckpoint());
   }
-  commitAllCheckpoints(): Promise<void> {
-    return this.guardAndPush(() => this.target.commitAllCheckpoints());
+  commitAllCheckpointsTo(depth: number): Promise<void> {
+    return this.guardAndPush(() => this.target.commitAllCheckpointsTo(depth));
   }
-  revertAllCheckpoints(): Promise<void> {
-    return this.guardAndPush(() => this.target.revertAllCheckpoints());
+  revertAllCheckpointsTo(depth: number): Promise<void> {
+    return this.guardAndPush(() => this.target.revertAllCheckpointsTo(depth));
   }
   findSiblingPaths<ID extends MerkleTreeId>(
     treeId: ID,

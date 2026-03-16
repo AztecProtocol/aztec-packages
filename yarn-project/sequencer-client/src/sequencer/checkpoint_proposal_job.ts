@@ -34,7 +34,7 @@ import { type Checkpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
-  NoValidTxsError,
+  InsufficientValidTxsError,
   type PublicProcessorLimits,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
@@ -464,12 +464,9 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
 
       // Sync the proposed block to the archiver to make it available
-      // Note that the checkpoint builder uses its own fork so it should not need to wait for this syncing
-      // Eventually we should refactor the checkpoint builder to not need a separate long-lived fork
-      // Fire and forget - don't block the critical path, but log errors
-      this.syncProposedBlockToArchiver(block).catch(err => {
-        this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
-      });
+      // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building
+      // If this throws, we abort the entire checkpoint
+      await this.syncProposedBlockToArchiver(block);
 
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
@@ -568,7 +565,9 @@ export class CheckpointProposalJob implements Traceable {
 
       // Per-block limits derived at startup by computeBlockLimits(), further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
-      const blockBuilderOptions: PublicProcessorLimits = {
+      // minValidTxs is passed into the builder so it can reject the block *before* updating state.
+      const minValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
+      const blockBuilderOptions: PublicProcessorLimits & { minValidTxs?: number } = {
         maxTransactions: this.config.maxTxsPerBlock,
         maxBlockGas:
           this.config.maxL2BlockGas !== undefined || this.config.maxDABlockGas !== undefined
@@ -576,9 +575,12 @@ export class CheckpointProposalJob implements Traceable {
             : undefined,
         deadline: buildDeadline,
         isBuildingProposal: true,
+        minValidTxs,
       };
 
-      // Actually build the block by executing txs
+      // Actually build the block by executing txs. The builder throws InsufficientValidTxsError
+      // if the number of successfully processed txs is below minValidTxs, ensuring state is not
+      // updated for blocks that will be discarded.
       const buildResult = await this.buildSingleBlockWithCheckpointBuilder(
         checkpointBuilder,
         pendingTxs,
@@ -590,14 +592,16 @@ export class CheckpointProposalJob implements Traceable {
       // If any txs failed during execution, drop them from the mempool so we don't pick them up again
       await this.dropFailedTxsFromP2P(buildResult.failedTxs);
 
-      // Check if we have created a block with enough txs. If there were invalid txs in the pool, or if execution took
-      // too long, then we may not get to minTxsPerBlock after executing public functions.
-      const minValidTxs = this.config.minValidTxsPerBlock ?? minTxs;
-      const numTxs = buildResult.status === 'no-valid-txs' ? 0 : buildResult.numTxs;
-      if (buildResult.status === 'no-valid-txs' || (!forceCreate && numTxs < minValidTxs)) {
+      if (buildResult.status === 'insufficient-valid-txs') {
         this.log.warn(
           `Block ${blockNumber} at index ${indexWithinCheckpoint} on slot ${this.slot} has too few valid txs to be proposed`,
-          { slot: this.slot, blockNumber, numTxs, indexWithinCheckpoint, minValidTxs, buildResult: buildResult.status },
+          {
+            slot: this.slot,
+            blockNumber,
+            numTxs: buildResult.processedCount,
+            indexWithinCheckpoint,
+            minValidTxs,
+          },
         );
         this.eventEmitter.emit('block-build-failed', { reason: `Insufficient valid txs`, slot: this.slot });
         this.metrics.recordBlockProposalFailed('insufficient_valid_txs');
@@ -605,7 +609,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Block creation succeeded, emit stats and metrics
-      const { block, publicProcessorDuration, usedTxs, blockBuildDuration } = buildResult;
+      const { block, publicProcessorDuration, usedTxs, blockBuildDuration, numTxs } = buildResult;
 
       const blockStats = {
         eventName: 'l2-block-built',
@@ -636,13 +640,13 @@ export class CheckpointProposalJob implements Traceable {
     }
   }
 
-  /** Uses the checkpoint builder to build a block, catching specific txs */
+  /** Uses the checkpoint builder to build a block, catching InsufficientValidTxsError. */
   private async buildSingleBlockWithCheckpointBuilder(
     checkpointBuilder: CheckpointBuilder,
     pendingTxs: AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     blockTimestamp: bigint,
-    blockBuilderOptions: PublicProcessorLimits,
+    blockBuilderOptions: PublicProcessorLimits & { minValidTxs?: number },
   ) {
     try {
       const workTimer = new Timer();
@@ -650,8 +654,12 @@ export class CheckpointProposalJob implements Traceable {
       const blockBuildDuration = workTimer.ms();
       return { ...result, blockBuildDuration, status: 'success' as const };
     } catch (err: unknown) {
-      if (isErrorClass(err, NoValidTxsError)) {
-        return { failedTxs: err.failedTxs, status: 'no-valid-txs' as const };
+      if (isErrorClass(err, InsufficientValidTxsError)) {
+        return {
+          failedTxs: err.failedTxs,
+          processedCount: err.processedCount,
+          status: 'insufficient-valid-txs' as const,
+        };
       }
       throw err;
     }

@@ -1,4 +1,9 @@
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  getConfigFromMappings,
+  numberConfigHelper,
+  optionalNumberConfigHelper,
+} from '@aztec/foundation/config';
 
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
@@ -14,6 +19,8 @@ export interface L1ReaderConfig {
   l1Contracts: L1ContractAddresses;
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS: number;
+  /** Timeout for HTTP requests to the L1 RPC node in ms. */
+  l1HttpTimeoutMS?: number;
 }
 
 export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
@@ -42,6 +49,11 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
     env: 'L1_READER_VIEM_POLLING_INTERVAL_MS',
     description: 'The polling interval viem uses in ms',
     ...numberConfigHelper(1_000),
+  },
+  l1HttpTimeoutMS: {
+    env: 'ETHEREUM_HTTP_TIMEOUT_MS',
+    description: 'Timeout for HTTP requests to the L1 RPC node in ms.',
+    ...optionalNumberConfigHelper(),
   },
 };
 
