@@ -136,92 +136,7 @@ public storage read - see <a href="../../noir_aztec/utils/struct.WithHash.html">
 This makes it quite important to ensure <code>T</code>'s implementation of <a href="../../protocol_types/traits/trait.Packable.html"><code>Packable</code></a> is
 space-efficient.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns the current value.</p>
-<p>This sets the transaction's <code>expiration_timestamp</code> (see
-<a href="../../noir_aztec/context/struct.PrivateContext.html#set_expiration_timestamp"><code>PrivateContext::set_expiration_timestamp</code></a>),
-invalidating the transaction if not included before that time. See the 'Privacy' section below to learn more.</p>
-<p>If <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a> has never been called, then this
-returns the default empty public storage value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
-<p>It is not possible to detect if a <code>DelayedPublicMutable</code> has ever been initialized or not other than by testing
-for the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>DelayedPublicMutable</code>.</p>
-<h4>Privacy</h4>
-<p>This function leaks information via the transaction's expiration timestamp. The degree of leakage depends on
-the delay that is set, and on whether a value change is currently scheduled.</p>
-<p>Private reads are based on a historical public storage read at the anchor block (i.e.
-<a href="../../noir_aztec/history/storage/fn.public_storage_historical_read.html"><code>crate::history::storage::public_storage_historical_read</code></a>). <code>DelayedPublicMutable</code> is able to provide
-guarantees that values read in the past remain the state variable's current value into the future due to
-the existence of delays when scheduling writes. It then sets the <code>expiration_timestamp</code> property of the current
-transaction to ensure that the transaction can only be included in a block <strong>prior</strong> to the state variable's
-value changing. In other words, it knows some facts about the near future up until some time horizon, and then
-makes sure that it doesn't act on this knowledge past said moment.</p>
-<p>Because the <code>expiration_timestamp</code> property is part of the transaction's public information, any mutation to
-this value could result in transaction fingerprinting. Note that multiple contracts may set this value during a
-transaction: it is the smallest (most restrictive) timestamp that will be used.</p>
-<p>If the state variable <strong>does not</strong> have any value changes scheduled, then the timestamp will be set to that of
-the anchor block plus the current delay. If multiple contracts use the same delay for their
-<code>DelayedPublicMutable</code> state variables, then these will all be in the same privacy set.</p>
-<p>If the state variable <strong>does</strong> have a value change scheduled, then the timestamp will be set to equal the time
-at which the current value will change, i.e. the one
-<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_scheduled_value"><code>get_scheduled_value</code></a> returns - which is public information. This
-results in an unavoidable privacy leak of any transactions in which a contract privately reads a
-<code>DelayedPublicMutable</code> that will change soon.</p>
-<p>Transactions that do not read from a <code>DelayedPublicMutable</code> are part of a privacy set in which the
-<code>expiration_timestamp</code> is set to their anchor block plus <a href="../../protocol_types/constants/global.MAX_TX_LIFETIME.html"><code>crate::protocol::constants::MAX_TX_LIFETIME</code></a>,
-making this the most privacy-preserving delay. The less frequent said value changes are, the more private the
-contract is. Wallets can also then choose to further lower this timestamp to make it less obvious that their
-transactions are interacting with this soon-to-change variable.</p>
-<h4>Examples</h4>
-<p>A private action that requires authorization:</p>
-<pre><code>#[external(<span class="string">"private"</span>)]
-<span class="kw">fn</span> do_action() {
-    <span class="kw">assert</span>(
-        self.storage.user_authorization.at(self.msg_sender()).get_current_value(),
-        <span class="string">"caller is not authorized"</span>
-    );
-
-    <span class="comment">// do the action</span>
-}</code></pre>
-<p>A private action that can be paused:</p>
-<pre><code>#[external(<span class="string">"private"</span>)]
-<span class="kw">fn</span> do_action() {
-    <span class="kw">assert</span>(!self.storage.paused.get_current_value(), <span class="string">"contract is paused"</span>);
-
-    <span class="comment">// do the action</span>
-}</code></pre>
-<h4>Cost</h4>
-<p>This function performs a historical public storage read (which is ~4k gates), <strong>regardless of
-<code>T</code>'s packed length</strong>. This is because <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>DelayedPublicMutable::schedule_value_change</code></a> stores not just the
-value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
-from public storage.</p>
-<p>Because of this reason, if two mutable values are often privately read together it can be convenient to group
-them in a single type <code>T</code>. Note however that this will result in them sharing the mutation delay:</p>
-<pre><code><span class="comment">// Bad: reading both `paused` and `fee` will require two historical public storage reads</span>
-#[storage]
-<span class="kw">struct</span> Storage&lt;C&gt; {
-    paused: DelayedPublicMutable&lt;bool, INITIAL_DELAY_S, C&gt;,
-    fee: DelayedPublicMutable&lt;Field, INITIAL_DELAY_S, C&gt;,
-}
-
-<span class="comment">// Good: both `paused` and `fee` are retrieved in a single historical public storage read</span>
-#[derive(Packable)]
-<span class="kw">struct</span> Config {
-    paused: bool,
-    fee: Field,
-}
-
-#[storage]
-<span class="kw">struct</span> Storage&lt;Context&gt; {
-    config: DelayedPublicMutable&lt;Config, INITIAL_DELAY_S, Context&gt;,
-}</code></pre></div>
-</div></div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="schedule_value_change" class="code-header">pub fn <a href="#schedule_value_change"><span class="fn">schedule_value_change</span></a>(self, new_value: T)
 <div class="where-clause">where
@@ -362,7 +277,92 @@ scheduled to become the current one (which will equal the current delay if the d
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
-</div><h2>Trait implementations</h2>
+</div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current value.</p>
+<p>This sets the transaction's <code>expiration_timestamp</code> (see
+<a href="../../noir_aztec/context/struct.PrivateContext.html#set_expiration_timestamp"><code>PrivateContext::set_expiration_timestamp</code></a>),
+invalidating the transaction if not included before that time. See the 'Privacy' section below to learn more.</p>
+<p>If <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a> has never been called, then this
+returns the default empty public storage value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
+<p>It is not possible to detect if a <code>DelayedPublicMutable</code> has ever been initialized or not other than by testing
+for the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>DelayedPublicMutable</code>.</p>
+<h4>Privacy</h4>
+<p>This function leaks information via the transaction's expiration timestamp. The degree of leakage depends on
+the delay that is set, and on whether a value change is currently scheduled.</p>
+<p>Private reads are based on a historical public storage read at the anchor block (i.e.
+<a href="../../noir_aztec/history/storage/fn.public_storage_historical_read.html"><code>crate::history::storage::public_storage_historical_read</code></a>). <code>DelayedPublicMutable</code> is able to provide
+guarantees that values read in the past remain the state variable's current value into the future due to
+the existence of delays when scheduling writes. It then sets the <code>expiration_timestamp</code> property of the current
+transaction to ensure that the transaction can only be included in a block <strong>prior</strong> to the state variable's
+value changing. In other words, it knows some facts about the near future up until some time horizon, and then
+makes sure that it doesn't act on this knowledge past said moment.</p>
+<p>Because the <code>expiration_timestamp</code> property is part of the transaction's public information, any mutation to
+this value could result in transaction fingerprinting. Note that multiple contracts may set this value during a
+transaction: it is the smallest (most restrictive) timestamp that will be used.</p>
+<p>If the state variable <strong>does not</strong> have any value changes scheduled, then the timestamp will be set to that of
+the anchor block plus the current delay. If multiple contracts use the same delay for their
+<code>DelayedPublicMutable</code> state variables, then these will all be in the same privacy set.</p>
+<p>If the state variable <strong>does</strong> have a value change scheduled, then the timestamp will be set to equal the time
+at which the current value will change, i.e. the one
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_scheduled_value"><code>get_scheduled_value</code></a> returns - which is public information. This
+results in an unavoidable privacy leak of any transactions in which a contract privately reads a
+<code>DelayedPublicMutable</code> that will change soon.</p>
+<p>Transactions that do not read from a <code>DelayedPublicMutable</code> are part of a privacy set in which the
+<code>expiration_timestamp</code> is set to their anchor block plus <a href="../../protocol_types/constants/global.MAX_TX_LIFETIME.html"><code>crate::protocol::constants::MAX_TX_LIFETIME</code></a>,
+making this the most privacy-preserving delay. The less frequent said value changes are, the more private the
+contract is. Wallets can also then choose to further lower this timestamp to make it less obvious that their
+transactions are interacting with this soon-to-change variable.</p>
+<h4>Examples</h4>
+<p>A private action that requires authorization:</p>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> do_action() {
+    <span class="kw">assert</span>(
+        self.storage.user_authorization.at(self.msg_sender()).get_current_value(),
+        <span class="string">"caller is not authorized"</span>
+    );
+
+    <span class="comment">// do the action</span>
+}</code></pre>
+<p>A private action that can be paused:</p>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> do_action() {
+    <span class="kw">assert</span>(!self.storage.paused.get_current_value(), <span class="string">"contract is paused"</span>);
+
+    <span class="comment">// do the action</span>
+}</code></pre>
+<h4>Cost</h4>
+<p>This function performs a historical public storage read (which is ~4k gates), <strong>regardless of
+<code>T</code>'s packed length</strong>. This is because <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>DelayedPublicMutable::schedule_value_change</code></a> stores not just the
+value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
+from public storage.</p>
+<p>Because of this reason, if two mutable values are often privately read together it can be convenient to group
+them in a single type <code>T</code>. Note however that this will result in them sharing the mutation delay:</p>
+<pre><code><span class="comment">// Bad: reading both `paused` and `fee` will require two historical public storage reads</span>
+#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    paused: DelayedPublicMutable&lt;bool, INITIAL_DELAY_S, C&gt;,
+    fee: DelayedPublicMutable&lt;Field, INITIAL_DELAY_S, C&gt;,
+}
+
+<span class="comment">// Good: both `paused` and `fee` are retrieved in a single historical public storage read</span>
+#[derive(Packable)]
+<span class="kw">struct</span> Config {
+    paused: bool,
+    fee: Field,
+}
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    config: DelayedPublicMutable&lt;Config, INITIAL_DELAY_S, Context&gt;,
+}</code></pre></div>
+</div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>"><code class="code-header">impl&lt;Context, let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, Context&gt;
 <div class="where-clause">where
     <a href="../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, InitialDelay&gt;: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>

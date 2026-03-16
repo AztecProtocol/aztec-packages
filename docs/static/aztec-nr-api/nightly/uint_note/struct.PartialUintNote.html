@@ -46,15 +46,21 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>A partial instance of a UintNote. This value represents a private commitment to the owner, randomness and storage
-slot, but the value field has not yet been set. A partial note can be completed in public with the <code>complete</code>
-function (revealing the value to the public), resulting in a UintNote that can be used like any other one (except
-of course that its value is known).</p>
+<p>A partial instance of a UintNote. This value represents a private commitment to the owner and randomness, but the
+storage slot and value fields have not yet been set. A partial note can be completed in public with the <code>complete</code>
+function (revealing the storage slot and value to the public), resulting in a UintNote that can be used like any
+other one (except of course that its value is known).</p>
 </div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
 
-<div class="padded-methods"><code id="complete" class="code-header">pub fn <a href="#complete"><span class="fn">complete</span></a>(self, context: <a href="../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>, completer: <a href="../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, value: <a href="../std/primitive.u128.html" class="primitive">u128</a>)</code>
+<div class="padded-methods"><code id="complete" class="code-header">pub fn <a href="#complete"><span class="fn">complete</span></a>(
+    self,
+    context: <a href="../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>,
+    completer: <a href="../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    storage_slot: <a href="../std/primitive.Field.html" class="primitive">Field</a>,
+    value: <a href="../std/primitive.u128.html" class="primitive">u128</a>,
+)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Completes the partial note, creating a new note that can be used like any other UintNote.</p>
@@ -63,6 +69,7 @@ of course that its value is known).</p>
     self,
     context: &mut <a href="../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     completer: <a href="../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    storage_slot: <a href="../std/primitive.Field.html" class="primitive">Field</a>,
     value: <a href="../std/primitive.u128.html" class="primitive">u128</a>,
 )</code>
 
