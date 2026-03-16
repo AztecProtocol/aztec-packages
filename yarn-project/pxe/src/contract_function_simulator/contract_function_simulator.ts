@@ -443,8 +443,7 @@ export async function generateSimulatedProvingResult(
 
   let publicTeardownCallRequest;
 
-  // Aggregate expiration timestamp across all calls by taking the minimum, mimicking the kernel circuits.
-  // Each private function defaults to anchor_block_timestamp + MAX_TX_LIFETIME (24h) unless explicitly set lower.
+  // We set expiration timestamp to anchor_block_timestamp + MAX_TX_LIFETIME (24h) just like kernels do
   let expirationTimestamp =
     privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader.globalVariables.timestamp +
     BigInt(MAX_TX_LIFETIME);
