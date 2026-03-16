@@ -7,9 +7,6 @@ set -eu
 export native_preset=${NATIVE_PRESET:-clang20}
 
 cd $(dirname $0)/..
-# TODO: Remove once AMI has been updated with compressed CRS
-# Ensure compressed CRS is available (AMI may only have uncompressed)
-../crs/bootstrap.sh
 # E.g. build, build-debug or build-coverage
 cd $(scripts/preset-build-dir)
 
