@@ -66,7 +66,8 @@ class CalldataHashingConstrainingTest : public ::testing::Test {
 class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstrainingTest {
   public:
     TestTraceContainer process_calldata_hashing_trace(std::vector<std::vector<FF>> all_calldata_fields,
-                                                      std::vector<uint32_t> context_ids)
+                                                      std::vector<uint32_t> context_ids,
+                                                      bool use_tracegen = false)
     {
         // Note: this helper expects calldata fields without the prepended separator
         Poseidon2 poseidon2 = Poseidon2(
@@ -89,6 +90,9 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
                 .context_id = context_id,
                 .calldata = all_calldata_fields[j],
             });
+            if (use_tracegen) {
+                continue;
+            }
             auto padding_amount = (3 - (calldata_fields.size() % 3)) % 3;
             auto num_rounds = (calldata_fields.size() + padding_amount) / 3;
             for (uint32_t i = 0; i < calldata_fields.size(); i += 3) {
@@ -117,6 +121,9 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
                 num_rounds--;
                 index += 3;
             }
+        }
+        if (use_tracegen) {
+            builder.process_hashing(events, trace);
         }
         builder.process_retrieval(events, trace);
         precomputed_builder.process_misc(trace, 256);
@@ -246,10 +253,13 @@ TEST_F(CalldataHashingConstrainingTest, EmptyCalldataHash)
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, EmptyCalldataHash)
 {
-    TestTraceContainer trace = process_calldata_hashing_trace({}, { 1 });
+    for (bool use_tracegen : { true, false }) {
 
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
+        TestTraceContainer trace = process_calldata_hashing_trace({}, { 1 }, use_tracegen);
+
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, SingleCalldataHash100Fields)
@@ -263,11 +273,14 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, SingleCalldataHash100Fields)
         calldata_fields.push_back(FF(i));
     }
 
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
+    for (bool use_tracegen : { true, false }) {
 
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
-    EXPECT_EQ(trace.get(C::calldata_hashing_output_hash, 1), hash);
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
+        EXPECT_EQ(trace.get(C::calldata_hashing_output_hash, 1), hash);
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, MultipleCalldataHash)
@@ -277,24 +290,26 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, MultipleCalldataHash)
     // 300 calldata fields  => hash 301 fields, two padding fields on 101st row
     std::vector<std::vector<FF>> all_calldata_fields = { random_fields(50), random_fields(100), random_fields(300) };
 
-    TestTraceContainer trace = process_calldata_hashing_trace(all_calldata_fields, { 1, 2, 3 });
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace(all_calldata_fields, { 1, 2, 3 }, use_tracegen);
 
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
-    uint32_t latch_row = 17;
-    // First calldata:
-    EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 1);
-    // Second calldata:
-    latch_row += 34;
-    EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 0);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, latch_row), 1);
-    // Third calldata:
-    latch_row += 101;
-    EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 0);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, latch_row), 0);
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
+        uint32_t latch_row = 17;
+        // First calldata:
+        EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
+        EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 1);
+        // Second calldata:
+        latch_row += 34;
+        EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
+        EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 0);
+        EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, latch_row), 1);
+        // Third calldata:
+        latch_row += 101;
+        EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
+        EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 0);
+        EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, latch_row), 0);
+    }
 }
 
 // Negative test where latch == 1 and sel == 0
@@ -323,145 +338,162 @@ TEST_F(CalldataHashingConstrainingTest, NegativeLatchNotSel)
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidStartAfterLatch)
 {
-    // Process two calldata instances:
-    TestTraceContainer trace = process_calldata_hashing_trace({ random_fields(2), random_fields(3) }, { 1, 2 });
-    check_relation<calldata_hashing>(trace);
+    for (bool use_tracegen : { true, false }) {
+        // Process two calldata instances:
+        TestTraceContainer trace =
+            process_calldata_hashing_trace({ random_fields(2), random_fields(3) }, { 1, 2 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
 
-    // Row = 1 is the start of the hashing for calldata with context_id = 1
-    trace.set(Column::calldata_hashing_start, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
-    trace.set(Column::calldata_hashing_start, 1, 1);
+        // Row = 1 is the start of the hashing for calldata with context_id = 1
+        trace.set(Column::calldata_hashing_start, 1, 0);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_AFTER_LATCH),
+                                  "START_AFTER_LATCH");
+        trace.set(Column::calldata_hashing_start, 1, 1);
 
-    // Row = 2 is the start of the hashing for calldata with context_id = 2
-    trace.set(Column::calldata_hashing_start, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
+        // Row = 2 is the start of the hashing for calldata with context_id = 2
+        trace.set(Column::calldata_hashing_start, 2, 0);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_AFTER_LATCH),
+                                  "START_AFTER_LATCH");
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidStartIndex)
 {
-    TestTraceContainer trace = process_calldata_hashing_trace({ random_fields(10) }, { 1 });
-    check_relation<calldata_hashing>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ random_fields(10) }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
 
-    // Row = 1 is the start of the hashing for calldata with context_id = 1
-    trace.set(Column::calldata_hashing_index_0_, 1, 5);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_INDEX_IS_ZERO),
-                              "START_INDEX_IS_ZERO");
+        // Row = 1 is the start of the hashing for calldata with context_id = 1
+        trace.set(Column::calldata_hashing_index_0_, 1, 5);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_INDEX_IS_ZERO),
+                                  "START_INDEX_IS_ZERO");
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeStartIsSeparator)
 {
-    TestTraceContainer trace = process_calldata_hashing_trace({ random_fields(10) }, { 1 });
-    check_relation<calldata_hashing>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ random_fields(10) }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
 
-    // Row = 1 is the start of the hashing for calldata with context_id = 1
-    trace.set(Column::calldata_hashing_input_0_, 1, 5);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_IS_SEPARATOR),
-                              "START_IS_SEPARATOR");
+        // Row = 1 is the start of the hashing for calldata with context_id = 1
+        trace.set(Column::calldata_hashing_input_0_, 1, 5);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_IS_SEPARATOR),
+                                  "START_IS_SEPARATOR");
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidIndexIncrements)
 {
-    TestTraceContainer trace = process_calldata_hashing_trace({ random_fields(10) }, { 1 });
-    check_relation<calldata_hashing>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ random_fields(10) }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
 
-    // First row should have indices 0, 1, and 2
-    trace.set(Column::calldata_hashing_index_1_, 1, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS_1),
-                              "INDEX_INCREMENTS_1");
-    trace.set(Column::calldata_hashing_index_1_, 1, 1);
-    trace.set(Column::calldata_hashing_index_2_, 1, 3);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS_2),
-                              "INDEX_INCREMENTS_2");
-    trace.set(Column::calldata_hashing_index_2_, 1, 2);
-    // Second row should have indices 3, 4, and 5
-    trace.set(Column::calldata_hashing_index_0_, 2, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS),
-                              "INDEX_INCREMENTS");
+        // First row should have indices 0, 1, and 2
+        trace.set(Column::calldata_hashing_index_1_, 1, 2);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS_1),
+                                  "INDEX_INCREMENTS_1");
+        trace.set(Column::calldata_hashing_index_1_, 1, 1);
+        trace.set(Column::calldata_hashing_index_2_, 1, 3);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS_2),
+                                  "INDEX_INCREMENTS_2");
+        trace.set(Column::calldata_hashing_index_2_, 1, 2);
+        // Second row should have indices 3, 4, and 5
+        trace.set(Column::calldata_hashing_index_0_, 2, 2);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS),
+                                  "INDEX_INCREMENTS");
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeConsistency)
 {
     std::vector<FF> calldata_fields = random_fields(10);
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
-    check_relation<calldata_hashing>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
 
-    // Rows 1 and 2 should deal with the same calldata:
-    trace.set(Column::calldata_hashing_context_id, 2, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_ID_CONSISTENCY),
-                              "ID_CONSISTENCY");
-    trace.set(Column::calldata_hashing_context_id, 2, 1);
+        // Rows 1 and 2 should deal with the same calldata:
+        trace.set(Column::calldata_hashing_context_id, 2, 2);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_ID_CONSISTENCY),
+                                  "ID_CONSISTENCY");
+        trace.set(Column::calldata_hashing_context_id, 2, 1);
 
-    trace.set(Column::calldata_hashing_output_hash, 2, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_HASH_CONSISTENCY),
-                              "HASH_CONSISTENCY");
-    trace.set(Column::calldata_hashing_output_hash, 2, trace.get(Column::calldata_hashing_output_hash, 1));
+        trace.set(Column::calldata_hashing_output_hash, 2, 2);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_HASH_CONSISTENCY),
+                                  "HASH_CONSISTENCY");
+        trace.set(Column::calldata_hashing_output_hash, 2, trace.get(Column::calldata_hashing_output_hash, 1));
 
-    trace.set(Column::calldata_hashing_calldata_size, 2, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SIZE_CONSISTENCY),
-                              "SIZE_CONSISTENCY");
-    trace.set(Column::calldata_hashing_calldata_size, 2, 10);
+        trace.set(Column::calldata_hashing_calldata_size, 2, 2);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SIZE_CONSISTENCY),
+                                  "SIZE_CONSISTENCY");
+        trace.set(Column::calldata_hashing_calldata_size, 2, 10);
 
-    // We don't directly constrain the consistency of input_len directly, but we do constrain input_len == size + 1:
-    trace.set(Column::calldata_hashing_input_len, 1, 2);
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
-        "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
+        // We don't directly constrain the consistency of input_len directly, but we do constrain input_len == size + 1:
+        trace.set(Column::calldata_hashing_input_len, 1, 2);
+        EXPECT_THROW_WITH_MESSAGE(
+            check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
+            "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeCalldataInteraction)
 {
     std::vector<FF> calldata_fields = random_fields(10);
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
-    check_all_interactions<CalldataTraceBuilder>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+        check_all_interactions<CalldataTraceBuilder>(trace);
 
-    // Row = 2 constrains the hashing for fields at calldata.pil indices 3, 4, and 5
-    // Modify the index for the lookup of the first field of row 2 (= calldata_fields[2])
-    trace.set(Column::calldata_hashing_index_0_, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_0_settings>(trace)),
-        "Failed.*GET_CALLDATA_FIELD_0. Could not find tuple in destination.");
+        // Row = 2 constrains the hashing for fields at calldata.pil indices 3, 4, and 5
+        // Modify the index for the lookup of the first field of row 2 (= calldata_fields[2])
+        trace.set(Column::calldata_hashing_index_0_, 2, 0);
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_0_settings>(trace)),
+            "Failed.*GET_CALLDATA_FIELD_0. Could not find tuple in destination.");
 
-    // Modify the field value for the lookup of the second field of row 2 (= calldata_fields[3])
-    trace.set(Column::calldata_hashing_input_1_, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_1_settings>(trace)),
-        "Failed.*GET_CALLDATA_FIELD_1. Could not find tuple in destination.");
+        // Modify the field value for the lookup of the second field of row 2 (= calldata_fields[3])
+        trace.set(Column::calldata_hashing_input_1_, 2, 0);
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_1_settings>(trace)),
+            "Failed.*GET_CALLDATA_FIELD_1. Could not find tuple in destination.");
 
-    // Modify the context id and attempt to lookup of the third field of row 2 (= calldata_fields[4])
-    trace.set(Column::calldata_hashing_context_id, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_2_settings>(trace)),
-        "Failed.*GET_CALLDATA_FIELD_2. Could not find tuple in destination.");
+        // Modify the context id and attempt to lookup of the third field of row 2 (= calldata_fields[4])
+        trace.set(Column::calldata_hashing_context_id, 2, 0);
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_2_settings>(trace)),
+            "Failed.*GET_CALLDATA_FIELD_2. Could not find tuple in destination.");
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingSelectors)
 {
     // 9 calldata fields => hash 10 fields => two padding fields
     std::vector<FF> calldata_fields = random_fields(9);
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
 
-    // We cannot have padding anywhere but the last hashing row (= latch). Set padding to true on row 2:
-    trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_END), "PADDING_END");
-    trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 1);
+        // We cannot have padding anywhere but the last hashing row (= latch). Set padding to true on row 2:
+        trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 0);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_END),
+                                  "PADDING_END");
+        trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 1);
 
-    // We cannot have input[1] is set as padding, but input[2] is not (row 4 is the final row for this calldata hash):
-    trace.set(Column::calldata_hashing_sel_not_padding_2, 4, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_CONSISTENCY),
-                              "PADDING_CONSISTENCY");
-    trace.set(Column::calldata_hashing_sel_not_padding_2, 4, 0);
+        // We cannot have input[1] is set as padding, but input[2] is not (row 4 is the final row for this calldata
+        // hash):
+        trace.set(Column::calldata_hashing_sel_not_padding_2, 4, 1);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_CONSISTENCY),
+                                  "PADDING_CONSISTENCY");
+        trace.set(Column::calldata_hashing_sel_not_padding_2, 4, 0);
 
-    // We cannot have any padding with non-zero values:
-    trace.set(Column::calldata_hashing_input_1_, 4, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_1),
-                              "PADDED_BY_ZERO_1");
-    trace.set(Column::calldata_hashing_input_2_, 4, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_2),
-                              "PADDED_BY_ZERO_2");
+        // We cannot have any padding with non-zero values:
+        trace.set(Column::calldata_hashing_input_1_, 4, 1);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_1),
+                                  "PADDED_BY_ZERO_1");
+        trace.set(Column::calldata_hashing_input_2_, 4, 1);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_2),
+                                  "PADDED_BY_ZERO_2");
+    }
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingUnder)
@@ -469,33 +501,35 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     // 9 calldata fields => hash 10 fields => two padding fields
     // Attempt to underpad and insert an incorrect value at the end of the calldata
     std::vector<FF> calldata_fields = random_fields(9);
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
 
-    // Row = 4 constrains the hashing for the last field of the calldata, plus 2 padding fields
-    // We cannot claim there is only one padding field:
-    trace.set(Column::calldata_hashing_sel_not_padding_1, 4, 1);
-    // This will initially fail, because calldata_size = 9 = index[0] of row 4:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_CHECK_FINAL_INDEX),
-                              "CHECK_FINAL_INDEX");
-    // calldata_size is constrained to be consistent every row, and to be equal to input_len - 1:
-    for (uint32_t j = 1; j <= 4; j++) {
-        trace.set(Column::calldata_hashing_calldata_size, j, 10);
-        trace.set(Column::calldata_hashing_input_len, j, 11);
-        // poseidon's input_len is only constrained at start:
-        trace.set(Column::poseidon2_hash_input_len, j, 11);
+        // Row = 4 constrains the hashing for the last field of the calldata, plus 2 padding fields
+        // We cannot claim there is only one padding field:
+        trace.set(Column::calldata_hashing_sel_not_padding_1, 4, 1);
+        // This will initially fail, because calldata_size = 9 = index[0] of row 4:
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_CHECK_FINAL_INDEX),
+                                  "CHECK_FINAL_INDEX");
+        // calldata_size is constrained to be consistent every row, and to be equal to input_len - 1:
+        for (uint32_t j = 1; j <= 4; j++) {
+            trace.set(Column::calldata_hashing_calldata_size, j, 10);
+            trace.set(Column::calldata_hashing_input_len, j, 11);
+            // poseidon's input_len is only constrained at start:
+            trace.set(Column::poseidon2_hash_input_len, j, 11);
+        }
+        // Now all relations pass...
+        check_relation<calldata_hashing>(trace);
+        // ...but the lookup to find field 1 will fail...
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_1_settings>(trace)),
+            "Failed.*GET_CALLDATA_FIELD_1. Could not find tuple in destination.");
+        // ...as will the lookup in the final row to check the calldata size against the index:
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
+            "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
     }
-    // Now all relations pass...
-    check_relation<calldata_hashing>(trace);
-    // ...but the lookup to find field 1 will fail...
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_1_settings>(trace)),
-        "Failed.*GET_CALLDATA_FIELD_1. Could not find tuple in destination.");
-    // ...as will the lookup in the final row to check the calldata size against the index:
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
-        "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingOver)
@@ -503,31 +537,33 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingOver)
     // 8 calldata fields => hash 9 fields => no padding fields
     // Attempt to overpad and omit a value at the end of the calldata
     std::vector<FF> calldata_fields = random_fields(8);
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
 
-    // Row = 3 constrains the hashing for the last field of the calldata
-    // We cannot claim there is any padding (to attempt to skip processing the last calldata field):
-    trace.set(Column::calldata_hashing_sel_not_padding_2, 3, 0);
-    // Since the value is non zero, and padding values must equal zero:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_2),
-                              "PADDED_BY_ZERO_2");
-    // If we set the value to zero...
-    trace.set(Column::calldata_hashing_input_2_, 3, 0);
-    // ...and again fiddle with the calldata sizing:
-    for (uint32_t j = 1; j <= 3; j++) {
-        trace.set(Column::calldata_hashing_calldata_size, j, 7);
-        trace.set(Column::calldata_hashing_input_len, j, 8);
-        // poseidon's input_len is only constrained at start:
-        trace.set(Column::poseidon2_hash_input_len, j, 8);
+        // Row = 3 constrains the hashing for the last field of the calldata
+        // We cannot claim there is any padding (to attempt to skip processing the last calldata field):
+        trace.set(Column::calldata_hashing_sel_not_padding_2, 3, 0);
+        // Since the value is non zero, and padding values must equal zero:
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_2),
+                                  "PADDED_BY_ZERO_2");
+        // If we set the value to zero...
+        trace.set(Column::calldata_hashing_input_2_, 3, 0);
+        // ...and again fiddle with the calldata sizing:
+        for (uint32_t j = 1; j <= 3; j++) {
+            trace.set(Column::calldata_hashing_calldata_size, j, 7);
+            trace.set(Column::calldata_hashing_input_len, j, 8);
+            // poseidon's input_len is only constrained at start:
+            trace.set(Column::poseidon2_hash_input_len, j, 8);
+        }
+        // Now all relations pass...
+        check_relation<calldata_hashing>(trace);
+        // ...but the lookup in the final row to check the calldata size against the index will fail:
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
+            "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
     }
-    // Now all relations pass...
-    check_relation<calldata_hashing>(trace);
-    // ...but the lookup in the final row to check the calldata size against the index will fail:
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
-        "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInputLen)
@@ -535,57 +571,61 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInputLen)
     // 8 calldata fields => hash 9 fields => no padding fields
     // Attempt to set an incorrect input_len (and => IV value)
     std::vector<FF> calldata_fields = random_fields(8);
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
 
-    // Set the incorrect input_len at the first row, and the lookup into poseidon will fail:
-    trace.set(Column::calldata_hashing_input_len, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_poseidon2_hash_settings>(trace)),
-        "Failed.*LOOKUP_CALLDATA_HASHING_POSEIDON2_HASH. Could not find tuple in destination.");
+        // Set the incorrect input_len at the first row, and the lookup into poseidon will fail:
+        trace.set(Column::calldata_hashing_input_len, 1, 0);
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_poseidon2_hash_settings>(trace)),
+            "Failed.*LOOKUP_CALLDATA_HASHING_POSEIDON2_HASH. Could not find tuple in destination.");
 
-    trace.set(Column::calldata_hashing_input_len, 1, 9);
-    // Set the incorrect input_len at any row, and the relation against calldata_size will fail:
-    trace.set(Column::calldata_hashing_input_len, 2, 4);
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
-        "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
-    // If we force calldata_size to be the incorrect input_len - 1, its consistency across rows will fail:
-    trace.set(Column::calldata_hashing_calldata_size, 2, 3);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SIZE_CONSISTENCY),
-                              "SIZE_CONSISTENCY");
-    // We can force all relations to pass by maintaining consistency of incorrect values:
-    for (uint32_t j = 1; j <= 3; j++) {
-        trace.set(Column::calldata_hashing_calldata_size, j, 7);
-        trace.set(Column::calldata_hashing_input_len, j, 8);
-        // poseidon's input_len is only constrained at start:
-        trace.set(Column::poseidon2_hash_input_len, j, 8);
+        trace.set(Column::calldata_hashing_input_len, 1, 9);
+        // Set the incorrect input_len at any row, and the relation against calldata_size will fail:
+        trace.set(Column::calldata_hashing_input_len, 2, 4);
+        EXPECT_THROW_WITH_MESSAGE(
+            check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
+            "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
+        // If we force calldata_size to be the incorrect input_len - 1, its consistency across rows will fail:
+        trace.set(Column::calldata_hashing_calldata_size, 2, 3);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SIZE_CONSISTENCY),
+                                  "SIZE_CONSISTENCY");
+        // We can force all relations to pass by maintaining consistency of incorrect values:
+        for (uint32_t j = 1; j <= 3; j++) {
+            trace.set(Column::calldata_hashing_calldata_size, j, 7);
+            trace.set(Column::calldata_hashing_input_len, j, 8);
+            // poseidon's input_len is only constrained at start:
+            trace.set(Column::poseidon2_hash_input_len, j, 8);
+        }
+        // And setting the correct padding for an input_len of 8:
+        trace.set(Column::calldata_hashing_sel_not_padding_2, 3, 0);
+        trace.set(Column::calldata_hashing_input_2_, 3, 0);
+        check_relation<calldata_hashing>(trace);
+        // ...but the lookup in the final row to check the calldata size against the index will fail:
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
+            "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
     }
-    // And setting the correct padding for an input_len of 8:
-    trace.set(Column::calldata_hashing_sel_not_padding_2, 3, 0);
-    trace.set(Column::calldata_hashing_input_2_, 3, 0);
-    check_relation<calldata_hashing>(trace);
-    // ...but the lookup in the final row to check the calldata size against the index will fail:
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
-        "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeRounds)
 {
     std::vector<FF> calldata_fields = random_fields(8);
-    TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 });
-    check_relation<calldata_hashing>(trace);
-    check_all_interactions<CalldataTraceBuilder>(trace);
+    for (bool use_tracegen : { true, false }) {
+        TestTraceContainer trace = process_calldata_hashing_trace({ calldata_fields }, { 1 }, use_tracegen);
+        check_relation<calldata_hashing>(trace);
+        check_all_interactions<CalldataTraceBuilder>(trace);
 
-    // Set the incorrect rounds_rem (should be 3 at row 1)
-    trace.set(Column::calldata_hashing_rounds_rem, 1, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_ROUNDS_DECREMENT),
-                              "ROUNDS_DECREMENT");
+        // Set the incorrect rounds_rem (should be 3 at row 1)
+        trace.set(Column::calldata_hashing_rounds_rem, 1, 1);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_ROUNDS_DECREMENT),
+                                  "ROUNDS_DECREMENT");
+    }
 }
 
-TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
+TEST_F(CalldataHashingConstrainingTest, NegativeOutputHash)
 {
     Poseidon2 poseidon2_int =
         Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
@@ -661,7 +701,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
                               "HASH_CONSISTENCY");
 }
 
-TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
+TEST_F(CalldataHashingConstrainingTest, NegativePoseidonInteraction)
 {
     Poseidon2 poseidon2_int =
         Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
