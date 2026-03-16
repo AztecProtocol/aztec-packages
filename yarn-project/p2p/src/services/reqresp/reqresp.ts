@@ -27,6 +27,7 @@ import { BatchConnectionSampler } from './connection-sampler/batch_connection_sa
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  MAX_REQUEST_SIZES,
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
@@ -660,12 +661,22 @@ export class ReqResp implements ReqRespInterface {
 
     const snappy = this.snappyTransform;
     const SUCCESS = Uint8Array.of(ReqRespStatus.SUCCESS);
+    const maxRequestSize = MAX_REQUEST_SIZES[protocol];
 
     await pipeline(
       stream.source,
       async function* (source: any) {
         for await (const chunk of source) {
-          const response = await handler(connection.remotePeer, chunk.subarray());
+          const requestPayload = chunk.subarray();
+          if (requestPayload.length > maxRequestSize) {
+            throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, {
+              cause: new Error(
+                `Request payload size ${requestPayload.length} exceeds maximum ${maxRequestSize} for ${protocol}`,
+              ),
+            });
+          }
+
+          const response = await handler(connection.remotePeer, requestPayload);
 
           if (protocol === ReqRespSubProtocol.GOODBYE) {
             // NOTE: The stream was already closed by Goodbye handler

@@ -223,6 +223,23 @@ export const subProtocolMap = {
 export type ExpectedResponseSizeCalculator = (requestBuffer: Buffer) => number;
 
 /**
+ * Maximum allowed request payload sizes (in bytes) per sub-protocol.
+ * Checked in processStream before passing data to handlers.
+ * Requests are NOT snappy-compressed, so these limits apply to raw payload bytes.
+ */
+export const MAX_REQUEST_SIZES: Record<ReqRespSubProtocol, number> = {
+  [ReqRespSubProtocol.PING]: 1024,
+  [ReqRespSubProtocol.STATUS]: 1024,
+  [ReqRespSubProtocol.AUTH]: 1024,
+  [ReqRespSubProtocol.GOODBYE]: 64,
+  [ReqRespSubProtocol.BLOCK]: 64,
+  // 4 bytes vector length + 32 bytes per hash * 65536 max hashes = ~2MB
+  [ReqRespSubProtocol.TX]: 4 + 32 * 2 ** 16 + 64,
+  // Archive root (32) + TxHashArray (up to ~2MB) + BitVector (up to ~8KB) + overhead
+  [ReqRespSubProtocol.BLOCK_TXS]: 32 + 4 + 32 * 2 ** 16 + 2 ** 16 / 8 + 256,
+};
+
+/**
  * Map of sub-protocols to their expected response size calculators.
  * These are used to validate that responses don't exceed expected sizes based on request parameters.
  */
