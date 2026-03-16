@@ -59,64 +59,71 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
     // have 3 message types: private notes, partial notes and events.
 
     // We decode the message to obtain the message type id, metadata and content.
-    let (msg_type_id, msg_metadata, msg_content) = decode_message(message_plaintext);
+    let decoded = decode_message(message_plaintext);
 
-    if msg_type_id == PRIVATE_NOTE_MSG_TYPE_ID {
-        aztecnr_debug_log!("Processing private note msg");
+    if decoded.is_some() {
+        let (msg_type_id, msg_metadata, msg_content) = decoded.unwrap();
 
-        process_private_note_msg(
-            contract_address,
-            message_context.tx_hash,
-            message_context.unique_note_hashes_in_tx,
-            message_context.first_nullifier_in_tx,
-            message_context.recipient,
-            compute_note_hash_and_nullifier,
-            msg_metadata,
-            msg_content,
-        );
-    } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
-        aztecnr_debug_log!("Processing partial note private msg");
+        if msg_type_id == PRIVATE_NOTE_MSG_TYPE_ID {
+            aztecnr_debug_log!("Processing private note msg");
 
-        process_partial_note_private_msg(
-            contract_address,
-            message_context.recipient,
-            msg_metadata,
-            msg_content,
-        );
-    } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
-        aztecnr_debug_log!("Processing private event msg");
+            process_private_note_msg(
+                contract_address,
+                message_context.tx_hash,
+                message_context.unique_note_hashes_in_tx,
+                message_context.first_nullifier_in_tx,
+                message_context.recipient,
+                compute_note_hash_and_nullifier,
+                msg_metadata,
+                msg_content,
+            );
+        } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
+            aztecnr_debug_log!("Processing partial note private msg");
 
-        process_private_event_msg(
-            contract_address,
-            message_context.recipient,
-            msg_metadata,
-            msg_content,
-            message_context.tx_hash,
-        );
-    } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
-        // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above. This
-        // most likely means the message is malformed or a custom message was incorrectly assigned a reserved ID.
-        // Custom message types must use IDs allocated via `custom_msg_type_id`.
-        aztecnr_warn_log_format!(
-            "Message type ID {0} is in the reserved range but is not recognized, ignoring. See https://docs.aztec.network/errors/3",
-        )(
-            [msg_type_id as Field],
-        );
-    } else if process_custom_message.is_some() {
-        process_custom_message.unwrap()(
-            contract_address,
-            msg_type_id,
-            msg_metadata,
-            msg_content,
-            message_context,
-        );
+            process_partial_note_private_msg(
+                contract_address,
+                message_context.recipient,
+                msg_metadata,
+                msg_content,
+                message_context.tx_hash,
+            );
+        } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
+            aztecnr_debug_log!("Processing private event msg");
+
+            process_private_event_msg(
+                contract_address,
+                message_context.recipient,
+                msg_metadata,
+                msg_content,
+                message_context.tx_hash,
+            );
+        } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
+            // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.
+            // This most likely means the message is malformed or a custom message was incorrectly assigned a reserved
+            // ID. Custom message types must use IDs allocated via `custom_msg_type_id`.
+            aztecnr_warn_log_format!(
+                "Message type ID {0} is in the reserved range but is not recognized, ignoring. See https://docs.aztec.network/errors/3",
+            )(
+                [msg_type_id as Field],
+            );
+        } else if process_custom_message.is_some() {
+            process_custom_message.unwrap()(
+                contract_address,
+                msg_type_id,
+                msg_metadata,
+                msg_content,
+                message_context,
+            );
+        } else {
+            // A custom message was received but no handler is configured. This likely means the contract emits custom
+            // messages but forgot to register a handler via `AztecConfig::custom_message_handler`.
+            aztecnr_warn_log_format!(
+                "Received custom message with type id {0} but no handler is configured, ignoring. See https://docs.aztec.network/errors/2",
+            )(
+                [msg_type_id as Field],
+            );
+        }
     } else {
-        // A custom message was received but no handler is configured. This likely means the contract emits custom
-        // messages but forgot to register a handler via `AztecConfig::custom_message_handler`.
-        aztecnr_warn_log_format!(
-            "Received custom message with type id {0} but no handler is configured, ignoring. See https://docs.aztec.network/errors/2",
-        )(
-            [msg_type_id as Field],
-        );
+        aztecnr_warn_log_format!("Could not decode message plaintext from tx {0}, ignoring")([message_context.tx_hash]);
     }
 }

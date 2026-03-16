@@ -125,10 +125,13 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 
     SumcheckRoundUnivariate U_joint;
 
-    // Per-round helper: add Libra masking, send the joint univariate, receive the round challenge.
+    // Use committed sumcheck infrastructure: commits to round univariates and stores them for Shplemini.
+    static constexpr bool UseCommittedSumcheck = true;
+    RoundUnivariateHandler<MegaZKFlavor, UseCommittedSumcheck> handler(transcript);
+
     auto send_round = [&](size_t round_idx) -> FF {
         U_joint += MegaZKProverRound::compute_libra_univariate(zk_sumcheck_data, round_idx);
-        transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), U_joint);
+        handler.process_round_univariate(round_idx, U_joint);
         FF u = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
         joint_challenge.emplace_back(u);
         return u;
@@ -233,6 +236,11 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         update_round_state(round_idx, u);
     }
 
+    // Finalize committed sumcheck: populate the last round's evaluation at the final challenge.
+    handler.finalize_last_round(JOINT_LOG_N, U_joint, joint_challenge.back());
+    round_univariates_list = std::move(handler.round_univariates);
+    round_evaluations_list = std::move(handler.round_evaluations);
+
     // Extract and send translator evaluations after all rounds.
     for (auto [eval, poly] : zip_view(trans_claimed_evals.get_all(), translator_partial.get_all())) {
         eval = poly[0];
@@ -297,7 +305,9 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
                                        joint_challenge,
                                        ck,
                                        transcript,
-                                       small_subgroup_ipa.get_witness_polynomials());
+                                       small_subgroup_ipa.get_witness_polynomials(),
+                                       round_univariates_list,
+                                       round_evaluations_list);
 
     MegaZKFlavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
 }

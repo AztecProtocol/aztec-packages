@@ -75,9 +75,11 @@ This validator is invoked on **every** transaction potentially entering the pend
 - Startup hydration — revalidating persisted non-mined txs on node restart
 
 Runs:
-- DoubleSpend, BlockHeader, GasLimits, Timestamp
+- DoubleSpend, BlockHeader, GasLimits, Timestamp, AllowedSetupCalls
 
 Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
+
+The `AllowedSetupCallsMetaValidator` checks a precomputed boolean flag (`TxMetaData.allowedSetupCalls`) rather than re-running the full `PhasesTxValidator`. This flag is computed by `createCheckAllowedSetupCalls` when the tx first enters the pool (via `addProtectedTxs` or startup hydration), so the pool migration validator can reject txs with disallowed setup calls without needing the full `Tx` object or its dependencies.
 
 ## Individual Validators
 
@@ -92,6 +94,7 @@ Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 | `GasTxValidator` | Gas limits are within bounds (delegates to `GasLimitsValidator`), max fee per gas meets current block fees, and fee payer has sufficient FeeJuice balance | 1.02 ms |
 | `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas. Used standalone in pool migration; also called internally by `GasTxValidator` | 3–10 us |
 | `PhasesTxValidator` | Public function calls in setup phase are on the allow list | 10.12–13.12 us |
+| `AllowedSetupCallsMetaValidator` | Checks the precomputed `allowedSetupCalls` flag on `TxMetaData`. Used in pool migration instead of the full `PhasesTxValidator` | — |
 | `BlockHeaderTxValidator` | Transaction's anchor block hash exists in the archive tree | 98.88 us |
 | `TxProofValidator` | Client proof verifies correctly | ~250ms |
 
@@ -108,6 +111,7 @@ Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 | Gas (balance + limits) | Stage 1 | Optional* | — | Yes | — |
 | GasLimits (standalone) | — | — | — | — | Yes |
 | Phases | Stage 1 | Yes | — | Yes | — |
+| AllowedSetupCalls | — | — | — | — | Yes |
 | BlockHeader | Stage 1 | Yes | — | Yes | Yes |
 | Proof | Stage 2 | Optional** | Yes | — | — |
 

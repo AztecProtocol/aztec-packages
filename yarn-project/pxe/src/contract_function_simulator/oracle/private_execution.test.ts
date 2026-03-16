@@ -1,10 +1,4 @@
-import {
-  DomainSeparator,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULL_MSG_SENDER_CONTRACT_ADDRESS,
-  PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { DomainSeparator, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -17,8 +11,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
@@ -44,22 +36,16 @@ import {
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierHidingKey, deriveKeys } from '@aztec/stdlib/keys';
 import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeBlockHeader, makeL2Tips } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import {
-  BlockHeader,
-  HashedValues,
-  PartialStateReference,
-  StateReference,
-  TxContext,
-  TxExecutionRequest,
-  TxHash,
-} from '@aztec/stdlib/tx';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHeader, HashedValues, TxContext, TxExecutionRequest, TxHash } from '@aztec/stdlib/tx';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
@@ -67,6 +53,7 @@ import { toFunctionSelector } from 'viem';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { syncState } from '../../contract_sync/helpers.js';
+import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -124,6 +111,7 @@ describe('Private Execution test suite', () => {
   let capsuleStore: MockProxy<CapsuleStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
   let contractSyncService: MockProxy<ContractSyncService>;
+  let messageContextService: MockProxy<MessageContextService>;
   let acirSimulator: ContractFunctionSimulator;
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
@@ -148,13 +136,14 @@ describe('Private Execution test suite', () => {
 
   const TEST_JOB_ID = 'test-job-id';
 
-  const treeHeights: { [name: string]: number } = {
-    noteHash: NOTE_HASH_TREE_HEIGHT,
-    l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
-    publicData: PUBLIC_DATA_TREE_HEIGHT,
+  const treeNameToId: { [name: string]: MerkleTreeId } = {
+    noteHash: MerkleTreeId.NOTE_HASH_TREE,
+    l1ToL2Messages: MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    publicData: MerkleTreeId.PUBLIC_DATA_TREE,
   };
 
-  let trees: { [name: keyof typeof treeHeights]: AppendOnlyTree<Fr> } = {};
+  let ws: NativeWorldStateService;
+  let fork: MerkleTreeWriteOperations;
   const txContextFields: FieldsOf<TxContext> = {
     chainId: new Fr(10),
     version: new Fr(20),
@@ -227,49 +216,22 @@ describe('Private Execution test suite', () => {
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
-    if (!treeHeights[name]) {
+    const treeId = treeNameToId[name];
+    if (treeId === undefined) {
       throw new Error(`Unknown tree ${name}`);
     }
-    if (!trees[name]) {
-      const db = openTmpStore();
-      const poseidon = new Poseidon();
-      trees[name] = await newTree(StandardTree, db, poseidon, name, Fr, treeHeights[name]);
-    }
-    const tree = trees[name];
 
-    tree.appendLeaves(leaves);
+    await fork.appendLeaves(treeId, leaves);
+    const state = await fork.getStateReference();
 
-    // Create a new snapshot.
-    const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
-
-    if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
-      anchorBlockHeader = new BlockHeader(
-        anchorBlockHeader.lastArchive,
-        new StateReference(
-          name === 'l1ToL2Messages' ? newSnap : anchorBlockHeader.state.l1ToL2MessageTree,
-          new PartialStateReference(
-            name === 'noteHash' ? newSnap : anchorBlockHeader.state.partial.noteHashTree,
-            anchorBlockHeader.state.partial.nullifierTree,
-            name === 'publicData' ? newSnap : anchorBlockHeader.state.partial.publicDataTree,
-          ),
-        ),
-        anchorBlockHeader.spongeBlobHash,
-        anchorBlockHeader.globalVariables,
-        anchorBlockHeader.totalFees,
-        anchorBlockHeader.totalManaUsed,
-      );
-    } else {
-      anchorBlockHeader = new BlockHeader(
-        anchorBlockHeader.lastArchive,
-        new StateReference(newSnap, anchorBlockHeader.state.partial),
-        anchorBlockHeader.spongeBlobHash,
-        anchorBlockHeader.globalVariables,
-        anchorBlockHeader.totalFees,
-        anchorBlockHeader.totalManaUsed,
-      );
-    }
-
-    return trees[name];
+    anchorBlockHeader = new BlockHeader(
+      anchorBlockHeader.lastArchive,
+      state,
+      anchorBlockHeader.spongeBlobHash,
+      anchorBlockHeader.globalVariables,
+      anchorBlockHeader.totalFees,
+      anchorBlockHeader.totalManaUsed,
+    );
   };
 
   const computeNoteHash = (note: Note, owner: AztecAddress, storageSlot: Fr, randomness: Fr) => {
@@ -310,8 +272,14 @@ describe('Private Execution test suite', () => {
     defaultContractAddress = await AztecAddress.random();
   });
 
+  afterEach(async () => {
+    await fork?.close();
+    await ws?.close();
+  });
+
   beforeEach(async () => {
-    trees = {};
+    ws = await NativeWorldStateService.tmp();
+    fork = await ws.fork();
     contractStore = mock<ContractStore>();
     noteStore = mock<NoteStore>();
     noteStore.getNotes.mockResolvedValue([]);
@@ -324,6 +292,8 @@ describe('Private Execution test suite', () => {
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     contractSyncService = mock<ContractSyncService>();
+    messageContextService = mock<MessageContextService>();
+    messageContextService.resolveMessageContexts.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
       async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId) => {
@@ -491,6 +461,7 @@ describe('Private Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
+      messageContextService,
     });
   });
 
@@ -808,9 +779,9 @@ describe('Private Execution test suite', () => {
       ];
 
       const mockOracles = async () => {
-        const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
+        await insertLeaves([preimage.hash()], 'l1ToL2Messages');
         aztecNode.getL1ToL2MessageMembershipWitness.mockImplementation(async () => {
-          return Promise.resolve([0n, await tree.getSiblingPath(0n, true)]);
+          return Promise.resolve([0n, await fork.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n)]);
         });
         aztecNode.findLeavesIndexes.mockImplementation(() => {
           return Promise.resolve([]);

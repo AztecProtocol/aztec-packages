@@ -60,6 +60,10 @@ concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
+
+// Flavors whose Sumcheck round univariates are committed (sent as commitment + evals at 0,1)
+// rather than sent in the clear. The committed data is later verified via Shplemini.
+template <typename T> concept UsesCommittedSumcheck = IsGrumpkinFlavor<T>;
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
     for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {

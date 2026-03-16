@@ -74,7 +74,7 @@ struct CircuitInputNoVK {
      */
     std::vector<uint8_t> bytecode;
 
-    MSGPACK_FIELDS(name, bytecode);
+    SERIALIZATION_FIELDS(name, bytecode);
     bool operator==(const CircuitInputNoVK& other) const = default;
 };
 
@@ -105,7 +105,7 @@ struct CircuitInput {
      */
     std::vector<uint8_t> verification_key;
 
-    MSGPACK_FIELDS(name, bytecode, verification_key);
+    SERIALIZATION_FIELDS(name, bytecode, verification_key);
     bool operator==(const CircuitInput& other) const = default;
 };
 
@@ -133,7 +133,7 @@ struct ProofSystemSettings {
     // TODO(md): remove this once considered stable
     bool optimized_solidity_verifier = false;
 
-    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
+    SERIALIZATION_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
     bool operator==(const ProofSystemSettings& other) const = default;
 };
 
@@ -192,7 +192,7 @@ struct BBApiRequest {
 struct ErrorResponse {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
     std::string message;
-    MSGPACK_FIELDS(message);
+    SERIALIZATION_FIELDS(message);
     bool operator==(const ErrorResponse&) const = default;
 };
 

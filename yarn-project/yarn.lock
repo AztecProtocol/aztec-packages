@@ -748,30 +748,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec-faucet@workspace:^, @aztec/aztec-faucet@workspace:aztec-faucet":
-  version: 0.0.0-use.local
-  resolution: "@aztec/aztec-faucet@workspace:aztec-faucet"
-  dependencies:
-    "@aztec/ethereum": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
-    "@jest/globals": "npm:^30.0.0"
-    "@koa/cors": "npm:^5.0.0"
-    "@types/jest": "npm:^30.0.0"
-    "@types/koa-bodyparser": "npm:^4.3.12"
-    "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
-    jest: "npm:^30.0.0"
-    koa: "npm:^2.16.1"
-    koa-bodyparser: "npm:^4.4.1"
-    koa-router: "npm:^13.1.1"
-    ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.3.3"
-    viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^3.23.8"
-  languageName: unknown
-  linkType: soft
-
 "@aztec/aztec-node@workspace:^, @aztec/aztec-node@workspace:aztec-node":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec-node@workspace:aztec-node"
@@ -786,7 +762,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/node-lib": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
@@ -879,7 +854,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
-    "@aztec/aztec-faucet": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
@@ -1232,7 +1206,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
@@ -1548,26 +1521,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/merkle-tree@workspace:^, @aztec/merkle-tree@workspace:merkle-tree":
-  version: 0.0.0-use.local
-  resolution: "@aztec/merkle-tree@workspace:merkle-tree"
-  dependencies:
-    "@aztec/foundation": "workspace:^"
-    "@aztec/kv-store": "workspace:^"
-    "@aztec/stdlib": "workspace:^"
-    "@jest/globals": "npm:^30.0.0"
-    "@types/jest": "npm:^30.0.0"
-    "@types/node": "npm:^22.15.17"
-    "@types/sha256": "npm:^0.2.0"
-    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
-    jest: "npm:^30.0.0"
-    sha256: "npm:^0.2.0"
-    ts-node: "npm:^10.9.1"
-    tslib: "npm:^2.4.0"
-    typescript: "npm:^5.3.3"
-  languageName: unknown
-  linkType: soft
-
 "@aztec/native@workspace:^, @aztec/native@workspace:native":
   version: 0.0.0-use.local
   resolution: "@aztec/native@workspace:native"
@@ -1619,7 +1572,6 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
@@ -1679,13 +1631,13 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.19
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=0ac2df&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=c16cdc&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.19"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.19"
     "@aztec/noir-types": "npm:1.0.0-beta.19"
     pako: "npm:^2.1.0"
-  checksum: 10/c62dde08bc9921bce934d080d61d85a09d54cd7edc6b6a7215d0d405a12823d23ead1240e2efe11f10f1e02d7593e83ae44a51a927e145464b7bb100634e0f76
+  checksum: 10/68fc1ab58b0a51ae30d56b933d43c6fa3b702e53759e9387ce4e4c63a6e6730ebae9214e79bb3addcca9f512274871998a1777a19c848443474835518f5185b4
   languageName: node
   linkType: hard
 
@@ -1705,7 +1657,6 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
@@ -1941,13 +1892,13 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-test-contracts.js": "workspace:^"
     "@aztec/noir-types": "workspace:*"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/stdlib": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.omit": "npm:^4.5.7"
@@ -2005,7 +1956,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
@@ -2049,7 +1999,6 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/native": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
@@ -2337,7 +2286,6 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/native": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -7687,7 +7635,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/koa-bodyparser@npm:^4.3.10, @types/koa-bodyparser@npm:^4.3.12":
+"@types/koa-bodyparser@npm:^4.3.10":
   version: 4.3.12
   resolution: "@types/koa-bodyparser@npm:4.3.12"
   dependencies:
@@ -8063,15 +8011,6 @@ __metadata:
     "@types/node": "npm:*"
     "@types/send": "npm:*"
   checksum: 10/c5a7171d5647f9fbd096ed1a26105759f3153ccf683824d99fee4c7eb9cde2953509621c56a070dd9fb1159e799e86d300cbe4e42245ebc5b0c1767e8ca94a67
-  languageName: node
-  linkType: hard
-
-"@types/sha256@npm:^0.2.0":
-  version: 0.2.2
-  resolution: "@types/sha256@npm:0.2.2"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10/7701b9dc105e7b877090c9bb9b02e10953831737b599bfc7658635ae35d2b21927f77028f8090d50ea0281058ee975f190d664e5351c5aaf5535a1c26ba01f1f
   languageName: node
   linkType: hard
 
@@ -11182,13 +11121,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"convert-hex@npm:~0.1.0":
-  version: 0.1.0
-  resolution: "convert-hex@npm:0.1.0"
-  checksum: 10/eacb880dbc45a36a0e6b5f5674f7e57bdce59bbf5a3ebfba980f694e2be81f1b2c81c9c89834f8054f23cc9c21d1fd210265e2000287a1cd0426657797b2f462
-  languageName: node
-  linkType: hard
-
 "convert-source-map@npm:^1.5.1":
   version: 1.9.0
   resolution: "convert-source-map@npm:1.9.0"
@@ -11207,13 +11139,6 @@ __metadata:
   version: 1.1.3
   resolution: "convert-source-map@npm:1.1.3"
   checksum: 10/aedcf3407d184ed72c9e48aced00d0b61151d4e5d1f83a9d7feb0722a7b74cad019b3c83d1124b40ade6cad412b1945df8fc0dd6b802a0dcb524abcc22252fa2
-  languageName: node
-  linkType: hard
-
-"convert-string@npm:~0.1.0":
-  version: 0.1.0
-  resolution: "convert-string@npm:0.1.0"
-  checksum: 10/a1775cb186d2fbf175486f02e3f7cc68c75e7a0c7609bf434d2a933e801b3a0499ab57de4230919ec824351dc344055bf639a1db5e44a976787145817106d9aa
   languageName: node
   linkType: hard
 
@@ -16104,7 +16029,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"koa-bodyparser@npm:^4.4.0, koa-bodyparser@npm:^4.4.1":
+"koa-bodyparser@npm:^4.4.0":
   version: 4.4.1
   resolution: "koa-bodyparser@npm:4.4.1"
   dependencies:
@@ -19908,16 +19833,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sha256@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "sha256@npm:0.2.0"
-  dependencies:
-    convert-hex: "npm:~0.1.0"
-    convert-string: "npm:~0.1.0"
-  checksum: 10/95017cec85533c3b12dd7bde04166e859aa8648b567c5c8c5a2e62f213cb03f3d017239fa8b7cc6fc9e741de57613e97a9741e756e7df31d56203095a1ea626d
-  languageName: node
-  linkType: hard
-
 "sha3@npm:^2.1.4":
   version: 2.1.4
   resolution: "sha3@npm:2.1.4"
@@ -20889,15 +20804,15 @@ __metadata:
   linkType: hard
 
 "tar@npm:^7.5.4":
-  version: 7.5.10
-  resolution: "tar@npm:7.5.10"
+  version: 7.5.11
+  resolution: "tar@npm:7.5.11"
   dependencies:
     "@isaacs/fs-minipass": "npm:^4.0.0"
     chownr: "npm:^3.0.0"
     minipass: "npm:^7.1.2"
     minizlib: "npm:^3.1.0"
     yallist: "npm:^5.0.0"
-  checksum: 10/98ba6421a250b233c36a54f7441647bdfee1ed0b916cd57850259a3602154d996f5b8422f67ef5c8ce77f582ed938054775c2873fc7c901e0c7530ed50febc40
+  checksum: 10/fb2e77ee858a73936c68e066f4a602d428d6f812e6da0cc1e14a41f99498e4f7fd3535e355fa15157240a5538aa416026cfa6306bb0d1d1c1abf314b1f878e9a
   languageName: node
   linkType: hard
 

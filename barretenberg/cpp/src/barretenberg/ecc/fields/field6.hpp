@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -241,6 +241,24 @@ template <typename base_field, typename Fq6Params> class field6 {
      * @brief Multiply a field6 element by a0 + a1 * v.
      *
      * @details Algorithm 6 from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf
+     *
+     * Tower structure: Fq6 = Fq2[v]/(v³ - ξ), so an Fq6 element is (c0 + c1·v + c2·v²) with c0, c1, c2 in Fq2.
+     * The sparse element is (a0 + a1·v), i.e. the v² coefficient is zero.
+     *
+     * Generic multiplication (c0 + c1·v + c2·v²)(a0 + a1·v) gives:
+     *   coeff of 1:  a0·c0 + ξ·a1·c2       (the a1·c2·v³ = a1·c2·ξ wraps around)
+     *   coeff of v:  a0·c1 + a1·c0          (cross term)
+     *   coeff of v²: a0·c2 + a1·c1
+     *
+     * The code computes:
+     *   A = a0·c0
+     *   B = a1·c1
+     *   C = ξ·(a1·c2)              (via mul_by_non_residue)
+     *   D = A + C                   (= coeff of 1)
+     *   E = (a0+a1)·(c0+c1)        (Karatsuba expansion)
+     *   F = E - A - B = a0·c1 + a1·c0   (= coeff of v)
+     *   G = a0·c2
+     *   H = G + B = a0·c2 + a1·c1  (= coeff of v²)
      *
      * @param a0
      * @param a1

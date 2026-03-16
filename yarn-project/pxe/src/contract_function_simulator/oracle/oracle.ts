@@ -16,6 +16,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
+import { buildLegacyOracleCallbacks } from './legacy_oracle_mappings.js';
 import { packAsHintedNote } from './note_packing_utils.js';
 
 export class UnavailableOracleError extends Error {
@@ -85,11 +86,13 @@ export class Oracle {
     });
 
     // Build callback object and return it
-    return oracleNames.reduce((acc, name) => {
+    const callback = oracleNames.reduce((acc, name) => {
       const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
       acc[name] = method.bind(this);
       return acc;
     }, {} as ACIRCallback);
+
+    return { ...callback, ...buildLegacyOracleCallbacks(this) };
   }
 
   // eslint-disable-next-line camelcase
@@ -527,6 +530,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_utilityResolveMessageContexts(
+    [contractAddress]: ACVMField[],
+    [messageContextRequestsArrayBaseSlot]: ACVMField[],
+    [messageContextResponsesArrayBaseSlot]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(messageContextRequestsArrayBaseSlot),
+      Fr.fromString(messageContextResponsesArrayBaseSlot),
+    );
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_storeCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
@@ -587,6 +604,7 @@ export class Oracle {
     return [];
   }
 
+  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash PXE.
   // eslint-disable-next-line camelcase
   async aztec_utl_aes128Decrypt(
     ciphertextBVecStorage: ACVMField[],
@@ -618,7 +636,7 @@ export class Oracle {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_emitOffchainEffect(data: ACVMField[]) {
-    await this.handlerAsPrivate().emitOffchainEffect(data.map(Fr.fromString));
+    await this.handlerAsUtility().emitOffchainEffect(data.map(Fr.fromString));
     return [];
   }
 

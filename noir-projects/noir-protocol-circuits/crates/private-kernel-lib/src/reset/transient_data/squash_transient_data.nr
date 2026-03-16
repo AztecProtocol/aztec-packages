@@ -120,11 +120,8 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
 mod tests {
     use crate::reset::transient_data::tests::{mock_log, TransientDataFixtureBuilder};
     use super::squash_transient_data;
-    use types::{
-        abis::{nullifier::Nullifier, private_log::PrivateLogData},
-        side_effect::Counted,
-        tests::utils::assert_array_eq,
-    };
+    use protocol_test_utils::assert_array_eq;
+    use types::{abis::{nullifier::Nullifier, private_log::PrivateLogData}, side_effect::Counted};
 
     #[test]
     unconstrained fn squash_transient_data_squash_some() {

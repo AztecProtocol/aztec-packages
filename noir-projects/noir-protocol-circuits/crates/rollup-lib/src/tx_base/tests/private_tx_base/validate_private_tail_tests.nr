@@ -1,5 +1,6 @@
 use super::TestBuilder;
-use types::{constants::MAX_PROCESSABLE_L2_GAS, tests::fixture_builder::FixtureBuilder};
+use protocol_test_utils::fixture_builder::FixtureBuilder;
+use types::constants::MAX_PROCESSABLE_L2_GAS;
 
 #[test(should_fail_with = "Membership check failed: anchor block header hash not found in archive tree")]
 unconstrained fn anchor_block_header_not_in_archive() {

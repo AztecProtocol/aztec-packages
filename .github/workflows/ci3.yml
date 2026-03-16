@@ -76,7 +76,11 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./.github/ci3_labels_to_env.sh ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          # Parse labels from JSON env var to avoid shell injection via label names
+          mapfile -t LABELS < <(echo "$PR_LABELS_JSON" | jq -r '.[]')
+          ./.github/ci3_labels_to_env.sh "${LABELS[@]}"
 
       - name: Run
         env:
@@ -126,18 +130,17 @@ jobs:
         if: failure() && startsWith(github.event.pull_request.head.ref, 'backport-to-') && endsWith(github.event.pull_request.head.ref, '-staging')
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          PR_HTML_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#team-alpha",
-              "text": "CI3 failed on backport PR: <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}>\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
+            TEXT="CI3 failed on backport PR: <${PR_HTML_URL}|#${PR_NUM} - ${PR_TITLE}>\n<${RUN_URL}|View Run>"
             curl -X POST https://slack.com/api/chat.postMessage \
               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
               -H "Content-type: application/json" \
-              --data "$data"
+              --data "$(jq -n --arg c "#team-alpha" --arg t "$TEXT" '{channel:$c, text:$t}')"
           fi
 
       - name: Upload benchmarks
@@ -210,17 +213,20 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           AWS_SHUTDOWN_TIME: 360
           NO_SPOT: 1
+          GIT_REF: ${{ github.ref }}
+          GIT_REF_NAME: ${{ github.ref_name }}
+          HEAD_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           # For release tags, use the release image; for PRs, omit to build and push to aztecdev
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            tag="${{ github.ref_name }}"
+          if [[ "$GIT_REF" == refs/tags/v* ]]; then
+            tag="$GIT_REF_NAME"
             tag="${tag#v}"
             major_version=$(./ci3/semver major "$tag")
             namespace="v${major_version}-scenario"
             docker_image="aztecprotocol/aztec:${tag}"
           else
             # branch name
-            namespace=pr-$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
+            namespace=pr-$(echo "$HEAD_REF" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
             docker_image=""
           fi
           echo "NAMESPACE=$namespace" >> $GITHUB_ENV
@@ -260,18 +266,15 @@ jobs:
         if: failure() && startsWith(github.ref, 'refs/tags/v')
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GIT_REF: ${{ github.ref }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Nightly Spartan Scenario FAILED in ci3.yml (nightly tag ${{ github.ref }}: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
+            TEXT="Nightly Spartan Scenario FAILED in ci3.yml (nightly tag ${GIT_REF}: <${RUN_URL}|View Run>"
             curl -X POST https://slack.com/api/chat.postMessage \
               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
               -H "Content-type: application/json" \
-              --data "$data"
+              --data "$(jq -n --arg c "#alerts-next-scenario" --arg t "$TEXT" '{channel:$c, text:$t}')"
           fi
 
   # Spartan network benchmarks triggered on-demand from a PR label.

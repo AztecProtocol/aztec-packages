@@ -463,6 +463,19 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
     });
 }
 
+// Gate cost of RAM interactions:
+// Currently, a circuit consisting predominantly of RAM interactions with 1 RAM array costs ~3.25 gates per
+// interaction:
+//   1. The memory gate itself (create_RAM_gate)
+//   2. Fixing the witness for the timestamp (put_constant_variable -> fix_witness, 1 gate per unique timestamp)
+//   3. Sorted memory gate (create_sorted_RAM_gate)
+//   4. 0.25 for the range constraint on the timestamp delta in the sorted memory gate
+//
+// Potential optimization: If we delay the creation of memory gates until circuit finalisation, we can eliminate step 2.
+// We would add the relation `timestamp_omega - timestamp - 1 == 0` into the RAM memory gate and fix the first timestamp
+// to 0 or 1. This would reduce the cost to 2.25 gates per interaction + 1 fix_witness + 1 waste gate after the memory
+// gates.
+
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, const size_t ram_id)
 {

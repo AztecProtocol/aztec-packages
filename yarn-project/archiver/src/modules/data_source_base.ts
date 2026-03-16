@@ -154,7 +154,7 @@ export abstract class ArchiverDataSourceBase
   }
 
   public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.store.getSettledTxReceipt(txHash);
+    return this.store.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
   public isPendingChainInvalid(): Promise<boolean> {

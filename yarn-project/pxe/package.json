@@ -91,8 +91,8 @@
     "viem": "npm:@aztec/viem@2.38.2"
   },
   "devDependencies": {
-    "@aztec/merkle-tree": "workspace:^",
     "@aztec/noir-test-contracts.js": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.omit": "^4.5.7",

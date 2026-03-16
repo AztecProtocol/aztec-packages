@@ -27,7 +27,7 @@ import {
 } from './factory.js';
 import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
-import { PhasesTxValidator } from './phases_validator.js';
+import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';
 import { TimestampTxValidator } from './timestamp_validator.js';
 import { TxPermittedValidator } from './tx_permitted_validator.js';
@@ -312,6 +312,7 @@ describe('Validator factory functions', () => {
         TimestampTxValidator.name,
         DoubleSpendTxValidator.name,
         BlockHeaderTxValidator.name,
+        AllowedSetupCallsMetaValidator.name,
       ]);
     });
 

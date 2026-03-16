@@ -86,7 +86,10 @@ avm-transpiler-cross-arm64-macos:
 avm-transpiler-cross-arm64-linux:
 	$(call build,$@,avm-transpiler,build_cross arm64-linux)
 
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux
+avm-transpiler-cross-amd64-windows:
+	$(call build,$@,avm-transpiler,build_cross amd64-windows)
+
+avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux avm-transpiler-cross-amd64-windows
 
 #==============================================================================
 # Barretenberg
@@ -148,7 +151,14 @@ bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-
 bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
-bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
+bb-cpp-cross-amd64-windows-objects:
+	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-windows)
+
+# Cross-compile for AMD64 Windows (release only)
+bb-cpp-cross-amd64-windows: bb-cpp-cross-amd64-windows-objects avm-transpiler-cross-amd64-windows
+	$(call build,$@,barretenberg/cpp,build_cross_windows amd64-windows)
+
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-amd64-windows bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
 
 # iOS SDK download (shared by all iOS cross-compile targets)
 bb-cpp-ios-sdk:

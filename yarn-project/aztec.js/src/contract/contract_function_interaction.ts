@@ -23,7 +23,6 @@ import {
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   type SimulationResult,
-  emptyOffchainOutput,
   extractOffchainOutput,
   toProfileOptions,
   toSimulateOptions,
@@ -137,15 +136,16 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
       // Decode the raw field elements to the actual return type
       const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];
+      const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
 
       if (options.includeMetadata) {
         return {
           stats: utilityResult.stats,
-          ...emptyOffchainOutput(),
+          ...offchainOutput,
           result: returnValue,
         };
       }
-      return { result: returnValue, ...emptyOffchainOutput() };
+      return { result: returnValue, ...offchainOutput };
     }
 
     const executionPayload = await this.request(options);
@@ -167,7 +167,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
-    const offchainOutput = extractOffchainOutput(simulatedTx.offchainEffects);
+    const offchainOutput = extractOffchainOutput(
+      simulatedTx.offchainEffects,
+      simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+    );
 
     if (options.includeMetadata || options.fee?.estimateGas) {
       const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);

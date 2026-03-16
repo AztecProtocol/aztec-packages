@@ -6,6 +6,7 @@ import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
+import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -18,12 +19,13 @@ import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage } from '../../contract_logging.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
+import { MessageContextService } from '../../messages/message_context_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
@@ -36,6 +38,7 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -58,6 +61,7 @@ export type UtilityExecutionOracleArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
+  messageContextService: MessageContextService;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AccessScopes;
@@ -71,6 +75,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isUtility = true as const;
 
   private contractLogger: Logger | undefined;
+  private offchainEffects: OffchainEffect[] = [];
 
   protected readonly contractAddress: AztecAddress;
   protected readonly authWitnesses: AuthWitness[];
@@ -85,6 +90,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleStore: CapsuleStore;
   protected readonly privateEventStore: PrivateEventStore;
+  protected readonly messageContextService: MessageContextService;
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AccessScopes;
@@ -103,12 +109,28 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
+    this.messageContextService = args.messageContextService;
     this.jobId = args.jobId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
   }
 
   public assertCompatibleOracleVersion(version: number): void {
+    // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
+    // Protocol contracts/canonical contracts shipped with committed bytecode that cannot be changed. Assert they use
+    // the expected pinned version or the current one. We want to allow for both the pinned and the current versions
+    // because we want this code to work with both the pinned and unpinned version since some branches do not have the
+    // pinned contracts (like e.g. next)
+    const LEGACY_ORACLE_VERSION = 12;
+    if (isProtocolContract(this.contractAddress)) {
+      if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
+        throw new Error(
+          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} or current oracle version ${ORACLE_VERSION} for alpha payload contract at ${this.contractAddress}, got ${version}.`,
+        );
+      }
+      return;
+    }
+
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }
@@ -550,6 +572,47 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
+  public async utilityResolveMessageContexts(
+    contractAddress: AztecAddress,
+    messageContextRequestsArrayBaseSlot: Fr,
+    messageContextResponsesArrayBaseSlot: Fr,
+  ) {
+    try {
+      if (!this.contractAddress.equals(contractAddress)) {
+        throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
+      }
+      const requestCapsules = await this.capsuleStore.readCapsuleArray(
+        contractAddress,
+        messageContextRequestsArrayBaseSlot,
+        this.jobId,
+      );
+
+      const txHashes = requestCapsules.map((fields, i) => {
+        if (fields.length !== 1) {
+          throw new Error(
+            `Malformed message context request at index ${i}: expected 1 field (tx hash), got ${fields.length}`,
+          );
+        }
+        return fields[0];
+      });
+
+      const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(
+        txHashes,
+        this.anchorBlockHeader.getBlockNumber(),
+      );
+
+      // Leave response in response capsule array.
+      await this.capsuleStore.setCapsuleArray(
+        contractAddress,
+        messageContextResponsesArrayBaseSlot,
+        maybeMessageContexts.map(MessageTxContext.toSerializedOption),
+        this.jobId,
+      );
+    } finally {
+      await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
+    }
+  }
+
   public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
@@ -608,5 +671,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     return deriveEcdhSharedSecret(addressSecret, ephPk);
+  }
+
+  public emitOffchainEffect(data: Fr[]): Promise<void> {
+    this.offchainEffects.push({ data, contractAddress: this.contractAddress });
+    return Promise.resolve();
+  }
+
+  /** Returns offchain effects collected during execution. */
+  public getOffchainEffects(): OffchainEffect[] {
+    return this.offchainEffects;
   }
 }

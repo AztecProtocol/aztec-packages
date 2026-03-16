@@ -137,6 +137,22 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
      *
      * @details Algorithm 5 from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf
      *
+     * Tower structure: Fq12 = Fq6[w]/(w² - v), so an Fq12 element is (c0 + c1·w) with c0, c1 in Fq6.
+     * The sparse element is s = (s0 + s1·w) where s0 = {ell.o, 0, 0} and s1 = {ell.w, ell.vw, 0} in Fq6.
+     *
+     * Generic multiplication gives:
+     *   result.c0 = c0·s0 + c1·s1·v    (since w² = v)
+     *   result.c1 = c0·s1 + c1·s0      (cross terms)
+     *
+     * We use Karatsuba to compute the cross terms with one fewer Fq6 multiplication:
+     *   A = c0·s0                 (computed directly: s0 = {ell.o,0,0}, so A = {ell.o·c0.c0, ell.o·c0.c1, ell.o·c0.c2})
+     *   B = c1·s1                 (via field6::sparse_mul, since s1 = {ell.w, ell.vw, 0} = ell.w + ell.vw·v)
+     *   E = (c0+c1)·(s0+s1)      (via field6::sparse_mul, since s0+s1 = {ell.o+ell.w, ell.vw, 0})
+     *   F = E - A - B = c0·s1 + c1·s0   (Karatsuba cross term = result.c1)
+     *   G = v·B                   (constructed inline as {ξ·B.c2, B.c0, B.c1}, since v·(b0+b1·v+b2·v²) =
+     *                              ξ·b2 + b0·v + b1·v²; uses Fq6::mul_by_non_residue on B.c2 to get ξ·B.c2)
+     *   H = A + G = c0·s0 + c1·s1·v     (= result.c0)
+     *
      * @param ell
      */
     constexpr void self_sparse_mul(const ell_coeffs& ell)

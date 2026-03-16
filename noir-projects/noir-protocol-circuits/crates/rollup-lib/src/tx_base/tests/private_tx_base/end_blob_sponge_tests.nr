@@ -1,4 +1,5 @@
 use super::TestBuilder;
+use protocol_test_utils::{FixtureBuilder, pad_end};
 use types::{
     blob_data::{create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TxEffectArrayLengths},
     constants::{
@@ -6,7 +7,6 @@ use types::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    tests::{FixtureBuilder, utils::pad_end},
     traits::{Hash, ToField},
 };
 

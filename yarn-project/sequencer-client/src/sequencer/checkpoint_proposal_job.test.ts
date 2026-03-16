@@ -898,6 +898,22 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
     });
 
+    it('aborts checkpoint when syncing proposed block to archiver fails', async () => {
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+
+      // Mock blockSink.addBlock to reject, simulating a consistency error
+      blockSink.addBlock.mockRejectedValue(new Error('Consistency error: block does not match world state'));
+
+      const checkpoint = await job.execute();
+
+      // The checkpoint should be aborted since the archiver sync failure now propagates
+      expect(checkpoint).toBeUndefined();
+      expect(blockSink.addBlock).toHaveBeenCalledWith(block);
+      // Should not attempt to collect attestations since the error aborts the loop
+      expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
+    });
+
     it('handles empty committee gracefully', async () => {
       // Mock empty committee
       epochCache.getCommittee.mockResolvedValue({

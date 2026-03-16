@@ -720,6 +720,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return (await this.blockSource.getCheckpointedBlocks(from, limit)) ?? [];
   }
 
+  public getCheckpointsDataForEpoch(epochNumber: EpochNumber) {
+    return this.blockSource.getCheckpointsDataForEpoch(epochNumber);
+  }
+
   /**
    * Method to fetch the current min L2 fees.
    * @returns The current min L2 fees.

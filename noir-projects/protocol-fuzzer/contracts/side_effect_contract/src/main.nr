@@ -85,10 +85,9 @@ pub contract SideEffect {
         value: u128,
     ) {
         assert(value != 0, "note value must be non-zero");
-        let partial_note =
-            UintNote::partial(owner, storage_slot, self.context, owner, self.address);
+        let partial_note = UintNote::partial(owner, self.context, owner, self.address);
 
-        self.enqueue_self.call_complete_partial_note(partial_note, value);
+        self.enqueue_self.call_complete_partial_note(partial_note, storage_slot, value);
     }
 
     // This function creates a nullifier for an existing note hash. If the linked
@@ -191,7 +190,7 @@ pub contract SideEffect {
     }
 
     #[external("public")]
-    fn call_complete_partial_note(partial_note: PartialUintNote, value: u128) {
-        partial_note.complete(self.context, self.address, value);
+    fn call_complete_partial_note(partial_note: PartialUintNote, storage_slot: Field, value: u128) {
+        partial_note.complete(self.context, self.address, storage_slot, value);
     }
 }

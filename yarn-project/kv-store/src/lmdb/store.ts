@@ -147,21 +147,25 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   }
 
   /**
-   * Clears all entries in the store & sub DBs.
+   * Clears all entries in the store & sub DBs atomically within a single transaction.
    */
   async clear() {
-    await this.#data.clearAsync();
-    await this.#multiMapData.clearAsync();
-    await this.#rootDb.clearAsync();
+    await this.#rootDb.transaction(async () => {
+      await this.#data.clearAsync();
+      await this.#multiMapData.clearAsync();
+      await this.#rootDb.clearAsync();
+    });
   }
 
   /**
-   * Drops the database & sub DBs.
+   * Drops the database & sub DBs atomically within a single transaction.
    */
   async drop() {
-    await this.#data.drop();
-    await this.#multiMapData.drop();
-    await this.#rootDb.drop();
+    await this.#rootDb.transaction(async () => {
+      await this.#data.drop();
+      await this.#multiMapData.drop();
+      await this.#rootDb.drop();
+    });
   }
 
   /**

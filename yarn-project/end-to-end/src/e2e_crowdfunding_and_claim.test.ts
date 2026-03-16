@@ -208,7 +208,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // docs:start:local-tx-fails
     await expect(
       claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }),
-    ).rejects.toThrow('hinted_note.owner == self.msg_sender()');
+    ).rejects.toThrow('confirmed_note.owner == self.msg_sender()');
     // docs:end:local-tx-fails
   });
 
