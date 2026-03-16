@@ -68,28 +68,30 @@ sel_operation { input } in dest.sel { dest.input };
 
 ### Phase 1: Batch Collection (4 parallel searches)
 
-**Search A — All interactions across all PIL files**:
+This session targets a single PIL file. Run searches against the target file; also search broadly to understand error flag definitions and cross-file context.
+
+**Search A — All interactions in the target file**:
 ```bash
-grep -rnP '}\s*(in|is)\b' pil/vm2/ --include="*.pil"
+grep -nP '}\s*(in|is)\b' <target_file>
 ```
 
-**Search B — All error-gated selectors**:
+**Search B — All error-gated selectors in the target file**:
 ```bash
-grep -rn "(1 - sel_err)\|(1 - sel_tag_err)\|(1 - sel_opcode_error)\|(1 - error)" pil/vm2/ --include="*.pil"
+grep -n "(1 - sel_err)\|(1 - sel_tag_err)\|(1 - sel_opcode_error)\|(1 - error)" <target_file>
 ```
 
-**Search C — All error flags and which operations can error**:
+**Search C — All error flags in the target file**:
 ```bash
-grep -rn "sel_err\|sel_tag_err\|sel_div_0\|sel_overflow" pil/vm2/ --include="*.pil"
+grep -n "sel_err\|sel_tag_err\|sel_div_0\|sel_overflow" <target_file>
 ```
 
-**Search D — Cross-file error flag survey** (catches non-ALU error gating gaps):
+**Search D — Error flag definitions** (for context on which errors can fire in the target component):
 ```bash
-# Find error flags in ALL component files, not just ALU
-grep -rn "sel_opcode_error\|sel_err\|sel_bytecode_retrieval_failure\|sel_instruction_fetching_failure" pil/vm2/execution/*.pil pil/vm2/context*.pil pil/vm2/tx.pil pil/vm2/bytecode/*.pil --include="*.pil"
+# Find where error flags used in the target file are defined
+grep -rn "sel_opcode_error\|sel_err\|sel_bytecode_retrieval_failure\|sel_instruction_fetching_failure" pil/vm2/ --include="*.pil"
 ```
 
-> **IMPORTANT**: Do not limit analysis to ALU/arithmetic files. Error gating bugs also occur in `execution.pil`, `internal_call.pil`, `context.pil`, bytecode retrieval, and other non-arithmetic components. Search D ensures cross-file coverage.
+> **IMPORTANT**: Do not limit analysis to ALU/arithmetic files. Error gating bugs also occur in `execution.pil`, `internal_call.pil`, `context.pil`, bytecode retrieval, and other non-arithmetic components. Focus findings on the target file only, but read related files to understand error semantics.
 
 ### Phase 2: Cross-Reference (identify ungated interactions)
 

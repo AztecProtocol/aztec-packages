@@ -112,28 +112,20 @@ barretenberg/cpp/pil/vm2/execution/pc.pil        # PC constraints
 
 ## Workflow
 
-### Step 0: Enumerate ALL Control Flow Opcodes (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, enumerate ALL control flow opcodes.
+This session focuses on a single target PIL file provided by the runner. Read the target file thoroughly, then identify which control flow opcode(s) it governs and any related files it interacts with (for context only — findings should be about the target file).
 
 ```bash
-# Find all control flow opcodes in documentation
-ls yarn-project/simulator/docs/avm/opcodes/{jump,jumpi,call,staticcall,return,revert,internalcall,internalreturn}.md
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Find all PC-modifying opcodes in simulation
-grep -n "set_pc\|next_pc\|jump\|call\|return\|revert" src/barretenberg/vm2/simulation/gadgets/execution.cpp | head -30
+# Find PC-modifying patterns in the target file
+grep -n "set_pc\|next_pc\|jump\|call\|return\|revert" pil/vm2/<target>.pil
 
-# Find all control flow PIL files
-ls pil/vm2/opcodes/{jump,jumpi,call,staticcall,return,revert,internal}*.pil 2>/dev/null
-grep -rl "next_pc\|sel_enter_call\|sel_exit_call" pil/vm2/ --include="*.pil"
+# Find related simulation code for context
+grep -n "set_pc\|next_pc" src/barretenberg/vm2/simulation/gadgets/execution.cpp | head -30
 ```
-
-Build a master checklist:
-
-| Opcode | PC update | Context change | Stack op | Checked? | Finding? |
-|--------|-----------|---------------|----------|----------|----------|
-
-**You MUST check every control flow opcode.** Cover ALL opcodes in the table above before deep-diving any single one.
 
 ### Step 1: Select Target Opcode
 ```bash

@@ -32,19 +32,7 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With State Columns (MANDATORY)
-
-> **CRITICAL**: Before deep-diving any file, enumerate ALL PIL files that have columns needing initialization.
-
-```bash
-# Find all PIL files with state columns (counters, PCs, phase indicators, accumulators)
-grep -rl "pol commit.*counter\|pol commit.*pc\|pol commit.*phase\|pol commit.*idx\|pol commit.*accum\|pol commit.*gas\|pol commit.*context" pil/vm2/ --include="*.pil" | sort
-
-# Also find files with first-row or start constraints (to see what's already initialized)
-grep -rl "first_row\|sel_start\|sel_enter" pil/vm2/ --include="*.pil" | sort
-```
-
-Build a master checklist of ALL files with state columns. You MUST check every file for missing initialization.
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus deeply on that file; read related files only for context (e.g., to confirm that initialization is provided via a lookup or permutation defined elsewhere).
 
 ### Step 1: Identify Values Needing Initialization
 
@@ -57,17 +45,17 @@ Build a master checklist of ALL files with state columns. You MUST check every f
 | Context identifiers | `context_id`, `call_depth` | Defined at entry |
 
 ```bash
-grep -rn "pol commit pc\|pol commit.*counter\|pol commit.*phase\|pol commit.*idx\|pol commit.*accum" pil/vm2/ --include="*.pil"
+grep -n "pol commit pc\|pol commit.*counter\|pol commit.*phase\|pol commit.*idx\|pol commit.*accum" <target>.pil
 ```
 
 ### Step 2: Check for Initialization Constraints
 
 ```bash
 # First row initialization
-grep -rn "first_row.*value\|precomputed.first_row" pil/vm2/ --include="*.pil"
+grep -n "first_row.*value\|precomputed.first_row" <target>.pil
 
 # Start-of-computation initialization
-grep -rn "sel_start\|sel_enter\|sel_new" pil/vm2/ --include="*.pil"
+grep -n "sel_start\|sel_enter\|sel_new" <target>.pil
 ```
 
 ### Step 3: Verify Initialization Before Use

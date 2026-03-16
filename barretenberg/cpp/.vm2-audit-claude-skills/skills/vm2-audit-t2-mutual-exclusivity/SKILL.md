@@ -35,31 +35,16 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With Selector Groups (MANDATORY)
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus deeply on that file; read related files only for context to understand shared selectors or cross-file exclusivity enforcement.
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL files containing selector groups.
-
-```bash
-# Find all files with selector declarations
-grep -rl "pol commit sel_\|pol commit is_\|pol commit state_\|pol commit phase_" pil/vm2/ --include="*.pil" | sort
-
-# Find files with the most selectors (prioritize these)
-for f in $(find pil/vm2/ -name "*.pil"); do
-  count=$(grep -c "pol commit sel_\|pol commit is_" "$f" 2>/dev/null)
-  if [ "$count" -gt 0 ]; then echo "$count $f"; fi
-done | sort -rn
-```
-
-Build a master checklist of ALL files with selector groups. Prioritize files with the most selectors. You MUST check every file.
-
-### Step 1: Find Selector Groups
+### Step 1: Find Selector Groups in Target File
 ```bash
 # Error flags
-grep -rn "pol commit sel_.*err\|pol commit.*_err" pil/vm2/ --include="*.pil"
+grep -n "pol commit sel_.*err\|pol commit.*_err" <target>.pil
 # Operation selectors
-grep -rn "pol commit sel_op_\|pol commit sel_.*_op" pil/vm2/ --include="*.pil"
+grep -n "pol commit sel_op_\|pol commit sel_.*_op" <target>.pil
 # State flags
-grep -rn "pol commit state_\|pol commit phase_\|pol commit is_" pil/vm2/ --include="*.pil"
+grep -n "pol commit state_\|pol commit phase_\|pol commit is_" <target>.pil
 ```
 
 ### Step 2: Classify Exclusivity Requirements
@@ -70,9 +55,9 @@ grep -rn "pol commit state_\|pol commit phase_\|pol commit is_" pil/vm2/ --inclu
 ### Step 3: Verify Constraints Exist
 ```bash
 # Pairwise: sel_a * sel_b = 0
-grep -rn "sel_.*\* sel_" pil/vm2/ --include="*.pil"
+grep -n "sel_.*\* sel_" <target>.pil
 # Sum constraint
-grep -rn "+ sel_.*= 1\|+ sel_.*\* (1 -" pil/vm2/ --include="*.pil"
+grep -n "+ sel_.*= 1\|+ sel_.*\* (1 -" <target>.pil
 ```
 
 ### Step 4: Check Aggregation Sums

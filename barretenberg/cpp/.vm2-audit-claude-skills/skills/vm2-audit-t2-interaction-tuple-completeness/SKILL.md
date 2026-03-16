@@ -71,30 +71,24 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### 0. Enumerate ALL Interactions Across ALL PIL Files (MANDATORY)
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Check every interaction in that file. Read destination PIL files for context to verify what columns are available on the destination side.
 
-> **CRITICAL**: Before analyzing any individual interaction, enumerate ALL interactions across the entire codebase.
+### 0. Find All Interactions in Target File
 
 ```bash
-# Find ALL interactions in ALL PIL files
-grep -rn "} in \|} is " pil/vm2/ --include="*.pil" | sort
-
-# Count interactions per file
-for f in $(grep -rl "} in \|} is " pil/vm2/ --include="*.pil"); do
-  echo "=== $f ==="; grep -c "} in \|} is " "$f"
-done
+grep -n "} in \|} is " <target>.pil
 ```
 
-Build a master checklist:
+Build a checklist of every interaction in the target file:
 
-| File | Line | Interaction Name | Type (lookup/permutation) | Checked? | Finding? |
-|------|------|-----------------|--------------------------|----------|----------|
+| Line | Interaction Name | Type (lookup/permutation) | Checked? | Finding? |
+|------|-----------------|--------------------------|----------|----------|
 
-**You MUST check every interaction.** Breadth across all files is more important than depth on any single file.
+**You MUST check every interaction in the target file.**
 
 ### 1. Find All Interactions
 ```bash
-grep -n "} in \|} is " pil/vm2/<component>.pil
+grep -n "} in \|} is " <target>.pil
 ```
 
 ### 2. Check Required Columns Per Type
@@ -114,9 +108,10 @@ grep -n "TUPLE:\|USAGE:" pil/vm2/<destination>.pil
 ```
 Verify: same columns, same order, same semantics.
 
-### 4. Cross-Reference Similar Interactions
+### 4. Cross-Reference Similar Interactions for Context
 ```bash
-grep -rn "} in \|} is " pil/vm2/ --include="*.pil" | grep -i "memory\|call\|context"
+# Search related files to understand the destination tuple schema
+grep -n "} in \|} is " pil/vm2/<destination>.pil
 ```
 
 ## Vulnerable Patterns

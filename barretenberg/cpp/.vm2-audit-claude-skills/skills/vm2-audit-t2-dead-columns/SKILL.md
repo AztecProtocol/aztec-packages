@@ -34,33 +34,28 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-> **PERFORMANCE RULE**: Do NOT run individual greps for each of ~1,730 columns. Use the automated batch script below. Per-column iteration will exhaust the context window.
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Check columns declared in the target file; search other PIL files only to confirm cross-file references (lookup destinations, namespace references).
 
-### Phase 1: Automated Dead Column Detection (single bash command)
+> **PERFORMANCE RULE**: Do NOT run individual greps for each column. Use the automated batch script below. Per-column iteration will exhaust the context window.
 
-Run this script to find all potentially dead columns in one shot:
+### Phase 1: Automated Dead Column Detection (target file)
+
+Run this script for the target file:
 
 ```bash
-# For each PIL file, extract declared columns, then check if each appears >1 time in all PIL files
-for pil_file in pil/vm2/*.pil pil/vm2/**/*.pil; do
-  [ -f "$pil_file" ] || continue
-  # Get namespace prefix for cross-file lookups (e.g., "alu" from "pil/vm2/alu.pil")
-  ns=$(basename "$pil_file" .pil)
-  # Extract column names from "pol commit col;" and "pol commit col[N];" declarations
-  grep -oP 'pol commit \K[a-z_][a-z_0-9]*(?=[\[;,])' "$pil_file" | while read col; do
-    # Count occurrences in same file (declaration + usage)
-    local_count=$(grep -c "$col" "$pil_file" 2>/dev/null || echo 0)
-    # Count cross-file references (namespace.col)
-    cross_count=$(grep -rl "${ns}\.${col}" pil/vm2/ --include="*.pil" 2>/dev/null | wc -l)
-    total=$((local_count + cross_count))
-    if [ "$total" -le 1 ]; then
-      echo "DEAD: $pil_file : $col (local=$local_count, cross=$cross_count)"
-    fi
-  done
+TARGET=<target>.pil
+ns=$(basename "$TARGET" .pil)
+grep -oP 'pol commit \K[a-z_][a-z_0-9]*(?=[\[;,])' "$TARGET" | while read col; do
+  local_count=$(grep -c "$col" "$TARGET" 2>/dev/null || echo 0)
+  cross_count=$(grep -rl "${ns}\.${col}" pil/vm2/ --include="*.pil" 2>/dev/null | wc -l)
+  total=$((local_count + cross_count))
+  if [ "$total" -le 1 ]; then
+    echo "DEAD: $TARGET : $col (local=$local_count, cross=$cross_count)"
+  fi
 done
 ```
 
-This produces a focused list of dead column candidates — typically **10-30**, not hundreds.
+This produces a focused list of dead column candidates — typically **5-15** for a single file.
 
 ### Phase 2: Verify Candidates
 
@@ -87,15 +82,9 @@ For each candidate from Phase 1, read the relevant PIL file and check:
 
 ### Phase 4: Completeness Check
 
-Verify the script covered all PIL files:
-```bash
-# Compare file count from script vs actual
-find pil/vm2 -name "*.pil" | wc -l
-```
-
 Also check for columns declared with unusual syntax (multi-line declarations, macro-generated columns) that the regex might miss:
 ```bash
-grep -rn "pol commit" pil/vm2/ --include="*.pil" | grep -v "pol commit [a-z_]"
+grep -n "pol commit" <target>.pil | grep -v "pol commit [a-z_]"
 ```
 Any results here are unconventional declarations — manually verify them.
 

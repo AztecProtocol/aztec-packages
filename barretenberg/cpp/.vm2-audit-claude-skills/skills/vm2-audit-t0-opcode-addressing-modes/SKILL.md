@@ -106,29 +106,20 @@ Bit assignment:
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes With Addressing Modes (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, identify ALL opcodes that use addressing modes.
+This session focuses on a single target PIL file provided by the runner. Read the target file thoroughly, then identify the opcode(s) it governs and any related files it interacts with (for context only — findings should be about the target file).
 
 ```bash
-# Find all documented opcodes with addressing modes sections
-for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
-  if grep -q "Addressing\|indirect\|relative" "$f"; then echo "$f"; fi
-done
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Find all opcodes with addressing in instruction spec
-grep -n "num_addresses" src/barretenberg/vm2/common/instruction_spec.cpp | head -40
+# Find the opcode's entry in instruction spec
+grep -n "num_addresses" src/barretenberg/vm2/common/instruction_spec.cpp
 
-# Find addressing PIL constraints
-grep -n "indirect\|relative\|sel_addressing" pil/vm2/addressing.pil | head -30
+# Find addressing constraints in the target file
+grep -n "indirect\|relative\|sel_addressing" pil/vm2/<target>.pil
 ```
-
-Build a master checklist:
-
-| Opcode | # memory operands | Indirect bits | Relative bits | Checked? | Finding? |
-|--------|------------------|--------------|--------------|----------|----------|
-
-**You MUST check every opcode with memory operands.** Breadth across all opcodes is more important than depth on any single one.
 
 ### Step 1: Select Target Opcode
 ```bash

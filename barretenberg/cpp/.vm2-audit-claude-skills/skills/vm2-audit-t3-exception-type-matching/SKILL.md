@@ -32,23 +32,15 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### Step 0: Enumerate ALL Source Files (MANDATORY)
+### Step 0: Identify Target Files
 
-> **CRITICAL**: Before analyzing any individual file, enumerate ALL simulation and tracegen source files.
+This session targets a single simulation or tracegen source file. Focus deeply on the throw/catch patterns within that file and any callers or callees it interacts with.
+
+Find throw counts across simulation/tracegen to orient yourself, but limit deep analysis to the target file and its direct call chain:
 
 ```bash
-# List all simulation and tracegen source files
-find src/barretenberg/vm2/simulation/ -name "*.cpp" -o -name "*.hpp" | sort
-find src/barretenberg/vm2/tracegen/ -name "*.cpp" -o -name "*.hpp" | sort
-
-# Count throw statements per file
-for f in $(find src/barretenberg/vm2/ -name "*.cpp"); do
-  count=$(grep -c "throw " "$f" 2>/dev/null)
-  if [ "$count" -gt 0 ]; then echo "$count $f"; fi
-done | sort -rn
+grep -n "throw " <target_file>
 ```
-
-Build a master checklist of ALL files with throw statements. You MUST check every one.
 
 ### Step 1: Map Exception Hierarchy
 ```bash
@@ -70,13 +62,16 @@ VmException (base)
 
 ### Step 2: Find All Throw Statements
 ```bash
-grep -rn "throw " barretenberg/cpp/src/barretenberg/vm2/simulation/ --include="*.cpp"
-grep -rn "throw " barretenberg/cpp/src/barretenberg/vm2/tracegen/ --include="*.cpp"
+grep -n "throw " <target_file>
+# Also check files that call into the target file (to find catch blocks)
+grep -rn "throw " src/barretenberg/vm2/simulation/ --include="*.cpp"
 ```
 
 ### Step 3: Find Catch Blocks
 ```bash
-grep -rn "catch.*Exception\|catch.*exception\|catch.*error" barretenberg/cpp/src/barretenberg/vm2/ --include="*.cpp"
+# Search for catch blocks in the target file and any caller files
+grep -n "catch.*Exception\|catch.*exception\|catch.*error" <target_file>
+grep -rn "catch.*Exception\|catch.*exception\|catch.*error" src/barretenberg/vm2/ --include="*.cpp"
 ```
 
 ### Step 4: Verify Type Matching

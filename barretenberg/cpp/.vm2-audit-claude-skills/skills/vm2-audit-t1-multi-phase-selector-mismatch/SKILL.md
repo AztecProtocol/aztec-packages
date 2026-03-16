@@ -55,11 +55,15 @@ in gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
 
 ## Workflow
 
-### Step 1: Identify Multi-Phase Components
+### Step 0: Session Scope
+
+> **NOTE**: This session targets a single PIL file. Focus deeply on that file. Read related/interacted-with PIL files for context, but findings should be about the target file.
+
+### Step 1: Identify Multi-Phase Patterns in the Target File
 
 ```bash
-grep -rln "perform_round\|latch\|start\|first\|last\|NUM_ROUNDS" \
-    barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "perform_round\|latch\|start\|first\|last\|NUM_ROUNDS" \
+    pil/vm2/<target_file>.pil
 ```
 
 Common patterns: `start`/`last`/`latch`, `perform_round`/`LATCH_CONDITION`, `first_row`/`last_row`

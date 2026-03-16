@@ -38,20 +38,13 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### Step 0: Systematic Component Discovery (MANDATORY)
+### Step 0: Session Scope
 
-> **CRITICAL**: Enumerate ALL permutation-bearing files before analysis. Do not limit to known components.
+> **NOTE**: This session targets a single PIL file. Focus deeply on that file. Read related/interacted-with PIL files for context (e.g., to understand destination traces), but all findings should be about the target file.
 
-```bash
-# Find ALL files containing permutations (} is patterns)
-grep -rl "} is " pil/vm2/ --include="*.pil" | sort
-```
+### Step 1: Identify Permutation Source Selectors
 
-This gives the complete list of files where ghost-row-boolean matters. Process EVERY file in this list.
-
-### Step 1: For Each File, Identify Permutation Source Selectors
-
-For each file from Step 0:
+In the target file:
 ```bash
 # Find all committed columns used as permutation source selectors
 grep -n "} is " pil/vm2/<file>.pil
@@ -89,12 +82,12 @@ Find the destination trace and check if simulation gadgets can create matching r
 - Attack succeeds: **CRITICAL** finding
 - Attack blocked: Document the blocking factor
 
-### Step 5: Coverage Table (MANDATORY)
+### Step 5: Summary Table
 
-Output a table of ALL permutation-bearing files and their analysis status:
+Output a table of all permutations found in the target file and their analysis status:
 
-| File | Permutations found | Sub-selectors checked | Vulnerable? | Analyzed? |
-|------|-------------------|---------------------|-------------|-----------|
+| Permutation | Sub-selector | Protected? | Vulnerable? |
+|-------------|-------------|-----------|-------------|
 
 ## Fix Pattern
 

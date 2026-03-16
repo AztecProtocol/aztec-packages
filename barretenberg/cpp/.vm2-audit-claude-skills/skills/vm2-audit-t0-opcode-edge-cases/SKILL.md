@@ -160,11 +160,9 @@ If you verify a pattern only on the happy path, note it as "(happy path only —
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes With Edge Cases (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: This skill covers edge cases for ALL opcodes, not just ALU/arithmetic. You MUST check every opcode group below.
-
-Use this mapping to find the relevant PIL and simulation files:
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify the opcode(s) or subsystem it governs. Use the mapping below to understand what edge cases are relevant for that file. Read any related PIL files for context, but findings should be about the target file only.
 
 | Opcode(s) | PIL file(s) | Edge cases to check |
 |-----------|-------------|-------------------|
@@ -190,7 +188,13 @@ Use this mapping to find the relevant PIL and simulation files:
 | Bytecode decomposition | `bc_decomposition.pil` | Zero extension, truncation |
 | Tx-level | `tx.pil` | Gas limit edge cases, padded rows, phase transitions |
 
-**COVERAGE MANDATE**: You MUST produce a coverage table at the end showing every row above and whether you analyzed it. If any opcode group is not analyzed, explain why. Do NOT spend more than 20% of your budget on ALU — it is only 1 of 10+ subsystems.
+```bash
+# Read the target PIL file fully
+cat pil/vm2/<target>.pil
+
+# Check edge case patterns in the target file
+grep -n "overflow\|zero\|error\|edge\|bound" pil/vm2/<target>.pil
+```
 
 ### Step 1: Identify Edge Cases from Documentation
 ```bash

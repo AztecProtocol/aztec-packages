@@ -94,12 +94,12 @@ sel + last = 0;
 
 ## Workflow
 
-> **SCOPE**: PIL files in `barretenberg/cpp/pil/vm2/`.
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus on the `#[skippable_if]` declarations in that file. Read other files only for context (e.g., to understand lifecycle selectors in related gadgets).
 
-### Phase 1: Collect All Skippable Conditions
+### Phase 1: Collect Skippable Conditions in Target File
 
 ```bash
-grep -rn "skippable_if" barretenberg/cpp/pil/vm2/ --include="*.pil" -A 1
+grep -n "skippable_if" <target>.pil -A 1
 ```
 
 For each, record:
@@ -107,13 +107,13 @@ For each, record:
 - The skip condition (e.g., `sel = 0`, `sel + last = 0`, `sel_foo = 0`)
 - The set of columns referenced in the condition (call this SKIP_COLS)
 
-### Phase 2: Find All Gating Selectors in Each Relation
+### Phase 2: Find All Gating Selectors in Target Relation
 
-For each namespace with a `skippable_if`, identify ALL constraints and their gating selectors:
+For the target file, identify ALL constraints and their gating selectors:
 
 ```bash
-# For a given file, find all constraint lines (lines with = 0 or in/is)
-grep -n "= 0;\|in$\|is$" barretenberg/cpp/pil/vm2/<file>.pil | grep -v "^[[:space:]]*//"
+# Find all constraint lines (lines with = 0 or in/is)
+grep -n "= 0;\|in$\|is$" <target>.pil | grep -v "^[[:space:]]*//"
 ```
 
 Extract the **outermost gating selector** of each constraint. A constraint like:
@@ -154,9 +154,9 @@ For each potential mismatch, determine if the gating selector can actually be ac
 
 ```bash
 # Check which selectors are forced by error conditions
-grep -rn "err.*last\|err.*(.*- 1)" barretenberg/cpp/pil/vm2/<file>.pil
+grep -n "err.*last\|err.*(.*- 1)" <target>.pil
 # Check lifecycle: how sel relates to other selectors
-grep -rn "sel.*=.*ctr\|ctr.*sel" barretenberg/cpp/pil/vm2/<file>.pil
+grep -n "sel.*=.*ctr\|ctr.*sel" <target>.pil
 ```
 
 ### Phase 4b: Check Tracegen for Reachability
@@ -244,9 +244,9 @@ last * (accum_y - byte_y) = 0;   // Same problem
 
 **Fix**: Widen the skip condition to cover all independently-active selectors: `#[skippable_if] sel + last = 0;`
 
-## Key Files
-- All PIL files in `pil/vm2/` that have `#[skippable_if]` declarations (~55 files)
-- Focus on files with multi-row computations: `bitwise.pil`, `sha256.pil`, `keccakf1600.pil`, `poseidon2_perm.pil`, `poseidon2_hash.pil`, `to_radix.pil`, `ecc.pil`, `scalar_mul.pil`, `data_copy.pil`
+## Key Context Files
+- Files with multi-row computations relevant for understanding lifecycle patterns: `bitwise.pil`, `sha256.pil`, `keccakf1600.pil`, `poseidon2_perm.pil`, `poseidon2_hash.pil`, `to_radix.pil`, `ecc.pil`, `scalar_mul.pil`, `data_copy.pil`
+- Read these only for context when the target file interacts with or is similar to them
 
 ## Related Skills
 - **vm2-audit-t2-error-state-constraint-firing**: Constraints firing on wrong rows during errors (overlapping concern — this skill checks the skip optimization, that skill checks the constraints directly)
@@ -292,8 +292,8 @@ For each `#[skippable_if]` declaration:
   "skill": "vm2-audit-t2-skippable-condition-correctness",
   "status": "COMPLETED_WITH_FINDINGS",
   "statistics": {
-    "files_scanned": 55,
-    "skippable_declarations_checked": 55,
+    "files_scanned": 1,
+    "skippable_declarations_checked": 1,
     "genuine_findings": 1,
     "findings_by_severity": {
       "critical": 0,

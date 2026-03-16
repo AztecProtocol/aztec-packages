@@ -93,32 +93,20 @@ packet-beta
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes and Their Wire Formats (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, enumerate ALL opcodes and their wire format variants.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify which opcode(s) it governs. Then verify the wire format for those specific opcode(s) across documentation, the WireOpCode enum, and instruction spec. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ```bash
-# List ALL opcode documentation files
-ls yarn-project/simulator/docs/avm/opcodes/*.md
+# Read the target PIL file to identify the opcode name
+cat pil/vm2/<target>.pil
 
-# Extract wire format info from all opcode docs
-for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
-  echo "=== $(basename $f) ==="; grep -A 3 "Wire Format\|Opcode.*0x" "$f" 2>/dev/null | head -5
-done
+# Find the wire opcode enum entry for the target opcode
+grep -n "<OPCODE>" src/barretenberg/vm2/common/opcodes.hpp
 
-# List all wire opcodes in enum
-grep -n "= 0x" src/barretenberg/vm2/common/opcodes.hpp | head -60
-
-# List all wire instruction specs
-grep -n "wire_opcode\|size_in_bytes\|num_operands" src/barretenberg/vm2/common/instruction_spec.cpp | head -60
+# Find the wire instruction spec for the target opcode
+grep -n "WireOpCode::<OPCODE>\|wire_opcode\|size_in_bytes" src/barretenberg/vm2/common/instruction_spec.cpp | grep -i "<opcode>"
 ```
-
-Build a master checklist:
-
-| Opcode | Doc hex | Enum hex | Doc size | Spec size | Checked? | Finding? |
-|--------|---------|----------|----------|-----------|----------|----------|
-
-**You MUST check every opcode's wire format.** Breadth across all opcodes is more important than depth on any single one.
 
 ### Step 1: Select Target Opcode
 ```bash

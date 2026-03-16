@@ -31,9 +31,7 @@ Find missing or incorrect range checks that enable:
 
 ## Scope
 
-Audit ALL PIL files in the VM2 directory, including:
-- Main component files: `pil/vm2/*.pil`
-- **Opcode-specific files: `pil/vm2/opcodes/*.pil`** — these implement individual opcodes and frequently handle protocol values that have external size requirements
+This session targets a single PIL file. Focus deeply on that file's arithmetic operations, range checks, and decomposition variables. Read related files for context (e.g., to trace where values come from via lookups/permutations), but findings should be about the target file.
 
 ## When to Use
 - Auditing PIL files for overflow/underflow vulnerabilities
@@ -130,8 +128,8 @@ If the PIL does NOT enforce the size constraint between reading the value and wr
 
 ### Step 1: Find Arithmetic Operations
 ```bash
-# Find all arithmetic in component files
-grep -rEn "(addr|offset|base|ptr|size|len|count|remaining|gas|sum|total).*[+\-*]|[+\-*].*(addr|offset|size|gas)" pil/vm2/*.pil pil/vm2/opcodes/*.pil
+# Find arithmetic in the target file
+grep -En "(addr|offset|base|ptr|size|len|count|remaining|gas|sum|total).*[+\-*]|[+\-*].*(addr|offset|size|gas)" pil/vm2/<target_file>.pil
 ```
 
 ### Step 2: Audit Decomposition Witness Variables
@@ -139,8 +137,8 @@ grep -rEn "(addr|offset|base|ptr|size|len|count|remaining|gas|sum|total).*[+\-*]
 Decomposition variables are witness columns introduced to split a value into parts. They appear in modular reductions, limb decompositions, quotient/remainder relations, and carry/borrow patterns. If ANY limb in a decomposition lacks a range check, the decomposition has multiple solutions in the field, and the prover can choose an arbitrary output.
 
 ```bash
-# Find all committed witness columns in ALU and arithmetic gadget files
-grep -rn "pol commit" pil/vm2/alu.pil pil/vm2/ff_gt.pil pil/vm2/gt.pil pil/vm2/to_radix_mem.pil pil/vm2/keccakf1600.pil pil/vm2/sha256.pil pil/vm2/ecc.pil
+# Find all committed witness columns in the target file
+grep -n "pol commit" pil/vm2/<target_file>.pil
 ```
 
 For each witness column found:
@@ -163,7 +161,7 @@ For each witness column found:
 
 ### Step 3: Check Range Check Lookups
 ```bash
-grep -rn "range_check\|U8\|U16\|U32\|U64\|rng_chk_bits" pil/vm2/*.pil pil/vm2/opcodes/*.pil
+grep -n "range_check\|U8\|U16\|U32\|U64\|rng_chk_bits" pil/vm2/<target_file>.pil
 ```
 
 Expected pattern:
@@ -174,7 +172,7 @@ sel { value } in range_check.sel { range_check.value };
 
 ### Step 4: Check Overflow/Underflow Handling
 ```bash
-grep -rn "overflow\|underflow\|wrap\|carry" pil/vm2/*.pil pil/vm2/opcodes/*.pil
+grep -n "overflow\|underflow\|wrap\|carry" pil/vm2/<target_file>.pil
 ```
 Verify: boolean constrained, triggers error/adjustment, both cases handled.
 
@@ -184,17 +182,15 @@ Verify: boolean constrained, triggers error/adjustment, both cases handled.
 - 32-bit: U32 table, etc.
 - Match against the PROTOCOL requirement, not just the memory tag
 
-### Step 6: Audit Protocol-Value Boundaries (EVERY Opcode)
+### Step 6: Audit Protocol-Value Boundaries
 
-> **CRITICAL**: Check EVERY opcode in `pil/vm2/opcodes/` that writes to public inputs or sends data to L1.
+If the target file writes to public inputs or sends data to L1, check every such value:
 
 ```bash
-# Find all lookups into public_inputs (these write protocol data)
-grep -rn "public_inputs.sel\|public_inputs.cols" pil/vm2/opcodes/*.pil pil/vm2/tx.pil
+# Find lookups into public_inputs in the target file
+grep -n "public_inputs.sel\|public_inputs.cols" pil/vm2/<target_file>.pil
 # Find register values being sent without range checks
-grep -rn "register\[" pil/vm2/opcodes/*.pil
-# Find ALL opcode files for coverage
-ls pil/vm2/opcodes/*.pil
+grep -n "register\[" pil/vm2/<target_file>.pil
 ```
 
 For each value written to public inputs or sent to L1:
@@ -205,7 +201,7 @@ For each value written to public inputs or sent to L1:
 
 ### Step 7: Decomposition Witness Checklist (MANDATORY)
 
-For arithmetic gadgets (alu.pil, ff_gt.pil, gt.pil, sha256.pil, keccakf1600.pil, ecc.pil, to_radix_mem.pil), build a table of ALL `pol commit` witness variables:
+If the target file is an arithmetic/crypto gadget, build a table of ALL `pol commit` witness variables in the target file:
 
 | Column | File | Used in decomposition equation? | Range-checked? | Selector match? |
 |--------|------|-------------------------------|---------------|----------------|

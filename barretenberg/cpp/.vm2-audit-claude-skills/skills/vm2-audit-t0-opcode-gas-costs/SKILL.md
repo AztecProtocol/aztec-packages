@@ -89,32 +89,20 @@ barretenberg/cpp/pil/vm2/precomputed_columns.cpp # Gas constants in precomputed
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes and Their Gas Costs (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, enumerate ALL opcodes and extract their gas cost components.
+This session focuses on a single target PIL file provided by the runner. Read the target file and identify which opcode(s) it governs. Then check the gas costs for those specific opcode(s) across documentation, constants, and instruction spec. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ```bash
-# List ALL opcode documentation files
-ls yarn-project/simulator/docs/avm/opcodes/*.md
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Extract gas cost tables from all opcode docs
-for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
-  echo "=== $(basename $f) ==="; grep -A 5 "Gas Costs\|L2 Base\|DA Base" "$f" 2>/dev/null
-done
+# Find gas constants for the target opcode
+grep "AVM_<OPCODE>_BASE_L2_GAS\|AVM_<OPCODE>_BASE_DA_GAS\|AVM_<OPCODE>_DYN" src/barretenberg/vm2/common/aztec_constants.hpp
 
-# List all gas constants in aztec_constants.hpp
-grep "AVM_.*_BASE_L2_GAS\|AVM_.*_BASE_DA_GAS\|AVM_.*_DYN" src/barretenberg/vm2/common/aztec_constants.hpp
-
-# List all gas entries in instruction spec
-grep -B 2 -A 5 "gas_cost" src/barretenberg/vm2/common/instruction_spec.cpp | head -80
+# Find the instruction spec entry for the target opcode
+grep -A 10 "ExecutionOpCode::<OPCODE>," src/barretenberg/vm2/common/instruction_spec.cpp
 ```
-
-Build a master checklist:
-
-| Opcode | Doc L2 | Doc DA | Constant L2 | Constant DA | Checked? | Finding? |
-|--------|--------|--------|-------------|-------------|----------|----------|
-
-**You MUST check every opcode's gas costs.** Breadth across all opcodes is more important than depth on any single one.
 
 ### Step 1: Select Target Opcode(s)
 ```bash

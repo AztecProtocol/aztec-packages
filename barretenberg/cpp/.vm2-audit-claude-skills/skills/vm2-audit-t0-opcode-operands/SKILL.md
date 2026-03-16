@@ -97,29 +97,20 @@ Types:
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes and Their Operands (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, enumerate ALL opcodes and their operand counts.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify which opcode(s) it governs. Then verify operand definitions for those specific opcode(s) across documentation, instruction spec, and PIL. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ```bash
-# List ALL opcode documentation files
-ls yarn-project/simulator/docs/avm/opcodes/*.md
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Extract operand tables from all opcode docs
-for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
-  echo "=== $(basename $f) ==="; grep -A 10 "## Operands" "$f" 2>/dev/null | head -12
-done
+# Find the instruction spec entry for the target opcode
+grep -A 15 "ExecutionOpCode::<OPCODE>," src/barretenberg/vm2/common/instruction_spec.cpp
 
-# Find all instruction specs with operand info
-grep -n "num_addresses\|add_input\|add_output" src/barretenberg/vm2/common/instruction_spec.cpp | head -60
+# Check operand-related patterns in the target file
+grep -n "register\|num_addresses\|add_input\|add_output" pil/vm2/<target>.pil
 ```
-
-Build a master checklist:
-
-| Opcode | Doc operands | num_addresses | inputs | outputs | Checked? | Finding? |
-|--------|-------------|---------------|--------|---------|----------|----------|
-
-**You MUST check every opcode's operand definitions.** Breadth across all opcodes is more important than depth on any single one.
 
 ### Step 1: Select Target Opcode
 ```bash

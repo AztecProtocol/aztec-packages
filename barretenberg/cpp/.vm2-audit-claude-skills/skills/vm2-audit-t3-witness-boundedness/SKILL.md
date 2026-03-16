@@ -80,24 +80,27 @@ ARITHMETIC="alu|ff_gt|gt|bitwise"
 
 ### Phase 1: Batch Collection (4 parallel searches)
 
-**Search A — All committed columns** (the full set):
+This session targets a single PIL file. Run searches against the target file; also search for incoming permutations across `pil/vm2/` to catch cross-file bindings that constrain columns in the target.
+
+**Search A — All committed columns in the target file**:
 ```bash
-grep -rn "pol commit" pil/vm2/ --include="*.pil"
+grep -n "pol commit" <target_file>
 ```
 
-**Search B — All boundedness constraints** (boolean, range check, lookup):
+**Search B — All boundedness constraints in the target file** (boolean, range check, lookup):
 ```bash
-grep -rn "(1 - \|in range_check\|in precomputed" pil/vm2/ --include="*.pil"
+grep -n "(1 - \|in range_check\|in precomputed" <target_file>
 ```
 
-**Search C — All incoming permutations** (cross-file bindings):
+**Search C — All incoming permutations** (cross-file bindings that constrain target columns):
 ```bash
-grep -rn "} is " pil/vm2/ --include="*.pil"
+# Check what other files bind into this file's namespace
+grep -rn "} is " pil/vm2/ --include="*.pil" | grep "<target_namespace>"
 ```
 
-**Search D — All equation derivations** (equality constraints):
+**Search D — All equation derivations in the target file** (equality constraints):
 ```bash
-grep -rn "= 0;" pil/vm2/ --include="*.pil" | grep -v "pol \|//\|#"
+grep -n "= 0;" <target_file> | grep -v "pol \|//\|#"
 ```
 
 ### Phase 2: Set Difference (compute candidates)
@@ -112,13 +115,13 @@ Typically yields **15-40 candidates**, not hundreds.
 
 ### Phase 2.5: ALU Decomposition Deep Dive
 
-**Priority target**: `alu.pil` and any arithmetic gadgets (`ff_gt.pil`, `gt.pil`). These files contain decomposition variables (high/low limbs, quotients, remainders) that are the most exploitable unbounded witnesses.
+**Priority target**: Arithmetic gadgets (`alu.pil`, `ff_gt.pil`, `gt.pil`). If the target file is one of these, it contains decomposition variables (high/low limbs, quotients, remainders) that are the most exploitable unbounded witnesses.
 
 ```bash
-# Find all decomposition-related committed columns in arithmetic files
-grep -n "pol commit" pil/vm2/alu.pil pil/vm2/ff_gt.pil pil/vm2/gt.pil
-# Find all range checks in arithmetic files
-grep -n "in range_check\|in precomputed" pil/vm2/alu.pil pil/vm2/ff_gt.pil pil/vm2/gt.pil
+# Find all decomposition-related committed columns in the target file
+grep -n "pol commit" <target_file>
+# Find all range checks in the target file
+grep -n "in range_check\|in precomputed" <target_file>
 ```
 
 For each decomposition variable (names like `*_hi`, `*_lo`, `*_quotient`, `*_remainder`, `*_carry`, `*_limb*`):
@@ -141,13 +144,12 @@ For each candidate, read the relevant PIL file (group by file to minimize reads)
 
 ### Phase 4: Completeness Check
 
-Verify coverage by counting `pol commit` per file and ensuring all files were analyzed:
+Verify all committed columns in the target file were analyzed:
 ```bash
-for f in pil/vm2/*.pil pil/vm2/**/*.pil; do
-  [ -f "$f" ] || continue
-  echo "$f: $(grep -c 'pol commit' "$f" 2>/dev/null || echo 0) columns"
-done
+grep -c "pol commit" <target_file>
 ```
+
+Ensure the count of columns analyzed matches the total committed columns found in Phase 1 Search A.
 
 ## False Positive Avoidance
 

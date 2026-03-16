@@ -105,29 +105,22 @@ If you verify a pattern only on the happy path, note it as "(happy path only —
 
 ## Workflow
 
-### Step 0: Enumerate ALL Fallible Opcodes (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, identify ALL opcodes that can produce errors.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly, identify which opcode(s) it covers, and check whether they are infallible or fallible. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ```bash
-# List all documented opcodes with error conditions
-for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
-  if grep -q "Error Conditions" "$f"; then echo "$f"; fi
-done
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# List all opcode-specific PIL files (these handle fallible opcodes)
-ls pil/vm2/opcodes/*.pil
-
-# Find infallible opcodes for exclusion
+# Check whether the opcode is marked infallible
 grep "INFALLIBLE_OPCODES_SUCCESS" pil/vm2/execution.pil
+
+# Find error-related patterns in the target file
+grep -n "sel_opcode_error\|error\|static\|limit\|discard" pil/vm2/<target>.pil
 ```
 
-Build a master checklist:
-
-| Opcode | Documented errors | Sim checked? | PIL checked? | Finding? |
-|--------|------------------|-------------|-------------|----------|
-
-**You MUST check every fallible opcode**, not just the first few. Breadth across all opcodes is more important than depth on any single one.
+Read any related PIL or simulation files for context (e.g., `execution.pil`, `registers.pil`, the corresponding simulation gadget), but findings should be about the target file.
 
 ### Step 1: Select Target Opcode(s)
 ```bash
@@ -231,7 +224,7 @@ For each fallible opcode (not just checking that error conditions exist):
 3. **Check spurious activation**: Can a malicious prover set the error selector to 1 when the genuine condition does not warrant it? The constraint `sel_error * (condition) = 0` only prevents `sel_error=1 AND condition≠0` — it does NOT prevent `sel_error=1 AND condition=0` if `sel_error` is a free committed column.
 4. **Check cascading effects**: When a prior error stage fires (e.g., bytecode retrieval), are later error selectors constrained to 0? Or can a malicious prover set `sel_opcode_error=1` even when `sel_bytecode_retrieval_failure=1` already fired?
 
-**DEPTH MANDATE**: For each opcode you check, you MUST read the full PIL file and trace through at least one error path. If this limits you to 10 opcodes instead of 47, that is acceptable — depth over breadth. A superficial "OK" mark that only confirms the error selector exists is NOT acceptable.
+**DEPTH MANDATE**: For the target opcode(s), you MUST read the full PIL file and trace through at least one error path end-to-end. A superficial "OK" mark that only confirms the error selector exists is NOT acceptable.
 
 ## Common Mismatch Patterns
 

@@ -28,44 +28,23 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 **RULE 4 — Severity floor.** When in doubt, report as **High**.
 
-## CRITICAL: Breadth-First Approach
-
-**DO NOT deep-dive into any single file.** This skill requires a systematic sweep across ALL components. The most common failure mode is fixating on a single file and reporting multiple variants of the same issue while missing bugs in other files entirely.
-
 ## Workflow
 
-### Phase 1: Breadth-First Survey (MANDATORY FIRST STEP)
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Perform a deep analysis of that file's error-related constraints. Read other files (e.g., `execution.pil`, `context.pil`) for context on the error cascade, but findings should be about the target file only.
 
-Before analyzing any constraint in detail, you MUST catalogue every component that has error-related selectors or flags. Search the entire `pil/vm2/` directory tree.
+### Phase 1: Survey the Target File
 
-1. **Find all error selectors and flags across all files:**
+1. **Find all error selectors and flags in the target file:**
 ```bash
-grep -rn "sel_err\|sel_error\|sel_opcode_error\|sel_tag_err\|_failure\|nested_failure\|sel_parsing_err\|_out_of_range_err\|\berr\b" \
-    barretenberg/cpp/pil/vm2/ --include="*.pil" | grep -v "//" | grep "pol"
+grep -n "sel_err\|sel_error\|sel_opcode_error\|sel_tag_err\|_failure\|nested_failure\|sel_parsing_err\|_out_of_range_err\|\berr\b" \
+    <target>.pil | grep -v "//" | grep "pol"
 ```
 
-2. **Build a component inventory** listing every file that defines or uses an error flag. This inventory MUST include at minimum:
-   - The top-level execution file (`execution.pil`)
-   - The context management file (`context.pil`)
-   - ALL files in the `opcodes/` directory
-   - ALL multi-row gadget files (data copy, emit log, memory gadgets, etc.)
-   - ALL computation gadgets (ALU, bitwise, ECC, hashing, etc.)
-   - Bytecode-related files that have error paths
+2. **Build an inventory** of error flags, shifted-column constraints, and lookups/permutations in the target file.
 
-3. **Output the inventory** as a checklist before proceeding. Example format:
-   ```
-   Component Inventory:
-   [ ] execution.pil - sel_error, sel_opcode_error, sel_instruction_fetching_failure, sel_bytecode_retrieval_failure, sel_out_of_gas
-   [ ] context.pil - sel_error, nested_failure
-   [ ] alu.pil - sel_err, sel_tag_err, sel_div_0_err
-   [ ] data_copy.pil - err, src_out_of_range_err, dst_out_of_range_err
-   [ ] opcodes/internal_call.pil - sel_opcode_error
-   ... (every file with error selectors)
-   ```
+3. **Output the inventory** as a checklist before proceeding.
 
-### Phase 2: Per-Component Analysis
-
-Work through the inventory systematically. For EACH component, check the three vulnerability patterns below. **After finding 1-2 issues in a single component, move on to the next component.** Do not exhaustively document every variant in one file.
+### Phase 2: Deep Analysis
 
 #### DEPTH MANDATE
 
@@ -124,19 +103,17 @@ err = 1 - (1 - err_a) * (1 - err_b);  // Only meaningful when sel_start = 1
 
 ### Phase 3: Completion Checklist (MANDATORY)
 
-Before writing the final report, verify coverage by checking off every component from the Phase 1 inventory:
+Before writing the final report, verify coverage of every error flag, shifted-column constraint, and lookup/permutation in the target file from the Phase 1 inventory:
 
 ```
 Completion Checklist:
-[x] execution.pil - Analyzed. No issues found / Found 1 issue.
-[x] context.pil - Analyzed. No issues found.
-[x] alu.pil - Analyzed. Found 1 issue (lookup gating).
-[x] data_copy.pil - Analyzed. Found 1 issue (err unconstrained on non-start rows).
-[x] opcodes/internal_call.pil - Analyzed. Found 1 issue.
-... (every component from inventory)
+[x] sel_err - boolean constraint verified, aggregation confirmed
+[x] shifted column constraint at line N - gating analysis done
+[x] lookup at line M - error-gating verified
+... (every item from inventory)
 ```
 
-**If any component is unchecked, go back and analyze it before completing.**
+**If any inventory item is unchecked, go back and analyze it before completing.**
 
 ## Error Flow Context
 

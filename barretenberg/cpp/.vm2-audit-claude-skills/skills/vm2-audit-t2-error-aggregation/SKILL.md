@@ -38,42 +38,28 @@ Completeness bugs reachable via canonical simulation on valid inputs are **Criti
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With Error Flags (MANDATORY)
-
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL files containing error-related columns.
-
-```bash
-# Find all files with error-related columns
-grep -rl "err\|error\|failure" pil/vm2/ --include="*.pil" | sort
-
-# Count error-related columns per file
-for f in $(grep -rl "err\|error\|failure" pil/vm2/ --include="*.pil"); do
-  echo "=== $f ===" ; grep -c "err\|error\|failure" "$f"
-done
-```
-
-Build a master checklist of ALL files with error flags. You MUST check every file that has error-related columns.
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus deeply on that file; read related files only for context (e.g., to confirm that errors referenced in the target feed into an aggregate defined elsewhere).
 
 ### Step 1: Find Aggregate Error Flags
 ```bash
-grep -rn "pol commit sel_err\|pol commit.*_error\|pol commit.*_failure" pil/vm2/ --include="*.pil"
-grep -rn "sel_.*err\|sel_err" pil/vm2/ --include="*.pil"
+grep -n "pol commit sel_err\|pol commit.*_error\|pol commit.*_failure" <target>.pil
+grep -n "sel_.*err\|sel_err" <target>.pil
 ```
 
 ### Step 2: Find Individual Error Flags
 ```bash
-grep -rn "err_\|_err\|out_of_range\|overflow\|underflow\|invalid" pil/vm2/ --include="*.pil"
+grep -n "err_\|_err\|out_of_range\|overflow\|underflow\|invalid" <target>.pil
 ```
 
 ### Step 3: Verify Aggregation Constraints Exist
 ```bash
-grep -rn "sel_err.*=\|sel_err -" pil/vm2/ --include="*.pil"
-grep -rn "err.*\* (1 - sel_err)" pil/vm2/ --include="*.pil"
+grep -n "sel_err.*=\|sel_err -" <target>.pil
+grep -n "err.*\* (1 - sel_err)" <target>.pil
 ```
 
 ### Step 4: Check for Commented-Out Aggregation
 ```bash
-grep -rn "//.*sel_err.*=\|//.*error.*=\|FIXME.*err\|TODO.*err" pil/vm2/ --include="*.pil"
+grep -n "//.*sel_err.*=\|//.*error.*=\|FIXME.*err\|TODO.*err" <target>.pil
 ```
 
 ### Step 5: Verify Mutual Exclusivity (If Using Sum)

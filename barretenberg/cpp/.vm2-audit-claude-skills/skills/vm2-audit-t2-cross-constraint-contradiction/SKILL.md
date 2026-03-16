@@ -61,33 +61,18 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-> **SCOPE**: PIL files in `barretenberg/cpp/pil/vm2/`. Focus on constraints that set next-row values (`column'`) and interact across operation boundaries.
-
-### Phase 0: Enumerate ALL PIL Files With Next-Row Constraints (MANDATORY)
-
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with shifted-column constraints.
-
-```bash
-# Find all files with next-row references (column')
-grep -rl "'" pil/vm2/ --include="*.pil" | sort
-
-# Count shifted references per file to prioritize
-for f in $(grep -rl "'" pil/vm2/ --include="*.pil"); do
-  count=$(grep -c "'" "$f" 2>/dev/null)
-  echo "$count $f"
-done | sort -rn | head -20
-```
-
-Build a master checklist of all files with next-row constraints. You MUST check every file for potential contradictions.
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus on next-row constraints in the target file; read other PIL files (listed under Key Files) for context on what constraints they impose, since contradictions arise across file boundaries.
 
 ### Phase 1: Identify Next-Row Forcing Constraints
 
-Find all constraints that force a specific value on the next row:
+Find all constraints that force a specific value on the next row in the target file:
 
 ```bash
 # Constraints that reference shifted columns (column')
-grep -rn "'" barretenberg/cpp/pil/vm2/ --include="*.pil" | grep -v "^[[:space:]]*//" | grep -v "^[[:space:]]*\*"
+grep -n "'" <target>.pil | grep -v "^[[:space:]]*//" | grep -v "^[[:space:]]*\*"
 ```
+
+Read interacting files (e.g., context.pil, execution.pil) to find initialization constraints that the next row must satisfy, since contradictions arise across file boundaries.
 
 Categorize them:
 - **Propagation**: `sel * (column' - column) = 0` (carry forward)
@@ -99,9 +84,9 @@ Categorize them:
 Identify where execution transitions between different operation types:
 
 ```bash
-# Operation-type selectors
-grep -rn "sel_enter_call\|sel_exit_call\|sel_error\|enqueued_call_start\|enqueued_call_end\|sel_first_row_in_context\|sel_execute_internal" \
-    barretenberg/cpp/pil/vm2/ --include="*.pil" | grep "pol "
+# Operation-type selectors in target file
+grep -n "sel_enter_call\|sel_exit_call\|sel_error\|enqueued_call_start\|enqueued_call_end\|sel_first_row_in_context\|sel_execute_internal" \
+    <target>.pil | grep "pol "
 ```
 
 Key boundaries where contradictions arise:
@@ -157,8 +142,7 @@ For any found contradictions, check if the existing fix pattern is applied:
 
 ```bash
 # Common fix: gate by error to prevent next-row forcing during error
-grep -rn "1 - sel_opcode_error\|1 - sel_error\|sel_read_unwind" \
-    barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "1 - sel_opcode_error\|1 - sel_error\|sel_read_unwind" <target>.pil
 ```
 
 ## Contradiction Categories

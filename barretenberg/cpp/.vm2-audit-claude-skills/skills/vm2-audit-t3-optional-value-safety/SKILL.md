@@ -40,28 +40,13 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### 0. Enumerate ALL Source Files (MANDATORY)
+### 0. Identify Target File
 
-> **CRITICAL**: Before analyzing any individual file, enumerate ALL simulation and tracegen source files.
-
-```bash
-# List all source files
-find src/barretenberg/vm2/simulation/ -name "*.cpp" -o -name "*.hpp" | sort
-find src/barretenberg/vm2/tracegen/ -name "*.cpp" -o -name "*.hpp" | sort
-
-# Count .value() calls per file
-for f in $(find src/barretenberg/vm2/ -name "*.cpp" -o -name "*.hpp"); do
-  count=$(grep -c "\.value()" "$f" 2>/dev/null)
-  if [ "$count" -gt 0 ]; then echo "$count $f"; fi
-done | sort -rn
-```
-
-Build a master checklist of ALL files with .value() calls. You MUST check every one.
+This session targets a single simulation or tracegen source file. Focus deeply on `.value()` calls and collection accesses within that file. Also read any related PIL files and other source files that interact with the target for context, but findings should be about the target file.
 
 ### 1. Find .value() Calls
 ```bash
-grep -rn "\.value()" --include="*.cpp" --include="*.hpp" src/barretenberg/vm2/simulation/
-grep -rn "\.value()" --include="*.cpp" --include="*.hpp" src/barretenberg/vm2/tracegen/
+grep -n "\.value()" <target_file>
 ```
 
 ### 2. Analyze Each Call
@@ -72,7 +57,7 @@ For each `.value()`:
 
 ### 3. Find Collection Accesses
 ```bash
-grep -rn "\.at(\|\.front(\|\.back(" --include="*.cpp" --include="*.hpp" src/barretenberg/vm2/simulation/
+grep -n "\.at(\|\.front(\|\.back(" <target_file>
 ```
 
 ### 4. Verify Bounds

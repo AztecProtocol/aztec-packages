@@ -109,27 +109,22 @@ barretenberg/cpp/pil/vm2/memory.pil                 # Memory permutation
 
 ## Workflow
 
-### Step 0: Enumerate ALL Memory-Accessing Opcodes (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, enumerate ALL opcodes that access memory.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify the opcode(s) it governs, their memory reads and writes, and how ordering is constrained. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ```bash
-# List all opcode docs
-ls yarn-project/simulator/docs/avm/opcodes/
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Find all opcodes with memory operands in instruction spec
-grep -n "RegisterInfo" src/barretenberg/vm2/common/instruction_spec.cpp | head -40
+# Find memory access patterns in the target file
+grep -n "memory\.\|MEM_READ\|MEM_WRITE\|WRITE_MEM\|READ_MEM\|rw" pil/vm2/<target>.pil
 
-# Find all opcode PIL files with memory interactions
-grep -rl "memory\.\|MEM_READ\|MEM_WRITE\|WRITE_MEM\|READ_MEM" pil/vm2/ --include="*.pil" | sort
+# Find the instruction spec entry for register/operand info
+grep -n "RegisterInfo" src/barretenberg/vm2/common/instruction_spec.cpp | grep -i "<opcode>"
 ```
 
-Build a master checklist:
-
-| Opcode | # reads | # writes | Ordering checked? | Finding? |
-|--------|---------|----------|------------------|----------|
-
-**You MUST check every opcode that reads or writes memory.** Prioritize opcodes with both reads AND writes (where ordering matters), then write-only, then read-only.
+Read related files for context (memory.pil, registers.pil, simulation code), but findings should be about the target file.
 
 ### Step 1: Identify Input vs Output Operands
 ```bash

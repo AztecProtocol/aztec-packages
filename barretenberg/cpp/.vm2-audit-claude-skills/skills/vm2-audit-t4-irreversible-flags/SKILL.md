@@ -57,23 +57,14 @@ is_padding * (1 - is_padding') = 0;      // Irreversible: once 1, stays 1
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With State Flags (MANDATORY)
+### Step 0: Identify Target File
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with boolean state flags.
-
-```bash
-# Find all files with state-like boolean flags
-grep -rl "padding\|halted\|done\|finished\|error\|active\|ended" pil/vm2/ --include="*.pil" | sort
-
-# Find all boolean committed columns (potential monotonic flags)
-grep -rn "pol commit.*is_\|pol commit.*has_\|pol commit.*sel_" pil/vm2/ --include="*.pil" | head -40
-```
-
-Build a master checklist of ALL files with state flags. You MUST check every file for reversible flag vulnerabilities.
+This session targets a single PIL file. Focus deeply on boolean state flags within that file that should be monotonic. Read other PIL files only to understand interactions that depend on these flags.
 
 ### Step 1: Find State Flags
 ```bash
-grep -rn "pol commit.*padding\|pol commit.*halted\|pol commit.*done\|pol commit.*error\|pol commit.*finished" pil/vm2/ --include="*.pil"
+grep -n "pol commit.*padding\|pol commit.*halted\|pol commit.*done\|pol commit.*error\|pol commit.*finished" <target_file>
+grep -n "pol commit.*is_\|pol commit.*has_\|pol commit.*sel_" <target_file>
 ```
 
 ### Step 2: Check Monotonic Constraint

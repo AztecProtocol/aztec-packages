@@ -43,19 +43,19 @@ Completeness bugs reachable via canonical simulation on valid inputs are **Criti
 
 ## Workflow
 
-### Step 1: Exhaustive Interaction Enumeration
+### Step 1: Enumerate All Interactions in the Target File
 
-> **CRITICAL**: Enumerate ALL interactions across ALL PIL files in one pass. Do not limit to a single component.
+> **NOTE**: This session targets a single PIL file. Enumerate all interactions in that file.
 
 ```bash
-# Find ALL lookups across the entire codebase
-grep -rn "} in " pil/vm2/ --include="*.pil"
+# Find all lookups in the target file
+grep -n "} in " pil/vm2/<target_file>.pil
 
-# Find ALL permutations across the entire codebase
-grep -rn "} is " pil/vm2/ --include="*.pil"
+# Find all permutations in the target file
+grep -n "} is " pil/vm2/<target_file>.pil
 ```
 
-Build a complete table of every interaction:
+Build a table of every interaction in the target file. Read destination/source files for context where needed:
 
 | File:Line | Interaction Name | Type (in/is) | Destination | Side-Effect? |
 |-----------|-----------------|--------------|-------------|-------------|
@@ -81,18 +81,9 @@ Any `} in ` for memory/emission/call/tree/stack operations is a finding.
 
 **Stack pattern rule**: Any interaction that pushes to or pops from a stack (context stack, call stack, internal call stack) MUST be a permutation. A lookup allows duplicating pushes or skipping pops, breaking stack integrity. Flag ALL stack-related lookups.
 
-### Step 3: Exhaustive File Coverage (MANDATORY)
+### Step 3: Coverage Assertion
 
-Enumerate ALL PIL files to ensure no file is missed:
-```bash
-find pil/vm2/ -name "*.pil" | sort
-```
-
-Cross-reference this complete list against the files that appeared in Step 1 grep results. For any file NOT appearing in the grep output, read it and manually check for interactions. Files like `context_stack.pil`, `tx.pil`, and other dispatch/coordination files may use non-standard interaction patterns.
-
-### Step 4: Coverage Assertion (MANDATORY)
-
-At the end, assert: "I examined N total interactions across M files. K were lookups, J were permutations. I flagged F lookups as potential findings." If N < total interactions in codebase, explain which files were not reached.
+At the end, assert: "I examined N total interactions in the target file. K were lookups, J were permutations. I flagged F lookups as potential findings."
 
 ## Patterns
 

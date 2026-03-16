@@ -2,8 +2,8 @@
 #
 # run-regression.sh - Test audit skills against known historical bugs
 #
-# Each skill runs ONCE against all PIL files, then findings are evaluated
-# against all bugs mapped to that skill. This avoids redundant runs.
+# Each skill runs ONCE PER PIL FILE, targeting a single gadget per session.
+# Findings are then evaluated against bugs mapped to that (skill, pil_file).
 #
 # Usage:
 #   ./run-regression.sh [OPTIONS]
@@ -11,7 +11,7 @@
 # Options:
 #   -s, --skill SKILL   Test only this skill (repeatable for multiple skills)
 #   -T, --tier N        Test all skills in tier N (e.g., -T 1)
-#   -b, --bug BUG_ID    Only evaluate this bug (skill still runs full audit)
+#   -b, --bug BUG_ID    Only evaluate this bug (runs only relevant PIL files)
 #   -m, --model MODEL   Model to use (default: sonnet)
 #   -j, --jobs N        Maximum parallel jobs (default: 5)
 #   --report-only       Only regenerate REPORT.md from existing results
@@ -86,23 +86,34 @@ fi
 
 log() { echo -e "$1"; }
 
-# ─── Build skill runs: group by (skill, commit) ─────────────────────────────
-#
-# Each "run" = one invocation of a skill against a worktree at a specific commit.
-# A run is identified by "${skill}@${commit_short}".
-# After running, we evaluate its findings against all mapped bugs.
+# ─── Utility: convert PIL path to a key for directory naming ──────────────
+# pil/vm2/alu.pil → alu
+# pil/vm2/bytecode/bc_hashing.pil → bytecode__bc_hashing
+# pil/vm2/execution/addressing.pil → execution__addressing
+pil_to_key() {
+    echo "$1" | sed 's|^pil/vm2/||; s|\.pil$||; s|/|__|g'
+}
 
-# Associative arrays keyed by "skill|||commit"
+# ─── Build runs: group by (skill, pil_file, commit) ──────────────────────
+#
+# Each "run" = one Claude session auditing a specific PIL file with a specific skill.
+# A run is identified by "${skill}|||${pil_file}|||${commit}".
+# After running, we evaluate its findings against all bugs mapped to that (skill, pil_file).
+
+# Associative arrays keyed by "skill|||pil_file|||commit"
 declare -A RUN_BUGS      # run_key -> space-separated bug IDs
 declare -A RUN_COMMIT    # run_key -> full commit hash
 
-# Also maintain flat arrays of (skill, bug, commit) for report generation
+# Flat arrays for report generation
 declare -a PAIRS_SKILL=()
 declare -a PAIRS_BUG=()
 declare -a PAIRS_COMMIT=()
+declare -a PAIRS_PIL=()   # which PIL file this pair targets
 
-while IFS=$'\t' read -r bug_id commit skills_csv; do
+while IFS=$'\t' read -r bug_id commit skills_csv pil_files_csv; do
     IFS=',' read -ra skill_list <<< "$skills_csv"
+    IFS=',' read -ra pil_list <<< "$pil_files_csv"
+
     for skill in "${skill_list[@]}"; do
         skill=$(echo "$skill" | xargs)  # trim whitespace
         # Apply skill filters
@@ -116,13 +127,19 @@ while IFS=$'\t' read -r bug_id commit skills_csv; do
         if [[ -n "$FILTER_TIER" && ! "$skill" =~ ^vm2-audit-t${FILTER_TIER}- ]]; then continue; fi
         if [[ -n "$FILTER_BUG" && "$bug_id" != "$FILTER_BUG" ]]; then continue; fi
 
-        PAIRS_SKILL+=("$skill")
-        PAIRS_BUG+=("$bug_id")
-        PAIRS_COMMIT+=("$commit")
+        for pil_file in "${pil_list[@]}"; do
+            pil_file=$(echo "$pil_file" | xargs)  # trim whitespace
+            [[ -z "$pil_file" ]] && continue
 
-        run_key="${skill}|||${commit}"
-        RUN_BUGS[$run_key]="${RUN_BUGS[$run_key]:-} $bug_id"
-        RUN_COMMIT[$run_key]="$commit"
+            PAIRS_SKILL+=("$skill")
+            PAIRS_BUG+=("$bug_id")
+            PAIRS_COMMIT+=("$commit")
+            PAIRS_PIL+=("$pil_file")
+
+            run_key="${skill}|||${pil_file}|||${commit}"
+            RUN_BUGS[$run_key]="${RUN_BUGS[$run_key]:-} $bug_id"
+            RUN_COMMIT[$run_key]="$commit"
+        done
     done
 done < <(jq -r '
     .baseline_commit as $base |
@@ -130,7 +147,8 @@ done < <(jq -r '
     .id as $id |
     (if .introduced_after_baseline then .commit_before else $base end) as $commit |
     (.skills | join(",")) as $skills |
-    "\($id)\t\($commit)\t\($skills)"
+    ((.pil_targets // [.files[] | select(endswith(".pil"))]) | join(",")) as $pils |
+    "\($id)\t\($commit)\t\($skills)\t\($pils)"
 ' "$BUGS_FILE")
 
 TOTAL_PAIRS=${#PAIRS_SKILL[@]}
@@ -141,16 +159,27 @@ if [[ $TOTAL_RUNS -eq 0 ]]; then
     exit 0
 fi
 
-# ─── --list mode ──────────────────────────────────────────────────────────────
+# ─── --list mode ──────────────────────────────────────────────────────────
+
+# Helper to parse run_key "skill|||pil_file|||commit" into variables
+# Usage: parse_run_key "$run_key" → sets RK_SKILL, RK_PIL, RK_COMMIT
+parse_run_key() {
+    local key="$1"
+    RK_SKILL="${key%%|||*}"
+    local rest="${key#*|||}"
+    RK_PIL="${rest%%|||*}"
+    RK_COMMIT="${rest#*|||}"
+}
 
 if [[ "$LIST_ONLY" == "true" ]]; then
-    log "${CYAN}Skill runs (${TOTAL_RUNS} runs covering ${TOTAL_PAIRS} bug evaluations):${NC}"
+    log "${CYAN}Skill runs (${TOTAL_RUNS} per-file sessions covering ${TOTAL_PAIRS} bug evaluations):${NC}"
     log ""
-    for run_key in "${!RUN_BUGS[@]}"; do
-        IFS='|' read -r skill _ _ commit <<< "$run_key"
+    for run_key in $(printf '%s\n' "${!RUN_BUGS[@]}" | sort); do
+        parse_run_key "$run_key"
         bugs="${RUN_BUGS[$run_key]}"
         bug_count=$(echo $bugs | wc -w)
-        printf "%-50s %s (%d bugs)\n" "$skill" "${commit:0:10}" "$bug_count"
+        pil_key=$(pil_to_key "$RK_PIL")
+        printf "%-50s %-25s %s (%d bugs)\n" "$RK_SKILL" "$pil_key" "${RK_COMMIT:0:10}" "$bug_count"
         for b in $bugs; do
             printf "  - %s\n" "$b"
         done
@@ -159,15 +188,18 @@ if [[ "$LIST_ONLY" == "true" ]]; then
 fi
 
 # ─── Result directory naming ────────────────────────────────────────────────
-# results/{skill}--{commit_short}/
+# results/{skill}--{pil_key}--{commit_short}/
 #   audit.json        — the single audit output
 #   audit.md          — the markdown report
 #   verdict-{bug}.json — per-bug evaluation verdict
 
 run_dir_name() {
     local skill="$1"
-    local commit="$2"
-    echo "${skill}--${commit:0:10}"
+    local pil_file="$2"
+    local commit="$3"
+    local pil_key
+    pil_key=$(pil_to_key "$pil_file")
+    echo "${skill}--${pil_key}--${commit:0:10}"
 }
 
 # ─── --report-only mode ──────────────────────────────────────────────────────
@@ -177,24 +209,32 @@ generate_report() {
     log "${YELLOW}Generating report...${NC}"
 
     # Collect all unique skills that have results
-    declare -A SKILL_BUGS         # skill -> space-separated bug IDs
+    declare -A SKILL_BUGS         # skill -> space-separated bug IDs (unique)
     declare -A SKILL_DETECTED     # skill -> count of detected bugs
     declare -A SKILL_SEV_MATCH    # skill -> count of severity matches
-    declare -A SKILL_FP           # skill -> total false positive count (per-run, not per-bug)
     declare -A SKILL_TOTAL        # skill -> total bugs expected
     declare -A BUG_DETECTED_BY    # bug_id -> space-separated skills that detected it
-    declare -A SKILL_RUN_COUNTED  # skill -> whether we already counted FPs for this run
+    # Track per (skill, bug) detection: a bug is detected if ANY per-file run finds it
+    declare -A SKILL_BUG_DETECTED   # "skill|||bug" -> true
+    declare -A SKILL_BUG_SEV_MATCH  # "skill|||bug" -> true
+    declare -A SKILL_BUG_SEV_DETAIL # "skill|||bug" -> severity string
 
+    # First pass: collect best verdict per (skill, bug) across all PIL files
     for i in $(seq 0 $((TOTAL_PAIRS - 1))); do
         local skill="${PAIRS_SKILL[$i]}"
         local bug_id="${PAIRS_BUG[$i]}"
         local commit="${PAIRS_COMMIT[$i]}"
-        local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "$commit")"
+        local pil_file="${PAIRS_PIL[$i]}"
+        local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "$pil_file" "$commit")"
         local verdict_file="$rdir/verdict-${bug_id}.json"
 
-        # Initialize counters
-        SKILL_BUGS[$skill]="${SKILL_BUGS[$skill]:-} $bug_id"
-        SKILL_TOTAL[$skill]=$(( ${SKILL_TOTAL[$skill]:-0} + 1 ))
+        local sb_key="${skill}|||${bug_id}"
+
+        # Track unique bugs per skill (only add once)
+        if [[ ! "${SKILL_BUGS[$skill]:-}" == *"$bug_id"* ]]; then
+            SKILL_BUGS[$skill]="${SKILL_BUGS[$skill]:-} $bug_id"
+            SKILL_TOTAL[$skill]=$(( ${SKILL_TOTAL[$skill]:-0} + 1 ))
+        fi
 
         if [[ ! -f "$verdict_file" ]]; then
             continue
@@ -203,29 +243,43 @@ generate_report() {
         local detected=$(jq -r '.detected // false' "$verdict_file")
         local sev_match=$(jq -r '.severity_match // false' "$verdict_file")
 
+        # A bug is detected if ANY per-file run detects it
         if [[ "$detected" == "true" ]]; then
-            SKILL_DETECTED[$skill]=$(( ${SKILL_DETECTED[$skill]:-0} + 1 ))
-            BUG_DETECTED_BY[$bug_id]="${BUG_DETECTED_BY[$bug_id]:-} $skill"
+            SKILL_BUG_DETECTED[$sb_key]="true"
+            if [[ "$sev_match" == "true" ]]; then
+                SKILL_BUG_SEV_MATCH[$sb_key]="true"
+                local sev_detail=$(jq -r '.matched_severity // ""' "$verdict_file")
+                if [[ -n "$sev_detail" && "$sev_detail" != "null" ]]; then
+                    SKILL_BUG_SEV_DETAIL[$sb_key]="$sev_detail"
+                fi
+            fi
         fi
-        if [[ "$sev_match" == "true" ]]; then
-            SKILL_SEV_MATCH[$skill]=$(( ${SKILL_SEV_MATCH[$skill]:-0} + 1 ))
-        fi
+    done
 
-        # Count FPs once per run, not once per bug
-        local run_key="${skill}|||${commit}"
-        if [[ -z "${SKILL_RUN_COUNTED[$run_key]:-}" ]]; then
-            SKILL_RUN_COUNTED[$run_key]=1
-            local run_fp=$(jq -r '.unmatched_finding_count // 0' "$rdir/run-verdict.json" 2>/dev/null || echo 0)
-            SKILL_FP[$skill]=$(( ${SKILL_FP[$skill]:-0} + run_fp ))
-        fi
+    # Second pass: aggregate per-skill stats
+    for skill in $(printf '%s\n' "${!SKILL_TOTAL[@]}" | sort); do
+        SKILL_DETECTED[$skill]=0
+        SKILL_SEV_MATCH[$skill]=0
+        for bug_id in ${SKILL_BUGS[$skill]}; do
+            [[ -z "$bug_id" ]] && continue
+            local sb_key="${skill}|||${bug_id}"
+            if [[ "${SKILL_BUG_DETECTED[$sb_key]:-}" == "true" ]]; then
+                SKILL_DETECTED[$skill]=$(( ${SKILL_DETECTED[$skill]} + 1 ))
+                BUG_DETECTED_BY[$bug_id]="${BUG_DETECTED_BY[$bug_id]:-} $skill"
+            fi
+            if [[ "${SKILL_BUG_SEV_MATCH[$sb_key]:-}" == "true" ]]; then
+                SKILL_SEV_MATCH[$skill]=$(( ${SKILL_SEV_MATCH[$skill]} + 1 ))
+            fi
+        done
     done
 
     # Write report
     cat > "$report_file" <<'HEADER'
 # Regression Test Report
 
-Generated by `run-regression.sh`. Each skill runs once against all PIL files,
-then findings are evaluated against all mapped bugs.
+Generated by `run-regression.sh` (per-file mode). Each skill runs once per
+relevant PIL file, then findings are evaluated against mapped bugs.
+A bug is "detected" if ANY per-file run for that skill finds it.
 
 HEADER
 
@@ -239,46 +293,66 @@ HEADER
         local total=${SKILL_TOTAL[$skill]:-0}
         local detected=${SKILL_DETECTED[$skill]:-0}
         local sev_match=${SKILL_SEV_MATCH[$skill]:-0}
-        local fp=${SKILL_FP[$skill]:-0}
 
         echo "### $skill" >> "$report_file"
         echo "" >> "$report_file"
-        echo "| Bug ID | Detected? | Severity Match? |" >> "$report_file"
-        echo "|--------|-----------|-----------------|" >> "$report_file"
+        echo "| Bug ID | Detected? | Severity Match? | Detecting File |" >> "$report_file"
+        echo "|--------|-----------|-----------------|----------------|" >> "$report_file"
 
         for bug_id in ${SKILL_BUGS[$skill]}; do
             [[ -z "$bug_id" ]] && continue
-            # Find the commit for this (skill, bug) pair
-            local commit=""
-            for i in $(seq 0 $((TOTAL_PAIRS - 1))); do
-                if [[ "${PAIRS_SKILL[$i]}" == "$skill" && "${PAIRS_BUG[$i]}" == "$bug_id" ]]; then
-                    commit="${PAIRS_COMMIT[$i]}"
-                    break
+            local sb_key="${skill}|||${bug_id}"
+            local d="NO"
+            local s="—"
+            local detecting_file="—"
+
+            if [[ "${SKILL_BUG_DETECTED[$sb_key]:-}" == "true" ]]; then
+                d="YES"
+                s="NO"
+                if [[ "${SKILL_BUG_SEV_MATCH[$sb_key]:-}" == "true" ]]; then
+                    local sev_detail="${SKILL_BUG_SEV_DETAIL[$sb_key]:-}"
+                    s="YES"
+                    if [[ -n "$sev_detail" ]]; then
+                        s="YES ($sev_detail)"
+                    fi
                 fi
-            done
-            local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "$commit")"
-            local verdict_file="$rdir/verdict-${bug_id}.json"
-            if [[ -f "$verdict_file" ]]; then
-                local d=$(jq -r 'if .detected then "YES" else "NO" end' "$verdict_file")
-                local s=$(jq -r 'if .severity_match then "YES" elif .detected then "NO" else "—" end' "$verdict_file")
-                local sev_detail=$(jq -r '.matched_severity // ""' "$verdict_file")
-                if [[ -n "$sev_detail" && "$sev_detail" != "null" ]]; then
-                    s="$s ($sev_detail)"
-                fi
+                # Find which PIL file detected it
+                for i in $(seq 0 $((TOTAL_PAIRS - 1))); do
+                    if [[ "${PAIRS_SKILL[$i]}" == "$skill" && "${PAIRS_BUG[$i]}" == "$bug_id" ]]; then
+                        local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "${PAIRS_PIL[$i]}" "${PAIRS_COMMIT[$i]}")"
+                        if [[ -f "$rdir/verdict-${bug_id}.json" ]]; then
+                            local vdet=$(jq -r '.detected // false' "$rdir/verdict-${bug_id}.json" 2>/dev/null)
+                            if [[ "$vdet" == "true" ]]; then
+                                detecting_file=$(pil_to_key "${PAIRS_PIL[$i]}")
+                                break
+                            fi
+                        fi
+                    fi
+                done
             else
-                d="NOT RUN"
-                s="—"
+                # Check if any results exist at all
+                local has_results=false
+                for i in $(seq 0 $((TOTAL_PAIRS - 1))); do
+                    if [[ "${PAIRS_SKILL[$i]}" == "$skill" && "${PAIRS_BUG[$i]}" == "$bug_id" ]]; then
+                        local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "${PAIRS_PIL[$i]}" "${PAIRS_COMMIT[$i]}")"
+                        if [[ -f "$rdir/verdict-${bug_id}.json" ]]; then
+                            has_results=true
+                            break
+                        fi
+                    fi
+                done
+                if [[ "$has_results" != "true" ]]; then
+                    d="NOT RUN"
+                fi
             fi
-            echo "| $bug_id | $d | $s |" >> "$report_file"
+            echo "| $bug_id | $d | $s | $detecting_file |" >> "$report_file"
         done
 
         local det_pct=0
         if [[ $total -gt 0 ]]; then
             det_pct=$(( detected * 100 / total ))
         fi
-        echo "| **Total** | **${detected}/${total} (${det_pct}%)** | **${sev_match}** |" >> "$report_file"
-        echo "" >> "$report_file"
-        echo "Unmatched findings (not matching any known bug): **${fp}**" >> "$report_file"
+        echo "| **Total** | **${detected}/${total} (${det_pct}%)** | **${sev_match}** | |" >> "$report_file"
         echo "" >> "$report_file"
     done
 
@@ -323,21 +397,6 @@ HEADER
     if [[ "$any_undetected" != "true" ]]; then
         echo "- None — all bugs detected by at least one skill" >> "$report_file"
     fi
-    echo "" >> "$report_file"
-
-    # False positive analysis
-    echo "## Unmatched Findings (True False Positives)" >> "$report_file"
-    echo "" >> "$report_file"
-    echo "Findings that don't match ANY known bug for this skill." >> "$report_file"
-    echo "" >> "$report_file"
-    echo "| Skill | Unmatched Count |" >> "$report_file"
-    echo "|-------|-----------------|" >> "$report_file"
-    for skill in "${sorted_skills[@]}"; do
-        local fp=${SKILL_FP[$skill]:-0}
-        if [[ $fp -gt 0 ]]; then
-            echo "| $skill | $fp |" >> "$report_file"
-        fi
-    done
     echo "" >> "$report_file"
 
     log "${GREEN}Report written to: $report_file${NC}"
@@ -386,14 +445,14 @@ prepare_worktree() {
 
 log ""
 log "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
-log "${GREEN}║           VM2 Audit Skills - Regression Testing             ║${NC}"
+log "${GREEN}║     VM2 Audit Skills - Regression Testing (Per-File)        ║${NC}"
 log "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 log ""
 log "Configuration:"
 log "  Model: $MODEL"
 log "  Max parallel jobs: $MAX_JOBS"
 log "  Baseline commit: $BASELINE_COMMIT"
-log "  Skill runs: $TOTAL_RUNS (covering $TOTAL_PAIRS bug evaluations)"
+log "  Per-file sessions: $TOTAL_RUNS (covering $TOTAL_PAIRS bug evaluations)"
 log "  Unique commits needed: ${#NEEDED_COMMITS[@]}"
 if [[ ${#FILTER_SKILLS[@]} -gt 0 ]]; then log "  Skill filter: ${FILTER_SKILLS[*]}"; fi
 if [[ -n "$FILTER_TIER" ]]; then log "  Tier filter: T$FILTER_TIER"; fi
@@ -407,25 +466,16 @@ for commit in "${!NEEDED_COMMITS[@]}"; do
 done
 log ""
 
-# ─── Run skills (one run per skill+commit) ──────────────────────────────────
+# ─── Run skills (one run per skill + pil_file + commit) ──────────────────
 
 mkdir -p "$RESULTS_DIR"
 
-# Write manifest for reference
-MANIFEST_FILE="$RESULTS_DIR/.manifest.tsv"
-: > "$MANIFEST_FILE"
-for run_key in "${!RUN_BUGS[@]}"; do
-    IFS='|' read -r skill _ _ commit <<< "$run_key"
-    for bug_id in ${RUN_BUGS[$run_key]}; do
-        printf '%s\t%s\t%s\n' "$skill" "$bug_id" "$commit" >> "$MANIFEST_FILE"
-    done
-done
-
 run_skill() {
     local skill="$1"
-    local commit="$2"
+    local pil_file="$2"
+    local commit="$3"
     local short="${commit:0:10}"
-    local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "$commit")"
+    local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "$pil_file" "$commit")"
 
     # Skip if audit already exists (delete results dir to rerun)
     if [[ -f "$rdir/audit.json" ]]; then
@@ -447,18 +497,34 @@ run_skill() {
     local skill_instructions
     skill_instructions="$(cat "$skill_file")"
 
-    local target_path="pil/vm2"
     local abs_rdir="$(cd "$rdir" && pwd)"
 
-    # Build prompt — skill instructions + JSON output requirement
-    # The skill doesn't know about specific bugs — it should find them organically.
-    local task_prompt="COVERAGE RULE: First run \`find ${target_path} -name '*.pil' | sort\` to get ALL files. Grep patterns in the instructions below are starting points, not exhaustive scope. Sweep ALL files.
+    # Derive the gadget name and C++ sibling paths from the PIL file
+    local gadget_name
+    gadget_name=$(basename "$pil_file" .pil)
+    local pil_dir
+    pil_dir=$(dirname "$pil_file")
+
+    # Build prompt — focused on a SINGLE PIL file
+    local task_prompt="FOCUS: You are auditing a SINGLE PIL file: **${pil_file}**
+
+Your primary target is ${pil_file} and its C++ siblings (simulation, tracegen, events).
+You MAY read other PIL files for context about interactions (lookups/permutations that
+reference columns from ${pil_file}), but your goal is to find bugs IN ${pil_file} or in
+other gadgets' interactions WITH it.
+
+C++ siblings to check (if they exist):
+- src/barretenberg/vm2/simulation/gadgets/${gadget_name}.cpp
+- src/barretenberg/vm2/tracegen/${gadget_name}.cpp
+- src/barretenberg/vm2/simulation/events/${gadget_name}_event.hpp
+
+Start by reading ${pil_file}, then check its C++ siblings, then look at interactions.
 
 ${skill_instructions}
 
 ---
 
-TASK: Run the ${skill} audit on ${target_path}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding.
+TASK: Run the ${skill} audit focused on ${pil_file}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding.
 
 OUTPUT REQUIREMENTS:
 1. Write a markdown audit report.
@@ -468,12 +534,13 @@ The JSON file MUST have this structure:
 \`\`\`json
 {
   \"skill\": \"${skill}\",
+  \"target_file\": \"${pil_file}\",
   \"findings\": [
     {
       \"id\": \"finding-1\",
       \"title\": \"Short title\",
       \"severity\": \"Critical|High|Medium|Low\",
-      \"files\": [\"pil/vm2/file.pil\"],
+      \"files\": [\"${pil_file}\"],
       \"description\": \"What the issue is and why it matters\",
       \"lines\": [123, 456]
     }
@@ -483,16 +550,14 @@ The JSON file MUST have this structure:
 
     local claude_args=(-p --model "$MODEL" --allowedTools "Read,Glob,Grep,Bash,Write,Edit" --output-format text --disable-slash-commands)
 
-    # Write prompt to a temp file to avoid pipe (pipes can cause zombie processes
-    # if claude spawns background children that inherit the pipe fd)
+    # Write prompt to a temp file to avoid pipe fd inheritance issues
     local prompt_file="$rdir/.prompt.txt"
     echo "$task_prompt" > "$prompt_file"
 
     local start_time=$(date +%s)
     local exit_status="failed"
-    # Use timeout to prevent zombie runs. 30 min should be enough for any skill.
-    # Redirect from file (not pipe) to avoid fd inheritance issues.
-    if (cd "$wt_bb_cpp" && unset CLAUDECODE && timeout 1800 claude "${claude_args[@]}" < "$prompt_file" > "$rdir/audit.md" 2>&1); then
+    # Timeout 6 min per file (much less work than full sweep)
+    if (cd "$wt_bb_cpp" && unset CLAUDECODE && timeout 360 claude "${claude_args[@]}" < "$prompt_file" > "$rdir/audit.md" 2>&1); then
         exit_status="success"
     fi
     local end_time=$(date +%s)
@@ -501,16 +566,16 @@ The JSON file MUST have this structure:
     rm -f "$prompt_file"
 
     # Store run metadata
-    echo "{\"status\": \"$exit_status\", \"duration_seconds\": $duration}" > "$rdir/run-meta.json"
+    echo "{\"status\": \"$exit_status\", \"duration_seconds\": $duration, \"target_file\": \"$pil_file\"}" > "$rdir/run-meta.json"
 }
 
-# Evaluate findings from a single audit run against ALL its mapped bugs.
-# Produces one verdict-{bug_id}.json per bug, plus a run-verdict.json summary.
+# Evaluate findings from a single per-file run against ALL its mapped bugs.
 evaluate_run() {
     local skill="$1"
-    local commit="$2"
-    local run_key="${skill}|||${commit}"
-    local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "$commit")"
+    local pil_file="$2"
+    local commit="$3"
+    local run_key="${skill}|||${pil_file}|||${commit}"
+    local rdir="$RESULTS_DIR/$(run_dir_name "$skill" "$pil_file" "$commit")"
     local audit_json="$rdir/audit.json"
 
     local run_meta="$rdir/run-meta.json"
@@ -529,6 +594,7 @@ evaluate_run() {
             cat > "$rdir/verdict-${bug_id}.json" <<EOF
 {
   "skill": "$skill",
+  "target_file": "$pil_file",
   "bug_id": "$bug_id",
   "detected": false,
   "severity_match": false,
@@ -551,7 +617,7 @@ EOF
     fi
 
     # Track which findings matched ANY bug (for FP counting)
-    local -A matched_any_bug=()  # finding_index -> 1
+    local -A matched_any_bug=()
 
     # Evaluate each bug
     for bug_id in $bugs; do
@@ -577,7 +643,6 @@ EOF
 
         if [[ $num_findings -gt 0 ]]; then
             for f_idx in $(seq 0 $((num_findings - 1))); do
-                # Extract finding fields — tolerate both .files[] (array) and .file (string)
                 local finding_files
                 finding_files=$(jq -r "(.findings[$f_idx].files[]? // empty), (.findings[$f_idx].file // empty)" "$audit_json" 2>/dev/null || true)
                 local finding_title
@@ -588,7 +653,6 @@ EOF
                 finding_id=$(jq -r ".findings[$f_idx].id // \"\"" "$audit_json" 2>/dev/null)
                 local finding_severity
                 finding_severity=$(jq -r ".findings[$f_idx].severity // \"\"" "$audit_json" 2>/dev/null)
-                # Also check extra fields skills may use (impact, destination_selector, etc.)
                 local finding_extra
                 finding_extra=$(jq -r "(.findings[$f_idx].impact // \"\"), (.findings[$f_idx].destination_selector // \"\")" "$audit_json" 2>/dev/null || true)
                 local combined_text
@@ -609,7 +673,7 @@ EOF
                     continue
                 fi
 
-                # Check keyword match (any keyword in id+title+description)
+                # Check keyword match
                 local keyword_match=false
                 while IFS= read -r kw; do
                     [[ -z "$kw" ]] && continue
@@ -626,7 +690,6 @@ EOF
                     match_indices+=("$f_idx")
                     matched_any_bug[$f_idx]=1
 
-                    # Check severity
                     local sev_ok
                     sev_ok=$(check_severity "$finding_severity" "$expected_min_severity")
                     if [[ "$sev_ok" == "true" ]]; then
@@ -650,6 +713,7 @@ EOF
         cat > "$rdir/verdict-${bug_id}.json" <<EOF
 {
   "skill": "$skill",
+  "target_file": "$pil_file",
   "bug_id": "$bug_id",
   "detected": $detected,
   "severity_match": $severity_match,
@@ -661,7 +725,7 @@ EOF
 EOF
     done
 
-    # Count unmatched findings (findings that didn't match ANY bug for this skill)
+    # Count unmatched findings
     local unmatched_count=0
     if [[ $num_findings -gt 0 ]]; then
         for f_idx in $(seq 0 $((num_findings - 1))); do
@@ -676,7 +740,6 @@ EOF
 }
 
 # Severity ordering: critical > high > medium > low
-# Returns "true" if actual >= expected
 check_severity() {
     local actual="$1"
     local expected="$2"
@@ -700,37 +763,39 @@ check_severity() {
 }
 
 # Export everything needed for background jobs
-export -f run_skill check_severity
+export -f run_skill run_dir_name pil_to_key check_severity parse_run_key
 export RESULTS_DIR WORKDIR_BASE BUGS_FILE SKILLS_BASE MODEL
 
 # ─── Execute skill runs with parallelism ────────────────────────────────────
 
 OVERALL_START=$(date +%s)
-log "${YELLOW}Running $TOTAL_RUNS skill audits with $MAX_JOBS parallel jobs...${NC}"
+log "${YELLOW}Running $TOTAL_RUNS per-file audits with $MAX_JOBS parallel jobs...${NC}"
 log ""
 
 job_count=0
 pids=()
-declare -A PID_TO_RUN  # pid -> "skill|||commit"
+declare -A PID_TO_RUN  # pid -> "skill|||pil_file|||commit"
 
 announce_finished() {
     local p="$1"
     local run_info="${PID_TO_RUN[$p]}"
-    IFS='|' read -r s _ _ c <<< "$run_info"
-    local rdir="$RESULTS_DIR/$(run_dir_name "$s" "$c")"
+    parse_run_key "$run_info"
+    local pk
+    pk=$(pil_to_key "$RK_PIL")
+    local rdir="$RESULTS_DIR/$(run_dir_name "$RK_SKILL" "$RK_PIL" "$RK_COMMIT")"
     if [[ -f "$rdir/audit.json" ]]; then
         local nf
         nf=$(jq '.findings | length' "$rdir/audit.json" 2>/dev/null || echo "?")
-        log "${GREEN}[DONE]${NC} ${s} → ${nf} findings"
+        log "${GREEN}[DONE]${NC} ${RK_SKILL} × ${pk} → ${nf} findings"
     else
-        log "${RED}[DONE]${NC} ${s} → ${RED}ERROR (no audit.json)${NC}"
+        log "${RED}[DONE]${NC} ${RK_SKILL} × ${pk} → ${RED}ERROR${NC}"
     fi
 }
 
 skipped_count=0
-for run_key in "${!RUN_BUGS[@]}"; do
-    IFS='|' read -r run_skill _ _ run_commit <<< "$run_key"
-    rdir="$RESULTS_DIR/$(run_dir_name "$run_skill" "$run_commit")"
+for run_key in $(printf '%s\n' "${!RUN_BUGS[@]}" | sort); do
+    parse_run_key "$run_key"
+    rdir="$RESULTS_DIR/$(run_dir_name "$RK_SKILL" "$RK_PIL" "$RK_COMMIT")"
 
     # Skip if audit already exists
     if [[ -f "$rdir/audit.json" ]]; then
@@ -738,13 +803,14 @@ for run_key in "${!RUN_BUGS[@]}"; do
         continue
     fi
 
+    pil_key=$(pil_to_key "$RK_PIL")
     bug_count=$(echo ${RUN_BUGS[$run_key]} | wc -w)
-    log "${BLUE}[START]${NC} ${run_skill} @ ${run_commit:0:10} (${bug_count} bugs)"
+    log "${BLUE}[START]${NC} ${RK_SKILL} × ${pil_key} @ ${RK_COMMIT:0:10} (${bug_count} bugs)"
 
-    run_skill "$run_skill" "$run_commit" &
+    run_skill "$RK_SKILL" "$RK_PIL" "$RK_COMMIT" &
     pid=$!
     pids+=($pid)
-    PID_TO_RUN[$pid]="${run_skill}|||${run_commit}"
+    PID_TO_RUN[$pid]="$run_key"
     ((++job_count))
 
     # Throttle
@@ -784,58 +850,65 @@ log "Total time: ${OVERALL_DURATION}s (${skipped_count} skipped — already had 
 log ""
 log "${YELLOW}Evaluating findings against known bugs...${NC}"
 
-for run_key in "${!RUN_BUGS[@]}"; do
-    IFS='|' read -r eval_skill _ _ eval_commit <<< "$run_key"
-    evaluate_run "$eval_skill" "$eval_commit"
+for run_key in $(printf '%s\n' "${!RUN_BUGS[@]}" | sort); do
+    parse_run_key "$run_key"
+    eval_skill="$RK_SKILL"
+    eval_pil="$RK_PIL"
+    eval_commit="$RK_COMMIT"
+    evaluate_run "$eval_skill" "$eval_pil" "$eval_commit"
 
-    # Print per-bug results
     eval_bugs="${RUN_BUGS[$run_key]}"
-    eval_rdir="$RESULTS_DIR/$(run_dir_name "$eval_skill" "$eval_commit")"
+    eval_rdir="$RESULTS_DIR/$(run_dir_name "$eval_skill" "$eval_pil" "$eval_commit")"
+    eval_pk=$(pil_to_key "$eval_pil")
     for bug_id in $eval_bugs; do
         vf="$eval_rdir/verdict-${bug_id}.json"
         if [[ -f "$vf" ]]; then
             det=$(jq -r 'if .detected then "DETECTED" else "MISSED" end' "$vf" 2>/dev/null || echo "???")
             if [[ "$det" == "DETECTED" ]]; then
-                log "  ${GREEN}✓${NC} ${eval_skill} × ${bug_id}"
+                log "  ${GREEN}✓${NC} ${eval_skill} × ${eval_pk} → ${bug_id}"
             else
-                log "  ${RED}✗${NC} ${eval_skill} × ${bug_id}"
+                log "  ${RED}✗${NC} ${eval_skill} × ${eval_pk} → ${bug_id}"
             fi
         fi
     done
-
-    # Print unmatched count
-    run_vf="$eval_rdir/run-verdict.json"
-    if [[ -f "$run_vf" ]]; then
-        unmatched=$(jq -r '.unmatched_finding_count // 0' "$run_vf")
-        total_f=$(jq -r '.total_findings // 0' "$run_vf")
-        matched_f=$(jq -r '.matched_finding_count // 0' "$run_vf")
-        log "  ${CYAN}→ ${matched_f}/${total_f} findings matched known bugs, ${unmatched} unmatched${NC}"
-    fi
 done
 
-# Quick summary
+# Quick summary — aggregate per (skill, bug) across PIL files
 log ""
-detected_count=0
-missed_count=0
-error_count=0
+declare -A SUMMARY_DETECTED  # "skill|||bug" -> detected
 for i in $(seq 0 $((TOTAL_PAIRS - 1))); do
     sum_skill="${PAIRS_SKILL[$i]}"
+    sum_bug="${PAIRS_BUG[$i]}"
     sum_commit="${PAIRS_COMMIT[$i]}"
-    sum_rdir="$RESULTS_DIR/$(run_dir_name "$sum_skill" "$sum_commit")"
-    vf="$sum_rdir/verdict-${PAIRS_BUG[$i]}.json"
+    sum_pil="${PAIRS_PIL[$i]}"
+    sum_rdir="$RESULTS_DIR/$(run_dir_name "$sum_skill" "$sum_pil" "$sum_commit")"
+    vf="$sum_rdir/verdict-${sum_bug}.json"
+    sb_key="${sum_skill}|||${sum_bug}"
     if [[ -f "$vf" ]]; then
         if jq -e '.detected == true' "$vf" > /dev/null 2>&1; then
-            ((++detected_count))
-        else
-            ((++missed_count))
+            SUMMARY_DETECTED[$sb_key]="true"
         fi
-    else
-        ((++error_count))
     fi
 done
 
+# Count unique (skill, bug) pairs
+declare -A UNIQUE_SB
+detected_count=0
+missed_count=0
+for i in $(seq 0 $((TOTAL_PAIRS - 1))); do
+    sb_key="${PAIRS_SKILL[$i]}|||${PAIRS_BUG[$i]}"
+    if [[ -n "${UNIQUE_SB[$sb_key]:-}" ]]; then continue; fi
+    UNIQUE_SB[$sb_key]=1
+    if [[ "${SUMMARY_DETECTED[$sb_key]:-}" == "true" ]]; then
+        ((++detected_count))
+    else
+        ((++missed_count))
+    fi
+done
+
+total_sb=${#UNIQUE_SB[@]}
 log ""
-log "${GREEN}Detected:${NC} ${detected_count}  ${RED}Missed:${NC} ${missed_count}  ${YELLOW}Errors:${NC} ${error_count}  Total: ${TOTAL_PAIRS}"
+log "${GREEN}Detected:${NC} ${detected_count}  ${RED}Missed:${NC} ${missed_count}  Total: ${total_sb} (skill×bug pairs)"
 log ""
 
 # Generate the report

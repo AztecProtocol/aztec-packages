@@ -53,33 +53,19 @@ pol LATCH_CONDITION = end + start' + precomputed.first_row;
 
 ## Workflow
 
-### Step 0: Enumerate ALL Multi-Row Components (MANDATORY)
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus deeply on that file; read related files only for context to understand interactions and value sources.
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files with multi-row computation patterns.
-
-```bash
-# Find all files with start/end/latch patterns (multi-row indicators)
-grep -rl "start\|end\|latch\|is_first\|is_last\|NOT_END" pil/vm2/ --include="*.pil" | sort
-
-# Count multi-row indicators per file
-for f in $(grep -rl "start\|end\|latch" pil/vm2/ --include="*.pil"); do
-  echo "=== $f ==="; grep -c "start\|end\|latch\|propagat" "$f"
-done
-```
-
-Build a master checklist of ALL files with multi-row computations. You MUST check every multi-row component for missing propagation.
-
-### Step 1: Identify Multi-Row Computations
+### Step 1: Identify Multi-Row Computations in Target File
 
 ```bash
 # Start/end patterns
-grep -rn "pol commit start\|pol commit end\|latch" pil/vm2/ --include="*.pil"
+grep -n "pol commit start\|pol commit end\|latch" <target>.pil
 
 # Row counters/indices
-grep -rn "row_idx\|counter\|cnt\|idx\|phase" pil/vm2/ --include="*.pil"
+grep -n "row_idx\|counter\|cnt\|idx\|phase" <target>.pil
 
 # Multi-row indicators
-grep -rn "is_first\|is_last\|NOT_END\|NOT_LAST" pil/vm2/ --include="*.pil"
+grep -n "is_first\|is_last\|NOT_END\|NOT_LAST" <target>.pil
 ```
 
 ### Step 2: List Values That Should Be Constant

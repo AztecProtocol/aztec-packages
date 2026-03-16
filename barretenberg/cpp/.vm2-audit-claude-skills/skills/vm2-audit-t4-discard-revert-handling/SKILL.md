@@ -49,25 +49,15 @@ If you verify a pattern only on the happy path, note it as "(happy path only —
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With Side Effects (MANDATORY)
+### Step 0: Identify Target File
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files that involve side effects or discard handling.
-
-```bash
-# Find all files with side-effect or discard patterns
-grep -rl "discard\|emit\|append\|write\|store\|nullifier\|note_hash\|l2_to_l1" pil/vm2/ --include="*.pil" | sort
-
-# Find all files with interaction tuples (lookups/permutations)
-grep -rl "} in \|} is " pil/vm2/ --include="*.pil" | sort
-```
-
-Build a master checklist of ALL files. You MUST check every file for missing discard gating.
+This session targets a single PIL file. Focus deeply on discard/revert handling within that file. Read other PIL files only to understand interactions or the discard propagation chain that feeds into the target.
 
 ### Step 1: Identify Side-Effect Operations
 
 ```bash
-grep -n "emit\|append\|write\|store\|nullifier\|note_hash\|l2_to_l1\|log" pil/vm2/*.pil pil/vm2/**/*.pil
-grep -n "should_\|sel_emit\|sel_append\|sel_write" pil/vm2/*.pil pil/vm2/**/*.pil
+grep -n "emit\|append\|write\|store\|nullifier\|note_hash\|l2_to_l1\|log" <target_file>
+grep -n "should_\|sel_emit\|sel_append\|sel_write" <target_file>
 ```
 
 Side effects: note hashes, nullifiers, L2-to-L1 messages, SSTORE, logs, state mods.
@@ -125,9 +115,9 @@ For EVERY PIL gating expression involving `(1 - discard)` or `(1 - reverted)` fo
 1. Identify the tracegen file that populates the gated column
 2. Verify the C++ code checks `!discard` (or `!reverted`) when setting the column
 
-**MANDATORY**: Check ALL tracegen files, not just execution_trace.cpp:
+**MANDATORY**: Check the tracegen file corresponding to the target PIL component, plus any tracegen files that populate its related columns:
 ```bash
-find src/barretenberg/vm2/tracegen/ -name "*_trace.cpp" | sort
+# Find the tracegen file for the target component
 grep -rn "discard" --include="*.cpp" src/barretenberg/vm2/tracegen/
 ```
 

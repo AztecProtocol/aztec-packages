@@ -274,7 +274,10 @@
             "runtime_error"
           ]
         }
-      }
+      },
+      "pil_targets": [
+        "pil/vm2/sha256.pil"
+      ]
     },
     {
       "id": "execution-next-pc-unconstrained",
@@ -2268,7 +2271,10 @@
             "lookup"
           ]
         }
-      }
+      },
+      "pil_targets": [
+        "pil/vm2/precomputed.pil"
+      ]
     },
     {
       "id": "context-stack-lookup-instead-of-permutation",
@@ -3187,7 +3193,10 @@
             "dangling"
           ]
         }
-      }
+      },
+      "pil_targets": [
+        "pil/vm2/ff_gt.pil"
+      ]
     },
     {
       "id": "to-radix-permutation-missing-columns",

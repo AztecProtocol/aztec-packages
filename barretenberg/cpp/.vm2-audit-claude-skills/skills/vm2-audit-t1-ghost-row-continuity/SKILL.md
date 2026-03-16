@@ -62,12 +62,12 @@ Ghost row injection exploits permutations by:
 
 #### Step 1: Identify Permutation and Tuple
 
+Find all permutations in the target PIL file:
 ```bash
-# Find permutations across ALL multi-row gadgets
-grep -rn "} is " pil/vm2/ --include="*.pil"
+grep -n "} is " pil/vm2/<target_file>.pil
 ```
 
-Extract the tuple columns - these must match between source and destination.
+Extract the tuple columns - these must match between source and destination. Read any interacted-with files for context.
 
 #### Step 2: Locate Destination Trace Builder
 
@@ -102,15 +102,15 @@ Permutation tuples often include clock:
 
 ### Part B: Lifecycle State Manipulation (Multi-Row Gadgets)
 
-#### Step 6: Discover All Multi-Row Gadgets
+#### Step 6: Check Multi-Row Gadget Lifecycle in Target File
 
+Check the target file for lifecycle selectors:
 ```bash
-# Find all components with start/end lifecycle selectors
-grep -rn "pol commit start\|pol commit end\|pol commit sel_start\|pol commit sel_end\|pol commit err" \
-    pil/vm2/ --include="*.pil"
+grep -n "pol commit start\|pol commit end\|pol commit sel_start\|pol commit sel_end\|pol commit err" \
+    pil/vm2/<target_file>.pil
 
 # Find LATCH_CONDITION / zero-check end patterns
-grep -rn "LATCH_CONDITION\|counter.*end\|end.*counter" pil/vm2/ --include="*.pil"
+grep -n "LATCH_CONDITION\|counter.*end\|end.*counter" pil/vm2/<target_file>.pil
 ```
 
 #### Step 7: For Each Gadget, Check Lifecycle State Freedom
@@ -155,14 +155,9 @@ For every lookup or permutation that involves lifecycle selectors (`start`, `end
 
 This is critical because a vulnerability may exist on the destination side even when the source side is safe.
 
-### Coverage Requirement
+### Coverage Note
 
-**Enumerate ALL PIL files**:
-```bash
-find pil/vm2/ -name "*.pil" | sort
-```
-
-You MUST check ALL multi-row gadgets in the codebase, not just the first few found. Cross-reference the full file list against files analyzed. For any file not reached, read it and check for lifecycle selectors. Output a coverage table listing every PIL file and whether it was analyzed.
+This session targets a single PIL file. Ensure all multi-row gadgets, permutations, and lifecycle selectors within the target file are analyzed. Read interacted-with files for context (e.g., to understand destination traces or source dispatch), but findings should be about the target file.
 
 ## Abstract Attack Example
 

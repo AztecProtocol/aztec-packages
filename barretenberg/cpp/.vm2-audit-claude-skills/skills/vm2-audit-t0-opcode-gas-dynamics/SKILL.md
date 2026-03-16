@@ -106,27 +106,20 @@ uint32_t dyn_gas_id = 0;
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes With Dynamic Gas (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Exhaustively identify ALL opcodes with dynamic gas, not just a known subset.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify the opcode(s) it governs, then check whether those opcodes have dynamic gas. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ```bash
-# Find all documented opcodes with dynamic gas
-grep -rl "Scales with\|Dynamic\|dyn" yarn-project/simulator/docs/avm/opcodes/*.md
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Find all opcodes with non-zero dyn_l2 or dyn_da in instruction spec
+# Find dynamic gas entries for the target opcode in instruction spec
 grep -n "dyn_l2\|dyn_da\|dyn_gas_id" src/barretenberg/vm2/common/instruction_spec.cpp
 
-# Cross-check PIL gas handling
+# Check PIL gas handling for dynamic patterns
 grep -n "dyn_gas\|dynamic" pil/vm2/execution/gas.pil
 ```
-
-Build a master checklist of ALL dynamic-gas opcodes:
-
-| Opcode | dyn_l2 | dyn_da | Scaling operand | Checked? | Finding? |
-|--------|--------|--------|----------------|----------|----------|
-
-**You MUST verify every opcode with non-zero dyn_l2 or dyn_da.**
 
 ### Step 1: Identify Dynamic Gas Opcodes
 ```bash

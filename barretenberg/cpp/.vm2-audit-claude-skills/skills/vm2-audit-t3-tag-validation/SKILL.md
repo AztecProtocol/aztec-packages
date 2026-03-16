@@ -43,27 +43,15 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With Tag Columns (MANDATORY)
+### Step 0: Identify Target File
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with tag-related columns.
-
-```bash
-# Find all files with tag-related columns
-grep -rl "tag\|Tag::" pil/vm2/ --include="*.pil" | sort
-
-# Find all tag-related columns per file
-for f in $(grep -rl "tag" pil/vm2/ --include="*.pil"); do
-  echo "=== $f ==="; grep -c "tag" "$f"
-done
-```
-
-Build a master checklist of ALL files with tag columns. You MUST check every file for tag validation gaps.
+This session targets a single PIL file. Focus deeply on tag-related columns and validation within that file. Read other PIL files only to understand interactions (e.g., dispatcher constraints that validate tags before dispatch).
 
 ### Step 1: Identify Tag-Related Columns
 
 ```bash
-grep -rn "pol commit.*tag\|_tag\|tag_" pil/vm2/ --include="*.pil"
-grep -rn "sel_tag_err\|tag_err\|tag_mismatch" pil/vm2/ --include="*.pil"
+grep -n "pol commit.*tag\|_tag\|tag_" <target_file>
+grep -n "sel_tag_err\|tag_err\|tag_mismatch" <target_file>
 ```
 
 Operations requiring validation: ADD, SUB, MUL, DIV, MOD, AND, OR, XOR, NOT, SHL, SHR, EQ, LT, LTE, LOAD, STORE, Poseidon2, SHA256, Keccak
@@ -111,7 +99,8 @@ Lookups/permutations must gate on `(1 - sel_tag_err)`. No computation on tag err
 ### Step 6: Check Tracegen Tag Handling
 
 ```bash
-grep -rn "tag\|Tag::" --include="*.cpp" src/barretenberg/vm2/simulation/
+# Find the tracegen file corresponding to the target PIL component
+grep -rn "tag\|Tag::" --include="*.cpp" src/barretenberg/vm2/tracegen/
 ```
 
 Verify: Tag differences as field elements (NOT cast to uint64_t), no overflow assumptions.

@@ -46,41 +46,29 @@ sel * (1 - sel') * (1 - end) = 0;
 
 ## Workflow
 
-### Step 0: Enumerate ALL Multi-Row Components (MANDATORY)
+### Step 0: Identify Target File
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files with multi-row computation patterns.
-
-```bash
-# Find all files with start/end/counter patterns
-grep -rl "start\|end\|latch\|remaining\|counter\|cnt\|continuity" pil/vm2/ --include="*.pil" | sort
-
-# Count multi-row indicators per file
-for f in $(grep -rl "start\|end\|remaining" pil/vm2/ --include="*.pil"); do
-  echo "=== $f ==="; grep -c "start\|end\|remaining\|latch" "$f"
-done
-```
-
-Build a master checklist of ALL multi-row components. You MUST check every one for premature termination vulnerabilities.
+This session targets a single PIL file. Focus deeply on the multi-row computation patterns within that file. Read other PIL files only as needed to understand interactions with the target.
 
 ### Step 1: Identify Multi-Row Computations
 
 ```bash
-# Start/end patterns
-grep -rn "pol commit start\|pol commit end\|pol commit sel_end" pil/vm2/ --include="*.pil"
+# Start/end patterns in the target file
+grep -n "pol commit start\|pol commit end\|pol commit sel_end" <target_file>
 
-# Counters
-grep -rn "remaining\|counter\|cnt\|idx\|row_idx" barretenberg/cpp/pil/vm2/ --include="*.pil"
+# Counters in the target file
+grep -n "remaining\|counter\|cnt\|idx\|row_idx" <target_file>
 
-# Continuation patterns
-grep -rn "latch\|NOT_END\|continue\|continuity" barretenberg/cpp/pil/vm2/ --include="*.pil"
+# Continuation patterns in the target file
+grep -n "latch\|NOT_END\|continue\|continuity" <target_file>
 ```
 
-**Note**: Also manually review each PIL file - grep may miss patterns.
+**Note**: Also manually review the target PIL file — grep may miss patterns.
 
 ### Step 2: Verify Trace Continuity Exists
 
 ```bash
-grep -rn "sel.*1 - sel'.*1 - end\|CONTINUITY\|FINISH_AT_END\|MUST_END" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "sel.*1 - sel'.*1 - end\|CONTINUITY\|FINISH_AT_END\|MUST_END" <target_file>
 ```
 
 ### Step 3: Check End Condition Constraints
@@ -96,7 +84,7 @@ end * remaining_count = 0;
 ### Step 4: Check Counter Underflow
 
 ```bash
-grep -rn "remaining'.*remaining - 1\|counter'.*counter - 1" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "remaining'.*remaining - 1\|counter'.*counter - 1" <target_file>
 ```
 
 Verify counters can't wrap in field arithmetic.
@@ -104,7 +92,7 @@ Verify counters can't wrap in field arithmetic.
 ### Step 5: Verify Error Path Termination
 
 ```bash
-grep -rn "err.*end\|error.*end\|END_ON_ERR" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "err.*end\|error.*end\|END_ON_ERR" <target_file>
 ```
 
 Error paths must still require `end=1` before `sel'=0`.

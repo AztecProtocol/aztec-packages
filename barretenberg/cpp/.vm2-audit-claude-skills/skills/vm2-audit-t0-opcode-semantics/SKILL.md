@@ -134,27 +134,22 @@ Details: "keeps only least significant bits for narrowing"
 
 ## Workflow
 
-### Step 0: Enumerate ALL Target Opcodes (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, list ALL opcodes that this skill applies to. Do not skip this step.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify which opcode(s) or computation it governs. Then verify the semantics for those specific opcode(s) across documentation, simulation, and PIL. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ```bash
-# List all documented opcodes
-ls yarn-project/simulator/docs/avm/opcodes/
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# List all PIL opcode files
-ls pil/vm2/opcodes/*.pil
+# List the operation selectors in the target file
+grep -n "sel_op_\|sel_alu_\|sel_execute_" pil/vm2/<target>.pil | head -30
 
-# List all ALU operations
-grep -n "sel_op_" pil/vm2/alu.pil | head -30
+# Find corresponding simulation code
+grep -n "Alu::\|Execution::" src/barretenberg/vm2/simulation/gadgets/alu.cpp | head -20
 ```
 
-Build a master checklist of all opcodes to audit. Track which ones you've analyzed:
-
-| Opcode | Sim checked? | PIL checked? | Finding? |
-|--------|-------------|-------------|----------|
-
-**You MUST analyze every computation-bearing opcode.** If you cannot complete all, prioritize arithmetic operations (ADD, SUB, MUL, DIV, SHL, SHR, CAST, NOT) first, then comparisons, then others.
+Read related files for context (documentation, simulation), but findings should be about the target file.
 
 ### Step 1: Select Target Opcode
 ```bash

@@ -116,29 +116,20 @@ If you verify a pattern only on the happy path, note it as "(happy path only —
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes With Tag Checks (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Before analyzing any individual opcode, identify ALL opcodes that have tag requirements.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify which opcode(s) it governs and what tag requirements they have. Read related files (registers.pil, alu.pil, simulation code) for context, but findings should be about the target file.
 
 ```bash
-# Find all documented opcodes with Tag Checks sections
-for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
-  if grep -q "Tag Checks\|Tag Check" "$f"; then echo "$f"; fi
-done
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Find all opcodes with expected tags in instruction spec
-grep -n "add_input(ValueTag\|add_input()" src/barretenberg/vm2/common/instruction_spec.cpp | head -40
+# Find tag-related constraints in the target file
+grep -n "expected_tag\|sel_tag_check\|tag_mismatch\|tag_err\|mem_tag" pil/vm2/<target>.pil
 
-# Find all tag-related PIL constraints
-grep -n "expected_tag\|sel_tag_check\|tag_mismatch" pil/vm2/execution/registers.pil pil/vm2/alu.pil
+# Find the instruction spec entry for the target opcode
+grep -n "add_input(ValueTag\|add_input()" src/barretenberg/vm2/common/instruction_spec.cpp | grep -i "<opcode>"
 ```
-
-Build a master checklist:
-
-| Opcode | Doc tag requirement | Sim tag check? | PIL checked? | Finding? |
-|--------|-------------------|---------------|-------------|----------|
-
-**You MUST check every opcode with tag requirements.** Breadth across all opcodes is more important than depth on any single one.
 
 ### Step 1: Select Target Opcode(s)
 ```bash

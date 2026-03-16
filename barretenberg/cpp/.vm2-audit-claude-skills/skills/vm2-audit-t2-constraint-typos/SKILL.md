@@ -67,24 +67,26 @@ Watch for typos in: `a/b/c`, `op1/op2/op3`, `lo/hi/mid`, `start/end/current`, `r
 
 ## Workflow
 
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus deeply on that file; read related files only for context to understand interactions.
+
 > **PERFORMANCE RULE**: Do NOT iterate per-constraint with individual greps. Use batch collection to gather all constraint names and column declarations first, then cross-reference in memory. Per-constraint iteration will exhaust the context window.
 
-### Phase 1: Batch Collection (3 parallel searches)
+### Phase 1: Batch Collection (target file)
 
 **Search A — All constraint names and their expressions**:
 ```bash
-grep -rn "#\[.*\]" pil/vm2/ --include="*.pil"
-grep -A1 "#\[" pil/vm2/ --include="*.pil"
+grep -n "#\[.*\]" <target>.pil
+grep -A1 "#\[" <target>.pil
 ```
 
 **Search B — All column declarations with similar-name groups**:
 ```bash
-grep -rn "pol commit" pil/vm2/ --include="*.pil"
+grep -n "pol commit" <target>.pil
 ```
 
 **Search C — All initialization and propagation constraints**:
 ```bash
-grep -rn "start\|first\|init\|' -\|')" pil/vm2/ --include="*.pil"
+grep -n "start\|first\|init\|' -\|')" <target>.pil
 ```
 
 ### Phase 2: Cross-Reference in Memory
@@ -98,19 +100,13 @@ From the batch results:
 ### Phase 3: Deep Analysis (only on flagged constraints)
 
 For each suspicious constraint:
-1. Read the PIL file to verify context
+1. Read the target PIL file to verify context
 2. Cross-reference with comments
 3. Cross-reference with tracegen assignments
 
-### Phase 4: Completeness Check
+### Phase 4: Read Related Files for Context
 
-Verify coverage across all PIL files:
-```bash
-for f in pil/vm2/*.pil pil/vm2/**/*.pil; do
-  [ -f "$f" ] || continue
-  echo "$f: $(grep -c '#\[' "$f" 2>/dev/null || echo 0) constraints"
-done
-```
+If the target file interacts with other PIL files (lookups, permutations, shared columns), read those files to understand whether a suspected typo is consistent with the interaction semantics. Findings should still be about the target file only.
 
 ## Red Flags
 

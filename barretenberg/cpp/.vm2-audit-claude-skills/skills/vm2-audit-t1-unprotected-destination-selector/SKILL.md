@@ -153,28 +153,32 @@ Unlike source-side ghost rows (which need matching destinations), destination-si
 
 ## Workflow
 
-### Step 1: Find All Lookup/Permutation Destination Selectors (Lifecycle)
+### Step 0: Session Scope
 
-Find interactions where the destination selector is a lifecycle column (not just `sel`):
+> **NOTE**: This session targets a single PIL file. Focus on interactions where the target file's selectors are used as destinations by other files, AND interactions where the target file looks up into other components' destination selectors. Read related files for context.
+
+### Step 1: Find Lookup/Permutation Destination Selectors
+
+Find interactions involving the target file — both where it exposes destination selectors and where it looks up into others:
 
 ```bash
-# Find lookups with named destination selectors (not just trace.sel)
-grep -rn "^.*in.*\.\(start\|end\|write\|latch\|last\|first\)" pil/vm2/ --include="*.pil"
+# Find lookups/permutations in the target file
+grep -n "} in \|} is " pil/vm2/<target_file>.pil
 
-# Also find destinations using sub-selectors
-grep -rn "^.*in.*\.\(sel_\|is_\|should_\)" pil/vm2/ --include="*.pil"
+# Find other files that look up INTO the target file's namespace
+grep -rn "in <target_namespace>\.\|is <target_namespace>\." pil/vm2/ --include="*.pil"
 ```
 
-Note that these patterns are NOT comprehensive. They serve as a good first pass, but every PIL file must be manually reviewed to determine whether or not they have such destination selectors.
+Also read the target file fully and check for any selector used as a destination in a lookup/permutation.
 
 ### Step 2: Find Per-Opcode Selectors Used as Lookup Destinations
 
-Search for dispatch lookups where the destination selector is a per-opcode or per-operation selector rather than the component's main `sel`:
+Search for dispatch lookups involving the target file where the destination selector is a per-opcode or per-operation selector rather than the component's main `sel`:
 
 ```bash
-# Find lookups where destination is a sub-selector (sel_op_*, sel_foo_*) rather than just .sel
-grep -rn "} in [a-z_]*\.sel_" pil/vm2/ --include="*.pil"
-grep -rn "} is [a-z_]*\.sel_" pil/vm2/ --include="*.pil"
+# Find lookups where the target file's sub-selectors are used as destinations
+grep -rn "} in <target_namespace>\.sel_" pil/vm2/ --include="*.pil"
+grep -rn "} is <target_namespace>\.sel_" pil/vm2/ --include="*.pil"
 ```
 
 For each such destination selector found, go to the destination component and check:
@@ -186,16 +190,14 @@ If NONE of the above hold, the selector is unprotected.
 
 ### Step 3: Find Phase/Mode Selectors Used in Downstream Interactions
 
-> **HIGH-PRIORITY TARGET**: `tx.pil` orchestrates transaction phases and has many `is_*` selectors. Explicitly check ALL `is_*` selectors in tx.pil for `* (1 - sel) = 0` constraints.
-
-Search for phase or mode selectors that gate downstream lookups/permutations:
+Check the target file for phase or mode selectors that gate downstream lookups/permutations:
 
 ```bash
-# Find committed phase/mode selectors
-grep -rn "pol commit is_[a-z_]*;" pil/vm2/ --include="*.pil"
+# Find committed phase/mode selectors in the target file
+grep -n "pol commit is_[a-z_]*;" pil/vm2/<target_file>.pil
 
 # Find which of these are used as source selectors in lookups/permutations
-grep -rn "is_[a-z_]* {" pil/vm2/ --include="*.pil"
+grep -n "is_[a-z_]* {" pil/vm2/<target_file>.pil
 ```
 
 For each phase/mode selector that gates a downstream interaction:

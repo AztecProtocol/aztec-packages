@@ -88,26 +88,30 @@ sub_sel { ... } is other.sel { ... };  // Fires on ANY row where sub_sel=1!
 
 > **BUDGET RULE**: Spend 40% on Tier 1 files, 30% on Tier 2 files, 20% on Tier 3-4, 10% on write-up. Do NOT spend more than 15% of your total budget on execution.pil — most of its selectors are protected by decomposition.
 
-### Phase 1: Batch Collection (4 parallel searches)
+### Phase 0: Session Scope
+
+> **NOTE**: This session targets a single PIL file. Focus deeply on that file. Read related files for context where needed (e.g., to understand interactions), but findings should be about the target file.
+
+### Phase 1: Batch Collection (4 parallel searches on the target file)
 
 **Search A — All committed sub-selectors** (candidates):
 ```bash
-grep -rn "pol commit.*sel_\|pol commit is_\|pol commit.*_op\|pol commit start\|pol commit end\|pol commit write\|pol commit latch\|pol commit first\|pol commit last\|pol commit err" pil/vm2/ --include="*.pil"
+grep -n "pol commit.*sel_\|pol commit is_\|pol commit.*_op\|pol commit start\|pol commit end\|pol commit write\|pol commit latch\|pol commit first\|pol commit last\|pol commit err" pil/vm2/<target_file>.pil
 ```
 
 **Search B — All implication constraints** (already protected):
 ```bash
-grep -rn "\* (1 - sel)" pil/vm2/ --include="*.pil"
+grep -n "\* (1 - sel)" pil/vm2/<target_file>.pil
 ```
 
 **Search C — All derived-from-sel intermediates** (inherently safe):
 ```bash
-grep -rn "pol [A-Z_]* = sel \*\|pol [A-Z_]* = .*\* sel" pil/vm2/ --include="*.pil"
+grep -n "pol [A-Z_]* = sel \*\|pol [A-Z_]* = .*\* sel" pil/vm2/<target_file>.pil
 ```
 
 **Search D — All interaction selectors** (what actually gates interactions):
 ```bash
-grep -rn "^[^/]*{" pil/vm2/ --include="*.pil" | grep -v "pol\|//\|let\|namespace" | head -80
+grep -n "^[^/]*{" pil/vm2/<target_file>.pil | grep -v "pol\|//\|let\|namespace"
 ```
 
 ### Phase 2: Set Difference → PRELIMINARY FINDINGS
@@ -137,26 +141,20 @@ grep -rn "^[^/]*{" pil/vm2/ --include="*.pil" | grep -v "pol\|//\|let\|namespace
 
 ### Phase 4: Completeness Reconciliation
 
-**4a — Enumerate ALL PIL files** (ensure no file is skipped):
+**4a — Catch sub-selectors with unconventional names** in the target file:
 ```bash
-find pil/vm2/ -name "*.pil" | sort
-```
-Cross-reference this list against the files you analyzed. If ANY file was not covered by Search A through D, read it now and check for sub-selectors.
-
-**4b — Catch sub-selectors with unconventional names**:
-```bash
-grep -roPh "[a-z_][a-z_0-9]* \{" pil/vm2/ --include="*.pil" | sort -u
+grep -oPh "[a-z_][a-z_0-9]* \{" pil/vm2/<target_file>.pil | sort -u
 ```
 Any selector name used to gate an interaction that wasn't in Search A is an unconventionally-named candidate — ADD as preliminary finding.
 
-**4c — Verify transitive protection chains carefully**: When you encounter arguments like "start_X → start → round=1 → sel=1", trace each step through the actual constraints. Quote EVERY constraint in the chain. If any link is not an explicit PIL constraint (just an invariant of the trace generator), the chain does NOT protect and you MUST report.
+**4b — Verify transitive protection chains carefully**: When you encounter arguments like "start_X → start → round=1 → sel=1", trace each step through the actual constraints. Quote EVERY constraint in the chain. If any link is not an explicit PIL constraint (just an invariant of the trace generator), the chain does NOT protect and you MUST report.
 
-### Phase 5: File Coverage Table (MANDATORY)
+### Phase 5: Sub-Selector Summary Table (MANDATORY)
 
-| File | Tier | Sub-selectors found | Preliminary findings | Final findings | Dismissed (with quoted constraint) |
-|------|------|-------------------|---------------------|---------------|-----------------------------------|
+Output a table of all sub-selectors found in the target file and their disposition:
 
-**Every PIL file MUST appear** — not just interaction-bearing files. Use the full file list from Phase 4a. Breadth across all files beats depth on any single file. If a file has no sub-selectors, mark it as "N/A" in the table.
+| Sub-selector | Gates interaction? | Protected? | Protection constraint (quoted) | Finding? |
+|-------------|-------------------|-----------|-------------------------------|---------|
 
 ### Phase 6: Final Filtering Pass
 

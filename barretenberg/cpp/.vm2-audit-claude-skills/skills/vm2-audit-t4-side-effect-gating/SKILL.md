@@ -66,29 +66,17 @@ SHOULD_EMIT { data } is destination.write { destination.data };
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With Interactions (MANDATORY)
+### Step 0: Identify Target File
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files that contain interactions.
+This session targets a single PIL file. Focus deeply on side-effect interactions within that file. Read other PIL files only to understand the destination context (e.g., whether a destination trace handles discard gating itself).
 
-```bash
-# Find ALL files with interactions (lookups and permutations)
-grep -rl "} is \|} in " pil/vm2/ --include="*.pil" | sort
-
-# Count interactions per file
-for f in $(grep -rl "} is \|} in " pil/vm2/ --include="*.pil"); do
-  echo "=== $f ==="; grep -c "} is \|} in " "$f"
-done
-```
-
-Build a master checklist of ALL files with interactions. You MUST check every file for ungated side effects.
-
-### Step 1: Find ALL Side-Effect Interactions
+### Step 1: Find ALL Side-Effect Interactions in the Target File
 ```bash
 # Permutations (writes use 'is' or 'permute')
-grep -rn "} is \|} permute " pil/vm2/ --include="*.pil" | grep -E "write|emit|append|store|log|msg|hash|nullif|public_input"
+grep -n "} is \|} permute " <target_file>
 
-# Also find ALL permutations — some side effects may not have obvious naming
-grep -rn "} is " pil/vm2/ --include="*.pil"
+# Also check for lookups that might be writes
+grep -n "} in " <target_file>
 ```
 
 > **IMPORTANT**: Do NOT rely solely on keyword filtering. Some side-effect interactions use generic names that don't contain "write" or "emit". Review ALL permutations (`} is`) and assess whether each modifies external state. If a permutation targets a tree check, public input, or accumulator trace, it is a side effect even if its name doesn't say so.
@@ -115,13 +103,13 @@ If selector is derived (`pol SEL = expr`), check if `(1 - discard)` appears anyw
 
 ### Step 6: Batch Ungated Detection
 ```bash
-# Find ALL permutation source selectors and their definitions
-grep -rn "} is " pil/vm2/ --include="*.pil"
+# Find all permutation source selectors in the target file
+grep -n "} is " <target_file>
 # Cross-reference: which of these selectors include (1 - discard)?
-grep -rn "(1 - discard)" pil/vm2/ --include="*.pil"
+grep -n "(1 - discard)" <target_file>
 ```
 
-Compare the two sets. Any permutation source selector that does NOT appear in a `(1 - discard)` gating expression is a candidate for investigation. This batch approach catches side effects that evade keyword-based filtering in Step 1.
+Compare the two sets. Any permutation source selector that does NOT appear in a `(1 - discard)` gating expression is a candidate for investigation.
 
 ## False Positive Avoidance
 
@@ -181,9 +169,9 @@ For each side-effect permutation:
 
 ## Counter Updates
 
-Also check counter increments:
+Also check counter increments in the target file:
 ```bash
-grep -rn "num_.*'\s*-\s*num_.*-\|count.*'\s*-\s*count" pil/vm2/ --include="*.pil"
+grep -n "num_.*'\s*-\s*num_.*-\|count.*'\s*-\s*count" <target_file>
 ```
 
 Counter updates should be gated: `sel * (count' - count - increment * (1 - discard)) = 0`

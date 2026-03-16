@@ -50,28 +50,18 @@ x * (e * (1 - inv) + inv) - 1 + e = 0;
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files With Zero-Check Patterns (MANDATORY)
+### Step 0: Identify Target File
 
-> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with inverse or indicator columns.
-
-```bash
-# Find all files with inverse/indicator patterns
-grep -rl "inv\|is_zero\|is_eq\|div_by_0\|_eq_" pil/vm2/ --include="*.pil" | sort
-
-# Find all files with the zero-check formula
-grep -rl "(1 - inv)\|inverse" pil/vm2/ --include="*.pil" | sort
-```
-
-Build a master checklist of ALL files with zero-check patterns. You MUST check every one.
+This session targets a single PIL file. Focus deeply on zero-check patterns within that file. Also read any PIL files that interact with the target (via lookups, permutations, or shared columns) for context, but findings should be about the target file.
 
 ### Step 1: Find Zero-Check Patterns
 ```bash
-# Search indicator names
-grep -rn "inv\|eq.*bool\|is_zero\|div_by_0\|_eq\|is_eq" pil/vm2/ --include="*.pil"
-# Search formula pattern
-grep -rn "(1 - inv)\|* inv.*- 1\|inverse" pil/vm2/ --include="*.pil"
+# Search indicator names in the target file
+grep -n "inv\|eq.*bool\|is_zero\|div_by_0\|_eq\|is_eq" <target_file>
+# Search formula pattern in the target file
+grep -n "(1 - inv)\|* inv.*- 1\|inverse" <target_file>
 ```
-**Manual review required** for zero/one/equality checks - grep alone insufficient.
+**Manual review required** for zero/one/equality checks — grep alone insufficient.
 
 ### Step 2: Verify Three Required Components
 For each pattern:

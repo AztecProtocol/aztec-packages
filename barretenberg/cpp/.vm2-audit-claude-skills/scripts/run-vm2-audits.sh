@@ -1,6 +1,9 @@
 #!/bin/bash
 #
-# run-vm2-audits.sh - Run vm2-audit-* skills in parallel with tier selection
+# run-vm2-audits.sh - Run vm2-audit-* skills in parallel, one session per PIL file
+#
+# Each skill runs ONCE PER PIL FILE, targeting a single gadget per session.
+# With N skills and M PIL files, this spawns N×M sessions (each doing much less work).
 #
 # Usage:
 #   ./run-vm2-audits.sh [OPTIONS]
@@ -14,7 +17,8 @@
 #   -j, --jobs N        Maximum parallel jobs (default: 4)
 #   -o, --output DIR    Output directory (default: ./audit-results)
 #   -s, --skill SKILL   Run only specific skill(s) (can be repeated)
-#   -t, --target PATH   Target path/file to audit (default: pil/vm2)
+#   -f, --file PIL      Run only on specific PIL file(s) (can be repeated, relative to bb/cpp)
+#   -t, --target PATH   Target path to discover PIL files (default: pil/vm2)
 #   -m, --model MODEL   Model to use (default: sonnet)
 #   --summarize-only    Only run summarizer on existing results
 #   --no-summarize      Skip the summarizer step
@@ -22,6 +26,7 @@
 #   --skill-improvements   Analyze audit agent efficiency and propose skill improvements after audits complete
 #   --skill-improvements-only  Only run skill improvements analysis on existing results (skip audits and summarizer)
 #   --list-skills       List available skills by tier and exit
+#   --list-files        List PIL files that will be audited and exit
 #   -h, --help          Show this help message
 #
 # Tier Descriptions:
@@ -37,7 +42,7 @@
 # Examples:
 #   ./run-vm2-audits.sh -T 1                    # Run Tier 1 only (fastest, critical bugs)
 #   ./run-vm2-audits.sh -T 1,2                  # Run Tiers 1 and 2 (recommended)
-#   ./run-vm2-audits.sh -T 1-3 -j 6             # Run Tiers 1-3 with 6 parallel jobs
+#   ./run-vm2-audits.sh -T 1 -f pil/vm2/alu.pil # Single skill tier on single file
 #   ./run-vm2-audits.sh                         # Run all tiers (comprehensive)
 
 set -euo pipefail
@@ -58,10 +63,12 @@ MODEL=""
 MODEL_EXPLICIT=false
 EFFORT=""
 SPECIFIC_SKILLS=()
+SPECIFIC_FILES=()
 SELECTED_TIERS=()  # Empty means all tiers
 SUMMARIZE_ONLY=false
 NO_SUMMARIZE=false
 LIST_SKILLS=false
+LIST_FILES=false
 EXTRA_MULTI_MODEL_SUMMARY="${EXTRA_MULTI_MODEL_SUMMARY:-false}"
 SKILL_IMPROVEMENTS=false
 SKILL_IMPROVEMENTS_ONLY=false
@@ -70,6 +77,13 @@ SKILL_IMPROVEMENTS_ONLY=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 SKILLS_DIR="$SCRIPT_DIR/../skills"
+
+# ─── Utility: convert PIL path to a key for directory/file naming ─────────
+# pil/vm2/alu.pil → alu
+# pil/vm2/bytecode/bc_hashing.pil → bytecode__bc_hashing
+pil_to_key() {
+    echo "$1" | sed 's|^pil/vm2/||; s|\.pil$||; s|/|__|g'
+}
 
 # Function to parse tier specification
 parse_tiers() {
@@ -175,6 +189,10 @@ while [[ $# -gt 0 ]]; do
             SPECIFIC_SKILLS+=("$2")
             shift 2
             ;;
+        -f|--file)
+            SPECIFIC_FILES+=("$2")
+            shift 2
+            ;;
         -t|--target)
             TARGET_PATH="$2"
             shift 2
@@ -211,6 +229,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --list-skills)
             LIST_SKILLS=true
+            shift
+            ;;
+        --list-files)
+            LIST_FILES=true
             shift
             ;;
         -h|--help)
@@ -256,34 +278,40 @@ else
     done
 fi
 
-# Sort by expected duration (longest first) for better parallel scheduling.
-# The JSON file is pre-sorted descending; skills not listed get appended alphabetically.
-TIMING_FILE="$SCRIPT_DIR/skill-avg-durations.json"
-if [[ -f "$TIMING_FILE" ]] && command -v jq &>/dev/null; then
-    # Extract skill ordering from the pre-sorted JSON array
-    ORDERED_SKILLS=()
-    declare -A SKILL_SET
-    for skill in "${ALL_SKILLS[@]}"; do SKILL_SET[$skill]=1; done
+# Sort skills alphabetically (no longer need longest-first since each run is small)
+IFS=$'\n' ALL_SKILLS=($(sort <<<"${ALL_SKILLS[*]}")); unset IFS
 
-    # Add skills in timing-file order (longest first)
-    while IFS= read -r skill; do
-        if [[ -n "${SKILL_SET[$skill]:-}" ]]; then
-            ORDERED_SKILLS+=("$skill")
-            unset "SKILL_SET[$skill]"
-        fi
-    done < <(jq -r '.[].skill' "$TIMING_FILE")
-
-    # Append any remaining skills (new ones not in timing file) alphabetically
-    for skill in $(printf '%s\n' "${!SKILL_SET[@]}" | sort); do
-        ORDERED_SKILLS+=("$skill")
-    done
-    ALL_SKILLS=("${ORDERED_SKILLS[@]}")
+# Discover PIL files
+PIL_FILES=()
+if [[ ${#SPECIFIC_FILES[@]} -gt 0 ]]; then
+    PIL_FILES=("${SPECIFIC_FILES[@]}")
 else
-    # Fallback: alphabetical
-    IFS=$'\n' ALL_SKILLS=($(sort <<<"${ALL_SKILLS[*]}")); unset IFS
+    while IFS= read -r f; do
+        PIL_FILES+=("$f")
+    done < <(find "$TARGET_PATH" -name '*.pil' | sort)
 fi
 
-SKILLS_TO_RUN=("${ALL_SKILLS[@]}")
+# Handle --list-files
+if [[ "$LIST_FILES" == "true" ]]; then
+    echo -e "${CYAN}PIL files to audit (${#PIL_FILES[@]}):${NC}"
+    for f in "${PIL_FILES[@]}"; do
+        echo "  $(pil_to_key "$f") → $f"
+    done
+    exit 0
+fi
+
+# Build the full matrix: skill × pil_file
+declare -a RUNS_SKILL=()
+declare -a RUNS_PIL=()
+
+for skill in "${ALL_SKILLS[@]}"; do
+    for pil_file in "${PIL_FILES[@]}"; do
+        RUNS_SKILL+=("$skill")
+        RUNS_PIL+=("$pil_file")
+    done
+done
+
+TOTAL_RUNS=${#RUNS_SKILL[@]}
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -295,11 +323,33 @@ log() {
     echo -e "$1" | tee -a "$LOG_FILE"
 }
 
-# Function to run a single skill
+# Determine if a skill needs C++ siblings (simulation/tracegen/events).
+# Skills that reference src/barretenberg/vm2/(simulation|tracegen) in their SKILL.md need them.
+# We cache this in SKILL_NEEDS_CPP associative array, populated at startup.
+declare -A SKILL_NEEDS_CPP
+populate_skill_needs_cpp() {
+    for dir in "$SKILLS_DIR"/vm2-audit-*/; do
+        [[ -d "$dir" ]] || continue
+        local sname
+        sname=$(basename "$dir")
+        if grep -qE 'src/barretenberg/vm2/(simulation|tracegen)' "$dir/SKILL.md" 2>/dev/null; then
+            SKILL_NEEDS_CPP[$sname]=1
+        else
+            SKILL_NEEDS_CPP[$sname]=0
+        fi
+    done
+}
+populate_skill_needs_cpp
+
+# Function to run a single skill on a single PIL file
 run_skill() {
     local skill="$1"
-    local output_file="$OUTPUT_DIR/${skill}.md"
-    local status_file="$OUTPUT_DIR/.${skill}.status"
+    local pil_file="$2"
+    local pil_key
+    pil_key=$(pil_to_key "$pil_file")
+    local output_file="$OUTPUT_DIR/${skill}--${pil_key}.md"
+    local json_file="$OUTPUT_DIR/${skill}--${pil_key}.json"
+    local status_file="$OUTPUT_DIR/.${skill}--${pil_key}.status"
     local start_time=$(date +%s)
 
     echo "running" > "$status_file"
@@ -313,18 +363,74 @@ run_skill() {
         return
     fi
 
-    # Read skill instructions and build a combined prompt (avoids loading all skills into system prompt)
+    # Read skill instructions
     local skill_instructions
     skill_instructions="$(cat "$skill_file")"
 
     local abs_output_dir="$(cd "$OUTPUT_DIR" && pwd)"
-    local task_prompt="COVERAGE RULE: First run \`find ${TARGET_PATH} -name '*.pil' | sort\` to get ALL files. Grep patterns in the instructions below are starting points, not exhaustive scope. Sweep ALL files.
+
+    # Derive gadget name for C++ sibling paths
+    local gadget_name
+    gadget_name=$(basename "$pil_file" .pil)
+
+    # ── Pre-inject file contents into prompt to avoid multi-turn Read overhead ──
+    local preloaded_files=""
+
+    # Always include the target PIL file
+    preloaded_files+="
+<file path=\"${pil_file}\">
+$(cat "$pil_file")
+</file>
+"
+
+    # Include C++ siblings only for skills that need them
+    local needs_cpp="${SKILL_NEEDS_CPP[$skill]:-0}"
+    if [[ "$needs_cpp" == "1" ]]; then
+        local cpp_siblings=(
+            "src/barretenberg/vm2/simulation/gadgets/${gadget_name}.cpp"
+            "src/barretenberg/vm2/tracegen/${gadget_name}.cpp"
+            "src/barretenberg/vm2/simulation/events/${gadget_name}_event.hpp"
+        )
+        for sibling in "${cpp_siblings[@]}"; do
+            if [[ -f "$sibling" ]]; then
+                preloaded_files+="
+<file path=\"${sibling}\">
+$(cat "$sibling")
+</file>
+"
+            fi
+        done
+    fi
+
+    # Build per-file prompt with pre-loaded contents
+    local cpp_note=""
+    if [[ "$needs_cpp" == "1" ]]; then
+        cpp_note="C++ siblings (simulation, tracegen, events) are included above if they exist."
+    else
+        cpp_note="This audit is PIL-focused. C++ siblings are NOT included — do not spend time reading them."
+    fi
+
+    local task_prompt="FOCUS: You are auditing a SINGLE PIL file: **${pil_file}**
+
+Your primary target is ${pil_file}. ${cpp_note}
+You MAY read other PIL files for context about interactions (lookups/permutations that
+reference columns from ${pil_file}), but your goal is to find bugs IN ${pil_file} or in
+other gadgets' interactions WITH it.
+
+IMPORTANT: The target file contents (and C++ siblings where relevant) are PRE-LOADED below.
+Do NOT re-read them with the Read tool — use the contents provided here. Only use Read/Grep
+for OTHER files you need for interaction context.
+
+## Pre-loaded file contents
+${preloaded_files}
+
+## Audit instructions
 
 ${skill_instructions}
 
 ---
 
-TASK: Run the ${skill} audit on ${TARGET_PATH}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding. Write the JSON findings file to: ${abs_output_dir}/${skill}.json"
+TASK: Run the ${skill} audit focused on ${pil_file}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding. Write the JSON findings file to: ${abs_output_dir}/${skill}--${pil_key}.json"
 
     local claude_args=(-p --model "$MODEL" --allowedTools "Read,Glob,Grep,Bash,Write,Edit" --output-format text --disable-slash-commands)
     if [[ -n "$EFFORT" ]]; then
@@ -345,37 +451,43 @@ TASK: Run the ${skill} audit on ${TARGET_PATH}. Provide a thorough audit report 
 
 # Function to show progress
 show_progress() {
-    local total=${#SKILLS_TO_RUN[@]}
     local completed=0
     local failed=0
     local running=0
-    local running_skills=()
+    local running_items=()
 
-    for skill in "${SKILLS_TO_RUN[@]}"; do
-        local status_file="$OUTPUT_DIR/.${skill}.status"
+    for i in $(seq 0 $((TOTAL_RUNS - 1))); do
+        local sk="${RUNS_SKILL[$i]}"
+        local pk
+        pk=$(pil_to_key "${RUNS_PIL[$i]}")
+        local status_file="$OUTPUT_DIR/.${sk}--${pk}.status"
         if [[ -f "$status_file" ]]; then
             local status=$(head -1 "$status_file")
             case "$status" in
                 success) ((++completed)) ;;
                 failed) ((++failed)); ((++completed)) ;;
-                running) ((++running)); running_skills+=("${skill#vm2-audit-t?-}") ;;
+                running) ((++running)); running_items+=("${sk#vm2-audit-t?-}×${pk}") ;;
             esac
         fi
     done
 
     local elapsed=$(($(date +%s) - OVERALL_START))
     local running_list=""
-    if [[ ${#running_skills[@]} -gt 0 ]]; then
-        running_list=" [${running_skills[*]}]"
+    if [[ ${#running_items[@]} -gt 0 ]]; then
+        # Show at most 5 running items to avoid line overflow
+        if [[ ${#running_items[@]} -le 5 ]]; then
+            running_list=" [${running_items[*]}]"
+        else
+            running_list=" [${running_items[0]} ${running_items[1]} ... +$((${#running_items[@]} - 2)) more]"
+        fi
     fi
-    echo -e "${BLUE}[${elapsed}s] Progress: ${completed}/${total} completed, ${running} running, ${failed} failed${running_list}${NC}"
+    echo -e "${BLUE}[${elapsed}s] Progress: ${completed}/${TOTAL_RUNS} completed, ${running} running, ${failed} failed${running_list}${NC}"
 }
 
 # Background progress monitor
 progress_monitor() {
     while true; do
         sleep 30
-        # Check if we should still be running
         if [[ ! -f "$OUTPUT_DIR/.monitor_running" ]]; then
             break
         fi
@@ -383,30 +495,8 @@ progress_monitor() {
     done
 }
 
-# Track last announced completions to detect new ones
-declare -A ANNOUNCED_COMPLETIONS
-
-# Function to announce newly completed skills
-announce_completions() {
-    for skill in "${SKILLS_TO_RUN[@]}"; do
-        local status_file="$OUTPUT_DIR/.${skill}.status"
-        if [[ -f "$status_file" && -z "${ANNOUNCED_COMPLETIONS[$skill]:-}" ]]; then
-            local status=$(head -1 "$status_file")
-            if [[ "$status" == "success" ]]; then
-                local duration=$(tail -1 "$status_file" 2>/dev/null || echo "?")
-                log "${GREEN}[DONE]${NC} $skill (${duration}s)"
-                ANNOUNCED_COMPLETIONS[$skill]=1
-            elif [[ "$status" == "failed" ]]; then
-                local duration=$(tail -1 "$status_file" 2>/dev/null || echo "?")
-                log "${RED}[FAIL]${NC} $skill (${duration}s)"
-                ANNOUNCED_COMPLETIONS[$skill]=1
-            fi
-        fi
-    done
-}
-
 # Export functions for parallel execution
-export -f run_skill
+export -f run_skill pil_to_key
 export OUTPUT_DIR TARGET_PATH MODEL EFFORT SKILLS_DIR
 
 # Skip to summarizer if --summarize-only, skip everything if --skill-improvements-only
@@ -418,7 +508,7 @@ else
     # Print banner
     log ""
     log "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    log "${GREEN}║              VM2 Audit Skills - Batch Runner                 ║${NC}"
+    log "${GREEN}║        VM2 Audit Skills - Per-File Batch Runner              ║${NC}"
     log "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
     log ""
     log "Configuration:"
@@ -431,18 +521,18 @@ else
     else
         log "  Selected tiers: all (0-4)"
     fi
-    log "  Skills to run: ${#SKILLS_TO_RUN[@]}"
+    log "  Skills: ${#ALL_SKILLS[@]}"
+    log "  PIL files: ${#PIL_FILES[@]}"
+    log "  Total sessions (skills × files): $TOTAL_RUNS"
     log ""
 
     # Group skills by tier for display
     log "Skills by tier:"
     for tier in 0 1 2 3 4; do
         tier_count=0
-        tier_skills=""
-        for skill in "${SKILLS_TO_RUN[@]}"; do
+        for skill in "${ALL_SKILLS[@]}"; do
             if [[ "$skill" =~ ^vm2-audit-t${tier}- ]]; then
                 ((++tier_count))
-                tier_skills="$tier_skills $skill"
             fi
         done
         if [[ $tier_count -gt 0 ]]; then
@@ -472,10 +562,22 @@ else
     job_count=0
     pids=()
 
-    for skill in "${SKILLS_TO_RUN[@]}"; do
-        # Start the skill in background
-        log "${BLUE}[START]${NC} $skill"
-        run_skill "$skill" &
+    for i in $(seq 0 $((TOTAL_RUNS - 1))); do
+        skill="${RUNS_SKILL[$i]}"
+        pil_file="${RUNS_PIL[$i]}"
+        pil_key=$(pil_to_key "$pil_file")
+
+        # Skip if already done
+        status_file="$OUTPUT_DIR/.${skill}--${pil_key}.status"
+        if [[ -f "$status_file" ]]; then
+            status=$(head -1 "$status_file")
+            if [[ "$status" == "success" || "$status" == "failed" ]]; then
+                continue
+            fi
+        fi
+
+        log "${BLUE}[START]${NC} ${skill} × ${pil_key}"
+        run_skill "$skill" "$pil_file" &
         pids+=($!)
         ((++job_count))
 
@@ -483,18 +585,16 @@ else
         if [[ $job_count -ge $MAX_JOBS ]]; then
             wait -n 2>/dev/null || true
             ((--job_count)) || true
-            announce_completions
             show_progress
         fi
     done
 
-    # Wait for all remaining jobs with periodic progress updates
+    # Wait for all remaining jobs
     log ""
     log "${YELLOW}Waiting for remaining ${job_count} jobs to complete...${NC}"
     while [[ $job_count -gt 0 ]]; do
         wait -n 2>/dev/null || true
         ((--job_count)) || true
-        announce_completions
     done
 
     # Stop the background monitor
@@ -517,8 +617,10 @@ else
     # Show final status summary
     success_count=0
     fail_count=0
-    for skill in "${SKILLS_TO_RUN[@]}"; do
-        status_file="$OUTPUT_DIR/.${skill}.status"
+    for i in $(seq 0 $((TOTAL_RUNS - 1))); do
+        sk="${RUNS_SKILL[$i]}"
+        pk=$(pil_to_key "${RUNS_PIL[$i]}")
+        status_file="$OUTPUT_DIR/.${sk}--${pk}.status"
         if [[ -f "$status_file" ]]; then
             status=$(head -1 "$status_file")
             case "$status" in
@@ -565,16 +667,17 @@ if [[ "$SKILL_IMPROVEMENTS" == "true" ]]; then
 
     # Gather timing data from status files
     TIMING_DATA=""
-    for skill in "${SKILLS_TO_RUN[@]}"; do
-        status_file="$OUTPUT_DIR/.${skill}.status"
+    for i in $(seq 0 $((TOTAL_RUNS - 1))); do
+        sk="${RUNS_SKILL[$i]}"
+        pk=$(pil_to_key "${RUNS_PIL[$i]}")
+        status_file="$OUTPUT_DIR/.${sk}--${pk}.status"
         if [[ -f "$status_file" ]]; then
             status=$(head -1 "$status_file")
             duration=$(tail -1 "$status_file" 2>/dev/null || echo "?")
-            TIMING_DATA="${TIMING_DATA}${skill}: status=${status}, duration=${duration}s\n"
+            TIMING_DATA="${TIMING_DATA}${sk}--${pk}: status=${status}, duration=${duration}s\n"
         fi
     done
 
-    # Build the prompt as a temp file to avoid arg-list-too-long
     IMPROVEMENTS_PROMPT_FILE=$(mktemp)
     trap "rm -f '$IMPROVEMENTS_PROMPT_FILE'" EXIT
 
@@ -613,7 +716,6 @@ One subsection per item from the two lists above, with:
 
 PROMPT_HEADER
 
-    # Append timing data
     {
         echo ""
         echo "## Timing Data"

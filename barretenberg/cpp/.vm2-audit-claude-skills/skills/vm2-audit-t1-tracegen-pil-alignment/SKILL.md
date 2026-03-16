@@ -51,9 +51,13 @@ INFINITY_PRED = x_match * (1 - y_match)
 => add_op = sel - x_match (NOT the intuitive guess of !x_match && !y_match!)
 ```
 
+## Session Scope
+
+> **NOTE**: This session targets a single PIL file and its corresponding tracegen file(s). Focus deeply on that pair. Use the component mapping below to identify the tracegen file, and read related PIL/tracegen files only for context (e.g., to understand shared columns or interactions).
+
 ## Component Mapping
 
-These are ALL (PIL, tracegen) pairs. Use this table — do NOT spend time discovering components.
+These are ALL (PIL, tracegen) pairs. Use this table to find the tracegen file for the target PIL file — do NOT spend time discovering components.
 
 **Core components (HIGH PRIORITY — complex state machines):**
 
@@ -197,10 +201,7 @@ For each permutation/lookup:
 
 ### Phase 3: Coverage and Write-up (20% of budget)
 
-**3a — Coverage table (MANDATORY)**: List every component from the mapping table above with status:
-
-| Component | PIL files | Tracegen file | Scanned? | Deep-analyzed? | Findings |
-|-----------|-----------|--------------|----------|---------------|----------|
+**3a — Summary**: List the target component's PIL columns, their tracegen assignments, and any misalignments found.
 
 **3b — Write findings JSON and report**
 

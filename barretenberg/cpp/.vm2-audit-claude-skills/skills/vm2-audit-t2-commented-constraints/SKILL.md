@@ -33,32 +33,20 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 
 ## Workflow
 
-### Step 0: Enumerate ALL PIL Files (MANDATORY)
-
-> **CRITICAL**: First build a complete inventory of all PIL files to ensure full coverage.
-
-```bash
-# List all PIL files and their sizes
-find pil/vm2/ -name "*.pil" | xargs wc -l | sort -n
-
-# Count total files
-find pil/vm2/ -name "*.pil" | wc -l
-```
-
-You MUST scan every PIL file. Build a checklist and mark each as scanned.
+> **SESSION SCOPE**: This session targets a **single PIL file**. The runner script specifies the target. Focus deeply on that file; read related files only for context to understand interactions.
 
 ### Step 1: Scan for FIXME/TODO Comments
 ```bash
-grep -rn "FIXME\|TODO\|HACK\|TEMPORARY\|DISABLED\|XXX" pil/vm2/ --include="*.pil"
+grep -n "FIXME\|TODO\|HACK\|TEMPORARY\|DISABLED\|XXX" <target>.pil
 ```
 
 ### Step 2: Scan for Commented-Out Constraints
 ```bash
 # Commented constraint lines
-grep -rn "^[[:space:]]*//.*=" barretenberg/cpp/pil/vm2/ --include="*.pil" | grep -v "pol\|include\|Example"
+grep -n "^[[:space:]]*//.*=" <target>.pil | grep -v "pol\|include\|Example"
 
 # Commented blocks
-grep -rn "^[[:space:]]*/\*" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "^[[:space:]]*/\*" <target>.pil
 ```
 
 ### Step 3: Assess Each Finding
@@ -69,8 +57,8 @@ grep -rn "^[[:space:]]*/\*" barretenberg/cpp/pil/vm2/ --include="*.pil"
 ### Step 4: Check for Boolean-Only Error Flags
 Common pattern - error flags with boolean constraint but missing aggregation:
 ```bash
-grep -rn "sel_err\|sel_.*_err\|parsing_err" barretenberg/cpp/pil/vm2/ --include="*.pil"
-grep -rn "sel_err.*=\|sel_err - " barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "sel_err\|sel_.*_err\|parsing_err" <target>.pil
+grep -n "sel_err.*=\|sel_err - " <target>.pil
 ```
 
 **Suspicious pattern**:

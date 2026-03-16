@@ -120,27 +120,20 @@ sel_execute_opcode { value, address, ... } in tree_check.sel { ... };
 
 ## Workflow
 
-### Step 0: Enumerate ALL Side-Effect Opcodes (MANDATORY)
+### Step 0: Identify the Target PIL File
 
-> **CRITICAL**: Identify ALL opcodes that produce state-changing side effects, not just the known set.
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify which opcode(s) it governs and what side effects they produce. Read related tree PIL files and simulation code for context, but findings should be about the target file.
 
 ```bash
-# Find all opcodes with tree/state interactions in PIL
-grep -rl "tree_check\|public_data\|note_hash\|nullifier\|l2_to_l1\|unencrypted_log\|public_input" pil/vm2/opcodes/*.pil | sort
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# Find all side-effect permutations in PIL
-grep -rn "} is " pil/vm2/opcodes/*.pil
+# Find tree/state interaction patterns in the target file
+grep -n "tree_check\|public_data\|note_hash\|nullifier\|l2_to_l1\|unencrypted_log\|discard\|is_in" pil/vm2/<target>.pil
 
-# Find all opcodes that emit events in simulation
-grep -rn "emit\|append\|insert\|write.*tree\|write.*storage" src/barretenberg/vm2/simulation/gadgets/execution.cpp | head -30
+# Find the corresponding simulation code for context
+grep -n "emit\|append\|insert\|write.*tree\|write.*storage" src/barretenberg/vm2/simulation/gadgets/execution.cpp | head -30
 ```
-
-Build a master checklist:
-
-| Opcode | Side effect type | Discard gated? | Error gated? | Checked? | Finding? |
-|--------|-----------------|---------------|-------------|----------|----------|
-
-**You MUST verify every side-effect-producing opcode.** Check both the table above AND any additional ones discovered by the grep searches.
 
 ### Step 1: Select Target Side-Effect Opcode
 ```bash

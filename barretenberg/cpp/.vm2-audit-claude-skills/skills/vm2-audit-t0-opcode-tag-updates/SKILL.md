@@ -121,22 +121,20 @@ Copy operations may update tags for a range.
 
 ## Workflow
 
-### Step 0: Enumerate ALL Opcodes With Outputs
+### Step 0: Identify the Target PIL File
 
-Before diving into specific opcodes, build a complete inventory to ensure nothing is skipped:
+This session focuses on a single target PIL file provided by the runner. Read it thoroughly and identify which opcode(s) it governs, what outputs they produce, and what tag update pattern they use. Read related files for context (alu.pil, registers.pil, simulation code), but findings should be about the target file.
 
 ```bash
-# All opcodes that have Tag Updates documentation
-grep -l "## Tag Updates" yarn-project/simulator/docs/avm/opcodes/*.md
+# Read the target PIL file
+cat pil/vm2/<target>.pil
 
-# All opcode selectors in PIL that write to output registers
-grep -rn "mem_tag_reg\[.*\]" pil/vm2/ --include="*.pil"
+# Find tag update constraints in the target file
+grep -n "mem_tag_reg\|ic_tag\|oc_tag\|MEM_TAG" pil/vm2/<target>.pil
 
-# All ALU operation selectors (each needs tag verification)
-grep -rn "sel_op_\|sel_alu_\|sel_execute_" pil/vm2/alu.pil
+# Find ALU operation selectors relevant to the target
+grep -n "sel_op_\|sel_alu_\|sel_execute_" pil/vm2/<target>.pil
 ```
-
-Build a checklist of every opcode that produces an output. Audit each one — do not stop after a few.
 
 ### Step 1: Select Target Opcode(s)
 ```bash

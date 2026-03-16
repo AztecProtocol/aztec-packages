@@ -111,55 +111,48 @@ count = sel_a + sel_b + sel_c;
 
 ## Workflow
 
-> **PERFORMANCE RULE**: Do NOT iterate per-column with individual greps. Use the batch-first approach below. The codebase has ~1,730 committed columns across ~65 PIL files — per-column iteration will exhaust the context window.
+> **NOTE**: This session targets a single PIL file. Focus all analysis on that file. Read related files only for context (e.g., to understand lookup sources/destinations).
 
-### Phase 1: Batch Collection (5 parallel searches)
+### Phase 1: Batch Collection (parallel searches on the target file)
 
-Run these searches in parallel to collect the two sets needed for diffing:
+Run these searches on the target file to collect the two sets needed for diffing:
 
 **Search A — All boolean-candidate columns** (columns that SHOULD be boolean):
 ```bash
-grep -rn "pol commit.*sel_\|pol commit.*is_\|pol commit.*err_\|pol commit.*start\|pol commit.*end\|pol commit.*write\|pol commit.*latch\|pol commit.*first\|pol commit.*last\|@boolean" pil/vm2/ --include="*.pil"
+grep -n "pol commit.*sel_\|pol commit.*is_\|pol commit.*err_\|pol commit.*start\|pol commit.*end\|pol commit.*write\|pol commit.*latch\|pol commit.*first\|pol commit.*last\|@boolean" pil/vm2/<target_file>.pil
 ```
 
 **Search B — All existing boolean constraints** (columns that ARE constrained):
 ```bash
-grep -rn "(1 - " pil/vm2/ --include="*.pil"
+grep -n "(1 - " pil/vm2/<target_file>.pil
 ```
 This catches `col * (1 - col) = 0`, gated forms like `sel * col * (1 - col) = 0`, and loop-generated constraints.
 
 **Search C — All lookup-to-binary constraints**:
 ```bash
-grep -rn "sel_binary\|binary_value" pil/vm2/ --include="*.pil"
+grep -n "sel_binary\|binary_value" pil/vm2/<target_file>.pil
 ```
 
-**Search D — File inventory** (for coverage tracking):
+**Search D — Main `sel` boolean constraints** (CRITICAL — see Phase 2):
 ```bash
-find pil/vm2/ -name "*.pil" | sort
-```
-
-**Search E — Main `sel` boolean constraints** (CRITICAL — see Phase 2a):
-```bash
-grep -rn "pol commit sel;" pil/vm2/ --include="*.pil"
-grep -rn "sel \* (1 - sel)" pil/vm2/ --include="*.pil"
+grep -n "pol commit sel;" pil/vm2/<target_file>.pil
+grep -n "sel \* (1 - sel)" pil/vm2/<target_file>.pil
 ```
 
 ### Phase 2: MANDATORY Main `sel` Check (DO THIS BEFORE ANYTHING ELSE)
 
 > **CRITICAL BLIND SPOT**: The main `sel` column is a committed column like any other. It is NOT automatically boolean. Many files declare `pol commit sel;` without `sel * (1 - sel) = 0`. This is a HIGH-severity finding when `sel` is used in additive expressions or as a permutation/lookup selector.
 
-**Phase 2a — Mechanical check**: For every file that has `pol commit sel;` (from Search E), verify that `sel * (1 - sel) = 0` exists IN THAT SAME FILE (ungated). If it does not exist, immediately add `sel` as a PRELIMINARY FINDING. Do not skip this step. Do not assume `sel` is boolean.
+**Phase 2a — Mechanical check**: If the target file has `pol commit sel;` (from Search D), verify that `sel * (1 - sel) = 0` exists IN THAT SAME FILE (ungated). If it does not exist, immediately add `sel` as a PRELIMINARY FINDING. Do not skip this step. Do not assume `sel` is boolean.
 
-**Phase 2b — Error column check**: For every file with `pol commit err` or `pol commit sel_err` or similar error columns, check whether those error columns have boolean constraints. Error columns used in additive aggregation (`sel_err = err1 + err2 + ...`) without boolean constraints enable error cancellation attacks.
+**Phase 2b — Error column check**: If the target file has `pol commit err` or `pol commit sel_err` or similar error columns, check whether those error columns have boolean constraints. Error columns used in additive aggregation (`sel_err = err1 + err2 + ...`) without boolean constraints enable error cancellation attacks.
 
 ### Phase 3: Set Difference (compute candidates)
 
 From the batch results:
-1. Build set DECLARED = columns from Search A **plus all `sel` columns from Phase 2a**
+1. Build set DECLARED = columns from Search A **plus `sel` column from Phase 2a**
 2. Build set CONSTRAINED = columns appearing in Search B + Search C
 3. CANDIDATES = DECLARED - CONSTRAINED (these are the columns to investigate)
-
-Typically yields **10-30 candidates**, not hundreds.
 
 ### Phase 4: Two-Pass Breadth-First Analysis
 
@@ -189,17 +182,11 @@ For each surviving candidate:
 
 **5a — Catch unconventionally-named booleans**:
 ```bash
-grep -roPh "(1 - [a-z_][a-z_0-9]*)" pil/vm2/ --include="*.pil" | sort -u
+grep -oPh "(1 - [a-z_][a-z_0-9]*)" pil/vm2/<target_file>.pil | sort -u
 ```
 Any column name appearing here that wasn't in Search A is an unconventionally-named boolean. Add it to candidates.
 
-**5b — File coverage table** (MANDATORY):
-Using the file list from Search D, output a table:
-
-| File | `pol commit` count | `sel` boolean checked? | Candidates found | Analyzed? |
-|------|-------------------|----------------------|-----------------|-----------|
-
-Every file MUST appear in this table. If a file was not analyzed, explain why. **You MUST analyze every PIL file under `pil/vm2/`, `pil/vm2/opcodes/`, `pil/vm2/bytecode/`, and `pil/vm2/trees/`.** If you cannot complete all files, prioritize breadth — a single grep per file for unconstrained boolean candidates is better than deep analysis of 3 files.
+**5b — Summary**: Output a summary of all candidates found in the target file and their disposition (finding or dismissed with quoted constraint).
 
 ## Patterns
 

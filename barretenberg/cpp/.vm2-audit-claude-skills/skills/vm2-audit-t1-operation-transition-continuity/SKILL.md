@@ -200,18 +200,22 @@ sel' * (start' - LATCH_CONDITION) = 0;
 
 ### Part B Workflow
 
-#### Step 1: Discover All Multi-Row Gadgets
-```bash
-# Find all components with start/end lifecycle selectors
-grep -rn "pol commit start\|pol commit end\|pol commit sel_start\|pol commit sel_end" \
-    barretenberg/cpp/pil/vm2/ --include="*.pil"
+#### Step 0: Session Scope
 
-# Find LATCH_CONDITION patterns (strong indicator of multi-row gadget)
-grep -rn "LATCH_CONDITION" barretenberg/cpp/pil/vm2/ --include="*.pil"
+> **NOTE**: This session targets a single PIL file. Focus deeply on that file's transition and continuity constraints. Read related files (context.pil, execution.pil, context_stack.pil, etc.) for context where needed, but findings should be about the target file.
+
+#### Step 1: Check Target File for Multi-Row Gadget Patterns
+```bash
+# Find start/end lifecycle selectors in the target file
+grep -n "pol commit start\|pol commit end\|pol commit sel_start\|pol commit sel_end" \
+    pil/vm2/<target_file>.pil
+
+# Find LATCH_CONDITION patterns
+grep -n "LATCH_CONDITION" pil/vm2/<target_file>.pil
 
 # Find computation-finish guards
-grep -rn "COMPUTATION_FINISH\|finish\|TRACE_CONTINUITY" \
-    barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -n "COMPUTATION_FINISH\|finish\|TRACE_CONTINUITY" \
+    pil/vm2/<target_file>.pil
 ```
 
 #### Step 2: For Each Gadget, Map the Internal State Machine
@@ -255,8 +259,8 @@ The critical invariant: **once a multi-row operation begins (start = 1), its int
 Error handling can create shortcuts through the state machine:
 
 ```bash
-# Find error-related end conditions
-grep -rn "err.*end\|end.*err\|END_ON_ERR" barretenberg/cpp/pil/vm2/ --include="*.pil"
+# Find error-related end conditions in the target file
+grep -n "err.*end\|end.*err\|END_ON_ERR" pil/vm2/<target_file>.pil
 ```
 
 Verify that when errors force `end = 1`, all side effects (memory writes, lookups) are correctly suppressed for the skipped rows.
