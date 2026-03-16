@@ -455,6 +455,7 @@ export async function generateSimulatedProvingResult(
     const execution = executions.shift()!;
     executions.unshift(...execution!.nestedExecutionResults);
 
+    // Just like kernels we overwrite the default value if the call sets it.
     const callExpirationTimestamp = execution.publicInputs.expirationTimestamp;
     if (callExpirationTimestamp !== 0n && callExpirationTimestamp < expirationTimestamp) {
       expirationTimestamp = callExpirationTimestamp;
