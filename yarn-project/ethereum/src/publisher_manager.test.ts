@@ -349,12 +349,12 @@ describe('PublisherManager', () => {
       publisherManager = createFundedManager(mockPublishers, funder);
 
       let callCount = 0;
-      funder.sendAndMonitorTransaction.mockImplementation(async () => {
+      funder.sendAndMonitorTransaction.mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
           funder.balance = 10n; // exhausted after first fund
         }
-        return { receipt: { transactionHash: '0x1' }, state: {} };
+        return Promise.resolve({ receipt: { transactionHash: '0x1' }, state: {} });
       });
 
       await publisherManager.getAvailablePublisher();

@@ -153,7 +153,7 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
       }
 
       const fundingAmount = config.publisherFundingAmount!;
-      let funderBalance = await funder.getSenderBalance();
+      const funderBalance = await funder.getSenderBalance();
 
       if (funderBalance < 10n * fundingAmount) {
         this.log.warn(`Funding account balance is low`, { funderBalance, threshold: 10n * fundingAmount });
