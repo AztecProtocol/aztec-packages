@@ -108,7 +108,7 @@ template <typename DataType> class MegaInterleavedWitnessCommitments_<DataType, 
         interleaved_return_data,        // W₇:  [return_data, 0, 0, 0] - unshiftable
         interleaved_lookup,             // W₉:  [lookup_read_counts, lookup_read_tags, 0, 0]
         interleaved_inverses,           // W₁₀: all inverses - unshiftable
-        interleaved_masking,            // W₁₂: masking chunks - unshiftable
+        masking_commitment,            // W₁₂: masking chunks - unshiftable
         interleaved_wires,              // W₁:  [w_l, w_r, w_o, 0] - shiftable
         interleaved_w_4,                // W₈:  [w_4, 0, 0, 0] - shiftable
         interleaved_z_perm)             // W₁₁: [z_perm, 0, 0, 0] - shiftable
@@ -293,7 +293,7 @@ class MegaInterleavedCommitmentLabels_<4, false> : public MegaInterleavedWitness
     }
 };
 
-// BS=4, ZK (adds interleaved_masking)
+// BS=4, ZK (adds masking_commitment)
 template <>
 class MegaInterleavedCommitmentLabels_<4, true> : public MegaInterleavedWitnessCommitments_<std::string, 4, true> {
   public:
@@ -310,7 +310,7 @@ class MegaInterleavedCommitmentLabels_<4, true> : public MegaInterleavedWitnessC
         interleaved_lookup = "INTERLEAVED_LOOKUP";
         interleaved_inverses = "INTERLEAVED_INVERSES";
         interleaved_z_perm = "INTERLEAVED_Z_PERM";
-        interleaved_masking = "INTERLEAVED_MASKING";
+        masking_commitment = "MASKING_COMMITMENT";
     }
 };
 

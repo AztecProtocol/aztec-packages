@@ -323,8 +323,8 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
                                                                       PolynomialSpan<const FF>(polys.masking_chunk_1),
                                                                       PolynomialSpan<const FF>(polys.masking_chunk_2),
                                                                       PolynomialSpan<const FF>(polys.masking_chunk_3) };
-            interleaved_commitments.interleaved_masking =
-                commit_interleaved_and_send<4>(masking_batch, interleaved_labels.interleaved_masking);
+            interleaved_commitments.masking_commitment =
+                commit_interleaved_and_send<4>(masking_batch, interleaved_labels.masking_commitment);
         } else {
             // Create a random masking polynomial for Gemini
             const size_t polynomial_size = prover_instance->dyadic_size();
@@ -332,7 +332,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 
             // Commit to the masking polynomial and send to transcript
             auto masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
-            transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
+            transcript->send_to_verifier("MASKING_COMMITMENT", masking_commitment);
         }
     }
 };

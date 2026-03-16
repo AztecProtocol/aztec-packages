@@ -13,14 +13,31 @@
 
 namespace bb {
 
-// Resolve the type for commitments received during Oink verification.
-// BS=1: individual witness commitments (WitnessCommitments).
-// BS>1: interleaved witness commitments (InterleavedCommitments).
-template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct ReceivedCommitmentsOf {
-    using type = typename Flavor::WitnessCommitments;
+/**
+ * @brief Wraps WitnessCommitments with an additional masking commitment for ZK BS=1 flavors.
+ * @details For ZK, the masking commitment is prepended to unshifted PCS commitments.
+ *          The masking_commitment field and label are provided uniformly so that
+ *          oink_verifier and build_pcs_commitments don't need to branch on BS.
+ */
+template <typename WitnessCommitments_, typename Commitment_> struct WitnessCommitmentsWithMasking
+    : public WitnessCommitments_ {
+    Commitment_ masking_commitment;
 };
-template <typename Flavor> struct ReceivedCommitmentsOf<Flavor, true> {
-    using type = typename Flavor::InterleavedCommitments;
+
+// Resolve the type for commitments received during Oink verification.
+// BS=1 non-ZK: WitnessCommitments
+// BS=1 ZK: WitnessCommitmentsWithMasking (wraps WitnessCommitments + masking field)
+// BS>1: InterleavedCommitments (includes masking for ZK via interleaved_masking member)
+template <typename Flavor, bool IsMulti = IsMultiMegaFlavor<Flavor>, bool HasZK = Flavor::HasZK>
+struct ReceivedCommitmentsOf {
+    using type = typename Flavor::WitnessCommitments; // BS=1, non-ZK
+};
+template <typename Flavor> struct ReceivedCommitmentsOf<Flavor, false, true> {
+    using type =
+        WitnessCommitmentsWithMasking<typename Flavor::WitnessCommitments, typename Flavor::Commitment>; // BS=1, ZK
+};
+template <typename Flavor, bool HasZK> struct ReceivedCommitmentsOf<Flavor, true, HasZK> {
+    using type = typename Flavor::InterleavedCommitments; // BS>1 (ZK or not)
 };
 
 /**
@@ -45,12 +62,11 @@ template <typename Flavor_> class VerifierInstance_ {
     std::vector<FF> gate_challenges;
 
     // Commitments received during Oink verification.
-    // For BS=1: individual witness commitments (WitnessCommitments).
-    // For BS>1: interleaved witness commitments (InterleavedCommitments).
-    // Both provide get_all() and get_shiftable().
+    // BS=1 non-ZK: individual witness commitments.
+    // BS=1 ZK: witness commitments + masking commitment.
+    // BS>1: interleaved witness commitments (includes masking for ZK).
+    // All provide get_all() and get_shiftable().
     typename ReceivedCommitmentsOf<Flavor>::type received_commitments;
-
-    Commitment gemini_masking_commitment; // ZK BS=1: Gemini masking polynomial commitment
 
     explicit VerifierInstance_(std::shared_ptr<VKAndHash> vk_and_hash)
         : vk_and_hash(vk_and_hash)

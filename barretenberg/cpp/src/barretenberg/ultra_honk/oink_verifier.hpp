@@ -45,10 +45,8 @@ template <typename Flavor> class OinkVerifier {
     typename Flavor::CommitmentLabels comm_labels;
     size_t num_public_inputs;
 
-    // Interleaved commitment storage and labels (empty structs for BATCH_SIZE=1)
-    using InterleavedCommitmentsType = typename detail::InterleavedOinkTypes<Flavor>::CommitmentsType;
+    // Interleaved commitment labels (empty struct for BATCH_SIZE=1)
     using InterleavedLabelsType = typename detail::InterleavedOinkTypes<Flavor>::LabelsType;
-    InterleavedCommitmentsType interleaved_comms;
     InterleavedLabelsType interleaved_labels;
 
     OinkVerifier(const std::shared_ptr<Instance>& verifier_instance,

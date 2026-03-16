@@ -27,26 +27,14 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify(bool emit_alpha)
     receive_vk_hash_and_public_inputs();
 
     if constexpr (Flavor::HasZK) {
-        if constexpr (BATCH_SIZE > 1) {
-            // Receive interleaved masking commitment
-            interleaved_comms.interleaved_masking =
-                transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_masking);
-        } else {
-            // Receive single Gemini masking polynomial commitment
-            verifier_instance->gemini_masking_commitment =
-                transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
-        }
+        verifier_instance->received_commitments.masking_commitment =
+            transcript->template receive_from_prover<Commitment>("MASKING_COMMITMENT");
     }
 
     receive_wire_commitments();
     receive_lookup_counts_and_w4_commitments();
     receive_logderiv_commitments();
     complete_grand_product_round();
-
-    if constexpr (BATCH_SIZE > 1) {
-        // Store interleaved commitments on the verifier instance for PCS
-        verifier_instance->received_commitments = interleaved_comms;
-    }
 
     if (emit_alpha) {
         verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
@@ -99,31 +87,31 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 {
     if constexpr (BATCH_SIZE > 1) {
         // Receive W₁: [w_l, w_r, w_o, ZERO]
-        interleaved_comms.interleaved_wires =
+        verifier_instance->received_commitments.interleaved_wires =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_wires);
 
         // Receive W₂: [ecc_op_wire_1..4]
-        interleaved_comms.interleaved_ecc_op_wires =
+        verifier_instance->received_commitments.interleaved_ecc_op_wires =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_ecc_op_wires);
 
         // Receive W₃: [calldata, ZERO, ZERO, ZERO]
-        interleaved_comms.interleaved_calldata =
+        verifier_instance->received_commitments.interleaved_calldata =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_calldata);
 
         // Receive W₄: [secondary_calldata, ZERO, ZERO, ZERO]
-        interleaved_comms.interleaved_secondary_calldata =
+        verifier_instance->received_commitments.interleaved_secondary_calldata =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_secondary_calldata);
 
         // Receive W₅: [cd_read_counts, cd_read_tags, scd_read_counts, scd_read_tags]
-        interleaved_comms.interleaved_databus_tags =
+        verifier_instance->received_commitments.interleaved_databus_tags =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_databus_tags);
 
         // Receive W₆: [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
-        interleaved_comms.interleaved_return_data_tags =
+        verifier_instance->received_commitments.interleaved_return_data_tags =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_return_data_tags);
 
         // Receive W₇: [return_data, ZERO, ZERO, ZERO]
-        interleaved_comms.interleaved_return_data =
+        verifier_instance->received_commitments.interleaved_return_data =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_return_data);
     } else {
         // Standard individual commitment path
@@ -160,11 +148,11 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_
 
     if constexpr (BATCH_SIZE > 1) {
         // Receive W₈: [w_4, ZERO, ZERO, ZERO]
-        interleaved_comms.interleaved_w_4 =
+        verifier_instance->received_commitments.interleaved_w_4 =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_w_4);
 
         // Receive W₉: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-        interleaved_comms.interleaved_lookup =
+        verifier_instance->received_commitments.interleaved_lookup =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_lookup);
     } else {
         // Get commitments to lookup argument polynomials and fourth wire
@@ -188,7 +176,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitmen
 
     if constexpr (BATCH_SIZE > 1) {
         // Receive W₁₀: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
-        interleaved_comms.interleaved_inverses =
+        verifier_instance->received_commitments.interleaved_inverses =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_inverses);
     } else {
         verifier_instance->received_commitments.lookup_inverses =
@@ -218,7 +206,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_rou
 
     if constexpr (BATCH_SIZE > 1) {
         // Receive W₁₁: [z_perm, ZERO, ZERO, ZERO]
-        interleaved_comms.interleaved_z_perm =
+        verifier_instance->received_commitments.interleaved_z_perm =
             transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_z_perm);
     } else {
         verifier_instance->received_commitments.z_perm =

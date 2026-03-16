@@ -353,7 +353,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     // Reconstruct MegaZK commitments from the stored verifier instance.
     MegaZKVerifierCommitments mega_zk_commitments{ mega_zk_verifier_instance->get_vk(),
                                                    mega_zk_verifier_instance->received_commitments };
-    mega_zk_commitments.gemini_masking_poly = mega_zk_verifier_instance->gemini_masking_commitment;
+    mega_zk_commitments.gemini_masking_poly = mega_zk_verifier_instance->received_commitments.masking_commitment;
 
     auto trans_commitments = verify_translator_oink(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);

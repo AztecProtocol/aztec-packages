@@ -186,10 +186,10 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         recursive_instance->relation_parameters.public_input_delta =
             FF::from_witness(builder, native_instance->relation_parameters.public_input_delta);
 
-        // For ZK flavors: convert gemini_masking_commitment
+        // For ZK flavors: convert masking commitment
         if constexpr (NativeFlavor::HasZK) {
-            recursive_instance->gemini_masking_commitment =
-                Commitment::from_witness(builder, native_instance->gemini_masking_commitment);
+            recursive_instance->received_commitments.masking_commitment =
+                Commitment::from_witness(builder, native_instance->received_commitments.masking_commitment);
         }
 
         return recursive_instance;

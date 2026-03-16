@@ -44,15 +44,7 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
     auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
 
     // Interleave a group of polynomials into a single polynomial of size n*BS.
-    // For singleton groups with BS=1, moves the polynomial directly (O(1)).
     auto interleave = [&](auto& group, [[maybe_unused]] bool shiftable) -> Polynomial {
-        if constexpr (BATCH_SIZE == 1) {
-            // BS=1: every group is a singleton — move the polynomial directly
-            if (group.size() == 1 && group[0] != nullptr) {
-                return std::move(*group[0]);
-            }
-        }
-        // General path: interleave multiple polynomials
         Polynomial p = shiftable ? Polynomial::shiftable(pcs_size, pcs_size, BATCH_SIZE) : Polynomial(pcs_size);
         const size_t start = shiftable ? 1 : 0;
         for (size_t i = start; i < n; i++) {
