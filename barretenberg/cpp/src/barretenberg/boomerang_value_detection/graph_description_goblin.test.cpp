@@ -98,6 +98,17 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
     builder.ipa_proof = output.ipa_proof.get_value();
 
+    // Use the already aggregated pairing points (merge + translator)
+    auto translator_pairing_points = output.translator_pairing_points;
+
+    // The pairing points are public outputs from the recursive verifier that will be verified externally via a pairing
+    // check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their output
+    // coordinates may not appear in multiple constraint gates. Calling fix_witness() adds explicit constraints on these
+    // values. Without these constraints, the StaticAnalyzer detects 20 variables (the coordinate limbs) that appear in
+    // only one gate. This ensures the pairing point coordinates are properly constrained within the circuit itself,
+    // rather than relying solely on them being public outputs.
+    translator_pairing_points.fix_witness();
+
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto prover_instance = std::make_shared<OuterProverInstance>(builder);
@@ -111,16 +122,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
         ASSERT_TRUE(verified);
     }
-    // Use the already aggregated pairing points (merge + translator)
-    auto translator_pairing_points = output.translator_pairing_points;
 
-    // The pairing points are public outputs from the recursive verifier that will be verified externally via a pairing
-    // check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their output
-    // coordinates may not appear in multiple constraint gates. Calling fix_witness() adds explicit constraints on these
-    // values. Without these constraints, the StaticAnalyzer detects 20 variables (the coordinate limbs) that appear in
-    // only one gate. This ensures the pairing point coordinates are properly constrained within the circuit itself,
-    // rather than relying solely on them being public outputs.
-    translator_pairing_points.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
