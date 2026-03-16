@@ -1,4 +1,4 @@
-use crate::messages::{discovery::{ComputeNoteHash, ComputeNullifier}, logs::note::MAX_NOTE_PACKED_LEN};
+use crate::messages::{discovery::{ComputeNoteHash, ComputeNoteNullifier}, logs::note::MAX_NOTE_PACKED_LEN};
 
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log, aztecnr_warn_log_format};
 use crate::protocol::{
@@ -27,7 +27,7 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     compute_note_hash: ComputeNoteHash,
-    compute_nullifier: ComputeNullifier,
+    compute_note_nullifier: ComputeNoteNullifier,
     contract_address: AztecAddress,
     owner: AztecAddress,
     storage_slot: Field,
@@ -85,7 +85,7 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery(
                     f"Received {identical_note_hashes} identical note hashes for a transaction - these should all be unique",
                 )
             } else if matching_notes.len() == 1 {
-                let maybe_inner_nullifier_for_i = compute_nullifier(
+                let maybe_inner_nullifier_for_i = compute_note_nullifier(
                     unique_note_hash_for_i,
                     packed_note,
                     owner,
@@ -185,7 +185,7 @@ mod test {
         }
     }
 
-    unconstrained fn compute_nullifier(
+    unconstrained fn compute_note_nullifier(
         unique_note_hash: Field,
         packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
         owner: AztecAddress,
@@ -218,7 +218,7 @@ mod test {
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             CONTRACT_ADDRESS,
             OWNER,
             STORAGE_SLOT,
@@ -238,7 +238,7 @@ mod test {
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             |_, _, _, _, _, _| Option::none(),
-            compute_nullifier,
+            compute_note_nullifier,
             CONTRACT_ADDRESS,
             OWNER,
             STORAGE_SLOT,
@@ -316,7 +316,7 @@ mod test {
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             CONTRACT_ADDRESS,
             OWNER,
             STORAGE_SLOT,
@@ -356,7 +356,7 @@ mod test {
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             CONTRACT_ADDRESS,
             OWNER,
             STORAGE_SLOT,
@@ -396,7 +396,7 @@ mod test {
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             CONTRACT_ADDRESS,
             OWNER,
             STORAGE_SLOT,
@@ -430,7 +430,7 @@ mod test {
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             CONTRACT_ADDRESS,
             OWNER,
             STORAGE_SLOT,
@@ -465,7 +465,7 @@ mod test {
             unique_note_hashes_in_tx,
             FIRST_NULLIFIER_IN_TX,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             CONTRACT_ADDRESS,
             OWNER,
             STORAGE_SLOT,

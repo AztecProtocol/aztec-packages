@@ -220,16 +220,17 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
-/// Generates two contract library methods called `_compute_note_hash` and `_compute_nullifier`, plus a (deprecated)
+/// Generates two contract library methods called `_compute_note_hash` and `_compute_note_nullifier`, plus a
+/// (deprecated)
 /// wrapper called `_compute_note_hash_and_nullifier`, which are used for note discovery (i.e. these are of the
-/// `aztec::messages::discovery::ComputeNoteHash` and `aztec::messages::discovery::ComputeNullifier` types).
+/// `aztec::messages::discovery::ComputeNoteHash` and `aztec::messages::discovery::ComputeNoteNullifier` types).
 comptime fn generate_contract_library_methods_compute_note_hash_and_nullifier() -> Quoted {
     let compute_note_hash = generate_contract_library_method_compute_note_hash();
-    let compute_nullifier = generate_contract_library_method_compute_nullifier();
+    let compute_note_nullifier = generate_contract_library_method_compute_note_nullifier();
 
     quote {
         $compute_note_hash
-        $compute_nullifier
+        $compute_note_nullifier
 
         /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash tree with `note_nonce`.
         ///
@@ -237,7 +238,7 @@ comptime fn generate_contract_library_methods_compute_note_hash_and_nullifier() 
         ///
         /// This function is automatically injected by the `#[aztec]` macro.
         #[contract_library_method]
-        #[deprecated("This function has been deprecated in favor of compute_note_hash and compute_nullifier")]
+        #[deprecated("This function has been deprecated in favor of compute_note_hash and compute_note_nullifier")]
         #[allow(dead_code)]
         unconstrained fn _compute_note_hash_and_nullifier(
             packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
@@ -253,7 +254,7 @@ comptime fn generate_contract_library_methods_compute_note_hash_and_nullifier() 
                 let siloed_note_hash = aztec::protocol::hash::compute_siloed_note_hash(contract_address, note_hash);
                 let unique_note_hash = aztec::protocol::hash::compute_unique_note_hash(note_nonce, siloed_note_hash);
                 
-                let inner_nullifier = _compute_nullifier(unique_note_hash, packed_note, owner, storage_slot, note_type_id, contract_address, randomness);
+                let inner_nullifier = _compute_note_nullifier(unique_note_hash, packed_note, owner, storage_slot, note_type_id, contract_address, randomness);
 
                 aztec::messages::discovery::NoteHashAndNullifier {
                     note_hash,
@@ -367,7 +368,7 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
     }
 }
 
-comptime fn generate_contract_library_method_compute_nullifier() -> Quoted {
+comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted {
     if NOTES.len() == 0 {
         // Contracts with no notes still implement this function to avoid having special-casing, the implementation
         // simply throws immediately.
@@ -376,7 +377,7 @@ comptime fn generate_contract_library_method_compute_nullifier() -> Quoted {
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
-            unconstrained fn _compute_nullifier(
+            unconstrained fn _compute_note_nullifier(
                 _unique_note_hash: Field,
                 _packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
                 _owner: aztec::protocol::address::AztecAddress,
@@ -453,11 +454,11 @@ comptime fn generate_contract_library_method_compute_nullifier() -> Quoted {
         quote {
             /// Computes a note's inner nullifier (non-siloed) given its unique note hash, preimage and extra data.
             ///
-            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNullifier` type, and so it can be used to call functions from that module such as `do_sync_state` and `attempt_note_discovery`.
+            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteNullifier` type, and so it can be used to call functions from that module such as `do_sync_state` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
-            unconstrained fn _compute_nullifier(
+            unconstrained fn _compute_note_nullifier(
                 unique_note_hash: Field,
                 packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
                 owner: aztec::protocol::address::AztecAddress,
@@ -491,7 +492,7 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_
             aztec::messages::discovery::do_sync_state(
                 address,
                 _compute_note_hash,
-                _compute_nullifier,
+                _compute_note_nullifier,
                 $process_custom_message_option,
                 $offchain_inbox_sync_option,
             );
@@ -522,7 +523,7 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
             aztec::messages::discovery::process_message::process_message_ciphertext(
                 address,
                 _compute_note_hash,
-                _compute_nullifier,
+                _compute_note_nullifier,
                 $process_custom_message_option,
                 message_ciphertext,
                 message_context,

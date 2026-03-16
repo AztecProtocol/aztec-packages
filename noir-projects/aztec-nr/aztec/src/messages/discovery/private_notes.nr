@@ -1,6 +1,6 @@
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::messages::{
-    discovery::{ComputeNoteHash, ComputeNullifier, nonce_discovery::attempt_note_nonce_discovery},
+    discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
     encoding::MAX_MESSAGE_CONTENT_LEN,
     logs::note::{decode_private_note_message, MAX_NOTE_PACKED_LEN},
     processing::enqueue_note_for_validation,
@@ -14,7 +14,7 @@ pub(crate) unconstrained fn process_private_note_msg(
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash: ComputeNoteHash,
-    compute_nullifier: ComputeNullifier,
+    compute_note_nullifier: ComputeNoteNullifier,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) {
@@ -30,7 +30,7 @@ pub(crate) unconstrained fn process_private_note_msg(
             first_nullifier_in_tx,
             recipient,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             owner,
             storage_slot,
             randomness,
@@ -55,7 +55,7 @@ pub unconstrained fn attempt_note_discovery(
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash: ComputeNoteHash,
-    compute_nullifier: ComputeNullifier,
+    compute_note_nullifier: ComputeNoteNullifier,
     owner: AztecAddress,
     storage_slot: Field,
     randomness: Field,
@@ -66,7 +66,7 @@ pub unconstrained fn attempt_note_discovery(
         unique_note_hashes_in_tx,
         first_nullifier_in_tx,
         compute_note_hash,
-        compute_nullifier,
+        compute_note_nullifier,
         contract_address,
         owner,
         storage_slot,

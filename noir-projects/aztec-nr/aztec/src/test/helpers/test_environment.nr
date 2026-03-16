@@ -13,7 +13,7 @@ use crate::{
     hash::hash_args,
     messages::{
         discovery::{
-            ComputeNoteHash, ComputeNullifier, CustomMessageHandler, process_message::process_message_plaintext,
+            ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
         encoding::MESSAGE_PLAINTEXT_LEN,
         logs::{event::encode_private_event_message, note::encode_private_note_message},
@@ -776,7 +776,8 @@ impl TestEnvironment {
             note_message.new_note.randomness,
         ));
 
-        // We also need to provide an implementation for the `compute_note_hash` and `compute_nullifier` functions,
+        // We also need to provide an implementation for the `compute_note_hash` and `compute_note_nullifier`
+        // functions,
         // which would typically be created by the macros for the different notes in a given contract. Here we build
         // variants specialized for `Note`.
         let compute_note_hash: ComputeNoteHash = |packed_note, owner, storage_slot, note_type_id, _contract_address, randomness| {
@@ -788,7 +789,7 @@ impl TestEnvironment {
             Option::some(note.compute_note_hash(owner, storage_slot, randomness))
         };
 
-        let compute_nullifier: ComputeNullifier = |unique_note_hash, packed_note, owner, _storage_slot, note_type_id, _contract_address, _randomness| {
+        let compute_note_nullifier: ComputeNoteNullifier = |unique_note_hash, packed_note, owner, _storage_slot, note_type_id, _contract_address, _randomness| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
 
@@ -803,7 +804,7 @@ impl TestEnvironment {
             opts.contract_address,
             Option::some(note_message.new_note.owner),
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             process_custom_message,
         );
     }
@@ -896,7 +897,8 @@ impl TestEnvironment {
             event_message.new_event.randomness,
         ));
 
-        // We also need to provide an implementation for the `compute_note_hash` and `compute_nullifier` functions,
+        // We also need to provide an implementation for the `compute_note_hash` and `compute_note_nullifier`
+        // functions,
         // which would typically be created by the macros for the different notes in a given contract. Here we build
         // empty ones, since they will never be invoked as this is an event and not a note message.
         let compute_note_hash: ComputeNoteHash = |_packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness| {
@@ -905,9 +907,9 @@ impl TestEnvironment {
             )
         };
 
-        let compute_nullifier: ComputeNullifier = |_unique_note_hash, _packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness| {
+        let compute_note_nullifier: ComputeNoteNullifier = |_unique_note_hash, _packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness| {
             panic(
-                f"Unexpected compute_nullifier invocation in TestEnvironment::discover_event",
+                f"Unexpected compute_note_nullifier invocation in TestEnvironment::discover_event",
             )
         };
 
@@ -917,7 +919,7 @@ impl TestEnvironment {
             opts.contract_address,
             Option::some(recipient),
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             process_custom_message,
         );
     }
@@ -928,7 +930,7 @@ impl TestEnvironment {
         contract_address: Option<AztecAddress>,
         recipient: Option<AztecAddress>,
         compute_note_hash: ComputeNoteHash,
-        compute_nullifier: ComputeNullifier,
+        compute_note_nullifier: ComputeNoteNullifier,
         process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     ) {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
@@ -958,7 +960,7 @@ impl TestEnvironment {
             process_message_plaintext(
                 context.this_address(),
                 compute_note_hash,
-                compute_nullifier,
+                compute_note_nullifier,
                 process_custom_message,
                 message_plaintext,
                 message_context,

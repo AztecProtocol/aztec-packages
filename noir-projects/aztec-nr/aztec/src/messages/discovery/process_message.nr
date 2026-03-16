@@ -1,6 +1,6 @@
 use crate::messages::{
     discovery::{
-        ComputeNoteHash, ComputeNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
+        ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
         private_events::process_private_event_msg, private_notes::process_private_note_msg,
     },
     encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
@@ -29,7 +29,7 @@ use crate::protocol::address::AztecAddress;
 pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
-    compute_nullifier: ComputeNullifier,
+    compute_note_nullifier: ComputeNoteNullifier,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
@@ -40,7 +40,7 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
         process_message_plaintext(
             contract_address,
             compute_note_hash,
-            compute_nullifier,
+            compute_note_nullifier,
             process_custom_message,
             message_plaintext_option.unwrap(),
             message_context,
@@ -53,7 +53,7 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
 pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
-    compute_nullifier: ComputeNullifier,
+    compute_note_nullifier: ComputeNoteNullifier,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
     message_context: MessageContext,
@@ -77,7 +77,7 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 message_context.first_nullifier_in_tx,
                 message_context.recipient,
                 compute_note_hash,
-                compute_nullifier,
+                compute_note_nullifier,
                 msg_metadata,
                 msg_content,
             );

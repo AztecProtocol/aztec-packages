@@ -1,7 +1,7 @@
 use crate::{
     capsules::CapsuleArray,
     messages::{
-        discovery::{ComputeNoteHash, ComputeNullifier, nonce_discovery::attempt_note_nonce_discovery},
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
@@ -75,7 +75,7 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
 pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
-    compute_nullifier: ComputeNullifier,
+    compute_note_nullifier: ComputeNoteNullifier,
 ) {
     let pending_partial_notes = CapsuleArray::at(
         contract_address,
@@ -132,7 +132,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                 log.unique_note_hashes_in_tx,
                 log.first_nullifier_in_tx,
                 compute_note_hash,
-                compute_nullifier,
+                compute_note_nullifier,
                 contract_address,
                 pending_partial_note.owner,
                 storage_slot,
