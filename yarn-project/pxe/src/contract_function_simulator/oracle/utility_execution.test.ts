@@ -12,7 +12,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
-import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
@@ -264,6 +264,44 @@ describe('Utility Execution test suite', () => {
           'test-job-id',
           scope,
         );
+      });
+
+      it('loads transient capsules by scope', async () => {
+        const scope = await AztecAddress.random();
+        const slot = Fr.random();
+        const transientGlobal = [Fr.random()];
+        const transientScoped = [Fr.random()];
+        const persisted = [Fr.random()];
+
+        utilityExecutionOracle = new UtilityExecutionOracle({
+          contractAddress,
+          authWitnesses: [],
+          capsules: [
+            new Capsule(contractAddress, slot, transientGlobal),
+            new Capsule(contractAddress, slot, transientScoped, scope),
+          ],
+          anchorBlockHeader,
+          contractStore,
+          noteStore,
+          keyStore,
+          addressStore,
+          aztecNode,
+          recipientTaggingStore,
+          senderAddressBookStore,
+          capsuleStore,
+          privateEventStore,
+          messageContextService,
+          jobId: 'test-job-id',
+          scopes: 'ALL_SCOPES',
+        });
+
+        capsuleStore.loadCapsule.mockResolvedValueOnce(persisted);
+
+        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot)).toEqual(transientGlobal);
+        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
+          transientGlobal,
+        );
+        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot, scope)).toEqual(transientScoped);
       });
     });
 

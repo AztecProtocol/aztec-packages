@@ -626,11 +626,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
+    const normalizedScope = scope ?? AztecAddress.ZERO;
     return (
-      // Transient capsules are currently unscoped.
-      (scope === undefined
-        ? this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data
-        : undefined) ??
+      this.capsules.find(
+        c =>
+          c.contractAddress.equals(contractAddress) &&
+          c.storageSlot.equals(slot) &&
+          (c.scope ?? AztecAddress.ZERO).equals(normalizedScope),
+      )?.data ??
       // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
       (await this.capsuleStore.loadCapsule(contractAddress, slot, this.jobId, scope))
     );
