@@ -5,7 +5,7 @@ pub mod subarray;
 pub mod subbvec;
 
 pub use append::append;
-pub use assert_trimmed::assert_bounded_vec_trimmed;
+pub(crate) use assert_trimmed::assert_bounded_vec_trimmed;
 pub use collapse::collapse;
 pub use subarray::subarray;
 pub use subbvec::subbvec;
