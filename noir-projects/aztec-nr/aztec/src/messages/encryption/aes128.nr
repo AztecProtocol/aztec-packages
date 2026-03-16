@@ -419,8 +419,7 @@ impl MessageEncryption for AES128 {
                         let unmasked_fields = masked_fields.mapi(|i, field| {
                             let unmasked = unmask_field(ciphertext_shared_secret, i, field);
                             // If we failed to unmask the field, we are dealing with the random padding. We'll ignore
-                            // it
-                            // later, so we can simply set it to 0
+                            // it later, so we can simply set it to 0.
                             unmasked.unwrap_or(0)
                         });
                         let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
@@ -436,12 +435,10 @@ impl MessageEncryption for AES128 {
                         let header_start = 0;
                         let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
                             array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
-                        // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's
-                        // designed to work with messages with unknown length at compile time. This would not be
-                        // necessary
-                        // here as the header ciphertext length is fixed. But we do it anyway to not have to have
-                        // duplicate
-                        // oracles.
+                        // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as
+                        // it's designed to work with messages with unknown length at compile time. This would not be
+                        // necessary here as the header ciphertext length is fixed. But we do it anyway to not have to
+                        // have duplicate oracles.
                         let header_ciphertext_bvec =
                             BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
@@ -469,8 +466,7 @@ impl MessageEncryption for AES128 {
                                 let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
                                 // Convert bytes back to fields (32 bytes per field). Returns an error if the actual
-                                // bytes
-                                // are not valid.
+                                // bytes are not valid.
                                 Result::from_option(
                                     try_fields_from_bytes(plaintext_bytes),
                                     DecryptError::invalid_plaintext_bytes(),
