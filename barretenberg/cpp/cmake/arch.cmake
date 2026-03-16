@@ -5,11 +5,10 @@ if(WASM)
     add_compile_options(-fno-exceptions -fno-slp-vectorize)
 endif()
 
-# Auto-detect TARGET_ARCH if not explicitly set.
-# Use 'skylake' on x86_64 (matches our cross-compile presets) and 'generic' on ARM
-# to avoid emitting CPU-specific instructions (e.g. SVE on Graviton) that break on
-# other ARM machines like Apple Silicon.
-if(NOT WASM AND NOT TARGET_ARCH)
+# Auto-detect TARGET_ARCH for native builds only.
+# Cross-compile presets handle arch via zig -target/-mcpu flags; set TARGET_ARCH
+# explicitly in the preset if -march is also needed (e.g. arm64-linux uses "generic").
+if(NOT WASM AND NOT TARGET_ARCH AND NOT CMAKE_CROSSCOMPILING)
     if(ARM)
         set(TARGET_ARCH "generic")
     else()
