@@ -56,10 +56,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       counter: ACVMField[],
     ): Promise<ACVMField[]> =>
       oracle.aztec_prv_notifyCreatedContractClassLog(contractAddress, message, length, counter),
-    privateGetNextAppTagAsSender: (recipient: ACVMField[], length: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_prv_getNextAppTagAsSender(recipient, length),
-    privateGetSenderForTags: (): Promise<ACVMField[]> => oracle.aztec_prv_getSenderForTags(),
-    privateSetSenderForTags: (sender: ACVMField[]): Promise<ACVMField[]> => oracle.aztec_prv_setSenderForTags(sender),
     utilityGetUtilityContext: (): Promise<(ACVMField | ACVMField[])[]> => oracle.aztec_utl_getUtilityContext(),
     utilityStorageRead: (
       blockHash: ACVMField[],
