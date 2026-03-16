@@ -296,7 +296,16 @@ namespace tx;
         calldata_hashing.context_id
     };
 
-    pol commit is_teardown; // @boolean (on active row guaranteed by #[READ_PHASE_SPEC])
+    pol commit is_teardown; // @boolean
+                            // - On active row guaranteed by #[READ_PHASE_SPEC].
+                            // - On inactive row, constrained to be 0 by #[IS_TEARDOWN_ON_SEL].
+                            // It is important for `is_teardown` to be unconditionally boolean
+                            // to guarantee that `should_read_gas_limit` (tx_context.pil) is also
+                            // unconditionally boolean. This is a requirement for a lookup selector.
+
+    // sel == 0 ==> is_teardown == 0
+    #[TEARDOWN_ON_SEL]
+    is_teardown * (1 - sel) = 0;
 
     pol commit prev_l2_gas_used_sent_to_enqueued_call;
     pol commit prev_da_gas_used_sent_to_enqueued_call;

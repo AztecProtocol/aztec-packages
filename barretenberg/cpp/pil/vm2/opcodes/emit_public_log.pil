@@ -179,7 +179,7 @@ namespace emit_public_log;
     /* Memory Bounds Check */
     // Implicitly boolean by lookup into gt.res on start rows via CHECK_MEMORY_OUT_OF_BOUNDS,
     // then propagated (preserving boolean-ness) via ERROR_OUT_OF_BOUNDS_CONSISTENCY.
-    pol commit error_out_of_bounds; // @boolean
+    pol commit error_out_of_bounds; // @boolean (only on active rows)
 
     // Lookup constant support: Remove this column once constants in lookup columns are supported.
     pol commit max_mem_size;
@@ -335,8 +335,8 @@ namespace emit_public_log;
     };
 
     // If memory read is disabled, value is zero and tag is FF
-    // `sel_read_memory` = sel * `is_write_memory_value` * (1 - `error_out_of_bounds`)
-    // therefore we can simplify sel * (1 - `sel_read_memory`) into the following
+    // sel_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds)
+    // therefore we can simplify sel * (1 - sel_read_memory) into the following
     #[DISABLED_MEM_READ_VALUE_ZERO]
     (sel - sel_read_memory) * value = 0;
     #[DISABLED_MEM_READ_TAG_FF]
