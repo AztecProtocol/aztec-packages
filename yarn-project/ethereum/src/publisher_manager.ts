@@ -56,6 +56,14 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     if (hasThreshold !== hasAmount) {
       this.log.warn(`Incomplete funding config: both publisherFundingThreshold and publisherFundingAmount must be set`);
     }
+
+    if (this.funder) {
+      const funderAddress = this.funder.getSenderAddress();
+      if (publishers.some(p => p.getSenderAddress().equals(funderAddress))) {
+        this.log.error(`Funding account ${funderAddress} is also a publisher, disabling funding to avoid self-funding`);
+        this.funder = undefined;
+      }
+    }
   }
 
   /** Loads the state of all publishers and resumes monitoring any pending txs */

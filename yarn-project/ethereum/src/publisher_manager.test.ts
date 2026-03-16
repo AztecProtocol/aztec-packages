@@ -363,6 +363,22 @@ describe('PublisherManager', () => {
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
     });
 
+    it('disables funding when funder address matches a publisher', async () => {
+      const sharedAddress = EthAddress.random();
+      mockPublishers = createMockPublishers(2, [sharedAddress]);
+      mockPublishers[0].balance = 50n; // same address as funder
+      mockPublishers[1].balance = 50n; // different address, also below threshold
+      funder = new TestL1TxUtils(sharedAddress) as TestL1TxUtils & L1TxUtils;
+      funder.balance = 5000n;
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      // Funding is fully disabled because funder overlaps with a publisher
+      expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
+    });
+
     it('funds publishers in busy states', async () => {
       mockPublishers = createMockPublishers(2);
       mockPublishers[0].balance = 50n;
