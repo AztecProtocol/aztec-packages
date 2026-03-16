@@ -139,6 +139,9 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   if (networkConfig.blobFileStoreUrls?.length) {
     enrichVar('BLOB_FILE_STORE_URLS', networkConfig.blobFileStoreUrls.join(','));
   }
+  if (networkConfig.txCollectionFileStoreUrls?.length) {
+    enrichVar('TX_COLLECTION_FILE_STORE_URLS', networkConfig.txCollectionFileStoreUrls.join(','));
+  }
   if (networkConfig.blockDurationMs !== undefined) {
     enrichVar('SEQ_BLOCK_DURATION_MS', String(networkConfig.blockDurationMs));
   }

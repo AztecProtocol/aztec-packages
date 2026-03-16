@@ -59,9 +59,6 @@
       "path": "../l1-artifacts"
     },
     {
-      "path": "../merkle-tree"
-    },
-    {
       "path": "../node-keystore"
     },
     {

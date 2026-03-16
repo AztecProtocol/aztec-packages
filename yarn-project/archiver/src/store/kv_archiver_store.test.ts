@@ -49,6 +49,8 @@ import {
   CannotOverwriteCheckpointedBlockError,
   CheckpointNumberNotSequentialError,
   InitialCheckpointNumberNotSequentialError,
+  L1ToL2MessagesNotReadyError,
+  OutOfOrderLogInsertionError,
 } from '../errors.js';
 import { MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
@@ -2053,6 +2055,43 @@ describe('KVArchiverDataStore', () => {
       await store.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
     });
+
+    describe('inbox tree in progress guard', () => {
+      it('throws when checkpointNumber >= treeInProgress', async () => {
+        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(5) });
+        await store.addL1ToL2Messages(msgs);
+
+        // Set treeInProgress to 7, meaning checkpoints 5 and 6 are sealed, 7+ are not
+        await store.setInboxTreeInProgress(7n);
+
+        // Sealed checkpoint should succeed
+        await expect(store.getL1ToL2Messages(CheckpointNumber(5))).resolves.toEqual([msgs[0].leaf]);
+
+        // Unsealed checkpoint (== treeInProgress) should throw
+        await expect(store.getL1ToL2Messages(CheckpointNumber(7))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+
+        // Future checkpoint should also throw
+        await expect(store.getL1ToL2Messages(CheckpointNumber(8))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+      });
+
+      it('returns messages when checkpointNumber < treeInProgress', async () => {
+        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(10) });
+        await store.addL1ToL2Messages(msgs);
+
+        await store.setInboxTreeInProgress(13n);
+
+        await expect(store.getL1ToL2Messages(CheckpointNumber(10))).resolves.toEqual([msgs[0].leaf]);
+        await expect(store.getL1ToL2Messages(CheckpointNumber(11))).resolves.toEqual([msgs[1].leaf]);
+      });
+
+      it('skips guard when treeInProgress is not set', async () => {
+        const msgs = makeInboxMessages(2, { initialCheckpointNumber: CheckpointNumber(1) });
+        await store.addL1ToL2Messages(msgs);
+
+        // No setInboxTreeInProgress call — guard should be permissive
+        await expect(store.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
+      });
+    });
   });
 
   describe('contractInstances', () => {
@@ -2329,6 +2368,32 @@ describe('KVArchiverDataStore', () => {
       ]);
     });
 
+    it('throws on out-of-order private log insertion', async () => {
+      const sharedTag = makePrivateLogTag(99, 0, 0);
+
+      // Create blocks 4 and 5 with the same shared tag
+      const prevArchive1 = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+      const checkpoint4 = await makeCheckpointWithLogs(numBlocksForLogs + 1, {
+        previousArchive: prevArchive1,
+        numTxsPerBlock,
+        privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+      });
+      checkpoint4.checkpoint.blocks[0].body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
+
+      const prevArchive2 = checkpoint4.checkpoint.blocks[0].archive;
+      const checkpoint5 = await makeCheckpointWithLogs(numBlocksForLogs + 2, {
+        previousArchive: prevArchive2,
+        numTxsPerBlock,
+        privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+      });
+      checkpoint5.checkpoint.blocks[0].body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
+
+      // Store block 5's logs first (higher block number), then try to store block 4's logs
+      // (lower block number) — this should fail.
+      await store.addLogs([checkpoint5.checkpoint.blocks[0]]);
+      await expect(store.addLogs([checkpoint4.checkpoint.blocks[0]])).rejects.toThrow(OutOfOrderLogInsertionError);
+    });
+
     it('is possible to request logs for non-existing tags and determine their position', async () => {
       const tags = [makePrivateLogTag(99, 88, 77), makePrivateLogTag(1, 1, 1)];
 
@@ -2345,6 +2410,48 @@ describe('KVArchiverDataStore', () => {
           }),
         ],
       ]);
+    });
+
+    it('filters logs up to specified block number', async () => {
+      // Tags are unique per block, so create a shared tag across blocks by adding logs with the same tag
+      const sharedTag = makePrivateLogTag(1, 2, 1);
+
+      // Add extra blocks with logs sharing the same tag
+      for (let blockNum = numBlocksForLogs + 1; blockNum <= numBlocksForLogs + 2; blockNum++) {
+        const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+        const newCheckpoint = await makeCheckpointWithLogs(blockNum, {
+          previousArchive,
+          numTxsPerBlock,
+          privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+        });
+        const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1];
+        newLog.fields[0] = sharedTag.value;
+        newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1] = newLog;
+        await store.addCheckpoints([newCheckpoint]);
+        await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
+        logsCheckpoints.push(newCheckpoint);
+      }
+
+      // Without filter, should return logs from block 1 and the extra blocks
+      const allLogs = await store.getPrivateLogsByTags([sharedTag]);
+      expect(allLogs[0].some(log => log.blockNumber > numBlocksForLogs)).toBe(true);
+
+      // With upToBlockNumber=numBlocksForLogs, should only return the original log from block 1
+      const filteredLogs = await store.getPrivateLogsByTags([sharedTag], 0, BlockNumber(numBlocksForLogs));
+      expect(filteredLogs[0].length).toBeGreaterThan(0);
+      for (const log of filteredLogs[0]) {
+        expect(log.blockNumber).toBeLessThanOrEqual(numBlocksForLogs);
+      }
+      expect(filteredLogs[0].length).toBeLessThan(allLogs[0].length);
+    });
+
+    it('returns all logs when upToBlockNumber is not set', async () => {
+      const tag = makePrivateLogTag(1, 2, 1);
+
+      const logsWithoutFilter = await store.getPrivateLogsByTags([tag]);
+      const logsWithUndefined = await store.getPrivateLogsByTags([tag], 0, undefined);
+
+      expect(logsWithoutFilter).toEqual(logsWithUndefined);
     });
 
     describe('pagination', () => {
@@ -2365,6 +2472,20 @@ describe('KVArchiverDataStore', () => {
           await store.addCheckpoints([newCheckpoint]);
           await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
           logsCheckpoints.push(newCheckpoint);
+        }
+      });
+
+      it('pagination works correctly with upToBlockNumber', async () => {
+        // With a low upToBlockNumber, the filtered set should be smaller than MAX_LOGS_PER_TAG
+        const filteredPage0 = await store.getPrivateLogsByTags([paginationTag], 0, BlockNumber(5));
+        for (const log of filteredPage0[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
+        }
+
+        // Page 1 with the same filter should only contain remaining filtered logs
+        const filteredPage1 = await store.getPrivateLogsByTags([paginationTag], 1, BlockNumber(5));
+        for (const log of filteredPage1[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
         }
       });
 
@@ -2535,6 +2656,32 @@ describe('KVArchiverDataStore', () => {
       ]);
     });
 
+    it('throws on out-of-order public log insertion', async () => {
+      const sharedTag = makePublicLogTag(99, 0, 0);
+
+      // Create blocks 4 and 5 with the same shared tag
+      const prevArchive1 = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+      const checkpoint4 = await makeCheckpointWithLogs(numBlocksForLogs + 1, {
+        previousArchive: prevArchive1,
+        numTxsPerBlock,
+        publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+      });
+      checkpoint4.checkpoint.blocks[0].body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
+
+      const prevArchive2 = checkpoint4.checkpoint.blocks[0].archive;
+      const checkpoint5 = await makeCheckpointWithLogs(numBlocksForLogs + 2, {
+        previousArchive: prevArchive2,
+        numTxsPerBlock,
+        publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+      });
+      checkpoint5.checkpoint.blocks[0].body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
+
+      // Store block 5's logs first (higher block number), then try to store block 4's logs
+      // (lower block number) — this should fail.
+      await store.addLogs([checkpoint5.checkpoint.blocks[0]]);
+      await expect(store.addLogs([checkpoint4.checkpoint.blocks[0]])).rejects.toThrow(OutOfOrderLogInsertionError);
+    });
+
     it('is possible to request logs for non-existing tags and determine their position', async () => {
       const tags = [makePublicLogTag(99, 88, 77), makePublicLogTag(1, 1, 0)];
 
@@ -2551,6 +2698,52 @@ describe('KVArchiverDataStore', () => {
           }),
         ],
       ]);
+    });
+
+    it('filters logs up to specified block number', async () => {
+      const sharedTag = makePublicLogTag(1, 2, 1);
+
+      // Add extra blocks with logs sharing the same tag
+      for (let blockNum = numBlocksForLogs + 1; blockNum <= numBlocksForLogs + 2; blockNum++) {
+        const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+        const newCheckpoint = await makeCheckpointWithLogs(blockNum, {
+          previousArchive,
+          numTxsPerBlock,
+          publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+        });
+        const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1];
+        newLog.fields[0] = sharedTag.value;
+        newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1] = newLog;
+        await store.addCheckpoints([newCheckpoint]);
+        await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
+        logsCheckpoints.push(newCheckpoint);
+      }
+
+      // Without filter, should return logs from block 1 and the extra blocks
+      const allLogs = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(allLogs[0].some(log => log.blockNumber > numBlocksForLogs)).toBe(true);
+
+      // With upToBlockNumber=numBlocksForLogs, should only return the original log from block 1
+      const filteredLogs = await store.getPublicLogsByTagsFromContract(
+        contractAddress,
+        [sharedTag],
+        0,
+        BlockNumber(numBlocksForLogs),
+      );
+      expect(filteredLogs[0].length).toBeGreaterThan(0);
+      for (const log of filteredLogs[0]) {
+        expect(log.blockNumber).toBeLessThanOrEqual(numBlocksForLogs);
+      }
+      expect(filteredLogs[0].length).toBeLessThan(allLogs[0].length);
+    });
+
+    it('returns all logs when upToBlockNumber is not set', async () => {
+      const tag = makePublicLogTag(1, 2, 1);
+
+      const logsWithoutFilter = await store.getPublicLogsByTagsFromContract(contractAddress, [tag]);
+      const logsWithUndefined = await store.getPublicLogsByTagsFromContract(contractAddress, [tag], 0, undefined);
+
+      expect(logsWithoutFilter).toEqual(logsWithUndefined);
     });
 
     describe('pagination', () => {
@@ -2571,6 +2764,28 @@ describe('KVArchiverDataStore', () => {
           await store.addCheckpoints([newCheckpoint]);
           await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
           logsCheckpoints.push(newCheckpoint);
+        }
+      });
+
+      it('pagination works correctly with upToBlockNumber', async () => {
+        const filteredPage0 = await store.getPublicLogsByTagsFromContract(
+          contractAddress,
+          [paginationTag],
+          0,
+          BlockNumber(5),
+        );
+        for (const log of filteredPage0[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
+        }
+
+        const filteredPage1 = await store.getPublicLogsByTagsFromContract(
+          contractAddress,
+          [paginationTag],
+          1,
+          BlockNumber(5),
+        );
+        for (const log of filteredPage1[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
         }
       });
 
