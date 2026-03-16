@@ -12,8 +12,8 @@ namespace bb {
 
 /**
  * @brief The recursive counterpart to MegaZKFlavor.
- * @details Adds ZK overrides (HasZK, BATCHED_RELATION_PARTIAL_LENGTH, AllValues with masking entities)
- * on top of MegaRecursiveFlavor_.
+ * @details Adds ZK overrides (HasZK, BATCHED_RELATION_PARTIAL_LENGTH) on top of MegaRecursiveFlavor_.
+ * Entities are the same as MegaRecursiveFlavor_ (no Gemini masking polynomial).
  */
 template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecursiveFlavor_<BuilderType> {
   public:
@@ -23,27 +23,18 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     using FF = typename MegaRecursiveFlavor_<BuilderType>::FF;
 
     static constexpr bool HasZK = true;
+    static constexpr bool HasGeminiMasking = false;
 
-    // Get constants from NativeFlavor to ensure consistency
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
-    static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
     }
-
-    // Override to include ZK entities
-    class AllValues : public MegaFlavor::AllEntities_<FF, HasZK> {
-      public:
-        using Base = MegaFlavor::AllEntities_<FF, HasZK>;
-        using Base::Base;
-    };
-
-    using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 };
 
 } // namespace bb
