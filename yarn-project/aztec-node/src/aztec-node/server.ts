@@ -1,5 +1,5 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BatchChonkVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
@@ -306,9 +306,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const circuitVerifier =
+    const proofVerifier =
       config.realProofs || config.debugForceTxProofVerification
-        ? await BBCircuitVerifier.new(config)
+        ? await BatchChonkVerifier.new(config, telemetry)
         : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
 
     let debugLogStore: DebugLogStore;
@@ -322,8 +322,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     } else {
       debugLogStore = new NullDebugLogStore();
     }
-
-    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
     const proverOnly = config.enableProverNode && config.disableValidator;
     if (proverOnly) {
@@ -1357,8 +1355,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver.updateConfig(config);
     }
     if (newConfig.realProofs !== this.config.realProofs) {
+      await tryStop(this.proofVerifier);
       this.proofVerifier = config.realProofs
-        ? new QueuedIVCVerifier(newConfig, await BBCircuitVerifier.new(newConfig))
+        ? await BatchChonkVerifier.new(newConfig, this.telemetry)
         : new TestCircuitVerifier();
     }
 
