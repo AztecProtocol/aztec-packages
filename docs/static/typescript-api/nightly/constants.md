@@ -1,6 +1,6 @@
 # @aztec/constants
 
-Version: v5.0.0-nightly.20260315
+Version: v5.0.0-nightly.20260316
 
 ## Quick Import Reference
 
