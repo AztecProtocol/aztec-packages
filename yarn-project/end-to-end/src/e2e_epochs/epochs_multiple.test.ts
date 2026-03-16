@@ -48,17 +48,19 @@ describe('e2e_epochs/epochs_multiple', () => {
       await test.waitForNodeToSync(epochEndBlockNumber, 'proven');
       await test.verifyHistoricBlock(epochEndBlockNumber, true);
 
-      // Check that finalized blocks are purged from world state
-      // Right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then this test needs to be updated.
-      // This test is setup as 1 block per checkpoint
+      // Check that finalized blocks are purged from world state.
+      // Finalization looks back epochDuration * 2 checkpoints from the proven block, assuming 4 blocks per checkpoint.
+      // This test is setup as 1 block per checkpoint, so it takes many more epochs before finalization kicks in.
       const provenBlockNumber = epochEndBlockNumber;
-      const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
-      const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_CHECKPOINT_HISTORY + 1, 1);
-      const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
-      await test.waitForNodeToSync(BlockNumber(expectedOldestHistoricBlock), 'historic');
-      await test.verifyHistoricBlock(BlockNumber(expectedOldestHistoricBlock), true);
-      if (expectedBlockRemoved > 0) {
-        await test.verifyHistoricBlock(BlockNumber(expectedBlockRemoved), false);
+      const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2 * 4, 0);
+      if (finalizedBlockNumber > 0) {
+        const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_CHECKPOINT_HISTORY + 1, 1);
+        const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
+        await test.waitForNodeToSync(BlockNumber(expectedOldestHistoricBlock), 'historic');
+        await test.verifyHistoricBlock(BlockNumber(expectedOldestHistoricBlock), true);
+        if (expectedBlockRemoved > 0) {
+          await test.verifyHistoricBlock(BlockNumber(expectedBlockRemoved), false);
+        }
       }
     }
     logger.info('Test Succeeded');

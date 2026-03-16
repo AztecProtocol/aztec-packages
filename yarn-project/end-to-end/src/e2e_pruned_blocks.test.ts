@@ -94,10 +94,11 @@ describe('e2e_pruned_blocks', () => {
 
     // We now mine dummy blocks, mark them as proven and wait for the node to process them, which should result in older
     // blocks (notably the one with the minted note) being pruned. Given world state prunes based on the finalized tip,
-    // and we are defining the finalized tip as two epochs behind the proven one, we need to mine two extra epochs.
+    // and finalization looks back epochDuration * 2 checkpoints (assuming 4 blocks per checkpoint), we mine enough
+    // blocks to push past that lookback window.
     // This test assumes 1 block per checkpoint
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
-    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + EPOCH_LENGTH * 2 + 1);
+    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + EPOCH_LENGTH * 2 * 4 + 1);
     await cheatCodes.rollup.markAsProven();
 
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
