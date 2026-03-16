@@ -1,10 +1,12 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { PrivateLog } from '@aztec/stdlib/logs';
 import { randomExtendedDirectionalAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
-import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -274,5 +276,69 @@ describe('syncSenderTaggingIndexes', () => {
     // Verify that both highest finalized and highest used were set to the pending and finalized index
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(pendingAndFinalizedIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(pendingAndFinalizedIndex);
+  });
+
+  it('handles a partially reverted transaction', async () => {
+    await setUp();
+
+    const revertedTxHash = TxHash.random();
+
+    // Create logs at indexes 4 and 6 for the same (reverted) tx
+    const tag4 = await computeSiloedTagForIndex(4);
+    const tag6 = await computeSiloedTagForIndex(6);
+
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => {
+          if (tag.equals(tag4)) {
+            return [makeLog(revertedTxHash, tag4.value)];
+          } else if (tag.equals(tag6)) {
+            return [makeLog(revertedTxHash, tag6.value)];
+          }
+          return [];
+        }),
+      );
+    });
+
+    // Mock getTxReceipt to return FINALIZED with APP_LOGIC_REVERTED
+    aztecNode.getTxReceipt.mockResolvedValue(
+      new TxReceipt(
+        revertedTxHash,
+        TxStatus.FINALIZED,
+        TxExecutionResult.APP_LOGIC_REVERTED,
+        undefined,
+        undefined,
+        undefined,
+        BlockNumber(14),
+      ),
+    );
+
+    // Mock getTxEffect to return a TxEffect where only the tag at index 4 survived (non-revertible phase)
+    const txEffect = new TxEffect(
+      RevertCode.APP_LOGIC_REVERTED,
+      revertedTxHash,
+      Fr.ZERO,
+      [Fr.random()], // noteHashes
+      [Fr.random()], // nullifiers
+      [], // l2ToL1Msgs
+      [], // publicDataWrites
+      [PrivateLog.random(tag4.value)], // only the tag at index 4 survived
+      [], // publicLogs
+      [], // contractClassLogs
+    );
+
+    aztecNode.getTxEffect.mockResolvedValue({
+      data: txEffect,
+      l2BlockNumber: BlockNumber(14),
+      l2BlockHash: MOCK_ANCHOR_BLOCK_HASH,
+      txIndexInBlock: 0,
+    } as IndexedTxEffect);
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    // Index 4 should be finalized (it survived the partial revert)
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(4);
+    // No pending indexes should remain for this secret
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
 });

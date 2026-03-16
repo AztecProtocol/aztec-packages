@@ -16,6 +16,7 @@ use crate::{
         private_tx_base_rollup::{self, PrivateTxBaseRollupPrivateInputs},
     },
 };
+use protocol_test_utils::{FixtureBuilder, pad_end};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
@@ -35,10 +36,7 @@ use types::{
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     hash::compute_l2_to_l1_message_hash,
-    merkle_tree::{LeafPreimage, MembershipWitness},
-    tests::{
-        fixture_builder::FixtureBuilder, merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end,
-    },
+    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
     traits::FromField,
     utils::arrays::{find_first_index, get_sorted_tuples, subarray},
 };

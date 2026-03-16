@@ -1,3 +1,4 @@
+use protocol_test_utils::make_fixture;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
@@ -5,7 +6,6 @@ use types::{
     },
     blob_data::SpongeBlob,
     constants::BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH,
-    tests::utils::make_fixture,
     traits::{Deserialize, Serialize},
 };
 

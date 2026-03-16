@@ -67,6 +67,7 @@ import { toFunctionSelector } from 'viem';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { syncState } from '../../contract_sync/helpers.js';
+import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -124,6 +125,7 @@ describe('Private Execution test suite', () => {
   let capsuleStore: MockProxy<CapsuleStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
   let contractSyncService: MockProxy<ContractSyncService>;
+  let messageContextService: MockProxy<MessageContextService>;
   let acirSimulator: ContractFunctionSimulator;
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
@@ -324,6 +326,8 @@ describe('Private Execution test suite', () => {
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     contractSyncService = mock<ContractSyncService>();
+    messageContextService = mock<MessageContextService>();
+    messageContextService.resolveMessageContexts.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
       async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId) => {
@@ -491,6 +495,7 @@ describe('Private Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
+      messageContextService,
     });
   });
 

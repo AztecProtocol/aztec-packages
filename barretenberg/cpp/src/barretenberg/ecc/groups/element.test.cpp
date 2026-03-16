@@ -1,4 +1,5 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
@@ -7,13 +8,14 @@
 using namespace bb;
 
 namespace {
-template <typename G> class TestElement : public testing::Test {
+template <typename G_> class TestElement : public testing::Test {
+  public:
+    using G = G_;
     using element = typename G::element;
     using affine_element = typename G::affine_element;
     using Fr = typename G::Fr;
     using Fq = typename G::Fq;
 
-  public:
     static void test_random_element()
     {
         element result = element::random_element();
@@ -286,7 +288,7 @@ template <typename G> class TestElement : public testing::Test {
     }
 };
 
-using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
+using TestTypes = testing::Types<bb::g1, bb::g2, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
 } // namespace
 
 TYPED_TEST_SUITE(TestElement, TestTypes);
@@ -373,5 +375,7 @@ TYPED_TEST(TestElement, Infinity)
 
 TYPED_TEST(TestElement, DeriveGenerators)
 {
-    TestFixture::test_derive_generators();
+    if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
+        TestFixture::test_derive_generators();
+    }
 }

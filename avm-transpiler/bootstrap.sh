@@ -48,6 +48,9 @@ function build_cross {
       arm64-macos)
         rust_target=aarch64-apple-darwin
         ;;
+      amd64-windows)
+        rust_target=x86_64-pc-windows-gnu
+        ;;
       *)
         echo_stderr "Unknown target: $target"
         exit 1

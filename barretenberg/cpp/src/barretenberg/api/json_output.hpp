@@ -91,7 +91,7 @@ struct VkJson {
     std::string bb_version;
     std::string scheme;
 
-    MSGPACK_FIELDS(vk, hash, bb_version, scheme);
+    SERIALIZATION_FIELDS(vk, hash, bb_version, scheme);
 
     template <typename T>
     static std::string build(const std::vector<T>& fields, const std::string& hash, const std::string& scheme)
@@ -144,7 +144,7 @@ struct ProofJson {
     std::string bb_version;
     std::string scheme;
 
-    MSGPACK_FIELDS(proof, vk_hash, bb_version, scheme);
+    SERIALIZATION_FIELDS(proof, vk_hash, bb_version, scheme);
 
     template <typename T>
     static std::string build(const std::vector<T>& fields, const std::string& vk_hash, const std::string& scheme)
@@ -192,7 +192,7 @@ struct PublicInputsJson {
     std::string bb_version;
     std::string scheme;
 
-    MSGPACK_FIELDS(public_inputs, bb_version, scheme);
+    SERIALIZATION_FIELDS(public_inputs, bb_version, scheme);
 
     template <typename T> static std::string build(const std::vector<T>& fields, const std::string& scheme)
     {

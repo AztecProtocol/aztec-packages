@@ -134,10 +134,12 @@ unconstrained fn create_partial_note_in_two_txs_and_read_in_private() {
     let (env, contract_address, sender, recipient) = setup();
     let test_contract = Test::at(contract_address);
 
-    let partial_note =
-        env.call_private(sender, test_contract.call_create_partial_note(recipient, STORAGE_SLOT));
+    let partial_note = env.call_private(sender, test_contract.call_create_partial_note(recipient));
 
-    env.call_public(sender, test_contract.call_complete_partial_note(partial_note, VALUE));
+    env.call_public(
+        sender,
+        test_contract.call_complete_partial_note(partial_note, STORAGE_SLOT, VALUE),
+    );
 
     // The 'from' param is irrelevant in this case
     let retrieved = env.call_private(
@@ -152,10 +154,12 @@ unconstrained fn create_partial_note_in_two_txs_and_read_in_utility() {
     let (env, contract_address, sender, recipient) = setup();
     let test_contract = Test::at(contract_address);
 
-    let partial_note =
-        env.call_private(sender, test_contract.call_create_partial_note(recipient, STORAGE_SLOT));
+    let partial_note = env.call_private(sender, test_contract.call_create_partial_note(recipient));
 
-    env.call_public(sender, test_contract.call_complete_partial_note(partial_note, VALUE));
+    env.call_public(
+        sender,
+        test_contract.call_complete_partial_note(partial_note, STORAGE_SLOT, VALUE),
+    );
 
     let retrieved = env.execute_utility(test_contract.call_view_notes(
         recipient,

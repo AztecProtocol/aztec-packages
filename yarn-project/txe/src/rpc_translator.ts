@@ -791,6 +791,25 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  public async aztec_utl_utilityResolveMessageContexts(
+    foreignContractAddress: ForeignCallSingle,
+    foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
+  ) {
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
+    const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
+    const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
+
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      contractAddress,
+      messageContextRequestsArrayBaseSlot,
+      messageContextResponsesArrayBaseSlot,
+    );
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_storeCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
@@ -859,6 +878,7 @@ export class RPCTranslator {
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
+  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash TXE.
   // eslint-disable-next-line camelcase
   async aztec_utl_aes128Decrypt(
     foreignCiphertextBVecStorage: ForeignCallArray,

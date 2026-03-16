@@ -4,9 +4,7 @@ import { AztecAddress, EthAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
-import { RollupContract } from "@aztec/ethereum/contracts";
 import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
-import { CheckpointNumber } from "@aztec/foundation/branded-types";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import {
   computeL2ToL1MessageHash,
@@ -41,10 +39,6 @@ console.log(`Account: ${account.address.toString()}\n`);
 const nodeInfo = await node.getNodeInfo();
 const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
-const rollupAddress = nodeInfo.l1ContractAddresses.rollupAddress.toString();
-
-// Create rollup contract instance for querying epoch information
-const rollup = new RollupContract(l1Client, rollupAddress);
 // docs:end:setup
 
 // docs:start:deploy_l1_contracts
@@ -308,15 +302,11 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
 
 console.log("Block proven!\n");
 
-// Get the epoch for the exit block's checkpoint
-// In Aztec, checkpoint number equals block number (1:1 mapping)
-const epoch = await rollup.getEpochNumberForCheckpoint(
-  CheckpointNumber.fromBlockNumber(exitReceipt.blockNumber!),
-);
+// Compute the membership witness using the message hash and the L2 tx hash
+const witness = await computeL2ToL1MembershipWitness(node, msgLeaf, exitReceipt.txHash);
+const epoch = witness!.epochNumber;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
 
-// Compute the membership witness using the message hash and epoch
-const witness = await computeL2ToL1MembershipWitness(node, epoch, msgLeaf);
 const siblingPathHex = witness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);

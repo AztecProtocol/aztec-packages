@@ -1,7 +1,9 @@
 pub(crate) mod event_validation_request;
+pub mod offchain;
 
 mod message_context;
 pub use message_context::MessageContext;
+pub(crate) use message_context::MessageTxContext;
 
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
@@ -13,6 +15,7 @@ use crate::{
     event::EventSelector,
     messages::{
         discovery::partial_notes::DeliveredPendingPartialNote,
+        encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
             log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
@@ -21,11 +24,11 @@ use crate::{
     },
     oracle,
 };
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field};
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
-global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
+pub(crate) global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
     sha256_to_field("AZTEC_NR::PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes());
 
 global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
@@ -43,6 +46,13 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
 global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
 );
+
+/// An offchain-delivered message with resolved context, ready for processing during sync.
+#[derive(Serialize, Deserialize)]
+pub struct OffchainMessageWithContext {
+    pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    pub message_context: MessageContext,
+}
 
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
 /// and stores them in a `CapsuleArray` which is then returned.
@@ -156,6 +166,23 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         MAX_NOTE_PACKED_LEN as Field,
         MAX_EVENT_SERIALIZED_LEN as Field,
+    );
+}
+
+/// Resolves message contexts for a list of tx hashes stored in a CapsuleArray.
+///
+/// The `message_context_requests_array_base_slot` must point to a CapsuleArray<Field> containing tx hashes.
+/// PXE will store `Option<MessageContextResponse>` values into the responses array at
+/// `message_context_responses_array_base_slot`.
+pub unconstrained fn resolve_message_contexts(
+    contract_address: AztecAddress,
+    message_context_requests_array_base_slot: Field,
+    message_context_responses_array_base_slot: Field,
+) {
+    oracle::message_processing::resolve_message_contexts(
+        contract_address,
+        message_context_requests_array_base_slot,
+        message_context_responses_array_base_slot,
     );
 }
 

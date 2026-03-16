@@ -26,13 +26,13 @@ struct CircuitComputeVk {
         std::vector<uint8_t> bytes;    // Serialized verification key
         std::vector<uint256_t> fields; // VK as field elements (unless keccak, then just uint256_t's)
         std::vector<uint8_t> hash;     // The VK hash
-        MSGPACK_FIELDS(bytes, fields, hash);
+        SERIALIZATION_FIELDS(bytes, fields, hash);
         bool operator==(const Response&) const = default;
     };
 
     CircuitInputNoVK circuit;
     ProofSystemSettings settings;
-    MSGPACK_FIELDS(circuit, settings);
+    SERIALIZATION_FIELDS(circuit, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitComputeVk&) const = default;
 };
@@ -58,14 +58,14 @@ struct CircuitProve {
         std::vector<uint256_t> public_inputs;
         std::vector<uint256_t> proof;
         CircuitComputeVk::Response vk;
-        MSGPACK_FIELDS(public_inputs, proof, vk);
+        SERIALIZATION_FIELDS(public_inputs, proof, vk);
         bool operator==(const Response&) const = default;
     };
 
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    MSGPACK_FIELDS(circuit, witness, settings);
+    SERIALIZATION_FIELDS(circuit, witness, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitProve&) const = default;
 };
@@ -85,14 +85,14 @@ struct CircuitStats {
         uint32_t num_gates_dyadic{};
         uint32_t num_acir_opcodes{};
         std::vector<uint32_t> gates_per_opcode;
-        MSGPACK_FIELDS(num_gates, num_gates_dyadic, num_acir_opcodes, gates_per_opcode);
+        SERIALIZATION_FIELDS(num_gates, num_gates_dyadic, num_acir_opcodes, gates_per_opcode);
         bool operator==(const Response&) const = default;
     };
 
     CircuitInput circuit;
     bool include_gates_per_opcode = false;
     ProofSystemSettings settings;
-    MSGPACK_FIELDS(circuit, include_gates_per_opcode, settings);
+    SERIALIZATION_FIELDS(circuit, include_gates_per_opcode, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitStats&) const = default;
 };
@@ -108,7 +108,7 @@ struct CircuitVerify {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitVerifyResponse";
 
         bool verified;
-        MSGPACK_FIELDS(verified);
+        SERIALIZATION_FIELDS(verified);
         bool operator==(const Response&) const = default;
     };
 
@@ -116,7 +116,7 @@ struct CircuitVerify {
     std::vector<uint256_t> public_inputs;
     std::vector<uint256_t> proof;
     ProofSystemSettings settings;
-    MSGPACK_FIELDS(verification_key, public_inputs, proof, settings);
+    SERIALIZATION_FIELDS(verification_key, public_inputs, proof, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitVerify&) const = default;
 };
@@ -135,12 +135,12 @@ struct VkAsFields {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "VkAsFieldsResponse";
 
         std::vector<bb::fr> fields;
-        MSGPACK_FIELDS(fields);
+        SERIALIZATION_FIELDS(fields);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> verification_key;
-    MSGPACK_FIELDS(verification_key);
+    SERIALIZATION_FIELDS(verification_key);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const VkAsFields&) const = default;
 };
@@ -157,12 +157,12 @@ struct MegaVkAsFields {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaVkAsFieldsResponse";
 
         std::vector<bb::fr> fields;
-        MSGPACK_FIELDS(fields);
+        SERIALIZATION_FIELDS(fields);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> verification_key;
-    MSGPACK_FIELDS(verification_key);
+    SERIALIZATION_FIELDS(verification_key);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const MegaVkAsFields&) const = default;
 };
@@ -177,13 +177,13 @@ struct CircuitWriteSolidityVerifier {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitWriteSolidityVerifierResponse";
 
         std::string solidity_code;
-        MSGPACK_FIELDS(solidity_code);
+        SERIALIZATION_FIELDS(solidity_code);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> verification_key;
     ProofSystemSettings settings;
-    MSGPACK_FIELDS(verification_key, settings);
+    SERIALIZATION_FIELDS(verification_key, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitWriteSolidityVerifier&) const = default;
 };

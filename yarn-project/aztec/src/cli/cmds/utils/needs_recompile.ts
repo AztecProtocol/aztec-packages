@@ -73,19 +73,31 @@ async function collectCrateDirs(startCrateDir: string): Promise<string[]> {
       throw new Error(`Incorrectly defined dependency. Nargo.toml not found in ${absDir}`);
     });
 
-    // We parse and iterate over the dependencies
     const parsed = TOML.parse(content) as Record<string, any>;
-    const deps = (parsed.dependencies as Record<string, any>) ?? {};
-    for (const dep of Object.values(deps)) {
-      if (dep && typeof dep === 'object' && typeof dep.path === 'string') {
-        const depPath = resolve(absDir, dep.path);
-        const s = await stat(depPath);
-        if (!s.isDirectory()) {
-          throw new Error(
-            `Dependency path "${dep.path}" in ${tomlPath} resolves to ${depPath} which is not a directory`,
-          );
+
+    const members = (parsed.workspace as Record<string, any>)?.members as string[] | undefined;
+
+    // A Nargo.toml is either a workspace root (has workspace.members) or a single crate (has dependencies).
+    if (Array.isArray(members)) {
+      // The crate is a workspace root and has members defined so we visit the members
+      for (const member of members) {
+        const memberPath = resolve(absDir, member);
+        await visit(memberPath);
+      }
+    } else {
+      // The crate is not a workspace root so we check for dependencies
+      const deps = (parsed.dependencies as Record<string, any>) ?? {};
+      for (const dep of Object.values(deps)) {
+        if (dep && typeof dep === 'object' && typeof dep.path === 'string') {
+          const depPath = resolve(absDir, dep.path);
+          const s = await stat(depPath);
+          if (!s.isDirectory()) {
+            throw new Error(
+              `Dependency path "${dep.path}" in ${tomlPath} resolves to ${depPath} which is not a directory`,
+            );
+          }
+          await visit(depPath);
         }
-        await visit(depPath);
       }
     }
   }

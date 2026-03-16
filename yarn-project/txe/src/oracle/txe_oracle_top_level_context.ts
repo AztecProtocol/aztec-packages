@@ -387,6 +387,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       // contract would perform, including setting senderForTags.
       senderForTags: from,
       simulator,
+      messageContextService: this.stateMachine.messageContextService,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -743,6 +744,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         senderAddressBookStore: this.senderAddressBookStore,
         capsuleStore: this.capsuleStore,
         privateEventStore: this.privateEventStore,
+        messageContextService: this.stateMachine.messageContextService,
         jobId,
         scopes,
       });

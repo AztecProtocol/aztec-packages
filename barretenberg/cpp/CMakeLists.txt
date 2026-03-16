@@ -108,6 +108,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
     endif()
 endif()
 
+if(WIN32)
+    message(STATUS "Cross-compiling for Windows (MinGW)")
+    link_libraries(ws2_32 bcrypt psapi)
+endif()
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_CXX_STANDARD 20)
