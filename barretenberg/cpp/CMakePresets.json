@@ -19,7 +19,6 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "TARGET_ARCH": "skylake",
         "ENABLE_PIC": "ON"
       }
     },
