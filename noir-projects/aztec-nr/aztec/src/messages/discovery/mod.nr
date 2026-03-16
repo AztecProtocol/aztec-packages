@@ -185,7 +185,7 @@ mod test {
     use crate::{
         capsules::CapsuleArray,
         messages::{
-            discovery::{CustomMessageHandler, do_sync_state, NoteHashAndNullifier},
+            discovery::{CustomMessageHandler, do_sync_state},
             logs::note::MAX_NOTE_PACKED_LEN,
             processing::{
                 offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
@@ -212,7 +212,8 @@ mod test {
             let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
             do_sync_state(
                 contract_address,
-                dummy_compute_nhnn,
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
                 no_handler,
                 no_inbox_sync,
             );
@@ -221,15 +222,26 @@ mod test {
         });
     }
 
-    unconstrained fn dummy_compute_nhnn(
+    unconstrained fn dummy_compute_note_hash(
         _packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
         _owner: AztecAddress,
         _storage_slot: Field,
         _note_type_id: Field,
         _contract_address: AztecAddress,
         _randomness: Field,
-        _note_nonce: Field,
-    ) -> Option<NoteHashAndNullifier> {
+    ) -> Option<Field> {
+        Option::none()
+    }
+
+    unconstrained fn dummy_compute_note_nullifier(
+        _unique_note_hash: Field,
+        _packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+        _owner: AztecAddress,
+        _storage_slot: Field,
+        _note_type_id: Field,
+        _contract_address: AztecAddress,
+        _randomness: Field,
+    ) -> Option<Field> {
         Option::none()
     }
 }
