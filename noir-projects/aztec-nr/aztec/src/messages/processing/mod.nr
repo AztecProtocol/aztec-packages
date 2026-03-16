@@ -178,11 +178,13 @@ pub unconstrained fn resolve_message_contexts(
     contract_address: AztecAddress,
     message_context_requests_array_base_slot: Field,
     message_context_responses_array_base_slot: Field,
+    scope: Option<AztecAddress>,
 ) {
     oracle::message_processing::resolve_message_contexts(
         contract_address,
         message_context_requests_array_base_slot,
         message_context_responses_array_base_slot,
+        scope,
     );
 }
 

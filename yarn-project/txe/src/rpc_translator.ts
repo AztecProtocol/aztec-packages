@@ -795,15 +795,22 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
+    foreignScopeIsSome?: ForeignCallSingle,
+    foreignScopeValue?: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
     const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
+    const scope =
+      foreignScopeIsSome && fromSingle(foreignScopeIsSome).toBool()
+        ? AztecAddress.fromField(fromSingle(foreignScopeValue!))
+        : undefined;
 
     await this.handlerAsUtility().utilityResolveMessageContexts(
       contractAddress,
       messageContextRequestsArrayBaseSlot,
       messageContextResponsesArrayBaseSlot,
+      scope,
     );
 
     return toForeignCallResult([]);

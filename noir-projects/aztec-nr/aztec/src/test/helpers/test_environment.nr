@@ -964,6 +964,7 @@ impl TestEnvironment {
                 process_custom_message,
                 message_plaintext,
                 message_context,
+                message_context.recipient,
             );
 
             validate_and_store_enqueued_notes_and_events(context.this_address());

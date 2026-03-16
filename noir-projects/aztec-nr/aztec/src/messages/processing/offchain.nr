@@ -168,6 +168,7 @@ pub unconstrained fn sync_inbox(
         contract_address,
         OFFCHAIN_CONTEXT_REQUESTS_SLOT,
         OFFCHAIN_CONTEXT_RESPONSES_SLOT,
+        Option::some(scope),
     );
 
     assert_eq(resolved_contexts.len(), inbox_len);

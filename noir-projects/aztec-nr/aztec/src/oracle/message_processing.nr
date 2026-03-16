@@ -59,11 +59,13 @@ pub(crate) unconstrained fn resolve_message_contexts(
     contract_address: AztecAddress,
     message_context_requests_array_base_slot: Field,
     message_context_responses_array_base_slot: Field,
+    scope: Option<AztecAddress>,
 ) {
     resolve_message_contexts_oracle(
         contract_address,
         message_context_requests_array_base_slot,
         message_context_responses_array_base_slot,
+        scope,
     );
 }
 
@@ -72,4 +74,5 @@ unconstrained fn resolve_message_contexts_oracle(
     contract_address: AztecAddress,
     message_context_requests_array_base_slot: Field,
     message_context_responses_array_base_slot: Field,
+    scope: Option<AztecAddress>,
 ) {}

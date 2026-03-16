@@ -576,6 +576,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
+    scope?: AztecAddress,
   ) {
     try {
       if (!this.contractAddress.equals(contractAddress)) {
@@ -585,6 +586,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         contractAddress,
         messageContextRequestsArrayBaseSlot,
         this.jobId,
+        scope,
       );
 
       const txHashes = requestCapsules.map((fields, i) => {
@@ -607,9 +609,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         messageContextResponsesArrayBaseSlot,
         maybeMessageContexts.map(MessageTxContext.toSerializedOption),
         this.jobId,
+        scope,
       );
     } finally {
-      await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
+      await this.capsuleStore.setCapsuleArray(
+        contractAddress,
+        messageContextRequestsArrayBaseSlot,
+        [],
+        this.jobId,
+        scope,
+      );
     }
   }
 

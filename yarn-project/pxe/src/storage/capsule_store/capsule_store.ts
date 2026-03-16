@@ -254,7 +254,7 @@ export class CapsuleStore implements StagedStore {
     });
   }
 
-  readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string): Promise<Fr[][]> {
+  readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string, scope?: AztecAddress): Promise<Fr[][]> {
     // I'm leaving this transactional context here though because I'm assuming this
     // gives us "read array atomicity": there shouldn't be concurrent writes to what's being copied
     // here.
@@ -262,14 +262,14 @@ export class CapsuleStore implements StagedStore {
     // of jobs: different calls running concurrently on the same contract may cause trouble.
     return this.#store.transactionAsync(async () => {
       // Load length, defaulting to 0 if not found
-      const maybeLength = await this.loadCapsule(contractAddress, baseSlot, jobId);
+      const maybeLength = await this.loadCapsule(contractAddress, baseSlot, jobId, scope);
       const length = maybeLength ? maybeLength[0].toBigInt() : 0n;
 
       const values: Fr[][] = [];
 
       // Read each capsule at consecutive slots after baseSlot
       for (let i = 0; i < length; i++) {
-        const currentValue = await this.loadCapsule(contractAddress, arraySlot(baseSlot, i), jobId);
+        const currentValue = await this.loadCapsule(contractAddress, arraySlot(baseSlot, i), jobId, scope);
         if (currentValue == undefined) {
           throw new Error(
             `Expected non-empty value at capsule array in base slot ${baseSlot} at index ${i} for contract ${contractAddress}`,
@@ -283,7 +283,7 @@ export class CapsuleStore implements StagedStore {
     });
   }
 
-  setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string) {
+  setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope?: AztecAddress) {
     // This transactional context in theory isn't so critical now because we aren't
     // writing to DB so if there's exceptions midway and it blows up, no visible impact
     // to persistent storage will happen.
@@ -294,20 +294,20 @@ export class CapsuleStore implements StagedStore {
     // of jobs: different calls running concurrently on the same contract may cause trouble.
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
-      const maybeLength = await this.loadCapsule(contractAddress, baseSlot, jobId);
+      const maybeLength = await this.loadCapsule(contractAddress, baseSlot, jobId, scope);
       const originalLength = maybeLength ? maybeLength[0].toNumber() : 0;
 
       // Set the new length
-      this.storeCapsule(contractAddress, baseSlot, [new Fr(content.length)], jobId);
+      this.storeCapsule(contractAddress, baseSlot, [new Fr(content.length)], jobId, scope);
 
       // Store the new content, possibly overwriting existing values
       for (let i = 0; i < content.length; i++) {
-        this.storeCapsule(contractAddress, arraySlot(baseSlot, i), content[i], jobId);
+        this.storeCapsule(contractAddress, arraySlot(baseSlot, i), content[i], jobId, scope);
       }
 
       // Clear any stragglers
       for (let i = content.length; i < originalLength; i++) {
-        this.deleteCapsule(contractAddress, arraySlot(baseSlot, i), jobId);
+        this.deleteCapsule(contractAddress, arraySlot(baseSlot, i), jobId, scope);
       }
     });
   }
