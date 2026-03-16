@@ -5,7 +5,11 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
-import { computeSiloedPrivateInitNullifier, siloNullifier } from '@aztec/stdlib/hash';
+import {
+  computeSiloedPrivateInitializationNullifier,
+  computeSiloedPublicInitializationNullifier,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
 import { NoteDao } from '@aztec/stdlib/note';
 
 import type { CLIWallet } from '../utils/wallet.js';
@@ -154,11 +158,12 @@ async function getKnownNullifiers(wallet: CLIWallet, artifactMap: ArtifactMap) {
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};
 
-  for (const { contract, deployNullifier, initNullifier } of contractResults) {
+  for (const { contract, deployNullifier, privateInitNullifier, publicInitNullifier } of contractResults) {
     deployNullifiers[deployNullifier.toString()] = contract;
-    if (initNullifier) {
-      initNullifiers[initNullifier.toString()] = contract;
+    if (privateInitNullifier) {
+      initNullifiers[privateInitNullifier.toString()] = contract;
     }
+    initNullifiers[publicInitNullifier.toString()] = contract;
   }
   for (const { nullifier, label } of classResults) {
     classNullifiers[nullifier.toString()] = label;
@@ -172,11 +177,12 @@ async function getContractNullifiers(wallet: CLIWallet, contract: AztecAddress) 
   const deployNullifier = await siloNullifier(deployerAddress, contract.toField());
 
   const metadata = await wallet.getContractMetadata(contract);
-  const initNullifier = metadata.instance
-    ? await computeSiloedPrivateInitNullifier(contract, metadata.instance.initializationHash)
+  const privateInitNullifier = metadata.instance
+    ? await computeSiloedPrivateInitializationNullifier(contract, metadata.instance.initializationHash)
     : undefined;
+  const publicInitNullifier = await computeSiloedPublicInitializationNullifier(contract);
 
-  return { contract, deployNullifier, initNullifier };
+  return { contract, deployNullifier, privateInitNullifier, publicInitNullifier };
 }
 
 async function getClassNullifier(artifact: ContractArtifactWithClassId) {

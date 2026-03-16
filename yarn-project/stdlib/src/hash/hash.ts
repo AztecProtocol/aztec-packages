@@ -64,11 +64,24 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promi
  * @param initializationHash - The contract's initialization hash.
  * @returns The siloed private initialization nullifier.
  */
-export async function computeSiloedPrivateInitNullifier(contract: AztecAddress, initializationHash: Fr): Promise<Fr> {
+export async function computeSiloedPrivateInitializationNullifier(
+  contract: AztecAddress,
+  initializationHash: Fr,
+): Promise<Fr> {
   const innerNullifier = await poseidon2HashWithSeparator(
     [contract, initializationHash],
     DomainSeparator.PRIVATE_INITIALIZATION_NULLIFIER,
   );
+  return siloNullifier(contract, innerNullifier);
+}
+
+/**
+ * Computes the siloed public initialization nullifier for a contract.
+ * @param contract - The contract address.
+ * @returns The siloed public initialization nullifier.
+ */
+export async function computeSiloedPublicInitializationNullifier(contract: AztecAddress): Promise<Fr> {
+  const innerNullifier = await poseidon2HashWithSeparator([contract], DomainSeparator.PUBLIC_INITIALIZATION_NULLIFIER);
   return siloNullifier(contract, innerNullifier);
 }
 

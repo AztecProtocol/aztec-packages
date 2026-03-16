@@ -408,7 +408,7 @@ class MockWallet implements Wallet {
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
     return Promise.resolve({
       instance: undefined,
-      isContractInitialized: false,
+      isContractInitialized: undefined,
       isContractPublished: false,
       isContractUpdated: false,
       updatedContractClassId: undefined,
