@@ -613,8 +613,8 @@ export class Oracle {
     [srcSlot]: ACVMField[],
     [dstSlot]: ACVMField[],
     [numEntries]: ACVMField[],
-    [scopeSome]: ACVMField[] = [],
-    [scopeValue]: ACVMField[] = [],
+    [scopeSome]: ACVMField[],
+    [scopeValue]: ACVMField[],
   ): Promise<ACVMField[]> {
     const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     await this.handlerAsUtility().copyCapsule(

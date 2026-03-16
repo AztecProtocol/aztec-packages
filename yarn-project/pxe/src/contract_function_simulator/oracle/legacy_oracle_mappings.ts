@@ -31,7 +31,8 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     utilityStorageRead: (...args: ACVMField[][]) => oracle.aztec_utl_storageRead(args[0], args[1], args[2], args[3]),
     utilityStoreCapsule: (...args: ACVMField[][]) =>
       oracle.aztec_utl_storeCapsule(args[0], args[1], args[2], [new Fr(0).toString()], [new Fr(0).toString()]),
-    utilityCopyCapsule: (...args: ACVMField[][]) => oracle.aztec_utl_copyCapsule(args[0], args[1], args[2], args[3]),
+    utilityCopyCapsule: (...args: ACVMField[][]) =>
+      oracle.aztec_utl_copyCapsule(args[0], args[1], args[2], args[3], [new Fr(0).toString()], [new Fr(0).toString()]),
     utilityDeleteCapsule: (...args: ACVMField[][]) =>
       oracle.aztec_utl_deleteCapsule(args[0], args[1], [new Fr(0).toString()], [new Fr(0).toString()]),
     utilityAes128Decrypt: (...args: ACVMField[][]) =>
