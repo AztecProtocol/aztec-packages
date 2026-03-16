@@ -28,7 +28,7 @@ use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Des
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
-global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
+pub(crate) global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
     sha256_to_field("AZTEC_NR::PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes());
 
 global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
