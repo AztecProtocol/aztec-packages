@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 
@@ -10,8 +10,8 @@ export class CapsuleStore implements StagedStore {
 
   #store: AztecAsyncKVStore;
 
-  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${scope}:${key}` when a scope is
-  // provided, and `${contractAddress}:${key}` otherwise to preserve legacy keys.
+  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${scope}:${key}`, using the zero
+  // address for the global scope.
   #capsules: AztecAsyncMap<string, Buffer>;
 
   // jobId => `${contractAddress}:${scope}:${key}` => capsule data
@@ -314,12 +314,7 @@ export class CapsuleStore implements StagedStore {
 }
 
 function dbSlotToKey(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): string {
-  const keyParts = [contractAddress.toString()];
-  if (scope) {
-    keyParts.push(scope.toString());
-  }
-  keyParts.push(slot.toString());
-  return keyParts.join(':');
+  return [contractAddress.toString(), (scope ?? AztecAddress.ZERO).toString(), slot.toString()].join(':');
 }
 
 function arraySlot(baseSlot: Fr, index: number) {

@@ -81,6 +81,16 @@ describe('capsule data provider', () => {
       expect(await capsuleStore.loadCapsule(contract, slot, 'test')).toBeNull();
     });
 
+    it('treats the global scope as the zero address', async () => {
+      const slot = new Fr(1);
+      const values = [new Fr(42)];
+
+      capsuleStore.storeCapsule(contract, slot, values, 'test');
+
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test')).toEqual(values);
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test', AztecAddress.ZERO)).toEqual(values);
+    });
+
     it('returns null for non-existent slots', async () => {
       const slot = Fr.random();
       const result = await capsuleStore.loadCapsule(contract, slot, 'test');
