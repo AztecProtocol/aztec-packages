@@ -172,6 +172,178 @@ describe('PublisherManager', () => {
     });
   });
 
+  describe('publisher funding', () => {
+    let funder: TestL1TxUtils & L1TxUtils;
+    const threshold = 100n;
+    const fundingAmount = 50n;
+
+    const createFundedManager = (
+      publishers: (TestL1TxUtils & L1TxUtils)[],
+      funderInstance?: TestL1TxUtils & L1TxUtils,
+      config?: { publisherFundingThreshold?: bigint; publisherFundingAmount?: bigint },
+    ) => {
+      return new PublisherManager(
+        publishers,
+        { publisherFundingThreshold: threshold, publisherFundingAmount: fundingAmount, ...config },
+        undefined,
+        funderInstance,
+      );
+    };
+
+    /** Wait for the background funding promise to settle. */
+    const waitForFunding = () => new Promise(resolve => setTimeout(resolve, 10));
+
+    beforeEach(() => {
+      funder = new TestL1TxUtils(EthAddress.random()) as TestL1TxUtils & L1TxUtils;
+      funder.balance = 5000n;
+    });
+
+    it('funds publisher when balance is below threshold', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 50n; // below threshold
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: mockPublishers[0].getSenderAddress().toString(), value: fundingAmount }),
+      );
+    });
+
+    it('does not fund when publisher balance is above threshold', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 200n; // above threshold
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
+    });
+
+    it('funds multiple publishers, only those below threshold', async () => {
+      mockPublishers = createMockPublishers(3);
+      mockPublishers[0].balance = 50n; // below
+      mockPublishers[1].balance = 200n; // above
+      mockPublishers[2].balance = 30n; // below
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: mockPublishers[0].getSenderAddress().toString(), value: fundingAmount }),
+      );
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: mockPublishers[2].getSenderAddress().toString(), value: fundingAmount }),
+      );
+    });
+
+    it('handles funding transaction failure gracefully', async () => {
+      mockPublishers = createMockPublishers(2);
+      mockPublishers[0].balance = 50n;
+      mockPublishers[1].balance = 50n;
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      // First call fails, second succeeds
+      funder.sendAndMonitorTransaction
+        .mockRejectedValueOnce(new Error('tx failed'))
+        .mockResolvedValueOnce({ receipt: { transactionHash: '0xdef' }, state: {} });
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      // Both attempted despite first failure
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
+    });
+
+    it('correctly sends the funding transaction', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 50n;
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
+        to: mockPublishers[0].getSenderAddress().toString(),
+        data: '0x',
+        value: fundingAmount,
+      });
+    });
+
+    it('concurrent guard prevents overlapping funding runs', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 50n;
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      // Block the first funding call on a deferred promise we control
+      let resolveFunding!: () => void;
+      const fundingBlocked = new Promise<void>(r => (resolveFunding = r));
+      funder.sendAndMonitorTransaction.mockImplementation(async () => {
+        await fundingBlocked;
+        return { receipt: { transactionHash: '0x1' }, state: {} };
+      });
+
+      // First call triggers funding (sets isFunding = true)
+      await publisherManager.getAvailablePublisher();
+      // Second call while funding is still in progress — should skip
+      await publisherManager.getAvailablePublisher();
+
+      // Release the blocked funding and let it complete
+      resolveFunding();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('no funding triggered when no funder configured', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 50n;
+      publisherManager = new PublisherManager(mockPublishers, {
+        publisherFundingThreshold: threshold,
+        publisherFundingAmount: fundingAmount,
+      });
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
+    });
+
+    it('no funding triggered when config threshold/amount not set', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 50n;
+      publisherManager = createFundedManager(mockPublishers, funder, {
+        publisherFundingThreshold: undefined,
+        publisherFundingAmount: undefined,
+      });
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
+    });
+
+    it('funds publishers in busy states', async () => {
+      mockPublishers = createMockPublishers(2);
+      mockPublishers[0].balance = 50n;
+      mockPublishers[0].state = TxUtilsState.IDLE;
+      mockPublishers[1].balance = 50n;
+      mockPublishers[1].state = TxUtilsState.SENT; // busy
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      // Both should be funded, even the busy one
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
+    });
+  });
+
   function createMockPublishers(count: number, addresses: EthAddress[] = []): (TestL1TxUtils & L1TxUtils)[] {
     const tempAddress = [...addresses];
     return times(
@@ -185,6 +357,10 @@ class TestL1TxUtils {
   public state: TxUtilsState = TxUtilsState.IDLE;
   public lastMinedAtBlockNumber: bigint | undefined = undefined;
   public balance: bigint = 1000n;
+  public sendAndMonitorTransaction = jest.fn<() => Promise<any>>().mockResolvedValue({
+    receipt: { transactionHash: '0xabc' },
+    state: {},
+  });
 
   constructor(public senderAddress: EthAddress) {}
 
