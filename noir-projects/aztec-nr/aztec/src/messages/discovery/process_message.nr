@@ -117,6 +117,7 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
                 msg_metadata,
                 msg_content,
                 message_context,
+                scope,
             );
         } else {
             // A custom message was received but no handler is configured. This likely means the contract emits custom

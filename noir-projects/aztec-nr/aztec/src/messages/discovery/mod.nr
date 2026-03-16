@@ -98,7 +98,8 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* msg_type_id */ u64,
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-/* message_context */ MessageContext);
+/* message_context */ MessageContext,
+/* scope */ AztecAddress);
 
 /// Synchronizes the contract's private state with the network.
 ///

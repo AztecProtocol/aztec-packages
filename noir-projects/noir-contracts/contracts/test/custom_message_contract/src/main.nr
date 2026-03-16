@@ -32,6 +32,7 @@ unconstrained fn handle_multi_log_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     message_context: MessageContext,
+    scope: AztecAddress,
 ) {
     if msg_type_id == MULTI_LOG_MSG_TYPE_ID {
         let part_number = MultiLog::<NUM_MULTI_LOG_PARTS>::unpack_part_number(msg_metadata);
@@ -44,7 +45,7 @@ unconstrained fn handle_multi_log_message(
         let mut multi_log: MultiLog<NUM_MULTI_LOG_PARTS> = capsules::load(
             contract_address,
             slot,
-            Option::none(),
+            Option::some(scope),
         )
             .unwrap_or(MultiLog { parts: [BoundedVec::new(); NUM_MULTI_LOG_PARTS] });
         multi_log.parts[part_number] = msg_content;
@@ -74,7 +75,7 @@ unconstrained fn handle_multi_log_message(
                 }
             }
 
-            capsules::delete(contract_address, slot, Option::none());
+            capsules::delete(contract_address, slot, Option::some(scope));
 
             let event_type_id = EventSelector::from_field(event_type_id_field);
             let event_commitment = compute_private_serialized_event_commitment(
@@ -93,7 +94,7 @@ unconstrained fn handle_multi_log_message(
                 message_context.recipient,
             );
         } else {
-            capsules::store(contract_address, slot, multi_log, Option::none());
+            capsules::store(contract_address, slot, multi_log, Option::some(scope));
         }
     } else {
         panic(f"Unknown message type id: {msg_type_id}");
