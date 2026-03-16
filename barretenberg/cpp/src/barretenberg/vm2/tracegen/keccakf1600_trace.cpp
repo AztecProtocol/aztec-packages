@@ -116,17 +116,6 @@ constexpr std::array<C, 5> THETA_XOR_ROW_MSB_COLS = {
     },
 };
 
-// Mapping indices of theta_xor_row_low63 to their columns.
-constexpr std::array<C, 5> THETA_XOR_ROW_LOW63_COLS = {
-    {
-        C::keccakf1600_theta_xor_row_low63_0,
-        C::keccakf1600_theta_xor_row_low63_1,
-        C::keccakf1600_theta_xor_row_low63_2,
-        C::keccakf1600_theta_xor_row_low63_3,
-        C::keccakf1600_theta_xor_row_low63_4,
-    },
-};
-
 // Mapping indices of theta_combined_xor to their columns.
 constexpr std::array<C, 5> THETA_COMBINED_XOR_COLS = {
     {
@@ -179,33 +168,35 @@ constexpr std::array<std::array<C, 5>, 5> STATE_THETA_COLS = {
     },
 };
 
-// Mapping indices of state_theta_hi to their columns.
+// Mapping flattened indices to the range-checked limb column for each rotation.
+// For rot <= 32: hi is range-checked. For rot > 32: low is range-checked.
 // As index 00 is not used here, we flatten the list and start with 01.
-constexpr std::array<C, 24> STATE_THETA_HI_COLS = {
+constexpr std::array<C, 24> STATE_THETA_LIMB_COLS = {
     {
-        C::keccakf1600_state_theta_hi_01, C::keccakf1600_state_theta_hi_02, C::keccakf1600_state_theta_hi_03,
-        C::keccakf1600_state_theta_hi_04, C::keccakf1600_state_theta_hi_10, C::keccakf1600_state_theta_hi_11,
-        C::keccakf1600_state_theta_hi_12, C::keccakf1600_state_theta_hi_13, C::keccakf1600_state_theta_hi_14,
-        C::keccakf1600_state_theta_hi_20, C::keccakf1600_state_theta_hi_21, C::keccakf1600_state_theta_hi_22,
-        C::keccakf1600_state_theta_hi_23, C::keccakf1600_state_theta_hi_24, C::keccakf1600_state_theta_hi_30,
-        C::keccakf1600_state_theta_hi_31, C::keccakf1600_state_theta_hi_32, C::keccakf1600_state_theta_hi_33,
-        C::keccakf1600_state_theta_hi_34, C::keccakf1600_state_theta_hi_40, C::keccakf1600_state_theta_hi_41,
-        C::keccakf1600_state_theta_hi_42, C::keccakf1600_state_theta_hi_43, C::keccakf1600_state_theta_hi_44,
-    },
-};
-
-// Mapping indices of state_theta_low to their columns.
-// As index 00 is not used here, we flatten the list and start with 01.
-constexpr std::array<C, 24> STATE_THETA_LOW_COLS = {
-    {
-        C::keccakf1600_state_theta_low_01, C::keccakf1600_state_theta_low_02, C::keccakf1600_state_theta_low_03,
-        C::keccakf1600_state_theta_low_04, C::keccakf1600_state_theta_low_10, C::keccakf1600_state_theta_low_11,
-        C::keccakf1600_state_theta_low_12, C::keccakf1600_state_theta_low_13, C::keccakf1600_state_theta_low_14,
-        C::keccakf1600_state_theta_low_20, C::keccakf1600_state_theta_low_21, C::keccakf1600_state_theta_low_22,
-        C::keccakf1600_state_theta_low_23, C::keccakf1600_state_theta_low_24, C::keccakf1600_state_theta_low_30,
-        C::keccakf1600_state_theta_low_31, C::keccakf1600_state_theta_low_32, C::keccakf1600_state_theta_low_33,
-        C::keccakf1600_state_theta_low_34, C::keccakf1600_state_theta_low_40, C::keccakf1600_state_theta_low_41,
-        C::keccakf1600_state_theta_low_42, C::keccakf1600_state_theta_low_43, C::keccakf1600_state_theta_low_44,
+        C::keccakf1600_state_theta_low_01, // [0,1] rot=36 >32
+        C::keccakf1600_state_theta_hi_02,  // [0,2] rot=3  <=32
+        C::keccakf1600_state_theta_low_03, // [0,3] rot=41 >32
+        C::keccakf1600_state_theta_hi_04,  // [0,4] rot=18 <=32
+        C::keccakf1600_state_theta_hi_10,  // [1,0] rot=1  <=32
+        C::keccakf1600_state_theta_low_11, // [1,1] rot=44 >32
+        C::keccakf1600_state_theta_hi_12,  // [1,2] rot=10 <=32
+        C::keccakf1600_state_theta_low_13, // [1,3] rot=45 >32
+        C::keccakf1600_state_theta_hi_14,  // [1,4] rot=2  <=32
+        C::keccakf1600_state_theta_low_20, // [2,0] rot=62 >32
+        C::keccakf1600_state_theta_hi_21,  // [2,1] rot=6  <=32
+        C::keccakf1600_state_theta_low_22, // [2,2] rot=43 >32
+        C::keccakf1600_state_theta_hi_23,  // [2,3] rot=15 <=32
+        C::keccakf1600_state_theta_low_24, // [2,4] rot=61 >32
+        C::keccakf1600_state_theta_hi_30,  // [3,0] rot=28 <=32
+        C::keccakf1600_state_theta_low_31, // [3,1] rot=55 >32
+        C::keccakf1600_state_theta_hi_32,  // [3,2] rot=25 <=32
+        C::keccakf1600_state_theta_hi_33,  // [3,3] rot=21 <=32
+        C::keccakf1600_state_theta_low_34, // [3,4] rot=56 >32
+        C::keccakf1600_state_theta_hi_40,  // [4,0] rot=27 <=32
+        C::keccakf1600_state_theta_hi_41,  // [4,1] rot=20 <=32
+        C::keccakf1600_state_theta_low_42, // [4,2] rot=39 >32
+        C::keccakf1600_state_theta_hi_43,  // [4,3] rot=8  <=32
+        C::keccakf1600_state_theta_hi_44,  // [4,4] rot=14 <=32
     },
 };
 
@@ -595,19 +586,16 @@ void KeccakF1600TraceBuilder::process_permutation(
                     }
                 }
 
-                // Setting theta xor final values left rotated by 1
-                // and the msb and low 63 bits values.
+                // Setting theta xor final values left rotated by 1 and the msb values.
                 // Setting theta_combined_xor values
                 for (size_t i = 0; i < 5; i++) {
                     const auto theta_xor_row_rotl1 = round_data.theta_xor_row_rotl1[i];
-                    const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1;    // lsb of of the rotated value
-                    const auto theta_xor_row_low63 = theta_xor_row_rotl1 >> 1; // 63 high bits of the rotated value
+                    const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1; // lsb of the rotated value
 
                     trace.set(row,
                               { {
                                   { THETA_XOR_ROW_ROTL1_COLS[i], theta_xor_row_rotl1 },
                                   { THETA_XOR_ROW_MSB_COLS[i], theta_xor_row_msb },
-                                  { THETA_XOR_ROW_LOW63_COLS[i], theta_xor_row_low63 },
                                   { THETA_COMBINED_XOR_COLS[i], round_data.theta_combined_xor[i] },
                               } });
                 }
@@ -619,23 +607,22 @@ void KeccakF1600TraceBuilder::process_permutation(
                     }
                 }
 
-                // Setting state_theta_hi and state_theta_low and state_rho values.
-                // We loop the flatten index k from 1 to 25 and compute
-                // 2-dimensional indices i = k/5 and j = k%5
-                // Note that intermediate states at index (0,0) are omitted because they are not involved
-                // in constraints.
+                // Setting the range-checked limb and state_rho values.
+                // For rot <= 32: keep hi = state_theta >> (64 - rot).
+                // For rot > 32: keep low = state_theta & ((1 << (64 - rot)) - 1).
                 for (size_t k = 1; k < 25; k++) {
                     const size_t i = k / 5;
                     const size_t j = k % 5;
-                    const size_t low_num_bits = 64 - simulation::keccak_rotation_len[i][j];
+                    const auto rotation_len = simulation::keccak_rotation_len[i][j];
+                    const size_t low_num_bits = 64 - rotation_len;
                     const auto state_theta_val = round_data.state_theta[i][j];
-                    const auto state_theta_hi = state_theta_val >> low_num_bits;
-                    const auto state_theta_low = state_theta_val & ((1ULL << low_num_bits) - 1);
+                    const auto range_checked_limb = rotation_len <= 32
+                                                        ? state_theta_val >> low_num_bits                 // hi
+                                                        : state_theta_val & ((1ULL << low_num_bits) - 1); // low
 
                     trace.set(row,
                               { {
-                                  { STATE_THETA_HI_COLS[k - 1], state_theta_hi },
-                                  { STATE_THETA_LOW_COLS[k - 1], state_theta_low },
+                                  { STATE_THETA_LIMB_COLS[k - 1], range_checked_limb },
                                   { STATE_RHO_COLS[k - 1], round_data.state_rho[i][j] },
                               } });
                 }
