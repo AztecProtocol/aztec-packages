@@ -9,7 +9,9 @@ endif()
 # Use 'skylake' on x86_64 (matches our cross-compile presets) and 'generic' on ARM
 # to avoid emitting CPU-specific instructions (e.g. SVE on Graviton) that break on
 # other ARM machines like Apple Silicon.
-if(NOT WASM AND NOT TARGET_ARCH)
+# Skip auto-detection when cross-compiling — those presets control the arch via
+# zig's -target/-mcpu flags and should not get a conflicting -march.
+if(NOT WASM AND NOT TARGET_ARCH AND NOT CMAKE_CROSSCOMPILING)
     if(ARM)
         set(TARGET_ARCH "generic")
     else()
