@@ -134,6 +134,14 @@ export type L1FeeData = {
   blobFee: bigint;
 };
 
+/** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
+export type ManaMinFeeComponents = {
+  sequencerCost: bigint;
+  proverCost: bigint;
+  congestionCost: bigint;
+  congestionMultiplier: bigint;
+};
+
 /**
  * Reward configuration for the rollup
  */
@@ -875,6 +883,16 @@ export class RollupContract {
 
   getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
     return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset]);
+  }
+
+  async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {
+    const result = await this.rollup.read.getManaMinFeeComponentsAt([timestamp, inFeeAsset]);
+    return {
+      sequencerCost: result.sequencerCost,
+      proverCost: result.proverCost,
+      congestionCost: result.congestionCost,
+      congestionMultiplier: result.congestionMultiplier,
+    };
   }
 
   async getSlotAt(timestamp: bigint): Promise<SlotNumber> {
