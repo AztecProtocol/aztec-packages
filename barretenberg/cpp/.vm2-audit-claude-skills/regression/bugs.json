@@ -257,7 +257,7 @@
         "src/barretenberg/vm2/simulation/gadgets/sha256.cpp",
         "src/barretenberg/vm2/simulation/execution.cpp"
       ],
-      "description": "Sha256Compression was throwing std::runtime_error but the caller catches Sha256CompressionException. This leads to an irrecoverable error \u2014 a completeness issue.",
+      "description": "Sha256Compression was throwing std::runtime_error but the caller catches Sha256CompressionException. This leads to an irrecoverable error — a completeness issue.",
       "severity": "high",
       "category": "completeness",
       "component": "execution",
@@ -674,7 +674,7 @@
     },
     {
       "id": "alu-mul-underconstrained",
-      "title": "Multiplication for tag < U128 underconstrained \u2014 missing range check on c_hi",
+      "title": "Multiplication for tag < U128 underconstrained — missing range check on c_hi",
       "pr": "#18192",
       "commit_before": "",
       "commit_after": "",
@@ -1454,7 +1454,7 @@
     },
     {
       "id": "ecc-operation-predicates-completeness",
-      "title": "ECC operation predicates \u2014 possible for none to be set",
+      "title": "ECC operation predicates — possible for none to be set",
       "pr": "#19471",
       "commit_before": "",
       "commit_after": "",
@@ -1598,7 +1598,7 @@
     },
     {
       "id": "tx-reverted-unconstrained",
-      "title": "tx_reverted column unconstrained \u2014 prover can hide reverts",
+      "title": "tx_reverted column unconstrained — prover can hide reverts",
       "pr": "#17821",
       "commit_before": "",
       "commit_after": "",
@@ -2984,7 +2984,7 @@
       "files": [
         "pil/vm2/keccak_memory.pil"
       ],
-      "description": "The keccak_memory.pil trace had multiple injection vulnerabilities: (1) No trace continuity constraint \u2014 sel could go from 0 to 1 mid-trace without a start_read or start_write, allowing injection of rows mid-operation. (2) No constraint that last implies sel=1, so ghost rows could claim to be 'last'. (3) Propagation constraints used (1-last) gating which allowed inactive rows after a 'last' to have unconstrained values. The fix adds TRACE_CONTINUITY, LAST_HAS_SEL_ON, START_AFTER_LATCH constraints and replaces (1-last) gating with (1-LATCH_CONDITION).",
+      "description": "The keccak_memory.pil trace had multiple injection vulnerabilities: (1) No trace continuity constraint — sel could go from 0 to 1 mid-trace without a start_read or start_write, allowing injection of rows mid-operation. (2) No constraint that last implies sel=1, so ghost rows could claim to be 'last'. (3) Propagation constraints used (1-last) gating which allowed inactive rows after a 'last' to have unconstrained values. The fix adds TRACE_CONTINUITY, LAST_HAS_SEL_ON, START_AFTER_LATCH constraints and replaces (1-last) gating with (1-LATCH_CONDITION).",
       "severity": "critical",
       "category": "soundness",
       "component": "keccak_memory",

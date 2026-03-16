@@ -25,10 +25,11 @@
 #   -h, --help          Show this help message
 #
 # Tier Descriptions:
-#   Tier 1 (Critical):  Must-run skills that find the most severe bugs
-#   Tier 2 (High):      High-value skills, should run for thorough audits
-#   Tier 3 (Moderate):  Good-to-have skills for comprehensive coverage
-#   Tier 4 (Sanity):    Sanity-check skills, usually return clean results
+#   Tier 0 (Opcode):   Opcode-level semantic checks
+#   Tier 1 (Critical): Must-run skills that find the most severe bugs
+#   Tier 2 (High):     High-value skills, should run for thorough audits
+#   Tier 3 (Moderate): Good-to-have skills for comprehensive coverage
+#   Tier 4 (Sanity):   Sanity-check skills, usually return clean results
 #
 # Environment Variables:
 #   EXTRA_MULTI_MODEL_SUMMARY=1  Enable multi-model validation (same as --multi-model-summary)
@@ -75,17 +76,14 @@ parse_tiers() {
     local tier_spec="$1"
     local tiers=()
 
-    # Handle comma-separated values
     IFS=',' read -ra PARTS <<< "$tier_spec"
     for part in "${PARTS[@]}"; do
-        # Handle range (e.g., "1-3" or "0-2")
         if [[ "$part" =~ ^([0-4])-([0-4])$ ]]; then
             local start="${BASH_REMATCH[1]}"
             local end="${BASH_REMATCH[2]}"
             for ((i=start; i<=end; i++)); do
                 tiers+=("$i")
             done
-        # Handle single tier
         elif [[ "$part" =~ ^[0-4]$ ]]; then
             tiers+=("$part")
         else
@@ -95,11 +93,10 @@ parse_tiers() {
         fi
     done
 
-    # Remove duplicates and sort
     printf '%s\n' "${tiers[@]}" | sort -u
 }
 
-# Dynamically discover all vm2-audit-* skills from the skills directory, organized by tier
+# Dynamically discover all vm2-audit-* skills from the skills directory
 declare -A TIER_SKILLS
 TIER_SKILLS[0]=""
 TIER_SKILLS[1]=""
@@ -111,7 +108,6 @@ OTHER_SKILLS=""
 for dir in "$SKILLS_DIR"/vm2-audit-*/; do
     if [[ -d "$dir" ]]; then
         skill_name=$(basename "$dir")
-        # Extract tier from skill name (vm2-audit-t0-*, vm2-audit-t1-*, etc.)
         if [[ "$skill_name" =~ ^vm2-audit-t([0-4])- ]]; then
             tier="${BASH_REMATCH[1]}"
             TIER_SKILLS[$tier]="${TIER_SKILLS[$tier]} $skill_name"
@@ -128,40 +124,20 @@ list_skills() {
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
-    echo -e "${CYAN}Tier 0 - Opcode Cross-Layer Consistency:${NC}"
-    for skill in ${TIER_SKILLS[0]}; do
-        echo "  - $skill"
+    for tier in 0 1 2 3 4; do
+        case $tier in
+            0) echo -e "${CYAN}Tier 0 - Opcode Cross-Layer Consistency:${NC}" ;;
+            1) echo -e "${CYAN}Tier 1 - Critical (Must Have):${NC}" ;;
+            2) echo -e "${CYAN}Tier 2 - High Value (Should Have):${NC}" ;;
+            3) echo -e "${CYAN}Tier 3 - Moderate Value (Good to Have):${NC}" ;;
+            4) echo -e "${CYAN}Tier 4 - Sanity Checks (Optional):${NC}" ;;
+        esac
+        for skill in ${TIER_SKILLS[$tier]}; do
+            echo "  - $skill"
+        done
+        echo "  Count: $(echo ${TIER_SKILLS[$tier]} | wc -w)"
+        echo ""
     done
-    echo "  Count: $(echo ${TIER_SKILLS[0]} | wc -w)"
-    echo ""
-
-    echo -e "${CYAN}Tier 1 - Critical (Must Have):${NC}"
-    for skill in ${TIER_SKILLS[1]}; do
-        echo "  - $skill"
-    done
-    echo "  Count: $(echo ${TIER_SKILLS[1]} | wc -w)"
-    echo ""
-
-    echo -e "${CYAN}Tier 2 - High Value (Should Have):${NC}"
-    for skill in ${TIER_SKILLS[2]}; do
-        echo "  - $skill"
-    done
-    echo "  Count: $(echo ${TIER_SKILLS[2]} | wc -w)"
-    echo ""
-
-    echo -e "${CYAN}Tier 3 - Moderate Value (Good to Have):${NC}"
-    for skill in ${TIER_SKILLS[3]}; do
-        echo "  - $skill"
-    done
-    echo "  Count: $(echo ${TIER_SKILLS[3]} | wc -w)"
-    echo ""
-
-    echo -e "${CYAN}Tier 4 - Sanity Checks (Optional):${NC}"
-    for skill in ${TIER_SKILLS[4]}; do
-        echo "  - $skill"
-    done
-    echo "  Count: $(echo ${TIER_SKILLS[4]} | wc -w)"
-    echo ""
 
     if [[ -n "$OTHER_SKILLS" ]]; then
         echo -e "${YELLOW}Other (non-tiered):${NC}"
@@ -238,7 +214,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            head -40 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
+            head -50 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
             exit 0
             ;;
         *)
@@ -265,17 +241,14 @@ fi
 ALL_SKILLS=()
 
 if [[ ${#SPECIFIC_SKILLS[@]} -gt 0 ]]; then
-    # Use specific skills if provided
     ALL_SKILLS=("${SPECIFIC_SKILLS[@]}")
 elif [[ ${#SELECTED_TIERS[@]} -gt 0 ]]; then
-    # Use skills from selected tiers
     for tier in "${SELECTED_TIERS[@]}"; do
         for skill in ${TIER_SKILLS[$tier]}; do
             ALL_SKILLS+=("$skill")
         done
     done
 else
-    # Use all tiered skills
     for tier in 0 1 2 3 4; do
         for skill in ${TIER_SKILLS[$tier]}; do
             ALL_SKILLS+=("$skill")
@@ -456,7 +429,7 @@ else
     if [[ ${#SELECTED_TIERS[@]} -gt 0 ]]; then
         log "  Selected tiers: ${SELECTED_TIERS[*]}"
     else
-        log "  Selected tiers: all (1-4)"
+        log "  Selected tiers: all (0-4)"
     fi
     log "  Skills to run: ${#SKILLS_TO_RUN[@]}"
     log ""
