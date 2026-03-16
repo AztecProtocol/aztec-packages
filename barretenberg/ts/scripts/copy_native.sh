@@ -14,5 +14,7 @@ fi
 
 mkdir -p ./build/$target
 
+# Remove before copy to avoid ETXTBSY if the binary is currently executing.
+rm -f ./build/$target/bb ./build/$target/nodejs_module.node
 cp ../cpp/build/bin/bb ./build/$target
 cp ../cpp/build/lib/nodejs_module.node ./build/$target
