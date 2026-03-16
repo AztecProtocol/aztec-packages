@@ -982,7 +982,7 @@ TEST_F(ShpleminiKZGTest, InterleavedOpenings)
         for (size_t j = 0; j < BATCH_SIZE; j++)
             shiftable_for_batcher.at(BATCH_SIZE * i + j) = shiftable_polys[j][i];
 
-    PolynomialBatcher batcher(interleaved_size, BATCH_SIZE);
+    PolynomialBatcher batcher(interleaved_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE);
     batcher.set_unshifted(RefVector<Polynomial>{ P_unshiftable, P_shiftable });
     batcher.set_to_be_shifted(RefVector<Polynomial>{ shiftable_for_batcher });
 

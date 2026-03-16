@@ -49,6 +49,7 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
     using FF = typename MultiMegaRecursiveFlavor_<BuilderType>::FF;
 
     static constexpr bool HasZK = true;
+    static constexpr bool HasGeminiMasking = false;
 
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
@@ -77,9 +78,10 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
         using Base::Base;
     };
 
-    using VerifierCommitments = MultiMegaFlavor::VerifierCommitments_<Commitment, VerificationKey, true>;
+    // Use false for masking parameter — MegaZK has no masking entities (translator provides masking)
+    using VerifierCommitments = MultiMegaFlavor::VerifierCommitments_<Commitment, VerificationKey, false>;
 
-    using InterleavedCommitments = typename MultiMegaFlavor::template InterleavedWitnessCommitments_<Commitment, true>;
+    using InterleavedCommitments = typename MultiMegaFlavor::template InterleavedWitnessCommitments_<Commitment, false>;
     using InterleavedCommitmentLabels = typename NativeFlavor::InterleavedCommitmentLabels;
     using InterleavedPrecomputed = typename MultiMegaRecursiveFlavor_<BuilderType>::InterleavedPrecomputed;
 
