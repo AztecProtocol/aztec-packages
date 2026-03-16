@@ -374,7 +374,7 @@ struct ChonkBatchVerifierStart {
     uint32_t batch_size = 4;
     std::string fifo_path;
 
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(BBApiRequest& request) &&;
     SERIALIZATION_FIELDS(vks, num_cores, batch_size, fifo_path);
     bool operator==(const ChonkBatchVerifierStart&) const = default;
 };
@@ -396,7 +396,7 @@ struct ChonkBatchVerifierQueue {
     uint32_t vk_index = 0;
     std::vector<bb::fr> proof_fields;
 
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(BBApiRequest& request) &&;
     SERIALIZATION_FIELDS(request_id, vk_index, proof_fields);
     bool operator==(const ChonkBatchVerifierQueue&) const = default;
 };
@@ -414,7 +414,7 @@ struct ChonkBatchVerifierStop {
         bool operator==(const Response&) const = default;
     };
 
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(BBApiRequest& request) &&;
     void msgpack(auto&& pack_fn) { pack_fn(); }
     bool operator==(const ChonkBatchVerifierStop&) const = default;
 };

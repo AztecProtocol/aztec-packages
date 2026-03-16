@@ -440,12 +440,9 @@ void ChonkBatchVerifierService::writer_loop(const std::string& fifo_path)
 
 // ── Batch Verifier RPC Commands ─────────────────────────────────────────────
 
-// Static service instance persists across RPC calls
-static ChonkBatchVerifierService service_;
-
-ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(const BBApiRequest& /*request*/) &&
+ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest& request) &&
 {
-    if (service_.is_running()) {
+    if (request.batch_verifier_service && request.batch_verifier_service->is_running()) {
         throw_or_abort("ChonkBatchVerifierStart: service already running. Call ChonkBatchVerifierStop first.");
     }
 
@@ -465,17 +462,18 @@ ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(const BBApiRe
         .batch_size = batch_size,
     };
 
-    service_.start(std::move(parsed_vks), config, fifo_path);
+    request.batch_verifier_service = std::make_shared<ChonkBatchVerifierService>();
+    request.batch_verifier_service->start(std::move(parsed_vks), config, fifo_path);
     return {};
 }
 
-ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRequest& /*request*/) &&
+ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& request) &&
 {
-    if (!service_.is_running()) {
+    if (!request.batch_verifier_service || !request.batch_verifier_service->is_running()) {
         throw_or_abort("ChonkBatchVerifierQueue: service not running. Call ChonkBatchVerifierStart first.");
     }
 
-    service_.enqueue(VerifyRequest{
+    request.batch_verifier_service->enqueue(VerifyRequest{
         .request_id = request_id,
         .vk_index = vk_index,
         .proof = ChonkProof::from_field_elements(proof_fields),
@@ -484,29 +482,30 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRe
     return {};
 }
 
-ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(const BBApiRequest& /*request*/) &&
+ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& request) &&
 {
-    if (!service_.is_running()) {
+    if (!request.batch_verifier_service || !request.batch_verifier_service->is_running()) {
         throw_or_abort("ChonkBatchVerifierStop: service not running.");
     }
 
-    service_.stop();
+    request.batch_verifier_service->stop();
+    request.batch_verifier_service.reset();
     return {};
 }
 
 #else // __wasm__
 
-ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(const BBApiRequest& /*request*/) &&
+ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest& /*request*/) &&
 {
     throw_or_abort("ChonkBatchVerifierStart is not supported in WASM builds");
 }
 
-ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(const BBApiRequest& /*request*/) &&
+ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& /*request*/) &&
 {
     throw_or_abort("ChonkBatchVerifierQueue is not supported in WASM builds");
 }
 
-ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(const BBApiRequest& /*request*/) &&
+ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& /*request*/) &&
 {
     throw_or_abort("ChonkBatchVerifierStop is not supported in WASM builds");
 }
