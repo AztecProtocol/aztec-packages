@@ -12,6 +12,7 @@ import { join } from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
+import { ethPrivateKeySchema } from '../src/schemas.js';
 import { LocalSigner, RemoteSigner } from '../src/signer.js';
 import type { KeyStore } from '../src/types.js';
 
@@ -1562,7 +1563,9 @@ describe('KeystoreManager', () => {
   });
 
   describe('createFundingSigner', () => {
-    const fundingPrivateKey = '0x1234567890123456789012345678901234567890123456789012345678901234';
+    const fundingPrivateKey = ethPrivateKeySchema.parse(
+      '0x1234567890123456789012345678901234567890123456789012345678901234',
+    );
 
     it('returns signer from top-level fundingAccount', async () => {
       const keystore: KeyStore = {
