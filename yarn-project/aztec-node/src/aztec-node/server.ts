@@ -1,5 +1,5 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BatchChonkVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
@@ -307,15 +307,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
     );
     const isValidatorOrProver = !config.disableValidator || config.enableProverNode;
-    let proofVerifier: ClientProtocolCircuitVerifier;
-    if (!(config.realProofs || config.debugForceTxProofVerification)) {
-      proofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
-    } else if (isValidatorOrProver) {
-      proofVerifier = await BatchChonkVerifier.new(config, telemetry);
-    } else {
-      // RPC-only nodes: use QueuedIVCVerifier (individual bb verify per proof)
-      proofVerifier = new QueuedIVCVerifier(config, await BBCircuitVerifier.new(config));
-    }
+    const proofVerifier =
+      config.realProofs || config.debugForceTxProofVerification
+        ? await BatchChonkVerifier.new(config, telemetry, isValidatorOrProver ? 8 : 1)
+        : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
 
     let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
@@ -1361,14 +1356,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver.updateConfig(config);
     }
     if (newConfig.realProofs !== this.config.realProofs) {
+      const isValidatorOrProver = !newConfig.disableValidator || newConfig.enableProverNode;
       await tryStop(this.proofVerifier);
-      if (!config.realProofs) {
-        this.proofVerifier = new TestCircuitVerifier();
-      } else if (!newConfig.disableValidator || newConfig.enableProverNode) {
-        this.proofVerifier = await BatchChonkVerifier.new(newConfig, this.telemetry);
-      } else {
-        this.proofVerifier = new QueuedIVCVerifier(newConfig, await BBCircuitVerifier.new(newConfig));
-      }
+      this.proofVerifier = config.realProofs
+        ? await BatchChonkVerifier.new(newConfig, this.telemetry, isValidatorOrProver ? 8 : 1)
+        : new TestCircuitVerifier();
     }
 
     this.config = newConfig;
