@@ -125,7 +125,7 @@ describe('e2e_offchain_effect', () => {
 
     // Process the message
     await contract1.methods
-      .process_message(ciphertext, messageContext.toNoirStruct())
+      .process_message(ciphertext, messageContext.toNoirStruct(), recipient)
       .simulate({ from: defaultAccountAddress });
 
     // Get the event from PXE
@@ -182,7 +182,7 @@ describe('e2e_offchain_effect', () => {
 
     // Process the message
     await contract1.methods
-      .process_message(ciphertext, messageContext.toNoirStruct())
+      .process_message(ciphertext, messageContext.toNoirStruct(), recipient)
       .simulate({ from: defaultAccountAddress });
 
     // Get the note value
