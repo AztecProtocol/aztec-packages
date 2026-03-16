@@ -1133,21 +1133,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return new NullifierMembershipWitness(index, leafPreimage as NullifierLeafPreimage, path);
   }
 
-  /**
-   * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data
-   * (which contains the root of the nullifier tree in which we are searching for the nullifier).
-   * @param nullifier - Nullifier we try to find the low nullifier witness for.
-   * @returns The low nullifier membership witness (if found).
-   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
-   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
-   * we are trying to prove non-inclusion for.
-   *
-   * Note: This function returns the membership witness of the nullifier itself and not the low nullifier when
-   * the nullifier already exists in the tree. This is because the `getPreviousValueIndex` function returns the
-   * index of the nullifier itself when it already exists in the tree.
-   * TODO: This is a confusing behavior and we should eventually address that.
-   */
   public async getLowNullifierMembershipWitness(
     referenceBlock: BlockParameter,
     nullifier: Fr,
@@ -1159,7 +1144,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
     const { index, alreadyPresent } = findResult;
     if (alreadyPresent) {
-      this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+      throw new Error(
+        `Cannot prove nullifier non-inclusion: nullifier ${nullifier.toBigInt()} already exists in the tree`,
+      );
     }
     const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
