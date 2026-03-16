@@ -43,6 +43,9 @@ export interface P2PConfig
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;
 
+  /** Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set. */
+  validateMaxTxsPerCheckpoint?: number;
+
   /** Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected. */
   validateMaxL2BlockGas?: number;
 
@@ -212,6 +215,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description:
       'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxTxsPerCheckpoint: {
+    env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
+    description:
+      'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
   validateMaxL2BlockGas: {
