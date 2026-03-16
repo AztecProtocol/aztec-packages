@@ -42,11 +42,6 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description: 'Whether to skip cleanup of bb temporary files',
     ...booleanConfigHelper(false),
   },
-  numConcurrentIVCVerifiers: {
-    env: 'BB_NUM_IVC_VERIFIERS',
-    description: 'Max number of chonk verifiers to run concurrently',
-    ...numberConfigHelper(8),
-  },
   bbIVCConcurrency: {
     env: 'BB_IVC_CONCURRENCY',
     description: 'Number of threads to use for IVC verification',

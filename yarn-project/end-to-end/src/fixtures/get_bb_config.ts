@@ -13,7 +13,6 @@ const {
   BB_SKIP_CLEANUP = '',
   TEMP_DIR = tmpdir(),
   BB_WORKING_DIRECTORY = '',
-  BB_NUM_IVC_VERIFIERS = '1',
   BB_IVC_CONCURRENCY = '1',
 } = process.env;
 
@@ -41,7 +40,6 @@ export const getBBConfig = async (
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
     const cleanup = bbSkipCleanup ? () => Promise.resolve() : () => tryRmDir(directoryToCleanup);
 
-    const numIvcVerifiers = Number(BB_NUM_IVC_VERIFIERS);
     const ivcConcurrency = Number(BB_IVC_CONCURRENCY);
 
     return {
@@ -49,7 +47,6 @@ export const getBBConfig = async (
       bbBinaryPath,
       bbWorkingDirectory,
       cleanup,
-      numConcurrentIVCVerifiers: numIvcVerifiers,
       bbIVCConcurrency: ivcConcurrency,
     };
   } catch (err) {
