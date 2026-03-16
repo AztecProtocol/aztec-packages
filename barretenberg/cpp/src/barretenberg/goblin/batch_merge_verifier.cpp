@@ -39,22 +39,8 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
 
     std::vector<FF> shift_sizes(MaxMergeSize);
     // Array s.t. indicator_array[i] = (i >= (M - N))
-    std::vector<FF> indicator_array;
-    if constexpr (IsRecursive) {
-        BB_ASSERT_GT(N.get_value(), 0U);
-        // 0 < N <= M so we compute the array for N - 1 and then shift it
-        indicator_array = stdlib::compute_padding_indicator_array<Curve, MaxMergeSize>(FF(MaxMergeSize) - N + FF(1));
-        indicator_array.erase(indicator_array.begin()); // shift right by 1
-        indicator_array.push_back(FF(0));
-        for (auto& el : indicator_array) {
-            el = FF(1) - el;
-        }
-    } else {
-        BB_ASSERT_GT(static_cast<uint32_t>(N), 0U);
-        for (size_t idx = 0; idx < MaxMergeSize; idx++) {
-            indicator_array.push_back(idx < MaxMergeSize - static_cast<uint32_t>(N) ? FF(0) : FF(1));
-        }
-    }
+    std::vector<FF> indicator_array = compute_indicator_array(N);
+
     for (size_t i = 0; i < MaxMergeSize; ++i) {
         shift_sizes[i] = transcript->template receive_from_prover<FF>("batch_merge_shift_size_" + std::to_string(i));
         shift_sizes[i] = shift_sizes[i] * indicator_array[i]; // zero out shift sizes for unused subtables
@@ -91,7 +77,7 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     }
 
     // -------------------------------------------------------------------------
-    // Receive degree check challenges α_0..α_{M-1}
+    // Compute degree check challenges α, α^2, .., α^M
     // -------------------------------------------------------------------------
     std::vector<FF> degree_check_challenges;
     degree_check_challenges.reserve(NUM_COLUMNS * MaxMergeSize);
@@ -107,7 +93,7 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
         transcript->template receive_from_prover<Commitment>("BATCH_MERGE_REVERSED_COLUMNS");
 
     // -------------------------------------------------------------------------
-    // Receive Shplonk batching challenges
+    // Compute Shplonk batching challenges
     // -------------------------------------------------------------------------
     const size_t num_shplonk_challenges = (MaxMergeSize + 1) * NUM_COLUMNS + 1;
     std::vector<FF> betas;
@@ -123,8 +109,9 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     const FF kappa = transcript->template get_challenge<FF>("batch_merge_kappa");
     const FF kappa_inv = kappa.invert();
 
-    //
+    // -------------------------------------------------------------------------
     // Compute powers of kappa and their inverses
+    // -------------------------------------------------------------------------
     std::vector<FF> powers_of_kappa(MaxMergeSize);
     for (size_t idx = 0; idx < MaxMergeSize; idx++) {
         powers_of_kappa[idx] = kappa.pow(shift_sizes[idx] * FF(BATCH_SIZE));
@@ -236,8 +223,60 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
 
     vinfo("BatchMergeVerifier: concatenation check passed: ", concatenation_verified ? "true" : "false");
     vinfo("BatchMergeVerifier: degree check passed: ", degree_check_verified ? "true" : "false");
+    vinfo("BatchMergeVerifier: hash check passed: ", hash_verified ? "true" : "false");
 
     return { pairing_points, merged_commitments, degree_check_verified && concatenation_verified && hash_verified };
+}
+
+template <size_t BatchSize, typename Curve, size_t MaxMergeSize>
+std::vector<typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::FF> BatchMergeVerifier_<
+    BatchSize,
+    Curve,
+    MaxMergeSize>::compute_indicator_array(const FF& N) const
+{
+    // Array s.t. indicator_array[i] = (i >= (M - N))
+    std::vector<FF> indicator_array;
+    if constexpr (IsRecursive) {
+        BB_ASSERT_GT(N.get_value(), 0U);
+        // 0 < N <= M so we compute the array for N - 1 and then shift it
+        indicator_array = stdlib::compute_padding_indicator_array<Curve, MaxMergeSize>(FF(MaxMergeSize) - N + FF(1));
+        indicator_array.erase(indicator_array.begin()); // shift right by 1
+        indicator_array.push_back(FF(0));
+        for (auto& el : indicator_array) {
+            el = FF(1) - el;
+        }
+    } else {
+        BB_ASSERT_GT(static_cast<uint32_t>(N), 0U);
+        for (size_t idx = 0; idx < MaxMergeSize; idx++) {
+            indicator_array.push_back(idx < MaxMergeSize - static_cast<uint32_t>(N) ? FF(0) : FF(1));
+        }
+    }
+
+    return indicator_array;
+}
+
+template <size_t BatchSize, typename Curve, size_t MaxMergeSize>
+std::vector<typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::FF> BatchMergeVerifier_<
+    BatchSize,
+    Curve,
+    MaxMergeSize>::compute_dirac_array(const std::vector<FF>& indicator_array) const
+{
+    // Construct array s.t. shifted_indicatory_array[i] = (i >= (M - N + 1))
+    std::vector<FF> shifted_indicator_array;
+    shifted_indicator_array.reserve(MaxMergeSize);
+    shifted_indicator_array = { FF(0) };
+    for (size_t i = 0; i < MaxMergeSize - 1; ++i) {
+        shifted_indicator_array[i + 1] = indicator_array[i];
+    }
+
+    // Construct array s.t. dirac_array[i] = (i == (M - N))
+    std::vector<FF> dirac_array;
+    dirac_array.reserve(MaxMergeSize);
+    for (size_t i = 0; i < MaxMergeSize; ++i) {
+        dirac_array[i] = indicator_array[i] - shifted_indicator_array[i];
+    }
+
+    return dirac_array;
 }
 
 /**
@@ -314,20 +353,8 @@ bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_hash_consistency
     const Commitment& point_at_infinity) const
     requires(!IsRecursive)
 {
-    // Construct array s.t. shifted_indicatory_array[i] = (i >= (M - N + 1))
-    std::vector<FF> shifted_indicator_array;
-    shifted_indicator_array.reserve(MaxMergeSize);
-    shifted_indicator_array = { FF(0) };
-    for (size_t i = 0; i < MaxMergeSize - 1; ++i) {
-        shifted_indicator_array[i + 1] = indicator_array[i];
-    }
-
     // Construct array s.t. dirac_array[i] = (i == (M - N))
-    std::vector<FF> dirac_array;
-    dirac_array.reserve(MaxMergeSize);
-    for (size_t i = 0; i < MaxMergeSize; ++i) {
-        dirac_array[i] = indicator_array[i] - shifted_indicator_array[i];
-    }
+    std::vector<FF> dirac_array = compute_dirac_array(indicator_array);
 
     // Compute calculated_hash: Poseidon2 chain over all M subtable batches, oldest-first.
     std::vector<FF> hash_inputs;
@@ -381,20 +408,8 @@ bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_hash_consistency
     const Commitment& point_at_infinity) const
     requires IsRecursive
 {
-    // Construct array s.t. shifted_indicatory_array[i] = (i < (M - N + 1))
-    std::vector<FF> shifted_indicator_array;
-    shifted_indicator_array.reserve(MaxMergeSize);
-    shifted_indicator_array = { FF(0) };
-    for (size_t i = 0; i < MaxMergeSize - 1; ++i) {
-        shifted_indicator_array[i + 1] = indicator_array[i];
-    }
-
     // Construct array s.t. dirac_array[i] = (i == (M - N))
-    std::vector<FF> dirac_array;
-    dirac_array.reserve(MaxMergeSize);
-    for (size_t i = 0; i < MaxMergeSize; ++i) {
-        dirac_array[i] = indicator_array[i] - shifted_indicator_array[i];
-    }
+    std::vector<FF> dirac_array = compute_dirac_array(indicator_array);
 
     // Compute calculated_hash: Poseidon2 chain over all M subtable batches, oldest-first.
     std::vector<FF> hash_inputs;

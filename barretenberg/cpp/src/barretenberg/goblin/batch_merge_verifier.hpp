@@ -76,6 +76,10 @@ template <size_t BatchSize, typename Curve, size_t MaxMergeSize> class BatchMerg
                                                                                                    const FF hash);
 
   private:
+    std::vector<FF> compute_indicator_array(const FF& N) const;
+
+    std::vector<FF> compute_dirac_array(const std::vector<FF>& indicator_array) const;
+
     // Verify T(κ) = Σ_i C_i(κ) · κ^{offset_i} for every column.
     bool check_concatenation_identity(const std::vector<std::vector<FF>>& c_evals,
                                       const std::vector<FF>& t_evals,
