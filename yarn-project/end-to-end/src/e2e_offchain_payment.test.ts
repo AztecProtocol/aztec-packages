@@ -1,6 +1,6 @@
 /* eslint-disable camelcase */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT, extractOffchainOutput } from '@aztec/aztec.js/contracts';
+import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
@@ -219,8 +219,8 @@ describe('e2e_offchain_payment', () => {
     const { result: aliceAfterRollback } = await contract.methods.get_balance(alice).simulate({ from: alice });
     expect(aliceAfterRollback).toBe(mintAmount);
 
-    // Resend the tx after the reorg and force block production so the sequencer picks it up.
-    await provenTx.send({ wait: NO_WAIT });
+    // The archiver re-syncs the same checkpoints from L1 after the reorg, so the tx gets re-mined automatically.
+    // Force an empty block so the PXE re-syncs and reprocesses the offchain-delivered notes.
     await forceEmptyBlock();
 
     // Check that the message was reprocessed and Bob has his payment again.
