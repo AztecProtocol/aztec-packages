@@ -130,9 +130,10 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   private constructor(
     private config: BBConfig,
     private batchSize: number,
+    private label: string,
     telemetry: TelemetryClient,
   ) {
-    this.fifoPath = path.join(os.tmpdir(), `bb-batch-verifier-${process.pid}-${Date.now()}.fifo`);
+    this.fifoPath = path.join(os.tmpdir(), `bb-batch-${label}-${process.pid}-${Date.now()}.fifo`);
     this.metrics = new BatchVerifierMetrics(telemetry);
     this.sendQueue = new SerialQueue();
     this.sendQueue.start(1);
@@ -142,14 +143,16 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
    * Create and start a new BatchChonkVerifier.
    * @param config - BB binary configuration.
    * @param telemetry - Telemetry client for metrics.
-   * @param batchSize - Max proofs per batch. Use 1 for RPC nodes (no batching benefit).
+   * @param batchSize - Max proofs per batch.
+   * @param label - Descriptive label for FIFO path and logging (e.g. 'peer', 'rpc').
    */
   static async new(
     config: BBConfig,
     telemetry: TelemetryClient = getTelemetryClient(),
     batchSize = 8,
+    label = 'verifier',
   ): Promise<BatchChonkVerifier> {
-    const verifier = new BatchChonkVerifier(config, batchSize, telemetry);
+    const verifier = new BatchChonkVerifier(config, batchSize, label, telemetry);
     await verifier.start();
     return verifier;
   }

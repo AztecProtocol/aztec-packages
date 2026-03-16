@@ -105,6 +105,8 @@ export class TestContext {
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
         bbIVCConcurrency: 1,
+        bbRpcVerifyBatchSize: 8,
+        bbPeerVerifyBatchSize: 8,
       };
       localProver = await createProver(bbConfig);
     }

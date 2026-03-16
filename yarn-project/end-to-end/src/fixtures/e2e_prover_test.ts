@@ -4,7 +4,6 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import { BatchChonkVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -63,7 +62,6 @@ export class FullProverTest {
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
-  circuitProofVerifier?: ClientProtocolCircuitVerifier;
   provenAsset!: TokenContract;
   context!: EndToEndContext;
   private proverAztecNode!: AztecNodeService;
@@ -73,6 +71,11 @@ export class FullProverTest {
   private minNumberOfTxsPerBlock: number;
   private coinbase: EthAddress;
   private realProofs: boolean;
+
+  /** Returns the proof verifier from the prover node (for test assertions). */
+  get circuitProofVerifier() {
+    return this.proverAztecNode?.getProofVerifier();
+  }
 
   constructor(testName: string, minNumberOfTxsPerBlock: number, coinbase: EthAddress, realProofs = true) {
     this.logger = createLogger(`e2e:full_prover_test:${testName}`);
@@ -165,8 +168,6 @@ export class FullProverTest {
 
       await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
 
-      this.circuitProofVerifier = await BatchChonkVerifier.new(bbConfig);
-
       this.logger.debug(`Configuring the node for real proofs...`);
       await this.aztecNodeAdmin.setConfig({
         realProofs: true,
@@ -174,7 +175,6 @@ export class FullProverTest {
       });
     } else {
       this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
-      this.circuitProofVerifier = new TestCircuitVerifier();
       await this.aztecNodeAdmin.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
@@ -277,9 +277,6 @@ export class FullProverTest {
 
     // clean up the full prover node (by stopping its hosting aztec node)
     await this.proverAztecNode.stop();
-
-    // Stop the fixture's own proof verifier (separate from the node's)
-    await this.circuitProofVerifier?.stop();
 
     await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();

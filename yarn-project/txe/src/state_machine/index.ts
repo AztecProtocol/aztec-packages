@@ -1,5 +1,4 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -58,7 +57,8 @@ export class TXEStateMachine {
       new TXEGlobalVariablesBuilder(),
       new MockEpochCache(),
       getPackageVersion() ?? '',
-      new TestCircuitVerifier(),
+      undefined,
+      undefined,
       undefined,
       log,
     );
