@@ -92,9 +92,9 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
         [new Fr(0).toString()],
         [new Fr(0).toString()],
       ),
-    // Last two params represent an Option<AztecAddress> == None, which means the capsule is contract-global,
-    // matching legacy behavior.
     utilityDeleteCapsule: (contractAddress: ACVMField[], slot: ACVMField[]): Promise<ACVMField[]> =>
+      // Last two params represent an Option<AztecAddress> == None, which means the capsule is contract-global,
+      // matching legacy behavior.
       oracle.aztec_utl_deleteCapsule(contractAddress, slot, [new Fr(0).toString()], [new Fr(0).toString()]),
     utilityAes128Decrypt: (
       ciphertextBVecStorage: ACVMField[],
