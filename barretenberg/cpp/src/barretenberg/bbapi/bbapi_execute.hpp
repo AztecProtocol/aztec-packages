@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef __wasm__
+#include "barretenberg/bbapi/bbapi_batch_verifier.hpp"
+#endif
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
@@ -67,6 +70,11 @@ using Command = NamedUnion<CircuitProve,
                            EcdsaSecp256r1VerifySignature,
                            SrsInitSrs,
                            SrsInitGrumpkinSrs,
+#ifndef __wasm__
+                           ChonkBatchVerifierStart,
+                           ChonkBatchVerifierQueue,
+                           ChonkBatchVerifierStop,
+#endif
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
@@ -124,6 +132,11 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    EcdsaSecp256r1VerifySignature::Response,
                                    SrsInitSrs::Response,
                                    SrsInitGrumpkinSrs::Response,
+#ifndef __wasm__
+                                   ChonkBatchVerifierStart::Response,
+                                   ChonkBatchVerifierQueue::Response,
+                                   ChonkBatchVerifierStop::Response,
+#endif
                                    Shutdown::Response>;
 
 /**

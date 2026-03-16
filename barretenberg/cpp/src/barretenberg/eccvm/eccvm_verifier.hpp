@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
@@ -44,6 +45,36 @@ template <typename Flavor> class ECCVMVerifier_ {
         bool reduction_succeeded = false; // Aggregate of sumcheck, consistency, and translation masking checks
     };
 
+    /**
+     * @brief Deferred IPA opening claim: holds the Shplonk MSM inputs for lazy finalization.
+     * @details The batch_opening_claim contains commitments, scalars, and evaluation_point from the
+     * Shplonk reduction. Calling finalize() performs batch_mul to produce the commitment, then
+     * combines it with the evaluation_point and evaluation to form a complete OpeningClaim for IPA.
+     * The evaluation is always 0 for Shplonk (see ShplonkVerifier_ documentation).
+     */
+    struct DeferredIPAClaim {
+        BatchOpeningClaim<Curve> batch_opening_claim; // Commitments + scalars for deferred MSM
+        typename Curve::ScalarField evaluation;       // Always 0 for Shplonk
+
+        /** Finalize the deferred MSM to produce a standard OpeningClaim. */
+        OpeningClaim<Curve> finalize() const
+        {
+            auto commitment = Curve::Element::batch_mul(batch_opening_claim.commitments, batch_opening_claim.scalars);
+            return { { batch_opening_claim.evaluation_point, evaluation }, commitment };
+        }
+    };
+
+    /**
+     * @brief Result of reducing ECCVM proof to a deferred batch opening claim
+     * @details Like ReductionResult, but defers the final Shplonk MSM. The DeferredIPAClaim contains
+     * commitments, scalars, and the evaluation that together form the IPA opening claim when finalized.
+     * This enables batching: N proofs' deferred claims can be merged into a single MSM.
+     */
+    struct BatchReductionResult {
+        DeferredIPAClaim deferred_ipa_claim; // Deferred Shplonk MSM + evaluation
+        bool reduction_succeeded = false;
+    };
+
     // Unified constructor for both native and recursive verification
     // For recursive case, extracts builder from proof elements via get_context()
     ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript, const Proof& proof)
@@ -67,17 +98,21 @@ template <typename Flavor> class ECCVMVerifier_ {
     }
 
     /**
-     * @brief Reduce the ECCVM proof to an IPA opening claim
-     * @details The ECCVM proves correct execution of elliptic curve operations accumulated in the op queue. This method
-     * verifies the ECCVM proof's internal checks (sumcheck, translation masking consistency, etc.) and reduces all
-     * polynomial opening claims to a single IPA opening claim via Shplemini and Shplonk. This method does NOT perform
-     * the final IPA verification - it returns an IPA claim that must be verified externally.
-     *
-     * @return ReductionResult containing:
-     *   - ipa_claim: IPA opening claim to be verified externally (in root rollup or natively)
-     *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
+     * @brief Reduce the ECCVM proof to an IPA opening claim (with eager Shplonk MSM).
+     * @details Delegates to reduce_to_batch_opening_claim() and finalizes the deferred MSM.
+     * Returns a standard OpeningClaim ready for IPA verification.
      */
     [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_ipa_opening();
+
+    /**
+     * @brief Reduce the ECCVM proof to a deferred batch opening claim (no final MSM)
+     * @details Performs all internal verification (sumcheck, translation masking, Shplemini reduction) but
+     * defers the final Shplonk batch_mul. Returns a BatchOpeningClaim whose commitments and scalars can
+     * be merged with other proofs' claims for a single batched MSM.
+     *
+     * @return BatchReductionResult containing the deferred claim and verification status
+     */
+    [[nodiscard("Batch opening claim must be finalized")]] BatchReductionResult reduce_to_batch_opening_claim();
 
     /**
      * @brief Get the data required by the TranslatorVerifier

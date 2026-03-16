@@ -17,6 +17,7 @@
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include <memory>
 #ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
@@ -24,6 +25,12 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+
+namespace bb {
+#ifndef __wasm__
+class ChonkBatchVerifierService;
+#endif
+} // namespace bb
 
 namespace bb::bbapi {
 
@@ -184,6 +191,10 @@ struct BBApiRequest {
     VkPolicy vk_policy = VkPolicy::DEFAULT;
     // Error message - empty string means no error
     std::string error_message;
+#ifndef __wasm__
+    // Active batch verifier service (if running)
+    std::shared_ptr<ChonkBatchVerifierService> batch_verifier_service;
+#endif
 };
 
 /**

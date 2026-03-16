@@ -14,17 +14,18 @@
 namespace bb {
 
 /**
- * @brief Verifies an ECCVM Honk proof for given program settings.
- * @details Works for both native verification and recursive (in-circuit) verification.
+ * @brief Reduce the ECCVM proof to a deferred batch opening claim (no final MSM).
+ * @details Performs all internal verification (sumcheck, Shplemini, translation) but defers the final
+ * Shplonk batch_mul via export_batch_opening_claim. The returned BatchOpeningClaim contains commitments
+ * and scalars that can be merged with other proofs for a batched MSM.
  */
 template <typename Flavor>
-typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
+typename ECCVMVerifier_<Flavor>::BatchReductionResult ECCVMVerifier_<Flavor>::reduce_to_batch_opening_claim()
 {
     BB_BENCH_NAME("ECCVMVerifier::reduce");
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using Shplonk = ShplonkVerifier_<Curve>;
-    using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
 
@@ -110,10 +111,6 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
                                                sumcheck_output.round_univariate_commitments,
                                                sumcheck_output.round_univariate_evaluations);
 
-    // Reduce the accumulator to a single opening claim
-    OpeningClaim multivariate_to_univariate_opening_claim =
-        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
-
     // Produce the opening claim for batch opening of `op`, `Px`, `Py`, `z1`, and `z2` wires as univariate
     // polynomials
 
@@ -124,10 +121,16 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
                                                         commitments.transcript_z2 };
     compute_translation_opening_claims(translation_commitments);
 
+    // Reduce the Shplemini accumulator to a single opening claim (Grumpkin MSM)
+    OpeningClaim multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
+
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
-    // Construct the combined opening claim
-    const OpeningClaim batch_opening_claim = Shplonk::reduce_verification(pcs_g1_identity, opening_claims, transcript);
+    // Construct the combined opening claim via Shplonk reduction.
+    // We use reduce_verification_no_finalize + export_batch_opening_claim to defer the final MSM.
+    auto shplonk_verifier = Shplonk::reduce_verification_no_finalize(opening_claims, transcript);
+    BatchOpeningClaim<Curve> batch_claim = shplonk_verifier.export_batch_opening_claim(pcs_g1_identity);
 
     bool sumcheck_verified = sumcheck_output.verified;
     vinfo("ECCVM Verifier: sumcheck verified: ", sumcheck_verified);
@@ -136,7 +139,23 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
 
     compute_accumulated_result();
 
-    return { batch_opening_claim, sumcheck_verified && consistency_checked && translation_masking_consistency_checked };
+    return { DeferredIPAClaim{ std::move(batch_claim), FF(0) },
+             sumcheck_verified && consistency_checked && translation_masking_consistency_checked };
+}
+
+/**
+ * @brief Reduce the ECCVM proof to an IPA opening claim (with eager Shplonk MSM).
+ * @details Delegates to reduce_to_batch_opening_claim() for all internal verification, then finalizes
+ * the deferred Shplonk MSM to produce the standard OpeningClaim.
+ */
+template <typename Flavor>
+typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
+{
+    auto batch_result = reduce_to_batch_opening_claim();
+    if (!batch_result.reduction_succeeded) {
+        return { {}, false };
+    }
+    return { batch_result.deferred_ipa_claim.finalize(), true };
 }
 
 /**
