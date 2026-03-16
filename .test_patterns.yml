@@ -63,6 +63,10 @@ tests:
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
     owners:
       - *luke
+  - regex: "browser_prove.sh verify_honk_proof"
+    error_regex: "Failed to fetch"
+    owners:
+      - *luke
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
