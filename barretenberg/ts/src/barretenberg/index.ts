@@ -70,7 +70,7 @@ export class Barretenberg extends AsyncApi {
     }
   }
 
-  async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
+  async initSRSChonk(srsSize = 2 ** 21): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(srsSize, this.options.crsPath, this.options.logger);
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 16, this.options.crsPath, this.options.logger);
