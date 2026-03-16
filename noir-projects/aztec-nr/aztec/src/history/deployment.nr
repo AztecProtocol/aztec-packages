@@ -32,7 +32,7 @@ pub fn assert_contract_bytecode_was_not_published_by(block_header: BlockHeader, 
 /// Asserts that a contract was initialized by the given block.
 ///
 /// `init_hash` is the contract's initialization hash, obtainable via
-/// [`oracle::get_contract_instance::get_contract_instance`].
+/// [`get_contract_instance`](crate::oracle::get_contract_instance::get_contract_instance).
 pub fn assert_contract_was_initialized_by(block_header: BlockHeader, contract_address: AztecAddress, init_hash: Field) {
     let initialization_nullifier = compute_private_initialization_nullifier(contract_address, init_hash);
     assert_nullifier_existed_by(
@@ -44,7 +44,7 @@ pub fn assert_contract_was_initialized_by(block_header: BlockHeader, contract_ad
 /// Asserts that a contract was not initialized by the given block.
 ///
 /// `init_hash` is the contract's initialization hash, obtainable via
-/// [`oracle::get_contract_instance::get_contract_instance`].
+/// [`get_contract_instance`](crate::oracle::get_contract_instance::get_contract_instance).
 pub fn assert_contract_was_not_initialized_by(
     block_header: BlockHeader,
     contract_address: AztecAddress,
