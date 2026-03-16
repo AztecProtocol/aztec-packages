@@ -146,28 +146,6 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       await forkCheckpoint.revert();
       throw err;
     }
-<<<<<<< HEAD
-
-    // Add block to checkpoint
-    const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
-      expectedEndState: opts.expectedEndState,
-    });
-
-    this.log.debug('Built block within checkpoint', {
-      header: block.header.toInspect(),
-      processedTxs: processedTxs.map(tx => tx.hash.toString()),
-      failedTxs: failedTxs.map(tx => tx.tx.txHash.toString()),
-    });
-
-    return {
-      block,
-      publicProcessorDuration,
-      numTxs: processedTxs.length,
-      failedTxs,
-      usedTxs,
-    };
-=======
->>>>>>> 3ccb6868a8 (Use an additional world state fork checkpoint when building blocks)
   }
 
   /** Completes the checkpoint and returns it. */
