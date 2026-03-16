@@ -675,13 +675,21 @@ export class P2PClient extends WithTracer implements P2P {
   private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
     const tips = await this.l2Tips.getL2Tips();
     const oldCheckpointNumber = tips.checkpointed.checkpoint.number;
-    if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
+    if (oldCheckpointNumber <= CheckpointNumber.INITIAL) {
       return false;
     }
     const newCheckpointNumber = newCheckpoint.number;
-    const isEpochPrune = newCheckpointNumber < oldCheckpointNumber;
+    // We check that the new checkpoint number is less than the old checkpoint number in order to consider it an epoch prune.
+    // To be more certain that it is an epoch prune, we will check that at least 2 checkpoints were removed.
+    // This means we should avoid thinking checkpoints removed by L1 re-orgs are epoch prunes
+    const thresholdForEpochPrune = CheckpointNumber(oldCheckpointNumber - 2);
+    const isEpochPrune = newCheckpointNumber <= thresholdForEpochPrune;
     if (isEpochPrune) {
-      this.log.info(`Detected epoch prune to ${newCheckpointNumber}`, { oldCheckpointNumber, newCheckpointNumber });
+      this.log.info(`Detected epoch prune to ${newCheckpointNumber}`, {
+        oldCheckpointNumber,
+        newCheckpointNumber,
+        thresholdForEpochPrune,
+      });
     }
     return isEpochPrune;
   }

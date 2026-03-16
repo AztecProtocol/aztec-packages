@@ -252,19 +252,37 @@ describe('P2P Client', () => {
       await client.stop();
     });
 
-    it('detects epoch prune when checkpoint number decreases', async () => {
+    it('detects checkpoint prune when checkpoint number decreases by one', async () => {
       client = createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
       // Checkpoint all 100 blocks — client stores checkpoint number 100
       blockSource.setCheckpointedBlockNumber(100);
       await client.start();
 
-      // Prune 5 blocks (96-100): checkpoint number drops from 100 to 95, so this is an epoch prune
-      blockSource.removeBlocks(5);
+      // Prune 1 block: checkpoint number drops by 1, so checkpoint prune
+      blockSource.removeBlocks(1);
       await client.sync();
 
       expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
-        { number: BlockNumber(95), hash: expect.any(String) },
+        { number: BlockNumber(99), hash: expect.any(String) },
+        { deleteAllTxs: false },
+      );
+      await client.stop();
+    });
+
+    it('detects epoch prune when checkpoint number decreases by more than 1', async () => {
+      client = createClient({ txPoolDeleteTxsAfterReorg: true });
+      blockSource.setProvenBlockNumber(0);
+      // Checkpoint all 100 blocks — client stores checkpoint number 100
+      blockSource.setCheckpointedBlockNumber(100);
+      await client.start();
+
+      // Prune 2 blocks (99-100): checkpoint number drops from 100 to 98, so this is an epoch prune
+      blockSource.removeBlocks(2);
+      await client.sync();
+
+      expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
+        { number: BlockNumber(98), hash: expect.any(String) },
         { deleteAllTxs: true },
       );
       await client.stop();
