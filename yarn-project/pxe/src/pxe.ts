@@ -107,7 +107,9 @@ export type SimulateTxOpts = {
   skipTxValidation?: boolean;
   /** If false, fees are enforced. */
   skipFeeEnforcement?: boolean;
-  /** State overrides for the simulation, such as contract instances and artifacts. */
+  /** If true, kernel logic is emulated in TS for simulation */
+  skipKernels?: boolean;
+  /** State overrides for the simulation, such as contract instances and artifacts. Requires skipKernels: true */
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AccessScopes;
@@ -896,7 +898,14 @@ export class PXE {
    */
   public simulateTx(
     txRequest: TxExecutionRequest,
-    { simulatePublic, skipTxValidation = false, skipFeeEnforcement = false, overrides, scopes }: SimulateTxOpts,
+    {
+      simulatePublic,
+      skipTxValidation = false,
+      skipFeeEnforcement = false,
+      skipKernels = true,
+      overrides,
+      scopes,
+    }: SimulateTxOpts,
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
@@ -920,13 +929,15 @@ export class PXE {
         await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
 
-        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-        // Temporary: in case there are overrides, we have to skip the kernels or validations
-        // will fail. Consider handing control to the user/wallet on whether they want to run them
-        // or not.
         const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
         const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-        const skipKernels = hasOverriddenContracts;
+
+        if (hasOverriddenContracts && !skipKernels) {
+          throw new Error(
+            'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
+          );
+        }
+        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
 
         // Set overridden contracts on the sync service so it knows to skip syncing them
         if (hasOverriddenContracts) {

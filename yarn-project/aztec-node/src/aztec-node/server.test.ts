@@ -408,6 +408,33 @@ describe('aztec node', () => {
       });
     });
 
+    describe('getLowNullifierMembershipWitness', () => {
+      beforeEach(() => {
+        lastBlockNumber = BlockNumber(1);
+      });
+
+      it('throws when nullifier already exists in the tree', async () => {
+        const nullifier = Fr.random();
+        merkleTreeOps.getPreviousValueIndex.mockImplementation((treeId: MerkleTreeId, value: bigint) => {
+          if (treeId === MerkleTreeId.NULLIFIER_TREE && value === nullifier.toBigInt()) {
+            return Promise.resolve({ index: 42n, alreadyPresent: true });
+          }
+          return Promise.resolve(undefined);
+        });
+
+        await expect(node.getLowNullifierMembershipWitness('latest', nullifier)).rejects.toThrow(
+          /Cannot prove nullifier non-inclusion/,
+        );
+      });
+
+      it('returns undefined when nullifier not found', async () => {
+        merkleTreeOps.getPreviousValueIndex.mockResolvedValue(undefined);
+
+        const result = await node.getLowNullifierMembershipWitness('latest', Fr.random());
+        expect(result).toBeUndefined();
+      });
+    });
+
     describe('findLeavesIndexes', () => {
       const blockHash1 = Fr.random();
       const blockHash2 = Fr.random();
