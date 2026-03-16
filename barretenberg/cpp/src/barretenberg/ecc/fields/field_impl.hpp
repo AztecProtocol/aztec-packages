@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -41,7 +41,9 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
         if (std::is_constant_evaluated()) {
             return montgomery_mul(other);
         }
-        return asm_mul_with_coarse_reduction(*this, other);
+        field result = asm_mul_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -56,6 +58,7 @@ template <class T> constexpr field<T>& field<T>::operator*=(const field& other) 
             *this = operator*(other);
         } else {
             asm_self_mul_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -75,7 +78,9 @@ template <class T> constexpr field<T> field<T>::sqr() const noexcept
         if (std::is_constant_evaluated()) {
             return montgomery_square();
         }
-        return asm_sqr_with_coarse_reduction(*this);
+        field result = asm_sqr_with_coarse_reduction(*this);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -89,6 +94,7 @@ template <class T> constexpr void field<T>::self_sqr() & noexcept
             *this = montgomery_square();
         } else {
             asm_self_sqr_with_coarse_reduction(*this);
+            assert_coarse_form();
         }
     }
 }
@@ -107,7 +113,9 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
         if (std::is_constant_evaluated()) {
             return add(other);
         }
-        return asm_add_with_coarse_reduction(*this, other);
+        field result = asm_add_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -121,6 +129,7 @@ template <class T> constexpr field<T>& field<T>::operator+=(const field& other) 
             (*this) = operator+(other);
         } else {
             asm_self_add_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -153,41 +162,20 @@ template <class T> constexpr field<T> field<T>::operator-(const field& other) co
         if (std::is_constant_evaluated()) {
             return subtract(other);
         }
-        return asm_sub_with_coarse_reduction(*this, other);
+        field result = asm_sub_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
 template <class T> constexpr field<T> field<T>::operator-() const noexcept
 {
-    if constexpr ((T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
-                  (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
-        return p - *this;
-    }
-
-    // POTENTIAL MICRO-OPTIMIZATION(@zac-williamson).
-    //
-    // For 254-bit fields, negation computes (2p - x).reduce_once(). The reduce_once handles the x = 0 edge case
-    // where 2p - 0 = 2p falls outside the coarse range [0, 2p).
-    //
-    // There are 3 ways we can make this more efficient:
-    //  1: we subtract `p` from `*this` instead of `2p`
-    //  2: instead of `2p - *this`, we use an asm block that does `p - *this` without the assembly reduction step
-    //  3: we replace `(2p - *this).reduce_once()` with an assembly block that is equivalent to `p - *this`, but we
-    //     call `CONDITIONAL_ADD` with `not_twice_modulus` instead of `twice_modulus`
-    //
-    // Analysis of option (1): compute (p - x) via `subtract`, which branchlessly adds 2p on underflow:
-    //   - x = 0:       p - 0 = p.                           No underflow. ✓
-    //   - x ∈ (0, p]:  p - x ∈ [0, p).                      No underflow. ✓
-    //   - x ∈ (p, 2p): p - x underflows, add 2p → 3p - x ∈ (p, 2p). ✓
-    // All results land in [0, 2p), so no reduce_once is needed.
-    //
-    // This only affects the constexpr path. The asm path (`asm_sub_with_coarse_reduction`) hardcodes 2p as its
-    // underflow correction constant, so using p as the minuend there would require a new asm block.
-    //
-    // Net saving: one conditional subtraction (reduce_once is a comparison + cmov). Micro-optimization.
-    constexpr field p{ twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3] };
-    return (p - *this).reduce_once();
+    // Negate via (p - x). For small moduli, subtract() handles the coarse-form correction:
+    // if x > p, it adds 2p, yielding 3p - x ∈ (p, 2p). Result is always in [0, 2p) strict.
+    // Using modulus (not twice_modulus) avoids producing exactly 2p when x = 0, which would
+    // violate the strict [0, 2p) coarse-form invariant inside subtract/asm_sub.
+    constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
+    return p - *this;
 }
 
 template <class T> constexpr field<T>& field<T>::operator-=(const field& other) & noexcept
@@ -200,6 +188,7 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
             *this = subtract(other);
         } else {
             asm_self_sub_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -207,14 +196,9 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
 
 template <class T> constexpr void field<T>::self_neg() & noexcept
 {
-    if constexpr ((T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
-                  (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
-        *this = p - *this;
-    } else {
-        constexpr field p{ twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3] };
-        *this = (p - *this).reduce_once();
-    }
+    // See operator-() for explanation: use modulus (not twice_modulus) to avoid 2p intermediate.
+    constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
+    *this = p - *this;
 }
 
 template <class T> constexpr void field<T>::self_conditional_negate(const uint64_t predicate) & noexcept

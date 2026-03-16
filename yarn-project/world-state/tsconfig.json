@@ -16,9 +16,6 @@
       "path": "../kv-store"
     },
     {
-      "path": "../merkle-tree"
-    },
-    {
       "path": "../native"
     },
     {

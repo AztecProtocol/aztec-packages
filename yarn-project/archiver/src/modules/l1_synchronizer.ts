@@ -391,6 +391,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     const localMessagesInserted = await this.store.getTotalL1ToL2MessageCount();
     const localLastMessage = await this.store.getLastL1ToL2Message();
     const remoteMessagesState = await this.inbox.getState({ blockNumber: currentL1BlockNumber });
+    await this.store.setInboxTreeInProgress(remoteMessagesState.treeInProgress);
 
     this.log.trace(`Retrieved remote inbox state at L1 block ${currentL1BlockNumber}.`, {
       localMessagesInserted,

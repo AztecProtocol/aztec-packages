@@ -11,6 +11,7 @@
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -85,7 +86,8 @@ BENCHMARK_DEFINE_F(ChonkBench, ProofDecompress)(benchmark::State& state)
     auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
     auto compressed = ProofCompressor::compress_chonk_proof(proof);
-    size_t mega_num_pub_inputs = proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
+    size_t mega_num_pub_inputs =
+        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
 
     for (auto _ : state) {
         benchmark::DoNotOptimize(ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs));
