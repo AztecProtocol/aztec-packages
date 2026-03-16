@@ -43,30 +43,16 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
     auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);
     auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
 
-    // Interleave a group of polynomials into a single polynomial of size n*BS.
-    auto interleave = [&](auto& group, [[maybe_unused]] bool shiftable) -> Polynomial {
-        Polynomial p = shiftable ? Polynomial::shiftable(pcs_size, pcs_size, BATCH_SIZE) : Polynomial(pcs_size);
-        const size_t start = shiftable ? 1 : 0;
-        for (size_t i = start; i < n; i++) {
-            for (size_t j = 0; j < BATCH_SIZE; j++) {
-                if (j < group.size() && group[j] != nullptr) {
-                    p.at(BATCH_SIZE * i + j) = (*group[j])[i];
-                }
-            }
-        }
-        return p;
-    };
-
-    // Process shifted groups first (they share source polys with last unshifted groups)
+    // Interleave shifted groups first (they share source polys with last unshifted groups)
     result.shifted_storage.reserve(shifted_groups.size());
-    for (auto& group : shifted_groups) {
-        result.shifted_storage.push_back(interleave(group, /*shiftable=*/true));
+    for (const auto& group : shifted_groups) {
+        result.shifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, true));
     }
 
-    // Process unshifted groups with greedy freeing of source polynomials
+    // Interleave unshifted groups, freeing source polynomials after each to limit peak memory
     result.unshifted_storage.reserve(unshifted_groups.size());
     for (auto& group : unshifted_groups) {
-        result.unshifted_storage.push_back(interleave(group, /*shiftable=*/false));
+        result.unshifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, false));
         for (auto* ptr : group) {
             if (ptr != nullptr) {
                 *ptr = Polynomial();

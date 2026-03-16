@@ -365,6 +365,34 @@ static std::array<FF, BS> compute_lagrange_basis_impl([[maybe_unused]] std::span
 }
 
 // ============================================================
+// Polynomial interleaving
+// ============================================================
+
+/**
+ * @brief Interleave a group of polynomials into a single polynomial of size n * BATCH_SIZE.
+ * @details Builds p[BS*i + j] = group[j][i] for each row i and slot j.
+ *          Null pointers in the group are treated as zero (skipped).
+ * @param group  Pointers to source polynomials (size <= BS, nulls for empty slots).
+ * @param n      Number of rows in each source polynomial.
+ * @param pcs_size  Size of the output polynomial (= n * BS).
+ * @param shiftable If true, output is shiftable (start_index = BS, for shifted evaluation).
+ */
+template <size_t BS, typename Polynomial, typename Group>
+Polynomial interleave_group(const Group& group, size_t n, size_t pcs_size, bool shiftable)
+{
+    Polynomial p = shiftable ? Polynomial::shiftable(pcs_size, pcs_size, BS) : Polynomial(pcs_size);
+    const size_t start = shiftable ? 1 : 0;
+    for (size_t i = start; i < n; i++) {
+        for (size_t j = 0; j < BS; j++) {
+            if (j < group.size() && group[j] != nullptr) {
+                p.at(BS * i + j) = (*group[j])[i];
+            }
+        }
+    }
+    return p;
+}
+
+// ============================================================
 // Group accessors (BS-dependent, fully specialized)
 // ============================================================
 
