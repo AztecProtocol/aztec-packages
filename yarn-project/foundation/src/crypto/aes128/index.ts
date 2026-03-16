@@ -61,6 +61,9 @@ export class Aes128 {
    * @returns Decrypted data.
    */
   public async decryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
+    if (data.length === 0 || data.length % 16 !== 0) {
+      return Buffer.alloc(0);
+    }
     const paddedBuffer = await this.decryptBufferCBCKeepPadding(data, iv, key);
     const paddingToRemove = paddedBuffer[paddedBuffer.length - 1];
     return paddedBuffer.subarray(0, paddedBuffer.length - paddingToRemove);
