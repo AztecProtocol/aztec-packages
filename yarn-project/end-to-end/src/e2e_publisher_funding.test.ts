@@ -36,7 +36,8 @@ const toPrivateKeyHex = (index: number): Hex => {
 };
 
 const FUNDING_THRESHOLD = parseEther('0.5');
-const FUNDING_AMOUNT = parseEther('1');
+// Small enough that publishing a few blocks will drain it below threshold again, triggering re-funding.
+const FUNDING_AMOUNT = parseEther('0.1');
 
 describe('e2e_publisher_funding', () => {
   jest.setTimeout(5 * 60 * 1000);
@@ -143,5 +144,24 @@ describe('e2e_publisher_funding', () => {
     expect(publisherBalanceAfter).toBeGreaterThan(LOW_BALANCE);
     // Funder should have sent exactly FUNDING_AMOUNT plus gas costs
     expect(funderSpent).toBeGreaterThanOrEqual(FUNDING_AMOUNT);
+
+    // Second round: the publisher will spend gas publishing blocks, eventually dropping
+    // below threshold again. The funder should automatically top it up a second time.
+    const funderBalanceBefore2 = await ethCheatCodes.getBalance(funderAddress);
+    logger.info(`Waiting for publisher to drain and get re-funded`);
+
+    await retryUntil(
+      async () => {
+        const spent = funderBalanceBefore2 - (await ethCheatCodes.getBalance(funderAddress));
+        return spent >= FUNDING_AMOUNT ? true : undefined;
+      },
+      'waiting for second funding round',
+      120,
+      1,
+    );
+
+    const funderSpent2 = funderBalanceBefore2 - (await ethCheatCodes.getBalance(funderAddress));
+    logger.info(`Second funding round: funder spent ${funderSpent2}`);
+    expect(funderSpent2).toBeGreaterThanOrEqual(FUNDING_AMOUNT);
   });
 });

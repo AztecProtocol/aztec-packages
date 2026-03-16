@@ -136,12 +136,10 @@ export async function createProverNode(
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager(
-        l1TxUtils,
-        getPublisherConfigFromProverConfig(config),
-        log.getBindings(),
-        funderL1TxUtils,
-      ),
+      publisherManager: new PublisherManager(l1TxUtils, getPublisherConfigFromProverConfig(config), {
+        bindings: log.getBindings(),
+        funder: funderL1TxUtils,
+      }),
       telemetry,
     });
 

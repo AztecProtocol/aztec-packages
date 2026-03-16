@@ -38,17 +38,24 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log: Logger;
   private config: PublisherManagerConfig;
   private isFunding = false;
+  private funder?: UtilsType;
 
   constructor(
     private publishers: UtilsType[],
     config: PublisherManagerConfig,
-    bindings?: LoggerBindings,
-    private funder?: UtilsType,
+    opts?: { bindings?: LoggerBindings; funder?: UtilsType },
   ) {
-    this.log = createLogger('publisher:manager', bindings);
+    this.funder = opts?.funder;
+    this.log = createLogger('publisher:manager', opts?.bindings);
     this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
     this.publishers = publishers;
     this.config = pick(config, 'publisherAllowInvalidStates', 'publisherFundingThreshold', 'publisherFundingAmount');
+
+    const hasThreshold = this.config.publisherFundingThreshold !== undefined;
+    const hasAmount = this.config.publisherFundingAmount !== undefined;
+    if (hasThreshold !== hasAmount) {
+      this.log.warn(`Incomplete funding config: both publisherFundingThreshold and publisherFundingAmount must be set`);
+    }
   }
 
   /** Loads the state of all publishers and resumes monitoring any pending txs */
@@ -137,27 +144,42 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
         return;
       }
 
-      // TODO: check funder balance before funding, warn if < 10x fundingAmount, skip if < fundingAmount
-      // TODO: re-read funder balance after each fund, break if exhausted
+      const fundingAmount = config.publisherFundingAmount!;
+      let funderBalance = await funder.getSenderBalance();
+
+      if (funderBalance < 10n * fundingAmount) {
+        this.log.warn(`Funding account balance is low`, { funderBalance, threshold: 10n * fundingAmount });
+      }
+      if (funderBalance < fundingAmount) {
+        this.log.error(`Funding account balance too low to fund any publisher`, { funderBalance, fundingAmount });
+        return;
+      }
+
       await this.fundPublishers(lowBalance.map(p => p.publisher));
     } finally {
       this.isFunding = false;
     }
   }
 
-  /** Fund publishers sequentially. */
+  /** Fund publishers sequentially. Re-reads funder balance after each transfer. */
   private async fundPublishers(publishers: UtilsType[]): Promise<void> {
     const fundingAmount = this.config.publisherFundingAmount!;
 
     for (const publisher of publishers) {
       const address = publisher.getSenderAddress();
       try {
-        // TODO: log funding amount in ETH, not wei
-        this.log.info(`Funding publisher ${address} with ${fundingAmount} wei`);
+        this.log.info(`Funding publisher ${address}`, { fundingAmount });
         await this.funder!.sendAndMonitorTransaction({ to: address.toString(), data: '0x', value: fundingAmount });
         this.log.info(`Funded publisher ${address}`);
       } catch (err) {
         this.log.error(`Failed to fund publisher ${address}`, { err });
+        continue;
+      }
+
+      const funderBalance = await this.funder!.getSenderBalance();
+      if (funderBalance < fundingAmount) {
+        this.log.warn(`Funder exhausted after funding, stopping`, { funderBalance, fundingAmount });
+        break;
       }
     }
   }

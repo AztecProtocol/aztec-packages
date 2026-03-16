@@ -1560,4 +1560,45 @@ describe('KeystoreManager', () => {
       expect(validateAccessSpy).toHaveBeenCalledWith(url2, [address2.toString()]);
     });
   });
+
+  describe('createFundingSigner', () => {
+    const fundingPrivateKey = '0x1234567890123456789012345678901234567890123456789012345678901234';
+
+    it('returns signer from top-level fundingAccount', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+        fundingAccount: fundingPrivateKey,
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const signer = manager.createFundingSigner();
+
+      expect(signer).toBeDefined();
+      const expected = new LocalSigner(Buffer32.fromString(fundingPrivateKey));
+      expect(signer!.address.equals(expected.address)).toBeTruthy();
+    });
+
+    it('returns undefined when no fundingAccount configured', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const signer = manager.createFundingSigner();
+
+      expect(signer).toBeUndefined();
+    });
+  });
 });

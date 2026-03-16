@@ -185,8 +185,7 @@ describe('PublisherManager', () => {
       return new PublisherManager(
         publishers,
         { publisherFundingThreshold: threshold, publisherFundingAmount: fundingAmount, ...config },
-        undefined,
-        funderInstance,
+        { funder: funderInstance },
       );
     };
 
@@ -326,6 +325,42 @@ describe('PublisherManager', () => {
       await waitForFunding();
 
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
+    });
+
+    it('does not fund when funder balance is less than fundingAmount', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 50n;
+      funder.balance = 30n; // less than fundingAmount (50n)
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
+    });
+
+    it('stops funding when funder balance exhausted mid-run', async () => {
+      mockPublishers = createMockPublishers(3);
+      mockPublishers[0].balance = 10n;
+      mockPublishers[1].balance = 10n;
+      mockPublishers[2].balance = 10n;
+      // Funder starts with enough for all, but after first fund balance drops below fundingAmount
+      funder.balance = 5000n;
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      let callCount = 0;
+      funder.sendAndMonitorTransaction.mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) {
+          funder.balance = 10n; // exhausted after first fund
+        }
+        return { receipt: { transactionHash: '0x1' }, state: {} };
+      });
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
     });
 
     it('funds publishers in busy states', async () => {

@@ -93,12 +93,10 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(
-      l1TxUtils,
-      getPublisherConfigFromSequencerConfig(config),
-      log.getBindings(),
-      deps.funderL1TxUtils,
-    );
+    const publisherManager = new PublisherManager(l1TxUtils, getPublisherConfigFromSequencerConfig(config), {
+      bindings: log.getBindings(),
+      funder: deps.funderL1TxUtils,
+    });
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
