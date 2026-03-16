@@ -409,20 +409,6 @@ void ChonkBatchVerifierService::writer_loop(const std::string& fifo_path)
         return;
     }
 
-    auto write_all = [fd](const void* data, size_t len) -> bool {
-        const auto* ptr = static_cast<const uint8_t*>(data);
-        size_t remaining = len;
-        while (remaining > 0) {
-            auto written = ::write(fd, ptr, remaining);
-            if (written <= 0) {
-                return false;
-            }
-            ptr += written;
-            remaining -= static_cast<size_t>(written);
-        }
-        return true;
-    };
-
     while (true) {
         VerifyResult result;
         {
@@ -439,20 +425,11 @@ void ChonkBatchVerifierService::writer_loop(const std::string& fifo_path)
             }
         }
 
-        // Serialize to msgpack
+        // Serialize to msgpack and write as a length-delimited frame
         msgpack::sbuffer buf;
         msgpack::pack(buf, result);
 
-        // Write [4-byte BE length][payload]
-        uint32_t len = static_cast<uint32_t>(buf.size());
-        uint8_t len_bytes[4] = {
-            static_cast<uint8_t>((len >> 24) & 0xFF),
-            static_cast<uint8_t>((len >> 16) & 0xFF),
-            static_cast<uint8_t>((len >> 8) & 0xFF),
-            static_cast<uint8_t>(len & 0xFF),
-        };
-
-        if (!write_all(len_bytes, 4) || !write_all(buf.data(), buf.size())) {
+        if (!write_frame(fd, buf.data(), buf.size())) {
             info("ChonkBatchVerifierService: FIFO write failed, stopping writer");
             break;
         }

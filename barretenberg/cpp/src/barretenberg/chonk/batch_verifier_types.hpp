@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#ifndef __wasm__
+#include <unistd.h>
+#endif
 
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -60,5 +63,41 @@ struct VerifyRequest {
     ChonkProof proof;
     std::chrono::steady_clock::time_point enqueue_time;
 };
+
+#ifndef __wasm__
+/**
+ * @brief Write a length-delimited frame to a file descriptor.
+ *
+ * Wire format: [4-byte big-endian payload length][payload bytes]
+ * Matches the format expected by FifoFrameReader on the TypeScript side.
+ *
+ * @return true if the entire frame was written, false on write error.
+ */
+inline bool write_frame(int fd, const void* data, size_t len)
+{
+    auto write_all = [fd](const void* buf, size_t n) -> bool {
+        const auto* ptr = static_cast<const uint8_t*>(buf);
+        size_t remaining = n;
+        while (remaining > 0) {
+            auto written = ::write(fd, ptr, remaining);
+            if (written <= 0) {
+                return false;
+            }
+            ptr += written;
+            remaining -= static_cast<size_t>(written);
+        }
+        return true;
+    };
+
+    auto len32 = static_cast<uint32_t>(len);
+    uint8_t header[4] = {
+        static_cast<uint8_t>((len32 >> 24) & 0xFF),
+        static_cast<uint8_t>((len32 >> 16) & 0xFF),
+        static_cast<uint8_t>((len32 >> 8) & 0xFF),
+        static_cast<uint8_t>(len32 & 0xFF),
+    };
+    return write_all(header, 4) && write_all(data, len);
+}
+#endif // __wasm__
 
 } // namespace bb
