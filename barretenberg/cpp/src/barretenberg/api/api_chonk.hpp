@@ -100,6 +100,17 @@ class ChonkAPI : public API {
      */
     bool check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path);
 
+    /**
+     * @brief Output proof statistics: compressed proof and its size.
+     *
+     * @details Reads a serialized Chonk proof, computes the compressed proof using ProofCompressor,
+     * writes the compressed proof binary and a JSON file with compressed_proof_size_bytes.
+     *
+     * @param proof_path Path to the serialized Chonk proof
+     * @param output_path Path to write the JSON stats file (or "-" for stdout)
+     */
+    void proof_stats(const std::filesystem::path& proof_path, const std::filesystem::path& output_path);
+
     bool check(const Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path) override;
