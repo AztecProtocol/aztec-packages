@@ -53,7 +53,7 @@ export interface PublicProcessorValidator {
   nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
 }
 
-export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
+export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'rollupManaLimit'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<
     SequencerConfig,
@@ -64,10 +64,7 @@ export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime'
     | 'maxTxsPerCheckpoint'
     | 'maxL2BlockGas'
     | 'maxDABlockGas'
-  > & {
-    /** Total L2 gas (mana) allowed per checkpoint. Fetched from L1 getManaLimit(). */
-    rollupManaLimit: number;
-  };
+  >;
 
 export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
   'l1GenesisTime',

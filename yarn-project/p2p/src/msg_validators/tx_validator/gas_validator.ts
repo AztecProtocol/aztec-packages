@@ -1,4 +1,5 @@
 import {
+  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
@@ -49,16 +50,31 @@ export interface HasGasLimitData {
  */
 export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
   #log: Logger;
+  #effectiveMaxL2Gas: number;
+  #effectiveMaxDAGas: number;
+  #rollupManaLimit: number;
+  #maxBlockL2Gas: number;
+  #maxBlockDAGas: number;
 
-  constructor(bindings?: LoggerBindings) {
-    this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
+  constructor(opts?: {
+    rollupManaLimit?: number;
+    maxBlockL2Gas?: number;
+    maxBlockDAGas?: number;
+    bindings?: LoggerBindings;
+  }) {
+    this.#log = createLogger('sequencer:tx_validator:tx_gas', opts?.bindings);
+    this.#rollupManaLimit = opts?.rollupManaLimit ?? Infinity;
+    this.#maxBlockL2Gas = opts?.maxBlockL2Gas ?? Infinity;
+    this.#maxBlockDAGas = opts?.maxBlockDAGas ?? Infinity;
+    this.#effectiveMaxL2Gas = Math.min(MAX_PROCESSABLE_L2_GAS, this.#rollupManaLimit, this.#maxBlockL2Gas);
+    this.#effectiveMaxDAGas = Math.min(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, this.#maxBlockDAGas);
   }
 
   validateTx(tx: T): Promise<TxValidationResult> {
     return Promise.resolve(this.validateGasLimit(tx));
   }
 
-  /** Checks gas limits are >= fixed minimums and <= AVM max processable L2 gas. */
+  /** Checks gas limits are >= fixed minimums and <= effective max gas (L2 and DA). */
   validateGasLimit(tx: T): TxValidationResult {
     const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
     const minGasLimits = new Gas(
@@ -74,10 +90,21 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
       return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_GAS_LIMIT] };
     }
 
-    if (gasLimits.l2Gas > MAX_PROCESSABLE_L2_GAS) {
-      this.#log.verbose(`Rejecting transaction due to the gas limit(s) being higher than the maximum processable gas`, {
+    if (gasLimits.l2Gas > this.#effectiveMaxL2Gas) {
+      this.#log.verbose(`Rejecting transaction due to the L2 gas limit being higher than the effective maximum`, {
         gasLimits,
-        minGasLimits,
+        effectiveMaxL2Gas: this.#effectiveMaxL2Gas,
+        rollupManaLimit: this.#rollupManaLimit,
+        maxBlockL2Gas: this.#maxBlockL2Gas,
+      });
+      return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
+    }
+
+    if (gasLimits.daGas > this.#effectiveMaxDAGas) {
+      this.#log.verbose(`Rejecting transaction due to the DA gas limit being higher than the effective maximum`, {
+        gasLimits,
+        effectiveMaxDAGas: this.#effectiveMaxDAGas,
+        maxBlockDAGas: this.#maxBlockDAGas,
       });
       return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
     }
@@ -106,21 +133,27 @@ export class GasTxValidator implements TxValidator<Tx> {
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
   #gasFees: GasFees;
+  #gasLimitOpts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number };
 
   constructor(
     publicDataSource: PublicStateSource,
     feeJuiceAddress: AztecAddress,
     gasFees: GasFees,
     private bindings?: LoggerBindings,
+    opts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
   ) {
     this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
     this.#gasFees = gasFees;
+    this.#gasLimitOpts = opts;
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
-    const gasLimitValidation = new GasLimitsValidator(this.bindings).validateGasLimit(tx);
+    const gasLimitValidation = new GasLimitsValidator({
+      ...this.#gasLimitOpts,
+      bindings: this.bindings,
+    }).validateGasLimit(tx);
     if (gasLimitValidation.result === 'invalid') {
       return Promise.resolve(gasLimitValidation);
     }

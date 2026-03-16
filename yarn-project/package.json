@@ -93,6 +93,11 @@
     "@aztec/noir-noir_js": "file:../noir/packages/noir_js",
     "jest-runner@npm:^29.7.0": "patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch",
     "ws": "^8.17.1",
-    "d3-color": "^3.1.0"
+    "d3-color": "^3.1.0",
+    "rollup": "^4.59.0",
+    "systeminformation": "^5.31.0",
+    "node-forge": "^1.3.2",
+    "koa": "^2.16.4",
+    "serialize-javascript": "^7.0.3"
   }
 }

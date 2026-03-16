@@ -542,8 +542,7 @@ export class CheckpointProposalJob implements Traceable {
 
     try {
       // Wait until we have enough txs to build the block
-      const minTxs = this.config.minTxsPerBlock;
-      const { availableTxs, canStartBuilding } = await this.waitForMinTxs(opts);
+      const { availableTxs, canStartBuilding, minTxs } = await this.waitForMinTxs(opts);
       if (!canStartBuilding) {
         this.log.warn(
           `Not enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.slot} (got ${availableTxs} txs but needs ${minTxs})`,
@@ -665,7 +664,7 @@ export class CheckpointProposalJob implements Traceable {
     blockNumber: BlockNumber;
     indexWithinCheckpoint: IndexWithinCheckpoint;
     buildDeadline: Date | undefined;
-  }): Promise<{ canStartBuilding: boolean; availableTxs: number }> {
+  }): Promise<{ canStartBuilding: boolean; availableTxs: number; minTxs: number }> {
     const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
 
     // We only allow a block with 0 txs in the first block of the checkpoint
@@ -682,7 +681,7 @@ export class CheckpointProposalJob implements Traceable {
       // If we're past deadline, or we have no deadline, give up
       const now = this.dateProvider.nowAsDate();
       if (startBuildingDeadline === undefined || now >= startBuildingDeadline) {
-        return { canStartBuilding: false, availableTxs: availableTxs };
+        return { canStartBuilding: false, availableTxs, minTxs };
       }
 
       // Wait a bit before checking again
@@ -695,7 +694,7 @@ export class CheckpointProposalJob implements Traceable {
       availableTxs = await this.p2pClient.getPendingTxCount();
     }
 
-    return { canStartBuilding: true, availableTxs };
+    return { canStartBuilding: true, availableTxs, minTxs };
   }
 
   /**

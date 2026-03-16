@@ -208,6 +208,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -235,6 +236,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -252,6 +254,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -296,7 +299,12 @@ describe('Validator factory functions', () => {
 
   describe('createTxValidatorForTransactionsEnteringPendingTxPool', () => {
     it('contains the state-dependent checks missed by well-formedness validators', async () => {
-      const validator = await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5));
+      const validator = await createTxValidatorForTransactionsEnteringPendingTxPool(
+        synchronizer,
+        100n,
+        BlockNumber(5),
+        { rollupManaLimit: Number.MAX_SAFE_INTEGER },
+      );
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       expect(getValidatorNames(aggregate)).toEqual([
@@ -308,7 +316,9 @@ describe('Validator factory functions', () => {
     });
 
     it('syncs world state before creating the validator', async () => {
-      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5));
+      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5), {
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
+      });
 
       expect(synchronizer.syncImmediate).toHaveBeenCalled();
     });

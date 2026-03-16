@@ -25,6 +25,12 @@ export class ProverNodeJobMetrics {
   provingJobBlocks: Gauge;
   provingJobTransactions: Gauge;
 
+  private blobProcessingDuration: Gauge;
+  private chonkVerifierDuration: Gauge;
+  private blockProcessingDuration: Histogram;
+  private checkpointProcessingDuration: Histogram;
+  private allCheckpointsProcessingDuration: Gauge;
+
   constructor(
     private meter: Meter,
     public readonly tracer: Tracer,
@@ -35,6 +41,14 @@ export class ProverNodeJobMetrics {
     this.provingJobCheckpoints = this.meter.createGauge(Metrics.PROVER_NODE_JOB_CHECKPOINTS);
     this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS);
     this.provingJobTransactions = this.meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS);
+
+    this.blobProcessingDuration = this.meter.createGauge(Metrics.PROVER_NODE_BLOB_PROCESSING_LAST_DURATION);
+    this.chonkVerifierDuration = this.meter.createGauge(Metrics.PROVER_NODE_CHONK_VERIFIER_LAST_DURATION);
+    this.blockProcessingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_BLOCK_PROCESSING_DURATION);
+    this.checkpointProcessingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_PROCESSING_DURATION);
+    this.allCheckpointsProcessingDuration = this.meter.createGauge(
+      Metrics.PROVER_NODE_ALL_CHECKPOINTS_PROCESSING_LAST_DURATION,
+    );
   }
 
   public recordProvingJob(
@@ -49,6 +63,26 @@ export class ProverNodeJobMetrics {
     this.provingJobCheckpoints.record(Math.floor(numCheckpoints));
     this.provingJobBlocks.record(Math.floor(numBlocks));
     this.provingJobTransactions.record(Math.floor(numTxs));
+  }
+
+  public recordBlobProcessing(durationMs: number) {
+    this.blobProcessingDuration.record(Math.ceil(durationMs));
+  }
+
+  public recordChonkVerifier(durationMs: number) {
+    this.chonkVerifierDuration.record(Math.ceil(durationMs));
+  }
+
+  public recordBlockProcessing(durationMs: number) {
+    this.blockProcessingDuration.record(Math.ceil(durationMs));
+  }
+
+  public recordCheckpointProcessing(durationMs: number) {
+    this.checkpointProcessingDuration.record(Math.ceil(durationMs));
+  }
+
+  public recordAllCheckpointsProcessing(durationMs: number) {
+    this.allCheckpointsProcessingDuration.record(Math.ceil(durationMs));
   }
 }
 

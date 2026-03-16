@@ -379,6 +379,20 @@ export class RollupContract {
     return Fr.fromString(await this.rollup.read.archiveAt([0n]));
   }
 
+  @memoize
+  async getVkTreeRoot(): Promise<Fr> {
+    const slot = BigInt(RollupContract.stfStorageSlot) + 3n;
+    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+    return Fr.fromString(value ?? '0x0');
+  }
+
+  @memoize
+  async getProtocolContractsHash(): Promise<Fr> {
+    const slot = BigInt(RollupContract.stfStorageSlot) + 4n;
+    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+    return Fr.fromString(value ?? '0x0');
+  }
+
   /**
    * Returns rollup constants used for epoch queries.
    * Return type is `L1RollupConstants` which is defined in stdlib,
@@ -392,16 +406,25 @@ export class RollupContract {
     epochDuration: number;
     proofSubmissionEpochs: number;
     targetCommitteeSize: number;
+    rollupManaLimit: number;
   }> {
-    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs, targetCommitteeSize] =
-      await Promise.all([
-        this.getL1StartBlock(),
-        this.getL1GenesisTime(),
-        this.getSlotDuration(),
-        this.getEpochDuration(),
-        this.getProofSubmissionEpochs(),
-        this.getTargetCommitteeSize(),
-      ]);
+    const [
+      l1StartBlock,
+      l1GenesisTime,
+      slotDuration,
+      epochDuration,
+      proofSubmissionEpochs,
+      targetCommitteeSize,
+      rollupManaLimit,
+    ] = await Promise.all([
+      this.getL1StartBlock(),
+      this.getL1GenesisTime(),
+      this.getSlotDuration(),
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+      this.getTargetCommitteeSize(),
+      this.getManaLimit(),
+    ]);
     return {
       l1StartBlock,
       l1GenesisTime,
@@ -409,6 +432,7 @@ export class RollupContract {
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
       targetCommitteeSize,
+      rollupManaLimit: Number(rollupManaLimit),
     };
   }
 

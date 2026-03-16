@@ -36,6 +36,15 @@ export class FailedToReExecuteTransactionsError extends ValidatorError {
   }
 }
 
+export class ReExInitialStateMismatchError extends ValidatorError {
+  constructor(
+    public readonly expectedArchiveRoot: Fr,
+    public readonly actualArchiveRoot: Fr,
+  ) {
+    super('Re-execution initial state mismatch');
+  }
+}
+
 export class ReExStateMismatchError extends ValidatorError {
   constructor(
     public readonly expectedArchiveRoot: Fr,

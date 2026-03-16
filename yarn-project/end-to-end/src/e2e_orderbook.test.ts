@@ -81,7 +81,7 @@ describe('Orderbook', () => {
         .with({ authWitnesses: [makerAuthwit] })
         .send({ from: makerAddress });
 
-      const orderCreatedEvents = await getPublicEvents<OrderCreated>(
+      const { events: orderCreatedEvents } = await getPublicEvents<OrderCreated>(
         aztecNode,
         OrderbookContract.events.OrderCreated,
         {},
@@ -137,7 +137,7 @@ describe('Orderbook', () => {
         .send({ from: takerAddress });
 
       // Verify order was fulfilled by checking events
-      const orderFulfilledEvents = await getPublicEvents<OrderFulfilled>(
+      const { events: orderFulfilledEvents } = await getPublicEvents<OrderFulfilled>(
         aztecNode,
         OrderbookContract.events.OrderFulfilled,
         {},

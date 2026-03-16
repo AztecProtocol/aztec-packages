@@ -79,12 +79,12 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     };
   }
 
-  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
-    throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
+  public getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    throw new Error('TXE Archiver does not implement "getSyncedL2SlotNumber"');
   }
 
-  public getL2EpochNumber(): Promise<EpochNumber | undefined> {
-    throw new Error('TXE Archiver does not implement "getL2EpochNumber"');
+  public getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
+    throw new Error('TXE Archiver does not implement "getSyncedL2EpochNumber"');
   }
 
   public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {

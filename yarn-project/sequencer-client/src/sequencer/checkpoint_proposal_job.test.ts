@@ -78,7 +78,7 @@ describe('CheckpointProposalJob', () => {
   let job: TestCheckpointProposalJob;
 
   let timetable: SequencerTimetable;
-  let l1Constants: L1RollupConstants & { rollupManaLimit: number };
+  let l1Constants: L1RollupConstants;
   let config: ResolvedSequencerConfig;
 
   let lastBlockNumber: BlockNumber;
@@ -141,7 +141,7 @@ describe('CheckpointProposalJob', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
-      rollupManaLimit: Infinity,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     dateProvider = new TestDateProvider();

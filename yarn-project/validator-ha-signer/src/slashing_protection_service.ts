@@ -85,7 +85,7 @@ export class SlashingProtectionService {
 
       if (isNew) {
         // We successfully acquired the lock
-        this.log.info(`Acquired lock for duty ${dutyType} at slot ${slot}`, {
+        this.log.verbose(`Acquired lock for duty ${dutyType} at slot ${slot}`, {
           validatorAddress: validatorAddress.toString(),
           nodeId,
         });
@@ -159,7 +159,7 @@ export class SlashingProtectionService {
     );
 
     if (success) {
-      this.log.info(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
+      this.log.verbose(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
         validatorAddress: validatorAddress.toString(),
         nodeId,
       });

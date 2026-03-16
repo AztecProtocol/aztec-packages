@@ -204,7 +204,9 @@ export function describeTxPool(getTxPool: () => TxPool) {
 
   it('returns pending tx hashes sorted by priority', async () => {
     const withPriorityFee = (tx: Tx, fee: number) => {
-      unfreeze(tx.data.constants.txContext.gasSettings).maxPriorityFeesPerGas = new GasFees(fee, fee);
+      const gs = unfreeze(tx.data.constants.txContext.gasSettings);
+      gs.maxPriorityFeesPerGas = new GasFees(fee, fee);
+      gs.maxFeesPerGas = new GasFees(fee, fee);
       return tx;
     };
 

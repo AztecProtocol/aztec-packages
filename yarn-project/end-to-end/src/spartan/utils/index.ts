@@ -41,6 +41,9 @@ export {
   applyNetworkShaping,
 } from './chaos.js';
 
+// Helm
+export { hasDeployedHelmRelease } from './helm.js';
+
 // Bot management
 export { restartBot, installTransferBot, uninstallTransferBot } from './bot.js';
 

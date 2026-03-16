@@ -679,10 +679,11 @@ export class P2PClient extends WithTracer implements P2P {
     if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
       return false;
     }
-    const isEpochPrune = oldCheckpointNumber !== newCheckpoint.number;
-    this.log.info(
-      `Detected epoch prune: ${isEpochPrune}. Old checkpoint: ${oldCheckpointNumber}, new checkpoint: ${newCheckpoint.number}`,
-    );
+    const newCheckpointNumber = newCheckpoint.number;
+    const isEpochPrune = oldCheckpointNumber !== newCheckpointNumber;
+    if (isEpochPrune) {
+      this.log.info(`Detected epoch prune to ${newCheckpointNumber}`, { oldCheckpointNumber, newCheckpointNumber });
+    }
     return isEpochPrune;
   }
 

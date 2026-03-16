@@ -143,13 +143,13 @@ describe('Logs', () => {
         toBlock: BlockNumber(lastTx.blockNumber! + 1),
       };
 
-      const collectedEvent0s = await getPublicEvents<ExampleEvent0>(
+      const { events: collectedEvent0s } = await getPublicEvents<ExampleEvent0>(
         aztecNode,
         TestLogContract.events.ExampleEvent0,
         publicEventFilter,
       );
 
-      const collectedEvent1s = await getPublicEvents<ExampleEvent1>(
+      const { events: collectedEvent1s } = await getPublicEvents<ExampleEvent1>(
         aztecNode,
         TestLogContract.events.ExampleEvent1,
         publicEventFilter,
@@ -188,7 +188,7 @@ describe('Logs', () => {
         .emit_nested_event(a, b, c, extra)
         .send({ from: account1Address });
 
-      const collectedEvents = await getPublicEvents<ExampleNestedEvent>(
+      const { events: collectedEvents } = await getPublicEvents<ExampleNestedEvent>(
         aztecNode,
         TestLogContract.events.ExampleNestedEvent,
         {

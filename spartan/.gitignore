@@ -29,4 +29,5 @@ environments/*
 !environments/tps-scenario.env
 !environments/kind-minimal.env
 !environments/kind-provers.env
+!environments/alpha-net.env
 *.tfvars
