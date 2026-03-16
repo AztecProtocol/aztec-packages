@@ -635,7 +635,7 @@ export class Oracle {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_emitOffchainEffect(data: ACVMField[]) {
-    await this.handlerAsPrivate().emitOffchainEffect(data.map(Fr.fromString));
+    await this.handlerAsUtility().emitOffchainEffect(data.map(Fr.fromString));
     return [];
   }
 
