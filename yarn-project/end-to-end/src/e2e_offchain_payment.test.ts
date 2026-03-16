@@ -156,6 +156,10 @@ describe('e2e_offchain_payment', () => {
     const txBlockNumber = receipt.blockNumber!;
     const txHash = provenTx.getTxHash();
 
+    const txEffectBeforeReorg = await aztecNode.getTxEffect(txHash);
+    expect(txEffectBeforeReorg).toBeTruthy();
+    const blockHashBeforeReorg = txEffectBeforeReorg!.l2BlockHash;
+
     const { offchainMessages } = extractOffchainOutput(
       provenTx.offchainEffects,
       provenTx.data.constants.anchorBlockHeader.globalVariables.timestamp,
