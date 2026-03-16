@@ -115,7 +115,7 @@ export function validatePartialComponentVersionsMatch(
 }
 
 /** Returns a Koa middleware that injects the versioning info as headers. */
-export function getVersioningMiddleware(versions: Partial<ComponentsVersions>) {
+export function getVersioningMiddleware(versions: Partial<ComponentsVersions>, opts?: { packageVersion?: string }) {
   return async (ctx: Koa.Context, next: () => Promise<void>) => {
     try {
       await next();
@@ -127,6 +127,9 @@ export function getVersioningMiddleware(versions: Partial<ComponentsVersions>) {
         if (value !== undefined) {
           ctx.set(`x-aztec-${key}`, value.toString());
         }
+      }
+      if (opts?.packageVersion) {
+        ctx.set('x-aztec-packageVersion', opts.packageVersion);
       }
     }
   };

@@ -1,4 +1,5 @@
 import { createEthereumChain } from '@aztec/ethereum/chain';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ReaderConfig } from '@aztec/ethereum/l1-reader';
@@ -16,7 +17,7 @@ import type {
 } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 /**
  * Simple global variables builder.
@@ -53,7 +54,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(chain.rpcUrls.map(url => http(url, { batch: false }))),
+      transport: makeL1HttpTransport(chain.rpcUrls, { timeout: config.l1HttpTimeoutMS }),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
