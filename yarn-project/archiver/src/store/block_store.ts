@@ -130,14 +130,14 @@ export class BlockStore {
 
   /**
    * Computes the finalized block number based on the proven block number.
-   * A block is considered finalized when it's 2 epochs behind the proven block.
+   * We approximate finalization as 2 epochs worth of checkpoints behind the proven block.
+   * Each checkpoint is assumed to contain 4 blocks, so the lookback is epochDuration * 2 * 4 blocks.
    * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
-   * TODO(palla/mbps): Even the provisional computation is wrong, since it should subtract checkpoints, not blocks
    * @returns The finalized block number.
    */
   async getFinalizedL2BlockNumber(): Promise<BlockNumber> {
     const provenBlockNumber = await this.getProvenBlockNumber();
-    return BlockNumber(Math.max(provenBlockNumber - this.l1Constants.epochDuration * 2, 0));
+    return BlockNumber(Math.max(provenBlockNumber - this.l1Constants.epochDuration * 2 * 4, 0));
   }
 
   /**
