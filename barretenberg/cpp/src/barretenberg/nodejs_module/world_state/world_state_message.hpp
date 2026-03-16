@@ -91,12 +91,12 @@ struct ForkIdOnlyRequest {
 struct ForkIdWithDepthRequest {
     uint64_t forkId;
     uint32_t depth;
-    SERIALIZATION_FIELDS(forkId, depth);
+    MSGPACK_FIELDS(forkId, depth);
 };
 
 struct CheckpointDepthResponse {
     uint32_t depth;
-    SERIALIZATION_FIELDS(depth);
+    MSGPACK_FIELDS(depth);
 };
 
 struct TreeIdAndRevisionRequest {
