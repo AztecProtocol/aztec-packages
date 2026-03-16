@@ -170,18 +170,36 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
                 auto& req = batch[idx];
                 auto t0 = std::chrono::steady_clock::now();
 
-                ChonkNativeVerifier verifier(vks_[req.vk_index]);
-                auto reduced = verifier.reduce_to_ipa_claim(req.proof);
+                try {
+                    ChonkNativeVerifier verifier(vks_[req.vk_index]);
+                    auto reduced = verifier.reduce_to_ipa_claim(req.proof);
 
-                results[idx] = ReduceResult{
-                    .request_id = req.request_id,
-                    .ipa_claim = std::move(reduced.ipa_claim),
-                    .ipa_proof = std::move(reduced.ipa_proof),
-                    .all_checks_passed = reduced.all_checks_passed,
-                    .error_message = reduced.all_checks_passed ? "" : "reduction failed",
-                    .enqueue_time = req.enqueue_time,
-                    .reduce_ms = ms_since(t0),
-                };
+                    results[idx] = ReduceResult{
+                        .request_id = req.request_id,
+                        .ipa_claim = std::move(reduced.ipa_claim),
+                        .ipa_proof = std::move(reduced.ipa_proof),
+                        .all_checks_passed = reduced.all_checks_passed,
+                        .error_message = reduced.all_checks_passed ? "" : "reduction failed",
+                        .enqueue_time = req.enqueue_time,
+                        .reduce_ms = ms_since(t0),
+                    };
+                } catch (const std::exception& e) {
+                    results[idx] = ReduceResult{
+                        .request_id = req.request_id,
+                        .all_checks_passed = false,
+                        .error_message = std::string("reduce_to_ipa_claim threw: ") + e.what(),
+                        .enqueue_time = req.enqueue_time,
+                        .reduce_ms = ms_since(t0),
+                    };
+                } catch (...) {
+                    results[idx] = ReduceResult{
+                        .request_id = req.request_id,
+                        .all_checks_passed = false,
+                        .error_message = "reduce_to_ipa_claim threw unknown exception",
+                        .enqueue_time = req.enqueue_time,
+                        .reduce_ms = ms_since(t0),
+                    };
+                }
             }
         });
     }
