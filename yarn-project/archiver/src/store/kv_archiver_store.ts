@@ -474,10 +474,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    * array implies no logs match that tag.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, upToBlockNumber?: BlockNumber): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPrivateLogsByTags(tags, page);
+      return this.#logStore.getPrivateLogsByTags(tags, page, upToBlockNumber);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -489,14 +490,16 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param contractAddress - The contract address to search logs for.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    */
   getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page);
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -601,6 +604,11 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Deletes all L1 to L2 messages up until (excluding) the target checkpoint number. */
   public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
     return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
+  }
+
+  /** Persists the inbox tree-in-progress checkpoint number from L1 state. */
+  public setInboxTreeInProgress(value: bigint): Promise<void> {
+    return this.#messageStore.setInboxTreeInProgress(value);
   }
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */

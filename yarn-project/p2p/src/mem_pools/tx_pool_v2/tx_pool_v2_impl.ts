@@ -62,6 +62,7 @@ export class TxPoolV2Impl {
   #l2BlockSource: L2BlockSource;
   #worldStateSynchronizer: WorldStateSynchronizer;
   #createTxValidator: TxPoolV2Dependencies['createTxValidator'];
+  #checkAllowedSetupCalls: TxPoolV2Dependencies['checkAllowedSetupCalls'];
 
   // === In-Memory Indices ===
   #indices: TxPoolIndices = new TxPoolIndices();
@@ -93,6 +94,7 @@ export class TxPoolV2Impl {
     this.#l2BlockSource = deps.l2BlockSource;
     this.#worldStateSynchronizer = deps.worldStateSynchronizer;
     this.#createTxValidator = deps.createTxValidator;
+    this.#checkAllowedSetupCalls = deps.checkAllowedSetupCalls;
 
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
@@ -375,20 +377,25 @@ export class TxPoolV2Impl {
   async addProtectedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string }): Promise<void> {
     const slotNumber = block.globalVariables.slotNumber;
 
+    // Precompute setup-call allow-list flags outside the store transaction
+    const allowedFlags = await Promise.all(txs.map(tx => this.#checkAllowedSetupCalls(tx)));
+
     await this.#store.transactionAsync(async () => {
-      for (const tx of txs) {
+      for (let i = 0; i < txs.length; i++) {
+        const tx = txs[i];
         const txHash = tx.getTxHash();
         const txHashStr = txHash.toString();
         const isNew = !this.#indices.has(txHashStr);
         const minedBlockId = await this.#getMinedBlockId(txHash);
 
         if (isNew) {
+          const meta = await buildTxMetaData(tx, allowedFlags[i]);
           // New tx - add as mined or protected (callback emitted by #addTx)
           if (minedBlockId) {
-            await this.#addTx(tx, { mined: minedBlockId }, opts);
+            await this.#addTx(tx, { mined: minedBlockId }, opts, meta);
             this.#indices.setProtection(txHashStr, slotNumber);
           } else {
-            await this.#addTx(tx, { protected: slotNumber }, opts);
+            await this.#addTx(tx, { protected: slotNumber }, opts, meta);
           }
         } else {
           // Existing tx - update protection and mined status
@@ -983,7 +990,8 @@ export class TxPoolV2Impl {
 
       try {
         const tx = Tx.fromBuffer(buffer);
-        const meta = await buildTxMetaData(tx);
+        const allowedSetupCalls = await this.#checkAllowedSetupCalls(tx);
+        const meta = await buildTxMetaData(tx, allowedSetupCalls);
         loaded.push({ tx, meta });
       } catch (err) {
         this.#log.warn(`Failed to deserialize tx ${txHashStr}, deleting`, { err });
