@@ -75,7 +75,7 @@ class TranslatorTests : public ::testing::Test {
 
         // Round 0: vk_hash, Gemini masking, wire commitments
         manifest.add_entry(0, "vk_hash", 1);
-        manifest.add_entry(0, "Gemini:masking_poly_comm", frs_per_G);
+        manifest.add_entry(0, "MASKING_COMMITMENT", frs_per_G);
 
         // Wire commitments (10 total: 5 concatenated + 5 ordered)
         // clang-format off

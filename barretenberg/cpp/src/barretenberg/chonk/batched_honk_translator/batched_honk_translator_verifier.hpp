@@ -75,6 +75,8 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
         constexpr size_t TRANS_SHIFTED_SKIP =
             TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED -
             (TranslatorFlavor::REPEATED_COMMITMENTS.first.count + TranslatorFlavor::REPEATED_COMMITMENTS.second.count);
+        // shplemini_offset=2 for ZK: Shplonk:Q + masking commitment
+        constexpr size_t SHPLEMINI_OFFSET = MegaZKFlavorT::REPEATED_COMMITMENTS.shplemini_offset;
         return RepeatedCommitmentsData(
             P,                                   // MegaZK original: start of witness in unshifted
             P + W + TU,                          // MegaZK duplicate: start of mega_zk_shifted
@@ -82,7 +84,8 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
             P + W + TRANS_UNSHIFTED_SKIP,        // Translator original: ordered+z_perm+concat in unshifted
             P + W + TU + S + TRANS_SHIFTED_SKIP, // Translator duplicate: same entries in shifted
             TranslatorFlavor::REPEATED_COMMITMENTS.first.count +
-                TranslatorFlavor::REPEATED_COMMITMENTS.second.count); // Translator count
+                TranslatorFlavor::REPEATED_COMMITMENTS.second.count, // Translator count
+            SHPLEMINI_OFFSET);
     }();
 
     /**

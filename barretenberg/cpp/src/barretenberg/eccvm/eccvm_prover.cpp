@@ -62,7 +62,7 @@ void ECCVMProver::execute_wire_commitments_round()
     // Create and commit to Gemini masking polynomial (for ZK-PCS)
     key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
-    transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
+    transcript->send_to_verifier("MASKING_COMMITMENT", masking_commitment);
 
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {

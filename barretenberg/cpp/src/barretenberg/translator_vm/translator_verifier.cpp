@@ -160,7 +160,7 @@ typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Fl
     put_translation_data_in_relation_parameters();
 
     // Receive Gemini masking polynomial commitment (for ZK-PCS)
-    commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+    commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("MASKING_COMMITMENT");
 
     // Set op queue wire commitments (provided by merge protocol, not from translator proof)
     commitments.op = op_queue_wire_commitments[0];
