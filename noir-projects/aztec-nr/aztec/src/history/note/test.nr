@@ -42,7 +42,7 @@ unconstrained fn succeeds_on_blocks_after_creation_and_before_nullification() {
     });
 }
 
-#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+#[test(should_fail_with = "Cannot prove nullifier non-inclusion")]
 unconstrained fn fails_on_blocks_after_note_nullification() {
     let (env, hinted_note) = test::create_note_and_nullify_it();
 
