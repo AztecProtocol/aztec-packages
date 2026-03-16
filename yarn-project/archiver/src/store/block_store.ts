@@ -20,7 +20,7 @@ import {
   serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {

@@ -37,6 +37,7 @@ export async function startAnvil(
   // We go via a wrapper script to ensure if the parent dies, anvil dies.
   const anvil = await retry(
     async () => {
+      // slotsInAnEpoch is supported by anvil but not yet in @viem/anvil types
       const anvil = createAnvil({
         anvilBinary,
         host: '127.0.0.1',
@@ -47,7 +48,7 @@ export async function startAnvil(
         gasLimit: 45_000_000n,
         chainId: opts.chainId ?? 31337,
         slotsInAnEpoch: opts.slotsInAnEpoch ?? 1,
-      });
+      } as Parameters<typeof createAnvil>[0]);
 
       // Listen to the anvil output to get the port.
       const removeHandler = anvil.on('message', (message: string) => {
