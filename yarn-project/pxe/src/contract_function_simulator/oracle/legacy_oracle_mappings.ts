@@ -14,6 +14,8 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     utilityLog: (...args: ACVMField[][]) => oracle.aztec_utl_log(args[0], args[1], args[2], args[3]),
     utilityAssertCompatibleOracleVersion: (...args: ACVMField[][]) =>
       oracle.aztec_utl_assertCompatibleOracleVersion(args[0]),
+    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
+    // matching legacy behavior.
     utilityLoadCapsule: (...args: ACVMField[][]) =>
       oracle.aztec_utl_loadCapsule(args[0], args[1], args[2], [new Fr(0).toString()], [new Fr(0).toString()]),
     privateStoreInExecutionCache: (...args: ACVMField[][]) => oracle.aztec_prv_storeInExecutionCache(args[0], args[1]),
@@ -29,10 +31,16 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     privateSetSenderForTags: (...args: ACVMField[][]) => oracle.aztec_prv_setSenderForTags(args[0]),
     utilityGetUtilityContext: () => oracle.aztec_utl_getUtilityContext(),
     utilityStorageRead: (...args: ACVMField[][]) => oracle.aztec_utl_storageRead(args[0], args[1], args[2], args[3]),
+    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
+    // matching legacy behavior.
     utilityStoreCapsule: (...args: ACVMField[][]) =>
       oracle.aztec_utl_storeCapsule(args[0], args[1], args[2], [new Fr(0).toString()], [new Fr(0).toString()]),
+    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
+    // matching legacy behavior.
     utilityCopyCapsule: (...args: ACVMField[][]) =>
       oracle.aztec_utl_copyCapsule(args[0], args[1], args[2], args[3], [new Fr(0).toString()], [new Fr(0).toString()]),
+    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
+    // matching legacy behavior.
     utilityDeleteCapsule: (...args: ACVMField[][]) =>
       oracle.aztec_utl_deleteCapsule(args[0], args[1], [new Fr(0).toString()], [new Fr(0).toString()]),
     utilityAes128Decrypt: (...args: ACVMField[][]) =>

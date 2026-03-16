@@ -7,6 +7,7 @@ where
     T: Serialize,
 {
     let serialized = value.serialize();
+    // TODO(@mverzilli): bubble scope param up, for now none=global scope
     store_oracle(contract_address, slot, serialized, Option::none());
 }
 
@@ -16,6 +17,7 @@ pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field) -> Opt
 where
     T: Deserialize,
 {
+    // TODO(@mverzilli): bubble scope param up, for now none=global scope
     let serialized_option = load_oracle(
         contract_address,
         slot,
@@ -27,6 +29,7 @@ where
 
 /// Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
 pub unconstrained fn delete(contract_address: AztecAddress, slot: Field) {
+    // TODO(@mverzilli): bubble scope param up, for now none=global scope
     delete_oracle(contract_address, slot, Option::none());
 }
 
@@ -35,6 +38,7 @@ pub unconstrained fn delete(contract_address: AztecAddress, slot: Field) {
 /// destination regions (which will result in the overlapped source values being overwritten). All copied slots must
 /// exist in the database (i.e. have been stored and not deleted)
 pub unconstrained fn copy(contract_address: AztecAddress, src_slot: Field, dst_slot: Field, num_entries: u32) {
+    // TODO(@mverzilli): bubble scope param up, for now none=global scope
     copy_oracle(
         contract_address,
         src_slot,
