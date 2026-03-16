@@ -19,13 +19,13 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     ): Promise<ACVMField[]> => oracle.aztec_utl_log(level, message, _ignoredFieldsSize, fields),
     utilityAssertCompatibleOracleVersion: (version: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_assertCompatibleOracleVersion(version),
-    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
-    // matching legacy behavior.
     utilityLoadCapsule: (
       contractAddress: ACVMField[],
       slot: ACVMField[],
       tSize: ACVMField[],
     ): Promise<(ACVMField | ACVMField[])[]> =>
+      // Last two params represent an Option<AztecAddress> == None, which means the capsule is contract-global,
+      // matching legacy behavior.
       oracle.aztec_utl_loadCapsule(contractAddress, slot, tSize, [new Fr(0).toString()], [new Fr(0).toString()]),
     privateStoreInExecutionCache: (values: ACVMField[], hash: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_prv_storeInExecutionCache(values, hash),
@@ -68,22 +68,22 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       numberOfElements: ACVMField[],
     ): Promise<ACVMField[][]> =>
       oracle.aztec_utl_storageRead(blockHash, contractAddress, startStorageSlot, numberOfElements),
-    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
-    // matching legacy behavior.
     utilityStoreCapsule: (
       contractAddress: ACVMField[],
       slot: ACVMField[],
       capsule: ACVMField[],
     ): Promise<ACVMField[]> =>
+      // Last two params represent an Option<AztecAddress> == None, which means the capsule is contract-global,
+      // matching legacy behavior.
       oracle.aztec_utl_storeCapsule(contractAddress, slot, capsule, [new Fr(0).toString()], [new Fr(0).toString()]),
-    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
-    // matching legacy behavior.
     utilityCopyCapsule: (
       contractAddress: ACVMField[],
       srcSlot: ACVMField[],
       dstSlot: ACVMField[],
       numEntries: ACVMField[],
     ): Promise<ACVMField[]> =>
+      // Last two params represent an Option<AztecAddress> == None, which means the capsule is contract-global,
+      // matching legacy behavior.
       oracle.aztec_utl_copyCapsule(
         contractAddress,
         srcSlot,
@@ -92,7 +92,7 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
         [new Fr(0).toString()],
         [new Fr(0).toString()],
       ),
-    // Last two params represent an Option<AztecAddress> == Address.ZERO, which means the capsule is contract-global,
+    // Last two params represent an Option<AztecAddress> == None, which means the capsule is contract-global,
     // matching legacy behavior.
     utilityDeleteCapsule: (contractAddress: ACVMField[], slot: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_deleteCapsule(contractAddress, slot, [new Fr(0).toString()], [new Fr(0).toString()]),
