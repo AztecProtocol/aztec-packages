@@ -613,13 +613,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope?: AztecAddress): Promise<void> {
+  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope?: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     this.capsuleStore.storeCapsule(contractAddress, slot, capsule, this.jobId, scope);
-    return Promise.resolve();
   }
 
   public async loadCapsule(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): Promise<Fr[] | null> {
@@ -639,13 +638,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return maybeTransientCapsule ?? (await this.capsuleStore.loadCapsule(contractAddress, slot, this.jobId, scope));
   }
 
-  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): Promise<void> {
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     this.capsuleStore.deleteCapsule(contractAddress, slot, this.jobId, scope);
-    return Promise.resolve();
   }
 
   public copyCapsule(

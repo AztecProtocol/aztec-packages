@@ -255,9 +255,9 @@ describe('Utility Execution test suite', () => {
 
         capsuleStore.loadCapsule.mockResolvedValueOnce(capsule);
 
-        await utilityExecutionOracle.storeCapsule(contractAddress, slot, capsule, scope);
+        utilityExecutionOracle.storeCapsule(contractAddress, slot, capsule, scope);
         await utilityExecutionOracle.loadCapsule(contractAddress, slot, scope);
-        await utilityExecutionOracle.deleteCapsule(contractAddress, slot, scope);
+        utilityExecutionOracle.deleteCapsule(contractAddress, slot, scope);
         await utilityExecutionOracle.copyCapsule(contractAddress, srcSlot, dstSlot, 1, scope);
 
         expect(capsuleStore.storeCapsule).toHaveBeenCalledWith(contractAddress, slot, capsule, 'test-job-id', scope);

@@ -548,7 +548,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_storeCapsule(
+  aztec_utl_storeCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     capsule: ACVMField[],
@@ -556,13 +556,13 @@ export class Oracle {
     [scopeValue]: ACVMField[],
   ): Promise<ACVMField[]> {
     const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
-    await this.handlerAsUtility().storeCapsule(
+    this.handlerAsUtility().storeCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
       capsule.map(Fr.fromString),
       scope,
     );
-    return [];
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
@@ -592,19 +592,19 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_deleteCapsule(
+  aztec_utl_deleteCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [scopeSome]: ACVMField[],
     [scopeValue]: ACVMField[],
   ): Promise<ACVMField[]> {
     const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
-    await this.handlerAsUtility().deleteCapsule(
+    this.handlerAsUtility().deleteCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
       scope,
     );
-    return [];
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
