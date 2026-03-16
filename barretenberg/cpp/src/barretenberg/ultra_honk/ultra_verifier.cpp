@@ -41,7 +41,7 @@ template <typename Flavor, typename Instance> static auto build_pcs_commitments(
 
     Result result;
 
-    // For BS=1 ZK with Gemini masking: prepend masking commitment (matches AllEntities ordering: MaskingEntities first)
+    // For flavors with Gemini masking (e.g. UltraZK): prepend masking commitment
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
         result.unshifted.push_back(instance.received_commitments.masking_commitment);
     }

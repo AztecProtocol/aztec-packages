@@ -56,7 +56,7 @@ template <> struct Oink<MultiMegaFlavor> : CodecConstants<MultiMegaFlavor> {
 };
 
 /**
- * @brief Specialization for MultiMegaZKFlavor: 12 interleaved witness commitments (11 base + masking).
+ * @brief Specialization for MultiMegaZKFlavor: same as non-ZK (no masking in oink, translator provides it).
  */
 template <> struct Oink<MultiMegaZKFlavor> : CodecConstants<MultiMegaZKFlavor> {
     using CodecConstants<MultiMegaZKFlavor>::num_frs_in_comm;
@@ -72,8 +72,7 @@ template <typename BuilderType>
 struct Oink<MultiMegaRecursiveFlavor_<BuilderType>> : CodecConstants<MultiMegaRecursiveFlavor_<BuilderType>> {
     using Flavor = MultiMegaRecursiveFlavor_<BuilderType>;
     static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
-        Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
 };
 
 /**
@@ -83,8 +82,7 @@ template <typename BuilderType>
 struct Oink<MultiMegaZKRecursiveFlavor_<BuilderType>> : CodecConstants<MultiMegaZKRecursiveFlavor_<BuilderType>> {
     using Flavor = MultiMegaZKRecursiveFlavor_<BuilderType>;
     static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
-        Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
 };
 
 /**

@@ -308,31 +308,10 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
-    if constexpr (Flavor::HasZK && BATCH_SIZE > 1) {
-        // BS>1 ZK: commit interleaved masking chunks
-        auto& polys = prover_instance->polynomials;
-        const size_t n = prover_instance->dyadic_size();
-
-        // Generate BATCH_SIZE random masking chunks (one per interleaving slot)
-        polys.masking_chunk_0 = Polynomial::random(n);
-        polys.masking_chunk_1 = Polynomial::random(n);
-        polys.masking_chunk_2 = Polynomial::random(n);
-        polys.masking_chunk_3 = Polynomial::random(n);
-
-        // Commit as interleaved group
-        std::array<PolynomialSpan<const FF>, 4> masking_batch = { PolynomialSpan<const FF>(polys.masking_chunk_0),
-                                                                  PolynomialSpan<const FF>(polys.masking_chunk_1),
-                                                                  PolynomialSpan<const FF>(polys.masking_chunk_2),
-                                                                  PolynomialSpan<const FF>(polys.masking_chunk_3) };
-        interleaved_commitments.masking_commitment =
-            commit_interleaved_and_send<4>(masking_batch, interleaved_labels.masking_commitment);
-    } else if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        // BS=1 with Gemini masking (e.g. UltraZK, but NOT MegaZK which opts out)
-        // Create a random masking polynomial for Gemini
+    if constexpr (flavor_has_gemini_masking<Flavor>()) {
         const size_t polynomial_size = prover_instance->dyadic_size();
         prover_instance->polynomials.gemini_masking_poly = Polynomial::random(polynomial_size);
 
-        // Commit to the masking polynomial and send to transcript
         auto masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
         transcript->send_to_verifier("MASKING_COMMITMENT", masking_commitment);
     }

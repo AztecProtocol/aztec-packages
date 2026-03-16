@@ -229,10 +229,7 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
-        // For ZK flavors: interleaved masking polynomial commitment is sent before wire commitments
-        if constexpr (Flavor::HasZK) {
-            manifest_expected.add_entry(round, "MASKING_COMMITMENT", frs_per_G);
-        }
+        // MegaZK flavors do not send masking in oink (translator provides it in the batched flow)
         manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);

@@ -26,15 +26,15 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
 
     static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
     static constexpr bool HasZK = true;
-    static constexpr bool HasGeminiMasking = (BATCH_SIZE_ > 1);
-
+    // MegaZK never includes a standalone Gemini masking poly — the translator provides it in the batched flow.
+    static constexpr bool HasGeminiMasking = false;
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Base::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor_::BATCHED_RELATION_PARTIAL_LENGTH");
 
-    // Masking entity count: BS (masking_chunk_0..BS-1) for BS>1, 0 for BS=1 (no gemini_masking_poly in entity layout)
-    static constexpr size_t NUM_MASKING_ENTITIES = (BATCH_SIZE_ > 1) ? BATCH_SIZE_ : 0;
+    // MegaZK has no masking entities in its layout (translator provides masking in the batched flow)
+    static constexpr size_t NUM_MASKING_ENTITIES = 0;
 
     static constexpr size_t NUM_ALL_ENTITIES = Base::NUM_ALL_ENTITIES + NUM_MASKING_ENTITIES;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = Base::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_ENTITIES;
@@ -43,27 +43,24 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
     static constexpr size_t NUM_WITNESS_ENTITIES = Base::NUM_WITNESS_ENTITIES;
 
     // Override AllEntities to use ZK version (includes masking entities via MegaMaskingEntities_)
-    template <typename DataType> using AllEntities = typename Base::template AllEntities_<DataType, HasGeminiMasking>;
+    template <typename DataType> using AllEntities = typename Base::template AllEntities_<DataType, false>;
 
-    using AllValues = typename Base::template AllValues_<HasGeminiMasking>;
-    using ProverPolynomials = typename Base::template ProverPolynomials_<HasGeminiMasking>;
-    using PartiallyEvaluatedMultivariates = typename Base::template PartiallyEvaluatedMultivariates_<HasGeminiMasking>;
-    using VerifierCommitments =
-        typename Base::template VerifierCommitments_<Commitment, VerificationKey, HasGeminiMasking>;
+    using AllValues = typename Base::template AllValues_<false>;
+    using ProverPolynomials = typename Base::template ProverPolynomials_<false>;
+    using PartiallyEvaluatedMultivariates = typename Base::template PartiallyEvaluatedMultivariates_<false>;
+    using VerifierCommitments = typename Base::template VerifierCommitments_<Commitment, VerificationKey, false>;
 
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
     using ExtendedEdges = ProverUnivariates<Base::MAX_PARTIAL_RELATION_LENGTH>;
 
     // Interleaved types: for BS=1 these are empty types; for BS>1 they carry the ZK masking members
     template <typename DataType>
-    using InterleavedWitnessCommitments =
-        typename Base::template InterleavedWitnessCommitments_<DataType, HasGeminiMasking>;
+    using InterleavedWitnessCommitments = typename Base::template InterleavedWitnessCommitments_<DataType, false>;
     using InterleavedCommitments = InterleavedWitnessCommitments<Commitment>;
-    using InterleavedCommitmentLabels = typename Base::template InterleavedCommitmentLabels_<HasGeminiMasking>;
+    using InterleavedCommitmentLabels = typename Base::template InterleavedCommitmentLabels_<false>;
 
-    // For BS>1+ZK: +1 interleaved witness group for masking. For BS=1: stays 0.
-    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS =
-        Base::NUM_INTERLEAVED_WITNESS_COMMITMENTS + ((BATCH_SIZE_ > 1) ? 1 : 0);
+    // No extra interleaved groups — masking is handled by the translator in the batched flow.
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = Base::NUM_INTERLEAVED_WITNESS_COMMITMENTS;
     static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
         Base::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS + NUM_INTERLEAVED_WITNESS_COMMITMENTS;
 
@@ -93,34 +90,7 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
         }
     }
 
-    // ZK override: include masking chunks before shiftable groups.
-    // For BS=1, delegates to base (no masking chunks in entity layout).
-    // For BS>1, inserts the masking chunk group.
-    template <typename Entities> static auto get_unshifted_groups(Entities& e)
-    {
-        auto groups = Base::get_unshifted_groups(e);
-        if constexpr (BATCH_SIZE_ > 1) {
-            using T = std::decay_t<decltype(e.w_l)>;
-            using Group = std::vector<T const*>;
-            auto insert_pos = groups.end() - Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
-            groups.insert(insert_pos,
-                          Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
-        }
-        return groups;
-    }
-
-    template <typename Entities> static auto get_unshifted_groups_mut(Entities& e)
-    {
-        auto groups = Base::get_unshifted_groups_mut(e);
-        if constexpr (BATCH_SIZE_ > 1) {
-            using T = std::decay_t<decltype(e.w_l)>;
-            using Group = std::vector<T*>;
-            auto insert_pos = groups.end() - Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
-            groups.insert(insert_pos,
-                          Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
-        }
-        return groups;
-    }
+    // No group accessor overrides — MegaZK has no masking entities. Base class accessors are used directly.
 };
 
 using MegaZKFlavor = MegaZKFlavor_<1>;
