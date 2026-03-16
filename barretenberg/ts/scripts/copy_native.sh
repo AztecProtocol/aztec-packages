@@ -14,5 +14,6 @@ fi
 
 mkdir -p ./build/$target
 
+rm -f ./build/$target/bb ./build/$target/nodejs_module.node
 cp ../cpp/build/bin/bb ./build/$target
 cp ../cpp/build/lib/nodejs_module.node ./build/$target
