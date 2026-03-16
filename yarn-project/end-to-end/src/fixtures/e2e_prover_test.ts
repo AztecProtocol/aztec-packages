@@ -278,6 +278,9 @@ export class FullProverTest {
     // clean up the full prover node (by stopping its hosting aztec node)
     await this.proverAztecNode.stop();
 
+    // Stop the fixture's own proof verifier (separate from the node's)
+    await this.circuitProofVerifier?.stop();
+
     await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
