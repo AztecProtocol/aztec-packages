@@ -96,28 +96,19 @@ pub unconstrained fn do_sync_state<Env>(
             // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
             let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);
 
-<<<<<<< HEAD
-        process_message_ciphertext(
-            contract_address,
-            compute_note_hash_and_nullifier,
-            message_ciphertext,
-            pending_tagged_log.context,
-        );
-=======
             process_message_ciphertext(
                 contract_address,
                 compute_note_hash_and_nullifier,
-                process_custom_message,
                 message_ciphertext,
                 pending_tagged_log.context,
             );
         }
 
-        // We need to delete each log from the array so that we won't process them again. `CapsuleArray::for_each`
-        // allows deletion of the current element during iteration, so this is safe.
-        // Note that this (and all other database changes) will only be committed if contract execution succeeds,
-        // including any enqueued validation requests.
->>>>>>> 9cc2833506 (fix: handle empty or malformed logs during message processing (#21192))
+        // We need to delete each log from the array so that we won't process them again.
+        // `CapsuleArray::for_each` allows deletion of the current element during iteration,
+        // so this is safe.
+        // Note that this (and all other database changes) will only be committed if contract
+        // execution succeeds, including any enqueued validation requests.
         logs.remove(i);
     });
 
@@ -149,10 +140,12 @@ mod test {
     use crate::{
         capsules::CapsuleArray,
         messages::{
-            discovery::{CustomMessageHandler, do_sync_state, NoteHashAndNullifier},
+            discovery::{do_sync_state, NoteHashAndNullifier},
             logs::note::MAX_NOTE_PACKED_LEN,
             processing::{
-                offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
+                offchain::OffchainInboxSync,
+                pending_tagged_log::PendingTaggedLog,
+                PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
             },
         },
         test::helpers::test_environment::TestEnvironment,
@@ -168,16 +161,20 @@ mod test {
         env.utility_context_at(contract_address, |_| {
             let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
 
-            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot);
-            logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
+            let logs: CapsuleArray<PendingTaggedLog> =
+                CapsuleArray::at(contract_address, base_slot);
+            logs.push(
+                PendingTaggedLog {
+                    log: BoundedVec::new(),
+                    context: std::mem::zeroed(),
+                },
+            );
             assert_eq(logs.len(), 1);
 
-            let no_handler: Option<CustomMessageHandler<()>> = Option::none();
             let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
             do_sync_state(
                 contract_address,
                 dummy_compute_nhnn,
-                no_handler,
                 no_inbox_sync,
             );
 
