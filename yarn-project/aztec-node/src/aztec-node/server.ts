@@ -111,6 +111,7 @@ import {
   createBlockProposalHandler,
   createValidatorClient,
 } from '@aztec/validator-client';
+import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient } from 'viem';
@@ -195,6 +196,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       dateProvider?: DateProvider;
       p2pClientDeps?: P2PClientDeps;
       proverNodeDeps?: Partial<ProverNodeDeps>;
+      slashingProtectionDb?: SlashingProtectionDatabase;
     } = {},
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
@@ -377,6 +379,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         l1ToL2MessageSource: archiver,
         keyStoreManager,
         blobClient,
+        slashingProtectionDb: deps.slashingProtectionDb,
       });
 
       // If we have a validator client, register it as a source of offenses for the slasher,
