@@ -10,7 +10,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Logger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
@@ -137,38 +137,41 @@ async function deployAccountWithDiagnostics(
   estimateGas?: boolean,
 ): Promise<void> {
   const deployMethod = await account.getDeployMethod();
-  let txHash;
-  try {
-    let gasSettings;
-    if (estimateGas) {
-      const sim = await deployMethod.simulate({ from: AztecAddress.ZERO, fee: { paymentMethod } });
-      gasSettings = sim.estimatedGas;
-      logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
-    }
-    const deployResult = await deployMethod.send({
-      from: AztecAddress.ZERO,
-      fee: { paymentMethod, gasSettings },
-      wait: NO_WAIT,
-    });
-    txHash = deployResult.txHash;
-    await waitForTx(aztecNode, txHash, { timeout: 2400 });
-    logger.info(`${accountLabel} deployed at ${account.address}`);
-  } catch (error) {
-    const blockNumber = await aztecNode.getBlockNumber();
-    let receipt;
-    try {
-      receipt = await aztecNode.getTxReceipt(txHash);
-    } catch {
-      receipt = 'unavailable';
-    }
-    logger.error(`${accountLabel} deployment failed`, {
-      txHash: txHash.toString(),
-      receipt: JSON.stringify(receipt),
-      currentBlockNumber: blockNumber,
-      error: String(error),
-    });
-    throw error;
+
+  let gasSettings: any;
+  if (estimateGas) {
+    const sim = await deployMethod.simulate({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+    gasSettings = sim.estimatedGas;
+    logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
   }
+
+  await retry(
+    async () => {
+      // Check if already deployed (handles case where previous attempt succeeded but waitForTx timed out)
+      const existing = await aztecNode.getContract(account.address);
+      if (existing) {
+        logger.info(`${accountLabel} already deployed at ${account.address}, skipping`);
+        return;
+      }
+
+      const deployResult = await deployMethod.send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod, gasSettings },
+        wait: NO_WAIT,
+      });
+      const txHash = deployResult.txHash;
+      logger.info(`${accountLabel} tx sent`, { txHash: txHash.toString() });
+
+      const receipt = await waitForTx(aztecNode, txHash, { timeout: 600 });
+      if (receipt.isDropped()) {
+        throw new Error(`${accountLabel} tx ${txHash} was dropped, retrying...`);
+      }
+      logger.info(`${accountLabel} deployed at ${account.address}`);
+    },
+    `deploy ${accountLabel}`,
+    makeBackoff([1, 2, 4, 8, 16]),
+    logger,
+  );
 }
 
 async function deployAccountsInBatches(
