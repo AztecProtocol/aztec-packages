@@ -494,7 +494,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           );
 
       // Create a funder L1TxUtils from the keystore funding account (if configured)
-      const fundingSigner = keyStoreManager!.createFundingSigner();
+      const fundingSigner = keyStoreManager?.createFundingSigner();
       let funderL1TxUtils: L1TxUtils | undefined;
       if (fundingSigner) {
         const [funder] = await createL1TxUtilsFromSigners(

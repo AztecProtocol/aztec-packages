@@ -52,9 +52,9 @@ export type PublisherConfig = L1TxUtilsConfig &
     publisherForwarderAddress?: EthAddress;
     /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
     l1TxFailedStore?: string;
-    /** Min ETH balance (in ether) below which a publisher gets funded. Undefined = funding disabled. */
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
     publisherFundingThreshold?: bigint;
-    /** Amount of ETH (in ether) to send when funding a publisher. Undefined = funding disabled. */
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
     publisherFundingAmount?: bigint;
   };
 
@@ -79,9 +79,9 @@ export type ProverPublisherConfig = L1TxUtilsConfig &
     fishermanMode?: boolean;
     proverPublisherAllowInvalidStates?: boolean;
     proverPublisherForwarderAddress?: EthAddress;
-    /** Min ETH balance (in ether) below which a publisher gets funded. Undefined = funding disabled. */
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
     publisherFundingThreshold?: bigint;
-    /** Amount of ETH (in ether) to send when funding a publisher. Undefined = funding disabled. */
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
     publisherFundingAmount?: bigint;
   };
 
@@ -92,9 +92,9 @@ export type SequencerPublisherConfig = L1TxUtilsConfig &
     sequencerPublisherForwarderAddress?: EthAddress;
     /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
     l1TxFailedStore?: string;
-    /** Min ETH balance (in ether) below which a publisher gets funded. Undefined = funding disabled. */
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
     publisherFundingThreshold?: bigint;
-    /** Amount of ETH (in ether) to send when funding a publisher. Undefined = funding disabled. */
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
     publisherFundingAmount?: bigint;
   };
 

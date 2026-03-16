@@ -145,10 +145,10 @@ describe('e2e_publisher_funding', () => {
     // Funder should have sent exactly FUNDING_AMOUNT plus gas costs
     expect(funderSpent).toBeGreaterThanOrEqual(FUNDING_AMOUNT);
 
-    // Second round: the publisher will spend gas publishing blocks, eventually dropping
-    // below threshold again. The funder should automatically top it up a second time.
+    // Second round: the publisher balance is still below threshold (FUNDING_AMOUNT < FUNDING_THRESHOLD),
+    // so the next getAvailablePublisher() call will trigger another funding round.
     const funderBalanceBefore2 = await ethCheatCodes.getBalance(funderAddress);
-    logger.info(`Waiting for publisher to drain and get re-funded`);
+    logger.info(`Waiting for second funding round`);
 
     await retryUntil(
       async () => {
