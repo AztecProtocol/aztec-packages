@@ -114,11 +114,11 @@ describe('e2e_offchain_payment', () => {
     // Force an empty block so the PXE re-syncs and discovers the offchain-delivered notes.
     await forceEmptyBlock();
 
-    // TODO(F-413): we need to implement scopes on capsules so we can check Alice's balance too here. This is not
-    // possible right now because the offchain inbox is shared for all accounts using this contract in the same PXE,
-    // which is bad.
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
+
+    const { result: aliceBalance } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceBalance).toBe(mintAmount - paymentAmount);
   });
 
   it('reprocesses an offchain-delivered payment after an L1 reorg', async () => {
@@ -169,6 +169,9 @@ describe('e2e_offchain_payment', () => {
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
 
+    const { result: aliceBalance } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceBalance).toBe(mintAmount - paymentAmount);
+
     await forceReorg(txBlockNumber);
 
     // Verify that the payment TX is no longer present after the reorg
@@ -179,6 +182,10 @@ describe('e2e_offchain_payment', () => {
     const { result: bobAfterRollback } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobAfterRollback).toBe(0n);
 
+    // Verify Alice's balance also rolled back to full mint amount (transfer was reverted)
+    const { result: aliceAfterRollback } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceAfterRollback).toBe(mintAmount);
+
     // Resend the tx after the reorg and force block production so the sequencer picks it up.
     await provenTx.send({ wait: NO_WAIT });
     await forceEmptyBlock();
@@ -188,5 +195,8 @@ describe('e2e_offchain_payment', () => {
     // for the system to re-process it.
     const { result: bobBalanceAfterResentTx } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalanceAfterResentTx).toBe(paymentAmount);
+
+    const { result: aliceBalanceAfterResentTx } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceBalanceAfterResentTx).toBe(mintAmount - paymentAmount);
   });
 });

@@ -32,6 +32,7 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
+    scope: AztecAddress,
 ) {
     let message_plaintext_option = AES128::decrypt(message_ciphertext, message_context.recipient);
 
@@ -42,6 +43,7 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
             process_custom_message,
             message_plaintext_option.unwrap(),
             message_context,
+            scope,
         );
     } else {
         aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([message_context.tx_hash]);
@@ -54,6 +56,7 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
     message_context: MessageContext,
+    scope: AztecAddress,
 ) {
     // The first thing to do after decrypting the message is to determine what type of message we're processing. We
     // have 3 message types: private notes, partial notes and events.
@@ -86,6 +89,7 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
                 msg_metadata,
                 msg_content,
                 message_context.tx_hash,
+                scope,
             );
         } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
             aztecnr_debug_log!("Processing private event msg");

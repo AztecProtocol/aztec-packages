@@ -28,9 +28,6 @@ describe('ContractSyncService', () => {
   const anchorBlockHeader = makeBlockHeader(0);
   const classId = Fr.fromHexString('0xdeadbeef');
 
-  /** Sentinel for undefined scopes (sync all accounts). */
-  const ALL_SCOPES = 'ALL_SCOPES' as const;
-
   beforeEach(() => {
     utilityExecutor = jest
       .fn<(call: FunctionCall, scopes: AccessScopes) => Promise<void>>()
@@ -63,7 +60,13 @@ describe('ContractSyncService', () => {
     // syncNoteNullifiers returns early when no notes
     noteStore.getNotes.mockResolvedValue([]);
 
-    service = new ContractSyncService(aztecNode, contractStore, noteStore, createLogger('test:contract-sync'));
+    service = new ContractSyncService(
+      aztecNode,
+      contractStore,
+      noteStore,
+      () => Promise.resolve([scopeA, scopeB]),
+      createLogger('test:contract-sync'),
+    );
   });
 
   describe('ensureContractSynced', () => {
@@ -88,12 +91,13 @@ describe('ContractSyncService', () => {
         jobId,
         'ALL_SCOPES',
       );
-      expectSyncedScopes(ALL_SCOPES);
+      // ALL_SCOPES resolves to [scopeA, scopeB] via getRegisteredAccounts, so syncState is called once per account
+      expectSyncedScopes([scopeA], [scopeB]);
 
       // After syncing all scopes, scope-specific calls should be skipped
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeB]);
-      expectSyncedScopes(ALL_SCOPES);
+      expectSyncedScopes([scopeA], [scopeB]);
     });
 
     it('still syncs all scopes even after scope-specific sync', async () => {
@@ -106,7 +110,8 @@ describe('ContractSyncService', () => {
         jobId,
         'ALL_SCOPES',
       );
-      expectSyncedScopes([scopeA], ALL_SCOPES);
+      // ALL_SCOPES resolves to [scopeA, scopeB]; both are re-synced since ALL_SCOPES bypasses per-scope cache
+      expectSyncedScopes([scopeA], [scopeA], [scopeB]);
     });
 
     it('empty scopes array skips sync entirely', async () => {

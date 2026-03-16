@@ -67,6 +67,7 @@ export class TXEStateMachine {
       node,
       contractStore,
       noteStore,
+      () => Promise.resolve([]),
       createLogger('txe:contract_sync'),
     );
 

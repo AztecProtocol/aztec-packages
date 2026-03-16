@@ -113,6 +113,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
+    scope: AztecAddress,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
 
@@ -134,6 +135,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
                 process_custom_message,
                 message_ciphertext,
                 pending_tagged_log.context,
+                scope,
             );
         }
 
@@ -145,7 +147,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     });
 
     if offchain_inbox_sync.is_some() {
-        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address);
+        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address, scope);
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
@@ -153,6 +155,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
                 process_custom_message,
                 msg.message_ciphertext,
                 msg.message_context,
+                scope,
             );
             // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
             // volatile array with the to-process message, not the actual persistent storage of them.
@@ -162,7 +165,11 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    partial_notes::fetch_and_process_partial_note_completion_logs(contract_address, compute_note_hash_and_nullifier);
+    partial_notes::fetch_and_process_partial_note_completion_logs(
+        contract_address,
+        compute_note_hash_and_nullifier,
+        scope,
+    );
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
@@ -182,6 +189,8 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use crate::protocol::address::AztecAddress;
+
+    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
 
     #[test]
     unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
@@ -203,6 +212,7 @@ mod test {
                 dummy_compute_nhnn,
                 no_handler,
                 no_inbox_sync,
+                SCOPE,
             );
 
             assert_eq(logs.len(), 0);

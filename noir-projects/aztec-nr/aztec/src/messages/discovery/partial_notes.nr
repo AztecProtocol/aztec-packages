@@ -39,6 +39,7 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
+    scope: AztecAddress,
 ) {
     let decoded = decode_partial_note_private_message(msg_metadata, msg_content);
 
@@ -56,9 +57,10 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
             recipient,
         };
 
-        CapsuleArray::at_global_scope(
+        CapsuleArray::at(
             contract_address,
             DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+            scope,
         )
             .push(pending);
     } else {
@@ -75,10 +77,12 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
 pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    scope: AztecAddress,
 ) {
-    let pending_partial_notes = CapsuleArray::at_global_scope(
+    let pending_partial_notes = CapsuleArray::at(
         contract_address,
         DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+        scope,
     );
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);

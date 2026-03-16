@@ -374,7 +374,9 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 /// Generates the `sync_state` utility function that performs message discovery.
 comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_inbox_sync_option: Quoted) -> Quoted {
     quote {
-        pub struct sync_state_parameters {}
+        pub struct sync_state_parameters {
+            pub scope: aztec::protocol::address::AztecAddress,
+        }
 
         #[abi(functions)]
         pub struct sync_state_abi {
@@ -382,13 +384,14 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_
         }
 
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
-        unconstrained fn sync_state() {
+        unconstrained fn sync_state(scope: aztec::protocol::address::AztecAddress) {
             let address = aztec::context::UtilityContext::new().this_address();
             aztec::messages::discovery::do_sync_state(
                 address,
                 _compute_note_hash_and_nullifier,
                 $process_custom_message_option,
                 $offchain_inbox_sync_option,
+                scope,
             );
         }
     }
@@ -400,6 +403,7 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
         pub struct process_message_parameters {
             pub message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             pub message_context: aztec::messages::processing::MessageContext,
+            pub scope: aztec::protocol::address::AztecAddress,
         }
 
         #[abi(functions)]
@@ -411,6 +415,7 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
         unconstrained fn process_message(
             message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::MessageContext,
+            scope: aztec::protocol::address::AztecAddress,
         ) {
             let address = aztec::context::UtilityContext::new().this_address();
 
@@ -420,6 +425,7 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
                 $process_custom_message_option,
                 message_ciphertext,
                 message_context,
+                scope,
             );
 
             // At this point, the note is pending validation and storage in the database. We must call
@@ -447,6 +453,8 @@ comptime fn generate_offchain_receive() -> Quoted {
         }
 
         /// Receives offchain messages into this contract's offchain inbox for subsequent processing.
+        ///
+        /// Each message is routed to the inbox scoped to its `recipient` field.
         ///
         /// For more details, see `aztec::messages::processing::offchain::receive`.
         ///
