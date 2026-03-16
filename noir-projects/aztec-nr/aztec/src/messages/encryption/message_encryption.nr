@@ -49,7 +49,7 @@ pub trait MessageEncryption {
     /// functions.
     ///
     /// Not all ciphertexts are valid - among other things, the ephemeral public key included in it may not correspond
-    /// to a point on the curve. In all such cases, a [`Self::DecryptError`] describing the failure is returned.
+    /// to a point on the curve. In all such cases, a `DecryptError` describing the failure is returned.
     unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
