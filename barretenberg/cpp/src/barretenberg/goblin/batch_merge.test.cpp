@@ -66,9 +66,10 @@ std::shared_ptr<ECCOpQueue> make_op_queue_with_n_subtables(size_t N)
 // Test parameters — templated on Curve and BATCH_SIZE
 // ============================================================
 
-template <typename CurveType_, size_t BATCH_SIZE_> struct BatchMergeTestParams {
+template <typename CurveType_, size_t BATCH_SIZE_, size_t MAX_SUBTABLES_> struct BatchMergeTestParams {
     using CurveType = CurveType_;
     static constexpr size_t BATCH_SIZE = BATCH_SIZE_;
+    static constexpr size_t MAX_SUBTABLES = MAX_SUBTABLES_;
 };
 
 // ============================================================
@@ -83,7 +84,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     static constexpr size_t NUM_COLUMNS = NUM_WIRES / BATCH_SIZE;
     // Small M keeps tests fast; real code uses CHONK_MAX_ACCUMULATION_STEPS (32).
-    static constexpr size_t MAX_SUBTABLES = 4;
+    static constexpr size_t MAX_SUBTABLES = TestParams::MAX_SUBTABLES;
 
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -117,6 +118,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     static bool check_circuit(BuilderType& builder)
     {
         if constexpr (IsRecursive) {
+            info("Num gates: ", builder.get_num_finalized_gates_inefficient());
             return CircuitChecker::check(builder);
         } else {
             (void)builder;
@@ -505,10 +507,12 @@ template <typename TestParams> class BatchMergeManifestTests : public testing::T
 // Test type registrations
 // ============================================================
 
-using Parameters = ::testing::Types<BatchMergeTestParams<curve::BN254, 1>,
-                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 1>,
-                                    BatchMergeTestParams<curve::BN254, 4>,
-                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 4>>;
+using Parameters = ::testing::Types<BatchMergeTestParams<curve::BN254, 1, 24>,
+                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 1, 24>,
+                                    BatchMergeTestParams<curve::BN254, 2, 37>,
+                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 2, 37>,
+                                    BatchMergeTestParams<curve::BN254, 4, 100>,
+                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 4, 100>>;
 
 TYPED_TEST_SUITE(BatchMergeTests, Parameters);
 

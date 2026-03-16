@@ -123,6 +123,18 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     const FF kappa = transcript->template get_challenge<FF>("batch_merge_kappa");
     const FF kappa_inv = kappa.invert();
 
+    //
+    // Compute powers of kappa and their inverses
+    std::vector<FF> powers_of_kappa(MaxMergeSize);
+    for (size_t idx = 0; idx < MaxMergeSize; idx++) {
+        powers_of_kappa[idx] = kappa.pow(shift_sizes[idx] * FF(BATCH_SIZE));
+    }
+
+    std::vector<FF> powers_of_kappa_inv(MaxMergeSize);
+    for (size_t idx = 0; idx < MaxMergeSize; idx++) {
+        powers_of_kappa_inv[idx] = powers_of_kappa[idx].invert();
+    }
+
     // -------------------------------------------------------------------------
     // Receive evaluations from proof
     // -------------------------------------------------------------------------
@@ -160,9 +172,9 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     // -------------------------------------------------------------------------
     // Verify concatenation identity, degree identity, and hash consistency
     // -------------------------------------------------------------------------
-    const bool concatenation_verified = check_concatenation_identity(c_evals, t_evals, shift_sizes, kappa);
+    const bool concatenation_verified = check_concatenation_identity(c_evals, t_evals, powers_of_kappa);
     const bool degree_check_verified =
-        check_degree_identity(c_evals, reversed_cols_eval, shift_sizes, degree_check_challenges, kappa, kappa_inv);
+        check_degree_identity(c_evals, reversed_cols_eval, powers_of_kappa_inv, degree_check_challenges, kappa);
     const bool hash_verified = check_hash_consistency(subtable_cols, hash, indicator_array, point_at_infinity);
 
     // -------------------------------------------------------------------------
@@ -236,15 +248,14 @@ template <size_t BatchSize, typename Curve, size_t MaxMergeSize>
 bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_concatenation_identity(
     const std::vector<std::vector<FF>>& c_evals,
     const std::vector<FF>& t_evals,
-    const std::vector<FF>& shift_sizes,
-    const FF& kappa) const
+    const std::vector<FF>& powers_of_kappa) const
 {
     bool verified = true;
     for (size_t col = 0; col < NUM_COLUMNS; ++col) {
         FF reconstructed = c_evals[0][col];
         FF pow_kappa = FF(1);
         for (size_t i = 1; i < MaxMergeSize; ++i) {
-            pow_kappa *= kappa.pow(shift_sizes[i - 1] * FF(BATCH_SIZE));
+            pow_kappa *= powers_of_kappa[i - 1];
             reconstructed += c_evals[i][col] * pow_kappa;
         }
         FF diff = reconstructed - t_evals[col];
@@ -266,15 +277,14 @@ template <size_t BatchSize, typename Curve, size_t MaxMergeSize>
 bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_degree_identity(
     const std::vector<std::vector<FF>>& c_evals,
     const FF& reversed_cols_eval,
-    const std::vector<FF>& shift_sizes,
+    const std::vector<FF>& powers_of_kappa_inv,
     const std::vector<FF>& degree_check_challenges,
-    const FF& kappa,
-    const FF& kappa_inv) const
+    const FF& kappa) const
 {
     FF rhs(0);
     for (size_t i = 0; i < MaxMergeSize; ++i) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            FF kappa_power = kappa_inv.pow(shift_sizes[i] * FF(BATCH_SIZE)) * kappa;
+            FF kappa_power = powers_of_kappa_inv[i] * kappa;
             rhs += degree_check_challenges[i * NUM_COLUMNS + col] * c_evals[i][col] * kappa_power;
         }
     }
@@ -443,8 +453,10 @@ bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_hash_consistency
 }
 
 // Explicit template instantiations
-template class BatchMergeVerifier_<1, curve::BN254, CHONK_MAX_ACCUMULATION_STEPS>;
-template class BatchMergeVerifier_<1, stdlib::bn254<MegaCircuitBuilder>, CHONK_MAX_ACCUMULATION_STEPS>;
+template class BatchMergeVerifier_<1, curve::BN254, 24>;
+template class BatchMergeVerifier_<1, stdlib::bn254<MegaCircuitBuilder>, 24>;
+template class BatchMergeVerifier_<2, curve::BN254, 37>;
+template class BatchMergeVerifier_<2, stdlib::bn254<MegaCircuitBuilder>, 37>;
 template class BatchMergeVerifier_<4, curve::BN254, CHONK_MAX_ACCUMULATION_STEPS>;
 template class BatchMergeVerifier_<4, stdlib::bn254<MegaCircuitBuilder>, CHONK_MAX_ACCUMULATION_STEPS>;
 

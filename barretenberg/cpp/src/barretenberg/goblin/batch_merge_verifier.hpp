@@ -79,16 +79,14 @@ template <size_t BatchSize, typename Curve, size_t MaxMergeSize> class BatchMerg
     // Verify T(κ) = Σ_i C_i(κ) · κ^{offset_i} for every column.
     bool check_concatenation_identity(const std::vector<std::vector<FF>>& c_evals,
                                       const std::vector<FF>& t_evals,
-                                      const std::vector<FF>& shift_sizes,
-                                      const FF& kappa) const;
+                                      const std::vector<FF>& powers_of_kappa) const;
 
     // Verify G(κ⁻¹) = Σ_{i,col} α_{i,col} · C_i_col(κ) · κ^{1 − s_i·BS} (single combined check).
     bool check_degree_identity(const std::vector<std::vector<FF>>& c_evals,
                                const FF& reversed_cols_eval,
-                               const std::vector<FF>& shift_sizes,
+                               const std::vector<FF>& powers_of_kappa_inv,
                                const std::vector<FF>& degree_check_challenges,
-                               const FF& kappa,
-                               const FF& kappa_inv) const;
+                               const FF& kappa) const;
 
     // Verify that the column commitments in the proof match the running hash from accumulation.
     bool check_hash_consistency(const std::vector<std::vector<Commitment>>& subtable_cols,

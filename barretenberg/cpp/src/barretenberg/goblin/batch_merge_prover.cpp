@@ -290,6 +290,7 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
 }
 
 template class BatchMergeProver<1>;
+template class BatchMergeProver<2>;
 template class BatchMergeProver<4>;
 
 } // namespace bb
