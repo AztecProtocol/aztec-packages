@@ -22,6 +22,7 @@ import type {
   ExecutablePrivateFunctionWithMembershipProof,
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -408,8 +409,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.#blockStore.getSettledTxReceipt(txHash);
+  getSettledTxReceipt(
+    txHash: TxHash,
+    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
+  ): Promise<TxReceipt | undefined> {
+    return this.#blockStore.getSettledTxReceipt(txHash, l1Constants);
   }
 
   /**

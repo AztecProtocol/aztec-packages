@@ -53,7 +53,7 @@ struct MerkleCheckFuzzerInput {
         return std::span<const FF>(sibling_path).subspan(0, tree_height);
     }
 
-    MSGPACK_FIELDS(is_write, current_value, new_value, leaf_index, sibling_path, root, tree_height);
+    SERIALIZATION_FIELDS(is_write, current_value, new_value, leaf_index, sibling_path, root, tree_height);
 };
 
 namespace {

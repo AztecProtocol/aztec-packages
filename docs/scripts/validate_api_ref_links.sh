@@ -282,6 +282,8 @@ get_expected_api_version() {
     echo "devnet"
   elif [[ "$dirname" =~ nightly ]]; then
     echo "nightly"
+  elif [[ "$dirname" =~ testnet ]] || [[ "$dirname" =~ rc ]]; then
+    echo "testnet"
   else
     # processed-docs or unrecognized — skip version check
     echo ""
@@ -349,6 +351,8 @@ get_expected_ts_api_version() {
     echo "devnet"
   elif [[ "$dirname" =~ nightly ]]; then
     echo "nightly"
+  elif [[ "$dirname" =~ testnet ]] || [[ "$dirname" =~ rc ]]; then
+    echo "testnet"
   else
     # processed-docs maps to "next"
     echo "next"

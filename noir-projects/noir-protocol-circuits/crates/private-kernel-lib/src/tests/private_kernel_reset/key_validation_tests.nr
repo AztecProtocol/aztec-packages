@@ -1,5 +1,5 @@
 use super::{KEY_VALIDATION_HINTS_LEN, TestBuilder};
-use types::tests::utils::{assert_array_eq, swap_items};
+use protocol_test_utils::{assert_array_eq, swap_items};
 
 // Note: Only a few cases are tested here to ensure that the code path to the `KeyValidationRequestsValidator` is
 // reached. More comprehensive tests for validating and propagating key validation requests can be

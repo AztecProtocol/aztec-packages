@@ -118,7 +118,7 @@ unconstrained fn assert_contract_was_initialized_by_before_initialization_fails(
     );
 }
 
-#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+#[test(should_fail_with = "Cannot prove nullifier non-inclusion")]
 unconstrained fn assert_contract_bytecode_was_not_published_by_of_deployed_fails() {
     let (env, contract_address, _owner, _init_hash) = setup();
 
@@ -150,7 +150,7 @@ unconstrained fn assert_contract_was_initialized_by_with_wrong_init_hash_fails()
     );
 }
 
-#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+#[test(should_fail_with = "Cannot prove nullifier non-inclusion")]
 unconstrained fn assert_contract_was_not_initialized_by_of_initialized_fails() {
     let (env, contract_address, _owner, init_hash) = setup();
 

@@ -17,8 +17,10 @@
 #elif defined(_WIN32)
 #define NOMINMAX
 #define PSAPI_VERSION 1
-#include <psapi.h>
+// clang-format off
 #include <windows.h>
+#include <psapi.h>
+// clang-format on
 #endif
 
 namespace {
