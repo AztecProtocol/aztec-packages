@@ -160,6 +160,10 @@ namespace sha256;
     pol commit max_mem_addr; // todo: While we do not support constants
     start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `max_state_addr`, `max_input_addr`, `max_output_addr` are sums of an address (< 2^32 by
+    // addressing resolution) and a small constant, so each is < 2^33.
+    // `max_mem_addr` = AVM_HIGHEST_MEM_ADDRESS which is < 2^32.
     pol commit max_state_addr;
     max_state_addr = start * (state_addr + 7); // We read 8 elements for the state
     #[CHECK_STATE_ADDR_IN_RANGE]

@@ -23,9 +23,8 @@ comptime fn make_functions_uncallable<let N: u32>(functions: [FunctionDefinition
         let name = function.name();
         // The body of the function will contain a static_assert(false, ...) to prevent the function from being called
         // directly and a std::mem::zeroed() to make the compilation fail on the static_assert and not on a missing
-        // return value. TODO(benesjan): Add a link to the documentation for instructions on the proper invocation of
-        // functions.
-        let error_message = f"{error_message_template}{name}. See documentation for instructions on the proper invocation of functions.";
+        // return value.
+        let error_message = f"{error_message_template}{name}. See https://docs.aztec.network/errors/6";
         let body = f"{{ std::static_assert(false, \"{error_message}\"); std::mem::zeroed() }}".quoted_contents();
         let body_expr = body.as_expr().expect(f"Body is not an expression: {body}");
 
@@ -76,7 +75,7 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     );
     make_functions_uncallable(
         utility_functions,
-        "Calling utility functions directly from within the contract is not supported. You attempted to call ",
+        "Direct invocation of utility functions is not supported. You attempted to call ",
     );
 
     // INTERNAL FUNCTIONS

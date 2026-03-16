@@ -36,15 +36,15 @@ concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
 
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
-template <typename _Curve, bool _use_bigfield = false> struct TestType {
+template <typename Curve_, typename ScalarField_, bool use_bigfield> struct TestType {
   public:
-    using Curve = _Curve;
-    static const bool use_bigfield = _use_bigfield;
-    using element_ct =
-        typename std::conditional<_use_bigfield, typename Curve::g1_bigfr_ct, typename Curve::Group>::type;
+    using Curve = Curve_;
+    // The base field is always a bigfield, so we only have to select the scalar field type
+    using bigfield_element = bb::stdlib::
+        element<typename Curve::Builder, typename Curve::BaseField, ScalarField_, typename Curve::GroupNative>;
+    using element_ct = std::conditional_t<use_bigfield, bigfield_element, typename Curve::Group>;
     // the field of scalars acting on element_ct
-    using scalar_ct =
-        typename std::conditional<_use_bigfield, typename Curve::bigfr_ct, typename Curve::ScalarField>::type;
+    using scalar_ct = ScalarField_;
 };
 
 STANDARD_TESTING_TAGS
@@ -1383,21 +1383,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
         // If with_edgecases = true, should handle linearly dependent points correctly
-        // Define masking scalar (128 bits)
-        const auto get_128_bit_scalar = []() {
-            uint256_t scalar_u256(0, 0, 0, 0);
-            scalar_u256.data[0] = engine.get_random_uint64();
-            scalar_u256.data[1] = engine.get_random_uint64();
-            fr scalar(scalar_u256);
-            return scalar;
-        };
-        fr masking_scalar = get_128_bit_scalar();
-        scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+        // (offset generator is now a free witness sampled inside batch_mul)
         element_ct c = element_ct::batch_mul(points,
                                              scalars,
                                              /*max_num_bits*/ 128,
-                                             /*with_edgecases*/ true,
-                                             /*masking_scalar*/ masking_scalar_ct);
+                                             /*with_edgecases*/ true);
         element input_e = (element(input_P_a) * scalar_a);
         element input_f = (element(input_P_b) * scalar_b);
         element input_g = (element(input_P_c) * scalar_c);
@@ -1511,20 +1501,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             circuit_points.push_back(P);
         }
 
-        // Define masking scalar (128 bits) if with_edgecases is true
-        const auto get_128_bit_scalar = []() {
-            uint256_t scalar_u256(0, 0, 0, 0);
-            scalar_u256.data[0] = engine.get_random_uint64();
-            scalar_u256.data[1] = engine.get_random_uint64();
-            fr scalar(scalar_u256);
-            return scalar;
-        };
-        fr masking_scalar = with_edgecases ? get_128_bit_scalar() : fr(1);
-        scalar_ct masking_scalar_ct =
-            with_edgecases ? scalar_ct::from_witness(&builder, masking_scalar) : scalar_ct(&builder, fr(1));
-
-        element_ct result_point = element_ct::batch_mul(
-            circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases, masking_scalar_ct);
+        element_ct result_point =
+            element_ct::batch_mul(circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases);
 
         element expected_point = g1::one;
         expected_point.self_set_infinity();
@@ -2370,22 +2348,27 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 };
 
 // bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
-using bn254_with_ultra = stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/false>>;
+using bn254_with_ultra =
+    TestType<stdlib::bn254<bb::UltraCircuitBuilder>, stdlib::bn254<bb::UltraCircuitBuilder>::ScalarField, false>;
 
 // bn254 with ultra arithmetisation where both scalar and base fields are non-native fields
-using bn254_with_ultra_scalar_bigfield =
-    stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using bn254_with_ultra_scalar_bigfield = TestType<stdlib::bn254<bb::UltraCircuitBuilder>,
+                                                  bb::stdlib::bigfield<bb::UltraCircuitBuilder, bb::Bn254FrParams>,
+                                                  true>;
 
 // bn254 with mega arithmetisation where scalar field is native field, base field is non-native field
-using bn254_with_mega = stdlib_biggroup<TestType<stdlib::bn254<bb::MegaCircuitBuilder>, /*_use_bigfield=*/false>>;
+using bn254_with_mega =
+    TestType<stdlib::bn254<bb::MegaCircuitBuilder>, stdlib::bn254<bb::MegaCircuitBuilder>::ScalarField, false>;
 
 // secp256r1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
-using secp256r1_with_ultra =
-    stdlib_biggroup<TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using secp256r1_with_ultra = TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>,
+                                      stdlib::secp256r1<bb::UltraCircuitBuilder>::ScalarField,
+                                      false>;
 
 // secp256k1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
-using secp256k1_with_ultra =
-    stdlib_biggroup<TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using secp256k1_with_ultra = TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>,
+                                      stdlib::secp256k1<bb::UltraCircuitBuilder>::ScalarField,
+                                      false>;
 
 using TestTypes = testing::Types<bn254_with_ultra,
                                  bn254_with_ultra_scalar_bigfield,

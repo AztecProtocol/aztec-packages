@@ -3,13 +3,7 @@ use aztec::macros::aztec;
 
 #[aztec]
 pub contract StatefulTest {
-    use aztec::macros::{
-        functions::{
-            external, initialization_utils::assert_is_initialized_private, initializer, noinitcheck,
-            view,
-        },
-        storage::storage,
-    };
+    use aztec::macros::{functions::{external, initializer, noinitcheck, view}, storage::storage};
     use aztec::{
         messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
@@ -58,18 +52,6 @@ pub contract StatefulTest {
             let note = FieldNote { value };
             self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
         }
-    }
-
-    #[external("private")]
-    fn destroy_and_create(recipient: AztecAddress) {
-        assert_is_initialized_private(self.context);
-        let sender = self.msg_sender();
-
-        let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
-
-        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
     }
 
     #[external("private")]

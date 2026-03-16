@@ -1,4 +1,5 @@
 import { createEthereumChain } from '@aztec/ethereum/chain';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { NoCommitteeError, RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,7 +15,7 @@ import {
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
-import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
+import { createPublicClient, encodeAbiParameters, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
@@ -93,7 +94,7 @@ export class EpochCache implements EpochCacheInterface {
       const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
       const publicClient = createPublicClient({
         chain: chain.chainInfo,
-        transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
+        transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
         pollingInterval: config.viemPollingIntervalMS,
       });
       rollup = new RollupContract(publicClient, rollupOrAddress.toString());
@@ -108,6 +109,7 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForValidatorSet,
       lagInEpochsForRandao,
       targetCommitteeSize,
+      rollupManaLimit,
     ] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
@@ -117,6 +119,7 @@ export class EpochCache implements EpochCacheInterface {
       rollup.getLagInEpochsForValidatorSet(),
       rollup.getLagInEpochsForRandao(),
       rollup.getTargetCommitteeSize(),
+      rollup.getManaLimit(),
     ] as const);
 
     const l1RollupConstants = {
@@ -129,6 +132,7 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForValidatorSet: Number(lagInEpochsForValidatorSet),
       lagInEpochsForRandao: Number(lagInEpochsForRandao),
       targetCommitteeSize: Number(targetCommitteeSize),
+      rollupManaLimit: Number(rollupManaLimit),
     };
 
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);

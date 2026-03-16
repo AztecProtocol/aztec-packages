@@ -139,6 +139,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                                                   const std::string& primary_url,
                                                   const std::string& fallback_url)
 {
+    BB_BENCH_NAME("get_bn254_g1_data");
     std::filesystem::create_directories(path);
 
     auto g1_path = path / "bn254_g1.dat";
@@ -148,14 +149,20 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
 
     size_t g1_downloaded_points = get_file_size(g1_path) / sizeof(g1::affine_element);
 
+    auto deserialize_points = [](const std::vector<uint8_t>& data, size_t n) {
+        auto points = std::vector<g1::affine_element>(n);
+        parallel_for([&](const ThreadChunk& tc) {
+            for (size_t i : tc.range(n)) {
+                points[i] = from_buffer<g1::affine_element>(data, i * sizeof(g1::affine_element));
+            }
+        });
+        return points;
+    };
+
     if (g1_downloaded_points >= num_points) {
         vinfo("using cached bn254 crs with num points ", std::to_string(g1_downloaded_points), " at ", g1_path);
         auto data = read_file(g1_path, num_points * sizeof(g1::affine_element));
-        auto points = std::vector<g1::affine_element>(num_points);
-        for (size_t i = 0; i < num_points; ++i) {
-            points[i] = from_buffer<g1::affine_element>(data, i * sizeof(g1::affine_element));
-        }
-        return points;
+        return deserialize_points(data, num_points);
     }
 
     if (!allow_download && g1_downloaded_points == 0) {
@@ -173,11 +180,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     if (g1_downloaded_points >= num_points) {
         vinfo("using cached bn254 crs with num points ", std::to_string(g1_downloaded_points), " at ", g1_path);
         auto data = read_file(g1_path, num_points * sizeof(g1::affine_element));
-        auto points = std::vector<g1::affine_element>(num_points);
-        for (size_t i = 0; i < num_points; ++i) {
-            points[i] = from_buffer<g1::affine_element>(data, i * sizeof(g1::affine_element));
-        }
-        return points;
+        return deserialize_points(data, num_points);
     }
 
     // Round up to chunk boundary so every downloaded byte is hash-verified
@@ -186,11 +189,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     auto data = download_bn254_g1_data(download_points, primary_url, fallback_url);
     write_file(g1_path, data);
 
-    auto points = std::vector<g1::affine_element>(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        points[i] = from_buffer<g1::affine_element>(data, i * sizeof(g1::affine_element));
-    }
-    return points;
+    return deserialize_points(data, num_points);
 }
 
 // Default overload using production URLs

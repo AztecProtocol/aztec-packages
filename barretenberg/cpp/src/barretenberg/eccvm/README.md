@@ -155,7 +155,7 @@ The first thing to specify is our windowed non-adjacent form (wNAF). This is an 
 **Warning**: our implementation is _not_ what is usually called wNAF. To avoid confusion, we simply avoid discussion on traditional (w)NAF.
 
 Here is the key mathematical claim: for a 128-bit positive number \f$s\f$, we can uniquely write:
-\f[s = \sum_{j=0}^{31} a_j 2^{4j} + \text{skew},\f]
+\f[s = \sum_{j=0}^{31} a_j 2^{4j} - \text{skew},\f]
 where
 
 - each \f$a_j\in \{-2^{4}+1, -2^{4}+3,\ldots, 2^{4}-1\}\f$
@@ -175,10 +175,10 @@ To do this, we break up our computation into steps.
 
 #### Precomputation
 
-For each \f$s_i\f$, we expand it in wNAF form:\f$s_i = \sum_{j=0}^{31} a_{i, j} 2^{4j} + \text{skew}_i\f$.
+For each \f$s_i\f$, we expand it in wNAF form:\f$s_i = \sum_{j=0}^{31} a_{i, j} 2^{4j} - \text{skew}_i\f$.
 
 For every \f$P_i\f$, precompute and store the multiples: \f[\{-15P_i, -13P_i, \ldots, 13P_i, 15P_i\}\f]
-as well as \f$2P_i\f$. Note that, \f$E\f$ is represented in Weierstrass form, \f$nP\f$ and \f$-nP\f$ have the same affine \f$y\f$-coordinate and the \f$x\f$-coordinates differ by a sign.
+as well as \f$2P_i\f$. Note that, \f$E\f$ is represented in Weierstrass form, \f$nP\f$ and \f$-nP\f$ have the same affine \f$x\f$-coordinate and the \f$y\f$-coordinates differ by a sign.
 
 #### Algorithm
 
@@ -348,7 +348,7 @@ As the set of precomputed columns is small, we include the code snippet.
 
 As discussed in [Decomposing Scalars](#decomposing-scalars), WLOG our scalars have 128 bits and we may expand them in \f$w=4\f$ [wNAF](#wnaf):
 
-\f[s = \sum_{j=0}^{31} a_j 2^{4j} + \text{skew},\f]
+\f[s = \sum_{j=0}^{31} a_j 2^{4j} - \text{skew},\f]
 where
 
 - each \f$a_j\in \{-2^{4}+1, -2^{4}+3,\ldots, 2^{4}-1\}\f$
@@ -388,7 +388,7 @@ The following is one row in the Precomputed table; there are `NUM_WNAF_DIGITS_PE
 | \f$\precomputesthreelo\f$ | s6 | \f$[0, 4)\f$ | | second two bits of \f$\text{compress}(a_{31 - (4i + 2)})\f$ |
 | \f$\precomputesfourhi\f$ | s7 | \f$[0, 4)\f$ | | first two bits of \f$\text{compress}(a_{31 - (4i + 3)})\f$ |
 | \f$\precomputesfourlo\f$ | s8 | \f$[0, 4)\f$ | | second two bits of \f$\text{compress}(a_{31 - (4i + 3)})\f$ |
-| \f$\precomputeskew\f$ | skew | \f$\{0,1\}\f$ | | skew bit |
+| \f$\precomputeskew\f$ | skew | \f$\{0,7\}\f$ | | skew bit |
 | \f$\precomputepointtransition\f$ | point_transition | \f$\{0,1\}\f$ | | are we at the last row corresponding to this scalar? |
 | \f$\precomputepc\f$ | pc | \f$\fq\f$ | | value of the point counter of this EC operation |
 | \f$\precomputeround\f$ | round | \f$\fq\f$ | | "row" of the computation, i.e., `i`. |
@@ -408,7 +408,7 @@ template <typename CycleGroup> struct ScalarMul {
     typename CycleGroup::affine_element base_point;
     std::array<int, NUM_WNAF_DIGITS_PER_SCALAR>
         wnaf_digits; // [a_{n-1}, a_{n-1}, ..., a_{0}], where each a_i ∈ {-2ʷ⁻¹ + 1, -2ʷ⁻¹ + 3, ..., 2ʷ⁻¹ - 3, 2ʷ⁻¹ -
-                     // 1} ∪ {0}. (here, w = `NUM_WNAF_DIGIT_BITS`). in particular, a_i is an odd integer with
+                     // 1}. (here, w = `NUM_WNAF_DIGIT_BITS`). in particular, a_i is an odd integer with
                      // absolute value less than 2ʷ. Represents the number `scalar` = ∑ᵢ aᵢ 2⁴ⁱ - `wnaf_skew`.
     bool wnaf_skew; // necessary to represent _even_ integers
     // size bumped by 1 to record base_point.dbl()
@@ -440,7 +440,7 @@ The constraints are straightforward.
 
   - if \f$\precomputepointtransition = 1\f$, constrain \f$2P = (\precomputedx, \precomputedy)\f$
   - if \f$\precomputepointtransition = 0\f$, constrain \f$(\textbf{shift}(\precomputedx), \textbf{shift}(\precomputedy)) = (\precomputedx, \precomputedy)\f$. (Here, \f$\textbf{shift}\f$ means "the next value of the column".)
-  - if \f$\precomputepointtransition = 0\f$, constrain \f[(\textbf{shift}(\precomputetx), \textbf{shift}(\precomputety)) = (\precomputedx, \precomputedy) + (\precomputetx, \precomputety),\f]where the latter addition of course happens on \f$E\f$.
+  - if \f$\precomputepointtransition = 0\f$, constrain \f[(\precomputetx, \precomputety)= (\precomputedx, \precomputedy) + (\textbf{shift}(\precomputetx), \textbf{shift}(\precomputety)),\f]where the latter addition of course happens on \f$E\f$.
 
 - We emphasize that these EC constraints will only be turned on after the first row, as these values have no _neutral_ value that we can use for the first row (especially as it is critical that they are never \f$\NeutralElt\f$).
 - We constrain \f$\precomputeround\f$ as follows. (Note that it _is not_ naively range-constrained.)

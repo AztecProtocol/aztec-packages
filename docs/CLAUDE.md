@@ -120,7 +120,7 @@ Default content
 
 This site uses **Docusaurus multi-instance docs** with independent versioning:
 
-- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (devnet + nightly versions)
+- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (testnet + devnet + nightly versions)
 - **Network Guides** (`/network/`) - Node operation and network participation (testnet + ignition versions)
 
 ### Auto-Generated API Documentation

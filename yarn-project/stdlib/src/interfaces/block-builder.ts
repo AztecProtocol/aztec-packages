@@ -53,7 +53,7 @@ export interface PublicProcessorValidator {
   nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
 }
 
-export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
+export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'rollupManaLimit'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<
     SequencerConfig,
@@ -64,10 +64,10 @@ export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime'
     | 'maxTxsPerCheckpoint'
     | 'maxL2BlockGas'
     | 'maxDABlockGas'
-  > & {
-    /** Total L2 gas (mana) allowed per checkpoint. Fetched from L1 getManaLimit(). */
-    rollupManaLimit: number;
-  };
+    | 'redistributeCheckpointBudget'
+    | 'perBlockAllocationMultiplier'
+    | 'maxBlocksPerCheckpoint'
+  >;
 
 export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
   'l1GenesisTime',
@@ -82,13 +82,20 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'maxL2BlockGas',
   'maxDABlockGas',
   'rollupManaLimit',
+  'redistributeCheckpointBudget',
+  'perBlockAllocationMultiplier',
+  'maxBlocksPerCheckpoint',
 ] as const;
 
-/** Thrown when no valid transactions are available to include in a block after processing, and this is not the first block in a checkpoint. */
-export class NoValidTxsError extends Error {
-  constructor(public readonly failedTxs: FailedTx[]) {
-    super('No valid transactions to include in block');
-    this.name = 'NoValidTxsError';
+/** Thrown when the number of successfully processed transactions is below the required minimum. */
+export class InsufficientValidTxsError extends Error {
+  constructor(
+    public readonly processedCount: number,
+    public readonly minRequired: number,
+    public readonly failedTxs: FailedTx[],
+  ) {
+    super(`Insufficient valid txs: got ${processedCount} but need ${minRequired}`);
+    this.name = 'InsufficientValidTxsError';
   }
 }
 
@@ -103,11 +110,12 @@ export type BuildBlockInCheckpointResult = {
 
 /** Interface for building blocks within a checkpoint context. */
 export interface ICheckpointBlockBuilder {
+  /** Builds a single block within this checkpoint. Throws InsufficientValidTxsError if fewer than minValidTxs succeed. */
   buildBlock(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits,
+    opts: PublicProcessorLimits & { minValidTxs?: number },
   ): Promise<BuildBlockInCheckpointResult>;
 }
 

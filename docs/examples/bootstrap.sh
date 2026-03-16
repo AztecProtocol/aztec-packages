@@ -214,6 +214,28 @@ case "$cmd" in
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
+
+      # Print a prominent error summary at the bottom of the log
+      echo ""
+      echo "============================================================"
+      echo "  DOCS EXAMPLES FAILURE SUMMARY"
+      echo "============================================================"
+      for i in "${!FAILED_STEPS[@]}"; do
+        echo ""
+        echo "--- FAILED: ${FAILED_STEPS[$i]} ---"
+        # Extract lines containing 'error' or 'ERROR' for a concise summary
+        error_lines=$(echo "${FAILED_OUTPUTS[$i]}" | grep -i 'error' || true)
+        if [[ -n "$error_lines" ]]; then
+          echo "$error_lines"
+        else
+          # If no error lines found, show the last 20 lines of output
+          echo "${FAILED_OUTPUTS[$i]}" | tail -20
+        fi
+      done
+      echo ""
+      echo "============================================================"
+      echo ""
+
       # Block PRs on failure, but allow merge queue to proceed (may be transient infra issues)
       if [[ ! "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
         echo "ERROR: Docs examples validation failed. Failing the build."

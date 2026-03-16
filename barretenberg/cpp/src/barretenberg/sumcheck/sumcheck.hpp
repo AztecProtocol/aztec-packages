@@ -22,7 +22,7 @@ namespace bb {
  * @brief Handler for processing round univariates in sumcheck.
  * Default implementation: send evaluations directly to transcript.
  */
-template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> struct RoundUnivariateHandler {
+template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor>> struct RoundUnivariateHandler {
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -648,9 +648,9 @@ template <typename Flavor> class SumcheckProver {
      * @details Reads from source_polynomials and writes to dest_polynomials.
      * See Sumcheck.md for detailed mathematical documentation of the book-keeping table approach.
      */
-    void partially_evaluate(auto& source_polynomials,
-                            PartiallyEvaluatedMultivariates& dest_polynomials,
-                            const FF& round_challenge)
+    static void partially_evaluate(auto& source_polynomials,
+                                   PartiallyEvaluatedMultivariates& dest_polynomials,
+                                   const FF& round_challenge)
     {
         auto source_view = source_polynomials.get_all();
         auto dest_view = dest_polynomials.get_all();
@@ -681,7 +681,7 @@ template <typename Flavor> class SumcheckProver {
     /**
      * @brief Evaluate at the round challenge in-place.
      */
-    void partially_evaluate_in_place(PartiallyEvaluatedMultivariates& polynomials, const FF& round_challenge)
+    static void partially_evaluate_in_place(PartiallyEvaluatedMultivariates& polynomials, const FF& round_challenge)
     {
         partially_evaluate(polynomials, polynomials, round_challenge);
     };

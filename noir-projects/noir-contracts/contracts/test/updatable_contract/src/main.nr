@@ -1,10 +1,11 @@
 use aztec::macros::aztec;
 
-/// A contract that can be updated to a new contract class. Used to test contract updates in e2e_contract_updates.test.ts.
+/// A contract that can be updated to a new contract class. Used to test contract updates in
+/// e2e_contract_updates.test.ts.
 #[aztec]
 contract Updatable {
     use aztec::{
-        macros::{functions::{external, initializer}, storage::storage},
+        macros::{functions::{external, initializer, internal, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol::{
             address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
@@ -29,12 +30,18 @@ contract Updatable {
         self.storage.private_value.at(owner).initialize(note).deliver(
             MessageDelivery.ONCHAIN_CONSTRAINED,
         );
-        self.enqueue_self.set_public_value(initial_value);
+        self.enqueue_self._initialize_public_value(initial_value);
     }
 
     #[external("public")]
     fn set_public_value(new_value: Field) {
-        self.storage.public_value.write(new_value);
+        self.internal.write_public_value(new_value);
+    }
+
+    #[external("public")]
+    #[only_self]
+    fn _initialize_public_value(new_value: Field) {
+        self.internal.write_public_value(new_value);
     }
 
     #[external("private")]
@@ -53,6 +60,11 @@ contract Updatable {
     fn get_update_delay() -> u64 {
         self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay())
+    }
+
+    #[internal("public")]
+    fn write_public_value(new_value: Field) {
+        self.storage.public_value.write(new_value);
     }
 
     #[external("utility")]

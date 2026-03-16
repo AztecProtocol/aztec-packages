@@ -91,16 +91,25 @@ fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeH
 mod tests {
     use crate::{
         abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        merkle_tree::merkle_tree::MerkleTree,
-        tests::{
-            merkle_tree_utils::single_subtree_merkle_tree::{
-                compute_zero_hashes, SingleSubtreeMerkleTree,
-            },
-            utils::pad_end,
+        merkle_tree::{
+            merkle_tree::MerkleTree,
+            test_utils::{compute_zero_hashes, SingleSubtreeMerkleTree},
         },
+        traits::Empty,
         utils::arrays::subarray,
     };
     use super::insert_subtree_root_to_snapshot;
+
+    fn pad_end<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
+    where
+        T: Empty,
+    {
+        let mut output = [T::empty(); M];
+        for i in 0..N {
+            output[i] = items[i];
+        }
+        output
+    }
 
     struct TestBuilder<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> {
         tree: SingleSubtreeMerkleTree<SubtreeWidth, SubtreeHeight, TreeHeight>,

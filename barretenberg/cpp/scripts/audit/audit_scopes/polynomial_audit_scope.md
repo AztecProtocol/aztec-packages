@@ -1,7 +1,7 @@
 # External Audit Scope: polynomial
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD (link)
+Commit hash: 94f596f8b3bbbc216f9ad7dc33253256141156b2
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`

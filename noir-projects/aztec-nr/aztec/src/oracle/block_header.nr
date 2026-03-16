@@ -61,7 +61,7 @@ fn constrain_get_block_header_at_internal(
     // 3) Check that the block is in the archive (i.e. the witness is valid)
     assert_eq(
         anchor_block_header.last_archive.root,
-        root_from_sibling_path(block_hash, witness.index, witness.path),
+        root_from_sibling_path(block_hash, witness.leaf_index, witness.sibling_path),
         "Proving membership of a block in archive failed",
     );
 

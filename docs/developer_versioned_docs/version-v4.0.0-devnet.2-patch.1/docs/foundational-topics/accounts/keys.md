@@ -59,6 +59,27 @@ This last point could be confusing for most developers: how could a protocol ver
 
 :::
 
+#### Accessing nullifier keys in code
+
+The nullifier hiding key (`nhk`) — sometimes referred to in older documentation as the "nullifier secret key" (`nsk`) — is the secret scalar used to compute nullifiers. You should **never** derive or construct this key manually. Use the framework-provided functions:
+
+| Context | Function | Import / Access |
+|---------|----------|----------------|
+| Private (constrained) | `context.request_nhk_app(owner_npk_m_hash)` | Called on `&mut PrivateContext` |
+| Unconstrained | `get_nhk_app(owner_npk_m_hash)` | `use aztec::keys::getters::get_nhk_app` |
+| TypeScript (master key) | `deriveMasterNullifierHidingKey(secretKey)` | `import { deriveMasterNullifierHidingKey } from '@aztec/aztec.js/keys'` |
+| TypeScript (app-siloed) | `computeAppNullifierHidingKey(nhkM, app)` | `import { computeAppNullifierHidingKey } from '@aztec/aztec.js/keys'` |
+
+To get the owner's master nullifier public key hash (needed as input):
+
+```rust
+let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+```
+
+:::warning
+Do not compute nullifier keys by hand or derive custom blinding factors. The protocol kernel validates that `nhk_app` derives correctly from the master key — a hand-rolled value will fail verification.
+:::
+
 ### Incoming Viewing Keys
 
 **Purpose**: Receiving and decrypting private notes

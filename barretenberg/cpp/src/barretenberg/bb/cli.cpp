@@ -827,6 +827,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 throw_or_abort("write_solidity_verifier requires --verifier_target to be 'evm' or 'evm-no-zk', got '" +
                                flags.verifier_target + "'");
             }
+            if (flags.optimized_solidity_verifier && !flags.disable_zk) {
+                throw_or_abort(
+                    "An optimized ZK Solidity verifier is not currently available. "
+                    "Use --verifier_target evm-no-zk, or remove --optimized to use the non-optimized ZK verifier.");
+            }
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }

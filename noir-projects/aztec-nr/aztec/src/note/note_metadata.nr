@@ -83,8 +83,7 @@ impl NoteMetadata {
     }
 
     /// Returns `true` if the note is settled, i.e. if it's been created in a prior transaction and is therefore
-    /// already
-    /// in the note hash tree.
+    /// already in the note hash tree.
     pub fn is_settled(self) -> bool {
         self.stage == NoteStage.SETTLED
     }

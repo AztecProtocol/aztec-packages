@@ -309,9 +309,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return false;
     }
 
-    const archiverSlot = await this.archiver.getL2SlotNumber();
-    if (archiverSlot === undefined || archiverSlot < targetSlot) {
-      this.logger.debug(`Waiting for archiver to sync with L2 slot ${targetSlot}`, { archiverSlot, targetSlot });
+    const syncedSlot = await this.archiver.getSyncedL2SlotNumber();
+    if (syncedSlot === undefined || syncedSlot < targetSlot) {
+      this.logger.debug(`Waiting for archiver to sync with L2 slot ${targetSlot}`, { syncedSlot, targetSlot });
       return false;
     }
 

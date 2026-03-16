@@ -43,6 +43,12 @@ VERSION=#include_devnet_version bash -i <(curl -sL https://install.aztec.network
 The devnet is version dependent. It is currently running version `#include_devnet_version`. Maintain version consistency when interacting with the devnet to reduce errors.
 :::
 
+#if(testnet)
+:::warning
+The Sponsored FPC is **not** deployed on testnet. The `SPONSORED_FPC_ADDRESS` and sponsored fee payment commands in this guide only apply to devnet. On testnet, you must [bridge Fee Juice from L1](./docs/aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1) to pay fees.
+:::
+#endif
+
 ## Getting Started on Devnet
 
 ### Step 1: Set up your environment

@@ -79,6 +79,7 @@ import {
   BlockHeader,
   CallContext,
   HashedValues,
+  type OffchainEffect,
   PrivateExecutionResult,
   TxConstantData,
   TxExecutionRequest,
@@ -89,6 +90,7 @@ import {
 
 import type { AccessScopes } from '../access_scopes.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { MessageContextService } from '../messages/message_context_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
@@ -138,6 +140,7 @@ export type ContractFunctionSimulatorArgs = {
   privateEventStore: PrivateEventStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
+  messageContextService: MessageContextService;
 };
 
 /**
@@ -157,6 +160,7 @@ export class ContractFunctionSimulator {
   private readonly privateEventStore: PrivateEventStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
+  private readonly messageContextService: MessageContextService;
 
   constructor(args: ContractFunctionSimulatorArgs) {
     this.contractStore = args.contractStore;
@@ -171,6 +175,7 @@ export class ContractFunctionSimulator {
     this.privateEventStore = args.privateEventStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
+    this.messageContextService = args.messageContextService;
     this.log = createLogger('simulator');
   }
 
@@ -241,6 +246,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId,
       totalPublicCalldataCount: 0,
@@ -314,7 +320,7 @@ export class ContractFunctionSimulator {
     anchorBlockHeader: BlockHeader,
     scopes: AccessScopes,
     jobId: string,
-  ): Promise<Fr[]> {
+  ): Promise<{ result: Fr[]; offchainEffects: OffchainEffect[] }> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
@@ -335,6 +341,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       jobId,
       scopes,
     });
@@ -362,7 +369,10 @@ export class ContractFunctionSimulator {
         });
 
       this.log.verbose(`Utility execution for ${call.to}.${call.selector} completed`);
-      return witnessMapToFields(acirExecutionResult.returnWitness);
+      return {
+        result: witnessMapToFields(acirExecutionResult.returnWitness),
+        offchainEffects: oracle.getOffchainEffects(),
+      };
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }

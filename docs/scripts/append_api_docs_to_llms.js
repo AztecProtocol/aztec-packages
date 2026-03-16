@@ -18,19 +18,25 @@ const STATIC_DIR = path.join(__dirname, "..", "static");
 // Load version from developer_versions.json (same as docusaurus.config.js)
 const developerVersions = require("../developer_versions.json");
 
-// Find devnet version dynamically (same logic as docusaurus.config.js)
+// Find devnet and testnet versions dynamically (same logic as docusaurus.config.js)
 const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
 if (!devnetVersion) {
   console.warn("Warning: No devnet version found in developer_versions.json");
 }
+const testnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
 
-// The API docs directories use "devnet" as the folder name
+// The API docs directories use stable folder names
 const API_DIRS = [
   {
     name: "Aztec.nr API Reference",
     dir: "aztec-nr-api/devnet",
     description: `Auto-generated API documentation for Aztec.nr (${devnetVersion || "devnet"})`,
   },
+  ...(testnetVersion ? [{
+    name: "Aztec.nr API Reference (Testnet)",
+    dir: "aztec-nr-api/testnet",
+    description: `Auto-generated API documentation for Aztec.nr (${testnetVersion})`,
+  }] : []),
 ];
 
 /**

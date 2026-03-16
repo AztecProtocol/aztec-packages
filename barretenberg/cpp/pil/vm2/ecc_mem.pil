@@ -125,6 +125,9 @@ namespace ecc_add_mem;
     pol commit max_mem_addr; // Column needed until we support constants in lookups
     sel * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `dst_addr[2]` = dst_addr[0] + 2 where dst_addr[0] is an address (< 2^32), so dst_addr[2] < 2^33.
+    // `max_mem_addr` = AVM_HIGHEST_MEM_ADDRESS which is < 2^32.
     #[CHECK_DST_ADDR_IN_RANGE]
     sel { dst_addr[2], max_mem_addr, sel_dst_out_of_range_err }
     in

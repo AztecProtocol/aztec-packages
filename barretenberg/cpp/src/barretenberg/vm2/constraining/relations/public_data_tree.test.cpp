@@ -36,7 +36,6 @@ namespace bb::avm2::constraining {
 namespace {
 
 using ::testing::NiceMock;
-using ::testing::TestWithParam;
 
 using testing::TestMemoryTree;
 
@@ -202,13 +201,13 @@ TEST(PublicDataTreeConstrainingTest, NegativeStartCondition)
                                    { C::public_data_check_sel, 1 },
                                } });
 
-    check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION);
+    check_relation<public_data_check>(trace, public_data_check::SR_TRACE_CONTINUITY);
 
     // Invalid: sel can't be activated if prev is not the first row
     trace.set(C::precomputed_first_row, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION),
-                              "START_CONDITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeExistsFlagCheck)
@@ -808,17 +807,17 @@ TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxInitialValue)
 
 TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxIncrement)
 {
-    // Test constraint: not_end * (write_idx + should_write_to_public_inputs - write_idx') = 0
+    // Test constraint: not_end * (write_idx + sel_write_to_public_inputs - write_idx') = 0
     TestTraceContainer trace({
         {
             { C::public_data_check_not_end, 1 },
             { C::public_data_check_write_idx, 5 },
-            { C::public_data_check_should_write_to_public_inputs, 1 },
+            { C::public_data_check_sel_write_to_public_inputs, 1 },
         },
         {
             { C::public_data_check_not_end, 1 },
             { C::public_data_check_write_idx, 6 },
-            { C::public_data_check_should_write_to_public_inputs, 0 },
+            { C::public_data_check_sel_write_to_public_inputs, 0 },
         },
         {
             { C::public_data_check_write_idx, 6 },
@@ -827,15 +826,15 @@ TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxIncrement)
 
     check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT);
 
-    // Invalid, if should_write_to_public_inputs is 0, the write_idx should not increment
-    trace.set(C::public_data_check_should_write_to_public_inputs, 0, 0);
+    // Invalid, if sel_write_to_public_inputs is 0, the write_idx should not increment
+    trace.set(C::public_data_check_sel_write_to_public_inputs, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT),
                               "WRITE_IDX_INCREMENT");
 
-    // Invalid, if should_write_to_public_inputs is 1, the write_idx should increment
-    trace.set(C::public_data_check_should_write_to_public_inputs, 0, 1);
-    trace.set(C::public_data_check_should_write_to_public_inputs, 1, 1);
+    // Invalid, if sel_write_to_public_inputs is 1, the write_idx should increment
+    trace.set(C::public_data_check_sel_write_to_public_inputs, 0, 1);
+    trace.set(C::public_data_check_sel_write_to_public_inputs, 1, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT),
                               "WRITE_IDX_INCREMENT");
@@ -925,33 +924,74 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeStartCondition)
                                    { C::public_data_squash_sel, 1 },
                                } });
 
-    check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION);
+    check_relation<public_data_squash>(trace, public_data_squash::SR_TRACE_CONTINUITY);
 
     // Invalid: sel can't be activated if prev is not the first row
     trace.set(C::precomputed_first_row, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION),
-                              "START_CONDITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
+}
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeCheckClockCondition)
+{
+    // Test constraint: check_clock = NOT_END * (1 - leaf_slot_increase)
+    // where NOT_END = sel * sel'
+    // So check_clock = sel * sel' * (1 - leaf_slot_increase)
+
+    // Valid: check_clock=1 when sel=1, sel'=1, leaf_slot_increase=0
+    TestTraceContainer trace({ {
+                                   { C::public_data_squash_sel, 1 },
+                                   { C::public_data_squash_check_clock, 1 },
+                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                               },
+                               {
+                                   { C::public_data_squash_sel, 1 },
+                                   { C::public_data_squash_check_clock, 0 },
+                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                               } });
+
+    check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION);
+
+    // Invalid: check_clock=0 but NOT_END=1 and leaf_slot_increase=0 (should be 1)
+    trace.set(C::public_data_squash_check_clock, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION),
+                              "CHECK_CLOCK_CONDITION");
+
+    trace.set(C::public_data_squash_check_clock, 0, 1);
+
+    // Invalid: check_clock=1 but leaf_slot_increase=1 (should be 0)
+    trace.set(C::public_data_squash_leaf_slot_increase, 0, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION),
+                              "CHECK_CLOCK_CONDITION");
+
+    trace.set(C::public_data_squash_leaf_slot_increase, 0, 0);
+
+    // Invalid: check_clock=1 but sel'=0 (NOT_END=0, should be 0)
+    trace.set(C::public_data_squash_sel, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION),
+                              "CHECK_CLOCK_CONDITION");
 }
 
 TEST(PublicDataTreeConstrainingTest, SquashingNegativeCheckSameLeafSlot)
 {
-    // Test constraint: (sel * sel') * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0
+    // Test constraint: check_clock * (leaf_slot - leaf_slot') = 0
     TestTraceContainer trace({ {
-                                   { C::public_data_squash_sel, 1 },
-                                   { C::public_data_squash_leaf_slot_increase, 1 },
+                                   { C::public_data_squash_check_clock, 0 },
                                    { C::public_data_squash_leaf_slot, 27 },
                                },
                                {
-                                   { C::public_data_squash_sel, 1 },
-                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                                   { C::public_data_squash_check_clock, 0 },
                                    { C::public_data_squash_leaf_slot, 40 },
                                } });
 
     check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_SAME_LEAF_SLOT);
 
     // Invalid: if leaf_slot_increase is 0, the leaf_slot should not be different from the previous leaf_slot
-    trace.set(C::public_data_squash_leaf_slot_increase, 0, 0);
+    trace.set(C::public_data_squash_check_clock, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_SAME_LEAF_SLOT),
                               "CHECK_SAME_LEAF_SLOT");
@@ -1091,7 +1131,7 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeClockDecomposition)
         },
         {
             { C::public_data_squash_sel, 1 },
-            { C::public_data_squash_clk, (1 << 25) + (12 << 16) + 37 },
+            { C::public_data_squash_clk, (1 << 25) + (12 << 16) + 38 },
         },
     });
 

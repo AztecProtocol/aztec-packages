@@ -1372,6 +1372,11 @@ pol HIGHEST_SLICE_ADDRESS = constants.AVM_HIGHEST_MEM_ADDRESS - constants.AVM_KE
 pol commit highest_slice_address;
 start * (highest_slice_address - HIGHEST_SLICE_ADDRESS) = 0;
 
+// Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+// `src_addr` and `dst_addr` are addresses (< 2^32 by addressing resolution).
+// In execution spec table, KECCAKF1600 has `num_addresses = 2`, so `rop[0] == dst_addr`
+// and `rop[1] == src_addr` are addresses (< 2^32).
+// `highest_slice_address` = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1 which is < 2^32.
 // start == 1 ==> [src_out_of_range_error == 1 <==> src_addr > HIGHEST_SLICE_ADDRESS]
 #[SRC_OUT_OF_RANGE_TOGGLE]
 start { src_addr, highest_slice_address, src_out_of_range_error } in gt.sel_others { gt.input_a, gt.input_b, gt.res };

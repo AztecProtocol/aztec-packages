@@ -7,7 +7,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
@@ -23,14 +23,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   const signalHandlers: Array<() => Promise<void>> = [];
   const services: NamespacedApiHandlers = {};
   const adminServices: NamespacedApiHandlers = {};
+  const packageVersion = getPackageVersion();
   let config: ChainConfig | undefined = undefined;
 
   if (options.localNetwork) {
-    const cliVersion = getPackageVersion() ?? 'unknown';
     const localNetwork = extractNamespacedOptions(options, 'local-network');
     localNetwork.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
-    userLog(`Setting up Aztec local network ${cliVersion}, please stand by...`);
+    userLog(`Setting up Aztec local network ${packageVersion ?? 'unknown'}, please stand by...`);
 
     const { node, stop } = await createLocalNetwork(
       {
@@ -50,6 +50,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
+    adminServices.node = [node, AztecNodeAdminApiSchema];
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
@@ -89,13 +90,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   installSignalHandlers(debugLogger.info, signalHandlers);
   const versions = getVersions(config);
+  const versioningOpts = { packageVersion };
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       http200OnError: false,
       log: debugLogger,
-      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
+      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
     });
@@ -105,7 +107,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // If there are any admin services, start a separate JSON-RPC server for them
   if (Object.entries(adminServices).length > 0) {
-    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)];
+    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)];
 
     // Resolve the admin API key (auto-generated and persisted, or opt-out)
     const apiKeyResolution = await resolveAdminApiKey(
