@@ -5832,15 +5832,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-<<<<<<< HEAD
 "tar@npm:^7.4.3":
-  version: 7.4.3
-  resolution: "tar@npm:7.4.3"
-=======
-"tar@npm:^7.5.4":
   version: 7.5.11
   resolution: "tar@npm:7.5.11"
->>>>>>> d11638dfc1 (fix: dependabot alerts (#21531))
   dependencies:
     "@isaacs/fs-minipass": "npm:^4.0.0"
     chownr: "npm:^3.0.0"
@@ -5848,11 +5842,7 @@ __metadata:
     minizlib: "npm:^3.0.1"
     mkdirp: "npm:^3.0.1"
     yallist: "npm:^5.0.0"
-<<<<<<< HEAD
-  checksum: 10c0/d4679609bb2a9b48eeaf84632b6d844128d2412b95b6de07d53d8ee8baf4ca0857c9331dfa510390a0727b550fd543d4d1a10995ad86cdf078423fbb8d99831d
-=======
   checksum: 10c0/b6bb420550ef50ef23356018155e956cd83282c97b6128d8d5cfe5740c57582d806a244b2ef0bf686a74ce526babe8b8b9061527623e935e850008d86d838929
->>>>>>> d11638dfc1 (fix: dependabot alerts (#21531))
   languageName: node
   linkType: hard
 

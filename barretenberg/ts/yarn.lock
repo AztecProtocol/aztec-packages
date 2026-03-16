@@ -2818,15 +2818,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-<<<<<<< HEAD
 "glob@npm:^10.2.2, glob@npm:^10.3.10":
-  version: 10.4.5
-  resolution: "glob@npm:10.4.5"
-=======
-"glob@npm:^10.3.10":
   version: 10.5.0
   resolution: "glob@npm:10.5.0"
->>>>>>> d11638dfc1 (fix: dependabot alerts (#21531))
   dependencies:
     foreground-child: "npm:^3.1.0"
     jackspeak: "npm:^3.1.2"
@@ -3753,16 +3747,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-<<<<<<< HEAD
-=======
-"lru-cache@npm:^11.0.0, lru-cache@npm:^11.1.0, lru-cache@npm:^11.2.1":
-  version: 11.2.7
-  resolution: "lru-cache@npm:11.2.7"
-  checksum: 10/fbff4b8dee8189dde9b52cdfb3ea89b4c9cec094c1538cd30d1f47299477ff312efdb35f7994477ec72328f8e754e232b26a143feda1bd1f79ff22da6664d2c5
-  languageName: node
-  linkType: hard
-
->>>>>>> d11638dfc1 (fix: dependabot alerts (#21531))
 "lru-cache@npm:^5.1.1":
   version: 5.1.1
   resolution: "lru-cache@npm:5.1.1"
