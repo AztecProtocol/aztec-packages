@@ -39,7 +39,6 @@
     "key-store",
     "kv-store",
     "l1-artifacts",
-    "merkle-tree",
     "native",
     "node-keystore",
     "node-lib",
