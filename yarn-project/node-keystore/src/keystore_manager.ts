@@ -272,7 +272,7 @@ export class KeystoreManager {
 
   /** Create a signer for the top-level funding account, if configured. */
   createFundingSigner(): EthSigner | undefined {
-    throw new Error('Not implemented');
+    return undefined;
   }
 
   /**

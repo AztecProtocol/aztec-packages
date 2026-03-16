@@ -120,7 +120,7 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   }
 
   /** Fund a single publisher by sending ETH from the funding account. */
-  private fundPublisher(_publisher: UtilsType): Promise<void> {
-    throw new Error('Not implemented');
+  private async fundPublisher(_publisher: UtilsType): Promise<void> {
+    // Stage 1 stub — no-op. Implementation in Stage 3.
   }
 }
