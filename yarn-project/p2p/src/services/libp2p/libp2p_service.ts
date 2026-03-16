@@ -226,7 +226,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.validateMaxTxsPerBlock,
+      maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
