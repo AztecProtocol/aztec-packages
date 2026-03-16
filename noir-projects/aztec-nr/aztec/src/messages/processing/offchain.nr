@@ -236,9 +236,7 @@ pub unconstrained fn sync_inbox(
 
 mod test {
     use crate::{
-        capsules::CapsuleArray,
-        oracle::random::random,
-        protocol::{address::AztecAddress, traits::FromField},
+        capsules::CapsuleArray, oracle::random::random, protocol::address::AztecAddress,
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
