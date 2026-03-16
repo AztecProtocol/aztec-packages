@@ -100,6 +100,7 @@ describe('e2e_offchain_payment', () => {
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
+    // Deliver Bob's offchain message (the payment note).
     await contract.methods
       .offchain_receive([
         {
@@ -111,7 +112,24 @@ describe('e2e_offchain_payment', () => {
       ])
       .simulate({ from: bob });
 
-    // Force an empty block so the PXE re-syncs and discovers the offchain-delivered notes.
+    // TODO(F-324): until we implement F-324, we need Alice to self-deliver her own change note
+    const messageForAlice = offchainMessages.find(msg => msg.recipient.equals(alice));
+    expect(messageForAlice).toBeTruthy();
+
+    // Deliver Alice's offchain message (the change note).
+    await contract.methods
+      .offchain_receive([
+        {
+          ciphertext: messageForAlice!.payload,
+          recipient: alice,
+          tx_hash: receipt.txHash.hash,
+          anchor_block_timestamp: messageForAlice!.anchorBlockTimestamp,
+        },
+      ])
+      .simulate({ from: alice });
+
+    // TODO(F-383) Force an empty block so the PXE re-syncs and discovers the offchain-delivered notes.
+    // Remove this once we have F-383.
     await forceEmptyBlock();
 
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
@@ -145,7 +163,7 @@ describe('e2e_offchain_payment', () => {
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
-    // Deliver the offchain message for eventual processing
+    // Deliver Bob's offchain message (the payment note).
     await contract.methods
       .offchain_receive([
         {
@@ -156,6 +174,21 @@ describe('e2e_offchain_payment', () => {
         },
       ])
       .simulate({ from: bob });
+
+    // Deliver Alice's offchain message (the change note).
+    const messageForAlice = offchainMessages.find(msg => msg.recipient.equals(alice));
+    expect(messageForAlice).toBeTruthy();
+
+    await contract.methods
+      .offchain_receive([
+        {
+          ciphertext: messageForAlice!.payload,
+          recipient: alice,
+          tx_hash: txHash.hash,
+          anchor_block_timestamp: messageForAlice!.anchorBlockTimestamp,
+        },
+      ])
+      .simulate({ from: alice });
 
     // TODO: revisit this. The call to offchain_receive is a utility and as such it causes the contract to sync, which,
     // in combination with our caching policies, means subsequent utility calls won't trigger a re-sync.
