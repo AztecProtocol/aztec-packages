@@ -124,10 +124,13 @@ class ThreadedAsyncOperation {
                         auto error = Napi::Error::New(env, op->_error);
                         op->_deferred->Reject(error.Value());
                     }
-                    // Release the TSFN and self-destruct
                     op->_completion_tsfn.Release();
-                    delete op;
                 });
+            // BlockingCall has returned — the callback is done and the TSFN is released,
+            // but `this` is still alive. Safe to delete now (moving it into the callback
+            // caused a use-after-free / SIGBUS on macOS because BlockingCall was still
+            // unwinding through the destroyed _completion_tsfn member).
+            delete this;
         }).detach();
     }
 
