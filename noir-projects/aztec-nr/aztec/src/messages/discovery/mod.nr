@@ -31,15 +31,14 @@ pub struct NoteHashAndNullifier {
     pub inner_nullifier: Option<Field>,
 }
 
-/// A contract's way of computing note hashes and nullifiers.
+/// A contract's way of computing note hashes.
 ///
-/// Each contract in the network is free to compute their note's hash and nullifiers as they see fit - the hash
-/// function itself and the nullifier derivation are not enshrined or standardized. Some aztec-nr functions however do
-/// need to know the details of this computation (e.g. when finding new notes), which is what this type represents.
+/// Each contract in the network is free to compute their note's hash as they see fit - the hash function itself is not
+/// enshrined or standardized. Some aztec-nr functions however do need to know the details of this computation (e.g.
+/// when finding new notes), which is what this type represents.
 ///
-/// This function takes a note's packed content, storage slot, note type ID, address of the emitting contract,
-/// randomness and note nonce, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce)
-/// and inner nullifier (not siloed by address).
+/// This function takes a note's packed content, storage slot, note type ID, address of the emitting contract and
+/// randomness, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce).
 ///
 /// ## Transient Notes
 ///
@@ -51,31 +50,16 @@ pub struct NoteHashAndNullifier {
 ///
 /// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
 /// for each contract by inspecting all note types in use and the storage layout. This injected function is a
-/// `#[contract_library_method]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
+/// `#[contract_library_method]` called `_compute_note_hash`, and it looks something like this:
 ///
 /// ```noir
-/// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
+/// |packed_note, owner, storage_slot, note_type_id, _contract_address, randomness| {
 ///     if note_type_id == MyNoteType::get_id() {
 ///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
 ///             Option::none()
 ///         } else {
 ///             let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
-///
-///             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-///             let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///                 HintedNote {
-///                     note, contract_address, owner, randomness, storage_slot,
-///                     metadata: SettledNoteMetadata::new(note_nonce).into(),
-///                 },
-///             );
-///
-///             let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
-///
-///             Option::some(
-///                 aztec::messages::discovery::NoteHashAndNullifier {
-///                     note_hash, inner_nullifier
-///                 }
-///             )
+///             Option::some(note.compute_note_hash(owner, storage_slot, randomness))
 ///         }
 ///     } else if note_type_id == MyOtherNoteType::get_id() {
 ///           ... // Similar to above but calling MyOtherNoteType::unpack
@@ -84,17 +68,30 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
- owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
-randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
-
 pub type ComputeNoteHash = unconstrained fn(/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
 randomness */ Field) -> Option<Field>;
 
+/// A contract's way of computing note nullifiers.
+///
+/// Like [`ComputeNoteHash`], each contract is free to derive nullifiers as they see fit. This function takes the
+/// unique note hash (used as the note hash for nullification for settled notes), plus the note's packed content and
+/// metadata, and attempts to compute the inner nullifier (not siloed by address).
+///
+/// ## Automatic Implementation
+///
+/// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
+/// for each contract called `_compute_note_nullifier`. It dispatches on `note_type_id` similarly to
+/// [`ComputeNoteHash`], then calls the note's
+/// [`compute_nullifier_unconstrained`](crate::note::note_interface::NoteHash::compute_nullifier_unconstrained) method.
 pub type ComputeNoteNullifier = unconstrained fn(/* unique_note_hash */Field, /* packed_note */ BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
- owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
-randomness */ Field) -> Option<Field>;
+ *  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /*
+ contract_address */ AztecAddress, /* randomness */ Field) -> Option<Field>;
+
+/// Deprecated: use [`ComputeNoteHash`] and [`ComputeNoteNullifier`] instead.
+pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
+ *  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /*
+ contract_address */ AztecAddress, /* randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// A handler for custom messages.
 ///

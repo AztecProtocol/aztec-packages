@@ -9,6 +9,35 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
+
+The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
+
+This split improves performance during nonce discovery: the note hash only needs to be computed once, while the old combined function recomputed it for every candidate nonce.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle this automatically. Only contracts that call `attempt_note_discovery` directly need to update.
+
+**Migration:**
+
+```diff
+  attempt_note_discovery(
+      contract_address,
+      tx_hash,
+      unique_note_hashes_in_tx,
+      first_nullifier_in_tx,
+      recipient,
+-     _compute_note_hash_and_nullifier,
++     _compute_note_hash,
++     _compute_note_nullifier,
+      owner,
+      storage_slot,
+      randomness,
+      note_type_id,
+      packed_note,
+  );
+```
+
+**Impact**: Only contracts that call `attempt_note_discovery` or related discovery functions directly with a custom `_compute_note_hash_and_nullifier` argument. The old combined function is still generated (deprecated) but is no longer used by the framework.
 
 ### [Aztec.js] `TxReceipt` now includes `epochNumber`
 

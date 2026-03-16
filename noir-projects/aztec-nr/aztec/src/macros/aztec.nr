@@ -100,9 +100,14 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     // We generate ABI exports for all the external functions in the contract.
     let fn_abi_exports = create_fn_abi_exports(m);
 
-    // We generate `_compute_note_hash_and_nullifier`, `sync_state` and `process_message` functions only if they are
-    // not already implemented. If they are implemented we just insert empty quotes.
+    // We generate `_compute_note_hash`, `_compute_note_nullifier` (and the deprecated
+    // `_compute_note_hash_and_nullifier` wrapper), `sync_state` and `process_message` functions only if they are not
+    // already implemented. If they are implemented we just insert empty quotes.
     let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
+        // Note that we don't test for `_compute_note_hash` or `_compute_note_nullifier` in order to make this simpler
+        // -
+        // users must either implement all three or none.
+        // Down the line we'll remove this check and use `AztecConfig`.
         f.name() == quote { _compute_note_hash_and_nullifier }
     }) {
         generate_contract_library_methods_compute_note_hash_and_nullifier()
@@ -221,9 +226,8 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 }
 
 /// Generates two contract library methods called `_compute_note_hash` and `_compute_note_nullifier`, plus a
-/// (deprecated)
-/// wrapper called `_compute_note_hash_and_nullifier`, which are used for note discovery (i.e. these are of the
-/// `aztec::messages::discovery::ComputeNoteHash` and `aztec::messages::discovery::ComputeNoteNullifier` types).
+/// (deprecated) wrapper called `_compute_note_hash_and_nullifier`, which are used for note discovery (i.e. these are
+/// of the `aztec::messages::discovery::ComputeNoteHash` and `aztec::messages::discovery::ComputeNoteNullifier` types).
 comptime fn generate_contract_library_methods_compute_note_hash_and_nullifier() -> Quoted {
     let compute_note_hash = generate_contract_library_method_compute_note_hash();
     let compute_note_nullifier = generate_contract_library_method_compute_note_nullifier();

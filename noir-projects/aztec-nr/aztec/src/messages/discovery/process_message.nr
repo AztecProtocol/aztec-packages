@@ -18,8 +18,8 @@ use crate::protocol::address::AztecAddress;
 ///
 /// Notes result in nonce discovery being performed prior to delivery, which requires knowledge of the transaction hash
 /// in which the notes would've been created (typically the same transaction in which the log was emitted), along with
-/// the list of unique note hashes in said transaction and the `compute_note_hash_and_nullifier` function. Once
-/// discovered, the notes are enqueued for validation.
+/// the list of unique note hashes in said transaction and the `compute_note_hash` and `compute_note_nullifier`
+/// functions. Once discovered, the notes are enqueued for validation.
 ///
 /// Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved
 /// to search for the note's completion public log.
