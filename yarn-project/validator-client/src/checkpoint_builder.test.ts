@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
-import type { PublicProcessor } from '@aztec/simulator/server';
+import type { PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -22,17 +22,22 @@ import {
   type PublicProcessorLimits,
   type PublicProcessorValidator,
 } from '@aztec/stdlib/interfaces/server';
-import { TxHash } from '@aztec/stdlib/tx';
-import type { CheckpointGlobalVariables, GlobalVariables, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import {
+  type CheckpointGlobalVariables,
+  type GlobalVariables,
+  type ProcessedTx,
+  type Tx,
+  TxHash,
+} from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { CheckpointBuilder } from './checkpoint_builder.js';
 
 describe('CheckpointBuilder', () => {
-  let checkpointBuilder: CheckpointBuilder;
+  let checkpointBuilder: TestCheckpointBuilder;
   let lightweightCheckpointBuilder: MockProxy<LightweightCheckpointBuilder>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
   let config: FullNodeBlockBuilderConfig;
@@ -57,6 +62,8 @@ describe('CheckpointBuilder', () => {
   };
 
   class TestCheckpointBuilder extends CheckpointBuilder {
+    declare public contractsDB: PublicContractsDB;
+
     public override makeBlockBuilderDeps(_globalVariables: GlobalVariables, _fork: MerkleTreeWriteOperations) {
       return Promise.resolve({ processor, validator });
     }
@@ -101,7 +108,9 @@ describe('CheckpointBuilder', () => {
   }
 
   beforeEach(() => {
-    lightweightCheckpointBuilder = mock<LightweightCheckpointBuilder>({ checkpointNumber, constants });
+    lightweightCheckpointBuilder = mock<LightweightCheckpointBuilder>();
+    Object.defineProperty(lightweightCheckpointBuilder, 'checkpointNumber', { value: checkpointNumber });
+    Object.defineProperty(lightweightCheckpointBuilder, 'constants', { value: constants });
     lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
 
     fork = mock<MerkleTreeWriteOperations>();
@@ -115,6 +124,50 @@ describe('CheckpointBuilder', () => {
     validator = mock<PublicProcessorValidator>();
 
     setupBuilder();
+  });
+
+  describe('contractsDB checkpointing', () => {
+    let createCheckpointSpy: jest.SpiedFunction<() => void>;
+    let commitCheckpointSpy: jest.SpiedFunction<() => void>;
+    let revertCheckpointSpy: jest.SpiedFunction<() => void>;
+
+    beforeEach(() => {
+      const db = checkpointBuilder.contractsDB;
+      createCheckpointSpy = jest.spyOn(db, 'createCheckpoint');
+      commitCheckpointSpy = jest.spyOn(db, 'commitCheckpoint');
+      revertCheckpointSpy = jest.spyOn(db, 'revertCheckpoint');
+
+      lightweightCheckpointBuilder.getBlockCount.mockReturnValue(0);
+    });
+
+    async function mockSuccessfulBlock() {
+      const block = await L2Block.random(blockNumber);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block, timings: {} });
+      processor.process.mockResolvedValue([[{ hash: TxHash.random() } as ProcessedTx], [], [], [], []]);
+      return block;
+    }
+
+    it('uses the same contractsDB across multiple block builds', async () => {
+      await mockSuccessfulBlock();
+      await checkpointBuilder.buildBlock([], blockNumber, 1000n);
+
+      await mockSuccessfulBlock();
+      await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + 1), 1001n);
+
+      expect(createCheckpointSpy).toHaveBeenCalledTimes(2);
+      expect(commitCheckpointSpy).toHaveBeenCalledTimes(2);
+      expect(revertCheckpointSpy).not.toHaveBeenCalled();
+    });
+
+    it('calls revertCheckpoint when public processor fails', async () => {
+      processor.process.mockRejectedValue(new Error('processor failure'));
+
+      await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n)).rejects.toThrow('processor failure');
+
+      expect(createCheckpointSpy).toHaveBeenCalledTimes(1);
+      expect(commitCheckpointSpy).not.toHaveBeenCalled();
+      expect(revertCheckpointSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('buildBlock', () => {
