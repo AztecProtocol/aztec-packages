@@ -16,31 +16,36 @@ using namespace numeric;
 
 namespace {
 /**
- * @brief Find the position of the highest set bit in a uint128_t
- * @return -1 if no bits are set, otherwise the bit position (0-127)
+ * @brief Find the position of the highest set bit in a uint256_t
+ * @return -1 if no bits are set, otherwise the bit position (0-255)
  */
-inline int highest_set_bit_128(uint128_t value)
+inline int highest_set_bit_256(uint256_t value)
 {
     if (value == 0) {
         return -1;
     }
-    // Check high 64 bits first
-    auto high = static_cast<uint64_t>(value >> 64);
-    if (high != 0) {
-        return 127 - __builtin_clzll(high);
+    // Check high bits first, then go down
+    for (int idx = 0; idx < 3; idx++) {
+        auto chunk = static_cast<uint64_t>(value >> 64 * (3 - idx));
+        if (chunk != 0) {
+            return 255 - (idx * 64) - __builtin_clzll(chunk);
+        }
     }
-    // Check low 64 bits
-    auto low = static_cast<uint64_t>(value);
-    return 63 - __builtin_clzll(low);
+
+    // Lowest bits
+    auto chunk = static_cast<uint64_t>(value);
+    return 63 - __builtin_clzll(chunk);
 }
 
 /**
- * @brief Safely extract uint128_t from uint256_t data array using memcpy to avoid strict aliasing issues
+ * @brief Safely extract uint256_t from uint512_t data array using memcpy to avoid strict aliasing issues
  */
-inline uint128_t extract_uint128(const uint64_t* data)
+inline uint256_t extract_uint256(const uint256_t& data)
 {
-    uint128_t result = 0;
-    std::memcpy(&result, data, sizeof(uint128_t));
+    uint256_t result = 0;
+    for (size_t idx = 0; idx < 4; ++idx) {
+        std::memcpy(&result.data[idx], &data.data[idx], sizeof(uint64_t));
+    }
     return result;
 }
 } // namespace
@@ -60,11 +65,11 @@ inline uint128_t extract_uint128(const uint64_t* data)
  * @param provenance_a Round provenance of first element
  * @param provenance_b Round provenance of second element
  */
-void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b)
+void check_round_provenance(const uint512_t& provenance_a, const uint512_t& provenance_b)
 {
-    // Lower 128 bits = submitted rounds, Upper 128 bits = challenge rounds
-    const auto submitted_a = extract_uint128(&provenance_a.data[0]);
-    const auto submitted_b = extract_uint128(&provenance_b.data[0]);
+    // Lower 256 bits = submitted rounds, Upper 256 bits = challenge rounds
+    const auto submitted_a = extract_uint256(provenance_a.lo);
+    const auto submitted_b = extract_uint256(provenance_b.lo);
 
     // Nothing to check if either has no submitted data or both are from the same round(s)
     if (submitted_a == 0 || submitted_b == 0 || submitted_a == submitted_b) {
@@ -72,14 +77,14 @@ void check_round_provenance(const uint256_t& provenance_a, const uint256_t& prov
     }
 
     // Ensure that values from different rounds are not mixing without max challenge round >= max submitted round
-    const auto challenges_a = extract_uint128(&provenance_a.data[2]);
-    const auto challenges_b = extract_uint128(&provenance_b.data[2]);
-    const int max_challenge_round = highest_set_bit_128(challenges_a | challenges_b);
-    const int max_submitted_round = highest_set_bit_128(submitted_a | submitted_b);
+    const auto challenges_a = extract_uint256(provenance_a.hi);
+    const auto challenges_b = extract_uint256(provenance_b.hi);
+    const int max_challenge_round = highest_set_bit_256(challenges_a | challenges_b);
+    const int max_submitted_round = highest_set_bit_256(submitted_a | submitted_b);
 
     if (max_challenge_round < max_submitted_round) {
-        // throw_or_abort("Round provenance check failed: max challenge round (" + std::to_string(max_challenge_round) +
-        //                ") < max submitted round (" + std::to_string(max_submitted_round) + ")");
+        throw_or_abort("Round provenance check failed: max challenge round (" + std::to_string(max_challenge_round) +
+                       ") < max submitted round (" + std::to_string(max_submitted_round) + ")");
     }
 }
 
