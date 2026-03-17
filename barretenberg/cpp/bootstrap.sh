@@ -7,6 +7,7 @@ else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.

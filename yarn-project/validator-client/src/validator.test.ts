@@ -92,6 +92,7 @@ describe('ValidatorClient', () => {
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let validatorAccounts: PrivateKeyAccount[];
+  let validatorPrivateKeys: `0x${string}`[];
   let dateProvider: TestDateProvider;
   let txProvider: MockProxy<TxProvider>;
   let keyStoreManager: KeystoreManager;
@@ -135,7 +136,7 @@ describe('ValidatorClient', () => {
     haKeyStore.start.mockImplementation(() => Promise.resolve());
     haKeyStore.stop.mockImplementation(() => Promise.resolve());
 
-    const validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
+    validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
     validatorAccounts = validatorPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
 
     haKeyStore.getAddresses.mockReturnValue(validatorAccounts.map(account => EthAddress.fromString(account.address)));
@@ -385,6 +386,23 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
+    });
+
+    it('should process block proposal from own validator key (HA peer)', async () => {
+      const selfSigner = new Secp256k1Signer(Buffer32.fromString(validatorPrivateKeys[0]));
+      const emptyInHash = computeInHashFromL1ToL2Messages([]);
+      const selfProposal = await makeBlockProposal({
+        blockHeader: proposal.blockHeader,
+        inHash: emptyInHash,
+        signer: selfSigner,
+      });
+
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(selfSigner.address);
+
+      const handleSpy = jest.spyOn(validatorClient.getBlockProposalHandler(), 'handleBlockProposal');
+      const isValid = await validatorClient.validateBlockProposal(selfProposal, sender);
+      expect(isValid).toBe(true);
+      expect(handleSpy).toHaveBeenCalled();
     });
 
     it('should return early when escape hatch is open', async () => {

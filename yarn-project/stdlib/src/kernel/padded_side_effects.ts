@@ -19,9 +19,9 @@ export class PaddedSideEffects {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PaddedSideEffects(
-      reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
-      reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
+      reader.readTuple(MAX_NOTE_HASHES_PER_TX, Fr),
+      reader.readTuple(MAX_NULLIFIERS_PER_TX, Fr),
+      reader.readTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
     );
   }
 
