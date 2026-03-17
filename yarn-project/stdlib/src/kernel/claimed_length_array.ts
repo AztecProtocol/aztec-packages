@@ -25,7 +25,7 @@ export class ClaimedLengthArray<T extends Serializable, N extends number> {
     arrayLength: N,
   ): ClaimedLengthArray<T, N> {
     const reader = BufferReader.asReader(buffer);
-    const array = reader.readArray(arrayLength, deserializer);
+    const array = reader.readArray(arrayLength, deserializer) as Tuple<T, N>;
     const claimedLength = reader.readNumber();
     return new ClaimedLengthArray(array, claimedLength);
   }

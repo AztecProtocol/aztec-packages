@@ -158,11 +158,11 @@ export class ReadRequestResetHints<
   > {
     const reader = BufferReader.asReader(buffer);
     return new ReadRequestResetHints(
-      reader.readArray(readRequestLen, ReadRequestAction),
-      reader.readArray(numPendingReads, PendingReadHint),
+      reader.readArray(readRequestLen, ReadRequestAction) as Tuple<ReadRequestAction, READ_REQUEST_LEN>,
+      reader.readArray(numPendingReads, PendingReadHint) as Tuple<PendingReadHint, PENDING_READ_HINTS_LEN>,
       reader.readArray(numSettledReads, {
         fromBuffer: r => SettledReadHint.fromBuffer(r, treeHeight, leafPreimageFromBuffer),
-      }),
+      }) as Tuple<SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE>, SETTLED_READ_HINTS_LEN>,
     );
   }
 
