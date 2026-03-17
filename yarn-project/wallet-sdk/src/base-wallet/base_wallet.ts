@@ -402,7 +402,7 @@ export abstract class BaseWallet implements Wallet {
     const txHash = tx.getTxHash();
     // Self-deliver offchain messages addressed to registered accounts before sending to the network.
     // This ensures the PXE's offchain inbox has the messages as early as possible.
-    await this.selfDeliverOffchainMessages(offchainOutput.offchainMessages, txHash);
+    await this.selfDeliverOffchainMessages(offchainOutput.offchainMessages, opts.from, txHash);
     if (await this.aztecNode.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
@@ -459,11 +459,17 @@ export abstract class BaseWallet implements Wallet {
   /**
    * Delivers offchain messages addressed to any of this wallet's registered accounts by calling the contract's
    * `offchain_receive` utility function. This avoids requiring the sender to manually deliver their own change notes
-   * or other self-addressed messages.
+   * or other self-addressed messages. Messages for different recipients within the same contract are batched into a
+   * single call since `offchain_receive` routes each message by its `recipient` field internally.
    * @param offchainMessages - Messages to filter and deliver.
+   * @param scope - The scope (caller) to use for the utility execution.
    * @param txHash - Hash of the originating transaction, if available.
    */
-  private async selfDeliverOffchainMessages(offchainMessages: OffchainMessage[], txHash?: TxHash): Promise<void> {
+  private async selfDeliverOffchainMessages(
+    offchainMessages: OffchainMessage[],
+    scope: AztecAddress,
+    txHash?: TxHash,
+  ): Promise<void> {
     if (offchainMessages.length === 0) {
       return;
     }
@@ -476,17 +482,18 @@ export abstract class BaseWallet implements Wallet {
       return;
     }
 
-    // Group messages by (contractAddress, recipient) — each group becomes one offchain_receive call.
+    // Group messages by contract — each group becomes one offchain_receive call.
+    // The Noir `receive` function routes each message to the correct recipient's inbox internally.
     const grouped = new Map<string, OffchainMessage[]>();
     for (const msg of selfMessages) {
-      const key = `${msg.contractAddress}:${msg.recipient}`;
+      const key = msg.contractAddress.toString();
       const group = grouped.get(key) ?? [];
       group.push(msg);
       grouped.set(key, group);
     }
 
     for (const msgs of grouped.values()) {
-      const { contractAddress, recipient } = msgs[0];
+      const { contractAddress } = msgs[0];
       const fnAbi = await this.getOffchainReceiveAbi(contractAddress);
       if (!fnAbi) {
         this.log.verbose(`Contract ${contractAddress} has no offchain_receive function, skipping self-delivery`);
@@ -514,8 +521,8 @@ export abstract class BaseWallet implements Wallet {
         returnTypes: [],
       });
 
-      this.log.verbose(`Self-delivering ${msgs.length} offchain message(s) to ${recipient} on ${contractAddress}`);
-      await this.pxe.executeUtility(call, { scopes: [recipient] });
+      this.log.verbose(`Self-delivering ${msgs.length} offchain message(s) on ${contractAddress}`);
+      await this.pxe.executeUtility(call, { scopes: [scope] });
     }
   }
 
@@ -541,7 +548,7 @@ export abstract class BaseWallet implements Wallet {
     // Self-deliver offchain messages from utility execution, but skip for offchain_receive itself to avoid recursion.
     if (call.name !== 'offchain_receive' && result.offchainEffects.length > 0) {
       const offchainOutput = extractOffchainOutput(result.offchainEffects, result.anchorBlockTimestamp);
-      await this.selfDeliverOffchainMessages(offchainOutput.offchainMessages);
+      await this.selfDeliverOffchainMessages(offchainOutput.offchainMessages, opts.scope);
     }
 
     return result;
