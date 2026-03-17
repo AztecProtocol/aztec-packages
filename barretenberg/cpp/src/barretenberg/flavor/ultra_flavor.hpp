@@ -238,6 +238,7 @@ class UltraFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
         auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); }
         auto get_to_be_shifted() const { return WitnessEntities<DataType>::get_to_be_shifted(); }
     };

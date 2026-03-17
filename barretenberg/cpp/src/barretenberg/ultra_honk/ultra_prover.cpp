@@ -190,10 +190,22 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 
     auto pcs_data = build_pcs_polynomial_batcher<Flavor>(std::move(prover_instance->polynomials), pcs_size);
 
-    // For ZK: register masking tail polynomials with the batcher so PCS includes them
+    // For ZK: build interleaved group tails from entity tails and register with the PCS batcher.
     if constexpr (Flavor::HasZK) {
         if (prover_instance->masking_tail_data.is_active()) {
-            prover_instance->masking_tail_data.add_tails_to_batcher(prover_instance->polynomials, pcs_data.batcher);
+            auto& mtd = prover_instance->masking_tail_data;
+            auto register_tails = [&](const auto& groups, auto add_tail_fn) {
+                for (size_t g = 0; g < groups.size(); g++) {
+                    auto gt = mtd.interleave_tail_group(groups[g], pcs_size);
+                    if (!gt.is_empty()) {
+                        add_tail_fn(pcs_data.batcher, g, std::move(gt));
+                    }
+                }
+            };
+            register_tails(Flavor::get_unshifted_groups(mtd.tails),
+                           [](auto& b, size_t g, Polynomial&& t) { b.add_unshifted_tail(g, std::move(t)); });
+            register_tails(Flavor::get_to_be_shifted_groups(mtd.tails),
+                           [](auto& b, size_t g, Polynomial&& t) { b.add_shifted_tail(g, std::move(t)); });
         }
     }
 

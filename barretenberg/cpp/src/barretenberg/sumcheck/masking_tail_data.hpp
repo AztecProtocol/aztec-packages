@@ -52,6 +52,32 @@ template <typename Flavor> struct MaskingTailData {
     size_t get_num_folded_values() const { return num_folded_values; }
 
     /**
+     * @brief Build the interleaved group tail for a given group of entity tail pointers.
+     * @details Interleaves entity tails into a single polynomial: result[BS*i + j] = entity_tail_j[i].
+     *          For BS=1, this is just a copy of the single entity tail. Tails are tiny so this is cheap.
+     * @param tail_group Vector of pointers to entity tail polynomials (from Flavor::get_unshifted_groups(tails)).
+     * @param virtual_size Virtual size for the output polynomial (typically dyadic_size * BS).
+     */
+    template <typename TailGroup>
+    Polynomial interleave_tail_group(const TailGroup& tail_group, size_t virtual_size) const
+    {
+        constexpr size_t BS = Flavor::INTERLEAVING_BATCH_SIZE;
+        Polynomial group_tail;
+        for (size_t j = 0; j < tail_group.size(); j++) {
+            if (tail_group[j] != nullptr && !tail_group[j]->is_empty()) {
+                const auto& t = *tail_group[j];
+                if (group_tail.is_empty()) {
+                    group_tail = Polynomial(t.size() * BS, virtual_size, t.start_index() * BS);
+                }
+                for (size_t i = t.start_index(); i < t.end_index(); i++) {
+                    group_tail.at(i * BS + j) = t.at(i);
+                }
+            }
+        }
+        return group_tail;
+    }
+
+    /**
      * @brief Register all masked polynomials and their shifted counterparts at once.
      * @details Uses get_masked() on the parallel AllEntities structs (is_masked, tails) to directly
      * access the right slots without pointer matching. Shifted tails are derived via get_to_be_shifted()
@@ -180,37 +206,6 @@ template <typename Flavor> struct MaskingTailData {
             FF m2 = tail.at(start + 1);
             eval += common * (m0 * (FF::one() - u0) * (FF::one() - u1) + m1 * u0 * (FF::one() - u1) +
                               m2 * (FF::one() - u0) * u1);
-        }
-    }
-
-    /**
-     * @brief Register tail polynomials with the PCS batcher.
-     * @details Iterates only masked (unshifted) entities. For each, registers the tail with both
-     * batcher.unshifted and batcher.to_be_shifted_by_one if the source poly appears there.
-     * The batcher's shift mechanism handles producing the shifted version.
-     */
-    template <typename ProverPolynomials, typename PolynomialBatcher>
-    void add_tails_to_batcher(const ProverPolynomials& prover_polynomials, PolynomialBatcher& batcher) const
-    {
-        if (!active) {
-            return;
-        }
-
-        // Pointer-matching against batcher lists is needed here since the batcher is an external
-        // structure without flavor-aware getters.
-        for (auto [poly, tail] : zip_view(prover_polynomials.get_masked(), tails.get_masked())) {
-            for (size_t u = 0; u < batcher.unshifted.size(); u++) {
-                if (batcher.unshifted[u].data() == poly.data()) {
-                    batcher.add_unshifted_tail(u, Polynomial(tail));
-                    break;
-                }
-            }
-            for (size_t s = 0; s < batcher.to_be_shifted_by_one.size(); s++) {
-                if (batcher.to_be_shifted_by_one[s].data() == poly.data()) {
-                    batcher.add_shifted_tail(s, Polynomial(tail));
-                    break;
-                }
-            }
         }
     }
 };

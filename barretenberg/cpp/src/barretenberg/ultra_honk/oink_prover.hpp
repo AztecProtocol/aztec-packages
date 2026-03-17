@@ -122,11 +122,10 @@ template <typename Flavor> class OinkProver {
     void commit_to_masking_poly();
 
     /**
-     * @brief Commit to a group buffer directly and send to verifier.
-     * @details Used with interleaved polynomial storage: looks up the group buffer
-     *          backing the representative entity and commits it.
+     * @brief Commit to the group buffer for the given entity and send to verifier.
+     * @details For ZK, also builds and commits the interleaved group tail from entity tails.
      */
-    Commitment commit_group_buffer_and_send(const Polynomial& representative_entity, const std::string& label);
+    Commitment commit_group(const Polynomial& representative_entity, const std::string& label);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;
