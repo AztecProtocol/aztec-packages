@@ -9,4 +9,4 @@ export const ORACLE_VERSION = 17;
 /// This hash is computed as by hashing the Oracle interface and it is used to detect when the Oracle interface changes,
 /// which in turn implies that you need to update the ORACLE_VERSION constant in this file and in
 /// `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
-export const ORACLE_INTERFACE_HASH = '20adf8dc31492bf53df9a5b1bc75cf1f6d2b46e4e90b26aad0bf656a579bd9a7';
+export const ORACLE_INTERFACE_HASH = 'da41b71824ad5017c26293450190de183ff404f6ef385e0218b3a942dec9f6b8';
