@@ -3,9 +3,11 @@ import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExec
 
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
+import { getGasLimits } from './get_gas_limits.js';
 import {
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
+  type SimulationResult,
   extractOffchainOutput,
   toSimulateOptions,
 } from './interaction_options.js';
@@ -45,7 +47,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the interaction.
    * @returns The results of all the interactions that make up the batch
    */
-  public async simulate(options: SimulateInteractionOptions): Promise<any> {
+  public async simulate(options: SimulateInteractionOptions): Promise<SimulationResult> {
     const { indexedExecutionPayloads, utility } = (await this.getExecutionPayloads()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
@@ -119,10 +121,11 @@ export class BatchCall extends BaseContractInteraction {
     }
 
     // Process tx simulation result (it comes last if present)
+    let simulatedTx: TxSimulationResult | undefined;
     if (indexedExecutionPayloads.length > 0) {
       const txResultWrapper = batchResults[utility.length];
       if (txResultWrapper.name === 'simulateTx') {
-        const simulatedTx = txResultWrapper.result as TxSimulationResult;
+        simulatedTx = txResultWrapper.result as TxSimulationResult;
         indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
           const call = request.calls[0];
           // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
@@ -130,21 +133,34 @@ export class BatchCall extends BaseContractInteraction {
           // For public functions we retrieve the first values directly from the public output.
           const rawReturnValues =
             call.type == FunctionType.PRIVATE
-              ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
-              : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
+              ? simulatedTx!.getPrivateReturnValues()?.nested?.[resultIndex].values
+              : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
 
           results[callIndex] = {
             result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
             ...extractOffchainOutput(
-              simulatedTx.offchainEffects,
-              simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
+              simulatedTx!.offchainEffects,
+              simulatedTx!.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
             ),
           };
         });
       }
     }
 
-    return results;
+    if ((options.includeMetadata || options.fee?.estimateGas) && simulatedTx) {
+      const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
+      this.log.verbose(
+        `Estimated gas limits for batch tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+      );
+      return {
+        result: results,
+        estimatedGas: { gasLimits, teardownGasLimits },
+        offchainEffects: [],
+        offchainMessages: [],
+      };
+    }
+
+    return { result: results, offchainEffects: [], offchainMessages: [] };
   }
 
   protected async getExecutionPayloads(): Promise<ExecutionPayload[]> {
