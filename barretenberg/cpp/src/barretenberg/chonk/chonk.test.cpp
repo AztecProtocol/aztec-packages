@@ -112,9 +112,9 @@ class ChonkTests : public ::testing::Test {
                 size_t num_public_inputs = app_entry.honk_vk->num_public_inputs;
                 AppIOSerde app_io = AppIOSerde::from_proof(app_entry.proof, num_public_inputs);
 
-                // Double the pairing points (multiply by 2) - creates valid but different points
-                app_io.pairing_inputs.P0() = app_io.pairing_inputs.P0() + app_io.pairing_inputs.P0();
-                app_io.pairing_inputs.P1() = app_io.pairing_inputs.P1() + app_io.pairing_inputs.P1();
+                // Set P0 to [x]₁ (the first SRS point after [1]) and P1 to [1]₁
+                app_io.pairing_inputs.P0() = srs::get_crs_factory<curve::BN254>()->get_crs(2)->get_monomial_points()[1];
+                app_io.pairing_inputs.P1() = -Commitment::one();
 
                 EXPECT_TRUE(app_io.pairing_inputs.check());
 

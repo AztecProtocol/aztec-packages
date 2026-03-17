@@ -32,6 +32,17 @@ struct TreeMetaResponse {
     TreeMetaResponse& operator=(TreeMetaResponse&& other) noexcept = default;
 };
 
+struct CheckpointResponse {
+    uint32_t depth;
+
+    CheckpointResponse() = default;
+    ~CheckpointResponse() = default;
+    CheckpointResponse(const CheckpointResponse& other) = default;
+    CheckpointResponse(CheckpointResponse&& other) noexcept = default;
+    CheckpointResponse& operator=(const CheckpointResponse& other) = default;
+    CheckpointResponse& operator=(CheckpointResponse&& other) noexcept = default;
+};
+
 struct AddDataResponse {
     index_t size;
     fr root;

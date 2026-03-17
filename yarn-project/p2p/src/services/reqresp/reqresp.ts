@@ -320,7 +320,7 @@ export class ReqResp implements ReqRespInterface {
               };
 
               for (const index of indices) {
-                this.logger.info(`Sending request ${index} to peer ${peerAsString}`);
+                this.logger.trace(`Sending request ${index} to peer ${peerAsString}`);
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer

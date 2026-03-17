@@ -53,28 +53,32 @@ in message processing.</p>
 <h2>Automatic Implementation</h2>
 <p>The <a href="../../../noir_aztec/macros/fn.aztec.html"><code>[#aztec]</code></a> macro automatically creates a correct implementation of this function
 for each contract by inspecting all note types in use and the storage layout. This injected function is a
-<code>#[contract_library_function]</code> called <code>_compute_note_hash_and_nullifier</code>, and it looks something like this:</p>
+<code>#[contract_library_method]</code> called <code>_compute_note_hash_and_nullifier</code>, and it looks something like this:</p>
 <pre><code>|packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
     <span class="kw">if</span> note_type_id == MyNoteType::get_id() {
-        <span class="kw">assert</span>(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+        <span class="kw">if</span> packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
+            Option::none()
+        } <span class="kw">else</span> {
+            <span class="kw">let</span> note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), <span class="number">0</span>));
 
-        <span class="kw">let</span> note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), <span class="number">0</span>));
+            <span class="kw">let</span> note_hash = note.compute_note_hash(owner, storage_slot, randomness);
+            <span class="kw">let</span> note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
+                HintedNote {
+                    note, contract_address, owner, randomness, storage_slot,
+                    metadata: SettledNoteMetadata::new(note_nonce).into(),
+                },
+            );
 
-        <span class="kw">let</span> note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-        <span class="kw">let</span> note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-            HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
-            storage_slot
-        );
+            <span class="kw">let</span> inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 
-        <span class="kw">let</span> inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
-
-        Option::some(
-            aztec::messages::discovery::NoteHashAndNullifier {
-                note_hash, inner_nullifier
-            }
-        )
+            Option::some(
+                aztec::messages::discovery::NoteHashAndNullifier {
+                    note_hash, inner_nullifier
+                }
+            )
+        }
     } <span class="kw">else</span> <span class="kw">if</span> note_type_id == MyOtherNoteType::get_id() {
-          ... <span class="comment">// Similar to above but calling MyOtherNoteType::unpack_content</span>
+          ... <span class="comment">// Similar to above but calling MyOtherNoteType::unpack</span>
     } <span class="kw">else</span> {
         Option::none() <span class="comment">// Unknown note type ID</span>
     };

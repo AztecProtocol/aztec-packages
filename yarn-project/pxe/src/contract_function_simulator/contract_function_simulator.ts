@@ -17,6 +17,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_TX_LIFETIME,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
@@ -442,11 +443,22 @@ export async function generateSimulatedProvingResult(
 
   let publicTeardownCallRequest;
 
+  // We set expiration timestamp to anchor_block_timestamp + MAX_TX_LIFETIME (24h) just like kernels do
+  let expirationTimestamp =
+    privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader.globalVariables.timestamp +
+    BigInt(MAX_TX_LIFETIME);
+
   const executions = [privateExecutionResult.entrypoint];
 
   while (executions.length !== 0) {
     const execution = executions.shift()!;
     executions.unshift(...execution!.nestedExecutionResults);
+
+    // Just like kernels we overwrite the default value if the call sets it.
+    const callExpirationTimestamp = execution.publicInputs.expirationTimestamp;
+    if (callExpirationTimestamp !== 0n && callExpirationTimestamp < expirationTimestamp) {
+      expirationTimestamp = callExpirationTimestamp;
+    }
 
     const { contractAddress } = execution.publicInputs.callContext;
 
@@ -671,7 +683,7 @@ export async function generateSimulatedProvingResult(
       }),
     ),
     /*feePayer=*/ AztecAddress.zero(),
-    /*expirationTimestamp=*/ 0n,
+    /*expirationTimestamp=*/ expirationTimestamp,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
   );

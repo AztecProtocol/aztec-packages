@@ -28,6 +28,7 @@ import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from 
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
@@ -547,7 +548,16 @@ export class SequencerPublisher {
       });
       return { failedActions: requests.map(r => r.action) };
     } else {
-      this.log.verbose(`Published bundled transactions (${actionsListStr})`, { result, requests });
+      this.log.verbose(`Published bundled transactions (${actionsListStr})`, {
+        result,
+        requests: requests.map(r => ({
+          ...r,
+          // Avoid logging large blob data
+          blobConfig: r.blobConfig
+            ? { ...r.blobConfig, blobs: r.blobConfig.blobs.map(b => ({ size: trimmedBytesLength(b) })) }
+            : undefined,
+        })),
+      });
       const successfulActions: Action[] = [];
       const failedActions: Action[] = [];
       for (const request of requests) {
