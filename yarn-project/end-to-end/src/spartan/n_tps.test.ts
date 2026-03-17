@@ -270,12 +270,17 @@ describe('sustained N TPS test', () => {
 
     await retryUntil(
       async () => {
-        const blockNumber = await aztecNode.getBlockNumber();
-        if (blockNumber > INITIAL_L2_BLOCK_NUM) {
-          return true;
+        try {
+          const blockNumber = await aztecNode.getBlockNumber();
+          if (blockNumber > INITIAL_L2_BLOCK_NUM) {
+            return true;
+          }
+          logger.info('Waiting for the first block to mine...', { blockNumber, threshold: INITIAL_L2_BLOCK_NUM });
+          return false;
+        } catch (err) {
+          logger.warn('Failed to get block number from RPC', { error: String(err) });
+          return false;
         }
-        logger.info('Waiting for the first block to mine...');
-        return false;
       },
       'get block number',
       60 * 60 * 3, // wait up to 3 hours
