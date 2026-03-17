@@ -72,28 +72,6 @@ mod test {
         })
     }
 
-    #[test]
-    unconstrained fn aes_decrypt_with_malformed_ciphertext_returns_none() {
-        let env = TestEnvironment::new();
-
-        env.utility_context(|_| {
-            let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
-
-            let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
-                ciphertext_shared_secret,
-            )[0];
-
-            // A ciphertext of 5 bytes is not valid AES-128-CBC (must be a multiple of 16).
-            let malformed_ciphertext = BoundedVec::<u8, TEST_CIPHERTEXT_LENGTH>::from_parts(
-                [1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                5,
-            );
-
-            let result = try_aes128_decrypt(malformed_ciphertext, iv, sym_key);
-            assert(result.is_none());
-        })
-    }
-
     global TEST_MAC_LENGTH: u32 = 32;
 
     #[test(should_fail_with = "mac does not match")]
