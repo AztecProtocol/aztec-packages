@@ -1,7 +1,6 @@
 use crate::{
     address::AztecAddress,
     side_effect::{counted::Counted, Ordered},
-    tests::types::TestValue,
     traits::{Deserialize, Empty, Serialize},
 };
 
@@ -59,8 +58,8 @@ impl Scoped<Counted<Field>> {
 
 #[test]
 fn serialization_of_empty_scoped() {
-    let item: Scoped<TestValue> = Scoped::empty();
+    let item: Scoped<Field> = Scoped::empty();
     let serialized = item.serialize();
-    let deserialized: Scoped<TestValue> = Scoped::deserialize(serialized);
+    let deserialized: Scoped<Field> = Scoped::deserialize(serialized);
     assert(item.eq(deserialized));
 }

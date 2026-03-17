@@ -218,7 +218,7 @@ function build {
     if [ -f pinned-protocol-contracts.tar.gz ]; then
       echo_stderr "Using pinned-protocol-contracts.tar.gz for pinned contracts."
       tar xzf pinned-protocol-contracts.tar.gz -C target
-      contracts=$(echo "$contracts" | grep -vE "^protocol/|^fees/sponsored_fpc_contract$")
+      contracts=$(echo "$contracts" | grep -vE "^protocol/")
     fi
   else
     local contracts="$@"
@@ -287,12 +287,10 @@ function pin-build {
   # Force a real build by removing any existing pinned archive.
   rm -f pinned-protocol-contracts.tar.gz
   local protocol_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^protocol/")
-  local fees_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^fees/")
-  build $protocol_contracts $fees_contracts
-  # Bundle protocol contracts plus SponsoredFPC (FPC is excluded — only SponsoredFPC is pinned).
+  build $protocol_contracts
   local protocol_artifacts=$(jq -r '.[]' protocol_contracts.json | sed 's/$/.json/')
   echo_stderr "Creating pinned-protocol-contracts.tar.gz..."
-  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts sponsored_fpc_contract-SponsoredFPC.json)
+  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts)
   echo_stderr "Done. pinned-protocol-contracts.tar.gz created. Commit it to pin these artifacts."
 }
 

@@ -464,12 +464,9 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
 
       // Sync the proposed block to the archiver to make it available
-      // Note that the checkpoint builder uses its own fork so it should not need to wait for this syncing
-      // Eventually we should refactor the checkpoint builder to not need a separate long-lived fork
-      // Fire and forget - don't block the critical path, but log errors
-      this.syncProposedBlockToArchiver(block).catch(err => {
-        this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
-      });
+      // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building
+      // If this throws, we abort the entire checkpoint
+      await this.syncProposedBlockToArchiver(block);
 
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 

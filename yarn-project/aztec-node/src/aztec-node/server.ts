@@ -5,7 +5,7 @@ import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
-import { getPublicClient } from '@aztec/ethereum/client';
+import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -113,7 +113,7 @@ import {
 } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -257,7 +257,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
+      transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

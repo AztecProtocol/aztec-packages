@@ -12,7 +12,6 @@ npm install @aztec/accounts
 
 - **Schnorr**: Uses an Grumpkin private key with Schnorr signatures for authentication, and a separate Grumpkin private key for encryption. Recommended for most use cases.
 - **ECDSA**: Uses an ECDSA private key for authentication, and a Grumpkin private key for encryption. Recommended for building integrations with Ethereum wallets.
-- **SingleKey**: Uses a single Grumpkin private key for both authentication and encryption. Recommended for testing purposes only.
 
 ## Usage
 

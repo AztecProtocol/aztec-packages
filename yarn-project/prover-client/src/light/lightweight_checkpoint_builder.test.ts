@@ -328,5 +328,35 @@ describe('LightweightCheckpointBuilder', () => {
 
       await fork.close();
     });
+
+    it('adding a block with a mismatched block number fails with archive tree leaf index mismatch', async () => {
+      const checkpointNumber = CheckpointNumber(1);
+      const slotNumber = SlotNumber(15);
+
+      const constants = makeCheckpointConstants(slotNumber);
+      const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
+
+      const fork = await worldState.fork();
+
+      const checkpointBuilder = await LightweightCheckpointBuilder.startNewCheckpoint(
+        checkpointNumber,
+        constants,
+        l1ToL2Messages,
+        previousCheckpointOutHashes,
+        fork,
+      );
+
+      // Pass block number 5 when the archive tree expects block 1.
+      // After updateArchive, nextAvailableLeafIndex will be 2 but expectedNextLeafIndex will be 6.
+      const wrongBlockNumber = BlockNumber(5);
+      const globalVariables = makeGlobalVariables(wrongBlockNumber, slotNumber);
+
+      await expect(checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true })).rejects.toThrow(
+        /Archive tree next leaf index mismatch/,
+      );
+
+      await fork.close();
+    });
   });
 });

@@ -1,7 +1,7 @@
 use crate::protocol::{address::aztec_address::AztecAddress, point::Point};
 
 // TODO(#12656): return an app-siloed secret + document this
-#[oracle(utilityGetSharedSecret)]
+#[oracle(aztec_utl_getSharedSecret)]
 unconstrained fn get_shared_secret_oracle(address: AztecAddress, ephPk: Point) -> Point {}
 
 /// Returns an app-siloed shared secret between `address` and someone who knows the secret key behind an ephemeral

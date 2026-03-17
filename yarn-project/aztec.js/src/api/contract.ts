@@ -61,7 +61,6 @@ export {
   type SimulationResult,
   type TxSendResultImmediate,
   type TxSendResultMined,
-  emptyOffchainOutput,
   extractOffchainOutput,
   toProfileOptions,
   toSendOptions,

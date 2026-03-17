@@ -147,6 +147,8 @@ export type OffchainMessage = {
   payload: Fr[];
   /** The contract that emitted the message. */
   contractAddress: AztecAddress;
+  /** Anchor block timestamp at message emission. */
+  anchorBlockTimestamp: bigint;
 };
 
 /** Groups all unproven outputs from private execution that are returned to the client. */
@@ -162,7 +164,7 @@ export type OffchainOutput = {
  * Effects whose data starts with `OFFCHAIN_MESSAGE_IDENTIFIER` are parsed as messages and removed
  * from the effects array.
  */
-export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput {
+export function extractOffchainOutput(effects: OffchainEffect[], anchorBlockTimestamp: bigint): OffchainOutput {
   const offchainEffects: OffchainEffect[] = [];
   const offchainMessages: OffchainMessage[] = [];
 
@@ -172,6 +174,7 @@ export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput
         recipient: AztecAddress.fromField(effect.data[1]),
         payload: effect.data.slice(2),
         contractAddress: effect.contractAddress,
+        anchorBlockTimestamp,
       });
     } else {
       offchainEffects.push(effect);
@@ -179,13 +182,6 @@ export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput
   }
 
   return { offchainEffects, offchainMessages };
-}
-
-/**
- * Returns an empty `OffchainOutput` (no effects, no messages).
- */
-export function emptyOffchainOutput(): OffchainOutput {
-  return { offchainEffects: [], offchainMessages: [] };
 }
 
 /**

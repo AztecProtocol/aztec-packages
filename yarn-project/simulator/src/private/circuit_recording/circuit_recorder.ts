@@ -161,11 +161,11 @@ export class CircuitRecorder {
         throw new Error(`Oracle method ${name} not found when setting up recording callback`);
       }
 
-      const isExternalCall = (name as keyof ACIRCallback) === 'privateCallPrivateFunction';
+      const isExternalCall = (name as keyof ACIRCallback) === 'aztec_prv_callPrivateFunction';
 
       recordingCallback[name as keyof ACIRCallback] = (...args: ForeignCallInput[]): ReturnType<typeof fn> => {
         const timer = new Timer();
-        // If we're entering another circuit via `privateCallPrivateFunction`, we increase the stack depth and set the
+        // If we're entering another circuit via `aztec_prv_callPrivateFunction`, we increase the stack depth and set the
         // newCircuit variable to ensure we are creating a new recording object.
         if (isExternalCall) {
           this.stackDepth++;

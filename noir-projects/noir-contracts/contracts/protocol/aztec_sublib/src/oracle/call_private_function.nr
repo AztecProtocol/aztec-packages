@@ -2,7 +2,7 @@ use crate::protocol::{
     abis::function_selector::FunctionSelector, address::AztecAddress, utils::reader::Reader,
 };
 
-#[oracle(privateCallPrivateFunction)]
+#[oracle(aztec_prv_callPrivateFunction)]
 unconstrained fn call_private_function_oracle(
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,

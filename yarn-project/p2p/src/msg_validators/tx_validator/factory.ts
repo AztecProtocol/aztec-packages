@@ -58,7 +58,7 @@ import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_val
 import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
-import { PhasesTxValidator } from './phases_validator.js';
+import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';
 import { TimestampTxValidator } from './timestamp_validator.js';
 import { TxPermittedValidator } from './tx_permitted_validator.js';
@@ -436,5 +436,25 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
     new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),
     new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
     new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),
+    new AllowedSetupCallsMetaValidator<TxMetaData>(bindings),
   );
+}
+
+/**
+ * Creates a function that checks whether a tx's setup-phase calls are on the allow list.
+ *
+ * Uses the `PhasesTxValidator` on the full Tx. The result is stored as a boolean
+ * flag in `TxMetaData.allowedSetupCalls` at receipt time, so the pending pool
+ * migration validator can check it without needing the full Tx or its dependencies.
+ */
+export function createCheckAllowedSetupCalls(
+  contractDataSource: ContractDataSource,
+  setupAllowList: AllowedElement[],
+  getTimestamp: () => UInt64,
+): (tx: Tx) => Promise<boolean> {
+  return async (tx: Tx) => {
+    const validator = new PhasesTxValidator(contractDataSource, setupAllowList, getTimestamp());
+    const result = await validator.validateTx(tx);
+    return result.result === 'valid';
+  };
 }

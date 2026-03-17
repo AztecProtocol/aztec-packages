@@ -1,45 +1,115 @@
 use crate::protocol::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, constants::DOM_SEP__INITIALIZER,
-    hash::poseidon2_hash_with_separator, traits::ToField,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    constants::{DOM_SEP__INITIALIZER, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER},
+    hash::poseidon2_hash_with_separator,
+    traits::ToField,
 };
+use std::meta::{ctstring::AsCtString, unquote};
 
 use crate::{
     context::{PrivateContext, PublicContext},
+    macros::{
+        internals_functions_generation::external_functions_registry::get_public_functions, utils::fn_has_noinitcheck,
+    },
     nullifier::utils::compute_nullifier_existence_request,
     oracle::get_contract_instance::{
         get_contract_instance, get_contract_instance_deployer_avm, get_contract_instance_initialization_hash_avm,
     },
 };
 
-// Used by `create_mark_as_initialized` (you won't find it through searching)
+/// The name of the auto-generated function that emits the public init nullifier.
+///
+/// This function is injected into the public dispatch table for contracts with initializers.
+pub(crate) comptime global EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME: Quoted = quote { __emit_public_init_nullifier };
+
+/// Returns `true` if the module has any public functions that require initialization checks (i.e. that don't have
+/// `#[noinitcheck]`). If all public functions skip init checks, there's no point emitting the public init nullifier
+/// since nothing will check it.
+pub(crate) comptime fn has_public_init_checked_functions(m: Module) -> bool {
+    get_public_functions(m).any(|f: FunctionDefinition| !fn_has_noinitcheck(f))
+}
+
+/// Selector for `EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME`, derived at comptime so it stays in sync.
+global EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR: FunctionSelector = comptime {
+    let name = EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
+    let sig = f"{name}()".as_ctstring();
+    unquote!(quote { FunctionSelector::from_signature($sig) })
+};
+
+/// Emits (only) the public initialization nullifier.
+///
+/// This function is called by the aztec-nr auto-generated external public contract function (enqueued by private
+/// [`initializer`](crate::macros::functions::initializer) functions), and also by
+/// [`mark_as_initialized_from_public_initializer`] for public initializers.
+///
+/// # Warning
+///
+/// This should not be called manually. Incorrect use can leave the contract in a broken initialization state (e.g.
+/// emitting the public nullifier without the private one). The macro-generated code handles this automatically.
 pub fn mark_as_initialized_public(context: PublicContext) {
-    let init_nullifier = compute_unsiloed_contract_initialization_nullifier((context).this_address());
+    let init_nullifier = compute_public_init_nullifier(context.this_address());
     context.push_nullifier(init_nullifier);
 }
 
-// Used by `create_mark_as_initialized` (you won't find it through searching)
-pub fn mark_as_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier = compute_unsiloed_contract_initialization_nullifier((*context).this_address());
+fn mark_as_initialized_private(context: &mut PrivateContext) {
+    let init_nullifier = compute_private_init_nullifier((*context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
-// Used by `create_init_check` (you won't find it through searching)
+/// Emits the private initialization nullifier and, if relevant, enqueues the emission of the public one.
+///
+/// If the contract has public functions that perform initialization checks (i.e. that don't have `#[noinitcheck]`),
+/// this also enqueues a call to the auto-generated `__emit_public_init_nullifier` function so the public nullifier is
+/// emitted in public. Called by private [`initializer`](crate::macros::functions::initializer) macros.
+pub fn mark_as_initialized_from_private_initializer(context: &mut PrivateContext, emit_public_init_nullifier: bool) {
+    mark_as_initialized_private(context);
+    if emit_public_init_nullifier {
+        context.call_public_function((*context).this_address(), EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR, [], false);
+    }
+}
+
+/// Emits both initialization nullifiers (private and public).
+///
+/// Called by public [`initializer`](crate::macros::functions::initializer) macros, since public initializers must set
+/// both so that both private and public functions see the contract as initialized.
+pub fn mark_as_initialized_from_public_initializer(context: PublicContext) {
+    let private_nullifier = compute_private_init_nullifier(context.this_address());
+    context.push_nullifier(private_nullifier);
+    mark_as_initialized_public(context);
+}
+
+/// Asserts that the contract has been initialized, from public's perspective.
+///
+/// Checks that the public initialization nullifier exists.
 pub fn assert_is_initialized_public(context: PublicContext) {
-    let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
-    // Safety: TODO(F-239) - this is currently unsafe, we cannot rely on the nullifier existing to determine that any
-    // public component of contract initialization has been complete.
+    let init_nullifier = compute_public_init_nullifier(context.this_address());
+    // Safety: the public init nullifier is only ever emitted by public functions, and so the timing concerns from
+    // nullifier_exists_unsafe do not apply. Additionally, it is emitted after all initializer functions have run,
+    // so initialization is guaranteed to be complete by the time it exists.
     assert(context.nullifier_exists_unsafe(init_nullifier, context.this_address()), "Not initialized");
 }
 
-// Used by `create_init_check` (you won't find it through searching)
+/// Asserts that the contract has been initialized, from private's perspective.
+///
+/// Checks that the private initialization nullifier exists.
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
+    let init_nullifier = compute_private_init_nullifier(context.this_address());
     let nullifier_existence_request = compute_nullifier_existence_request(init_nullifier, context.this_address());
     context.assert_nullifier_exists(nullifier_existence_request);
 }
 
-fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> Field {
+// TODO(F-194): This leaks whether a contract has been initialized, since anyone who knows the address can compute this
+// nullifier and check for its existence. It is also not domain separated.
+fn compute_private_init_nullifier(address: AztecAddress) -> Field {
     address.to_field()
+}
+
+fn compute_public_init_nullifier(address: AztecAddress) -> Field {
+    poseidon2_hash_with_separator(
+        [address.to_field()],
+        DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
+    )
 }
 
 // Used by `create_assert_correct_initializer_args` (you won't find it through searching)

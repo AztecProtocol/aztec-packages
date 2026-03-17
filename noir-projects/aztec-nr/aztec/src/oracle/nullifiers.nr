@@ -11,7 +11,7 @@ pub fn notify_created_nullifier(inner_nullifier: Field) {
     unsafe { notify_created_nullifier_oracle(inner_nullifier) };
 }
 
-#[oracle(privateNotifyCreatedNullifier)]
+#[oracle(aztec_prv_notifyCreatedNullifier)]
 unconstrained fn notify_created_nullifier_oracle(_inner_nullifier: Field) {}
 
 /// Returns true if the nullifier has been emitted in the same transaction, i.e. if [`notify_created_nullifier`] has
@@ -26,7 +26,7 @@ pub unconstrained fn is_nullifier_pending(inner_nullifier: Field, contract_addre
     is_nullifier_pending_oracle(inner_nullifier, contract_address)
 }
 
-#[oracle(privateIsNullifierPending)]
+#[oracle(aztec_prv_isNullifierPending)]
 unconstrained fn is_nullifier_pending_oracle(_inner_nullifier: Field, _contract_address: AztecAddress) -> bool {}
 
 /// Returns true if the nullifier exists. Note that a `true` value can be constrained by proving existence of the
@@ -37,5 +37,5 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     check_nullifier_exists_oracle(inner_nullifier)
 }
 
-#[oracle(utilityCheckNullifierExists)]
+#[oracle(aztec_utl_checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}

@@ -1,5 +1,6 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -18,7 +19,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 import { Archiver, type ArchiverDeps } from './archiver.js';
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
@@ -59,9 +60,10 @@ export async function createArchiver(
 
   // Create Ethereum clients
   const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
+  const httpTimeout = config.l1HttpTimeoutMS;
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
+    transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: httpTimeout }),
     pollingInterval: config.viemPollingIntervalMS,
   });
 
@@ -69,7 +71,7 @@ export async function createArchiver(
   const debugRpcUrls = config.l1DebugRpcUrls.length > 0 ? config.l1DebugRpcUrls : config.l1RpcUrls;
   const debugClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(debugRpcUrls.map(url => http(url, { batch: false }))),
+    transport: makeL1HttpTransport(debugRpcUrls, { timeout: httpTimeout }),
     pollingInterval: config.viemPollingIntervalMS,
   }) as ViemPublicDebugClient;
 

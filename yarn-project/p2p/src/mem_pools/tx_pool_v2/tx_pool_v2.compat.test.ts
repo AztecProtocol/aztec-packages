@@ -87,6 +87,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
       createTxValidator: () => Promise.resolve(alwaysValidValidator),
+      checkAllowedSetupCalls: () => Promise.resolve(true),
     });
     await pool.start();
   });
@@ -327,6 +328,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       },
       undefined, // telemetry
       { archivedTxLimit: 2 },
@@ -368,6 +370,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       },
       undefined, // telemetry
       { maxPendingTxCount: 3 },
@@ -424,6 +427,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       },
       undefined, // telemetry
       { maxPendingTxCount: 10 },
@@ -467,6 +471,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       },
       undefined, // telemetry
       { maxPendingTxCount: 10 },
@@ -639,6 +644,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         },
         undefined, // telemetry
         { maxPendingTxCount: 0 },
