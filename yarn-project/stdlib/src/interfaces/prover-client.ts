@@ -113,7 +113,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   enqueueConcurrency: {
     env: 'PROVER_ENQUEUE_CONCURRENCY',
     description: 'Max concurrent jobs the orchestrator serializes and enqueues to the broker.',
-    ...numberConfigHelper(10),
+    ...numberConfigHelper(50),
   },
 };
 

@@ -32,7 +32,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
   public buildBlockCalls: Array<{
     blockNumber: BlockNumber;
     timestamp: bigint;
-    opts: PublicProcessorLimits;
+    opts: PublicProcessorLimits & { minValidTxs?: number };
   }> = [];
   /** Track all consumed transaction hashes across buildBlock calls */
   public consumedTxHashes: Set<string> = new Set();
@@ -74,7 +74,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits,
+    opts: PublicProcessorLimits & { minValidTxs?: number },
   ): Promise<BuildBlockInCheckpointResult> {
     this.buildBlockCalls.push({ blockNumber, timestamp, opts });
 

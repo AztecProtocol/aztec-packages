@@ -20,7 +20,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
-import { NativeWorldStateService } from '@aztec/world-state';
+import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 
@@ -115,7 +115,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       }
 
       // Create checkpoint BEFORE simulation (like PublicProcessor does)
-      await merkleTrees.createCheckpoint();
+      const forkCheckpoint = await ForkCheckpoint.new(merkleTrees);
 
       // Create transaction that calls the spammer contract
       const tx = await tester.createTx(admin, [], [{ address: contractAddress, args: callArgs }]);
@@ -136,11 +136,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       }
       // BUG - No cancel, C++ continues running during reverts below
 
-      // Revert checkpoint
-      await merkleTrees.revertCheckpoint();
-
-      // Clean up
-      await merkleTrees.revertAllCheckpoints();
+      // Clean up - revert all changes
+      await forkCheckpoint.revertToCheckpoint();
 
       // Wait for simulation promise for cleanup
       await Promise.race([simulationPromise.catch(() => {}), sleep(100)]);

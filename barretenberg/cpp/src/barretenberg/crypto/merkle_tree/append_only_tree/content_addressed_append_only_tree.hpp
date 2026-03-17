@@ -60,7 +60,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
     using FinalizeBlockCallback = EmptyResponseCallback;
     using GetBlockForIndexCallback = std::function<void(TypedResponse<BlockForIndexResponse>&)>;
-    using CheckpointCallback = EmptyResponseCallback;
+    using CheckpointCallback = std::function<void(TypedResponse<CheckpointResponse>&)>;
     using CheckpointCommitCallback = EmptyResponseCallback;
     using CheckpointRevertCallback = EmptyResponseCallback;
 
@@ -254,8 +254,11 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void checkpoint(const CheckpointCallback& on_completion);
     void commit_checkpoint(const CheckpointCommitCallback& on_completion);
     void revert_checkpoint(const CheckpointRevertCallback& on_completion);
-    void commit_all_checkpoints(const CheckpointCommitCallback& on_completion);
-    void revert_all_checkpoints(const CheckpointRevertCallback& on_completion);
+    void commit_all_checkpoints_to(const CheckpointCommitCallback& on_completion);
+    void revert_all_checkpoints_to(const CheckpointRevertCallback& on_completion);
+    void commit_to_depth(uint32_t target_depth, const CheckpointCommitCallback& on_completion);
+    void revert_to_depth(uint32_t target_depth, const CheckpointRevertCallback& on_completion);
+    uint32_t checkpoint_depth() const;
 
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
@@ -1002,7 +1005,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const Rollba
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint(const CheckpointCallback& on_completion)
 {
-    auto job = [=, this]() { execute_and_report([=, this]() { store_->checkpoint(); }, on_completion); };
+    auto job = [=, this]() {
+        execute_and_report<CheckpointResponse>(
+            [=, this](TypedResponse<CheckpointResponse>& response) { response.inner.depth = store_->checkpoint(); },
+            on_completion);
+    };
     workers_->enqueue(job);
 }
 
@@ -1023,21 +1030,46 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_checkpoint(
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_all_checkpoints(
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_all_checkpoints_to(
     const CheckpointCommitCallback& on_completion)
 {
-    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_all_checkpoints(); }, on_completion); };
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit_all_checkpoints_to(); }, on_completion); };
     workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_all_checkpoints(
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_all_checkpoints_to(
     const CheckpointRevertCallback& on_completion)
 {
-    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_all_checkpoints(); }, on_completion); };
+    auto job = [=, this]() { execute_and_report([=, this]() { store_->revert_all_checkpoints_to(); }, on_completion); };
     workers_->enqueue(job);
 }
 
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit_to_depth(
+    uint32_t target_depth, const CheckpointCommitCallback& on_completion)
+{
+    auto job = [=, this]() {
+        execute_and_report([=, this]() { store_->commit_to_depth(target_depth); }, on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::revert_to_depth(
+    uint32_t target_depth, const CheckpointRevertCallback& on_completion)
+{
+    auto job = [=, this]() {
+        execute_and_report([=, this]() { store_->revert_to_depth(target_depth); }, on_completion);
+    };
+    workers_->enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+uint32_t ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint_depth() const
+{
+    return store_->checkpoint_depth();
+}
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block(
     const block_number_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
