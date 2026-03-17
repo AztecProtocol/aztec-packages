@@ -8,9 +8,9 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/mega_interleaving_entities.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/prover_polynomials.hpp"
-#include "barretenberg/flavor/mega_interleaving_entities.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -182,6 +182,9 @@ class UltraFlavor {
         auto get_to_be_shifted() const { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
         auto get_shiftable() { return get_to_be_shifted(); }
         auto get_shiftable() const { return get_to_be_shifted(); }
+        // All witness entities are masked in ZK mode
+        auto get_masked() { return get_all(); }
+        auto get_masked() const { return get_all(); }
     };
 
     /**
@@ -197,6 +200,7 @@ class UltraFlavor {
                               z_perm_shift) // column 4
 
         auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
+        auto get_shifted() const { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
     /**
@@ -234,14 +238,8 @@ class UltraFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        auto get_to_be_shifted()
-        {
-            return WitnessEntities<DataType>::get_to_be_shifted();
-        }
-        auto get_to_be_shifted() const
-        {
-            return WitnessEntities<DataType>::get_to_be_shifted();
-        }
+        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); }
+        auto get_to_be_shifted() const { return WitnessEntities<DataType>::get_to_be_shifted(); }
     };
 
     // Default AllEntities alias (no ZK)
@@ -258,32 +256,27 @@ class UltraFlavor {
     // Interleaving group accessors (BS=1: each polynomial is its own group)
     // ================================================================
 
-    template <typename FF_>
-    static auto compute_lagrange_basis(std::span<const FF_> interleaving_challenges)
+    template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> interleaving_challenges)
     {
         return compute_lagrange_basis_impl<INTERLEAVING_BATCH_SIZE>(interleaving_challenges);
     }
 
-    template <typename Entities>
-    static auto get_unshifted_groups(Entities& e)
+    template <typename Entities> static auto get_unshifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<true>(e);
     }
 
-    template <typename Entities>
-    static auto get_unshifted_groups_mut(Entities& e)
+    template <typename Entities> static auto get_unshifted_groups_mut(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<false>(e);
     }
 
-    template <typename Entities>
-    static auto get_to_be_shifted_groups(Entities& e)
+    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_to_be_shifted_groups(e);
     }
 
-    template <typename Entities>
-    static auto get_shifted_groups(Entities& e)
+    template <typename Entities> static auto get_shifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_shifted_groups(e);
     }

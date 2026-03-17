@@ -78,7 +78,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_non_opqueue_wires_and_ordered_range_constraints(),
                   commitment_labels.get_non_opqueue_wires_and_ordered_range_constraints())) {
-        batch.add_to_batch(wire, label, /*mask for zk?*/ false);
+        batch.add_to_batch(wire, label);
     }
     batch.commit_and_send_to_verifier(transcript);
 }

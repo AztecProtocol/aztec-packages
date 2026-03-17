@@ -47,11 +47,14 @@ template <typename LeafValueType> class ContentAddressedCache {
     ContentAddressedCache& operator=(ContentAddressedCache&& other) noexcept = default;
     bool operator==(const ContentAddressedCache& other) const = default;
 
-    void checkpoint();
+    uint32_t checkpoint();
     void revert();
     void commit();
     void revert_all();
     void commit_all();
+    void commit_to_depth(uint32_t depth);
+    void revert_to_depth(uint32_t depth);
+    uint32_t depth() const;
 
     void reset(uint32_t depth);
     std::pair<bool, index_t> find_low_value(const uint256_t& new_leaf_key,
@@ -126,9 +129,10 @@ template <typename LeafValueType> ContentAddressedCache<LeafValueType>::ContentA
     reset(depth);
 }
 
-template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::checkpoint()
+template <typename LeafValueType> uint32_t ContentAddressedCache<LeafValueType>::checkpoint()
 {
     journals_.emplace_back(Journal(meta_));
+    return static_cast<uint32_t>(journals_.size());
 }
 
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert()
@@ -240,6 +244,31 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::rev
         revert();
     }
 }
+template <typename LeafValueType> uint32_t ContentAddressedCache<LeafValueType>::depth() const
+{
+    return static_cast<uint32_t>(journals_.size());
+}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit_to_depth(uint32_t target_depth)
+{
+    if (target_depth >= journals_.size()) {
+        throw std::runtime_error("Invalid depth for commit_to_depth");
+    }
+    while (journals_.size() > target_depth) {
+        commit();
+    }
+}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert_to_depth(uint32_t target_depth)
+{
+    if (target_depth >= journals_.size()) {
+        throw std::runtime_error("Invalid depth for revert_to_depth");
+    }
+    while (journals_.size() > target_depth) {
+        revert();
+    }
+}
+
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::reset(uint32_t depth)
 {
     nodes_ = std::unordered_map<fr, NodePayload>();

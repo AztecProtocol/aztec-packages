@@ -28,7 +28,7 @@ cpus="$3"
 echo_header "UltraHonk benchmark: $circuit_name (CPUS=$cpus)"
 
 export HARDWARE_CONCURRENCY="$cpus"
-export native_build_dir=$(scripts/native-preset-build-dir)
+export native_build_dir=$(scripts/preset-build-dir)
 
 # Verify inputs exist
 bytecode_path="$inputs_folder/${circuit_name}.json"
