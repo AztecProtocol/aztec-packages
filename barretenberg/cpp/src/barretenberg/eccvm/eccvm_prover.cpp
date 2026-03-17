@@ -94,12 +94,13 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
     // add per short scalar `mul` is slightly less in the Precomputed table as in the MSM table, so to get the
     // permutation argument to work out, when `precompute_select == 0`, we must implicitly _remove_ (0, 0, 0) as a tuple
-    // on the wNAF side. This corresponds to dividing by
-    // (γ+t·β⁴)·(γ+β²+t·β⁴)·(γ+2β²+t·β⁴)·(γ+3β²+t·β⁴), where t = FIRST_TERM_TAG.
+    // on the wNAF side. With 8 digits per row, we have 8 zero-tuple fingerprints to remove:
+    // product of (γ + j·β² + t·β⁴) for j = 0..7, where t = FIRST_TERM_TAG.
     auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
-    relation_parameters.eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
-                                                      (gamma + beta_sqr + beta_sqr + first_term_tag) *
-                                                      (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
+    relation_parameters.eccvm_set_permutation_delta = FF(1);
+    for (size_t j = 0; j < 8; ++j) {
+        relation_parameters.eccvm_set_permutation_delta *= (gamma + FF(j) * beta_sqr + first_term_tag);
+    }
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<typename Flavor::FF,

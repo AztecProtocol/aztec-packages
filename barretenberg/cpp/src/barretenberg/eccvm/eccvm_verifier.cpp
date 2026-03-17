@@ -56,10 +56,12 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     relation_parameters.beta_sqr = beta_sqr;
     relation_parameters.beta_cube = beta_sqr * beta;
     relation_parameters.beta_quartic = beta_quartic;
+    // Product of 8 zero-tuple fingerprints (γ + j·β² + t·β⁴) for j = 0..7, then inverted.
     auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
-    relation_parameters.eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
-                                                      (gamma + beta_sqr + beta_sqr + first_term_tag) *
-                                                      (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
+    relation_parameters.eccvm_set_permutation_delta = FF(1);
+    for (size_t j = 0; j < 8; ++j) {
+        relation_parameters.eccvm_set_permutation_delta *= (gamma + FF(j) * beta_sqr + first_term_tag);
+    }
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
     // Get commitment to permutation and lookup grand products
