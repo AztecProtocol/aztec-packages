@@ -67,7 +67,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     options: DefaultAccountEntrypointOptions,
   ): Promise<TxExecutionRequest> {
     const { authWitnesses, capsules, extraHashedArgs } = exec;
-    const callData = await this.#buildEntrypointCallData(exec, options, chainInfo);
+    const callData = await this.#buildEntrypointCallData(exec, chainInfo, options);
     const entrypointHashedArgs = await HashedValues.fromArgs(callData.encodedArgs);
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
@@ -89,7 +89,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     options: DefaultAccountEntrypointOptions,
   ): Promise<ExecutionPayload> {
     const { authWitnesses, capsules, extraHashedArgs, feePayer } = exec;
-    const callData = await this.#buildEntrypointCallData(exec, options, chainInfo);
+    const callData = await this.#buildEntrypointCallData(exec, chainInfo, options);
 
     // Build the entrypoint function call
     const entrypointCall = FunctionCall.from({
@@ -122,8 +122,8 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
    */
   async #buildEntrypointCallData(
     exec: ExecutionPayload,
-    options: DefaultAccountEntrypointOptions,
     chainInfo: ChainInfo,
+    options: DefaultAccountEntrypointOptions,
   ) {
     const { calls } = exec;
     const { cancellable, txNonce, feePaymentMethodOptions } = options;
