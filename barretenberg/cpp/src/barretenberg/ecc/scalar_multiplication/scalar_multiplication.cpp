@@ -538,46 +538,6 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
     return MSM<Curve>::msm(points, scalars, false);
 }
 
-template <typename Curve>
-typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<const typename Curve::ScalarField>> chunks,
-                                              std::span<const typename Curve::AffineElement> points,
-                                              size_t batch_size) noexcept
-{
-    using Fr = typename Curve::ScalarField;
-
-    // Determine the logical size n: max end_index across all chunks.
-    // Each chunk may have a different start_index/size (structured trace), but they all live
-    // in the same logical domain [0, n). The interleaved polynomial has size n * batch_size.
-    size_t n = 0;
-    for (const auto& chunk : chunks) {
-        n = std::max(n, chunk.end_index());
-    }
-    const size_t total_size = n * batch_size;
-    const size_t num_chunks = chunks.size();
-
-    // Build interleaved scalar array using logical indexing.
-    // For each logical index i in [0, n), place chunk_j's coefficient at position batch_size*i + j.
-    // Coefficients outside a chunk's [start_index, end_index) range are zero.
-    std::vector<Fr> interleaved_scalars;
-    {
-        BB_BENCH_NAME("InterleavedPip_BuildInterleaved");
-        interleaved_scalars.resize(total_size, Fr::zero());
-        for (size_t j = 0; j < num_chunks; j++) {
-            const auto& chunk = chunks[j];
-            for (size_t i = chunk.start_index; i < chunk.end_index(); i++) {
-                interleaved_scalars[batch_size * i + j] = chunk[i];
-            }
-        }
-    }
-
-    // Call standard MSM (it will handle zero filtering and Montgomery transformation)
-    {
-        BB_BENCH_NAME("InterleavedPip_MSM");
-        auto scalars_span = PolynomialSpan<const Fr>(0, interleaved_scalars);
-        return MSM<Curve>::msm(points.subspan(0, total_size), scalars_span, false);
-    }
-}
-
 template curve::Grumpkin::Element pippenger<curve::Grumpkin>(PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
                                                              std::span<const curve::Grumpkin::AffineElement> points,
                                                              bool handle_edge_cases = true) noexcept;
@@ -591,16 +551,6 @@ template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curv
 
 template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                               std::span<const curve::BN254::AffineElement> points);
-
-template curve::Grumpkin::Element pippenger_interleaved<curve::Grumpkin>(
-    std::span<const PolynomialSpan<const curve::Grumpkin::ScalarField>> chunks,
-    std::span<const curve::Grumpkin::AffineElement> points,
-    size_t batch_size) noexcept;
-
-template curve::BN254::Element pippenger_interleaved<curve::BN254>(
-    std::span<const PolynomialSpan<const curve::BN254::ScalarField>> chunks,
-    std::span<const curve::BN254::AffineElement> points,
-    size_t batch_size) noexcept;
 
 } // namespace bb::scalar_multiplication
 

@@ -252,24 +252,6 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 };
 
 /**
- * @brief Commit to an interleaved group of polynomials and send to verifier.
- */
-template <typename Flavor>
-template <size_t NUM_POLYS>
-typename OinkProver<Flavor>::Commitment OinkProver<Flavor>::commit_interleaved_and_send(
-    std::array<PolynomialSpan<const FF>, NUM_POLYS> polynomials, const std::string& label)
-{
-    static_assert(NUM_POLYS <= BATCH_SIZE, "Cannot batch more than BATCH_SIZE polynomials");
-
-    std::span<const PolynomialSpan<const FF>> span_view(polynomials.data(), NUM_POLYS);
-    Commitment commitment = commitment_key.template commit_interleaved<BATCH_SIZE>(span_view);
-
-    transcript->send_to_verifier(label, commitment);
-
-    return commitment;
-}
-
-/**
  * @brief Commit to an interleaved group buffer directly and send to verifier.
  * @details Used with interleaved polynomial storage: the group buffer IS the interleaved polynomial.
  */

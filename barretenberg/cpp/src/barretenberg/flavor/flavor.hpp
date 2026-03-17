@@ -203,23 +203,13 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
-        } else if (!precomputed.precomputed_group_buffers.empty()) {
+        } else {
             // Interleaved storage: group buffers ARE the interleaved polynomials — commit directly
+            BB_ASSERT(!precomputed.precomputed_group_buffers.empty(),
+                      "BS>1 requires precomputed group buffers for VK commitment");
             CommitmentKey commitment_key{ precomputed.metadata.dyadic_size * InterleavingBatchSize };
             for (auto [group_buffer, commitment] : zip_view(precomputed.precomputed_group_buffers, this->get_all())) {
                 commitment = commitment_key.commit(group_buffer);
-            }
-        } else {
-            // Legacy: materialize interleaved buffers from individual polynomials
-            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size * InterleavingBatchSize };
-            size_t poly_idx = 0;
-            for (auto& commitment : this->get_all()) {
-                std::vector<PolynomialSpan<const DataType>> group;
-                for (size_t j = 0; j < InterleavingBatchSize && poly_idx < precomputed.polynomials.size();
-                     ++j, ++poly_idx) {
-                    group.emplace_back(precomputed.polynomials[poly_idx]);
-                }
-                commitment = commitment_key.template commit_interleaved<InterleavingBatchSize>(std::span(group));
             }
         }
     }

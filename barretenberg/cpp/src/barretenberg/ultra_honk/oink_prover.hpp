@@ -122,15 +122,6 @@ template <typename Flavor> class OinkProver {
     void commit_to_masking_poly();
 
     /**
-     * @brief Commit to an interleaved group of polynomials and send to verifier.
-     * @details Only available for BATCH_SIZE > 1. If fewer than BATCH_SIZE polynomials are provided,
-     *          zeros are used for missing slots (the MSM efficiently skips zero contributions).
-     */
-    template <size_t NUM_POLYS>
-    Commitment commit_interleaved_and_send(std::array<PolynomialSpan<const FF>, NUM_POLYS> polynomials,
-                                           const std::string& label);
-
-    /**
      * @brief Commit to a group buffer directly and send to verifier.
      * @details Used with interleaved polynomial storage: looks up the group buffer
      *          backing the representative entity and commits it.
