@@ -1,6 +1,6 @@
 use crate::messages::{discovery::{ComputeNoteHash, ComputeNoteNullifier}, logs::note::MAX_NOTE_PACKED_LEN};
 
-use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log, aztecnr_warn_log_format};
+use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASHES_PER_TX,
