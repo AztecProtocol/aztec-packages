@@ -331,4 +331,52 @@ describe('Batch Chonk Verifier Queue', () => {
     expect(byId[1].status).toBe(1);
     expect(byId[2].status).toBe(0);
   });
+
+  // -- Random bisection patterns --
+
+  /** Simple seeded PRNG for deterministic randomness in tests. */
+  function seededRandom(seed: number): () => number {
+    let s = seed;
+    return () => {
+      s = (s * 1664525 + 1013904223) & 0xffffffff;
+      return (s >>> 0) / 0xffffffff;
+    };
+  }
+
+  for (const { totalProofs, batchSize, numBad, seed } of [
+    { totalProofs: 8, batchSize: 8, numBad: 1, seed: 42 },
+    { totalProofs: 8, batchSize: 8, numBad: 3, seed: 123 },
+    { totalProofs: 8, batchSize: 4, numBad: 2, seed: 999 },
+    { totalProofs: 12, batchSize: 4, numBad: 4, seed: 7 },
+    { totalProofs: 16, batchSize: 8, numBad: 5, seed: 314 },
+    { totalProofs: 6, batchSize: 3, numBad: 3, seed: 271 },
+    { totalProofs: 10, batchSize: 10, numBad: 1, seed: 555 },
+    { totalProofs: 4, batchSize: 2, numBad: 4, seed: 0 },
+  ]) {
+    it(`random pattern: ${numBad} bad in ${totalProofs}, batchSize=${batchSize}, seed=${seed}`, async () => {
+      // Deterministically pick which indices are bad
+      const rng = seededRandom(seed);
+      const indices = Array.from({ length: totalProofs }, (_, i) => i);
+      // Fisher-Yates shuffle
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      const badIndices = new Set(indices.slice(0, numBad));
+
+      const proofs = Array.from({ length: totalProofs }, (_, i) => ({
+        vkIndex: 0,
+        proofFields: badIndices.has(i) ? invalidProofFields : validProofFields,
+      }));
+
+      const results = await runBatchVerifier(bb, { vks: [vk], numCores: 4, batchSize, proofs });
+      expect(results).toHaveLength(totalProofs);
+
+      const byId = results.sort((a, b) => a.request_id - b.request_id);
+      for (let i = 0; i < totalProofs; i++) {
+        const expectedStatus = badIndices.has(i) ? 1 : 0;
+        expect(byId[i].status).toBe(expectedStatus);
+      }
+    });
+  }
 });
