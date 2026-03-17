@@ -51,12 +51,19 @@ function compile {
 
   local contracts=()
   if [ "$#" -gt 0 ]; then
-    contracts=("$@")
+    local contract
+    for contract in "$@"; do
+      if [[ "$contract" == */* ]]; then
+        contracts+=("$contract")
+      else
+        contracts+=("contracts/$contract")
+      fi
+    done
   else
     local contract
     for contract in "$CONTRACTS_DIR"/*/; do
       if [ -f "$contract/Nargo.toml" ]; then
-        contracts+=("$(basename "$contract")")
+        contracts+=("contracts/$(basename "$contract")")
       fi
     done
   fi
