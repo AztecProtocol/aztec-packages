@@ -18,7 +18,6 @@
   "workspaces": [
     "accounts",
     "archiver",
-    "aztec-faucet",
     "aztec-node",
     "aztec.js",
     "aztec",
@@ -40,7 +39,6 @@
     "key-store",
     "kv-store",
     "l1-artifacts",
-    "merkle-tree",
     "native",
     "node-keystore",
     "node-lib",

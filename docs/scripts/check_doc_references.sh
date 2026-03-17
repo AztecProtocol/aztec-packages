@@ -113,7 +113,14 @@ BRANCH="${GITHUB_HEAD_REF:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo
 if [[ -n "$PR_NUMBER_ARG" ]]; then
   PR_NUMBER="$PR_NUMBER_ARG"
   echo "Using provided PR #$PR_NUMBER"
-# Method 2: Use branch to find PR (same pattern as ci.sh)
+# Method 2: Extract PR number from merge queue ref name (gh-readonly-queue/next/pr-XXX-SHA)
+elif [[ -n "${GITHUB_REF_NAME:-}" ]]; then
+  MERGE_QUEUE_PR=$(echo "$GITHUB_REF_NAME" | sed -n 's|gh-readonly-queue/.*/pr-\([0-9]*\)-.*|\1|p')
+  if [[ -n "$MERGE_QUEUE_PR" ]]; then
+    PR_NUMBER="$MERGE_QUEUE_PR"
+    echo "Detected PR #$PR_NUMBER from merge queue ref $GITHUB_REF_NAME"
+  fi
+# Method 3: Use branch to find PR (same pattern as ci.sh)
 elif [[ -n "$BRANCH" ]] && [[ "$BRANCH" != "HEAD" ]]; then
   PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
   [[ -n "$PR_NUMBER" ]] && echo "Detected PR #$PR_NUMBER from branch $BRANCH"

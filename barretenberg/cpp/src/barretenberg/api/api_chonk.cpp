@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -145,6 +146,31 @@ bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::file
     return response.valid;
 }
 
+void ChonkAPI::proof_stats(const std::filesystem::path& proof_path, const std::filesystem::path& output_path)
+{
+    auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
+    auto proof = ChonkProof::from_field_elements(proof_fields);
+
+    auto compressed = ProofCompressor::compress_chonk_proof(proof);
+
+    std::string json = "{\n"
+                       "  \"compressed_proof_size_bytes\": " +
+                       std::to_string(compressed.size()) +
+                       "\n"
+                       "}";
+
+    if (output_path == "-") {
+        std::cout << json << std::endl;
+    } else {
+        write_file(output_path, std::vector<uint8_t>(json.begin(), json.end()));
+        // Write the compressed proof alongside the JSON for further processing (e.g. gzip)
+        auto compressed_proof_path = output_path;
+        compressed_proof_path.replace_extension(".bin");
+        write_file(compressed_proof_path, compressed);
+        info("Proof stats written to ", output_path);
+    }
+}
+
 // WORKTODO(bbapi) remove this
 bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
@@ -164,7 +190,7 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
 void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("ChonkAPI::gates");
-    chonk_gate_count(bytecode_path, flags.include_gates_per_opcode);
+    chonk_gate_count(bytecode_path.string(), flags.include_gates_per_opcode);
 }
 
 void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,

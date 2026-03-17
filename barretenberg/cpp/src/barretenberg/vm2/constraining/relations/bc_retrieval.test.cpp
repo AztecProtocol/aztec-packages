@@ -117,7 +117,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     // Compute the bytecode commitment separately
     FF bytecode_commitment = RawPoseidon2::hash(hash_input);
     builder.process_hashing({ { .bytecode_id = bytecode_commitment,
-                                .bytecode_length = bytecode_size,
+                                .bytecode_length_in_bytes = bytecode_size,
                                 .bytecode_fields = bytecode_fields } },
                             trace);
     contract_instance_retrieval_builder.process({ {
@@ -342,7 +342,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
                                   trace);
     trace.set(1, { { { C::bc_decomposition_sel_packed_read_0_, 1 } } });
     builder.process_hashing({ { .bytecode_id = bytecode_commitment,
-                                .bytecode_length = bytecode_size,
+                                .bytecode_length_in_bytes = bytecode_size,
                                 .bytecode_fields = bytecode_fields } },
                             trace);
     // Compute the class id separately to produce the hash event, and replace the mocked value
@@ -426,7 +426,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
                                   trace);
     trace.set(1, { { { C::bc_decomposition_sel_packed_read_0_, 1 } } });
     builder.process_hashing({ { .bytecode_id = bytecode_commitment,
-                                .bytecode_length = bytecode_size,
+                                .bytecode_length_in_bytes = bytecode_size,
                                 .bytecode_fields = bytecode_fields } },
                             trace);
 

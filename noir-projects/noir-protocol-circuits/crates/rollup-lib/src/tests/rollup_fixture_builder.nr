@@ -4,6 +4,10 @@ use crate::abis::{
 use bigcurve::BigCurve;
 use bignum::BigNum;
 use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
+use protocol_test_utils::{
+    fixtures::{proof_data::{make_proof_data, make_proof_data_for_fixed_vk}, vk_tree::vk_tree_root},
+    utils::make_fixture,
+};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
@@ -22,16 +26,8 @@ use types::{
         OUT_HASH_TREE_LEAF_COUNT,
     },
     hash::poseidon2_hash,
-    merkle_tree::{compute_empty_tree_root, MerkleTree},
+    merkle_tree::{compute_empty_tree_root, MerkleTree, test_utils::SingleSubtreeMerkleTree},
     proof::proof_data::{AvmV2ProofData, ProofData},
-    tests::{
-        fixtures::{
-            proof_data::{make_proof_data, make_proof_data_for_fixed_vk},
-            vk_tree::vk_tree_root,
-        },
-        merkle_tree_utils::SingleSubtreeMerkleTree,
-        utils::make_fixture,
-    },
     traits::{Deserialize, Empty, Hash},
 };
 

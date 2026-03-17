@@ -633,11 +633,24 @@ export class LogStore {
     txLogs: PublicLog[],
     filter: LogFilter = {},
   ): boolean {
+    if (filter.fromBlock && blockNumber < filter.fromBlock) {
+      return false;
+    }
+    if (filter.toBlock && blockNumber >= filter.toBlock) {
+      return false;
+    }
+    if (filter.txHash && !txHash.equals(filter.txHash)) {
+      return false;
+    }
+
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {
       const log = txLogs[logIndex];
-      if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
+      if (
+        (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) &&
+        (!filter.tag || log.fields[0]?.equals(filter.tag))
+      ) {
         results.push(
           new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), blockHash, txHash, txIndex, logIndex), log),
         );
@@ -661,6 +674,16 @@ export class LogStore {
     txLogs: ContractClassLog[],
     filter: LogFilter = {},
   ): boolean {
+    if (filter.fromBlock && blockNumber < filter.fromBlock) {
+      return false;
+    }
+    if (filter.toBlock && blockNumber >= filter.toBlock) {
+      return false;
+    }
+    if (filter.txHash && !txHash.equals(filter.txHash)) {
+      return false;
+    }
+
     let maxLogsHit = false;
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {

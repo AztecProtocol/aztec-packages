@@ -29,7 +29,8 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
       if (context.event === EvictionEvent.BLOCK_MINED) {
         const blockNumber = context.block.getBlockNumber();
-        await this.worldState.syncImmediate(blockNumber);
+        const blockHash = await context.block.hash();
+        await this.worldState.syncImmediate(blockNumber, blockHash);
         return await this.evictForFeePayers(context.feePayers, this.worldState.getSnapshot(blockNumber), pool);
       }
 

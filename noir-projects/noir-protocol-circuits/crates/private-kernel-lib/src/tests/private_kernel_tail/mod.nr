@@ -4,11 +4,11 @@ mod previous_kernel_validation_tests;
 mod tail_output_validator;
 
 use crate::private_kernel_tail::{self, PrivateKernelTailCircuitPrivateInputs};
+use protocol_test_utils::FixtureBuilder;
 use types::{
     abis::{gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs},
     address::AztecAddress,
     constants::PRIVATE_KERNEL_INNER_VK_INDEX,
-    tests::fixture_builder::FixtureBuilder,
     traits::FromField,
 };
 
