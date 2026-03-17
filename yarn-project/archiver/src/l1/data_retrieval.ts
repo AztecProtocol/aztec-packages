@@ -375,7 +375,13 @@ export async function retrieveL1ToL2Messages(
     }
 
     retrievedL1ToL2Messages.push(...mapLogsInboxMessage(messageSentLogs));
-    searchStartBlock = messageSentLogs.at(-1)!.l1BlockNumber + 1n;
+    const nextStartBlock = messageSentLogs.at(-1)!.l1BlockNumber + 1n;
+    if (nextStartBlock <= searchStartBlock) {
+      throw new Error(
+        `retrieveL1ToL2Messages: search did not progress (stuck at L1 block ${searchStartBlock}, range ${searchStartBlock}-${searchEndBlock})`,
+      );
+    }
+    searchStartBlock = nextStartBlock;
   }
 
   return retrievedL1ToL2Messages;
