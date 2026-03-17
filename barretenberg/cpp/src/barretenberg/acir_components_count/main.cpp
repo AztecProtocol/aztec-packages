@@ -21,6 +21,7 @@ int main(int argc, char* argv[])
 
     // 2. Count ACIR-level connected components
     acir_components_count::AcirGraph acir_graph;
+    acir_graph.set_max_witness_index(constraint_system.max_witness_index);
     acir_graph.process_acir_constraints(constraint_system);
     size_t acir_components = acir_graph.count_components();
 
