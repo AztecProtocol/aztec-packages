@@ -39,14 +39,17 @@ template <typename Flavor> struct MaskingTailData {
     // [0]=even position value, [1]=odd position value. Default {0,0} for non-masked entities.
     AllEntities<std::array<FF, 2>> folded{};
 
-    // Global folding state: 0 = not yet folded, 2 = after round 0, 1 = after round 1+.
-    size_t folded_count = 0;
+    // Number of valid entries in each folded[i] array:
+    //   0 — before any folding (round 0 input); no overrides needed since (1-L)=0 zeroes the tail.
+    //   2 — after round 0; both f[0] (even) and f[1] (odd) hold independent folded values.
+    //   1 — after round 1+; f[1] was collapsed into f[0], only f[0] is valid.
+    size_t num_folded_values = 0;
 
     size_t dyadic_size = 0;
     bool active = false;
 
     bool is_active() const { return active; }
-    size_t get_folded_count() const { return folded_count; }
+    size_t get_num_folded_values() const { return num_folded_values; }
 
     /**
      * @brief Register all masked polynomials and their shifted counterparts at once.
@@ -120,7 +123,7 @@ template <typename Flavor> struct MaskingTailData {
                 f[0] = m0 + challenge * (m1 - m0);
                 f[1] = m2 * (FF::one() - challenge);
             }
-            folded_count = 2;
+            num_folded_values = 2;
         } else if (round_idx == 1) {
             // Same formula for both unshifted and shifted: collapse two folded values into one
             auto fold = [&](auto folded_refs) {
@@ -130,7 +133,7 @@ template <typename Flavor> struct MaskingTailData {
             };
             fold(folded.get_masked());
             fold(folded.get_shifted());
-            folded_count = 1;
+            num_folded_values = 1;
         } else {
             BB_ASSERT(pe != nullptr);
             size_t even_pos = round_size - 2;
