@@ -7,6 +7,20 @@ tmp=$(mktemp)
 
 jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
+# For @aztec/bb.js, inject optionalDependencies for arch-specific binary packages.
+# These aren't in the source package.json (they'd break yarn install in dev/CI since the
+# packages only exist on npm after a release). They're injected here at publish time so that
+# end users' package managers download only their platform's native binaries.
+package_name=$(jq -r '.name' package.json)
+if [ "$package_name" = "@aztec/bb.js" ]; then
+  jq --arg v "$version" '.optionalDependencies = {
+    "@aztec/bb.js-linux-x64": $v,
+    "@aztec/bb.js-linux-arm64": $v,
+    "@aztec/bb.js-darwin-x64": $v,
+    "@aztec/bb.js-darwin-arm64": $v
+  }' package.json >$tmp && mv $tmp package.json
+fi
+
 # We update every category of dependency.
 # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
 for deps in dependencies devDependencies peerDependencies optionalDependencies; do
