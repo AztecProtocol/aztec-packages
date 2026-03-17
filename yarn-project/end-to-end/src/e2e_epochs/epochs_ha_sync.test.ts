@@ -92,8 +92,8 @@ describe('e2e_epochs/epochs_ha_sync', () => {
     // if the proposer's block isn't correctly propagated to its HA peer.
     // Each HA pair shares a slashing protection DB so only one peer can sign per duty.
     const baseOpts = { dontStartSequencer: true, skipPublishingCheckpointsPercent: 100 } as const;
-    const sharedDb1 = await createSharedSlashingProtectionDb(context.dateProvider);
-    const sharedDb2 = await createSharedSlashingProtectionDb(context.dateProvider);
+    const sharedDb1 = createSharedSlashingProtectionDb();
+    const sharedDb2 = createSharedSlashingProtectionDb();
 
     logger.warn(`Creating 4 validator nodes in 2 HA pairs.`);
     nodes = [

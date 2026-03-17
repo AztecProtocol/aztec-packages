@@ -223,10 +223,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     let haSigner: ValidatorHASigner | undefined;
     if (slashingProtectionDb) {
       // Shared database mode: use a pre-existing database (e.g. for testing HA setups).
-      const { signer } = createSignerFromSharedDb(slashingProtectionDb, config, {
-        telemetryClient: telemetry,
-        dateProvider,
-      });
+      const { signer } = createSignerFromSharedDb(slashingProtectionDb, config);
       haSigner = signer;
       validatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, signer);
     } else if (config.haSigningEnabled) {

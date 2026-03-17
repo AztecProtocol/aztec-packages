@@ -4,6 +4,7 @@
 import { Pool } from 'pg';
 
 import type { ValidatorHASignerConfig } from './config.js';
+import { InMemorySlashingProtectionDatabase } from './db/in_memory.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import type { CreateHASignerDeps, SlashingProtectionDatabase } from './types.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
@@ -82,16 +83,11 @@ export async function createHASigner(
 }
 
 /**
- * Create an in-memory LMDB-backed SlashingProtectionDatabase that can be shared across
+ * Create an in-memory SlashingProtectionDatabase that can be shared across
  * multiple validator nodes in the same process. Used for testing HA setups.
  */
-export async function createSharedSlashingProtectionDb(
-  dateProvider: DateProvider = new DateProvider(),
-): Promise<SlashingProtectionDatabase> {
-  const kvStore = await createStore('shared-signing-protection', LmdbSlashingProtectionDatabase.SCHEMA_VERSION, {
-    dataStoreMapSizeKb: 1024 * 1024,
-  });
-  return new LmdbSlashingProtectionDatabase(kvStore, dateProvider);
+export function createSharedSlashingProtectionDb(): SlashingProtectionDatabase {
+  return new InMemorySlashingProtectionDatabase();
 }
 
 /**
@@ -104,11 +100,15 @@ export function createSignerFromSharedDb(
     ValidatorHASignerConfig,
     'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'l1Contracts'
   >,
-  deps?: CreateLocalSignerWithProtectionDeps,
 ): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {
-  const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
-  const dateProvider = deps?.dateProvider ?? new DateProvider();
-  const metrics = new HASignerMetrics(telemetryClient, config.nodeId, 'SharedSigningProtectionMetrics');
-  const signer = new ValidatorHASigner(db, config, { metrics, dateProvider });
+  const signerConfig: ValidatorHASignerConfig = {
+    haSigningEnabled: true,
+    l1Contracts: config.l1Contracts,
+    nodeId: config.nodeId || `shared-${Date.now()}`,
+    pollingIntervalMs: config.pollingIntervalMs ?? 100,
+    signingTimeoutMs: config.signingTimeoutMs ?? 3000,
+    maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs,
+  };
+  const signer = new ValidatorHASigner(db, signerConfig);
   return { signer, db };
 }
