@@ -108,7 +108,9 @@ describe('CheckpointBuilder', () => {
   }
 
   beforeEach(() => {
-    lightweightCheckpointBuilder = mock<LightweightCheckpointBuilder>({ checkpointNumber, constants });
+    lightweightCheckpointBuilder = mock<LightweightCheckpointBuilder>();
+    Object.defineProperty(lightweightCheckpointBuilder, 'checkpointNumber', { value: checkpointNumber });
+    Object.defineProperty(lightweightCheckpointBuilder, 'constants', { value: constants });
     lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
 
     fork = mock<MerkleTreeWriteOperations>();
