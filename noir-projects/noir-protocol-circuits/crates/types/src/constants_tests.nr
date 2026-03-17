@@ -48,6 +48,10 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
         dom_sep_str: str<N>,
     ) {
         // For legacy reasons, we reduce the domain separator to a u32.
+        // Most separators are simply used as a standalone field element when hashing
+        // (via `poseidon2_hash_with_separator`) and would work fine as Fields. However, `DOM_SEP__PUBLIC_BYTECODE` is
+        // an exception: in `compute_public_bytecode_commitment`, it is bit-packed into the low 32 bits of a field, with
+        // the bytecode length shifted into bits 32+. Changing it to a Field would corrupt the length encoding.
         let derived = self.hash_to_u32(DOM_SEP_PREFIX, dom_sep_str);
         assert_eq(
             expected_dom_sep,
