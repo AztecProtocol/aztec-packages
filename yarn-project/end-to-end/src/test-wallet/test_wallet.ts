@@ -125,21 +125,15 @@ export class TestWallet extends BaseWallet {
   protected accounts: Map<string, Account> = new Map();
 
   /**
-   * Toggle for running "simulated simulations" when calling simulateTx.
-   *
-   * When this flag is true, simulateViaEntrypoint constructs a request using a fake account
-   * (and accepts contract overrides on the input) and the PXE emulates kernel effects without
-   * generating kernel witnesses. When false, simulateViaEntrypoint defers to the standard
-   * simulation path via the real account entrypoint.
+   * Controls how the test wallet simulates transactions:
+   * - `kernelless`: Skips kernel circuits but uses the real account contract. Default.
+   * - `kernelless-override`: Skips kernels and replaces the account with a stub that doesn't do authwit validation.
+   * - `full`: Uses real kernel circuits and real account contracts. Slow!.
    */
-  private simulatedSimulations = true;
+  private simulationMode: 'kernelless' | 'kernelless-override' | 'full' = 'kernelless';
 
-  enableSimulatedSimulations() {
-    this.simulatedSimulations = true;
-  }
-
-  disableSimulatedSimulations() {
-    this.simulatedSimulations = false;
+  setSimulationMode(mode: 'kernelless' | 'kernelless-override' | 'full') {
+    this.simulationMode = mode;
   }
 
   setMinFeePadding(value?: number) {
@@ -225,10 +219,12 @@ export class TestWallet extends BaseWallet {
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResult> {
     const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const skipKernels = this.simulationMode !== 'full';
+    const useOverride = this.simulationMode === 'kernelless-override' && !from.equals(AztecAddress.ZERO);
 
     let overrides: SimulationOverrides | undefined;
     let fromAccount: Account;
-    if (!from.equals(AztecAddress.ZERO) && this.simulatedSimulations) {
+    if (useOverride) {
       const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
       fromAccount = account;
       overrides = {
@@ -256,7 +252,7 @@ export class TestWallet extends BaseWallet {
     );
     return this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
-      skipKernels: this.simulatedSimulations,
+      skipKernels,
       skipFeeEnforcement,
       skipTxValidation,
       overrides,

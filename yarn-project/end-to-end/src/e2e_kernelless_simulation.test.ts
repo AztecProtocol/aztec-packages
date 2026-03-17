@@ -110,7 +110,7 @@ describe('Kernelless simulation', () => {
         nonceForAuthwits,
       );
 
-      wallet.enableSimulatedSimulations();
+      wallet.setSimulationMode('kernelless-override');
 
       const { offchainEffects } = await addLiquidityInteraction.simulate({
         from: liquidityProviderAddress,
@@ -240,7 +240,7 @@ describe('Kernelless simulation', () => {
 
       const simulateTxSpy = jest.spyOn(wallet, 'simulateTx');
 
-      wallet.enableSimulatedSimulations();
+      wallet.setSimulationMode('kernelless-override');
       const kernellessResult = await swapExactTokensInteraction.simulate({
         from: swapperAddress,
         includeMetadata: true,
@@ -252,7 +252,7 @@ describe('Kernelless simulation', () => {
         action: token0.methods.transfer_to_public(swapperAddress, amm.address, amountIn, nonceForAuthwits),
       });
 
-      wallet.disableSimulatedSimulations();
+      wallet.setSimulationMode('full');
       const withKernelsResult = await swapExactTokensInteraction.simulate({
         from: swapperAddress,
         includeMetadata: true,
@@ -300,7 +300,7 @@ describe('Kernelless simulation', () => {
         await pendingNoteHashesContract.methods.get_then_nullify_note.selector(),
       );
 
-      wallet.enableSimulatedSimulations();
+      wallet.setSimulationMode('kernelless-override');
       const kernellessGas = (
         await interaction.simulate({
           from: adminAddress,
@@ -308,7 +308,7 @@ describe('Kernelless simulation', () => {
         })
       ).estimatedGas!;
 
-      wallet.disableSimulatedSimulations();
+      wallet.setSimulationMode('full');
       const withKernelsGas = (
         await interaction.simulate({
           from: adminAddress,
@@ -337,14 +337,14 @@ describe('Kernelless simulation', () => {
       const mintAmount = 100n;
 
       // Insert a note with real kernels so it lands on-chain
-      wallet.disableSimulatedSimulations();
+      wallet.setSimulationMode('full');
       await pendingNoteHashesContract.methods.insert_note(mintAmount, adminAddress, adminAddress).send({
         from: adminAddress,
       });
 
       // Kernelless simulation of reading + nullifying that settled note produces a settled
       // read request that gets verified against the note hash tree at the anchor block
-      wallet.enableSimulatedSimulations();
+      wallet.setSimulationMode('kernelless-override');
       await expect(
         pendingNoteHashesContract.methods.get_then_nullify_note(mintAmount, adminAddress).simulate({
           from: adminAddress,
