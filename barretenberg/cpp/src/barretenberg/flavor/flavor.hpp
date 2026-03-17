@@ -88,6 +88,7 @@ struct MetaData {
 template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct PrecomputedData_ {
     RefArray<Polynomial, NUM_PRECOMPUTED_ENTITIES> polynomials; // polys whose commitments comprise the VK
     MetaData metadata;                                          // execution trace metadata
+    std::span<Polynomial> precomputed_group_buffers;            // interleaved group buffers (empty for BS=1)
 };
 
 // ===== Fixed verification keys (ECCVM, Translator, AVM) =====
@@ -202,11 +203,17 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
+        } else if (!precomputed.precomputed_group_buffers.empty()) {
+            // Interleaved storage: group buffers ARE the interleaved polynomials — commit directly
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size * InterleavingBatchSize };
+            for (auto [group_buffer, commitment] : zip_view(precomputed.precomputed_group_buffers, this->get_all())) {
+                commitment = commitment_key.commit(group_buffer);
+            }
         } else {
+            // Legacy: materialize interleaved buffers from individual polynomials
             CommitmentKey commitment_key{ precomputed.metadata.dyadic_size * InterleavingBatchSize };
             size_t poly_idx = 0;
             for (auto& commitment : this->get_all()) {
-                // Collect up to InterleavingBatchSize polynomials for this group
                 std::vector<PolynomialSpan<const DataType>> group;
                 for (size_t j = 0; j < InterleavingBatchSize && poly_idx < precomputed.polynomials.size();
                      ++j, ++poly_idx) {

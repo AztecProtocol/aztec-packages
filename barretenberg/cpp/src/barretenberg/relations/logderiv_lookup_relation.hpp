@@ -291,7 +291,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         });
 
         // Compute inverse polynomial I in place by inverting the product at each row
-        FF::batch_invert(inverse_polynomial.coeffs());
+        inverse_polynomial.batch_invert_in_place();
     };
 
     /**

@@ -39,7 +39,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     {
         BB_ASSERT_DEBUG(index >= start_);
         BB_ASSERT_DEBUG(index < end_);
-        data()[index - start_] = value;
+        data()[((index - start_) * stride_) + offset_] = value;
     }
 
     /**
@@ -58,7 +58,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
         static const T zero{};
         BB_ASSERT_DEBUG(index < virtual_size_ + virtual_padding);
         if (index >= start_ && index < end_) {
-            return data()[index - start_];
+            return data()[((index - start_) * stride_) + offset_];
         }
         return zero; // Return default element when index is out of the actual filled size
     }
@@ -87,14 +87,14 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     {
         BB_ASSERT_DEBUG(index >= start_);
         BB_ASSERT_DEBUG(index < end_);
-        return data()[index - start_];
+        return data()[((index - start_) * stride_) + offset_];
     }
     // get() is more useful, but for completeness with the non-const operator[]
     const T& operator[](size_t index) const
     {
         BB_ASSERT_DEBUG(index >= start_);
         BB_ASSERT_DEBUG(index < end_);
-        return data()[index - start_];
+        return data()[((index - start_) * stride_) + offset_];
     }
 
     // MEMBERS:
@@ -133,4 +133,23 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * allow for efficient memory use when arrays are shifted or otherwise manipulated.
      */
     BackingMemory<T> backing_memory_;
+
+    /**
+     * @brief Stride between consecutive logical elements in the backing memory.
+     *
+     * For standard polynomials, stride_ == 1 (contiguous storage).
+     * For interleaved polynomial group views, stride_ == batch_size (e.g. 4 for BS=4),
+     * meaning logical element i maps to physical position (i - start_) * stride_ + offset_.
+     */
+    size_t stride_ = 1;
+
+    /**
+     * @brief Offset within the interleaved group (0..stride_-1).
+     *
+     * For standard polynomials, offset_ == 0.
+     * For entity j in an interleaved group, offset_ == j.
+     */
+    size_t offset_ = 0;
+
+    bool is_strided() const { return stride_ != 1; }
 };

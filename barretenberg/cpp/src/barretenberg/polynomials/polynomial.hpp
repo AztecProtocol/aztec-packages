@@ -125,6 +125,39 @@ template <typename Fr> class Polynomial {
     {
         return Polynomial(size - num_zero_rows, virtual_size, num_zero_rows);
     }
+    /**
+     * @brief Create a strided view into a shared backing buffer (e.g., an interleaved group buffer).
+     *
+     * @details For entity j in an interleaved group, logical index i maps to
+     *          physical position buffer[stride * i + j]. Since data() already accounts for the
+     *          group buffer's start_index (pointing past zero rows for shiftable groups),
+     *          the internal offset_ is simply entity_index. The accessor formula becomes
+     *          data()[(i - start_) * stride_ + entity_index].
+     *
+     * @param backing Shared backing memory (refcounted, keeps group buffer alive).
+     * @param stride Step between consecutive logical elements in backing memory (= batch size).
+     * @param entity_index Position of this entity within the interleaved group (0..stride-1).
+     * @param start_index First logical index with data (e.g. 1 for shiftable polynomials).
+     * @param logical_size Number of logical elements backed by memory (end_ - start_).
+     * @param virtual_size Total logical size including virtual zeros.
+     */
+    static Polynomial strided_view(BackingMemory<Fr> backing,
+                                   size_t stride,
+                                   size_t entity_index,
+                                   size_t start_index,
+                                   size_t logical_size,
+                                   size_t virtual_size)
+    {
+        Polynomial p;
+        p.coefficients_.start_ = start_index;
+        p.coefficients_.end_ = start_index + logical_size;
+        p.coefficients_.virtual_size_ = virtual_size;
+        p.coefficients_.backing_memory_ = std::move(backing);
+        p.coefficients_.stride_ = stride;
+        p.coefficients_.offset_ = entity_index;
+        return p;
+    }
+
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 
@@ -156,6 +189,7 @@ template <typename Fr> class Polynomial {
         if (is_empty()) {
             throw_or_abort("Checking is_zero on an empty Polynomial!");
         }
+        BB_ASSERT(!is_strided()); // is_zero requires contiguous memory
         for (size_t i = 0; i < size(); i++) {
             if (coefficients_.data()[i] != 0) {
                 return false;
@@ -279,8 +313,16 @@ template <typename Fr> class Polynomial {
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
     void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
 
-    Fr* data() { return coefficients_.data(); }
-    const Fr* data() const { return coefficients_.data(); }
+    Fr* data()
+    {
+        BB_ASSERT_DEBUG(!coefficients_.is_strided());
+        return coefficients_.data();
+    }
+    const Fr* data() const
+    {
+        BB_ASSERT_DEBUG(!coefficients_.is_strided());
+        return coefficients_.data();
+    }
 
     /**
      * @brief Our mutable accessor, unlike operator[].
@@ -340,6 +382,12 @@ template <typename Fr> class Polynomial {
     size_t start_index() const { return coefficients_.start_; }
     size_t end_index() const { return coefficients_.end_; }
     bool is_shiftable(size_t k = NUM_ZERO_ROWS) const { return start_index() >= k; }
+    bool is_strided() const { return coefficients_.is_strided(); }
+    size_t stride() const { return coefficients_.stride_; }
+    size_t offset() const { return coefficients_.offset_; }
+
+    // Access the underlying backing memory (for creating strided views that share the same buffer)
+    BackingMemory<Fr> backing_memory() const { return coefficients_.backing_memory_; }
 
     /**
      * @brief Strictly iterates the defined region of the polynomial.
@@ -349,8 +397,16 @@ template <typename Fr> class Polynomial {
      *
      * @return std::span<Fr> a span covering start_index() to end_index()
      */
-    std::span<Fr> coeffs(size_t offset = 0) { return { data() + offset, data() + size() }; }
-    std::span<const Fr> coeffs(size_t offset = 0) const { return { data() + offset, data() + size() }; }
+    std::span<Fr> coeffs(size_t off = 0)
+    {
+        BB_ASSERT_DEBUG(!is_strided()); // coeffs() requires contiguous memory
+        return { data() + off, data() + size() };
+    }
+    std::span<const Fr> coeffs(size_t off = 0) const
+    {
+        BB_ASSERT_DEBUG(!is_strided()); // coeffs() requires contiguous memory
+        return { data() + off, data() + size() };
+    }
     /**
      * @brief Convert to an std::span bundled with our start index.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
@@ -362,6 +418,28 @@ template <typename Fr> class Polynomial {
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
     operator PolynomialSpan<const Fr>() const { return { start_index(), coeffs() }; }
+
+    /**
+     * @brief Batch-invert all elements in [start_index, end_index) in place.
+     * @details For contiguous polynomials, delegates to FF::batch_invert on the backing span.
+     *          For strided views, gathers values into a temp buffer, batch-inverts, then scatters back.
+     */
+    void batch_invert_in_place()
+    {
+        if (!is_strided()) {
+            Fr::batch_invert(coeffs());
+        } else {
+            const size_t n = size();
+            std::vector<Fr> temp(n);
+            for (size_t i = 0; i < n; i++) {
+                temp[i] = at(start_index() + i);
+            }
+            Fr::batch_invert(temp);
+            for (size_t i = 0; i < n; i++) {
+                at(start_index() + i) = temp[i];
+            }
+        }
+    }
 
     auto indices() const { return std::ranges::iota_view(start_index(), end_index()); }
     auto indexed_values() { return zip_view(indices(), coeffs()); }

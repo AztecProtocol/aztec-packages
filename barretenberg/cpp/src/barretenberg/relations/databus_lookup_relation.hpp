@@ -312,7 +312,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
         // Compute inverse polynomial I in place by inverting the product at each row
         // Note: zeroes are ignored as they are not used anyway
-        FF::batch_invert(inverse_polynomial.coeffs());
+        inverse_polynomial.batch_invert_in_place();
     };
 
     /**

@@ -100,6 +100,101 @@ TYPED_TEST(MegaHonkTests, Basic)
 }
 
 /**
+ * @brief Validate that interleaved polynomial storage produces correct relation evaluations.
+ * @details Constructs a ProverInstance (which uses interleaved allocation for BS>1),
+ *          then checks that the arithmetic relation is satisfied at every row.
+ *          This validates the strided view read path without depending on Oink or PCS.
+ */
+TYPED_TEST(MegaHonkTests, InterleavedStorageRelationCheck)
+{
+    using Flavor = TypeParam;
+    if constexpr (Flavor::INTERLEAVING_BATCH_SIZE == 1) {
+        GTEST_SKIP() << "Only relevant for interleaved (BS>1) flavors";
+    } else {
+        typename Flavor::CircuitBuilder builder;
+        GoblinMockCircuits::construct_simple_circuit(builder);
+
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+
+        // Check arithmetic relation (needs wires + selectors, no Oink-computed witnesses)
+        using FF = typename Flavor::FF;
+        auto failures = RelationChecker<void>::check<ArithmeticRelation<FF>>(prover_instance->polynomials,
+                                                                             RelationParameters<FF>{});
+        for (auto& [subrel_idx, row_idx] : failures) {
+            info("ArithmeticRelation subrelation ", subrel_idx, " failed at row ", row_idx);
+        }
+        EXPECT_TRUE(failures.empty()) << "ArithmeticRelation failed with interleaved storage";
+
+        // Also check ECC op queue relation (needs ecc_op wires + selectors)
+        auto ecc_failures = RelationChecker<void>::check<EccOpQueueRelation<FF>>(prover_instance->polynomials,
+                                                                                 RelationParameters<FF>{});
+        for (auto& [subrel_idx, row_idx] : ecc_failures) {
+            info("EccOpQueueRelation subrelation ", subrel_idx, " failed at row ", row_idx);
+        }
+        EXPECT_TRUE(ecc_failures.empty()) << "EccOpQueueRelation failed with interleaved storage";
+
+        // Check elliptic relation
+        auto elliptic_failures =
+            RelationChecker<void>::check<EllipticRelation<FF>>(prover_instance->polynomials, RelationParameters<FF>{});
+        for (auto& [subrel_idx, row_idx] : elliptic_failures) {
+            info("EllipticRelation subrelation ", subrel_idx, " failed at row ", row_idx);
+        }
+        EXPECT_TRUE(elliptic_failures.empty()) << "EllipticRelation failed with interleaved storage";
+    }
+}
+
+/**
+ * @brief Verify that committing a group buffer directly matches the legacy commit_interleaved path.
+ */
+TYPED_TEST(MegaHonkTests, InterleavedStorageCommitmentMatch)
+{
+    using Flavor = TypeParam;
+    if constexpr (Flavor::INTERLEAVING_BATCH_SIZE == 1) {
+        GTEST_SKIP() << "Only relevant for interleaved (BS>1) flavors";
+    } else {
+        constexpr size_t BS = Flavor::INTERLEAVING_BATCH_SIZE;
+        using Polynomial = typename Flavor::Polynomial;
+        using CommitmentKey = bb::CommitmentKey<typename Flavor::Curve>;
+
+        typename Flavor::CircuitBuilder builder;
+        GoblinMockCircuits::construct_simple_circuit(builder);
+
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+        auto& polys = prover_instance->polynomials;
+        const size_t n = prover_instance->dyadic_size();
+        const size_t pcs_size = n * BS;
+        CommitmentKey ck(pcs_size);
+
+        // Test W1 group: [w_l, w_r, w_o, ZERO] (shiftable)
+        auto& w1_buffer = polys.group_buffer_for(polys.w_l);
+
+        // Direct commit of group buffer
+        auto direct_commit = ck.commit(w1_buffer);
+
+        // Legacy: build PolynomialSpans from entities, use commit_interleaved
+        // But entities are strided views — we can't make PolynomialSpans from them.
+        // Instead, manually interleave via interleave_group and commit that.
+        auto groups = Flavor::get_unshifted_groups(polys);
+        // W1 is the first shiftable group = groups[groups.size() - 3]
+        const size_t w1_idx = groups.size() - 3; // W1 is 3rd from end
+        auto interleaved = interleave_group<BS, Polynomial>(groups[w1_idx], n, pcs_size, /*shiftable=*/true);
+        auto legacy_commit = ck.commit(interleaved);
+
+        EXPECT_EQ(direct_commit, legacy_commit) << "W1 group buffer commit != legacy interleave commit";
+
+        // Also test an unshiftable group: W2 [ecc_op_wire_1..4]
+        auto& w2_buffer = polys.group_buffer_for(polys.ecc_op_wire_1);
+        auto direct_commit_w2 = ck.commit(w2_buffer);
+
+        const size_t w2_idx = 8; // first witness group after 8 precomputed
+        auto interleaved_w2 = interleave_group<BS, Polynomial>(groups[w2_idx], n, pcs_size, /*shiftable=*/false);
+        auto legacy_commit_w2 = ck.commit(interleaved_w2);
+
+        EXPECT_EQ(direct_commit_w2, legacy_commit_w2) << "W2 group buffer commit != legacy interleave commit";
+    }
+}
+
+/**
  * @brief Test that increasing the virtual size of a valid set of prover polynomials still results in a valid Megahonk
  * proof
  *

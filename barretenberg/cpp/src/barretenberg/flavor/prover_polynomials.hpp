@@ -7,6 +7,7 @@
 
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include <unordered_map>
 
 namespace bb {
 
@@ -91,6 +92,100 @@ class ProverPolynomialsBase : public AllEntitiesBase {
         }
         return result;
     }
+
+    /**
+     * @brief Per-entity extent info for interleaved group allocation.
+     */
+    struct EntityExtent {
+        size_t start_index = 0;
+        size_t end_index = 0;
+    };
+
+    /**
+     * @brief Allocate interleaved group buffers and assign entity polynomials as strided views.
+     *
+     * @details For each group defined by GroupAccessors, allocates a single contiguous buffer
+     *          of size max_end_index_in_group * BS. Entity polynomials become strided views into
+     *          the group buffer with their own (start_index, end_index) extents.
+     *
+     *          The entity_extents map provides per-entity sizes. Entities not in the map (or null
+     *          group slots) are skipped. Shiftable groups (the last num_shiftable groups) produce
+     *          shiftable buffers with start_index = BS.
+     *
+     * @tparam BS Batch size (interleaving width).
+     * @tparam GroupAccessors The GroupAccessors_<BS> type that defines group structure.
+     * @param virtual_size The dyadic circuit size (virtual_size for entities and group buffers).
+     * @param num_shiftable Number of shiftable groups at the end of the group list.
+     * @param entity_extents Map from entity polynomial address to its (start_index, end_index).
+     */
+    template <size_t BS, typename GroupAccessors>
+    void allocate_interleaved_groups(size_t virtual_size,
+                                     size_t num_shiftable,
+                                     const std::unordered_map<const Polynomial*, EntityExtent>& entity_extents)
+    {
+        static_assert(BS > 1, "Interleaved group allocation only for BS > 1");
+
+        auto groups = GroupAccessors::template get_unshifted_groups<false>(*this);
+        const size_t num_groups = groups.size();
+        const size_t shiftable_start = num_groups - num_shiftable;
+
+        group_buffers_.resize(num_groups);
+
+        for (size_t g = 0; g < num_groups; g++) {
+            const bool shiftable = (g >= shiftable_start);
+
+            // Compute group buffer size = max end_index across non-null entities in the group
+            size_t group_end_index = 0;
+            for (size_t j = 0; j < groups[g].size(); j++) {
+                if (groups[g][j] != nullptr) {
+                    auto it = entity_extents.find(groups[g][j]);
+                    BB_ASSERT(it != entity_extents.end(), "Entity not found in extents map");
+                    group_end_index = std::max(group_end_index, it->second.end_index);
+                }
+            }
+
+            // TODO(optimization): use group_end_index * BS once commitment/PCS size handling is verified
+            const size_t buffer_size = virtual_size * BS;
+            const size_t buffer_virtual_size = virtual_size * BS;
+
+            // Allocate the group buffer
+            if (shiftable) {
+                group_buffers_[g] = Polynomial::shiftable(buffer_size, buffer_virtual_size, BS);
+            } else {
+                group_buffers_[g] = Polynomial(buffer_size, buffer_virtual_size);
+            }
+
+            // Create strided views for each entity in the group
+            for (size_t j = 0; j < groups[g].size(); j++) {
+                if (groups[g][j] != nullptr) {
+                    auto it = entity_extents.find(groups[g][j]);
+                    const auto& ext = it->second;
+                    const size_t logical_size = ext.end_index - ext.start_index;
+                    *groups[g][j] = Polynomial::strided_view(
+                        group_buffers_[g].backing_memory(), BS, j, ext.start_index, logical_size, virtual_size);
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Find the group buffer that backs a given entity polynomial.
+     * @details Matches by backing_memory pointer identity (entity shares memory with its group buffer).
+     */
+    const Polynomial& group_buffer_for(const Polynomial& entity) const
+    {
+        for (const auto& buf : group_buffers_) {
+            if (buf.backing_memory().raw_data == entity.backing_memory().raw_data) {
+                return buf;
+            }
+        }
+        throw_or_abort("Entity not found in any group buffer");
+    }
+
+    // Group buffers for interleaved polynomial storage (BS > 1).
+    // Each buffer is a contiguous Polynomial of size max_group_end_index * BS,
+    // representing one interleaved group. Entity polynomials are strided views into these.
+    std::vector<Polynomial> group_buffers_;
 
     void increase_polynomials_virtual_size(const size_t size_in)
     {

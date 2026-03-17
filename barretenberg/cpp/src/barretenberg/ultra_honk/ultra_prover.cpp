@@ -40,26 +40,45 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
                    {},
                    PolynomialBatcher(pcs_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE) };
 
-    auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);
-    auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
+    if constexpr (BATCH_SIZE > 1) {
+        // Interleaved storage: group buffers ARE the interleaved polynomials.
+        auto& group_buffers = result.polynomials_storage->group_buffers_;
+        const size_t num_groups = group_buffers.size();
+        const size_t num_shiftable = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+        const size_t shiftable_start = num_groups - num_shiftable;
 
-    // Interleave shifted groups first (they share source polys with last unshifted groups)
-    result.shifted_storage.reserve(shifted_groups.size());
-    for (const auto& group : shifted_groups) {
-        result.shifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, true));
-    }
+        // To-be-shifted: shiftable group buffers (start_index=BS, batcher shifts internally)
+        result.shifted_storage.reserve(num_shiftable);
+        for (size_t g = shiftable_start; g < num_groups; g++) {
+            result.shifted_storage.push_back(group_buffers[g].share());
+        }
 
-    // Interleave unshifted groups, freeing source polynomials after each to limit peak memory
-    result.unshifted_storage.reserve(unshifted_groups.size());
-    for (auto& group : unshifted_groups) {
-        result.unshifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, false));
-        for (auto* ptr : group) {
-            if (ptr != nullptr) {
-                *ptr = Polynomial();
+        // Unshifted: all group buffers (shared — polynomials_storage keeps backing alive)
+        result.unshifted_storage.reserve(num_groups);
+        for (size_t g = 0; g < num_groups; g++) {
+            result.unshifted_storage.push_back(group_buffers[g].share());
+        }
+    } else {
+        // BS=1: each polynomial is its own group (identity interleaving)
+        auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);
+        auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
+
+        result.shifted_storage.reserve(shifted_groups.size());
+        for (const auto& group : shifted_groups) {
+            result.shifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, true));
+        }
+
+        result.unshifted_storage.reserve(unshifted_groups.size());
+        for (auto& group : unshifted_groups) {
+            result.unshifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, false));
+            for (auto* ptr : group) {
+                if (ptr != nullptr) {
+                    *ptr = Polynomial();
+                }
             }
         }
+        result.polynomials_storage.reset();
     }
-    result.polynomials_storage.reset();
 
     result.batcher.set_unshifted(RefVector<Polynomial>(result.unshifted_storage));
     result.batcher.set_to_be_shifted(RefVector<Polynomial>(result.shifted_storage));
@@ -129,6 +148,7 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     // Run sumcheck
     execute_sumcheck_iop();
     vinfo("finished relation check rounds");
+
     // Execute Shplemini PCS
     execute_pcs();
     vinfo("finished PCS rounds");

@@ -1013,4 +1013,132 @@ TEST_F(ShpleminiKZGTest, InterleavedOpenings)
     EXPECT_TRUE(pairing_points.check());
 }
 
+/**
+ * @brief Same as InterleavedOpenings but uses interleaved group buffers (strided entity views)
+ *        instead of manually interleaving polynomials.
+ */
+TEST_F(ShpleminiKZGTest, InterleavedOpeningsWithGroupBuffers)
+{
+    using Fr = curve::BN254::ScalarField;
+    using Commitment = curve::BN254::AffineElement;
+    using Polynomial = bb::Polynomial<Fr>;
+    using CK = CommitmentKey<curve::BN254>;
+    using PolynomialBatcher = GeminiProver_<curve::BN254>::PolynomialBatcher;
+    using OpeningClaim = ProverOpeningClaim<curve::BN254>;
+    using ClaimBatcher = ClaimBatcher_<curve::BN254>;
+    using ClaimBatch = ClaimBatcher::Batch;
+
+    constexpr size_t BATCH_SIZE = 4;
+    const size_t interleaved_size = n * BATCH_SIZE;
+
+    // Allocate group buffers and create strided entity views
+    // Unshiftable group buffer: entities have DIFFERENT sizes
+    // Entity 0: full size n, Entity 1: size n/2, Entity 2: size n/4, Entity 3: zero (nullptr equivalent)
+    Polynomial unshiftable_buf(interleaved_size);
+    std::array<size_t, BATCH_SIZE> entity_sizes = { n, n / 2, n / 4, 0 };
+    std::array<Polynomial, BATCH_SIZE> unshiftable_entities;
+    for (size_t j = 0; j < BATCH_SIZE; j++) {
+        if (entity_sizes[j] > 0) {
+            unshiftable_entities[j] =
+                Polynomial::strided_view(unshiftable_buf.backing_memory(), BATCH_SIZE, j, 0, entity_sizes[j], n);
+        }
+        // else: leave as empty polynomial (zero contribution)
+    }
+
+    // Shiftable group buffer: entity 0 full, entity 1 half, rest zero
+    Polynomial shiftable_buf = Polynomial::shiftable(interleaved_size, interleaved_size, BATCH_SIZE);
+    std::array<size_t, BATCH_SIZE> shiftable_sizes = { n - 1, n / 2, 0, 0 };
+    std::array<Polynomial, BATCH_SIZE> shiftable_entities;
+    for (size_t j = 0; j < BATCH_SIZE; j++) {
+        if (shiftable_sizes[j] > 0) {
+            shiftable_entities[j] =
+                Polynomial::strided_view(shiftable_buf.backing_memory(), BATCH_SIZE, j, 1, shiftable_sizes[j], n);
+        }
+    }
+
+    // Fill entity data through strided views
+    for (size_t j = 0; j < BATCH_SIZE; j++) {
+        for (size_t i = 0; i < entity_sizes[j]; i++) {
+            unshiftable_entities[j].at(i) = Fr::random_element();
+        }
+        for (size_t i = 1; i <= shiftable_sizes[j]; i++) {
+            shiftable_entities[j].at(i) = Fr::random_element();
+        }
+    }
+
+    // Commit group buffers directly
+    CK ck(interleaved_size);
+    Commitment C_unshiftable = ck.commit(unshiftable_buf);
+    Commitment C_shiftable = ck.commit(shiftable_buf);
+
+    // Sumcheck challenge + interleaving challenges
+    std::vector<Fr> sumcheck_challenge(log_n);
+    for (auto& c : sumcheck_challenge)
+        c = Fr::random_element();
+    Fr u0 = Fr::random_element();
+    Fr u1 = Fr::random_element();
+
+    // Lagrange basis
+    Fr mu0 = Fr::one() - u0, mu1 = Fr::one() - u1;
+    std::array<Fr, BATCH_SIZE> L = { mu0 * mu1, u0 * mu1, mu0 * u1, u0 * u1 };
+
+    // Compute batched evaluations via Lagrange basis from entity MLE evaluations
+    auto eval_entity = [&](const Polynomial& entity, const std::vector<Fr>& challenge) {
+        return entity.is_empty() ? Fr::zero() : entity.evaluate_mle(challenge);
+    };
+
+    Fr eval_unshiftable = Fr::zero();
+    Fr eval_shiftable = Fr::zero();
+    for (size_t j = 0; j < BATCH_SIZE; j++) {
+        eval_unshiftable += eval_entity(unshiftable_entities[j], sumcheck_challenge) * L[j];
+        eval_shiftable += eval_entity(shiftable_entities[j], sumcheck_challenge) * L[j];
+    }
+
+    // Shifted evals
+    Fr eval_shifted = Fr::zero();
+    for (size_t j = 0; j < BATCH_SIZE; j++) {
+        if (!shiftable_entities[j].is_empty()) {
+            auto shifted = shiftable_entities[j].shifted();
+            eval_shifted += shifted.evaluate_mle(sumcheck_challenge) * L[j];
+        }
+    }
+
+    // Full challenge: [u₀, u₁] ++ sumcheck_challenge
+    std::vector<Fr> full_challenge = { u0, u1 };
+    full_challenge.insert(full_challenge.end(), sumcheck_challenge.begin(), sumcheck_challenge.end());
+
+    // --- Prover: use group buffers directly ---
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
+
+    PolynomialBatcher batcher(interleaved_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE);
+    batcher.set_unshifted(RefVector<Polynomial>{ unshiftable_buf, shiftable_buf });
+    batcher.set_to_be_shifted(RefVector<Polynomial>{ shiftable_buf });
+
+    OpeningClaim claim =
+        ShpleminiProver_<curve::BN254>::prove(interleaved_size, batcher, full_challenge, ck, prover_transcript);
+    KZG<curve::BN254>::compute_opening_proof(ck, claim, prover_transcript);
+
+    // --- Verifier ---
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
+
+    std::array<Commitment, 2> unshifted_comms = { C_unshiftable, C_shiftable };
+    std::array<Fr, 2> unshifted_evals = { eval_unshiftable, eval_shiftable };
+    std::array<Commitment, 1> shifted_comms = { C_shiftable };
+    std::array<Fr, 1> shifted_evals = { eval_shifted };
+
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ RefArray<Commitment, 2>(unshifted_comms), RefArray<Fr, 2>(unshifted_evals) },
+        .shifted = ClaimBatch{ RefArray<Commitment, 1>(shifted_comms), RefArray<Fr, 1>(shifted_evals) },
+        .shift_exponent = BATCH_SIZE
+    };
+
+    std::vector<Fr> padding(full_challenge.size(), Fr{ 1 });
+    auto output = ShpleminiVerifier_<curve::BN254>::compute_batch_opening_claim(
+        padding, claim_batcher, full_challenge, Commitment::one(), verifier_transcript);
+
+    auto pairing_points = KZG<curve::BN254>::reduce_verify_batch_opening_claim(std::move(output.batch_opening_claim),
+                                                                               verifier_transcript);
+    EXPECT_TRUE(pairing_points.check());
+}
+
 } // namespace bb

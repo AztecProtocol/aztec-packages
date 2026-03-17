@@ -67,7 +67,12 @@ template <typename Flavor_> class ProverInstance_ {
 
     Flavor::PrecomputedData get_precomputed()
     {
-        return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata };
+        std::span<Polynomial> precomputed_group_buffers;
+        if constexpr (Flavor::INTERLEAVING_BATCH_SIZE > 1) {
+            constexpr size_t NUM_PRECOMPUTED_GROUPS = Flavor::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS;
+            precomputed_group_buffers = std::span(polynomials.group_buffers_.data(), NUM_PRECOMPUTED_GROUPS);
+        }
+        return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata, precomputed_group_buffers };
     }
 
     ProverInstance_(Circuit& circuit);
@@ -107,6 +112,9 @@ template <typename Flavor_> class ProverInstance_ {
     void construct_lookup_polynomials(Circuit& circuit);
 
     void populate_memory_records(const Circuit& circuit);
+
+    void allocate_interleaved_polynomial_groups(const Circuit& circuit)
+        requires(Flavor::INTERLEAVING_BATCH_SIZE > 1);
 };
 
 } // namespace bb

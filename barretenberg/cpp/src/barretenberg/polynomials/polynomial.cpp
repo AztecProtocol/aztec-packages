@@ -32,6 +32,7 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
                                            size_t right_expansion = 0,
                                            size_t left_expansion = 0)
 {
+    BB_ASSERT(!array.is_strided()); // deep copy requires contiguous memory
     size_t expanded_size = array.size() + right_expansion + left_expansion;
     BackingMemory<Fr> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
     // zero any left extensions to the array
@@ -221,6 +222,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr& scal
 
 template <typename Fr> void Polynomial<Fr>::multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor)
 {
+    BB_ASSERT(!is_strided()); // in-place multiply requires contiguous memory
     for (size_t i : chunk.range(size())) {
         data()[i] *= scaling_factor;
     }

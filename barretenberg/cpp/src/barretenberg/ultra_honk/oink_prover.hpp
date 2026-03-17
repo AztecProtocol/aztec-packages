@@ -129,6 +129,13 @@ template <typename Flavor> class OinkProver {
     template <size_t NUM_POLYS>
     Commitment commit_interleaved_and_send(std::array<PolynomialSpan<const FF>, NUM_POLYS> polynomials,
                                            const std::string& label);
+
+    /**
+     * @brief Commit to a group buffer directly and send to verifier.
+     * @details Used with interleaved polynomial storage: looks up the group buffer
+     *          backing the representative entity and commits it.
+     */
+    Commitment commit_group_buffer_and_send(const Polynomial& representative_entity, const std::string& label);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;

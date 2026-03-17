@@ -29,6 +29,106 @@ TEST(Polynomial, Shifted)
     }
 }
 
+// Test strided view: entity views into interleaved group buffer
+TEST(Polynomial, StridedView)
+{
+    using FF = bb::fr;
+    using Polynomial = bb::Polynomial<FF>;
+    constexpr size_t BS = 4;
+    constexpr size_t N = 8; // logical size per entity
+
+    // Allocate the group buffer (non-shiftable: all n*BS elements)
+    Polynomial group_buffer(N * BS);
+
+    // Fill it manually: buffer[BS*i + j] = (i+1) * 100 + j
+    for (size_t i = 0; i < N; i++) {
+        for (size_t j = 0; j < BS; j++) {
+            group_buffer.at(BS * i + j) = FF(static_cast<uint64_t>((i + 1) * 100 + j));
+        }
+    }
+
+    // Create strided views for each entity
+    std::array<Polynomial, BS> entities;
+    for (size_t j = 0; j < BS; j++) {
+        entities[j] = Polynomial::strided_view(
+            group_buffer.backing_memory(), BS, j, /*start_index=*/0, /*logical_size=*/N, /*virtual_size=*/N);
+    }
+
+    // Verify reads through strided views
+    for (size_t j = 0; j < BS; j++) {
+        EXPECT_TRUE(entities[j].is_strided());
+        EXPECT_EQ(entities[j].size(), N);
+        EXPECT_EQ(entities[j].virtual_size(), N);
+        for (size_t i = 0; i < N; i++) {
+            FF expected = FF(static_cast<uint64_t>((i + 1) * 100 + j));
+            EXPECT_EQ(entities[j].get(i), expected) << "entity " << j << " at index " << i;
+        }
+    }
+
+    // Verify writes through strided views go into the group buffer
+    entities[2].at(3) = FF(999);
+    EXPECT_EQ(group_buffer.at(BS * 3 + 2), FF(999));
+
+    // Verify reads past logical end return zero (virtual zeros)
+    // (entities have virtual_size = N, so reading at N should return zero)
+    // Can't test this without increasing virtual_size > N; skip for now.
+}
+
+// Test strided view for shiftable entities
+TEST(Polynomial, StridedViewShiftable)
+{
+    using FF = bb::fr;
+    using Polynomial = bb::Polynomial<FF>;
+    constexpr size_t BS = 4;
+    constexpr size_t N = 8; // logical circuit size
+
+    // Allocate shiftable group buffer: first BS positions are zero
+    Polynomial group_buffer = Polynomial::shiftable(N * BS, N * BS, BS);
+
+    // Fill non-zero rows: buffer[BS*i + j] for i >= 1
+    for (size_t i = 1; i < N; i++) {
+        for (size_t j = 0; j < BS; j++) {
+            group_buffer.at(BS * i + j) = FF(static_cast<uint64_t>(i * 10 + j));
+        }
+    }
+
+    // Create shiftable strided views (start_index=1, logical_size=N-1)
+    std::array<Polynomial, BS> entities;
+    for (size_t j = 0; j < BS; j++) {
+        entities[j] = Polynomial::strided_view(
+            group_buffer.backing_memory(), BS, j, /*start_index=*/1, /*logical_size=*/N - 1, /*virtual_size=*/N);
+    }
+
+    // Verify entity reads: entity_j[i] = buffer[BS*i + j]
+    for (size_t j = 0; j < BS; j++) {
+        EXPECT_TRUE(entities[j].is_shiftable());
+        // get(0) should return zero (before start_index)
+        EXPECT_EQ(entities[j].get(0), FF(0));
+        for (size_t i = 1; i < N; i++) {
+            FF expected = FF(static_cast<uint64_t>(i * 10 + j));
+            EXPECT_EQ(entities[j].get(i), expected) << "entity " << j << " at index " << i;
+        }
+    }
+
+    // Create shifted views
+    std::array<Polynomial, BS> shifted;
+    for (size_t j = 0; j < BS; j++) {
+        shifted[j] = entities[j].shifted();
+    }
+
+    // Verify shifted reads: shifted_j[i] = entity_j[i+1]
+    for (size_t j = 0; j < BS; j++) {
+        for (size_t i = 0; i < N - 2; i++) {
+            EXPECT_EQ(shifted[j].get(i), entities[j].get(i + 1)) << "shifted entity " << j << " at index " << i;
+        }
+    }
+
+    // Verify writes through entity view update the buffer and shifted view sees it
+    entities[1].at(3) = FF(42);
+    EXPECT_EQ(group_buffer.at(BS * 3 + 1), FF(42));
+    EXPECT_EQ(shifted[1].get(2), FF(42)); // shifted[2] = entity[3]
+}
+
 // Simple test/demonstration of reverse functionality
 TEST(Polynomial, Reversed)
 {

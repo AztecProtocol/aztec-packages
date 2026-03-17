@@ -76,66 +76,22 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
     if constexpr (BATCH_SIZE > 1) {
         auto& polys = prover_instance->polynomials;
 
-        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
-        {
-            std::array<PolynomialSpan<const FF>, 3> batch = { PolynomialSpan<const FF>(polys.w_l),
-                                                              PolynomialSpan<const FF>(polys.w_r),
-                                                              PolynomialSpan<const FF>(polys.w_o) };
-            interleaved_commitments.interleaved_wires =
-                commit_interleaved_and_send<3>(batch, interleaved_labels.interleaved_wires);
-        }
-
-        // W₂: [ecc_op_wire_1..4] - unshiftable
-        {
-            std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys.ecc_op_wire_1),
-                                                              PolynomialSpan<const FF>(polys.ecc_op_wire_2),
-                                                              PolynomialSpan<const FF>(polys.ecc_op_wire_3),
-                                                              PolynomialSpan<const FF>(polys.ecc_op_wire_4) };
-            interleaved_commitments.interleaved_ecc_op_wires =
-                commit_interleaved_and_send<4>(batch, interleaved_labels.interleaved_ecc_op_wires);
-        }
-
-        // W₃: [calldata, ZERO, ZERO, ZERO]
-        {
-            std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.calldata) };
-            interleaved_commitments.interleaved_calldata =
-                commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_calldata);
-        }
-
-        // W₄: [secondary_calldata, ZERO, ZERO, ZERO]
-        {
-            std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.secondary_calldata) };
-            interleaved_commitments.interleaved_secondary_calldata =
-                commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_secondary_calldata);
-        }
-
-        // W₅: [calldata_read_counts, calldata_read_tags, secondary_calldata_read_counts,
-        // secondary_calldata_read_tags]
-        {
-            std::array<PolynomialSpan<const FF>, 4> batch = {
-                PolynomialSpan<const FF>(polys.calldata_read_counts),
-                PolynomialSpan<const FF>(polys.calldata_read_tags),
-                PolynomialSpan<const FF>(polys.secondary_calldata_read_counts),
-                PolynomialSpan<const FF>(polys.secondary_calldata_read_tags)
-            };
-            interleaved_commitments.interleaved_databus_tags =
-                commit_interleaved_and_send<4>(batch, interleaved_labels.interleaved_databus_tags);
-        }
-
-        // W₆: [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
-        {
-            std::array<PolynomialSpan<const FF>, 2> batch = { PolynomialSpan<const FF>(polys.return_data_read_tags),
-                                                              PolynomialSpan<const FF>(polys.return_data_read_counts) };
-            interleaved_commitments.interleaved_return_data_tags =
-                commit_interleaved_and_send<2>(batch, interleaved_labels.interleaved_return_data_tags);
-        }
-
-        // W₇: [return_data, ZERO, ZERO, ZERO]
-        {
-            std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.return_data) };
-            interleaved_commitments.interleaved_return_data =
-                commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_return_data);
-        }
+        // With interleaved storage, group buffers ARE the interleaved polynomials — commit directly.
+        // Each commit_group_buffer_and_send looks up the group buffer via a representative entity.
+        interleaved_commitments.interleaved_wires =
+            commit_group_buffer_and_send(polys.w_l, interleaved_labels.interleaved_wires);
+        interleaved_commitments.interleaved_ecc_op_wires =
+            commit_group_buffer_and_send(polys.ecc_op_wire_1, interleaved_labels.interleaved_ecc_op_wires);
+        interleaved_commitments.interleaved_calldata =
+            commit_group_buffer_and_send(polys.calldata, interleaved_labels.interleaved_calldata);
+        interleaved_commitments.interleaved_secondary_calldata =
+            commit_group_buffer_and_send(polys.secondary_calldata, interleaved_labels.interleaved_secondary_calldata);
+        interleaved_commitments.interleaved_databus_tags =
+            commit_group_buffer_and_send(polys.calldata_read_counts, interleaved_labels.interleaved_databus_tags);
+        interleaved_commitments.interleaved_return_data_tags =
+            commit_group_buffer_and_send(polys.return_data_read_tags, interleaved_labels.interleaved_return_data_tags);
+        interleaved_commitments.interleaved_return_data =
+            commit_group_buffer_and_send(polys.return_data, interleaved_labels.interleaved_return_data);
     } else {
         // Standard individual commitment path (BATCH_SIZE == 1)
         auto batch = commitment_key.start_batch();
@@ -191,20 +147,10 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_
     if constexpr (BATCH_SIZE > 1) {
         auto& polys = prover_instance->polynomials;
 
-        // W₈: [w_4, ZERO, ZERO, ZERO] - shiftable
-        {
-            std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.w_4) };
-            interleaved_commitments.interleaved_w_4 =
-                commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_w_4);
-        }
-
-        // W₉: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-        {
-            std::array<PolynomialSpan<const FF>, 2> batch = { PolynomialSpan<const FF>(polys.lookup_read_counts),
-                                                              PolynomialSpan<const FF>(polys.lookup_read_tags) };
-            interleaved_commitments.interleaved_lookup =
-                commit_interleaved_and_send<2>(batch, interleaved_labels.interleaved_lookup);
-        }
+        interleaved_commitments.interleaved_w_4 =
+            commit_group_buffer_and_send(polys.w_4, interleaved_labels.interleaved_w_4);
+        interleaved_commitments.interleaved_lookup =
+            commit_group_buffer_and_send(polys.lookup_read_counts, interleaved_labels.interleaved_lookup);
     } else {
         // Commit to lookup argument polynomials and the finalized fourth wire polynomial
         auto batch = commitment_key.start_batch();
@@ -239,16 +185,8 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
     if constexpr (BATCH_SIZE > 1) {
         auto& polys = prover_instance->polynomials;
 
-        // W₁₀: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
-        {
-            std::array<PolynomialSpan<const FF>, 4> batch = { PolynomialSpan<const FF>(polys.lookup_inverses),
-                                                              PolynomialSpan<const FF>(polys.calldata_inverses),
-                                                              PolynomialSpan<const FF>(
-                                                                  polys.secondary_calldata_inverses),
-                                                              PolynomialSpan<const FF>(polys.return_data_inverses) };
-            interleaved_commitments.interleaved_inverses =
-                commit_interleaved_and_send<4>(batch, interleaved_labels.interleaved_inverses);
-        }
+        interleaved_commitments.interleaved_inverses =
+            commit_group_buffer_and_send(polys.lookup_inverses, interleaved_labels.interleaved_inverses);
     } else {
         auto batch = commitment_key.start_batch();
         batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
@@ -287,12 +225,8 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
     if constexpr (BATCH_SIZE > 1) {
         auto& polys = prover_instance->polynomials;
 
-        // W₁₁: [z_perm, ZERO, ZERO, ZERO] - shiftable
-        {
-            std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.z_perm) };
-            interleaved_commitments.interleaved_z_perm =
-                commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_z_perm);
-        }
+        interleaved_commitments.interleaved_z_perm =
+            commit_group_buffer_and_send(polys.z_perm, interleaved_labels.interleaved_z_perm);
     } else {
         auto& z_perm = prover_instance->polynomials.z_perm;
         if constexpr (Flavor::HasZK) {
@@ -332,6 +266,20 @@ typename OinkProver<Flavor>::Commitment OinkProver<Flavor>::commit_interleaved_a
 
     transcript->send_to_verifier(label, commitment);
 
+    return commitment;
+}
+
+/**
+ * @brief Commit to an interleaved group buffer directly and send to verifier.
+ * @details Used with interleaved polynomial storage: the group buffer IS the interleaved polynomial.
+ */
+template <typename Flavor>
+typename OinkProver<Flavor>::Commitment OinkProver<Flavor>::commit_group_buffer_and_send(
+    const Polynomial& representative_entity, const std::string& label)
+{
+    const auto& group_buffer = prover_instance->polynomials.group_buffer_for(representative_entity);
+    Commitment commitment = commitment_key.commit(group_buffer);
+    transcript->send_to_verifier(label, commitment);
     return commitment;
 }
 
