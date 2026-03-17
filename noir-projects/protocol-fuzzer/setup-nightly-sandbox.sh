@@ -8,14 +8,15 @@
 #   3. Fixes the wallet CLI (installs missing inquirer npm package)
 #   4. Extracts the nightly commit's aztec-nr source for contract compilation
 #   5. Compiles both contracts inside the container (nargo + bb-avm)
-#   6. Imports test accounts
+#   6. Starts the bridge server (the fuzzer imports test accounts on each run)
 #   7. Installs an aztec-wallet wrapper script so CLI calls are forwarded
 #      into the container transparently
 #
 set -euo pipefail
 
 CONTAINER_NAME="aztec-sandbox-nightly"
-IMAGE="aztecprotocol/aztec:nightly"
+# Last nightly tag verified to work with the current contract source code.
+KNOWN_GOOD_TAG="5.0.0-nightly.20260224"
 WRAPPER_DIR="${HOME}/.local/bin"
 WRAPPER_PATH="${WRAPPER_DIR}/aztec-wallet"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -29,18 +30,50 @@ log()  { echo "==> $*"; }
 warn() { echo "WARNING: $*" >&2; }
 die()  { echo "ERROR: $*" >&2; exit 1; }
 
-wait_for_pxe() {
-    local max_wait=180
-    local elapsed=0
-    log "Waiting up to ${max_wait}s for PXE to start..."
-    while [ $elapsed -lt $max_wait ]; do
-        if docker logs "$CONTAINER_NAME" 2>&1 | grep -q "Started PXE connected to chain"; then
-            log "PXE is ready (${elapsed}s)"
-            return 0
-        fi
-        sleep 5
-        elapsed=$((elapsed + 5))
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Image selection priority:
+#   1. NIGHTLY_IMAGE env var -- use an explicit full image reference
+#   2. --latest flag -- query Docker Hub for the newest dated nightly tag
+#   3. Default -- use KNOWN_GOOD_TAG (last manually verified tag)
+if [ -n "${NIGHTLY_IMAGE:-}" ]; then
+    IMAGE="$NIGHTLY_IMAGE"
+    log "Using user-specified image: ${IMAGE}"
+elif [ "${1:-}" = "--latest" ]; then
+    LATEST_TAG=$("${SCRIPT_DIR}/find-latest-nightly.sh") \
+        || { log "Docker Hub query failed, falling back to known-good tag"; LATEST_TAG="$KNOWN_GOOD_TAG"; }
+    IMAGE="aztecprotocol/aztec:${LATEST_TAG}"
+    if [ "$LATEST_TAG" = "$KNOWN_GOOD_TAG" ]; then
+        log "Latest nightly matches known-good: ${IMAGE}"
+    else
+        log "Latest nightly: ${IMAGE} (known-good: ${KNOWN_GOOD_TAG})"
+    fi
+else
+    IMAGE="aztecprotocol/aztec:${KNOWN_GOOD_TAG}"
+    log "Using known-good image: ${IMAGE}"
+fi
+
+# wait_for_http URL MAX_SECONDS [INTERVAL]
+# Polls until any HTTP response (even 4xx/5xx) is received.
+wait_for_http() {
+    local url=$1 max=$2 interval=${3:-5} elapsed=0
+    while [ $elapsed -lt "$max" ]; do
+        local code
+        code=$(curl -so /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)
+        [ -n "$code" ] && [ "$code" != "000" ] && return 0
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
     done
+    return 1
+}
+
+wait_for_pxe() {
+    local max_wait=300
+    log "Waiting up to ${max_wait}s for PXE HTTP endpoint (port 8080)..."
+    if wait_for_http http://localhost:8080 "$max_wait" 5; then
+        log "PXE is ready"
+        return 0
+    fi
     die "PXE did not start within ${max_wait}s. Check: docker logs $CONTAINER_NAME"
 }
 
@@ -53,11 +86,18 @@ if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
     sleep 2
 fi
+docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
 log "Starting nightly sandbox container..."
+# Fast slots: AZTEC_SLOT_DURATION=5 (default 36) with timetable enforcement off.
+# Don't pass --block-time to anvil -- the deploy script sets it via RPC.
 docker run -d --rm --name "$CONTAINER_NAME" \
-    -p 8080:8080 -p 8545:8545 \
+    -p 8080:8080 -p 8545:8545 -p 8089:8089 \
     -e LOG_LEVEL=info \
+    -e ETHEREUM_SLOT_DURATION=5 \
+    -e AZTEC_SLOT_DURATION=5 \
+    -e AZTEC_EPOCH_DURATION=4 \
+    -e SEQ_ENFORCE_TIME_TABLE=false \
     --entrypoint "" \
     "$IMAGE" \
     bash -c '/opt/foundry/bin/anvil --host 0.0.0.0 --port 8545 & \
@@ -111,7 +151,8 @@ while read -r hash msg; do
         log "Matched nightly commit: $hash $msg"
         break
     fi
-done < <(git log --all --oneline --diff-filter=M -- noir/noir-repo)
+# Search recent origin/next commits (newest first) for matching noir submodule hash
+done < <(git log origin/next --oneline -1000)
 
 if [ -z "$NIGHTLY_COMMIT" ]; then
     die "Could not find aztec-packages commit matching noir hash ${NIGHTLY_NOIR_HASH}.
@@ -161,51 +202,44 @@ for contract_pkg in side_effect_contract parent_contract; do
     artifact="${ARTIFACT_NAMES[$contract_pkg]}"
 
     log "Compiling ${contract_pkg}..."
-    docker exec -w /tmp/nightly-build "$CONTAINER_NAME" \
+    docker exec -w /tmp/nightly-build "$CONTAINER_NAME" bash -c "
+        set -e
         /usr/src/noir/noir-repo/target/release/nargo compile \
-        --silence-warnings --inliner-aggressiveness 0 --package "$contract_pkg"
-
-    log "Transpiling and stripping prefix for ${artifact}..."
-    docker exec "$CONTAINER_NAME" \
+            --silence-warnings --inliner-aggressiveness 0 --package ${contract_pkg}
         /usr/src/barretenberg/cpp/build/bin/bb-avm aztec_process \
-        -i "/tmp/nightly-build/target/${artifact}.json"
-
-    docker exec "$CONTAINER_NAME" bash -c "
-        json=/tmp/nightly-build/target/${artifact}.json
-        jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \"\$json\" > \"\${json}.tmp\"
-        mv \"\${json}.tmp\" \"\$json\"
+            -i target/${artifact}.json
+        jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \
+            target/${artifact}.json > /tmp/${artifact}.json
     "
 
-    docker exec "$CONTAINER_NAME" cp \
-        "/tmp/nightly-build/target/${artifact}.json" \
-        "/tmp/${artifact}.json"
-
     docker cp "${CONTAINER_NAME}:/tmp/${artifact}.json" \
-        "${REPO_ROOT}/noir-projects/protocol-fuzzer/contracts/target/${artifact}.json"
+        "${CONTRACTS_DIR}/target/${artifact}.json"
     log "Artifact copied to contracts/target/${artifact}.json"
 done
 
 # --------------------------------------------------------------------------- #
-# 6. Import test accounts
+# 6. Start the bridge server (test accounts are imported by the fuzzer on each run)
 # --------------------------------------------------------------------------- #
 
 # bb-avm uses ~330MB and may crash the HTTP server; wait for it to recover
 log "Waiting for Aztec Server HTTP endpoint to be ready..."
-http_wait=0
-while [ $http_wait -lt 120 ]; do
-    # PXE returns 405 on GET (expects POST); any HTTP response means it's up
-    http_code=$(curl -so /dev/null -w '%{http_code}' http://localhost:8080 2>/dev/null || true)
-    if [ -n "$http_code" ] && [ "$http_code" != "000" ]; then
-        break
-    fi
-    sleep 5
-    http_wait=$((http_wait + 5))
-done
+wait_for_http http://localhost:8080 120 || die "PXE HTTP endpoint did not recover"
 
-log "Importing test accounts..."
-docker exec "$CONTAINER_NAME" node --no-warnings \
-    /usr/src/yarn-project/cli-wallet/dest/bin/index.js import-test-accounts \
-    > /dev/null 2>&1
+BRIDGE_SRC="${REPO_ROOT}/noir-projects/protocol-fuzzer/bridge.mjs"
+if [ ! -f "$BRIDGE_SRC" ]; then
+    die "Bridge source not found: ${BRIDGE_SRC}"
+fi
+
+log "Starting bridge server..."
+docker cp "$BRIDGE_SRC" "${CONTAINER_NAME}:/usr/src/yarn-project/bridge.mjs"
+docker exec -d "$CONTAINER_NAME" \
+    bash -c 'cd /usr/src/yarn-project && exec node --no-warnings bridge.mjs > /tmp/bridge.log 2>&1'
+
+if wait_for_http http://localhost:8089/health 60 2; then
+    log "Bridge is ready on port 8089"
+else
+    die "Bridge did not start. Check: docker exec $CONTAINER_NAME cat /tmp/bridge.log"
+fi
 
 # --------------------------------------------------------------------------- #
 # 7. Install aztec-wallet wrapper script
@@ -237,9 +271,10 @@ echo ""
 log "Nightly sandbox is ready!"
 echo ""
 echo "  Container:  ${CONTAINER_NAME}"
+echo "  Image:      ${IMAGE}"
+echo "  Bridge:     http://localhost:8089"
 echo "  Wallet:     ${WRAPPER_PATH}"
-echo "  Artifacts:  /tmp/side_effect_contract-SideEffect.json (container)"
-echo "              /tmp/parent_contract-Parent.json (container)"
+echo "  Slot time:  5s (default 36s)"
 echo ""
 echo "Make sure ${WRAPPER_DIR} is on your PATH (before ~/.aztec/bin):"
 echo ""
@@ -248,9 +283,6 @@ echo ""
 echo "Then run the fuzzer:"
 echo ""
 echo "  cd noir-projects/protocol-fuzzer"
-echo ""
-echo "  # Token machine"
-echo "  RUST_LOG=debug cargo run -- token --max-steps 5"
 echo ""
 echo "  # Side-effect machine"
 echo "  RUST_LOG=debug cargo run -- side-effect --max-steps 5"
