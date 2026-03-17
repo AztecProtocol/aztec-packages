@@ -58,10 +58,7 @@ mod test {
 
             let ciphertext_bvec = BoundedVec::<u8, TEST_CIPHERTEXT_LENGTH>::from_array(ciphertext);
 
-            let result = try_aes128_decrypt(ciphertext_bvec, iv, sym_key);
-            assert(result.is_some());
-
-            let received_plaintext = result.unwrap();
+            let received_plaintext = try_aes128_decrypt(ciphertext_bvec, iv, sym_key).unwrap();
             assert_eq(received_plaintext.len(), TEST_PLAINTEXT_LENGTH);
             assert_eq(received_plaintext.max_len(), TEST_CIPHERTEXT_LENGTH);
             assert_eq(subarray::<_, _, TEST_PLAINTEXT_LENGTH>(received_plaintext.storage(), 0), plaintext);
@@ -130,11 +127,8 @@ mod test {
             // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
             // work with logs of unknown length.
             let ciphertext_bvec = BoundedVec::<u8, 48>::from_array(ciphertext);
-            let result = try_aes128_decrypt(ciphertext_bvec, iv, bad_sym_key);
-
-            // Decryption with wrong key still succeeds (returns garbage).
-            assert(result.is_some());
-            let received_plaintext = result.unwrap();
+            // Decryption with wrong key still returns Some (with garbage).
+            let received_plaintext = try_aes128_decrypt(ciphertext_bvec, iv, bad_sym_key).unwrap();
 
             let extracted_mac_as_bytes: [u8; TEST_MAC_LENGTH] =
                 subarray(received_plaintext.storage(), TEST_PLAINTEXT_LENGTH);
