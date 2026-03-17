@@ -283,7 +283,7 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   setEstimatedGasPadding(value?: number) {
-    this.estimatedGasPadding = value ?? 0.5;
+    this.estimatedGasPadding = value ?? 0.2;
   }
 
   stop() {
