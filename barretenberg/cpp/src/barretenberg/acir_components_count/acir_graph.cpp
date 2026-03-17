@@ -131,6 +131,7 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
         wits.push_back(WoC::from_index(c.result_x));
         wits.push_back(WoC::from_index(c.result_y));
         wits.push_back(WoC::from_index(c.result_infinite));
+        wits.push_back(c.predicate);
         add_constraint(wits);
     }
 
@@ -141,6 +142,7 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
         wits.push_back(WoC::from_index(c.out_point_x));
         wits.push_back(WoC::from_index(c.out_point_y));
         wits.push_back(WoC::from_index(c.out_point_is_infinite));
+        wits.push_back(c.predicate);
         add_constraint(wits);
     }
 
