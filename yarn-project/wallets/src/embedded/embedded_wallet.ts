@@ -124,16 +124,16 @@ export class EmbeddedWallet extends BaseWallet {
         executionPayload.authWitnesses.push(authwit);
       }
     }
-    const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, this.estimatedGasPadding);
+    const estimated = getGasLimits(simulationResult, this.estimatedGasPadding);
     this.log.verbose(
-      `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+      `Estimated gas limits for tx: DA=${estimated.gasLimits.daGas} L2=${estimated.gasLimits.l2Gas} teardownDA=${estimated.teardownGasLimits.daGas} teardownL2=${estimated.teardownGasLimits.l2Gas}`,
     );
     const gasSettings = GasSettings.from({
       ...opts.fee?.gasSettings,
       maxFeesPerGas: feeOptions.gasSettings.maxFeesPerGas,
       maxPriorityFeesPerGas: feeOptions.gasSettings.maxPriorityFeesPerGas,
-      gasLimits,
-      teardownGasLimits,
+      gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
+      teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
     });
     return super.sendTx(executionPayload, {
       ...opts,
