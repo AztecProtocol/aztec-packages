@@ -3,6 +3,7 @@ import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization'
 import {
   type InteractionWaitOptions,
   NO_WAIT,
+  type OffchainMessage,
   type SendReturn,
   extractOffchainOutput,
 } from '@aztec/aztec.js/contracts';
@@ -38,8 +39,12 @@ import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
   type EventMetadataDefinition,
-  type FunctionCall,
+  type FunctionAbi,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
   decodeFromAbi,
+  encodeArguments,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -55,6 +60,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   BlockHeader,
   type TxExecutionRequest,
+  type TxHash,
   type TxProfileResult,
   TxSimulationResult,
   type UtilityExecutionResult,
@@ -394,6 +400,9 @@ export abstract class BaseWallet implements Wallet {
     );
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
+    // Self-deliver offchain messages addressed to registered accounts before sending to the network.
+    // This ensures the PXE's offchain inbox has the messages as early as possible.
+    await this.selfDeliverOffchainMessages(offchainOutput.offchainMessages, txHash);
     if (await this.aztecNode.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
@@ -447,8 +456,95 @@ export abstract class BaseWallet implements Wallet {
     return err;
   }
 
-  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
-    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
+  /**
+   * Delivers offchain messages addressed to any of this wallet's registered accounts by calling the contract's
+   * `offchain_receive` utility function. This avoids requiring the sender to manually deliver their own change notes
+   * or other self-addressed messages.
+   * @param offchainMessages - Messages to filter and deliver.
+   * @param txHash - Hash of the originating transaction, if available.
+   */
+  private async selfDeliverOffchainMessages(offchainMessages: OffchainMessage[], txHash?: TxHash): Promise<void> {
+    if (offchainMessages.length === 0) {
+      return;
+    }
+
+    const accounts = await this.getAccounts();
+    const registeredAddrs = new Set(accounts.map(a => a.item.toString()));
+
+    const selfMessages = offchainMessages.filter(msg => registeredAddrs.has(msg.recipient.toString()));
+    if (selfMessages.length === 0) {
+      return;
+    }
+
+    // Group messages by (contractAddress, recipient) — each group becomes one offchain_receive call.
+    const grouped = new Map<string, OffchainMessage[]>();
+    for (const msg of selfMessages) {
+      const key = `${msg.contractAddress}:${msg.recipient}`;
+      const group = grouped.get(key) ?? [];
+      group.push(msg);
+      grouped.set(key, group);
+    }
+
+    for (const msgs of grouped.values()) {
+      const { contractAddress, recipient } = msgs[0];
+      const fnAbi = await this.getOffchainReceiveAbi(contractAddress);
+      if (!fnAbi) {
+        this.log.verbose(`Contract ${contractAddress} has no offchain_receive function, skipping self-delivery`);
+        continue;
+      }
+
+      // Field names must match the Noir struct (snake_case) for ABI encoding.
+      const jsMessages = msgs.map(msg => ({
+        ciphertext: msg.payload,
+        recipient: msg.recipient,
+        tx_hash: txHash?.hash, // eslint-disable-line camelcase
+        anchor_block_timestamp: msg.anchorBlockTimestamp, // eslint-disable-line camelcase
+      }));
+      const args = encodeArguments(fnAbi, [jsMessages]);
+      const selector = await FunctionSelector.fromNameAndParameters(fnAbi.name, fnAbi.parameters);
+
+      const call = FunctionCall.from({
+        name: 'offchain_receive',
+        to: contractAddress,
+        selector,
+        type: FunctionType.UTILITY,
+        hideMsgSender: false,
+        isStatic: fnAbi.isStatic,
+        args,
+        returnTypes: [],
+      });
+
+      this.log.verbose(`Self-delivering ${msgs.length} offchain message(s) to ${recipient} on ${contractAddress}`);
+      await this.pxe.executeUtility(call, { scopes: [recipient] });
+    }
+  }
+
+  /**
+   * Looks up the `offchain_receive` function ABI from a contract's artifact.
+   * @param contractAddress - The contract to look up.
+   */
+  private async getOffchainReceiveAbi(contractAddress: AztecAddress): Promise<FunctionAbi | undefined> {
+    const instance = await this.pxe.getContractInstance(contractAddress);
+    if (!instance) {
+      return undefined;
+    }
+    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    if (!artifact) {
+      return undefined;
+    }
+    return artifact.functions.find(f => f.name === 'offchain_receive');
+  }
+
+  async executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
+    const result = await this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
+
+    // Self-deliver offchain messages from utility execution, but skip for offchain_receive itself to avoid recursion.
+    if (call.name !== 'offchain_receive' && result.offchainEffects.length > 0) {
+      const offchainOutput = extractOffchainOutput(result.offchainEffects, result.anchorBlockTimestamp);
+      await this.selfDeliverOffchainMessages(offchainOutput.offchainMessages);
+    }
+
+    return result;
   }
 
   async getPrivateEvents<T>(

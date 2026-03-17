@@ -92,41 +92,13 @@ describe('e2e_offchain_payment', () => {
     await contract.methods.mint(mintAmount, alice).send({ from: alice });
 
     // Alice sends the private transfer which emits offchain messages.
-    const { receipt, offchainMessages } = await contract.methods
-      .transfer_offchain(paymentAmount, bob)
-      .send({ from: alice });
+    const { offchainMessages } = await contract.methods.transfer_offchain(paymentAmount, bob).send({ from: alice });
     expect(offchainMessages.length).toBeGreaterThan(0);
 
-    const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
-    expect(messageForBob).toBeTruthy();
-
-    // Deliver Bob's offchain message (the payment note).
-    await contract.methods
-      .offchain_receive([
-        {
-          ciphertext: messageForBob!.payload,
-          recipient: bob,
-          tx_hash: receipt.txHash.hash,
-          anchor_block_timestamp: messageForBob!.anchorBlockTimestamp,
-        },
-      ])
-      .simulate({ from: bob });
-
-    // TODO(F-324): until we implement F-324, we need Alice to self-deliver her own change note
-    const messageForAlice = offchainMessages.find(msg => msg.recipient.equals(alice));
-    expect(messageForAlice).toBeTruthy();
-
-    // Deliver Alice's offchain message (the change note).
-    await contract.methods
-      .offchain_receive([
-        {
-          ciphertext: messageForAlice!.payload,
-          recipient: alice,
-          tx_hash: receipt.txHash.hash,
-          anchor_block_timestamp: messageForAlice!.anchorBlockTimestamp,
-        },
-      ])
-      .simulate({ from: alice });
+    // Both alice and bob are registered in the same wallet, so offchain messages for both are
+    // automatically self-delivered by BaseWallet.sendTx via offchain_receive.
+    expect(offchainMessages.some(msg => msg.recipient.equals(bob))).toBeTruthy();
+    expect(offchainMessages.some(msg => msg.recipient.equals(alice))).toBeTruthy();
 
     // TODO(F-383) Force an empty block so the PXE re-syncs and discovers the offchain-delivered notes.
     // Remove this once we have F-383.

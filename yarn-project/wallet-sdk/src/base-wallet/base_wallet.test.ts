@@ -24,6 +24,7 @@ import {
   TxHash,
   TxProvingResult,
   TxSimulationResult,
+  UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -32,6 +33,7 @@ import { BaseWallet } from './base_wallet.js';
 
 class BasicWallet extends BaseWallet {
   mockAccount = mock<Account>();
+  registeredAccounts: Aliased<AztecAddress>[] = [];
 
   constructor(pxe: PXE, node: AztecNode) {
     super(pxe, node);
@@ -42,7 +44,7 @@ class BasicWallet extends BaseWallet {
   }
 
   override getAccounts(): Promise<Aliased<AztecAddress>[]> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(this.registeredAccounts);
   }
 }
 
@@ -180,6 +182,176 @@ describe('BaseWallet', () => {
         metadata: { l2BlockNumber: packed2.l2BlockNumber, l2BlockHash: packed2.l2BlockHash, txHash: packed2.txHash },
       },
     ]);
+  });
+
+  describe('offchain message self-delivery', () => {
+    /** Helper: builds an offchain effect with OFFCHAIN_MESSAGE_IDENTIFIER prefix. */
+    function makeOffchainEffect(recipient: AztecAddress, contractAddress: AztecAddress): OffchainEffect {
+      return {
+        data: [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.toField(), Fr.random(), Fr.random()],
+        contractAddress,
+      };
+    }
+
+    /** Returns the real offchain_receive ABI from the Token contract artifact. */
+    function getOffchainReceiveAbi() {
+      const abi = TokenContract.artifact.functions.find(f => f.name === 'offchain_receive');
+      if (!abi) {
+        throw new Error('Token contract artifact has no offchain_receive function');
+      }
+      return abi;
+    }
+
+    /** Helper: sets up the full sendTx mock chain and returns the proven tx mock. */
+    function setupSendTxMocks(
+      pxe: MockProxy<PXE>,
+      node: MockProxy<AztecNode>,
+      wallet: BasicWallet,
+      offchainEffects: OffchainEffect[],
+      anchorBlockTimestamp = 55555n,
+    ) {
+      const provenTx = mock<TxProvingResult>();
+      provenTx.getOffchainEffects.mockReturnValue(offchainEffects);
+      Object.defineProperty(provenTx, 'publicInputs', {
+        value: {
+          constants: { anchorBlockHeader: { globalVariables: { timestamp: anchorBlockTimestamp } } },
+        },
+      });
+
+      const mockTx = mock<Tx>();
+      mockTx.getTxHash.mockReturnValue(TxHash.random());
+      provenTx.toTx.mockResolvedValue(mockTx);
+
+      node.getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
+      node.getNodeInfo.mockResolvedValue({ ...mock<NodeInfo>(), l1ChainId: 1, rollupVersion: 1 });
+      pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
+      wallet.mockAccount.createTxExecutionRequest.mockResolvedValue(mock());
+      pxe.proveTx.mockResolvedValue(provenTx);
+      node.getTxEffect.mockResolvedValue(undefined);
+      node.sendTx.mockResolvedValue();
+
+      return provenTx;
+    }
+
+    it('self-delivers offchain messages to registered accounts on sendTx', async () => {
+      pxe = mock<PXE>();
+      node = mock<AztecNode>();
+      const wallet = new BasicWallet(pxe, node);
+      const alice = await AztecAddress.random();
+      const contractAddr = await AztecAddress.random();
+
+      wallet.registeredAccounts = [{ alias: 'alice', item: alice }];
+
+      const offchainEffects = [makeOffchainEffect(alice, contractAddr)];
+      setupSendTxMocks(pxe, node, wallet, offchainEffects);
+
+      // Mock contract artifact lookup with offchain_receive
+      pxe.getContractInstance.mockResolvedValue({ currentContractClassId: Fr.random() } as any);
+      pxe.getContractArtifact.mockResolvedValue({ functions: [getOffchainReceiveAbi()] } as any);
+      pxe.executeUtility.mockResolvedValue(new UtilityExecutionResult([], [], 0n));
+
+      const payload = new ExecutionPayload([await makeFunctionCall(FunctionType.PRIVATE, false, 'transfer')], [], []);
+      await wallet.sendTx(payload, { from: alice, wait: 'NO_WAIT' });
+
+      // executeUtility should have been called for self-delivery
+      expect(pxe.executeUtility).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'offchain_receive' }),
+        expect.objectContaining({ scopes: [alice] }),
+      );
+    });
+
+    it('does not self-deliver when no registered accounts match', async () => {
+      pxe = mock<PXE>();
+      node = mock<AztecNode>();
+      const wallet = new BasicWallet(pxe, node);
+      const alice = await AztecAddress.random();
+      const bob = await AztecAddress.random();
+      const contractAddr = await AztecAddress.random();
+
+      // Only alice is registered, but the message is for bob
+      wallet.registeredAccounts = [{ alias: 'alice', item: alice }];
+
+      const offchainEffects = [makeOffchainEffect(bob, contractAddr)];
+      setupSendTxMocks(pxe, node, wallet, offchainEffects);
+
+      const payload = new ExecutionPayload([await makeFunctionCall(FunctionType.PRIVATE, false, 'transfer')], [], []);
+      await wallet.sendTx(payload, { from: alice, wait: 'NO_WAIT' });
+
+      // executeUtility should NOT have been called (no self-delivery needed)
+      expect(pxe.executeUtility).not.toHaveBeenCalled();
+    });
+
+    it('self-delivers offchain messages from executeUtility', async () => {
+      pxe = mock<PXE>();
+      node = mock<AztecNode>();
+      const wallet = new BasicWallet(pxe, node);
+      const alice = await AztecAddress.random();
+      const contractAddr = await AztecAddress.random();
+
+      wallet.registeredAccounts = [{ alias: 'alice', item: alice }];
+
+      const offchainEffects = [makeOffchainEffect(alice, contractAddr)];
+
+      // First call: the original utility execution returns offchain effects
+      const firstResult = new UtilityExecutionResult([], offchainEffects, 55555n);
+      // Second call: the self-delivery offchain_receive
+      const secondResult = new UtilityExecutionResult([], [], 0n);
+      pxe.executeUtility.mockResolvedValueOnce(firstResult).mockResolvedValueOnce(secondResult);
+
+      pxe.getContractInstance.mockResolvedValue({ currentContractClassId: Fr.random() } as any);
+      pxe.getContractArtifact.mockResolvedValue({ functions: [getOffchainReceiveAbi()] } as any);
+
+      const call = FunctionCall.from({
+        name: 'some_utility',
+        to: contractAddr,
+        selector: FunctionSelector.random(),
+        type: FunctionType.UTILITY,
+        hideMsgSender: false,
+        isStatic: false,
+        args: [],
+        returnTypes: [],
+      });
+
+      await wallet.executeUtility(call, { scope: alice });
+
+      // executeUtility should have been called twice: original + self-delivery
+      expect(pxe.executeUtility).toHaveBeenCalledTimes(2);
+      expect(pxe.executeUtility).toHaveBeenLastCalledWith(
+        expect.objectContaining({ name: 'offchain_receive' }),
+        expect.objectContaining({ scopes: [alice] }),
+      );
+    });
+
+    it('does not recurse when executeUtility is called for offchain_receive', async () => {
+      pxe = mock<PXE>();
+      node = mock<AztecNode>();
+      const wallet = new BasicWallet(pxe, node);
+      const alice = await AztecAddress.random();
+      const contractAddr = await AztecAddress.random();
+
+      wallet.registeredAccounts = [{ alias: 'alice', item: alice }];
+
+      // Even if offchain_receive returns offchain effects, we should not recurse
+      const offchainEffects = [makeOffchainEffect(alice, contractAddr)];
+      const result = new UtilityExecutionResult([], offchainEffects, 55555n);
+      pxe.executeUtility.mockResolvedValue(result);
+
+      const call = FunctionCall.from({
+        name: 'offchain_receive',
+        to: contractAddr,
+        selector: FunctionSelector.random(),
+        type: FunctionType.UTILITY,
+        hideMsgSender: false,
+        isStatic: false,
+        args: [],
+        returnTypes: [],
+      });
+
+      await wallet.executeUtility(call, { scope: alice });
+
+      // Should only be called once — no recursive self-delivery
+      expect(pxe.executeUtility).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('should extract offchain messages with anchor block timestamp on sendTx', async () => {
