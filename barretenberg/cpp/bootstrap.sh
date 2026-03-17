@@ -316,31 +316,12 @@ function bench_cmds {
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
   prefix="$hash:CPUS=1"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify $native_build_dir/bin/chonk_bench VerificationOnly$"
-  # Batch verifier: each core count gets its own graph series
-  for cores in 4 8 12 16; do
-    echo "$hash:CPUS=$cores barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_batch_verify_${cores}c $native_build_dir/bin/chonk_bench BatchVerifyService/120/${cores}$"
-  done
-  # Batch verifier with bad proofs (bisection overhead), pinned at 8 cores
-  for bad in 1 5 15 30; do
-    echo "$hash:CPUS=8 barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_batch_verify_mixed_${bad}bad $native_build_dir/bin/chonk_bench BatchVerifyServiceMixed/120/8/${bad}$"
-  done
 }
 
 # Runs benchmarks sharded over machine cores.
 function bench {
   echo_header "bb bench"
   rm -rf bench-out && mkdir -p bench-out
-
-  # Download pinned IVC inputs for batch verifier benchmarks
-  local pinned_hash="b99f5b94"
-  local pinned_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_hash}.tar.gz"
-  export IVC_INPUTS_DIR="/tmp/bb-chonk-inputs-${pinned_hash}"
-  if [[ ! -d "$IVC_INPUTS_DIR" ]] || ! ls "$IVC_INPUTS_DIR"/*/ivc-inputs.msgpack &>/dev/null; then
-    echo "Downloading pinned IVC inputs for batch verifier benchmarks..."
-    mkdir -p "$IVC_INPUTS_DIR"
-    curl -s -f "$pinned_url" | tar -xz -C "$IVC_INPUTS_DIR"
-  fi
-
   bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 

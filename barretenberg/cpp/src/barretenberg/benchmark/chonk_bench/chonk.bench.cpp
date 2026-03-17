@@ -5,12 +5,8 @@
 
 #include <benchmark/benchmark.h>
 #include <chrono>
-#include <cstdlib>
-#include <filesystem>
 
-#include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
-#include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
@@ -189,160 +185,6 @@ BENCHMARK_DEFINE_F(ChonkBench, BatchIPAOnly)(benchmark::State& state)
     }
 }
 
-// Pinned-input helpers and batch verifier benchmarks require threads (not available in WASM)
-#ifndef __wasm__
-
-/**
- * @brief Generate a proof from pinned IVC inputs (realistic transaction circuits).
- *
- * Loads ivc-inputs.msgpack from the first flow folder in the given directory,
- * parses and accumulates the circuits, then proves.
- *
- * @param inputs_dir Directory containing flow subfolders, each with ivc-inputs.msgpack
- * @return Proof and VK pair
- */
-std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> generate_proof_from_pinned_inputs(
-    const std::filesystem::path& inputs_dir)
-{
-    // Find the first flow folder containing ivc-inputs.msgpack
-    for (const auto& entry : std::filesystem::directory_iterator(inputs_dir)) {
-        if (!entry.is_directory()) {
-            continue;
-        }
-        auto msgpack_path = entry.path() / "ivc-inputs.msgpack";
-        if (!std::filesystem::exists(msgpack_path)) {
-            continue;
-        }
-
-        info("Loading pinned inputs from: ", msgpack_path.string());
-        PrivateExecutionSteps steps;
-        steps.parse(PrivateExecutionStepRaw::load_and_decompress(msgpack_path));
-
-        auto ivc = steps.accumulate();
-        auto proof = ivc->prove();
-        auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
-        return { std::move(proof), std::move(vk_and_hash) };
-    }
-
-    throw std::runtime_error("No flow folder with ivc-inputs.msgpack found in " + inputs_dir.string());
-}
-
-/**
- * @brief Load proof and VK from pinned inputs or fall back to mock circuits.
- */
-std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> load_or_mock_proof()
-{
-    const char* inputs_dir_env = std::getenv("IVC_INPUTS_DIR"); // NOLINT(concurrency-mt-unsafe)
-    if (inputs_dir_env != nullptr && std::filesystem::is_directory(inputs_dir_env)) {
-        info("Using pinned inputs from: ", inputs_dir_env);
-        return generate_proof_from_pinned_inputs(inputs_dir_env);
-    }
-    info("IVC_INPUTS_DIR not set or invalid, using mock circuits");
-    auto precomputed_vks = precompute_vks(1);
-    return accumulate_and_prove_with_precomputed_vks(1, precomputed_vks);
-}
-
-/**
- * @brief Benchmark the async batch verifier service with parameterized proof count and core count.
- * Args: range(0) = num_proofs, range(1) = num_cores
- *
- * Set IVC_INPUTS_DIR to a directory of pinned inputs (flow subfolders with ivc-inputs.msgpack)
- * to use realistic transaction proofs. Falls back to mock circuits if unset.
- */
-BENCHMARK_DEFINE_F(ChonkBench, BatchVerifyService)(benchmark::State& state)
-{
-    const size_t num_proofs = static_cast<size_t>(state.range(0));
-    const uint32_t num_cores = static_cast<uint32_t>(state.range(1));
-
-    auto [proof, vk_and_hash] = load_or_mock_proof();
-
-    for (auto _ : state) {
-        std::mutex mtx;
-        std::condition_variable cv;
-        std::vector<VerifyResult> results;
-        results.reserve(num_proofs);
-
-        ChonkBatchVerifier verifier;
-        verifier.start({ vk_and_hash },
-                       num_cores,
-                       /*batch_size=*/8,
-                       [&](VerifyResult r) {
-                           std::lock_guard lock(mtx);
-                           results.push_back(std::move(r));
-                           cv.notify_one();
-                       });
-
-        for (size_t i = 0; i < num_proofs; i++) {
-            verifier.enqueue(VerifyRequest{ .request_id = i, .vk_index = 0, .proof = proof });
-        }
-
-        {
-            std::unique_lock lock(mtx);
-            cv.wait(lock, [&] { return results.size() >= num_proofs; });
-        }
-        verifier.stop();
-
-        benchmark::DoNotOptimize(results);
-    }
-}
-
-/**
- * @brief Benchmark batch verifier with a mix of valid and invalid proofs (bisection overhead).
- * Args: range(0) = num_proofs, range(1) = num_cores, range(2) = num_bad_proofs
- *
- * Invalid proofs trigger batch IPA failure → bisection fallback → individual IPA re-verify.
- * This measures the worst-case overhead when some proofs in a batch are corrupted.
- */
-BENCHMARK_DEFINE_F(ChonkBench, BatchVerifyServiceMixed)(benchmark::State& state)
-{
-    BB_DISABLE_ASSERTS();
-
-    const size_t num_proofs = static_cast<size_t>(state.range(0));
-    const uint32_t num_cores = static_cast<uint32_t>(state.range(1));
-    const size_t num_bad = static_cast<size_t>(state.range(2));
-
-    auto [good_proof, vk_and_hash] = load_or_mock_proof();
-
-    // Create a corrupted proof by flipping IPA proof data
-    ChonkProof bad_proof = good_proof;
-    if (!bad_proof.ipa_proof.empty()) {
-        bad_proof.ipa_proof[0] = bad_proof.ipa_proof[0] + bb::fr(1);
-    }
-
-    for (auto _ : state) {
-        std::mutex mtx;
-        std::condition_variable cv;
-        std::vector<VerifyResult> results;
-        results.reserve(num_proofs);
-
-        ChonkBatchVerifier verifier;
-        verifier.start({ vk_and_hash },
-                       num_cores,
-                       /*batch_size=*/8,
-                       [&](VerifyResult r) {
-                           std::lock_guard lock(mtx);
-                           results.push_back(std::move(r));
-                           cv.notify_one();
-                       });
-
-        for (size_t i = 0; i < num_proofs; i++) {
-            // Spread bad proofs evenly: every (num_proofs/num_bad)th proof is bad
-            bool is_bad = (num_bad > 0) && (i % (num_proofs / num_bad) == 0) && (i / (num_proofs / num_bad) < num_bad);
-            verifier.enqueue(VerifyRequest{ .request_id = i, .vk_index = 0, .proof = is_bad ? bad_proof : good_proof });
-        }
-
-        {
-            std::unique_lock lock(mtx);
-            cv.wait(lock, [&] { return results.size() >= num_proofs; });
-        }
-        verifier.stop();
-
-        benchmark::DoNotOptimize(results);
-    }
-}
-
-#endif // __wasm__ (batch verifier benchmarks and helpers)
-
 #define ARGS Arg(ChonkBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
 
 BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
@@ -362,23 +204,6 @@ BENCHMARK_REGISTER_F(ChonkBench, BatchIPAOnly)
     ->Arg(32)
     ->Arg(64)
     ->Arg(120);
-
-#ifndef __wasm__
-// BatchVerifyService: 120 proofs × {4, 8, 12, 16} cores (all valid)
-BENCHMARK_REGISTER_F(ChonkBench, BatchVerifyService)
-    ->Unit(benchmark::kMillisecond)
-    ->Args({ 120, 4 })
-    ->Args({ 120, 8 })
-    ->Args({ 120, 12 })
-    ->Args({ 120, 16 });
-// BatchVerifyServiceMixed: 120 proofs × 8 cores with {1, 5, 15, 30} bad proofs
-BENCHMARK_REGISTER_F(ChonkBench, BatchVerifyServiceMixed)
-    ->Unit(benchmark::kMillisecond)
-    ->Args({ 120, 8, 1 })
-    ->Args({ 120, 8, 5 })
-    ->Args({ 120, 8, 15 })
-    ->Args({ 120, 8, 30 });
-#endif // __wasm__
 
 } // namespace
 
