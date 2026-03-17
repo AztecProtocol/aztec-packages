@@ -132,6 +132,9 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
         coinbase: coinbase1,
         broadcastEquivocatedProposals: true,
         dontStartSequencer: true,
+        // Prevent HA peer proposals from being added to the archiver, so both
+        // malicious nodes build their own blocks instead of one yielding to the other.
+        skipPushProposedBlocksToArchiver: true,
       },
       t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 1,
@@ -150,6 +153,9 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
         coinbase: coinbase2,
         broadcastEquivocatedProposals: true,
         dontStartSequencer: true,
+        // Prevent HA peer proposals from being added to the archiver, so both
+        // malicious nodes build their own blocks instead of one yielding to the other.
+        skipPushProposedBlocksToArchiver: true,
       },
       t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 2,
