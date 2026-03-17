@@ -457,12 +457,14 @@ export abstract class BaseWallet implements Wallet {
   }
 
   /**
-   * Delivers offchain messages addressed to any of this wallet's registered accounts by calling the contract's
-   * `offchain_receive` utility function. This avoids requiring the sender to manually deliver their own change notes
-   * or other self-addressed messages. Messages for different recipients within the same contract are batched into a
-   * single call since `offchain_receive` routes each message by its `recipient` field internally.
+   * Delivers offchain messages addressed to any of this wallet's registered accounts.
+   *
+   * It does so by calling the contract's `offchain_receive` utility function. This avoids requiring the sender to
+   * manually deliver their own change notes or other self-addressed messages. Messages for different recipients
+   * within the same contract are batched into a single call since `offchain_receive` routes each message by its
+   * `recipient` field internally.
    * @param offchainMessages - Messages to filter and deliver.
-   * @param scope - The scope (caller) to use for the utility execution.
+   * @param scope - The scope (caller) to use for `offchain_receive` utility execution.
    * @param txHash - Hash of the originating transaction, if available.
    */
   private async selfDeliverOffchainMessages(
@@ -474,34 +476,36 @@ export abstract class BaseWallet implements Wallet {
       return;
     }
 
-    const accounts = await this.getAccounts();
-    const registeredAddrs = new Set(accounts.map(a => a.item.toString()));
+    const localAccounts = new Set((await this.getAccounts()).map(a => a.item.toString()));
 
-    const selfMessages = offchainMessages.filter(msg => registeredAddrs.has(msg.recipient.toString()));
+    const selfMessages = offchainMessages.filter(msg => localAccounts.has(msg.recipient.toString()));
     if (selfMessages.length === 0) {
       return;
     }
 
-    // Group messages by contract — each group becomes one offchain_receive call.
+    // Group messages by contract, each group becomes one `offchain_receive` call.
     // The Noir `receive` function routes each message to the correct recipient's inbox internally.
-    const grouped = new Map<string, OffchainMessage[]>();
+    const messagesByContract = new Map<string, OffchainMessage[]>();
     for (const msg of selfMessages) {
       const key = msg.contractAddress.toString();
-      const group = grouped.get(key) ?? [];
+      const group = messagesByContract.get(key) ?? [];
       group.push(msg);
-      grouped.set(key, group);
+      messagesByContract.set(key, group);
     }
 
-    for (const msgs of grouped.values()) {
-      const { contractAddress } = msgs[0];
+    // Call `offchain_messages` once per emitting contract
+    for (const contractMsgs of messagesByContract.values()) {
+      const { contractAddress } = contractMsgs[0];
       const fnAbi = await this.getOffchainReceiveAbi(contractAddress);
+
+      // Defensive, since contracts with no `offchain_receive` function should also not emit, but the check is cheap
       if (!fnAbi) {
         this.log.verbose(`Contract ${contractAddress} has no offchain_receive function, skipping self-delivery`);
         continue;
       }
 
       // Field names must match the Noir struct (snake_case) for ABI encoding.
-      const jsMessages = msgs.map(msg => ({
+      const jsMessages = contractMsgs.map(msg => ({
         ciphertext: msg.payload,
         recipient: msg.recipient,
         tx_hash: txHash?.hash, // eslint-disable-line camelcase
@@ -521,7 +525,7 @@ export abstract class BaseWallet implements Wallet {
         returnTypes: [],
       });
 
-      this.log.verbose(`Self-delivering ${msgs.length} offchain message(s) on ${contractAddress}`);
+      this.log.verbose(`Self-delivering ${contractMsgs.length} offchain message(s) on ${contractAddress}`);
       await this.pxe.executeUtility(call, { scopes: [scope] });
     }
   }
@@ -546,6 +550,7 @@ export abstract class BaseWallet implements Wallet {
     const result = await this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
 
     // Self-deliver offchain messages from utility execution, but skip for offchain_receive itself to avoid recursion.
+    // Defensive, as `offchain_receive` shouldn't ever emit offchain messages.
     if (call.name !== 'offchain_receive' && result.offchainEffects.length > 0) {
       const offchainOutput = extractOffchainOutput(result.offchainEffects, result.anchorBlockTimestamp);
       await this.selfDeliverOffchainMessages(offchainOutput.offchainMessages, opts.scope);
