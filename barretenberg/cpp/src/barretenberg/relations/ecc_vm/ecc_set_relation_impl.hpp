@@ -234,8 +234,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
      * We only add the tuple to the multiset if `precompute_point_transition == 1`.
      */
     {
-        const auto& table_x = View(in.precompute_tx);
-        const auto& table_y = View(in.precompute_ty);
+        // At the transition row (round=3), Tx2/Ty2 = P (the base point).
+        // The old layout had Tx = P at transition, but the 2-point-per-row layout puts P in Tx2.
+        const auto& table_x = View(in.precompute_tx2);
+        const auto& table_y = View(in.precompute_ty2);
 
         const auto& precompute_skew = View(in.precompute_skew);
         const auto negative_inverse_seven = []() {

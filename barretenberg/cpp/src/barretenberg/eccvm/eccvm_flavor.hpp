@@ -689,14 +689,12 @@ class ECCVMFlavor {
             lagrange_third.at(2) = 1;
             lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
-                // Explanation of off-by-one offset:
-                // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
-                // row number that computes the slice can be derived. This row number is then mapped to the index of
-                // `lookup_read_counts`. We do this mapping in `ecc_msm_relation`. We are off-by-one because we add an
-                // empty row at the start of the WNAF columns that is not accounted for (index of lookup_read_counts
-                // maps to the row in our WNAF columns that computes a slice for a given value of pc and round)
+                // Off-by-one: the first precompute row is empty (for shifted polynomials), so read counts
+                // are stored at index i+1. Each read count column has ROWS_PER_POINT (= 4) entries per point.
                 lookup_read_counts_0.at(i + 1) = point_table_read_counts[0][i];
                 lookup_read_counts_1.at(i + 1) = point_table_read_counts[1][i];
+                lookup_read_counts_2.at(i + 1) = point_table_read_counts[2][i];
+                lookup_read_counts_3.at(i + 1) = point_table_read_counts[3][i];
             }
 
             // compute polynomials for transcript columns

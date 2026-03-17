@@ -89,72 +89,57 @@ class ECCVMMSMMBuilder {
      * @param num_msm_rows
      * @return std::vector<MSMRow>
      */
-    static std::tuple<std::vector<MSMRow>, std::array<std::vector<size_t>, 2>> compute_rows(
+    static constexpr size_t NUM_READ_COUNT_COLUMNS = 4;
+    static constexpr size_t ROWS_PER_POINT = eccvm::NUM_WNAF_DIGITS_PER_SCALAR / eccvm::WNAF_DIGITS_PER_ROW; // 4
+
+    static std::tuple<std::vector<MSMRow>, std::array<std::vector<size_t>, NUM_READ_COUNT_COLUMNS>> compute_rows(
         const std::vector<MSM>& msms, const uint32_t total_number_of_muls, const size_t num_msm_rows)
     {
-        // To perform a scalar multiplication of a point P by a scalar x, we precompute a table of points
-        //                           -15P, -13P, ..., -3P, -P, P, 3P, ..., 15P
-        // When we perform a scalar multiplication, we decompose x into base-16 wNAF digits then look these precomputed
-        // values up with digit-by-digit. As we are performing lookups with the log-derivative argument, we have to
-        // record read counts. We record read counts in a table with the following structure:
-        //   1st write column = positive wNAF digits
-        //   2nd write column = negative wNAF digits
-        // the row number is a function of pc and wnaf digit:
-        //   point_idx = total_number_of_muls - pc
-        //   row      = point_idx * rows_per_point_table + (some function of the slice value)
+        // With 2 precomputed points per row and 4 rows per point, the point table has 4 table terms:
+        //   table 0 (read_counts_0): point 1 positive — compressed slices {15,13,11,9} at rounds 0,1,2,3
+        //   table 1 (read_counts_1): point 1 negative — compressed slices {0,2,4,6} at rounds 0,1,2,3
+        //   table 2 (read_counts_2): point 2 positive — compressed slices {14,12,10,8} at rounds 0,1,2,3
+        //   table 3 (read_counts_3): point 2 negative — compressed slices {1,3,5,7} at rounds 0,1,2,3
         //
-        // Illustration:
-        //   Block Structure:
-        //      | 0 | 1 |
-        //      | - | - |
-        //    1 | # | # | -1
-        //    3 | # | # | -3
-        //    5 | # | # | -5
-        //    7 | # | # | -7
-        //    9 | # | # | -9
-        //   11 | # | # | -11
-        //   13 | # | # | -13
-        //   15 | # | # | -15
-        //
-        //   Table structure:
-        //    | Block_{0}                      | <-- pc = total_number_of_muls
-        //    | Block_{1}                      | <-- pc = total_number_of_muls-(num muls in msm 0)
-        //    |   ...                          | ...
-        //    | Block_{total_number_of_muls-1} | <-- pc = num muls in last msm
+        // Each read count column has ROWS_PER_POINT (= 4) entries per point.
+        // Row index = point_idx * ROWS_PER_POINT + round.
 
-        const size_t num_rows_in_read_counts_table =
-            static_cast<size_t>(total_number_of_muls) *
-            (eccvm::POINT_TABLE_SIZE >> 1); // `POINT_TABLE_SIZE` is 2ʷ, where in our case w = 4. As noted above, with
-                                            // respect to *read counts*, we are record looking up the positive and
-                                            // negative odd multiples of [P] in two separate columns, each of size 2ʷ⁻¹.
-        std::array<std::vector<size_t>, 2> point_table_read_counts;
-        point_table_read_counts[0].reserve(num_rows_in_read_counts_table);
-        point_table_read_counts[1].reserve(num_rows_in_read_counts_table);
-        for (size_t i = 0; i < num_rows_in_read_counts_table; ++i) {
-            point_table_read_counts[0].emplace_back(0);
-            point_table_read_counts[1].emplace_back(0);
+        const size_t num_rows_in_read_counts_table = static_cast<size_t>(total_number_of_muls) * ROWS_PER_POINT;
+        std::array<std::vector<size_t>, NUM_READ_COUNT_COLUMNS> point_table_read_counts;
+        for (auto& col : point_table_read_counts) {
+            col.resize(num_rows_in_read_counts_table, 0);
         }
 
         const auto update_read_count = [&point_table_read_counts](const size_t point_idx, const int slice) {
-            /**
-             * AUDITTODO: verify and correct the point table ordering described below.
-             * The wNAF digits for base 16 lie in the range -15, -13, ..., 13, 15.
-             * The *point table* format is the following:
-             * (for positive point table) T[0] =  P, T[1] =  3P, ..., T[7]  =  15P
-             * (for negative point table) T[0] = -P, T[1] = -3P, ..., T[15] = -15P
-             * i.e. if the slice value is negative, we can use the compressed WNAF directly as the table index
-             *      if the slice value is positive, we must take 15 - (compressed wNAF) to get the table index
-             */
-            const size_t row_index_offset = point_idx * 8;
-            if (slice < 0) {
-                // negative table: T[0] = -15P, T[1] = -13P, ..., T[7] = -P
-                const auto table_index = static_cast<size_t>((slice + 15) / 2);
-                point_table_read_counts[1][row_index_offset + table_index]++;
+            // `slice` is the wNAF digit in {-15, -13, ..., 13, 15}.
+            // `compressed` is the compressed form in {0, 1, ..., 15}.
+            const size_t compressed = static_cast<size_t>((slice + 15) / 2);
+
+            // Determine which table term and round this compressed slice maps to:
+            //   table 0: compressed ∈ {15,13,11,9} (odd, ≥8)  → round = (15-compressed)/2
+            //   table 1: compressed ∈ {0,2,4,6}    (even, <8) → round = compressed/2
+            //   table 2: compressed ∈ {14,12,10,8}  (even, ≥8) → round = (14-compressed)/2
+            //   table 3: compressed ∈ {1,3,5,7}    (odd, <8)  → round = (compressed-1)/2
+            size_t table_idx;
+            size_t round;
+            const bool is_positive = (compressed >= 8);
+            const bool is_odd = (compressed & 1) != 0;
+            if (is_positive && is_odd) {
+                table_idx = 0;
+                round = (15 - compressed) / 2;
+            } else if (!is_positive && !is_odd) {
+                table_idx = 1;
+                round = compressed / 2;
+            } else if (is_positive && !is_odd) {
+                table_idx = 2;
+                round = (14 - compressed) / 2;
             } else {
-                // positive table: T[0] = 15P, T[1] = 13P, ..., T[7] = P
-                const auto table_index = static_cast<size_t>((15 - slice) / 2);
-                point_table_read_counts[0][row_index_offset + table_index]++;
+                table_idx = 3;
+                round = (compressed - 1) / 2;
             }
+
+            const size_t row_index = point_idx * ROWS_PER_POINT + round;
+            point_table_read_counts[table_idx][row_index]++;
         };
 
         // compute which row index each multiscalar multiplication will start at.
