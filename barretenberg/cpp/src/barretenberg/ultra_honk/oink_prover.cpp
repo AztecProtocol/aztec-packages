@@ -67,7 +67,7 @@ template <typename Flavor> void OinkProver<Flavor>::send_vk_hash_and_public_inpu
  * @brief Commit to the wire polynomials (part of the witness), with the exception of the fourth wire, which is
  * only committed to after adding memory records. For Mega, we also commit to the ECC op wires and DataBus columns.
  *
- * For interleaved flavors (BATCH_SIZE > 1), polynomials are committed in groups using interleaved MSM.
+ * For interleaved flavors (BATCH_SIZE > 1), commits directly to the interleaved group buffers.
  */
 template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
 {

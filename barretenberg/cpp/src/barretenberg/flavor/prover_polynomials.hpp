@@ -187,6 +187,41 @@ class ProverPolynomialsBase : public AllEntitiesBase {
         throw_or_abort("Entity not found in any group buffer");
     }
 
+    /**
+     * @brief Return shared copies of the PCS-level polynomials (unshifted and to-be-shifted).
+     * @details For BS>1: returns group buffers. For BS=1: returns individual entity polynomials.
+     *          The num_shiftable parameter indicates how many groups at the end are shiftable.
+     */
+    std::pair<std::vector<Polynomial>, std::vector<Polynomial>> get_pcs_polynomials(size_t num_shiftable) const
+    {
+        std::vector<Polynomial> unshifted;
+        std::vector<Polynomial> to_be_shifted;
+
+        if (!group_buffers_.empty()) {
+            const size_t num_groups = group_buffers_.size();
+            const size_t shiftable_start = num_groups - num_shiftable;
+
+            unshifted.reserve(num_groups);
+            for (size_t g = 0; g < num_groups; g++) {
+                unshifted.push_back(group_buffers_[g].share());
+            }
+
+            to_be_shifted.reserve(num_shiftable);
+            for (size_t g = shiftable_start; g < num_groups; g++) {
+                to_be_shifted.push_back(group_buffers_[g].share());
+            }
+        } else {
+            for (auto& poly : this->get_unshifted()) {
+                unshifted.push_back(poly.share());
+            }
+            for (auto& poly : this->get_to_be_shifted()) {
+                to_be_shifted.push_back(poly.share());
+            }
+        }
+
+        return { std::move(unshifted), std::move(to_be_shifted) };
+    }
+
     // Group buffers for interleaved polynomial storage (BS > 1).
     // Each buffer is a contiguous Polynomial of size max_group_end_index * BS,
     // representing one interleaved group. Entity polynomials are strided views into these.

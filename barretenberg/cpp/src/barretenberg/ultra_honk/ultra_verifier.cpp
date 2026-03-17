@@ -245,33 +245,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         }
     }();
 
-    // Helper to run Shplemini and build the reduction result
-    auto run_shplemini = [&](ClaimBatcher& claim_batcher) -> ReductionResult {
-        auto shplemini_output = Shplemini::compute_batch_opening_claim(pcs_padding_indicator_array,
-                                                                       claim_batcher,
-                                                                       full_challenge,
-                                                                       one_commitment,
-                                                                       transcript,
-                                                                       Flavor::REPEATED_COMMITMENTS,
-                                                                       libra_commitments,
-                                                                       sumcheck_output.claimed_libra_evaluation);
-
-        ReductionResult result;
-        result.pairing_points = PCS::reduce_verify_batch_opening_claim(
-            std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
-
-        bool consistency_checked = true;
-        if constexpr (Flavor::HasZK) {
-            consistency_checked = shplemini_output.consistency_checked;
-            vinfo("UltraVerifier: consistency_checked=", consistency_checked ? "true" : "false");
-        }
-        vinfo("UltraVerifier: sumcheck_verified=", sumcheck_output.verified ? "true" : "false");
-        result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
-
-        return result;
-    };
-
-    // Build PCS commitment and evaluation data (BS-specific assembly hidden in helpers)
+    // Build PCS commitment and evaluation data
     auto pcs_comms = build_pcs_commitments<Flavor>(*verifier_instance);
     auto pcs_evals = build_pcs_evaluations<Flavor>(sumcheck_output.claimed_evaluations,
                                                    std::span<const FF>(full_challenge).first(LOG_K));
@@ -282,7 +256,28 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         .shift_exponent = BATCH_SIZE
     };
 
-    return run_shplemini(claim_batcher);
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(pcs_padding_indicator_array,
+                                                                   claim_batcher,
+                                                                   full_challenge,
+                                                                   one_commitment,
+                                                                   transcript,
+                                                                   Flavor::REPEATED_COMMITMENTS,
+                                                                   libra_commitments,
+                                                                   sumcheck_output.claimed_libra_evaluation);
+
+    ReductionResult reduction_result;
+    reduction_result.pairing_points = PCS::reduce_verify_batch_opening_claim(
+        std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
+
+    bool consistency_checked = true;
+    if constexpr (Flavor::HasZK) {
+        consistency_checked = shplemini_output.consistency_checked;
+        vinfo("UltraVerifier: consistency_checked=", consistency_checked ? "true" : "false");
+    }
+    vinfo("UltraVerifier: sumcheck_verified=", sumcheck_output.verified ? "true" : "false");
+    reduction_result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
+
+    return reduction_result;
 }
 
 template <typename Flavor, class IO>
