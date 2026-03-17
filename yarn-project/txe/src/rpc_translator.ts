@@ -917,7 +917,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_invalidateContractSyncCache(
+  aztec_utl_invalidateContractSyncCache(
     foreignContractAddress: ForeignCallSingle,
     foreignScopes: ForeignCallArray,
     foreignScopeCount: ForeignCallSingle,
@@ -928,9 +928,9 @@ export class RPCTranslator {
       .slice(0, count)
       .map(f => new AztecAddress(f));
 
-    await this.handlerAsUtility().invalidateContractSyncCache(contractAddress, scopes);
+    this.handlerAsUtility().invalidateContractSyncCache(contractAddress, scopes);
 
-    return toForeignCallResult([]);
+    return Promise.resolve(toForeignCallResult([]));
   }
 
   // eslint-disable-next-line camelcase

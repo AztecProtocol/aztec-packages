@@ -659,12 +659,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
    * stored notes or events are discovered.
    */
-  public invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): Promise<void> {
+  public invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
     if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(`Contract ${this.contractAddress} cannot invalidate sync cache of ${contractAddress}`);
     }
     this.contractSyncService.invalidateContractForScopes(contractAddress, scopes);
-    return Promise.resolve();
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
