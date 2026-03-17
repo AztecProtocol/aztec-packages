@@ -168,7 +168,7 @@ function compile {
   local contract_name contract_hash
 
   local contract_path=$(get_contract_path "$1" "$2")
-  local contract=$(grep -oP '(?<=^name = ")[^"]+' "$2/$contract_path/Nargo.toml")
+  local contract=${contract_path##*/}
   # Calculate filename because nargo...
   contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
@@ -191,17 +191,8 @@ function compile {
   # .[0] is the original json (at $json_path)
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
-  # Write each function to a separate temp file to avoid pipe/stdin issues with large JSON
-  local func_dir=$(mktemp -d -p $tmp_dir)
-  local i=0
-  while IFS= read -r func_json; do
-    echo "$func_json" > "$func_dir/$i.json"
-    ((i++)) || true
-  done < <(jq -c '.functions[]' $json_path)
-
-  # Process each function file in parallel
-  ls "$func_dir"/*.json | sort -V | \
-    parallel $PARALLEL_FLAGS --keep-order 'cat {} | process_function '"$contract_hash" | \
+  jq -c '.functions[]' $json_path | \
+    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -222,6 +213,13 @@ function build {
     rm -rf target
     mkdir -p $tmp_dir
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
+
+    # If pinned contracts exist, extract them and skip their compilation.
+    if [ -f pinned-protocol-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-protocol-contracts.tar.gz for pinned contracts."
+      tar xzf pinned-protocol-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -vE "^protocol/|^fees/sponsored_fpc_contract$")
+    fi
   else
     local contracts="$@"
   fi
@@ -285,6 +283,19 @@ function format {
   $NARGO fmt
 }
 
+function pin-build {
+  # Force a real build by removing any existing pinned archive.
+  rm -f pinned-protocol-contracts.tar.gz
+  local protocol_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^protocol/")
+  local fees_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^fees/")
+  build $protocol_contracts $fees_contracts
+  # Bundle protocol contracts plus SponsoredFPC (FPC is excluded — only SponsoredFPC is pinned).
+  local protocol_artifacts=$(jq -r '.[]' protocol_contracts.json | sed 's/$/.json/')
+  echo_stderr "Creating pinned-protocol-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts sponsored_fpc_contract-SponsoredFPC.json)
+  echo_stderr "Done. pinned-protocol-contracts.tar.gz created. Commit it to pin these artifacts."
+}
+
 case "$cmd" in
   "clean-keys")
     for artifact in target/*.json; do
@@ -298,6 +309,9 @@ case "$cmd" in
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
+    ;;
+  "pin-build")
+    pin-build
     ;;
   *)
     default_cmd_handler "$@"
