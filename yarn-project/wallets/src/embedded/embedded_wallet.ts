@@ -99,9 +99,7 @@ export class EmbeddedWallet extends BaseWallet {
       executionPayload,
       opts.from,
       feeOptions,
-      this.scopesFrom(opts.from),
-      true,
-      true,
+      this.scopesFrom(opts.from, opts.additionalScopes),
     );
 
     const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
@@ -114,7 +112,7 @@ export class EmbeddedWallet extends BaseWallet {
             innerHash: authRequest.innerHash,
           });
         } catch {
-          return undefined; // Not a CallAuthorizationRequest, skip
+          return undefined;
         }
       }),
     );
