@@ -25,9 +25,17 @@ function compile-circuits {
     return 0
   fi
 
-  # Compile all circuits in the workspace
-  echo_stderr "Compiling circuits workspace..."
-  (cd "$CIRCUITS_DIR" && $NARGO compile --workspace)
+  # Compile vanilla circuits (not contracts - those are compiled separately).
+  # nargo walks up to docs/Nargo.toml, so we compile specific packages.
+  echo_stderr "Compiling circuits..."
+  local circuit
+  for circuit in "$CIRCUITS_DIR"/*/; do
+    local name=$(basename "$circuit")
+    if [ -f "$circuit/Nargo.toml" ]; then
+      echo_stderr "  Compiling $name..."
+      (cd "$REPO_ROOT/docs" && $NARGO compile --package "$name")
+    fi
+  done
 
   echo_stderr "Vanilla circuits compiled"
 }
