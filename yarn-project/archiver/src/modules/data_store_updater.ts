@@ -457,7 +457,7 @@ export class ArchiverDataStoreUpdater {
       if (validFnCount > 0) {
         this.log.verbose(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
       }
-      return await this.store.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
+      await this.store.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
     }
     return true;
   }
