@@ -1,5 +1,8 @@
 # Configuration for recursive_verification example
 
+# Setup script to run before index.ts (generates proof data)
+setup: "npx tsx scripts/generate_data.ts"
+
 # Contract artifacts to import for codegen (names without .json extension)
 # These must already be compiled to docs/target/ directory
 contracts:

@@ -116,5 +116,5 @@
       "path": "../../../../yarn-project/world-state"
     }
   ],
-  "include": ["index.ts", "artifacts/**/*.ts"]
+  "include": ["index.ts", "artifacts/**/*.ts", "scripts/**/*.ts"]
 }
