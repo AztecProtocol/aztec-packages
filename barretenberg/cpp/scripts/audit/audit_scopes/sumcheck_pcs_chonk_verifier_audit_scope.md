@@ -63,15 +63,21 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 42. `chonk/chonk_verifier.hpp`
 43. `chonk/chonk_verifier.cpp`
 
+### Batched Honk + Translator (Joint MegaZK + Translator Sumcheck/PCS)
+44. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
+45. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
+46. `chonk/batched_honk_translator/batched_honk_translator_verifier.hpp`
+47. `chonk/batched_honk_translator/batched_honk_translator_verifier.cpp`
+
 ### In-Circuit (Recursive) Verifier Components
-44. `stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp`
-45. `stdlib/eccvm_verifier/verifier_commitment_key.hpp`
-46. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
-47. `stdlib/honk_verifier/ipa_accumulator.hpp`
-48. `stdlib/honk_verifier/ultra_verification_keys_comparator.hpp`
+48. `stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp`
+49. `stdlib/eccvm_verifier/verifier_commitment_key.hpp`
+50. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
+51. `stdlib/honk_verifier/ipa_accumulator.hpp`
+52. `stdlib/honk_verifier/ultra_verification_keys_comparator.hpp`
 
 ### Supporting Types
-49. `goblin/types.hpp`
+53. `goblin/types.hpp`
 
 ---
 
@@ -102,7 +108,9 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | File | Description |
 |------|-------------|
 | `chonk/chonk_verifier.test.cpp` | Native and recursive verifier correctness |
+| `chonk/chonk_batch_verifier.test.cpp` | Batch Chonk verification with IPA batching |
 | `chonk/chonk_transcript_invariants.test.cpp` | Transcript consistency, tampering detection |
+| `chonk/batched_honk_translator/batched_honk_translator.test.cpp` | Joint MegaZK+Translator: ProveAndVerify, ProofSize, ManifestConsistency |
 | `goblin/goblin_verifier.test.cpp` | Goblin verifier tests |
 | `goblin/merge.test.cpp` | Merge protocol correctness, transcript pinning |
 | `eccvm/eccvm.test.cpp` | ECCVM prover/verifier tests |
@@ -155,3 +163,4 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 - `commitment_schemes/kzg/README.md` - KZG commitment scheme
 - `commitment_schemes/small_subgroup_ipa/README.md` - SmallSubgroupIPA documentation
 - `chonk/README.md` - Chonk architecture and verification flow
+- `chonk/batched_honk_translator/README.md` - Joint MegaZK + Translator sumcheck/PCS protocol
