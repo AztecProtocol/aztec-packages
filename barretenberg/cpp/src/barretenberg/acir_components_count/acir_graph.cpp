@@ -74,18 +74,23 @@ size_t AcirGraph::count_components() const
     return count;
 }
 
-// Helper to convert a quad wire index to WoC. IS_CONSTANT sentinel maps to constant 0.
-static WoC quad_wire_to_woc(uint32_t idx, const bb::fr& scaling)
+// Helper: collect only real witness wires from a quad gate, skipping IS_CONSTANT sentinels.
+// Constants in quad gates become the zero/constant variable in the circuit (filtered by the analyzer),
+// so they must NOT create connections in the ACIR graph.
+static void collect_quad_witnesses(std::vector<WoC>& wits, const bb::mul_quad_<bb::fr>& c)
 {
-    if (idx == bb::stdlib::IS_CONSTANT) {
-        return WoC::from_constant(bb::fr::zero());
+    if (c.a != bb::stdlib::IS_CONSTANT) {
+        wits.push_back(WoC::from_index(c.a));
     }
-    // If the scaling is zero, this wire is effectively unused (contributes nothing).
-    // Treat as constant to avoid creating a spurious vertex.
-    if (scaling == bb::fr::zero()) {
-        return WoC::from_constant(bb::fr::zero());
+    if (c.b != bb::stdlib::IS_CONSTANT && c.b != c.a) {
+        wits.push_back(WoC::from_index(c.b));
     }
-    return WoC::from_index(idx);
+    if (c.c != bb::stdlib::IS_CONSTANT) {
+        wits.push_back(WoC::from_index(c.c));
+    }
+    if (c.d != bb::stdlib::IS_CONSTANT) {
+        wits.push_back(WoC::from_index(c.d));
+    }
 }
 
 void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
@@ -93,12 +98,10 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     witness_id_ceiling_ = next_const_id_;
 
     // --- QuadConstraint (mul_quad_<fr>) ---
+    // Only include real witness wires; constants become the filtered zero variable in the circuit.
     for (const auto& c : cs.quad_constraints) {
         std::vector<WoC> wits;
-        wits.push_back(quad_wire_to_woc(c.a, c.a_scaling + c.mul_scaling));
-        wits.push_back(quad_wire_to_woc(c.b, c.b_scaling + c.mul_scaling));
-        wits.push_back(quad_wire_to_woc(c.c, c.c_scaling));
-        wits.push_back(quad_wire_to_woc(c.d, c.d_scaling));
+        collect_quad_witnesses(wits, c);
         add_constraint(wits);
     }
 
@@ -106,10 +109,7 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     for (const auto& big : cs.big_quad_constraints) {
         std::vector<WoC> wits;
         for (const auto& c : big) {
-            wits.push_back(quad_wire_to_woc(c.a, c.a_scaling + c.mul_scaling));
-            wits.push_back(quad_wire_to_woc(c.b, c.b_scaling + c.mul_scaling));
-            wits.push_back(quad_wire_to_woc(c.c, c.c_scaling));
-            wits.push_back(quad_wire_to_woc(c.d, c.d_scaling));
+            collect_quad_witnesses(wits, c);
         }
         add_constraint(wits);
     }
