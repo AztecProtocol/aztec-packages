@@ -32,8 +32,8 @@ export class AccountWithSecretKey implements Account {
     return this.account.createTxExecutionRequest(exec, gasSettings, chainInfo, options);
   }
 
-  wrapExecutionPayload(exec: ExecutionPayload, options?: any): Promise<ExecutionPayload> {
-    return this.account.wrapExecutionPayload(exec, options);
+  wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any): Promise<ExecutionPayload> {
+    return this.account.wrapExecutionPayload(exec, chainInfo, options);
   }
   createAuthWit(intent: IntentInnerHash | CallIntent, chainInfo: ChainInfo): Promise<AuthWitness> {
     return this.account.createAuthWit(intent, chainInfo);
