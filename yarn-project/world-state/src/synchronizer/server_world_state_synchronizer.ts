@@ -395,7 +395,7 @@ export class ServerWorldStateSynchronizer
     // past this point and pruning has already happened.
     const currentSummary = await this.merkleTreeDb.getStatusSummary();
     if (blockNumber < currentSummary.oldestHistoricalBlock || blockNumber < 1) {
-      this.log.warn(
+      this.log.trace(
         `Finalized block ${blockNumber} is older than the oldest available block ${currentSummary.oldestHistoricalBlock}. Skipping.`,
       );
       return;
