@@ -242,7 +242,6 @@ comptime fn generate_contract_library_methods_compute_note_hash_and_nullifier() 
         ///
         /// This function is automatically injected by the `#[aztec]` macro.
         #[contract_library_method]
-        #[deprecated("This function has been deprecated in favor of compute_note_hash and compute_note_nullifier")]
         #[allow(dead_code)]
         unconstrained fn _compute_note_hash_and_nullifier(
             packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
