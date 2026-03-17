@@ -35,6 +35,19 @@ int main(int argc, char* argv[])
     if (acir_components != circuit_components) {
         std::cerr << "MISMATCH: ACIR has " << acir_components << " components, circuit has " << circuit_components
                   << " components." << std::endl;
+        analyzer.print_connected_components_info();
+        for (const auto& c : circuit_cc) {
+            std::cout << "Variables: ";
+            for (const auto& v : c.vars()) {
+                std::cout << v << " ";
+            }
+            std::cout << std::endl;
+        }
+        for (const auto& v : analyzer.get_variables_in_one_gate()) {
+            std::cout << v << " ";
+            analyzer.print_variable_info(v);
+        }
+        std::cout << std::endl;
         return 1;
     }
 
