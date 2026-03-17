@@ -37,7 +37,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     return Promise.resolve(txRequest);
   }
 
-  async wrapExecutionPayload(exec: ExecutionPayload, _options?: any): Promise<ExecutionPayload> {
+  async wrapExecutionPayload(exec: ExecutionPayload, _chainInfo: ChainInfo, _options?: any): Promise<ExecutionPayload> {
     const { authWitnesses, capsules, extraHashedArgs } = exec;
     const callData = await this.#buildEntrypointCallData(exec);
     const entrypointCall = FunctionCall.from({
