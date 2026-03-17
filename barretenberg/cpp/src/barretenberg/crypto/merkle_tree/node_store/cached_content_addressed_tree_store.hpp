@@ -867,16 +867,16 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalized_block(con
         ReadTransactionPtr readTx = create_read_transaction();
         get_meta(uncommittedMeta);
         get_meta(committedMeta, *readTx, false);
+        // do nothing if the block is already finalized
+        if (committedMeta.finalizedBlockHeight >= blockNumber) {
+            return;
+        }
         if (!dataStore_->read_block_data(blockNumber, blockPayload, *readTx)) {
             throw std::runtime_error(format("Unable to advance finalized block: ",
                                             blockNumber,
                                             ". Failed to read block data. Tree name: ",
                                             forkConstantData_.name_));
         }
-    }
-    // do nothing if the block is already finalized
-    if (committedMeta.finalizedBlockHeight >= blockNumber) {
-        return;
     }
 
     // can currently only finalize up to the unfinalized block height
