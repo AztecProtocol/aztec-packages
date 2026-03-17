@@ -88,6 +88,17 @@ struct ForkIdOnlyRequest {
     MSGPACK_FIELDS(forkId);
 };
 
+struct ForkIdWithDepthRequest {
+    uint64_t forkId;
+    uint32_t depth;
+    MSGPACK_FIELDS(forkId, depth);
+};
+
+struct CheckpointDepthResponse {
+    uint32_t depth;
+    MSGPACK_FIELDS(depth);
+};
+
 struct TreeIdAndRevisionRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;

@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
-import { ScopedL2ToL1Message, computeL2ToL1MembershipWitnessFromMessagesInEpoch } from '@aztec/stdlib/messaging';
+import { ScopedL2ToL1Message, computeEpochOutHash } from '@aztec/stdlib/messaging';
 import { FeeRecipient } from '@aztec/stdlib/rollup';
 import type { ServerCircuitName } from '@aztec/stdlib/stats';
 import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
@@ -150,11 +150,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       const epochEndArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, await context.worldState.fork());
       expect(result.publicInputs.endArchiveRoot).toEqual(epochEndArchive.root);
 
-      const firstMessage = l1ToL2MessagesInEpoch.flat(4)[0];
-      const { root: epochOutHash } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(
-        l1ToL2MessagesInEpoch,
-        firstMessage,
-      );
+      const epochOutHash = computeEpochOutHash(l1ToL2MessagesInEpoch);
       expect(result.publicInputs.outHash).toEqual(epochOutHash);
 
       const expectedCheckpointHeaderHashes = checkpoints.map(c => c.header.hash());

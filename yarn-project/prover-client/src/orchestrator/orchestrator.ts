@@ -14,6 +14,7 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { assertLength } from '@aztec/foundation/serialize';
+import { sleep } from '@aztec/foundation/sleep';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
@@ -634,9 +635,11 @@ export class ProvingOrchestrator implements EpochProver {
       }
     };
 
-    // Enqueue onto the serial queue with limited workers to avoid starving the event loop.
-    // Workers yield between jobs via await, allowing I/O callbacks to process.
-    void this.deferredJobQueue.put(() => safeJob());
+    void this.deferredJobQueue.put(async () => {
+      void safeJob();
+      // we yield here to the macro task queue such to give Nodejs a chance to run other operatoins in between enqueues
+      await sleep(0);
+    });
   }
 
   private async updateL1ToL2MessageTree(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {
