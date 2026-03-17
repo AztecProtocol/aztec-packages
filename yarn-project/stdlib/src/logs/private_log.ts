@@ -73,7 +73,7 @@ export class PrivateLog {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateLog(reader.readTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr), reader.readNumber());
+    return new PrivateLog(reader.readArray(PRIVATE_LOG_SIZE_IN_FIELDS, Fr), reader.readNumber());
   }
 
   static random(tag = Fr.random()) {

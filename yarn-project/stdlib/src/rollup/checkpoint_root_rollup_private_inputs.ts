@@ -81,15 +81,15 @@ export class CheckpointRootRollupHints {
     const reader = BufferReader.asReader(buffer);
     return new CheckpointRootRollupHints(
       BlockHeader.fromBuffer(reader),
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readTuple(OUT_HASH_TREE_HEIGHT, Fr),
+      reader.readArray(OUT_HASH_TREE_HEIGHT, Fr),
       reader.readObject(BlobAccumulator),
       reader.readObject(FinalBlobBatchingChallenges),
       // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      // reader.readTuple(FIELDS_PER_BLOB, Fr),
+      // reader.readArray(FIELDS_PER_BLOB, Fr),
       Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT }, () => Fr.fromBuffer(reader)),
-      reader.readTuple(BLOBS_PER_CHECKPOINT, BLS12Point),
+      reader.readArray(BLOBS_PER_CHECKPOINT, BLS12Point),
       Fr.fromBuffer(reader),
     );
   }

@@ -41,7 +41,7 @@ export class ParityBasePrivateInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ParityBasePrivateInputs(reader.readTuple(NUM_MSGS_PER_BASE_PARITY, Fr), Fr.fromBuffer(reader));
+    return new ParityBasePrivateInputs(reader.readArray(NUM_MSGS_PER_BASE_PARITY, Fr), Fr.fromBuffer(reader));
   }
 
   /**

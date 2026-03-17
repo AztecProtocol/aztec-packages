@@ -68,8 +68,8 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readTuple(MAX_CHECKPOINTS_PER_EPOCH, Fr),
-      reader.readTuple(MAX_CHECKPOINTS_PER_EPOCH, FeeRecipient),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, Fr),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, FeeRecipient),
       EpochConstantData.fromBuffer(reader),
       reader.readObject(FinalBlobAccumulator),
     );

@@ -105,11 +105,8 @@ export class PrivateKernelResetHints<
         fromBuffer: buf =>
           nullifierReadRequestHintsFromBuffer(buf, numNullifierReadRequestPending, numNullifierReadRequestSettled),
       }),
-      reader.readArray(numKeyValidationHints, KeyValidationHint) as Tuple<KeyValidationHint, KEY_VALIDATION_HINTS_LEN>,
-      reader.readArray(numTransientDataSquashingHints, TransientDataSquashingHint) as Tuple<
-        TransientDataSquashingHint,
-        TRANSIENT_DATA_HINTS_LEN
-      >,
+      reader.readArray(numKeyValidationHints, KeyValidationHint),
+      reader.readArray(numTransientDataSquashingHints, TransientDataSquashingHint),
     );
   }
 }

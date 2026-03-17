@@ -1,8 +1,4 @@
-import {
-  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
-  MAX_PUBLIC_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_HEADER_LENGTH,
-} from '@aztec/constants';
+import { FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
 import type { FieldsOf } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
@@ -80,9 +76,6 @@ export class FlatPublicLogs {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     const length = reader.readNumber();
-    if (length > FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) {
-      throw new Error(`FlatPublicLogs length ${length} exceeds maximum ${FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH}`);
-    }
     return this.fromUnpaddedPayload(reader.readArray(length, Fr));
   }
 
@@ -178,9 +171,6 @@ export class PublicLog {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     const fieldsLength = reader.readNumber();
-    if (fieldsLength > MAX_PUBLIC_LOG_SIZE_IN_FIELDS) {
-      throw new Error(`PublicLog fields length ${fieldsLength} exceeds maximum ${MAX_PUBLIC_LOG_SIZE_IN_FIELDS}`);
-    }
     return new PublicLog(reader.readObject(AztecAddress), reader.readArray(fieldsLength, Fr));
   }
 

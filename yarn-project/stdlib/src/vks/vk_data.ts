@@ -29,7 +29,7 @@ export class VkData {
     return new VkData(
       reader.readObject(VerificationKeyData),
       reader.readNumber(),
-      reader.readTuple(VK_TREE_HEIGHT, Fr),
+      reader.readArray(VK_TREE_HEIGHT, Fr),
     );
   }
 
