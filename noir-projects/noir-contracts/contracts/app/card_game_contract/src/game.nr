@@ -84,13 +84,13 @@ impl Packable for Game {
         for i in 0..PLAYERS_PACKED_LEN {
             players_packed[i] = packed[i];
         }
-        let players = <[PlayerEntry; NUMBER_OF_PLAYERS]>::unpack(players_packed);
+        let players: [PlayerEntry; NUMBER_OF_PLAYERS] = Packable::unpack(players_packed);
 
         let mut cards_packed = [0; CARDS_PACKED_LEN];
         for i in 0..CARDS_PACKED_LEN {
             cards_packed[i] = packed[PLAYERS_PACKED_LEN + i];
         }
-        let rounds_cards = <[Card; PLAYABLE_CARDS]>::unpack(cards_packed);
+        let rounds_cards: [Card; PLAYABLE_CARDS] = Packable::unpack(cards_packed);
 
         let mut tmp = packed[SCALARS_OFFSET];
         let started = (tmp as u1) != 0;
