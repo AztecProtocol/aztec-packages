@@ -8,6 +8,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import {
   type AztecAsyncKVStore,
   type AztecAsyncMap,
+  type AztecAsyncMultiMap,
   type AztecAsyncSingleton,
   type CustomRange,
   mapRange,
@@ -35,8 +36,8 @@ export class MessageStoreError extends Error {
 export class MessageStore {
   /** Maps from message index to serialized InboxMessage */
   #l1ToL2Messages: AztecAsyncMap<number, Buffer>;
-  /** Maps from hex-stringified message leaf to its index */
-  #l1ToL2MessageIndices: AztecAsyncMap<string, bigint>;
+  /** Maps from hex-stringified message leaf to its indices (multimap to handle duplicate leaf values) */
+  #l1ToL2MessageIndices: AztecAsyncMultiMap<string, bigint>;
   /** Stores L1 block number and hash of the L1 synchpoint */
   #lastSynchedL1Block: AztecAsyncSingleton<Buffer>;
   /** Stores total messages stored */
@@ -48,7 +49,7 @@ export class MessageStore {
 
   constructor(private db: AztecAsyncKVStore) {
     this.#l1ToL2Messages = db.openMap('archiver_l1_to_l2_messages');
-    this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
+    this.#l1ToL2MessageIndices = db.openMultiMap('archiver_l1_to_l2_message_indices');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
     this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
@@ -245,8 +246,9 @@ export class MessageStore {
         start: this.indexToKey(startIndex),
       })) {
         this.#log.trace(`Deleting L1 to L2 message with index ${key - 1} from the store`);
+        const msg = deserializeInboxMessage(msgBuffer);
         await this.#l1ToL2Messages.delete(key);
-        await this.#l1ToL2MessageIndices.delete(this.leafToIndexKey(deserializeInboxMessage(msgBuffer).leaf));
+        await this.#l1ToL2MessageIndices.deleteValue(this.leafToIndexKey(msg.leaf), msg.index);
         deleteCount++;
       }
       await this.increaseTotalMessageCount(-deleteCount);
