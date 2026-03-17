@@ -759,6 +759,14 @@ class ECCVMFlavor {
                     precompute_s3lo.set_if_valid_index(i, point_table_rows[i].s6);
                     precompute_s4hi.set_if_valid_index(i, point_table_rows[i].s7);
                     precompute_s4lo.set_if_valid_index(i, point_table_rows[i].s8);
+                    precompute_s5hi.set_if_valid_index(i, point_table_rows[i].s9);
+                    precompute_s5lo.set_if_valid_index(i, point_table_rows[i].s10);
+                    precompute_s6hi.set_if_valid_index(i, point_table_rows[i].s11);
+                    precompute_s6lo.set_if_valid_index(i, point_table_rows[i].s12);
+                    precompute_s7hi.set_if_valid_index(i, point_table_rows[i].s13);
+                    precompute_s7lo.set_if_valid_index(i, point_table_rows[i].s14);
+                    precompute_s8hi.set_if_valid_index(i, point_table_rows[i].s15);
+                    precompute_s8lo.set_if_valid_index(i, point_table_rows[i].s16);
                     // If skew is active (i.e. we need to subtract a base point from the msm result),
                     // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted
                     // into WNAF form
@@ -767,6 +775,8 @@ class ECCVMFlavor {
                     precompute_dy.set_if_valid_index(i, point_table_rows[i].precompute_double.y);
                     precompute_tx.set_if_valid_index(i, point_table_rows[i].precompute_accumulator.x);
                     precompute_ty.set_if_valid_index(i, point_table_rows[i].precompute_accumulator.y);
+                    precompute_tx2.set_if_valid_index(i, point_table_rows[i].precompute_accumulator2.x);
+                    precompute_ty2.set_if_valid_index(i, point_table_rows[i].precompute_accumulator2.y);
                 }
             });
 
@@ -787,6 +797,10 @@ class ECCVMFlavor {
                     msm_add2.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[1].add));
                     msm_add3.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[2].add));
                     msm_add4.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[3].add));
+                    msm_add5.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[4].add));
+                    msm_add6.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[5].add));
+                    msm_add7.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[6].add));
+                    msm_add8.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[7].add));
                     msm_x1.set_if_valid_index(i, msm_rows[i].add_state[0].point.x);
                     msm_y1.set_if_valid_index(i, msm_rows[i].add_state[0].point.y);
                     msm_x2.set_if_valid_index(i, msm_rows[i].add_state[1].point.x);
@@ -795,18 +809,38 @@ class ECCVMFlavor {
                     msm_y3.set_if_valid_index(i, msm_rows[i].add_state[2].point.y);
                     msm_x4.set_if_valid_index(i, msm_rows[i].add_state[3].point.x);
                     msm_y4.set_if_valid_index(i, msm_rows[i].add_state[3].point.y);
+                    msm_x5.set_if_valid_index(i, msm_rows[i].add_state[4].point.x);
+                    msm_y5.set_if_valid_index(i, msm_rows[i].add_state[4].point.y);
+                    msm_x6.set_if_valid_index(i, msm_rows[i].add_state[5].point.x);
+                    msm_y6.set_if_valid_index(i, msm_rows[i].add_state[5].point.y);
+                    msm_x7.set_if_valid_index(i, msm_rows[i].add_state[6].point.x);
+                    msm_y7.set_if_valid_index(i, msm_rows[i].add_state[6].point.y);
+                    msm_x8.set_if_valid_index(i, msm_rows[i].add_state[7].point.x);
+                    msm_y8.set_if_valid_index(i, msm_rows[i].add_state[7].point.y);
                     msm_collision_x1.set_if_valid_index(i, msm_rows[i].add_state[0].collision_inverse);
                     msm_collision_x2.set_if_valid_index(i, msm_rows[i].add_state[1].collision_inverse);
                     msm_collision_x3.set_if_valid_index(i, msm_rows[i].add_state[2].collision_inverse);
                     msm_collision_x4.set_if_valid_index(i, msm_rows[i].add_state[3].collision_inverse);
+                    msm_collision_x5.set_if_valid_index(i, msm_rows[i].add_state[4].collision_inverse);
+                    msm_collision_x6.set_if_valid_index(i, msm_rows[i].add_state[5].collision_inverse);
+                    msm_collision_x7.set_if_valid_index(i, msm_rows[i].add_state[6].collision_inverse);
+                    msm_collision_x8.set_if_valid_index(i, msm_rows[i].add_state[7].collision_inverse);
                     msm_lambda1.set_if_valid_index(i, msm_rows[i].add_state[0].lambda);
                     msm_lambda2.set_if_valid_index(i, msm_rows[i].add_state[1].lambda);
                     msm_lambda3.set_if_valid_index(i, msm_rows[i].add_state[2].lambda);
                     msm_lambda4.set_if_valid_index(i, msm_rows[i].add_state[3].lambda);
+                    msm_lambda5.set_if_valid_index(i, msm_rows[i].add_state[4].lambda);
+                    msm_lambda6.set_if_valid_index(i, msm_rows[i].add_state[5].lambda);
+                    msm_lambda7.set_if_valid_index(i, msm_rows[i].add_state[6].lambda);
+                    msm_lambda8.set_if_valid_index(i, msm_rows[i].add_state[7].lambda);
                     msm_slice1.set_if_valid_index(i, msm_rows[i].add_state[0].slice);
                     msm_slice2.set_if_valid_index(i, msm_rows[i].add_state[1].slice);
                     msm_slice3.set_if_valid_index(i, msm_rows[i].add_state[2].slice);
                     msm_slice4.set_if_valid_index(i, msm_rows[i].add_state[3].slice);
+                    msm_slice5.set_if_valid_index(i, msm_rows[i].add_state[4].slice);
+                    msm_slice6.set_if_valid_index(i, msm_rows[i].add_state[5].slice);
+                    msm_slice7.set_if_valid_index(i, msm_rows[i].add_state[6].slice);
+                    msm_slice8.set_if_valid_index(i, msm_rows[i].add_state[7].slice);
                 }
             });
             this->set_shifted();
