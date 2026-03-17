@@ -132,7 +132,7 @@ export class TestWallet extends BaseWallet {
    * generating kernel witnesses. When false, simulateViaEntrypoint defers to the standard
    * simulation path via the real account entrypoint.
    */
-  private simulatedSimulations = false;
+  private simulatedSimulations = true;
 
   enableSimulatedSimulations() {
     this.simulatedSimulations = true;
@@ -228,7 +228,7 @@ export class TestWallet extends BaseWallet {
 
     let overrides: SimulationOverrides | undefined;
     let fromAccount: Account;
-    if (!from.equals(AztecAddress.ZERO)) {
+    if (!from.equals(AztecAddress.ZERO) && this.simulatedSimulations) {
       const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
       fromAccount = account;
       overrides = {
@@ -256,6 +256,7 @@ export class TestWallet extends BaseWallet {
     );
     return this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
+      skipKernels: this.simulatedSimulations,
       skipFeeEnforcement,
       skipTxValidation,
       overrides,
