@@ -259,7 +259,7 @@ describe('Utility Execution test suite', () => {
       it('invalidates cache for the given scopes', async () => {
         const scopeA = await AztecAddress.random();
         const scopeB = await AztecAddress.random();
-        await utilityExecutionOracle.invalidateContractSyncCache(contractAddress, [scopeA, scopeB]);
+        utilityExecutionOracle.invalidateContractSyncCache(contractAddress, [scopeA, scopeB]);
         expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
       });
     });
