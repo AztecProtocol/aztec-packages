@@ -94,6 +94,30 @@ jobs:
 
           GIST_DESC="v4 → v4-next merge conflicts ($(date -u +%Y-%m-%d))"
 
+          # Read existing Slack thread state from gist (if any)
+          SLACK_TS=""
+          SLACK_CHANNEL=""
+          SLACK_DATE=""
+          if [ -n "$EXISTING" ]; then
+            STATE_JSON=$(gh api "gists/$EXISTING" --jq '.files["state.json"].content // empty' 2>/dev/null || true)
+            if [ -n "$STATE_JSON" ]; then
+              SLACK_TS=$(echo "$STATE_JSON" | jq -r '.slack_ts // empty')
+              SLACK_CHANNEL=$(echo "$STATE_JSON" | jq -r '.slack_channel // empty')
+              SLACK_DATE=$(echo "$STATE_JSON" | jq -r '.date // empty')
+            fi
+          fi
+
+          TODAY=$(date -u +%Y-%m-%d)
+          # Determine if we have a valid Slack thread from today
+          if [[ "$SLACK_DATE" == "$TODAY" && -n "$SLACK_TS" && -n "$SLACK_CHANNEL" ]]; then
+            echo "has_today_thread=true" >> $GITHUB_OUTPUT
+            echo "slack_ts=$SLACK_TS" >> $GITHUB_OUTPUT
+            echo "slack_channel=$SLACK_CHANNEL" >> $GITHUB_OUTPUT
+          else
+            echo "has_today_thread=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Build gist payload (state.json is added after Slack post)
           GIST_PAYLOAD=$(jq -n \
             --arg desc "$GIST_DESC" \
             --arg summary "$SUMMARY" \
@@ -108,35 +132,77 @@ jobs:
             }')
 
           if [ -n "$EXISTING" ]; then
-            # Update existing gist — no new Slack message needed
             echo "$GIST_PAYLOAD" | gh api "gists/$EXISTING" --input - --method PATCH > /dev/null
             GIST_URL="https://gist.github.com/$EXISTING"
+            GIST_ID="$EXISTING"
             echo "Updated existing conflict gist: $GIST_URL"
-            echo "is_new=false" >> $GITHUB_OUTPUT
           else
-            # Create new gist
-            GIST_URL=$(echo "$GIST_PAYLOAD" | gh api gists --input - --jq '.html_url')
+            GIST_RESP=$(echo "$GIST_PAYLOAD" | gh api gists --input -)
+            GIST_URL=$(echo "$GIST_RESP" | jq -r '.html_url')
+            GIST_ID=$(echo "$GIST_RESP" | jq -r '.id')
             echo "Created new conflict gist: $GIST_URL"
-            echo "is_new=true" >> $GITHUB_OUTPUT
           fi
 
           echo "gist_url=$GIST_URL" >> $GITHUB_OUTPUT
+          echo "gist_id=$GIST_ID" >> $GITHUB_OUTPUT
           echo "num_conflicts=$NUM_CONFLICTS" >> $GITHUB_OUTPUT
 
-      - name: Notify Slack (first conflict only)
-        if: steps.merge.outputs.conflict == 'true' && steps.conflict-gist.outputs.is_new == 'true'
+      - name: Post or thread-reply on Slack
+        if: steps.merge.outputs.conflict == 'true'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           GIST_URL="${{ steps.conflict-gist.outputs.gist_url }}"
+          GIST_ID="${{ steps.conflict-gist.outputs.gist_id }}"
           NUM="${{ steps.conflict-gist.outputs.num_conflicts }}"
+          HAS_THREAD="${{ steps.conflict-gist.outputs.has_today_thread }}"
+          EXISTING_TS="${{ steps.conflict-gist.outputs.slack_ts }}"
+          EXISTING_CHANNEL="${{ steps.conflict-gist.outputs.slack_channel }}"
+          TODAY=$(date -u +%Y-%m-%d)
 
-          # Read Slack message template and substitute
-          TEXT=$(cat .github/prompts/v4-v4next-slack-conflict.txt)
-          TEXT="${TEXT//\{\{NUM_CONFLICTS\}\}/$NUM}"
-          TEXT="${TEXT//\{\{GIST_URL\}\}/$GIST_URL}"
+          if [[ "$HAS_THREAD" == "true" ]]; then
+            # Thread-reply on existing message (no new top-level post)
+            TEXT=$(cat .github/prompts/v4-v4next-slack-thread-reply.txt)
+            TEXT="${TEXT//\{\{NUM_CONFLICTS\}\}/$NUM}"
+            TEXT="${TEXT//\{\{GIST_URL\}\}/$GIST_URL}"
 
-          curl -sS -X POST https://slack.com/api/chat.postMessage \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            -d "$(jq -n --arg c '#backports' --arg t "$TEXT" '{channel:$c, text:$t}')"
+            curl -sS -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              -d "$(jq -n \
+                --arg c "$EXISTING_CHANNEL" \
+                --arg t "$TEXT" \
+                --arg ts "$EXISTING_TS" \
+                '{channel: $c, text: $t, thread_ts: $ts}')"
+            echo "Thread-replied on existing Slack message"
+          else
+            # New top-level message (first conflict of the day)
+            TEXT=$(cat .github/prompts/v4-v4next-slack-conflict.txt)
+            TEXT="${TEXT//\{\{NUM_CONFLICTS\}\}/$NUM}"
+            TEXT="${TEXT//\{\{GIST_URL\}\}/$GIST_URL}"
+
+            RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              -d "$(jq -n --arg c '#backports' --arg t "$TEXT" '{channel:$c, text:$t}')")
+
+            # Extract thread TS and channel from response
+            NEW_TS=$(echo "$RESP" | jq -r '.ts // empty')
+            NEW_CHANNEL=$(echo "$RESP" | jq -r '.channel // empty')
+
+            # Save Slack thread state to gist for future runs
+            if [[ -n "$NEW_TS" && -n "$NEW_CHANNEL" ]]; then
+              STATE=$(jq -n \
+                --arg ts "$NEW_TS" \
+                --arg ch "$NEW_CHANNEL" \
+                --arg dt "$TODAY" \
+                '{slack_ts: $ts, slack_channel: $ch, date: $dt}')
+
+              jq -n --arg state "$STATE" \
+                '{files: {"state.json": {content: $state}}}' | \
+                gh api "gists/$GIST_ID" --input - --method PATCH > /dev/null
+              echo "Saved Slack thread state to gist"
+            fi
+            echo "Posted new Slack message"
+          fi
