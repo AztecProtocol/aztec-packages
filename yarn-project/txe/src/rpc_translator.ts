@@ -917,10 +917,18 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_invalidateContractSyncCache(foreignContractAddress: ForeignCallSingle) {
+  async aztec_utl_invalidateContractSyncCache(
+    foreignContractAddress: ForeignCallSingle,
+    foreignScopes: ForeignCallArray,
+    foreignScopeCount: ForeignCallSingle,
+  ) {
     const contractAddress = addressFromSingle(foreignContractAddress);
+    const count = fromSingle(foreignScopeCount).toNumber();
+    const scopes = fromArray(foreignScopes)
+      .slice(0, count)
+      .map(f => new AztecAddress(f));
 
-    await this.handlerAsUtility().invalidateContractSyncCache(contractAddress);
+    await this.handlerAsUtility().invalidateContractSyncCache(contractAddress, scopes);
 
     return toForeignCallResult([]);
   }

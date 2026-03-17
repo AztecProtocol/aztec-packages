@@ -143,7 +143,7 @@ export interface IUtilityExecutionOracle {
   copyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
   aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
-  invalidateContractSyncCache(contractAddress: AztecAddress): Promise<void>;
+  invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): Promise<void>;
   emitOffchainEffect(data: Fr[]): Promise<void>;
 }
 

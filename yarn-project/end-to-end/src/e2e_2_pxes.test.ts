@@ -27,11 +27,16 @@ describe('e2e_2_pxes', () => {
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
-  async function setupSecondaryPXE(accountIndex: number, pxeName: string) {
-    const { wallet, teardown } = await setupPXEAndGetWallet(aztecNode, {}, undefined, pxeName);
+  async function setupSecondaryPXE(
+    node: AztecNode,
+    fundedAccounts: InitialAccountData[],
+    accountIndex: number,
+    pxeName: string,
+  ) {
+    const { wallet, teardown } = await setupPXEAndGetWallet(node, {}, undefined, pxeName);
     const accountManager = await wallet.createSchnorrAccount(
-      initialFundedAccounts[accountIndex].secret,
-      initialFundedAccounts[accountIndex].salt,
+      fundedAccounts[accountIndex].secret,
+      fundedAccounts[accountIndex].salt,
     );
     const deployMethod = await accountManager.getDeployMethod();
     await deployMethod.send({ from: AztecAddress.ZERO });
@@ -48,7 +53,11 @@ describe('e2e_2_pxes', () => {
       teardown: teardownA,
     } = await setup(1, { numberOfInitialFundedAccounts: 3 }));
 
-    ({ wallet: walletB, address: accountBAddress, teardown: teardownB } = await setupSecondaryPXE(1, 'pxe-b'));
+    ({
+      wallet: walletB,
+      address: accountBAddress,
+      teardown: teardownB,
+    } = await setupSecondaryPXE(aztecNode, initialFundedAccounts, 1, 'pxe-b'));
 
     await walletA.registerSender(accountBAddress, 'accountB');
     await walletB.registerSender(accountAAddress, 'accountA');
@@ -220,7 +229,11 @@ describe('e2e_2_pxes', () => {
     const { contract: token, instance } = await deployToken(walletA, accountAAddress, initialBalance, logger);
 
     // Set up a third PXE (C) that does NOT have sender A registered
-    const { wallet: walletC, address: accountCAddress, teardown: teardownC } = await setupSecondaryPXE(2, 'pxe-c');
+    const {
+      wallet: walletC,
+      address: accountCAddress,
+      teardown: teardownC,
+    } = await setupSecondaryPXE(aztecNode, initialFundedAccounts, 2, 'pxe-c');
     await walletC.registerContract(instance, TokenContract.artifact);
 
     // Transfer from A to C

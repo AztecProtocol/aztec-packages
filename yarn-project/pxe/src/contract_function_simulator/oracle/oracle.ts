@@ -635,8 +635,16 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_invalidateContractSyncCache([contractAddress]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsUtility().invalidateContractSyncCache(AztecAddress.fromField(Fr.fromString(contractAddress)));
+  async aztec_utl_invalidateContractSyncCache(
+    [contractAddress]: ACVMField[],
+    scopes: ACVMField[],
+    [scopeCount]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const scopeAddresses = scopes.slice(0, +scopeCount).map(s => AztecAddress.fromField(Fr.fromString(s)));
+    await this.handlerAsUtility().invalidateContractSyncCache(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      scopeAddresses,
+    );
     return [];
   }
 

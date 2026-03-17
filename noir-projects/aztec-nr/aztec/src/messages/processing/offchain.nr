@@ -105,6 +105,9 @@ pub unconstrained fn receive(
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT);
+    // May contain duplicates if multiple messages target the same recipient. This is harmless since
+    // cache invalidation on the TS side is idempotent (deleting an already-deleted key is a no-op).
+    let mut scopes: BoundedVec<AztecAddress, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
     let mut i = 0;
     let messages_len = messages.len();
     while i < messages_len {
@@ -122,10 +125,11 @@ pub unconstrained fn receive(
                 anchor_block_timestamp: msg.anchor_block_timestamp,
             },
         );
+        scopes.push(msg.recipient);
         i += 1;
     }
 
-    invalidate_contract_sync_cache(contract_address);
+    invalidate_contract_sync_cache(contract_address, scopes);
 }
 
 /// Returns offchain-delivered messages to process during sync.

@@ -235,25 +235,109 @@ describe('ContractSyncService', () => {
     });
   });
 
-  describe('invalidateContract', () => {
+  describe('invalidateContractForScopes', () => {
     const contract2 = AztecAddress.fromBigInt(300n);
 
-    it('re-syncs a contract after its cache is invalidated', async () => {
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectSyncedContracts([contractAddress, [scopeA]]);
+    it('only invalidates the targeted scope', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      expectSyncedScopes([scopeA, scopeB]);
 
-      service.invalidateContract(contractAddress);
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
 
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectSyncedContracts([contractAddress, [scopeA]], [contractAddress, [scopeA]]);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      // Only scopeA should be re-synced, scopeB is still cached.
+      expectSyncedScopes([scopeA, scopeB], [scopeA]);
     });
 
-    it('invalidating one contract does not re-sync other contracts', async () => {
+    it('invalidates multiple scopes at once', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      expectSyncedScopes([scopeA, scopeB]);
+
+      service.invalidateContractForScopes(contractAddress, [scopeA, scopeB]);
+
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      // Both scopes should be re-synced.
+      expectSyncedScopes([scopeA, scopeB], [scopeA, scopeB]);
+    });
+
+    it('also invalidates the ALL_SCOPES entry', async () => {
+      // Sync ALL_SCOPES -- covers every account.
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES');
+
+      // Syncing scopeA is a no-op because ALL_SCOPES already covers it.
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectSyncedScopes('ALL_SCOPES');
+
+      // Invalidate scopeA -- this should also clear the ALL_SCOPES entry.
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
+
+      // Now syncing scopeA triggers a re-sync.
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectSyncedScopes('ALL_SCOPES', [scopeA]);
+
+      // And syncing ALL_SCOPES also triggers a re-sync since it was invalidated too.
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES', [scopeA], 'ALL_SCOPES');
+    });
+
+    it('empty scopes is a no-op', async () => {
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES');
+
+      service.invalidateContractForScopes(contractAddress, []);
+
+      // ALL_SCOPES should still be cached since no scopes were invalidated.
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES');
+    });
+
+    it('does not affect other contracts', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       expectSyncedContracts([contractAddress, [scopeA]], [contract2, [scopeA]]);
 
-      service.invalidateContract(contractAddress);
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
 
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);

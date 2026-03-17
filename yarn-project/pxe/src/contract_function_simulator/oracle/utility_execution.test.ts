@@ -249,15 +249,18 @@ describe('Utility Execution test suite', () => {
     describe('invalidateContractSyncCache', () => {
       it('throws when contract address does not match', async () => {
         const otherAddress = await AztecAddress.random();
-        expect(() => utilityExecutionOracle.invalidateContractSyncCache(otherAddress)).toThrow(
+        const scope = await AztecAddress.random();
+        expect(() => utilityExecutionOracle.invalidateContractSyncCache(otherAddress, [scope])).toThrow(
           `Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`,
         );
-        expect(contractSyncService.invalidateContract).not.toHaveBeenCalled();
+        expect(contractSyncService.invalidateContractForScopes).not.toHaveBeenCalled();
       });
 
-      it('invalidates cache for own contract address', async () => {
-        await utilityExecutionOracle.invalidateContractSyncCache(contractAddress);
-        expect(contractSyncService.invalidateContract).toHaveBeenCalledWith(contractAddress);
+      it('invalidates cache for the given scopes', async () => {
+        const scopeA = await AztecAddress.random();
+        const scopeB = await AztecAddress.random();
+        await utilityExecutionOracle.invalidateContractSyncCache(contractAddress, [scopeA, scopeB]);
+        expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
       });
     });
 
