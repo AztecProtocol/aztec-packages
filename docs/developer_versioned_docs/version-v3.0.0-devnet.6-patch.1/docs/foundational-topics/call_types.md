@@ -198,7 +198,7 @@ router = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0
 
 Even with the router contract, achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
-For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/state_variables.md#delayed-public-mutable) state when possible.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/state_variables.md#delayedpublicmutable) state when possible.
 
 ### Public Execution
 

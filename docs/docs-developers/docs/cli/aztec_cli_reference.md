@@ -62,7 +62,7 @@ _Command: `aztec`_
   - [aztec test](#aztec-test)
   - [aztec trigger-seed-snapshot](#aztec-trigger-seed-snapshot)
   - [aztec update](#aztec-update)
-  - [aztec validator-keys|valKeys](#aztec-validator-keys|valkeys)
+  - [aztec validator-keys|valKeys](#aztec-validator-keysvalkeys)
   - [aztec vote-on-governance-proposal](#aztec-vote-on-governance-proposal)
 
 ## aztec
