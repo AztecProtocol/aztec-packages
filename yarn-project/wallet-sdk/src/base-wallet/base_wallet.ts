@@ -80,6 +80,16 @@ export type FeeOptions = {
   gasSettings: GasSettings;
 };
 
+/** Options for `simulateViaEntrypoint`. */
+export type SimulateViaEntrypointOptions = Pick<
+  SimulateOptions,
+  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement'
+> & {
+  /** Fee options for the entrypoint */
+  feeOptions: FeeOptions;
+  /** Scopes to use for the simulation */
+  scopes: AccessScopes;
+};
 /**
  * A base class for Wallet implementations
  */
@@ -300,22 +310,20 @@ export abstract class BaseWallet implements Wallet {
   /**
    * Simulates calls through the standard PXE path (account entrypoint).
    * @param executionPayload - The execution payload to simulate.
-   * @param from - The sender address.
-   * @param feeOptions - Fee options for the transaction.
-   * @param skipTxValidation - Whether to skip tx validation.
-   * @param skipFeeEnforcement - Whether to skip fee enforcement.
-   * @param scopes - The scopes to use for the simulation.
+   * @param opts - Simulation options.
    */
-  protected async simulateViaEntrypoint(
-    executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
-  ) {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
-    return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement, scopes });
+  protected async simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(
+      executionPayload,
+      opts.from,
+      opts.feeOptions,
+    );
+    return this.pxe.simulateTx(txRequest, {
+      simulatePublic: true,
+      skipTxValidation: opts.skipTxValidation,
+      skipFeeEnforcement: opts.skipFeeEnforcement,
+      scopes: opts.scopes,
+    });
   }
 
   /**
@@ -357,14 +365,13 @@ export abstract class BaseWallet implements Wallet {
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
-        ? this.simulateViaEntrypoint(
-            remainingPayload,
-            opts.from,
+        ? this.simulateViaEntrypoint(remainingPayload, {
+            from: opts.from,
             feeOptions,
-            this.scopesFrom(opts.from, opts.additionalScopes),
-            opts.skipTxValidation,
-            opts.skipFeeEnforcement ?? true,
-          )
+            scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+            skipTxValidation: opts.skipTxValidation,
+            skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
+          })
         : Promise.resolve(null),
     ]);
 

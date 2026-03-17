@@ -9,6 +9,8 @@ import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/Pending
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 
+import { jest } from '@jest/globals';
+
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -216,7 +218,7 @@ describe('Kernelless simulation', () => {
       ).resolves.toBeDefined();
     });
 
-    it('produces matching gas estimates between kernelless and with-kernels simulation', async () => {
+    it('produces matching gas estimates and fee payer between kernelless and with-kernels simulation', async () => {
       const swapperBalancesBefore = await getWalletBalances(swapperAddress);
       const ammBalancesBefore = await getAmmBalances();
 
@@ -236,13 +238,14 @@ describe('Kernelless simulation', () => {
         nonceForAuthwits,
       );
 
+      const simulateTxSpy = jest.spyOn(wallet, 'simulateTx');
+
       wallet.enableSimulatedSimulations();
-      const swapKernellessGas = (
-        await swapExactTokensInteraction.simulate({
-          from: swapperAddress,
-          includeMetadata: true,
-        })
-      ).estimatedGas!;
+      const kernellessResult = await swapExactTokensInteraction.simulate({
+        from: swapperAddress,
+        includeMetadata: true,
+      });
+      const swapKernellessGas = kernellessResult.estimatedGas!;
 
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
@@ -250,13 +253,12 @@ describe('Kernelless simulation', () => {
       });
 
       wallet.disableSimulatedSimulations();
-      const swapWithKernelsGas = (
-        await swapExactTokensInteraction.simulate({
-          from: swapperAddress,
-          includeMetadata: true,
-          authWitnesses: [swapAuthwit],
-        })
-      ).estimatedGas!;
+      const withKernelsResult = await swapExactTokensInteraction.simulate({
+        from: swapperAddress,
+        includeMetadata: true,
+        authWitnesses: [swapAuthwit],
+      });
+      const swapWithKernelsGas = withKernelsResult.estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${swapKernellessGas.gasLimits.l2Gas} DA=${swapKernellessGas.gasLimits.daGas}`);
       logger.info(
@@ -265,6 +267,16 @@ describe('Kernelless simulation', () => {
 
       expect(swapKernellessGas.gasLimits.daGas).toEqual(swapWithKernelsGas.gasLimits.daGas);
       expect(swapKernellessGas.gasLimits.l2Gas).toEqual(swapWithKernelsGas.gasLimits.l2Gas);
+
+      expect(simulateTxSpy).toHaveBeenCalledTimes(2);
+      const kernellessTxResult = await (simulateTxSpy.mock.results[0].value as ReturnType<typeof wallet.simulateTx>);
+      const withKernelsTxResult = await (simulateTxSpy.mock.results[1].value as ReturnType<typeof wallet.simulateTx>);
+      const kernellessFeePayer = kernellessTxResult.publicInputs.feePayer;
+      const withKernelsFeePayer = withKernelsTxResult.publicInputs.feePayer;
+      expect(kernellessFeePayer).toEqual(withKernelsFeePayer);
+      expect(kernellessFeePayer).toEqual(swapperAddress);
+
+      simulateTxSpy.mockRestore();
     });
   });
 

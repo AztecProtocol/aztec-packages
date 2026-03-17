@@ -10,7 +10,7 @@ import { computeVarArgsHash } from '@aztec/stdlib/hash';
  * to be signed, as opposed of just the inner hash.
  */
 export class CallAuthorizationRequest {
-  constructor(
+  private constructor(
     /**
      * The selector of the authwit type, used to identify it
      * when emitted from `emit_offchain_effect`oracle.
@@ -41,7 +41,7 @@ export class CallAuthorizationRequest {
   ) {}
 
   /** Validates that innerHash and argsHash are consistent with the provided preimage fields. */
-  async validate(): Promise<void> {
+  private async validate(): Promise<void> {
     const expectedArgsHash = await computeVarArgsHash(this.args);
     if (!expectedArgsHash.equals(this.argsHash)) {
       throw new Error(

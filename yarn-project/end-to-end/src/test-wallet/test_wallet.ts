@@ -16,7 +16,7 @@ import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
-import type { AccessScopes, NotesFilter } from '@aztec/pxe/client/lazy';
+import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -24,9 +24,9 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
-import type { BlockHeader, TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
+import type { BlockHeader, SimulationOverrides, TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import { AztecNodeProxy, ProvenTx } from './utils.js';
 
@@ -220,27 +220,22 @@ export class TestWallet extends BaseWallet {
     return account.createAuthWit(intentInnerHash, chainInfo);
   }
 
-  /**
-   * Override simulateViaEntrypoint to use fake accounts for kernelless simulation
-   * when simulatedSimulations is enabled. Otherwise falls through to the real entrypoint path.
-   */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
+    opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResult> {
-    if (!this.simulatedSimulations) {
-      return super.simulateViaEntrypoint(
-        executionPayload,
-        from,
-        feeOptions,
-        scopes,
-        skipTxValidation,
-        skipFeeEnforcement,
-      );
+    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+
+    let overrides: SimulationOverrides | undefined;
+    let fromAccount: Account;
+    if (!from.equals(AztecAddress.ZERO)) {
+      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
+      fromAccount = account;
+      overrides = {
+        contracts: { [from.toString()]: { instance, artifact } },
+      };
+    } else {
+      fromAccount = await this.getAccountFromAddress(from);
     }
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -252,7 +247,6 @@ export class TestWallet extends BaseWallet {
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
-    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
     const chainInfo = await this.getChainInfo();
     const txRequest = await fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
@@ -260,14 +254,11 @@ export class TestWallet extends BaseWallet {
       chainInfo,
       executionOptions,
     );
-    const contractOverrides = {
-      [from.toString()]: { instance, artifact },
-    };
     return this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
-      skipFeeEnforcement: true,
-      skipTxValidation: true,
-      overrides: { contracts: contractOverrides },
+      skipFeeEnforcement,
+      skipTxValidation,
+      overrides,
       scopes,
     });
   }
