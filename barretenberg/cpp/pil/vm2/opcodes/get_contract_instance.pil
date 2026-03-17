@@ -114,12 +114,18 @@ namespace get_contract_instance;
     is_valid_writes_in_bounds * (1 - is_valid_writes_in_bounds) = 0;
     pol WRITES_OUT_OF_BOUNDS = 1 - is_valid_writes_in_bounds;
     pol DST_OFFSET_DIFF_MAX = constants.AVM_HIGHEST_MEM_ADDRESS - dst_offset;
-    pol commit dst_offset_diff_max_inv;
+    pol commit dst_offset_diff_max_inv; // @zero-check
+    // See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#with-error-support.
     #[WRITE_OUT_OF_BOUNDS_CHECK]
     sel * (DST_OFFSET_DIFF_MAX * (WRITES_OUT_OF_BOUNDS * (1 - dst_offset_diff_max_inv) + dst_offset_diff_max_inv) - 1 + WRITES_OUT_OF_BOUNDS) = 0;
 
     // Member selection helper columns
     // (from precomputed.pil's GETCONTRACTINSTANCE opcode precomputed columns)
+    // These are constrained only via the #[PRECOMPUTED_INFO] lookup when is_valid_writes_in_bounds == 1.
+    // When the lookup is disabled (writes out of bounds), is_valid_member_enum is forced to 0 by
+    // #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]. is_deployer/is_class_id/is_init_hash
+    // are free in that case, but safe: they are only consumed in #[SELECTED_MEMBER] and the memory
+    // write permutations, all of which are gated on is_valid_member_enum (which is 0).
     pol commit is_valid_member_enum; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_deployer; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_class_id; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
@@ -159,7 +165,10 @@ namespace get_contract_instance;
     #[ERROR_AGGREGATION]
     sel_error = sel * (1 - is_valid_writes_in_bounds * is_valid_member_enum);
 
-    // Retrieved instance members and existence (from lookup to the core instance retrieval gadget)
+    // Retrieved instance members and existence (from lookup to the core instance retrieval gadget).
+    // These are constrained only via #[CONTRACT_INSTANCE_RETRIEVAL] when is_valid_member_enum == 1.
+    // When the lookup is disabled (error), these columns are free, but safe: they are only consumed
+    // in #[SELECTED_MEMBER] and the memory write permutations, all gated on is_valid_member_enum.
     pol commit instance_exists;
     pol commit retrieved_deployer_addr;
     pol commit retrieved_class_id;
