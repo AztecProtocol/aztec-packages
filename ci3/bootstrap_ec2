@@ -57,6 +57,13 @@ function cleanup {
 # This causes cleanup to die silently, probably from a SIGPIPE.
 trap 'cleanup >/dev/null' SIGINT SIGTERM EXIT
 
+# Set up git auth when GITHUB_TOKEN is available and persist-credentials is false.
+# SOURCE_REPOSITORY overrides the clone source (e.g. private fork releases where
+# GITHUB_REPOSITORY is the publishing target but code lives in a different repo).
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${SOURCE_REPOSITORY:-${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}}.git"
+fi
+
 # Verify that the commit exists on the remote.
 current_commit=$(git rev-parse HEAD)
 if [[ "$(git fetch origin --negotiate-only --negotiation-tip="$current_commit")" != *"$current_commit"* ]]; then
@@ -175,9 +182,9 @@ container_script=$(
   git config --global advice.detachedHead false
   git init .
   if [ -n "\${GITHUB_TOKEN:-}" ]; then
-    git remote add origin "https://x-access-token:\$GITHUB_TOKEN@github.com/\$GITHUB_REPOSITORY.git"
+    git remote add origin "https://x-access-token:\$GITHUB_TOKEN@github.com/\${SOURCE_REPOSITORY:-\$GITHUB_REPOSITORY}.git"
   else
-    git remote add origin "https://github.com/\$GITHUB_REPOSITORY.git"
+    git remote add origin "https://github.com/\${SOURCE_REPOSITORY:-\$GITHUB_REPOSITORY}.git"
   fi
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
@@ -337,6 +344,7 @@ start_build() {
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
     -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
     -e GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-aztecprotocol/aztec-packages} \
+    -e SOURCE_REPOSITORY=${SOURCE_REPOSITORY:-} \
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
     -e NPM_TOKEN=${NPM_TOKEN:-} \
