@@ -73,9 +73,7 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      */
 
     const auto& Tx2 = View(in.precompute_tx2);
-    const auto& Tx2_shift = View(in.precompute_tx2_shift);
     const auto& Ty2 = View(in.precompute_ty2);
-    const auto& Ty2_shift = View(in.precompute_ty2_shift);
 
     /**
      * @brief Validate Dx, Dy correctness (doubling relation)
