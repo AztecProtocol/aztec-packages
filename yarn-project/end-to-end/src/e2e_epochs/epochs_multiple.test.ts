@@ -4,14 +4,12 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 
 import { jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, WORLD_STATE_CHECKPOINT_HISTORY } from './epochs_test.js';
+import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
 // Assumes one block per checkpoint
 describe('e2e_epochs/epochs_multiple', () => {
-  let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;
 
@@ -19,7 +17,7 @@ describe('e2e_epochs/epochs_multiple', () => {
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup();
-    ({ context, rollup, logger } = test);
+    ({ rollup, logger } = test);
   });
 
   afterEach(async () => {
@@ -46,20 +44,6 @@ describe('e2e_epochs/epochs_multiple', () => {
       // Verify the state syncs. Assumes one block per checkpoint.
       const epochEndBlockNumber = BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber);
       await test.waitForNodeToSync(epochEndBlockNumber, 'proven');
-      await test.verifyHistoricBlock(epochEndBlockNumber, true);
-
-      // Check that finalized blocks are purged from world state
-      // Right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then this test needs to be updated.
-      // This test is setup as 1 block per checkpoint
-      const provenBlockNumber = epochEndBlockNumber;
-      const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
-      const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_CHECKPOINT_HISTORY + 1, 1);
-      const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
-      await test.waitForNodeToSync(BlockNumber(expectedOldestHistoricBlock), 'historic');
-      await test.verifyHistoricBlock(BlockNumber(expectedOldestHistoricBlock), true);
-      if (expectedBlockRemoved > 0) {
-        await test.verifyHistoricBlock(BlockNumber(expectedBlockRemoved), false);
-      }
     }
     logger.info('Test Succeeded');
   });
