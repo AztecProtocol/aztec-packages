@@ -1,0 +1,14 @@
+add_executable(
+    acir_components_count
+    main.cpp
+    acir_graph.cpp
+)
+target_link_libraries(
+    acir_components_count
+    PRIVATE
+    dsl
+    boomerang_value_detection
+    common
+    vm2_stub
+    libdeflate::libdeflate_static
+)
