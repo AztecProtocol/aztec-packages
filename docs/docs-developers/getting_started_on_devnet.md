@@ -28,7 +28,7 @@ Before diving into the setup, it's important to understand the differences betwe
 - No automatic test accounts
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [local network guide](./docs/tutorials/local_network.md).
+If you're new to Aztec and want to understand local development first, check out the [local network guide](./getting_started_on_local_network.md).
 :::
 
 ## Prerequisites
@@ -43,6 +43,12 @@ VERSION=#include_devnet_version bash -i <(curl -sL https://install.aztec.network
 The devnet is version dependent. It is currently running version `#include_devnet_version`. Maintain version consistency when interacting with the devnet to reduce errors.
 :::
 
+#if(testnet)
+:::warning
+The Sponsored FPC is **not** deployed on testnet. The `SPONSORED_FPC_ADDRESS` and sponsored fee payment commands in this guide only apply to devnet. On testnet, you must [bridge Fee Juice from L1](./docs/aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1) to pay fees.
+:::
+#endif
+
 ## Getting Started on Devnet
 
 ### Step 1: Set up your environment
@@ -51,8 +57,8 @@ Set the required environment variables:
 
 ```bash
 export VERSION=#include_devnet_version
-export NODE_URL=https://devnet.aztec-labs.com/
-export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
+export NODE_URL=https://v4-devnet-2.aztec-labs.com/
+export SPONSORED_FPC_ADDRESS=0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2
 ```
 
 ### Step 2: Create and deploy an account
@@ -116,7 +122,7 @@ If you have an existing app running on your local network, here's how to migrate
 Instead of running a local network, connect to the devnet node:
 
 ```sh
-export NODE_URL=https://devnet-6.aztec-labs.com/
+export NODE_URL=https://v4-devnet-2.aztec-labs.com/
 ```
 
 When running `aztec-wallet` commands, include the node URL:
@@ -130,12 +136,10 @@ aztec-wallet create-account -a main --node-url $NODE_URL
 You can connect to devnet directly from your app using AztecJS:
 
 ```javascript
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 
-const NODE_URL = "https://devnet.aztec-labs.com";
-const node = createAztecNodeClient(NODE_URL);
-const wallet = await EmbeddedWallet.create(node);
+const NODE_URL = "https://v4-devnet-2.aztec-labs.com/";
+const wallet = await EmbeddedWallet.create(NODE_URL);
 ```
 
 ### 3. Handle Fees on Devnet
@@ -191,7 +195,7 @@ For complete Devnet technical details including RPC endpoints, contract addresse
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [local network tutorial](./docs/tutorials/local_network.md) for faster development
+- **New to Aztec?** Start with the [local network guide](./getting_started_on_local_network.md) for faster development
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
