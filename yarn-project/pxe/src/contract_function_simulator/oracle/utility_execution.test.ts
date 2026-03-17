@@ -399,7 +399,13 @@ describe('Utility Execution test suite', () => {
       it('clears the request capsule after processing', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([]);
         await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot);
-        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(contractAddress, requestSlot, [], 'test-job-id');
+        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
+          contractAddress,
+          requestSlot,
+          [],
+          'test-job-id',
+          undefined,
+        );
       });
 
       it('clears the request capsule even on error', async () => {
@@ -407,7 +413,13 @@ describe('Utility Execution test suite', () => {
         await expect(
           utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot),
         ).rejects.toThrow();
-        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(contractAddress, requestSlot, [], 'test-job-id');
+        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
+          contractAddress,
+          requestSlot,
+          [],
+          'test-job-id',
+          undefined,
+        );
       });
     });
   });
