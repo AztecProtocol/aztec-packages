@@ -119,7 +119,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     // Should fail on incorrect derived address.
     EXPECT_THROW(address_derivation.assert_derivation(derived_address + 1, instance), std::runtime_error);
 
-    // Should fail on mutated instance.
+    // Should fail on mutated instance for unseen address.
     instance.public_keys.nullifier_key = AffinePoint::one();
 
     public_keys_hash = hash_public_keys(instance.public_keys);
@@ -132,24 +132,28 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     EXPECT_CALL(ecc, add(preaddress_public_key, EmbeddedCurvePoint(instance.public_keys.incoming_viewing_key)))
         .WillOnce(Return(address_point));
 
+    // The below fails and does not emit an event.
     EXPECT_THROW(address_derivation.assert_derivation(derived_address, instance), std::runtime_error);
     EXPECT_THAT(address_derivation_event_emitter.dump_events(), IsEmpty());
 
-    // TODO(MW): Rework below once behaviour unified.
-
-    // Perform a successful deriv for the instance above.
+    // Perform a successful derivation for the mutated instance above.
     EXPECT_CALL(ecc, scalar_mul(g1, preaddress)).WillOnce(Return(preaddress_public_key));
     EXPECT_CALL(ecc, add(preaddress_public_key, EmbeddedCurvePoint(instance.public_keys.incoming_viewing_key)))
         .WillOnce(Return(address_point));
+    // The below succeeds, emits an event, and stores the address in the cached_derivations cache.
     address_derivation.assert_derivation(address_point.x(), instance);
     EXPECT_THAT(address_derivation_event_emitter.dump_events(), SizeIs(1));
 
-    // Now, calling with a mismatch on address_point.x() does not fail, because it's cached:
-    ContractInstance new_instance = testing::random_contract_instance();
-    address_derivation.assert_derivation(address_point.x(), new_instance);
+    // Should fail on mutated instance for seen address.
+    ContractInstance new_instance = instance;
+    new_instance.deployer += 1;
+    // Note: EXPECT_CALLs not required since the address is cached.
+    EXPECT_THROW(address_derivation.assert_derivation(address_point.x(), new_instance), std::runtime_error);
+    EXPECT_THAT(address_derivation_event_emitter.dump_events(), IsEmpty());
 
-    // Which is the same behaviour as a successful cached derivation:
+    // The below succeeds and hits the cache, so does not emit an event.
     address_derivation.assert_derivation(address_point.x(), instance);
+    EXPECT_THAT(address_derivation_event_emitter.dump_events(), IsEmpty());
 }
 
 } // namespace

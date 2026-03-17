@@ -4,7 +4,7 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-// #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -33,9 +33,10 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
 {
     // Check if we've already derived this address.
     if (cached_derivations.contains(address)) {
-        // TODO(MW): Is the below too heavy to exist here? Otherwise, we won't throw for a mismatch, unlike in the
-        // non-cache case, or need to store the whole instance in cached_derivations.
-        // BB_ASSERT_EQ(address, simulation::compute_contract_address(instance), "Address derivation mismatch");
+        // Note: it is likely safe to skip this recalculation, but if we do, then a mismatch will throw in the
+        // non-cache case and return in the cache case for the same input. No events are emitted either way, so
+        // circuit and tracegen behave the same. The below exists just to unify simulation behaviour (#21374).
+        BB_ASSERT_EQ(address, simulation::compute_contract_address(instance), "Address derivation mismatch");
         // Already processed this address - cache hit, don't emit event.
         return;
     }
