@@ -32,6 +32,17 @@ struct TreeMetaResponse {
     TreeMetaResponse& operator=(TreeMetaResponse&& other) noexcept = default;
 };
 
+struct CheckpointResponse {
+    uint32_t depth;
+
+    CheckpointResponse() = default;
+    ~CheckpointResponse() = default;
+    CheckpointResponse(const CheckpointResponse& other) = default;
+    CheckpointResponse(CheckpointResponse&& other) noexcept = default;
+    CheckpointResponse& operator=(const CheckpointResponse& other) = default;
+    CheckpointResponse& operator=(CheckpointResponse&& other) noexcept = default;
+};
+
 struct AddDataResponse {
     index_t size;
     fr root;
@@ -271,7 +282,9 @@ void execute_and_report(const std::function<void(TypedResponse<ResponseType>&)>&
     }
     try {
         on_completion(response);
-    } catch (std::exception&) {
+    } catch (std::exception& e) {
+        std::cerr << "Completion callback threw: " << e.what() << std::endl;
+        std::abort();
     }
 }
 
@@ -287,7 +300,9 @@ inline void execute_and_report(const std::function<void()>& f, const std::functi
     }
     try {
         on_completion(response);
-    } catch (std::exception&) {
+    } catch (std::exception& e) {
+        std::cerr << "Completion callback threw: " << e.what() << std::endl;
+        std::abort();
     }
 }
 } // namespace bb::crypto::merkle_tree

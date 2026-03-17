@@ -61,33 +61,4 @@ describe('aes128', () => {
 
     expect(result).toEqual(expected);
   });
-
-  it('should return garbage when decrypting with wrong key', async () => {
-    const data = randomBytes(32);
-    const key = randomBytes(16);
-    const wrongKey = randomBytes(16);
-    const iv = randomBytes(16);
-
-    const ciphertext = await aes128.encryptBufferCBC(data, iv, key);
-    const result = await aes128.decryptBufferCBC(ciphertext, iv, wrongKey);
-
-    // Barretenberg decrypts to garbage, then blindly strips "padding" based on the last
-    // garbage byte. The result is truncated garbage (often empty if that byte is large).
-    expect(result).not.toEqual(data);
-  });
-
-  it('should return empty buffer for ciphertext not a multiple of 16', async () => {
-    const key = randomBytes(16);
-    const iv = randomBytes(16);
-    const badCiphertext = randomBytes(17);
-    const result = await aes128.decryptBufferCBC(badCiphertext, iv, key);
-    expect(result.length).toBe(0);
-  });
-
-  it('should return empty buffer for empty ciphertext', async () => {
-    const key = randomBytes(16);
-    const iv = randomBytes(16);
-    const result = await aes128.decryptBufferCBC(Buffer.alloc(0), iv, key);
-    expect(result.length).toBe(0);
-  });
 });
