@@ -333,17 +333,28 @@ export class ArchiverL1Synchronizer implements Traceable {
 
       const checkpointsToUnwind = localPendingCheckpointNumber - provenCheckpointNumber;
 
-      const checkpointPromises = Array.from({ length: checkpointsToUnwind })
-        .fill(0)
-        .map((_, i) => this.store.getCheckpointData(CheckpointNumber(i + pruneFrom)));
-      const checkpoints = await Promise.all(checkpointPromises);
+      // Fetch checkpoints and blocks in bounded batches to avoid unbounded concurrent
+      // promises when the gap between local pending and proven checkpoint numbers is large.
+      const BATCH_SIZE = 10;
+      const newBlocks = [];
+      for (let offset = 0; offset < checkpointsToUnwind; offset += BATCH_SIZE) {
+        const batchSize = Math.min(BATCH_SIZE, checkpointsToUnwind - offset);
+        const checkpoints = (
+          await Promise.all(
+            Array.from({ length: batchSize }, (_, i) =>
+              this.store.getCheckpointData(CheckpointNumber(offset + i + pruneFrom)),
+            ),
+          )
+        ).filter(isDefined);
 
-      const blockPromises = await Promise.all(
-        checkpoints
-          .filter(isDefined)
-          .map(cp => this.store.getBlocksForCheckpoint(CheckpointNumber(cp.checkpointNumber))),
-      );
-      const newBlocks = blockPromises.filter(isDefined).flat();
+        const batchBlocks = (
+          await Promise.all(
+            checkpoints.map(cp => this.store.getBlocksForCheckpoint(CheckpointNumber(cp.checkpointNumber))),
+          )
+        ).filter(isDefined);
+
+        newBlocks.push(...batchBlocks.flat());
+      }
 
       // Emit an event for listening services to react to the chain prune
       this.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
