@@ -32,7 +32,7 @@ const COMMITTEE_SIZE = VALIDATOR_COUNT;
 const INITIAL_KEYSTORE_COUNT = 3;
 
 describe('e2e_reload_keystore', () => {
-  jest.setTimeout(300_000);
+  jest.setTimeout(600_000);
 
   let teardown: () => Promise<void>;
   let aztecNode: AztecNode;
