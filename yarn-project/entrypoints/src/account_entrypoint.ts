@@ -116,8 +116,8 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
    * Builds the shared data needed for both creating a tx execution request and wrapping an execution payload.
    * This includes encoding calls, building entrypoint arguments, and creating the authwitness.
    * @param exec - The execution payload containing calls to encode
-   * @param options - Account entrypoint options including tx nonce and fee payment method
    * @param chainInfo - Chain information (chainId and version) for replay protection
+   * @param options - Account entrypoint options including tx nonce and fee payment method
    * @returns Encoded call data, ABI, function selector, and auth witness
    */
   async #buildEntrypointCallData(
