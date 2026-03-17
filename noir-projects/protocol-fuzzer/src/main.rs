@@ -1,6 +1,7 @@
 mod side_effect;
 pub mod smt;
 mod token;
+mod util;
 mod wallet;
 
 use clap::Parser;
@@ -22,20 +23,32 @@ enum MachineCommand {
 
 #[derive(clap::Args, Debug)]
 struct CommonArgs {
-    #[arg(long, default_value_t = 100000)]
+    // TODO: The nightly sandbox's tx pool silently drops transactions after ~500
+    // blocks at 5s slots, causing the fuzzer to hang. Cap at 400 until this is
+    // fixed upstream.
+    #[arg(long, default_value_t = 400)]
     max_steps: usize,
     #[arg(long, default_value_t = 500_000_000)]
     randomness_size: u32,
     /// Replay a specific seed (e.g. 0x5a7211231dcd6500) to reproduce a failure.
     #[arg(long, value_parser = parse_hex_u64)]
     seed: Option<u64>,
+    /// Enable client-side proof generation (slower but validates proofs).
+    #[arg(long, default_value_t = false)]
+    prove: bool,
+    /// URL of the bridge server.
+    #[arg(long, default_value = "http://localhost:8089")]
+    bridge_url: String,
+    /// Maximum number of non-conflicting sends to batch for parallel execution.
+    #[arg(long, default_value_t = 8)]
+    max_batch_size: usize,
 }
 
 #[derive(clap::Args, Debug)]
 struct TokenArgs {
     #[command(flatten)]
     common: CommonArgs,
-    #[arg(long, default_value_t = 1)]
+    #[arg(long, default_value_t = 2)]
     min_tokens: usize,
     #[arg(long, default_value_t = 4)]
     max_tokens: usize,
@@ -73,30 +86,56 @@ fn init_logger() {
         .try_init();
 }
 
+fn common_args(machine: &MachineCommand) -> &CommonArgs {
+    match machine {
+        MachineCommand::Token(a) => &a.common,
+        MachineCommand::SideEffect(a) => &a.common,
+    }
+}
+
 fn main() {
     init_logger();
 
     let args = Args::parse();
+    let common = common_args(&args.machine);
+
+    let bridge = wallet::Bridge::new(&common.bridge_url, common.prove);
+    bridge.check_connection().expect("connection check failed");
 
     match args.machine {
         MachineCommand::Token(ref token_args) => {
             let builder = make_builder(&token_args.common);
-            let mut machine = token::TokenMachine::default();
+            let mut machine = token::TokenMachine::new(Some(&bridge));
             machine.min_tokens = token_args.min_tokens;
             machine.max_tokens = token_args.max_tokens;
             log::debug!("Starting token machine with parameters: {:?}", &machine);
-            builder.run(|u| smt::run(u, &mut machine, token_args.common.max_steps))
+            builder.run(|u| {
+                smt::run_batched(
+                    u,
+                    &mut machine,
+                    token_args.common.max_steps,
+                    token_args.common.max_batch_size,
+                )
+            })
         }
         MachineCommand::SideEffect(ref se_args) => {
             let builder = make_builder(&se_args.common);
             let mut machine = side_effect::SideEffectMachine {
                 storage_slots: se_args.storage_slots,
+                bridge: Some(&bridge),
             };
             log::debug!(
                 "Starting side-effect machine with parameters: {:?}",
                 &machine
             );
-            builder.run(|u| smt::run(u, &mut machine, se_args.common.max_steps))
+            builder.run(|u| {
+                smt::run_batched(
+                    u,
+                    &mut machine,
+                    se_args.common.max_steps,
+                    se_args.common.max_batch_size,
+                )
+            })
         }
     }
 }
@@ -106,18 +145,47 @@ mod integration_tests {
     use super::*;
     use serial_test::serial;
     use smt::StateMachine;
+    use std::sync::LazyLock;
 
-    // Integration tests are #[ignore] because they need a running Aztec sandbox and
-    // take several minutes to complete (~30s per transaction).
+    // Integration tests are #[ignore] because they need a running Aztec sandbox.
+    // With bridge + fast slots each tx takes ~5-13s; a full suite run is ~1-2 min.
     // Run with: cargo test -- --ignored --nocapture
+
+    /// One-time test setup: logger + bridge connection (all tests are #[serial]).
+    fn init_test_env() -> &'static wallet::Bridge {
+        static BRIDGE: LazyLock<wallet::Bridge> = LazyLock::new(|| {
+            init_logger();
+            let url =
+                std::env::var("BRIDGE_URL").unwrap_or_else(|_| "http://localhost:8089".to_string());
+            let bridge = wallet::Bridge::new(&url, false);
+            bridge.check_connection().expect("connection check failed");
+            bridge
+        });
+        &BRIDGE
+    }
+
+    /// Verifies the sandbox is reachable and test accounts can be imported.
+    /// Run this first to diagnose setup issues before running heavier tests.
+    /// Prefixed with `_0` so it sorts first alphabetically (`_` < `a` in
+    /// ASCII, and Rust functions are snake_case). #[serial] tests run in
+    /// alphabetical order.
+    #[test]
+    #[ignore = "requires sandbox"]
+    #[serial]
+    fn _0_sandbox_smoke() {
+        let bridge = init_test_env();
+        bridge
+            .import_test_accounts()
+            .expect("import test accounts failed");
+    }
 
     /// Deploys 1 token, runs 5 random operations. Requires a running sandbox.
     #[test]
     #[ignore = "requires sandbox"]
     #[serial]
     fn token_machine_smoke() {
-        init_logger();
-        let mut machine = token::TokenMachine::default();
+        let bridge = init_test_env();
+        let mut machine = token::TokenMachine::new(Some(bridge));
         machine.min_tokens = 1;
         machine.max_tokens = 1;
         machine.min_initial_public_mints = 1;
@@ -133,9 +201,10 @@ mod integration_tests {
     #[ignore = "requires sandbox"]
     #[serial]
     fn side_effect_machine_smoke() {
-        init_logger();
+        let bridge = init_test_env();
         let mut machine = side_effect::SideEffectMachine {
             storage_slots: 2,
+            bridge: Some(bridge),
         };
         smt::fixed_size_builder(1024).run(|u| smt::run(u, &mut machine, 5))
     }
@@ -149,8 +218,8 @@ mod integration_tests {
     fn token_private_balance_not_visible_to_others() {
         use std::collections::HashMap;
 
-        init_logger();
-        let mut machine = token::TokenMachine::default();
+        let bridge = init_test_env();
+        let mut machine = token::TokenMachine::new(Some(bridge));
         let state = token::machine::TokenState {
             accounts: vec![0, 1, 2],
             tokens: vec![0],
@@ -198,8 +267,11 @@ mod integration_tests {
     #[ignore = "requires sandbox"]
     #[serial]
     fn side_effect_note_inclusion_after_destroy() {
-        init_logger();
-        let mut machine = side_effect::SideEffectMachine { storage_slots: 1 };
+        let bridge = init_test_env();
+        let mut machine = side_effect::SideEffectMachine {
+            storage_slots: 1,
+            bridge: Some(bridge),
+        };
         let state = side_effect::machine::SideEffectState {
             accounts: vec![0, 1, 2],
             storage_slots: vec![1],
@@ -254,6 +326,7 @@ mod integration_tests {
             let mut u = Unstructured::new(data);
             let mut machine = side_effect::SideEffectMachine {
                 storage_slots: 3,
+                bridge: None,
             };
             let mut state = machine.gen_state(&mut u).unwrap();
             let mut commands = Vec::new();
