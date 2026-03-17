@@ -24,6 +24,7 @@ class ECCVMMSMMBuilder {
     using MSM = bb::eccvm::MSM<CycleGroup>;
 
     static constexpr size_t ADDITIONS_PER_ROW = bb::eccvm::ADDITIONS_PER_ROW;
+    static constexpr size_t DOUBLINGS_PER_ROW = bb::eccvm::DOUBLINGS_PER_ROW;
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
 
     struct alignas(64) MSMRow {
@@ -61,10 +62,11 @@ class ECCVMMSMMBuilder {
                                       // case exceptions, i.e., we want the VM proof to fail if we're doing a point
                                       // addition where (x1 == x2). to do this, we simply provide an inverse to x1 - x2.
         };
-        std::array<AddState, 4> add_state{ AddState{ false, 0, { 0, 0 }, 0, 0 },
-                                           AddState{ false, 0, { 0, 0 }, 0, 0 },
-                                           AddState{ false, 0, { 0, 0 }, 0, 0 },
-                                           AddState{ false, 0, { 0, 0 }, 0, 0 } };
+        std::array<AddState, ADDITIONS_PER_ROW> add_state = []() {
+            std::array<AddState, ADDITIONS_PER_ROW> arr;
+            arr.fill(AddState{ false, 0, { 0, 0 }, 0, 0 });
+            return arr;
+        }();
         // The accumulator here is, in general, the result of four EC additions: A + Q_1 + Q_2 + Q_3 + Q_4.
         // We do not explicitly store the intermediate values A + Q_1, A + Q_1 + Q_2, and A + Q_1 + Q_2 + Q_3, although
         // these values are implicitly used in the values of `AddState.lambda` and `AddState.collision_inverse`.
@@ -240,14 +242,12 @@ class ECCVMMSMMBuilder {
         //   operations
         // This section sets up the data structures we need to store all intermediate ECC operations in projective form
 
-        const size_t num_point_adds_and_doubles =
-            (num_msm_rows - 2) * 4; // `num_msm_rows - 2` is the actual number of rows in the table required to compute
-                                    // the MSM; the msm table itself has a dummy row at the beginning and an extra row
-                                    // with the `x` and `y` coordinates of the accumulator at the end. (In general, the
-                                    // output of the accumulator from the computation at row `i` is present on row
-                                    // `i+1`. We multiply by 4 because each "row" of the VM processes 4 point-additions
-                                    // (and the fact that w = 4 means we must interleave with 4 doublings). This
-                                    // "corresponds" to the fact that `MSMROW.add_state` has 4 entries.
+        // Each MSM row processes up to ADDITIONS_PER_ROW point operations (additions or doublings).
+        // However, doubling rows only use DOUBLINGS_PER_ROW (= 4) slots.
+        // For the point trace, we allocate conservatively: each row uses at most ADDITIONS_PER_ROW slots.
+        // `num_msm_rows - 2` is the actual number of active rows (excluding the leading dummy and trailing
+        // accumulator row).
+        const size_t num_point_adds_and_doubles = (num_msm_rows - 2) * ADDITIONS_PER_ROW;
         const size_t num_accumulators = num_msm_rows - 1; // for every row after the first row, we have an accumulator.
         // In what follows, either p1 + p2 = p3, or p1.dbl() = p3
         // We create 1 vector to store the entire point trace. We split into multiple containers using std::span
@@ -284,9 +284,9 @@ class ECCVMMSMMBuilder {
                  0); // the Straus algorithm proceeds by incrementing through the digit-slots and doing
                      // computations *across* the `ScalarMul`s that make up our MSM. Each digit-slot therefore
                      // contributes the *ceiling* of `msm_size`/`ADDITIONS_PER_ROW`.
-            size_t trace_index =
-                (msm_row_counts[msm_idx] - 1) * 4; // tracks the index in the traces of `p1`, `p2`, `p3`, and
-                                                   // `accumulator_trace` that we are filling out
+            size_t trace_index = (msm_row_counts[msm_idx] - 1) *
+                                 ADDITIONS_PER_ROW; // tracks the index in the traces of `p1`, `p2`, `p3`, and
+                                                    // `accumulator_trace` that we are filling out
 
             // for each digit-slot (`digit_idx`), and then for each row of the VM (which does `ADDITIONS_PER_ROW` point
             // additions), we either enter in/process (`ADDITIONS_PER_ROW`) `AddState` objects, and then if necessary
@@ -342,10 +342,9 @@ class ECCVMMSMMBuilder {
                     msm_row_index++;
                 }
                 // after processing each digit-slot, we now take care of doubling (as long as we are not at the last
-                // digit). We add an `MSMRow`, `row`, whose four `AddState` objects in `row.add_state`
-                // are null, but we also populate `p1_trace`, `p2_trace`, `p3_trace`, and `is_double_or_add` for four
-                // indices, corresponding to the w=4 doubling operations we need to perform. This embodies the numerical
-                // "coincidence" that `ADDITIONS_PER_ROW == NUM_WNAF_DIGIT_BITS`
+                // digit). We add an `MSMRow`, `row`, and populate `p1_trace`, `p2_trace`, `p3_trace`, and
+                // `is_double_or_add` for DOUBLINGS_PER_ROW (= w = 4) indices, corresponding to the w doublings we
+                // need to perform between digit-slots. Note: DOUBLINGS_PER_ROW != ADDITIONS_PER_ROW in general.
                 if (digit_idx < NUM_WNAF_DIGITS_PER_SCALAR - 1) {
                     auto& row = msm_rows[msm_row_index];
                     row.msm_transition = false;
@@ -355,7 +354,7 @@ class ECCVMMSMMBuilder {
                     row.q_add = false;
                     row.q_double = true;
                     row.q_skew = false;
-                    for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
+                    for (size_t point_idx = 0; point_idx < DOUBLINGS_PER_ROW; ++point_idx) {
                         auto& add_state = row.add_state[point_idx];
                         add_state.add = false;
                         add_state.slice = 0;
@@ -369,6 +368,8 @@ class ECCVMMSMMBuilder {
                         is_double_or_add[trace_index] = true;
                         trace_index++;
                     }
+                    // Skip unused trace slots for this row (ADDITIONS_PER_ROW allocated, only DOUBLINGS_PER_ROW used)
+                    trace_index += (ADDITIONS_PER_ROW - DOUBLINGS_PER_ROW);
                     accumulator_trace[msm_row_index] = accumulator;
                     msm_row_index++;
                 } else // process `wnaf_skew`, i.e., the skew digit.
@@ -436,8 +437,8 @@ class ECCVMMSMMBuilder {
         });
 
         // complete the computation of the ECCVM execution trace, by adding the affine intermediate point data
-        // i.e. row.accumulator_x, row.accumulator_y, row.add_state[0...3].collision_inverse,
-        // row.add_state[0...3].lambda
+        // i.e. row.accumulator_x, row.accumulator_y, row.add_state[i].collision_inverse,
+        // row.add_state[i].lambda
         for (size_t msm_idx = 0; msm_idx < msms.size(); msm_idx++) {
             const auto& msm = msms[msm_idx];
             size_t trace_index = ((msm_row_counts[msm_idx] - 1) * ADDITIONS_PER_ROW);
@@ -481,7 +482,7 @@ class ECCVMMSMMBuilder {
                     const FF& acc_y = normalized_accumulator.is_point_at_infinity() ? 0 : normalized_accumulator.y;
                     row.accumulator_x = acc_x;
                     row.accumulator_y = acc_y;
-                    for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
+                    for (size_t point_idx = 0; point_idx < DOUBLINGS_PER_ROW; ++point_idx) {
                         auto& add_state = row.add_state[point_idx];
                         add_state.collision_inverse = 0; // no notion of "different x values" for a point doubling
                         const FF& dx = p1_trace[trace_index].x;
@@ -489,6 +490,9 @@ class ECCVMMSMMBuilder {
                         add_state.lambda = ((dx + dx + dx) * dx) * inverse;
                         trace_index++;
                     }
+                    // Advance trace_index past the unused slots (ADDITIONS_PER_ROW - DOUBLINGS_PER_ROW)
+                    // These slots were allocated in the point trace but are unused for doubling rows.
+                    trace_index += (ADDITIONS_PER_ROW - DOUBLINGS_PER_ROW);
                     accumulator_index++;
                     msm_row_index++;
                 } else // this row corresponds to performing point additions to handle WNAF skew
@@ -535,10 +539,11 @@ class ECCVMMSMMBuilder {
         final_row.q_add = false;
         final_row.q_double = false;
         final_row.q_skew = false;
-        final_row.add_state = { typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
-                                typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
-                                typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
-                                typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 } };
+        final_row.add_state = []() {
+            std::array<typename MSMRow::AddState, ADDITIONS_PER_ROW> arr;
+            arr.fill(typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 });
+            return arr;
+        }();
 
         return { msm_rows, point_table_read_counts };
     }
