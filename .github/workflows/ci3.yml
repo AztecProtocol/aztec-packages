@@ -294,12 +294,6 @@ jobs:
             namespace_suffix: bench
             download_cmd: gh-spartan-bench
             timeout: 300
-          - bench_type: proving-benchmark
-            ci3_cmd: network-proving-bench
-            scenario: prove-n-tps-fake
-            namespace_suffix: proving-bench
-            download_cmd: gh-spartan-proving-bench
-            timeout: 240
     needs: ci
     if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-bench') && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
     steps:
