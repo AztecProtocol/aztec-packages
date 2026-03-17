@@ -43,9 +43,24 @@ namespace bb {
 template <typename FF_> class ECCVMMSMRelationImpl {
   public:
     using FF = FF_;
-    static constexpr std::array<size_t, 47> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+    // 67 subrelations. Max partial length = 12 (for the acc output after 8 chained additions).
+    // The degree of y_t8 is 10 (degree doubles through chaining: first_add gives deg 3 y, then each subsequent
+    // add increments by ~1). With q_add gating, the final degree is 12 (rounded up for safety).
+    // Most subrelations remain degree <= 8. The new addition-chain subrelations (47-50, 51-54) have higher degree.
+    static constexpr std::array<size_t, 67> SUBRELATION_PARTIAL_LENGTHS{
+        12, 12, 8,  8,  12, 8, // 0-5: ADD acc(x,y), slope1; SKEW acc(x,y), slope1
+        8,  8,  8,  8,  8,  8, // 6-11: collision1-4; DOUBLE acc(x,y)
+        8,  8,  8,  8,  8,  8, // 12-17: DOUBLE slope1; slice-zero 1-4; mutual excl
+        8,  8,  8,  8,  8,  8, 8,  8,
+        8,  8,  8,  8,  8,  8, 12, // 18-31: round tx, selectors, count, continuity
+        8,  8,  8,  8,  8,  8, 8,  8,
+        8,  8,  8,  8,  8,  8, 8, // 32-46: add1=q_add+q_skew, skew ctrls, ADD/DOUBLE/SKEW slopes 2-4, no-op
+        12, 12, 12, 12,           // 47-50: ADD slopes 5-8
+        12, 12, 12, 12,           // 51-54: SKEW slopes 5-8
+        8,  8,  8,  8,            // 55-58: collision 5-8
+        8,  8,  8,  8,            // 59-62: slice-zero 5-8
+        8,  8,  8,  8             // 63-66: continuity add5-8
+    };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
