@@ -1027,15 +1027,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-<<<<<<< HEAD
-    const committedDb = await this.#getWorldState(referenceBlock);
-=======
     // The Noir circuit checks the archive membership proof against `anchor_block_header.last_archive.root`,
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
     const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
-    const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
->>>>>>> 35ad0ab94c (fix: off-by-1 in getBlockHashMembershipWitness archive snapshot)
+    const committedDb = await this.#getWorldState(BlockNumber(referenceBlockNumber - 1));
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
       ? undefined
