@@ -144,17 +144,16 @@ TYPED_TEST(MegaHonkTests, InterleavedStorageRelationCheck)
 }
 
 /**
- * @brief Verify that committing a group buffer directly matches the legacy commit_interleaved path.
+ * @brief Verify that strided entity views correctly map into their group buffers.
+ * @details For each entity in a group, check that entity[i] == group_buffer[BS*i + j].
  */
-TYPED_TEST(MegaHonkTests, InterleavedStorageCommitmentMatch)
+TYPED_TEST(MegaHonkTests, InterleavedStorageEntityBufferConsistency)
 {
     using Flavor = TypeParam;
     if constexpr (Flavor::INTERLEAVING_BATCH_SIZE == 1) {
         GTEST_SKIP() << "Only relevant for interleaved (BS>1) flavors";
     } else {
         constexpr size_t BS = Flavor::INTERLEAVING_BATCH_SIZE;
-        using Polynomial = typename Flavor::Polynomial;
-        using CommitmentKey = bb::CommitmentKey<typename Flavor::Curve>;
 
         typename Flavor::CircuitBuilder builder;
         GoblinMockCircuits::construct_simple_circuit(builder);
@@ -162,35 +161,30 @@ TYPED_TEST(MegaHonkTests, InterleavedStorageCommitmentMatch)
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
         auto& polys = prover_instance->polynomials;
         const size_t n = prover_instance->dyadic_size();
-        const size_t pcs_size = n * BS;
-        CommitmentKey ck(pcs_size);
 
-        // Test W1 group: [w_l, w_r, w_o, ZERO] (shiftable)
-        auto& w1_buffer = polys.group_buffer_for(polys.w_l);
+        // Check W1 (shiftable): [w_l, w_r, w_o, ZERO]
+        auto& w1_buf = polys.group_buffer_for(polys.w_l);
+        std::array<const typename Flavor::Polynomial*, 3> w1_entities = { &polys.w_l, &polys.w_r, &polys.w_o };
+        for (size_t j = 0; j < w1_entities.size(); j++) {
+            for (size_t i = 0; i < n; i++) {
+                auto entity_val = w1_entities[j]->get(i);
+                auto buffer_val = w1_buf.get(BS * i + j);
+                ASSERT_EQ(entity_val, buffer_val) << "W1 mismatch at entity=" << j << " row=" << i;
+            }
+        }
 
-        // Direct commit of group buffer
-        auto direct_commit = ck.commit(w1_buffer);
-
-        // Legacy: build PolynomialSpans from entities, use commit_interleaved
-        // But entities are strided views — we can't make PolynomialSpans from them.
-        // Instead, manually interleave via interleave_group and commit that.
-        auto groups = Flavor::get_unshifted_groups(polys);
-        // W1 is the first shiftable group = groups[groups.size() - 3]
-        const size_t w1_idx = groups.size() - 3; // W1 is 3rd from end
-        auto interleaved = interleave_group<BS, Polynomial>(groups[w1_idx], n, pcs_size, /*shiftable=*/true);
-        auto legacy_commit = ck.commit(interleaved);
-
-        EXPECT_EQ(direct_commit, legacy_commit) << "W1 group buffer commit != legacy interleave commit";
-
-        // Also test an unshiftable group: W2 [ecc_op_wire_1..4]
-        auto& w2_buffer = polys.group_buffer_for(polys.ecc_op_wire_1);
-        auto direct_commit_w2 = ck.commit(w2_buffer);
-
-        const size_t w2_idx = 8; // first witness group after 8 precomputed
-        auto interleaved_w2 = interleave_group<BS, Polynomial>(groups[w2_idx], n, pcs_size, /*shiftable=*/false);
-        auto legacy_commit_w2 = ck.commit(interleaved_w2);
-
-        EXPECT_EQ(direct_commit_w2, legacy_commit_w2) << "W2 group buffer commit != legacy interleave commit";
+        // Check W2 (unshiftable): [ecc_op_wire_1..4]
+        auto& w2_buf = polys.group_buffer_for(polys.ecc_op_wire_1);
+        std::array<const typename Flavor::Polynomial*, 4> w2_entities = {
+            &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4
+        };
+        for (size_t j = 0; j < w2_entities.size(); j++) {
+            for (size_t i = 0; i < n; i++) {
+                auto entity_val = w2_entities[j]->get(i);
+                auto buffer_val = w2_buf.get(BS * i + j);
+                ASSERT_EQ(entity_val, buffer_val) << "W2 mismatch at entity=" << j << " row=" << i;
+            }
+        }
     }
 }
 

@@ -22,7 +22,7 @@ namespace bb {
  *          Returns storage that must outlive the batcher (RefVectors point into it).
  */
 template <typename Flavor>
-static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& polynomials, size_t n, size_t pcs_size)
+static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& polynomials, size_t pcs_size)
 {
     using Polynomial = typename Flavor::Polynomial;
     using PolynomialBatcher = typename GeminiProver_<typename Flavor::Curve>::PolynomialBatcher;
@@ -47,37 +47,30 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
         const size_t num_shiftable = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
         const size_t shiftable_start = num_groups - num_shiftable;
 
-        // To-be-shifted: shiftable group buffers (start_index=BS, batcher shifts internally)
         result.shifted_storage.reserve(num_shiftable);
         for (size_t g = shiftable_start; g < num_groups; g++) {
             result.shifted_storage.push_back(group_buffers[g].share());
         }
 
-        // Unshifted: all group buffers (shared — polynomials_storage keeps backing alive)
         result.unshifted_storage.reserve(num_groups);
         for (size_t g = 0; g < num_groups; g++) {
             result.unshifted_storage.push_back(group_buffers[g].share());
         }
     } else {
-        // BS=1: each polynomial is its own group (identity interleaving)
-        auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);
-        auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
+        // BS=1: each polynomial is its own "group" — share directly into the batcher.
+        auto& polys = *result.polynomials_storage;
+        auto unshifted = polys.get_unshifted();
+        auto to_be_shifted = polys.get_to_be_shifted();
 
-        result.shifted_storage.reserve(shifted_groups.size());
-        for (const auto& group : shifted_groups) {
-            result.shifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, true));
+        result.shifted_storage.reserve(to_be_shifted.size());
+        for (auto& poly : to_be_shifted) {
+            result.shifted_storage.push_back(poly.share());
         }
 
-        result.unshifted_storage.reserve(unshifted_groups.size());
-        for (auto& group : unshifted_groups) {
-            result.unshifted_storage.push_back(interleave_group<BATCH_SIZE, Polynomial>(group, n, pcs_size, false));
-            for (auto* ptr : group) {
-                if (ptr != nullptr) {
-                    *ptr = Polynomial();
-                }
-            }
+        result.unshifted_storage.reserve(unshifted.size());
+        for (auto& poly : unshifted) {
+            result.unshifted_storage.push_back(poly.share());
         }
-        result.polynomials_storage.reset();
     }
 
     result.batcher.set_unshifted(RefVector<Polynomial>(result.unshifted_storage));
@@ -232,7 +225,7 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
     };
 
     // Interleave polynomial groups (BS>1) and configure the polynomial batcher.
-    auto pcs_data = build_pcs_polynomial_batcher<Flavor>(std::move(prover_instance->polynomials), n, pcs_size);
+    auto pcs_data = build_pcs_polynomial_batcher<Flavor>(std::move(prover_instance->polynomials), pcs_size);
 
     auto prover_opening_claim = run_shplemini(pcs_data.batcher);
 
