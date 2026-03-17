@@ -69,39 +69,67 @@ template <size_t BatchSize, typename Curve, size_t MaxMergeSize> class BatchMerg
     /**
      * @brief Reduce the batch merge proof to a pairing check.
      *
-     * @param proof                  The batch merge proof from BatchMergeProver.
-     * @return ReductionResult with KZG pairing points and [T] commitments.
+     * @details The verifier receives commitments [C_0]..[C_{M-1}] as input (collected from the HN proof
+     * verifications during the accumulation loop). Unused slots are the point at infinity. It then reads
+     * [T], [G] and all evaluations from the proof, checks the concatenation and degree identities, performs an hash
+     * check, and reduces to a KZG pairing check.
+     *
+     * @param proof                Batch merge proof.
+     * @param subtable_commitments [C_0]..[C_{M-1}] — interleaved column commitments for each subtable.
+     * @return ReductionResult with pairing points and merged table commitments.
      */
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(const Proof& proof,
                                                                                                    const FF hash);
 
     /**
-     * @brief Compute one step of the ECC op running hash (with previous hash).
+     * @brief Compute one step of the ECC op running hash
      * @details Returns Poseidon2([prev_hash, serialize_to_fields(col_commitments)]).
-     *          Used for all non-first accumulation steps in chonk.cpp and for all steps
-     *          after the first when rebuilding the hash chain in the batch merge verifier.
      */
     static FF ecc_op_hash_step(const std::vector<Commitment>& col_commitments,
                                const std::optional<FF>& prev_hash = std::nullopt);
 
   private:
+    /**
+     * @brief Compute array of length M := MaxMergeSize s.t. indicator_array[i] = (i >= (M - N)), where N is the number
+     * of subtables to merge (sent by the prover).
+     *
+     * @param N
+     * @return std::vector<FF>
+     */
     std::vector<FF> compute_indicator_array(const FF& N) const;
 
+    /**
+     * @brief Compute array of length M := MaxMergeSize s.t. dirac_array[i] = (i == N - 1)
+     *
+     * @param indicator_array
+     * @return std::vector<FF>
+     */
     std::vector<FF> compute_dirac_array(const std::vector<FF>& indicator_array) const;
 
-    // Verify T(κ) = Σ_i C_i(κ) · κ^{offset_i} for every column.
+    /**
+     * @brief Verify the concatenation identity T(κ) = Σ_i C_i(κ) · κ^{offset_i} for every column.
+     * @details offset_i = Σ_{j<i} shift_sizes[j] · BATCH_SIZE.
+     */
     bool check_concatenation_identity(const std::vector<std::vector<FF>>& c_evals,
                                       const std::vector<FF>& t_evals,
                                       const std::vector<FF>& powers_of_kappa) const;
 
-    // Verify G(κ⁻¹) = Σ_{i,col} α_{i,col} · C_i_col(κ) · κ^{1 − s_i·BS} (single combined check).
+    /**
+     * @brief Verify the degree identity
+     *      G(κ⁻¹) = Σ_{i,col} α_{i,col} · C_i_col(κ) · κ^{1 − shift_sizes[j] * BATCH_SIZE}
+     * @details This is a single combined check across all subtables and columns.
+     */
     bool check_degree_identity(const std::vector<std::vector<FF>>& c_evals,
                                const FF& reversed_cols_eval,
                                const std::vector<FF>& powers_of_kappa_inv,
                                const std::vector<FF>& degree_check_challenges,
                                const FF& kappa) const;
 
-    // Verify that the column commitments in the proof match the running hash from accumulation.
+    /**
+     * @brief Verify that the column commitments in the proof match the running hash from accumulation.
+     * @details This ensures that the commitments provided in the proof are consistent with the expected
+     * running hash computed during the accumulation process.
+     */
     bool check_hash_consistency(const FF& hash,
                                 const std::vector<FF>& calculated_hashes,
                                 const std::vector<FF>& indicator_array) const;

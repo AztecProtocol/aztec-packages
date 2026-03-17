@@ -69,22 +69,6 @@ typename BatchMergeProver<BATCH_SIZE>::Batch BatchMergeProver<BATCH_SIZE>::compu
     return reversed_batched_columns;
 }
 
-/**
- * @brief Construct the batch merge proof.
- *
- * @details Proves that the full merged table T is the correct concatenation of all N subtables
- * C_0, ..., C_{N-1} (deque order: C_0 most recently prepended, C_{N-1} oldest) stored in the op_queue.
- *
- * Proof structure:
- *   Prover → Verifier: shift_size_0..shift_size_{N-1}, [T]
- *   Verifier → Prover: degree check challenges α_0..α_{M-1}
- *   Prover → Verifier: [G]
- *   Verifier → Prover: Shplonk batching challenges, κ
- *   Prover → Verifier: C_i(κ) for each i, T(κ), G(κ^{-1})
- *   Prover → Verifier: [Q] (Shplonk quotient)
- *   Verifier → Prover: z (KZG opening challenge)
- *   Prover → Verifier: [W] (KZG opening proof)
- */
 template <size_t BATCH_SIZE>
 typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::construct_proof()
 {
@@ -127,9 +111,9 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     }
 
     // Send N and shift sizes to the verifier (after commitments)
-    transcript->send_to_verifier("batch_merge_num_subtables", static_cast<uint32_t>(N));
+    transcript->send_to_verifier("NUM_SUBTABLES", static_cast<uint32_t>(N));
     for (size_t i = 0; i < M; ++i) {
-        transcript->send_to_verifier("batch_merge_shift_size_" + std::to_string(i),
+        transcript->send_to_verifier("SHIFT_SIZE_" + std::to_string(i),
                                      static_cast<uint32_t>(i < M - N ? 0U : shift_sizes[i - (M - N)]));
     }
 
@@ -140,7 +124,7 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     const size_t merged_size = merged_table[0][0].size(); // number of rows in T per wire
 
     for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-        transcript->send_to_verifier("BATCH_MERGED_TABLE_" + std::to_string(col),
+        transcript->send_to_verifier("MERGED_COLUMN_" + std::to_string(col),
                                      pcs_commitment_key.commit_interleaved<BATCH_SIZE>(merged_table[col]));
     }
 
@@ -159,7 +143,7 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     // -------------------------------------------------------------------------
     Batch reversed_batched_cols =
         compute_degree_check_polynomial(subtable_cols, degree_check_challenges, max_shift_size, (M - N) * NUM_COLUMNS);
-    transcript->send_to_verifier("BATCH_MERGE_REVERSED_COLUMNS",
+    transcript->send_to_verifier("REVERSED_COLUMNS",
                                  pcs_commitment_key.commit_interleaved<BATCH_SIZE>(reversed_batched_cols));
 
     // -------------------------------------------------------------------------
@@ -180,7 +164,7 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     // -------------------------------------------------------------------------
     // Step 6: Evaluation challenge κ
     // -------------------------------------------------------------------------
-    const FF kappa = transcript->template get_challenge<FF>("batch_merge_kappa");
+    const FF kappa = transcript->template get_challenge<FF>("KAPPA");
     const FF kappa_inv = kappa.invert();
 
     std::vector<FF> powers_of_kappa = { FF(1) };
@@ -200,16 +184,14 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     for (size_t i = 0; i < M - N; ++i) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
             c_evals[i][col] = FF(0);
-            transcript->send_to_verifier("BATCH_MERGE_C_EVAL_" + std::to_string(i) + "_" + std::to_string(col),
-                                         c_evals[i][col]);
+            transcript->send_to_verifier("C_EVAL_" + std::to_string(i) + "_" + std::to_string(col), c_evals[i][col]);
         }
     }
 
     for (size_t i = M - N; i < M; ++i) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
             c_evals[i][col] = subtable_cols[i - (M - N)].evaluate(col, powers_of_kappa);
-            transcript->send_to_verifier("BATCH_MERGE_C_EVAL_" + std::to_string(i) + "_" + std::to_string(col),
-                                         c_evals[i][col]);
+            transcript->send_to_verifier("C_EVAL_" + std::to_string(i) + "_" + std::to_string(col), c_evals[i][col]);
         }
     }
 
@@ -217,12 +199,12 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     std::vector<FF> t_evals(NUM_COLUMNS);
     for (size_t col = 0; col < NUM_COLUMNS; ++col) {
         t_evals[col] = merged_table.evaluate(col, powers_of_kappa);
-        transcript->send_to_verifier("BATCH_MERGE_T_EVAL_" + std::to_string(col), t_evals[col]);
+        transcript->send_to_verifier("MERGED_EVAL_" + std::to_string(col), t_evals[col]);
     }
 
     // g_evals[col] = G_col(κ^{-1})
     FF reversed_cols_evals = reversed_batched_cols.evaluate(powers_of_kappa_inv);
-    transcript->send_to_verifier("BATCH_MERGE_REVERSED_COLS_EVAL", reversed_cols_evals);
+    transcript->send_to_verifier("REVERSED_COLUMNS_EVAL", reversed_cols_evals);
 
     // -------------------------------------------------------------------------
     // Step 8: Construct the Shplonk batched quotient Q
@@ -273,12 +255,12 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     q_kappa_inv.factor_roots(kappa_inv);
     shplonk_batched_quotient += q_kappa_inv;
 
-    transcript->send_to_verifier("BATCH_MERGE_SHPLONK_Q", pcs_commitment_key.commit(shplonk_batched_quotient));
+    transcript->send_to_verifier("SHPLONK_Q", pcs_commitment_key.commit(shplonk_batched_quotient));
 
     // -------------------------------------------------------------------------
     // Step 9: Shplonk opening challenge z and KZG opening
     // -------------------------------------------------------------------------
-    const FF z = transcript->template get_challenge<FF>("batch_merge_z");
+    const FF z = transcript->template get_challenge<FF>("Z");
 
     // Q'(X) = -Q(X)*(z - κ)
     //         + interleaved_at_kappa(X)

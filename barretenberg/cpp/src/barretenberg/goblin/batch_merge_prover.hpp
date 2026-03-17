@@ -19,20 +19,20 @@ namespace bb {
  * @brief Prover for the batch Goblin ECC op queue merge protocol.
  *
  * @details In the delayed-merge protocol, instead of one merge proof per accumulation step, a single
- * batch merge is performed in the tail kernel. This prover proves that the full merged table T is the
+ * batch merge is performed in the hiding kernel. This prover proves that the full merged table T is the
  * correct concatenation of all N accumulated subtables C_0, ..., C_{N-1} (padded to MAX_SUBTABLES M).
  *
  * Protocol overview:
- *   1. Prover sends shift_sizes[0..N-1] and [T] (commitment to full merged table)
+ *   1. Prover sends C_0, .., C_{M-1}, shift_sizes[0..N-1] and [T] (commitment to full merged table)
  *   2. Verifier sends degree check challenges α_0..α_{M-1}
- *   3. Prover computes G = sum_i α_i * reversed_at_{k_i}(C_i), sends [G]
+ *   3. Prover computes G = sum_i α_i * C_i(1/X) X^{shift_sizes[i] - 1}, sends [G]
  *   4. Verifier sends Shplonk batching challenges and evaluation challenge κ
- *   5. Prover sends C_i(κ) for i=0..N-1, T(κ), G(κ^{-1})
+ *   5. Prover sends C_i(κ) for i=0..M-1, T(κ), G(κ^{-1})
  *   6. Prover produces Shplonk/KZG proof
  *
  * Verification checks:
  *   - Concatenation: T(κ) = sum_i C_i(κ) * κ^{offset_i} (offsets derived from shift_sizes)
- *   - Degree:        G(κ^{-1}) * κ^{k_max-1} = sum_i α_i * C_i(κ) * κ^{k_max - k_i}
+ *   - Degree:        G(κ^{-1}) = sum_i α_i * C_i(κ) * κ^{- shift_sizes[i] + 1}
  *   - KZG:           Shplonk batch opening proof
  *
  * @tparam BATCH_SIZE Number of individual wire polynomials interleaved into each column commitment
@@ -65,6 +65,22 @@ template <size_t BATCH_SIZE> class BatchMergeProver {
                               std::shared_ptr<Transcript> transcript,
                               size_t max_subtables);
 
+    /**
+     * @brief Construct the batch merge proof.
+     *
+     * @details Proves that the full merged table T is the correct concatenation of all N subtables
+     * C_0, ..., C_{N-1} (deque order: C_0 most recently prepended, C_{N-1} oldest) stored in the op_queue.
+     *
+     * Proof structure:
+     *   Prover → Verifier: C_0, .., C_{M-1}, shift_size_0..shift_size_{N-1}, [T]
+     *   Verifier → Prover: degree check challenges α_0..α_{M-1}
+     *   Prover → Verifier: [G]
+     *   Verifier → Prover: Shplonk batching challenges, κ
+     *   Prover → Verifier: C_i(κ) for each i, T(κ), G(κ^{-1})
+     *   Prover → Verifier: [Q] (Shplonk quotient)
+     *   Verifier → Prover: z (KZG opening challenge)
+     *   Prover → Verifier: [W] (KZG opening proof)
+     */
     MergeProof construct_proof();
 
     // Exposed for test access
