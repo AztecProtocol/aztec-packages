@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0-nightly.20260316
-Generated: 2026-03-16T05:02:42.731Z
+Version: v5.0.0-nightly.20260317
+Generated: 2026-03-17T04:44:30.479Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -61,7 +61,7 @@ Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
   - Serialization utilities
   - Async helpers and collections
   - Logging infrastructure
-Exports: 19 classes, 6 interfaces, 135 functions, 30 types
+Exports: 19 classes, 6 interfaces, 136 functions, 30 types
 Key: EthAddress
 
 **@aztec/constants** - Protocol constants shared between TypeScript and Noir
