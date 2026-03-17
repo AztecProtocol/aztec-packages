@@ -104,6 +104,47 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_X_INVERSE", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE", frs_per_G);
+        // --- 8-wide additions: new precompute slice columns ---
+        manifest_expected.add_entry(round, "PRECOMPUTE_S5HI", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S5LO", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S6HI", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S6LO", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S7HI", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S7LO", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S8HI", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_S8LO", frs_per_G);
+        // --- 8-wide additions: new MSM add selectors ---
+        manifest_expected.add_entry(round, "MSM_ADD5", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ADD6", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ADD7", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ADD8", frs_per_G);
+        // --- 8-wide additions: new MSM point coordinates ---
+        manifest_expected.add_entry(round, "MSM_X5", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_Y5", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_X6", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_Y6", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_X7", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_Y7", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_X8", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_Y8", frs_per_G);
+        // --- 8-wide additions: new MSM collision inverses ---
+        manifest_expected.add_entry(round, "MSM_COLLISION_X5", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_COLLISION_X6", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_COLLISION_X7", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_COLLISION_X8", frs_per_G);
+        // --- 8-wide additions: new MSM lambdas ---
+        manifest_expected.add_entry(round, "MSM_LAMBDA5", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_LAMBDA6", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_LAMBDA7", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_LAMBDA8", frs_per_G);
+        // --- 8-wide additions: new MSM slices ---
+        manifest_expected.add_entry(round, "MSM_SLICE5", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_SLICE6", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_SLICE7", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_SLICE8", frs_per_G);
+        // --- 8-wide additions: additional lookup read counts ---
+        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS_2", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS_3", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MUL", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SCALAR_SUM", frs_per_G);
@@ -126,6 +167,9 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_PC", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_ROUND", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SELECT", frs_per_G);
+        // --- 8-wide additions: 2nd precomputed point ---
+        manifest_expected.add_entry(round, "PRECOMPUTE_TX2", frs_per_G);
+        manifest_expected.add_entry(round, "PRECOMPUTE_TY2", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_NOT_EMPTY", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
