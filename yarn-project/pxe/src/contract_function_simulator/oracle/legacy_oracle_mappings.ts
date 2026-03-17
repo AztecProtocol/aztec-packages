@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
+import { type ACIRCallback, type ACVMField, toACVMField } from '@aztec/simulator/client';
 
 import type { Oracle } from './oracle.js';
 
@@ -74,13 +74,25 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     ): Promise<ACVMField[]> => oracle.aztec_utl_copyCapsule(contractAddress, srcSlot, dstSlot, numEntries),
     utilityDeleteCapsule: (contractAddress: ACVMField[], slot: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_deleteCapsule(contractAddress, slot),
-    utilityAes128Decrypt: (
+    utilityAes128Decrypt: async (
       ciphertextBVecStorage: ACVMField[],
       ciphertextLength: ACVMField[],
       iv: ACVMField[],
       symKey: ACVMField[],
-    ): Promise<(ACVMField | ACVMField[])[]> =>
-      oracle.aztec_utl_aes128Decrypt(ciphertextBVecStorage, ciphertextLength, iv, symKey),
+    ): Promise<(ACVMField | ACVMField[])[]> => {
+      // Strip the Option wrapper: new oracle returns [some, storage, length], legacy callers expect [storage, length].
+      const [some, storage, length] = await oracle.aztec_utl_tryAes128Decrypt(
+        ciphertextBVecStorage,
+        ciphertextLength,
+        iv,
+        symKey,
+      );
+      // Re-throw on failure to preserve the old error-propagation semantics for pinned contracts.
+      if (some === toACVMField(0)) {
+        throw new Error('AES-128 decryption failed');
+      }
+      return [storage, length];
+    },
     utilityGetSharedSecret: (
       address: ACVMField[],
       ephPKField0: ACVMField[],
