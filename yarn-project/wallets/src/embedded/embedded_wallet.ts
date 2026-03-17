@@ -37,7 +37,7 @@ export type EmbeddedWalletOptions = {
 };
 
 export class EmbeddedWallet extends BaseWallet {
-  protected estimatedGasPadding = 0.5;
+  protected estimatedGasPadding = 0.2;
 
   constructor(
     pxe: PXE,
