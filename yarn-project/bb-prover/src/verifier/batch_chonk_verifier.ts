@@ -57,6 +57,8 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   private logger = createLogger('bb-prover:batch_chonk_verifier');
   /** Maps artifact name to VK index in the batch verifier. */
   private vkIndexMap = new Map<string, number>();
+  /** Bound cleanup handler for process exit signals. */
+  private exitCleanup: (() => void) | null = null;
 
   private constructor(
     private config: BBConfig,
@@ -112,6 +114,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
 
     // Create FIFO pipe for async result delivery
     execSync(`mkfifo ${this.fifoPath}`);
+    this.registerExitCleanup();
 
     // Start the batch verifier service in bb
     await this.bb.chonkBatchVerifierStart({
@@ -173,12 +176,9 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     // Stop FIFO reader
     this.fifoReader.stop();
 
-    // Clean up FIFO file
-    try {
-      fs.unlinkSync(this.fifoPath);
-    } catch {
-      // ignore
-    }
+    // Clean up FIFO file and deregister exit handler
+    this.cleanupFifo();
+    this.deregisterExitCleanup();
 
     // Reject any remaining pending requests
     for (const [id, pending] of this.pendingRequests) {
@@ -242,5 +242,29 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     }
 
     pending.resolve(ivcResult);
+  }
+
+  private cleanupFifo(): void {
+    try {
+      fs.unlinkSync(this.fifoPath);
+    } catch {
+      // ignore — may already be cleaned up
+    }
+  }
+
+  private registerExitCleanup(): void {
+    this.exitCleanup = () => this.cleanupFifo();
+    process.on('exit', this.exitCleanup);
+    process.on('SIGINT', this.exitCleanup);
+    process.on('SIGTERM', this.exitCleanup);
+  }
+
+  private deregisterExitCleanup(): void {
+    if (this.exitCleanup) {
+      process.removeListener('exit', this.exitCleanup);
+      process.removeListener('SIGINT', this.exitCleanup);
+      process.removeListener('SIGTERM', this.exitCleanup);
+      this.exitCleanup = null;
+    }
   }
 }
