@@ -1,5 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
@@ -450,13 +451,22 @@ export class FakeL1State {
   createMockInboxContract(_publicClient: MockProxy<ViemPublicClient>): MockProxy<InboxContract> {
     const mockInbox = mock<InboxContract>();
 
-    mockInbox.getState.mockImplementation(() =>
-      Promise.resolve({
+    mockInbox.getState.mockImplementation(() => {
+      // treeInProgress must be > any sealed checkpoint. On L1, a checkpoint can only be proposed
+      // after its messages are sealed, so treeInProgress > checkpointNumber for all published checkpoints.
+      const maxFromMessages =
+        this.messages.length > 0 ? Math.max(...this.messages.map(m => Number(m.checkpointNumber))) + 1 : 0;
+      const maxFromCheckpoints =
+        this.checkpoints.length > 0
+          ? Math.max(...this.checkpoints.filter(cp => !cp.pruned).map(cp => Number(cp.checkpointNumber))) + 1
+          : 0;
+      const treeInProgress = Math.max(maxFromMessages, maxFromCheckpoints, INITIAL_CHECKPOINT_NUMBER);
+      return Promise.resolve({
         messagesRollingHash: this.messagesRollingHash,
         totalMessagesInserted: BigInt(this.messages.length),
-        treeInProgress: 0n,
-      }),
-    );
+        treeInProgress: BigInt(treeInProgress),
+      });
+    });
 
     // Mock the wrapper methods for fetching message events
     mockInbox.getMessageSentEvents.mockImplementation((fromBlock: bigint, toBlock: bigint) =>

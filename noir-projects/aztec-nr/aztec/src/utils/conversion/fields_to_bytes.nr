@@ -41,39 +41,63 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
     // Assert that input length is a multiple of 32
     assert(bytes.len() % 32 == 0, "Input length must be a multiple of 32");
 
-    let mut fields = BoundedVec::new();
+    try_fields_from_bytes(bytes).expect(f"Value does not fit in field")
+}
 
+/// Converts a single 32-byte big-endian chunk (starting at `offset`) into a Field, returning
+/// `Option::none()` if the chunk's value is >= the field modulus.
+fn try_field_from_be_bytes<let N: u32>(bytes: BoundedVec<u8, N>, offset: u32) -> Option<Field> {
     let p = std::field::modulus_be_bytes();
+    let mut field = 0;
+    // Field arithmetic silently wraps values >= the modulus, so we compare each 32-byte chunk against
+    // the modulus byte-by-byte (big-endian, most significant first). The first byte that differs
+    // determines the result: if our byte is smaller we're valid, if larger we've overflowed.
+    // cmp tracks the result: 0 = equal so far, 1 = less than modulus, 2 = exceeds modulus.
+    let mut cmp: u8 = 0;
+    for j in 0..32 {
+        let byte = bytes.get(offset + j);
+        field = field * 256 + byte as Field;
 
-    // Since input length is a multiple of 32, we can simply process all chunks fully
-    for i in 0..bytes.len() / 32 {
-        let mut field = 0;
-
-        // Process each byte in the 32-byte chunk
-        let mut ok = false;
-
-        for j in 0..32 {
-            let next_byte = bytes.get(i * 32 + j);
-            field = field * 256 + next_byte as Field;
-
-            if !ok {
-                if next_byte != p[j] {
-                    assert(next_byte < p[j], "Value does not fit in field");
-                    ok = true;
-                }
+        if cmp == 0 {
+            if byte < p[j] {
+                cmp = 1;
+            } else if byte > p[j] {
+                cmp = 2;
             }
         }
-        assert(ok, "Value does not fit in field");
-
-        fields.push(field);
     }
+    if cmp == 1 {
+        Option::some(field)
+    } else {
+        Option::none()
+    }
+}
 
-    fields
+/// Non-panicking version of `fields_from_bytes`. Returns `Option::none()` if the input
+/// length is not a multiple of 32 or if any 32-byte chunk exceeds the field modulus.
+pub(crate) fn try_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> Option<BoundedVec<Field, N / 32>> {
+    if bytes.len() % 32 == 0 {
+        let mut fields = BoundedVec::new();
+        let num_chunks = bytes.len() / 32;
+        for i in 0..num_chunks {
+            let field = try_field_from_be_bytes(bytes, i * 32);
+            if field.is_some() {
+                fields.push(field.unwrap());
+            }
+        }
+        if fields.len() as u32 == num_chunks {
+            Option::some(fields)
+        } else {
+            Option::none()
+        }
+    } else {
+        Option::none()
+    }
 }
 
 mod tests {
     use crate::utils::array::subarray;
-    use super::{fields_from_bytes, fields_to_bytes};
+    use super::{fields_from_bytes, fields_to_bytes, try_fields_from_bytes};
 
     #[test]
     unconstrained fn random_fields_to_bytes_and_back(input: [Field; 3]) {
@@ -140,4 +164,26 @@ mod tests {
         }
     }
 
+    #[test]
+    unconstrained fn try_fields_from_bytes_returns_none_on_unaligned_length() {
+        let input = BoundedVec::<_, 64>::from_parts([0 as u8; 64], 33);
+        assert(try_fields_from_bytes(input).is_none());
+    }
+
+    #[test]
+    unconstrained fn try_fields_from_bytes_returns_none_on_field_modulus() {
+        // The field modulus itself is not a valid field value (it wraps to 0).
+        let p: [u8; 32] = std::field::modulus_be_bytes().as_array();
+        let input = BoundedVec::<u8, 32>::from_array(p);
+        assert(try_fields_from_bytes(input).is_none());
+    }
+
+    #[test]
+    unconstrained fn try_fields_from_bytes_round_trips(input: [Field; 3]) {
+        let bytes = BoundedVec::<_, 113>::from_array(fields_to_bytes(input));
+        let fields = try_fields_from_bytes(bytes).unwrap();
+
+        assert_eq(fields.len(), input.len());
+        assert_eq(subarray(fields.storage(), 0), input);
+    }
 }

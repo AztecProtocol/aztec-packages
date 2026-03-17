@@ -6,6 +6,7 @@
 members = [
     "crates/ts-types",
     "crates/types",
+    "crates/protocol-test-utils",
     "crates/blob",
     "crates/parity-base",
     "crates/parity-root",

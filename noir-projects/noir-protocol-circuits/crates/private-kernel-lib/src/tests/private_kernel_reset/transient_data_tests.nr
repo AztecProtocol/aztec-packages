@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use types::tests::utils::assert_array_eq;
+use protocol_test_utils::assert_array_eq;
 
 // Note: Only a few cases are tested here to ensure that the code path to the `TransientDataValidator` is reached.
 // More comprehensive tests for squashing and propagating data can be found in `reset/transient_data/tests`.

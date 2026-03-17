@@ -8,11 +8,11 @@ use super::{
     get_propagated_read_requests::get_propagated_read_requests,
     read_request_validator::ReadRequestValidator,
 };
+use protocol_test_utils::pad_end;
 use types::{
     address::AztecAddress,
-    merkle_tree::{LeafPreimage, MembershipWitness},
+    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
     side_effect::{Counted, Readable, Scoped},
-    tests::{merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end},
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
 };

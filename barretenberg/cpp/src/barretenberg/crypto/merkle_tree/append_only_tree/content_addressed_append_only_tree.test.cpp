@@ -2171,7 +2171,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_fo
     commit_checkpoint_tree(tree, false);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints_to)
 {
     constexpr size_t depth = 10;
     uint32_t blockSize = 16;
@@ -2223,7 +2223,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_all_checkpoints)
     commit_checkpoint_tree(tree, false);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_all_checkpoints)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_all_checkpoints_to)
 {
     constexpr size_t depth = 10;
     uint32_t blockSize = 16;
@@ -2273,4 +2273,96 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_all_checkpoints)
     // Should not be able to commit or revert where there is no active checkpoint
     revert_checkpoint_tree(tree, false);
     commit_checkpoint_tree(tree, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_to_depth)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    // Capture initial state
+    fr_sibling_path initial_path = get_sibling_path(tree, 0);
+
+    // Depth 1
+    checkpoint_tree(tree);
+    add_values(tree, create_values(blockSize));
+    fr_sibling_path after_depth1_path = get_sibling_path(tree, 0);
+
+    // Depth 2
+    checkpoint_tree(tree);
+    add_values(tree, create_values(blockSize));
+
+    // Depth 3
+    checkpoint_tree(tree);
+    add_values(tree, create_values(blockSize));
+    fr_sibling_path after_depth3_path = get_sibling_path(tree, 0);
+
+    // Commit depths 3 and 2 into depth 1, leaving depth at 1
+    commit_tree_to_depth(tree, 1);
+
+    // Data from all depths should be present
+    check_sibling_path(tree, 0, after_depth3_path);
+
+    // Revert depth 1 — should go back to initial state
+    revert_checkpoint_tree(tree);
+    check_sibling_path(tree, 0, initial_path);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_revert_to_depth)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    // Depth 1
+    checkpoint_tree(tree);
+    add_values(tree, create_values(blockSize));
+    fr_sibling_path after_depth1_path = get_sibling_path(tree, 0);
+
+    // Depth 2
+    checkpoint_tree(tree);
+    add_values(tree, create_values(blockSize));
+
+    // Depth 3
+    checkpoint_tree(tree);
+    add_values(tree, create_values(blockSize));
+
+    // Revert depths 3 and 2, leaving depth at 1
+    revert_tree_to_depth(tree, 1);
+
+    // Should be back to after depth 1 state
+    check_sibling_path(tree, 0, after_depth1_path);
+
+    // Depth 1 still active — commit it
+    commit_checkpoint_tree(tree);
+
+    // Should still have depth 1 data
+    check_sibling_path(tree, 0, after_depth1_path);
 }

@@ -126,12 +126,9 @@ where
 }
 
 mod tests {
-    use crate::{
-        merkle_tree::leaf_preimage::LeafPreimage,
-        tests::{
-            merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
-            types::test_leaf_preimage::TestLeafPreimage,
-        },
+    use crate::merkle_tree::{
+        leaf_preimage::LeafPreimage,
+        test_utils::{SingleSubtreeMerkleTree, TestLeafPreimage},
     };
     use super::{
         check_membership, check_non_membership, conditionally_check_membership, MembershipWitness,

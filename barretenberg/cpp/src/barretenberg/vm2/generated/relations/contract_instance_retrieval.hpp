@@ -36,6 +36,11 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
     static constexpr const std::string_view NAME = "contract_instance_retrieval";
 
     // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_DEPLOYER_PROTOCOL_CONTRACT_ADDRESS_CONSTANT = 2;
+    static constexpr size_t SR_DERIVED_ADDRESS_PI_INDEX = 5;
+    static constexpr size_t SR_PROTOCOL_CONTRACT_EXISTS_CHECK = 6;
+    static constexpr size_t SR_NULLIFIER_TREE_HEIGHT_CONSTANT = 8;
+    static constexpr size_t SR_SILOING_SEPARATOR_CONSTANT = 9;
     static constexpr size_t SR_UNCHANGED_ADDRESS_NON_PROTOCOL = 10;
     static constexpr size_t SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE = 11;
     static constexpr size_t SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE = 12;
@@ -46,6 +51,16 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_DEPLOYER_PROTOCOL_CONTRACT_ADDRESS_CONSTANT:
+            return "DEPLOYER_PROTOCOL_CONTRACT_ADDRESS_CONSTANT";
+        case SR_DERIVED_ADDRESS_PI_INDEX:
+            return "DERIVED_ADDRESS_PI_INDEX";
+        case SR_PROTOCOL_CONTRACT_EXISTS_CHECK:
+            return "PROTOCOL_CONTRACT_EXISTS_CHECK";
+        case SR_NULLIFIER_TREE_HEIGHT_CONSTANT:
+            return "NULLIFIER_TREE_HEIGHT_CONSTANT";
+        case SR_SILOING_SEPARATOR_CONSTANT:
+            return "SILOING_SEPARATOR_CONSTANT";
         case SR_UNCHANGED_ADDRESS_NON_PROTOCOL:
             return "UNCHANGED_ADDRESS_NON_PROTOCOL";
         case SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE:

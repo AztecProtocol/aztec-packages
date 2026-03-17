@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
 #include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
@@ -168,6 +169,10 @@ class Chonk : public IVCBase {
 
     Goblin goblin;
 
+    // Hiding kernel prover state: built during accumulate(MEGA), consumed by prove().
+    std::shared_ptr<DeciderZKProvingKey> hiding_prover_inst;
+    std::shared_ptr<MegaZKVerificationKey> hiding_vk;
+
     size_t get_num_circuits() const { return num_circuits; }
 
     // IVCBase interface
@@ -228,9 +233,6 @@ class Chonk : public IVCBase {
                                 const std::shared_ptr<ProverInstance>& prover_instance,
                                 const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
-
-    HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
-                                                     const std::shared_ptr<MegaVerificationKey>& verification_key);
 
     QUEUE_TYPE get_queue_type() const;
 };

@@ -264,7 +264,8 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Allocate minimum size >1 to avoid point at
     // infinity commitment.
-    const size_t max_databus_column_size = std::max({ calldata_size, sec_calldata_size, return_data_size, 2UL });
+    const size_t max_databus_column_size =
+        std::max({ calldata_size, sec_calldata_size, return_data_size, size_t{ 2 } });
     polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
 }
 
