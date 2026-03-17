@@ -4,12 +4,15 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { Unpackr } from 'msgpackr';
-import { execFileSync } from 'node:child_process';
-import * as fs from 'node:fs';
+import { execFile } from 'node:child_process';
+import { unlink } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { promisify } from 'node:util';
 
 import { generateTestingIVCStack } from './witgen.js';
+
+const execFileAsync = promisify(execFile);
 
 const logger = createLogger('ivc-integration:test:batch-verifier');
 
@@ -59,18 +62,12 @@ function readFifoResults(fifoPath: string, count: number): Promise<FifoVerifyRes
 }
 
 /** Helper: create a FIFO and return its path + cleanup function. */
-function createFifo(label: string): { fifoPath: string; cleanup: () => void } {
+async function createFifo(label: string): Promise<{ fifoPath: string; cleanup: () => Promise<void> }> {
   const fifoPath = path.join(os.tmpdir(), `bb-batch-${label}-${process.pid}-${Date.now()}.fifo`);
-  execFileSync('mkfifo', [fifoPath]);
+  await execFileAsync('mkfifo', [fifoPath]);
   return {
     fifoPath,
-    cleanup: () => {
-      try {
-        fs.unlinkSync(fifoPath);
-      } catch {
-        /* ignore */
-      }
-    },
+    cleanup: () => unlink(fifoPath).catch(() => {}),
   };
 }
 
@@ -122,7 +119,7 @@ describe('Batch Chonk Verifier workloads', () => {
   });
 
   it('should flush a single proof without waiting for a full batch', async () => {
-    const { fifoPath, cleanup } = createFifo('single');
+    const { fifoPath, cleanup } = await createFifo('single');
 
     try {
       // batch_size=4 but we only queue 1 proof — must not hang
@@ -154,13 +151,13 @@ describe('Batch Chonk Verifier workloads', () => {
 
       await bb.chonkBatchVerifierStop({});
     } finally {
-      cleanup();
+      await cleanup();
     }
   });
 
   it('should verify multiple proofs in parallel', async () => {
     const numProofs = 4;
-    const { fifoPath, cleanup } = createFifo('parallel');
+    const { fifoPath, cleanup } = await createFifo('parallel');
 
     try {
       await bb.chonkBatchVerifierStart({
@@ -196,12 +193,12 @@ describe('Batch Chonk Verifier workloads', () => {
         verifyTimes: results.map(r => Math.ceil(r.time_in_verify_ms)),
       });
     } finally {
-      cleanup();
+      await cleanup();
     }
   });
 
   it('should handle mixed valid and invalid proofs in one batch', async () => {
-    const { fifoPath, cleanup } = createFifo('mixed');
+    const { fifoPath, cleanup } = await createFifo('mixed');
 
     // Interleave valid and invalid proofs
     const proofs: { id: number; proofFields: Uint8Array[]; expectedStatus: number }[] = [
@@ -246,12 +243,12 @@ describe('Batch Chonk Verifier workloads', () => {
       const numInvalid = results.filter(r => r.status === 1).length;
       logger.info(`Mixed test: ${numValid} valid, ${numInvalid} invalid`);
     } finally {
-      cleanup();
+      await cleanup();
     }
   });
 
   it('should verify proofs with multiple VKs', async () => {
-    const { fifoPath, cleanup } = createFifo('multi-vk');
+    const { fifoPath, cleanup } = await createFifo('multi-vk');
 
     try {
       // Register both VKs
@@ -283,13 +280,13 @@ describe('Batch Chonk Verifier workloads', () => {
 
       logger.info('Multi-VK test: all 4 proofs verified with correct VKs');
     } finally {
-      cleanup();
+      await cleanup();
     }
   });
 
   it('should measure throughput for batch sizes', async () => {
     for (const batchSize of [2, 4, 8]) {
-      const { fifoPath, cleanup } = createFifo(`throughput-${batchSize}`);
+      const { fifoPath, cleanup } = await createFifo(`throughput-${batchSize}`);
 
       try {
         await bb.chonkBatchVerifierStart({
@@ -329,7 +326,7 @@ describe('Batch Chonk Verifier workloads', () => {
           throughputProofsPerSec: throughput.toFixed(2),
         });
       } finally {
-        cleanup();
+        await cleanup();
       }
     }
   });

@@ -123,8 +123,6 @@ void ChonkBatchVerifier::coordinator_loop()
         }
 
         // ── Phase 2: batch IPA verification ────────────────────────────
-        set_parallel_for_concurrency(num_cores_);
-
         auto ipa_start = std::chrono::steady_clock::now();
         bool ok = batch_check(reduce_results, passed_indices);
         double ipa_ms = ms_since(ipa_start);
@@ -216,6 +214,8 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
         return true;
     }
 
+    set_parallel_for_concurrency(num_cores_);
+
     // Collect IPA claims and transcripts for batch verification
     std::vector<OpeningClaim<curve::Grumpkin>> claims;
     std::vector<std::shared_ptr<NativeTranscript>> transcripts;
@@ -253,7 +253,6 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
     std::vector<size_t> right(indices.begin() + static_cast<ptrdiff_t>(mid), indices.end());
 
     // Check left half; if it passes, all failures must be in the right half (skip redundant check)
-    set_parallel_for_concurrency(num_cores_);
     auto t0 = std::chrono::steady_clock::now();
     bool left_ok = batch_check(results, left);
     double left_ms = ms_since(t0);
@@ -266,7 +265,6 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
         // Left failed — need to check right independently
         bisect(results, std::move(left), depth + 1, reduce_start);
 
-        set_parallel_for_concurrency(num_cores_);
         auto t1 = std::chrono::steady_clock::now();
         bool right_ok = batch_check(results, right);
         double right_ms = ms_since(t1);

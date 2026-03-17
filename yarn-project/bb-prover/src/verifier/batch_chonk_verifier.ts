@@ -9,13 +9,17 @@ import type { Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Unpackr } from 'msgpackr';
-import { execFileSync } from 'node:child_process';
-import * as fs from 'node:fs';
+import { execFile } from 'node:child_process';
+import { unlinkSync } from 'node:fs';
+import { unlink } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { promisify } from 'node:util';
 
 import type { BBConfig } from '../config.js';
 import { ChonkVerifierMetrics } from './chonk_verifier_metrics.js';
+
+const execFileAsync = promisify(execFile);
 
 /** Result from the FIFO, matching the C++ VerifyResult struct. */
 interface FifoVerifyResult {
@@ -113,7 +117,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     }
 
     // Create FIFO pipe for async result delivery
-    execFileSync('mkfifo', [this.fifoPath]);
+    await execFileAsync('mkfifo', [this.fifoPath]);
     this.registerExitCleanup();
 
     // Start the batch verifier service in bb
@@ -177,7 +181,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     this.fifoReader.stop();
 
     // Clean up FIFO file and deregister exit handler
-    this.cleanupFifo();
+    await unlink(this.fifoPath).catch(() => {});
     this.deregisterExitCleanup();
 
     // Reject any remaining pending requests
@@ -244,16 +248,15 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     pending.resolve(ivcResult);
   }
 
-  private cleanupFifo(): void {
-    try {
-      fs.unlinkSync(this.fifoPath);
-    } catch {
-      // ignore — may already be cleaned up
-    }
-  }
-
   private registerExitCleanup(): void {
-    this.exitCleanup = () => this.cleanupFifo();
+    // Signal handlers must be synchronous — unlinkSync is intentional here
+    this.exitCleanup = () => {
+      try {
+        unlinkSync(this.fifoPath);
+      } catch {
+        /* ignore */
+      }
+    };
     process.on('exit', this.exitCleanup);
     process.on('SIGINT', this.exitCleanup);
     process.on('SIGTERM', this.exitCleanup);

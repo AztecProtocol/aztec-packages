@@ -14,12 +14,15 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { Unpackr } from 'msgpackr';
-import { execFileSync } from 'node:child_process';
-import { unlinkSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 
 import { generateTestingIVCStack } from './witgen.js';
+
+const execFileAsync = promisify(execFile);
 
 const logger = createLogger('ivc-integration:test:batch-verifier-queue');
 
@@ -68,18 +71,12 @@ function readFifoResults(fifoPath: string, count: number): Promise<FifoVerifyRes
   });
 }
 
-function createFifo(label: string): { fifoPath: string; cleanup: () => void } {
+async function createFifo(label: string): Promise<{ fifoPath: string; cleanup: () => Promise<void> }> {
   const fifoPath = join(tmpdir(), `bb-test-${label}-${process.pid}-${Date.now()}.fifo`);
-  execFileSync('mkfifo', [fifoPath]);
+  await execFileAsync('mkfifo', [fifoPath]);
   return {
     fifoPath,
-    cleanup: () => {
-      try {
-        unlinkSync(fifoPath);
-      } catch {
-        /* ignore */
-      }
-    },
+    cleanup: () => unlink(fifoPath).catch(() => {}),
   };
 }
 
@@ -102,7 +99,7 @@ async function runBatchVerifier(
     proofs: { vkIndex: number; proofFields: Uint8Array[] }[];
   },
 ): Promise<FifoVerifyResult[]> {
-  const { fifoPath, cleanup } = createFifo(`${opts.numCores}c-${opts.proofs.length}p-bs${opts.batchSize}`);
+  const { fifoPath, cleanup } = await createFifo(`${opts.numCores}c-${opts.proofs.length}p-bs${opts.batchSize}`);
   try {
     await bb.chonkBatchVerifierStart({
       vks: opts.vks,
@@ -124,7 +121,7 @@ async function runBatchVerifier(
     await bb.chonkBatchVerifierStop({});
     return await resultPromise;
   } finally {
-    cleanup();
+    await cleanup();
   }
 }
 
