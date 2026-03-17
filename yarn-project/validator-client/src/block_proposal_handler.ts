@@ -487,7 +487,9 @@ export class BlockProposalHandler {
   }
 
   private getReexecuteFailureReason(err: any): BlockProposalValidationFailureReason {
-    if (err instanceof ReExInitialStateMismatchError) {
+    if (err instanceof TransactionsNotAvailableError) {
+      return 'txs_not_available';
+    } else if (err instanceof ReExInitialStateMismatchError) {
       return 'initial_state_mismatch';
     } else if (err instanceof ReExStateMismatchError) {
       return 'state_mismatch';
