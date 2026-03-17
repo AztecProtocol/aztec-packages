@@ -777,9 +777,8 @@ impl TestEnvironment {
         ));
 
         // We also need to provide an implementation for the `compute_note_hash` and `compute_note_nullifier`
-        // functions,
-        // which would typically be created by the macros for the different notes in a given contract. Here we build
-        // variants specialized for `Note`.
+        // functions, which would typically be created by the macros for the different notes in a given contract. Here
+        // we build variants specialized for `Note`.
         let compute_note_hash: ComputeNoteHash = |packed_note, owner, storage_slot, note_type_id, _contract_address, randomness| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
@@ -898,9 +897,8 @@ impl TestEnvironment {
         ));
 
         // We also need to provide an implementation for the `compute_note_hash` and `compute_note_nullifier`
-        // functions,
-        // which would typically be created by the macros for the different notes in a given contract. Here we build
-        // empty ones, since they will never be invoked as this is an event and not a note message.
+        // functions, which would typically be created by the macros for the different notes in a given contract. Here
+        // we build empty ones, since they will never be invoked as this is an event and not a note message.
         let compute_note_hash: ComputeNoteHash = |_packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness| {
             panic(
                 f"Unexpected compute_note_hash invocation in TestEnvironment::discover_event",

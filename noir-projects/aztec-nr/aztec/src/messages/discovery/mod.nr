@@ -84,14 +84,14 @@ randomness */ Field) -> Option<Field>;
 /// for each contract called `_compute_note_nullifier`. It dispatches on `note_type_id` similarly to
 /// [`ComputeNoteHash`], then calls the note's
 /// [`compute_nullifier_unconstrained`](crate::note::note_interface::NoteHash::compute_nullifier_unconstrained) method.
-pub type ComputeNoteNullifier = unconstrained fn(/* unique_note_hash */Field, /* packed_note */ BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
- *  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /*
- contract_address */ AztecAddress, /* randomness */ Field) -> Option<Field>;
+pub type ComputeNoteNullifier = unconstrained fn(/* unique_note_hash */Field, /* packed_note */ BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+/* owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress,
+/* randomness */ Field) -> Option<Field>;
 
 /// Deprecated: use [`ComputeNoteHash`] and [`ComputeNoteNullifier`] instead.
-pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
- *  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /*
- contract_address */ AztecAddress, /* randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
+pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+/* owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress,
+/*randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// A handler for custom messages.
 ///

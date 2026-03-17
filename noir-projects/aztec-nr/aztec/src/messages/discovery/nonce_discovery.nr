@@ -101,9 +101,9 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery(
                     // associated app-siloed nullifer hiding secret key).
                     // https://linear.app/aztec-labs/issue/F-265/store-external-notes
                     aztecnr_warn_log_format!(
-                        "Unable to compute nullifier of discovered note with note type id {0} and owner {1}, skipping PXE insertion",
+                        "Unable to compute nullifier of unique note {0} with note type id {1} and owner {2}, skipping PXE insertion",
                     )(
-                        [note_type_id, owner.to_field()],
+                        [unique_note_hash_for_i, note_type_id, owner.to_field()],
                     );
                 } else {
                     // Note that while we did check that the note hash is the preimage of a unique note hash, we
@@ -256,7 +256,13 @@ mod test {
 
     #[test]
     unconstrained fn failed_nullifier_computation_is_ignored() {
-        let unique_note_hashes_in_tx = BoundedVec::from_array([random()]);
+        let note_index_in_tx = 2;
+        let note_and_data = construct_note(VALUE, note_index_in_tx);
+
+        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
+            random(), random(), random(), random(), random(), random(), random(),
+        ]);
+        unique_note_hashes_in_tx.set(note_index_in_tx, note_and_data.unique_note_hash);
 
         let discovered_notes = attempt_note_nonce_discovery(
             unique_note_hashes_in_tx,
@@ -268,7 +274,7 @@ mod test {
             STORAGE_SLOT,
             RANDOMNESS,
             MockNote::get_id(),
-            BoundedVec::new(),
+            BoundedVec::from_array(note_and_data.note.pack()),
         );
 
         assert_eq(discovered_notes.len(), 0);
