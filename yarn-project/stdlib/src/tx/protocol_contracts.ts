@@ -30,7 +30,7 @@ export class ProtocolContracts {
 
   static fromFields(fields: Fr[] | FieldReader): ProtocolContracts {
     const reader = FieldReader.asReader(fields);
-    return new ProtocolContracts(reader.readArray(MAX_PROTOCOL_CONTRACTS, AztecAddress));
+    return new ProtocolContracts(reader.readTuple(MAX_PROTOCOL_CONTRACTS, AztecAddress));
   }
 
   toFields(): Fr[] {

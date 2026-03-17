@@ -73,7 +73,7 @@ export class PrivateToAvmAccumulatedData {
     return new this(
       reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
     );
   }
 

@@ -42,7 +42,7 @@ export class ClaimedLengthArray<T extends Serializable, N extends number> {
     arrayLength: N,
   ): ClaimedLengthArray<T, N> {
     const reader = FieldReader.asReader(fields);
-    const array = reader.readArray(arrayLength, deserializer);
+    const array = reader.readTuple(arrayLength, deserializer);
     const claimedLength = reader.readU32();
     return new ClaimedLengthArray(array, claimedLength);
   }
