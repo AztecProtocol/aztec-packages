@@ -410,12 +410,12 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     }
   }
 
-  public async createCheckpoint(): Promise<void> {
+  public async createCheckpoint(): Promise<number> {
     const actionCounter = this.checkpointActionCounter++;
     const oldCheckpointId = this.getCurrentCheckpointId();
     const treesStateHash = await this.getTreesStateHash();
 
-    await this.db.createCheckpoint();
+    const depth = await this.db.createCheckpoint();
     this.checkpointStack.push(this.nextCheckpointId++);
     const newCheckpointId = this.getCurrentCheckpointId();
 
@@ -424,14 +424,16 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     HintingMerkleWriteOperations.log.trace(
       `[createCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
+
+    return depth;
   }
 
-  public commitAllCheckpoints(): Promise<void> {
-    throw new Error('commitAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  public commitAllCheckpointsTo(_depth: number): Promise<void> {
+    throw new Error('commitAllCheckpointsTo is not supported in HintingMerkleWriteOperations.');
   }
 
-  public revertAllCheckpoints(): Promise<void> {
-    throw new Error('revertAllCheckpoints is not supported in HintingMerkleWriteOperations.');
+  public revertAllCheckpointsTo(_depth: number): Promise<void> {
+    throw new Error('revertAllCheckpointsTo is not supported in HintingMerkleWriteOperations.');
   }
 
   public async commitCheckpoint(): Promise<void> {

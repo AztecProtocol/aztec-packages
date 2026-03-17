@@ -56,41 +56,51 @@ pub unconstrained fn process_message_plaintext<Env>(
     // have 3 message types: private notes, partial notes and events.
 
     // We decode the message to obtain the message type id, metadata and content.
-    let (msg_type_id, msg_metadata, msg_content) = decode_message(message_plaintext);
+    let decoded = decode_message(message_plaintext);
 
-    if msg_type_id == PRIVATE_NOTE_MSG_TYPE_ID {
-        debug_log("Processing private note msg");
+    if decoded.is_some() {
+        let (msg_type_id, msg_metadata, msg_content) = decoded.unwrap();
 
-        process_private_note_msg(
-            contract_address,
-            message_context.tx_hash,
-            message_context.unique_note_hashes_in_tx,
-            message_context.first_nullifier_in_tx,
-            message_context.recipient,
-            compute_note_hash_and_nullifier,
-            msg_metadata,
-            msg_content,
-        );
-    } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
-        debug_log("Processing partial note private msg");
+        if msg_type_id == PRIVATE_NOTE_MSG_TYPE_ID {
+            debug_log("Processing private note msg");
 
-        process_partial_note_private_msg(
-            contract_address,
-            message_context.recipient,
-            msg_metadata,
-            msg_content,
-        );
-    } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
-        debug_log("Processing private event msg");
+            process_private_note_msg(
+                contract_address,
+                message_context.tx_hash,
+                message_context.unique_note_hashes_in_tx,
+                message_context.first_nullifier_in_tx,
+                message_context.recipient,
+                compute_note_hash_and_nullifier,
+                msg_metadata,
+                msg_content,
+            );
+        } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
+            debug_log("Processing partial note private msg");
 
-        process_private_event_msg(
-            contract_address,
-            message_context.recipient,
-            msg_metadata,
-            msg_content,
-            message_context.tx_hash,
-        );
+            process_partial_note_private_msg(
+                contract_address,
+                message_context.recipient,
+                msg_metadata,
+                msg_content,
+                message_context.tx_hash,
+            );
+        } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
+            debug_log("Processing private event msg");
+
+            process_private_event_msg(
+                contract_address,
+                message_context.recipient,
+                msg_metadata,
+                msg_content,
+                message_context.tx_hash,
+            );
+        } else {
+            debug_log_format("Unknown msg type id {0}", [msg_type_id as Field]);
+        }
     } else {
-        debug_log_format("Unknown msg type id {0}", [msg_type_id as Field]);
+        debug_log_format(
+            "Could not decode message plaintext from tx {0}, ignoring",
+            [message_context.tx_hash],
+        );
     }
 }
