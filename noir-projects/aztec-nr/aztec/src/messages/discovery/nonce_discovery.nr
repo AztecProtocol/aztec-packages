@@ -100,7 +100,11 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery(
                     // e.g. notes that belong to someone that is not us (and for which we therefore don't know their
                     // associated app-siloed nullifer hiding secret key).
                     // https://linear.app/aztec-labs/issue/F-265/store-external-notes
-                    aztecnr_warn_log!("Unable to compute nullifier, skipping nonce discovery");
+                    aztecnr_warn_log_format!(
+                        "Unable to compute nullifier of discovered note with note type id {0} and owner {1}, skipping PXE insertion",
+                    )(
+                        [note_type_id, owner.to_field()],
+                    );
                 } else {
                     // Note that while we did check that the note hash is the preimage of a unique note hash, we
                     // perform no validations on the nullifier - we fundamentally cannot, since only the application
