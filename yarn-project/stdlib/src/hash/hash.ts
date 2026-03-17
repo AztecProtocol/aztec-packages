@@ -76,7 +76,9 @@ export async function computeSiloedPrivateInitializationNullifier(
 }
 
 /**
- * Computes the siloed public initialization nullifier for a contract.
+ * Computes the siloed public initialization nullifier for a contract. Not all contracts emit this nullifier: it is only
+ * emitted when the contract has public functions that perform initialization checks (i.e. external public functions that
+ * are not `#[noinitcheck]` or `#[only_self]`).
  * @param contract - The contract address.
  * @returns The siloed public initialization nullifier.
  */
