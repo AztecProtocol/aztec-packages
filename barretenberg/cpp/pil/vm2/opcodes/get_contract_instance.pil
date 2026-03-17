@@ -86,13 +86,11 @@ include "../precomputed.pil";
 
 namespace get_contract_instance;
 
-    // Selector for when this gadget is active
-    pol commit sel; // @boolean
-    sel * (1 - sel) = 0;
-
-    // No relations will be checked if this identity is satisfied.
     #[skippable_if]
     sel = 0;
+
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
 
     // Interface columns
     pol commit clk;
@@ -207,7 +205,7 @@ namespace get_contract_instance;
     pol commit member_write_offset;
     #[MEMBER_WRITE_OFFSET]
     member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1);
-    // TODO: remove these once we can use constants in permutations
+    // Lookup constant support: Can be removed when we support constants in permutations.
     pol commit exists_tag;
     exists_tag = is_valid_writes_in_bounds * constants.MEM_TAG_U1;
     pol commit member_tag;
