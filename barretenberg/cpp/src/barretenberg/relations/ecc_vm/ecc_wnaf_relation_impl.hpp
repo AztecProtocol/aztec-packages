@@ -11,35 +11,17 @@ namespace bb {
 /**
  * @brief ECCVMWnafRelationImpl evaluates relations that convert scalar multipliers into 4-bit WNAF slices
  * @details Each WNAF slice is a 4-bit slice representing one of 16 integers { -15, -13, ..., 15 }
- * Each WNAF slice is represented via two 2-bit columns (precompute_s1hi, ..., precompute_s4lo)
- * One 128-bit scalar multiplier is processed across 8 rows, indexed by a round variable.
- * The following table describes the structure for one scalar.
+ * Each WNAF slice is represented via two 2-bit columns (precompute_s1hi, ..., precompute_s8lo)
+ * One 128-bit scalar multiplier is processed across 4 rows (8 digits/row), indexed by a round variable.
  *
- * | point_transition | round | slices          | skew   | scalar_sum                      |
- * | ---------------- | ----- | --------------- | ------ | ------------------------------- |
- * | 0                | 0     | s0,s1,s2,s3     | 0      | 0                               |
- * | 0                | 1     | s4,s5,s6,s7     | 0      | \sum_{i=0}^3 16^i * s_{3 - i}   |
- * | 0                | 2     | s8,s9,s10,s11   | 0      | \sum_{i=0}^7 16^i * s_{7 - i}   |
- * | 0                | 3     | s12,s13,s14,s15 | 0      | \sum_{i=0}^11 16^i * s_{11 - i} |
- * | 0                | 4     | s16,s17,s18,s19 | 0      | \sum_{i=0}^15 16^i * s_{15 - i} |
- * | 0                | 5     | s20,s21,s22,s23 | 0      | \sum_{i=0}^19 16^i * s_{19 - i} |
- * | 0                | 6     | s24,s25,s26,s27 | 0      | \sum_{i=0}^23 16^i * s_{23 - i} |
- * | 1                | 7     | s28,s29,s30,s31 | s_skew | \sum_{i=0}^27 16^i * s_{27 - i} |
+ * | point_transition | round | slices                          | skew   | scalar_sum                        |
+ * | ---------------- | ----- | ------------------------------- | ------ | --------------------------------- |
+ * | 0                | 0     | s0,s1,s2,s3,s4,s5,s6,s7        | 0      | 0                                 |
+ * | 0                | 1     | s8,s9,s10,s11,s12,s13,s14,s15   | 0      | \sum_{i=0}^7 16^i * s_{7 - i}     |
+ * | 0                | 2     | s16,s17,s18,s19,s20,s21,s22,s23 | 0      | \sum_{i=0}^15 16^i * s_{15 - i}   |
+ * | 1                | 3     | s24,s25,s26,s27,s28,s29,s30,s31 | s_skew | \sum_{i=0}^23 16^i * s_{23 - i}   |
  *
- * The value of the input scalar is equal to the following:
- *
- * scalar = 2^16 * scalar_sum + 2^12 * s28 + 2^8 * s29 + 2^4 * s30 + s31 - s_skew
- *
- * We use a multiset equality check in `ecc_set_relation.hpp` to validate the above value maps to the correct input
- * scalar for a given value of `pc` (i.e., for a given non-trivial EC point). In other words, this constrains that the
- * wNAF expansion is correct. Note that, from the perpsective of the Precomputed table, we only add the tuple (pc,
- * round, slice) to the multiset when point_transition == 1.
- *
- * Furthermore, as the column `point_transition` is committed to by the Prover, we must constrain it is correctly
- * computed (see also `ECCVMPointTableRelationImpl` for a description of what the table looks like.)
- *
- * @tparam FF
- * @tparam AccumulatorTypes
+ * scalar = 2^32 * scalar_sum + 2^28*s24 + ... + s31 - s_skew
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -56,30 +38,24 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     auto q_transition = View(in.precompute_point_transition);
     auto round = View(in.precompute_round);
     auto round_shift = View(in.precompute_round_shift);
-    auto pc = View(in.precompute_pc); // note that this is a _point-counter_.
+    auto pc = View(in.precompute_pc);
     auto pc_shift = View(in.precompute_pc_shift);
-    // precompute_select is a boolean column that is 0 at the initial row and 1 at all subsequent active rows in the
-    // precompute table. We only evaluate the ecc_wnaf_relation if `precompute_select=1`. As a reminder, this latter is
-    // 0 at the initial row and then 1 at the rest of the (active) rows of the Precomputed table. The fact that
-    // `precompute_select` is correctly computed is mediated by the set relation.
     auto precompute_select = View(in.precompute_select);
-
     auto precompute_select_shift = View(in.precompute_select_shift);
-
     const auto& precompute_skew = View(in.precompute_skew);
 
-    const std::array<View, 8> slices{
+    // 16 two-bit slices encoding 8 wNAF digits
+    const std::array<View, 16> slices{
         View(in.precompute_s1hi), View(in.precompute_s1lo), View(in.precompute_s2hi), View(in.precompute_s2lo),
         View(in.precompute_s3hi), View(in.precompute_s3lo), View(in.precompute_s4hi), View(in.precompute_s4lo),
+        View(in.precompute_s5hi), View(in.precompute_s5lo), View(in.precompute_s6hi), View(in.precompute_s6lo),
+        View(in.precompute_s7hi), View(in.precompute_s7lo), View(in.precompute_s8hi), View(in.precompute_s8lo),
     };
 
     const auto range_constraint_slice_to_2_bits = [&scaling_factor](const View& s, auto& acc) {
         acc += ((s - 1).sqr() - 1) * ((s - 2).sqr() - 1) * scaling_factor;
     };
 
-    // given two 2-bit numbers `hi`, `lo`, convert to a wNAF digit (in {-15, -13, ..., 13, 15}) via the formula:
-    // `2(4*hi + lo) - 15`. (Here, `4*hi + lo` represents the 4-bit number corresponding to the concatenation of `hi`
-    // and `lo`.)
     const auto convert_to_wnaf = [](const View& hi, const View& lo) {
         auto t = hi + hi;
         t += t;
@@ -89,16 +65,10 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     };
 
     const auto scaled_transition = q_transition * scaling_factor;
-    const auto scaled_transition_is_zero =
-        -scaled_transition + scaling_factor; // `scaling_factor * (1 - q_transition)`, i.e., is the scaling_factor if we
-                                             // are _not_ at a transition, else 0.
+    const auto scaled_transition_is_zero = -scaled_transition + scaling_factor;
+    const auto scaled_lagrange_first = scaling_factor * lagrange_first;
 
-    const auto scaled_lagrange_first = scaling_factor * lagrange_first; // for edge-case handling
-    /**
-     * @brief Constrain each of our scalar slice chunks (s1, ..., s8) to be 2 bits.
-     * Doing range checks this way vs permutation-based range check removes need to create sorted list + grand product
-     * polynomial. Probably cheaper even if we have to split each 4-bit WNAF slice into 2-bit chunks.
-     */
+    // Range-check all 16 two-bit slices
     range_constraint_slice_to_2_bits(slices[0], std::get<0>(accumulator));
     range_constraint_slice_to_2_bits(slices[1], std::get<1>(accumulator));
     range_constraint_slice_to_2_bits(slices[2], std::get<2>(accumulator));
@@ -107,45 +77,35 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     range_constraint_slice_to_2_bits(slices[5], std::get<5>(accumulator));
     range_constraint_slice_to_2_bits(slices[6], std::get<6>(accumulator));
     range_constraint_slice_to_2_bits(slices[7], std::get<7>(accumulator));
+    range_constraint_slice_to_2_bits(slices[8], std::get<23>(accumulator));
+    range_constraint_slice_to_2_bits(slices[9], std::get<24>(accumulator));
+    range_constraint_slice_to_2_bits(slices[10], std::get<25>(accumulator));
+    range_constraint_slice_to_2_bits(slices[11], std::get<26>(accumulator));
+    range_constraint_slice_to_2_bits(slices[12], std::get<27>(accumulator));
+    range_constraint_slice_to_2_bits(slices[13], std::get<28>(accumulator));
+    range_constraint_slice_to_2_bits(slices[14], std::get<29>(accumulator));
+    range_constraint_slice_to_2_bits(slices[15], std::get<30>(accumulator));
 
-    /**
-     * @brief If we are processing a new scalar (q_transition = 1), validate that the first slice is positive.
-     *        This requires us to validate slice1 is in the range [8, ... 15].
-     *        (when converted into wnaf form this maps to the range [1, 3, ..., 15]).
-     *        We do this to ensure the final scalar sum is positive.
-     *        We already know slice1 is in the range [0, ..., 15]
-     *        To check the range [8, ..., 15] we validate the most significant 2 bits (s1) are >=2
-     */
+    // Validate first slice is positive at transitions
     const auto s1hi_shift = View(in.precompute_s1hi_shift);
     const auto s1hi_shift_msb_set = (s1hi_shift - 2) * (s1hi_shift - 3);
     const auto scaled_transition_plus_lagrange_first = scaled_transition + scaled_lagrange_first;
-    // away from row zero, add `scaled_transition * precompute_select_shift * s1hi_shift_msb_set`. however,
-    // `q_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
-    // `scaled_lagrange_first`.
     std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1hi_shift_msb_set;
-    /**
-     * @brief Convert each pair of 2-bit scalar slices into a 4-bit windowed-non-adjacent-form slice.
-     * Conversion from binary -> wnaf = 2 * binary - 15.
-     * Converts a value in [0, ..., 15] into [-15, -13, -11, -9, -7, -5, -3, -1, 1, 3, 5, 7, 9, 11 , 13, 15].
-     * We use WNAF representation to avoid case where we are conditionally adding a point in our MSM algo.
-     */
+
+    // Convert 16 two-bit slices into 8 wNAF digits
     const auto w0 = convert_to_wnaf(slices[0], slices[1]);
     const auto w1 = convert_to_wnaf(slices[2], slices[3]);
     const auto w2 = convert_to_wnaf(slices[4], slices[5]);
     const auto w3 = convert_to_wnaf(slices[6], slices[7]);
+    const auto w4 = convert_to_wnaf(slices[8], slices[9]);
+    const auto w5 = convert_to_wnaf(slices[10], slices[11]);
+    const auto w6 = convert_to_wnaf(slices[12], slices[13]);
+    const auto w7 = convert_to_wnaf(slices[14], slices[15]);
 
-    /**
-     * @brief Slice consistency check.
-     * We require that `scalar_sum` on the next row correctly accumulates the 4  WNAF slices present on the current row
-     * (i.e. 16 WNAF bits).
-     * i.e. next_scalar_sum - 2^{16} * current_scalar_sum - 2^12 * w_0 - 2^8 * w_1 - 2^4 * w_2 - w_3 = 0
-     * @note We only perform slice_consistency check when next row is processing the same scalar as the current row!
-     *       i.e. when q_transition  = 0
-     * Note(@zac-williamson): improve WNAF use (#2224)
-     */
-    auto row_slice = w0; // row_slice will eventually contain the truncated scalar corresponding to the current row,
-                         // which is 2^12 * w_0 + 2^8 * w_1 + 2^4 * w_2 + w_3. (If one just looks at the wNAF digits in
-                         // this row, this is the resulting odd number. Note that it is not necessarily positive.)
+    // Scalar sum consistency: accumulate 8 wNAF digits via Horner's method
+    // row_slice = 2^28*w0 + 2^24*w1 + ... + 2^4*w6 + w7
+    auto row_slice = w0;
+    // Multiply by 16 (shift left 4 bits), then add next digit. Repeat 7 times.
     row_slice += row_slice;
     row_slice += row_slice;
     row_slice += row_slice;
@@ -161,107 +121,68 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     row_slice += row_slice;
     row_slice += row_slice;
     row_slice += w3;
-    auto sum_delta = scalar_sum * FF(1ULL << 16) + row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += w4;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += w5;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += w6;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += row_slice;
+    row_slice += w7;
+    // Shift by 2^32 (8 digits * 4 bits each)
+    auto sum_delta = scalar_sum * FF(1ULL << 32) + row_slice;
     const auto check_sum = scalar_sum_shift - sum_delta;
     std::get<8>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
-    // We must constrain `precompute_select` to be of the correct shape: 0 1 1 ... 1 0 ...0. In other words, after the
-    // first row, it is monotonically non-decreasing. In other words, a malicious prover cannot inject the value '0' in
-    // the middle.
-    const auto scaled_lagrange_first_minus_one =
-        scaled_lagrange_first - scaling_factor; // (if not at the first row, is -1, else 0) * scaling_factor
+
+    // precompute_select monotonicity
+    const auto scaled_lagrange_first_minus_one = scaled_lagrange_first - scaling_factor;
     const auto precompute_select_check = precompute_select_shift * (precompute_select - 1);
     std::get<22>(accumulator) += scaled_lagrange_first_minus_one * precompute_select_check;
-    /**
-     * @brief Transition logic with `round` and `q_transition`.
-     * Goal: `round` is an integer in [0, ... 7] that tracks how many slices we have processed for a given scalar.
-     * i.e., the number of 4-bit WNAF slices processed = round * 4.
-     * We must ensure that `q_transition` is well-formed and that `round` is correctly constrained. Recall that `pc`
-     * stands for point-counter.
-     *
-     * For the former, we force the following:
-     *      1. When `q_transition == 1`, then `scalar_sum_shift == 0`, `round_shift == 0`, `round == 7`, and `pc_shift
-     *      == pc - 1`.
-     *      2. When `q_transition == 0`, then `round_shift - round == 1` and `pc_shift == pc`
-     *
-     * For the latter: note that we don't actually range-constrain `round` (expensive if we don't need to!). We
-     * nonetheless can correctly constrain `round`, because of the multiset checks. There are two multiset equality
-     * checks that we perform that implicate the wNAF relation:
-     *      1. (pc, msm_round, wnaf_slice)
-     *      2. (pc, P.x, P.y, scalar-multiplier)
-     * The first is used to communicate with the MSM table, to validate that the slice * point values the MSM tables use
-     * are indeed what we have precomputed. The second facilitates communication with the Transcript table, to ensure
-     * that the wNAF expansion of the scalar is indeed correct. Moreover, the second is only "sent" to the multiset when
-     * `q_transition == 1`. (It is helpful to recall that `pc` is monotonic: one per each point involved in a
-     * non-trivial scalar multiplication.)
-     *
-     * Here is the logic. We must ensure that `round` can never be set to a value > 7. If this were possible at row `i`,
-     * then `q_transition == 0` for all subsequent rows by the incrementing logic. There are (at least) two problems.
-     *
-     * 1. The implicit MSM round (accounted for in (1)) is between `4 * round` and `4 * round + 3` (in fact `4 *
-     * round + 4` iff we are at a skew). As the `round` must increment, this means that the `msm_round` will be
-     * larger than 32, which can't happen due to the internal constraints in the MSM table. In particular, the multiset
-     * equality check will fail, as the MSM tables can never send an entry with a round larger than 32.
-     *
-     * 2. This forces `precompute_pc` to be constant from here on out. This will violate the multiset equalities both
-     * of terms (1) _and_ (2). For the former, we will write too many entries with the given `pc`. (However, we've
-     * already shown how this multset equality fails due to `round`.) More importantly, for the latter, we will _never_
-     * "send" the tuple (pc, P.x, P.x, scalar-multiplier) to the multiset, for this value of `pc` and all potentially
-     * subsequent values. We explicate this latter failure. The transcript table will certainly fill _some_ values in
-     * for (pc, P.x, P.y, scalar-multipler) (at least with correct pc and scalar-multiplier values), which will cause
-     * the multiset equality check to fail.
-     *
-     * As always, we are relying on the monotonicity of the `pc` in these arguments.
-     *
-     */
 
-    // We combine two checks into a single relation
-    // q_transition * (round - 7) + (-q_transition + 1) * (round_shift - round - 1)
-    // => q_transition * (round - 7 - round_shift + round + 1) + (round_shift - round - 1)
-    // => q_transition * (2 * round - round_shift - 6) + (round_shift - round - 1)
+    // Round transition logic: round now goes 0-3 (was 0-7)
+    // Combined check: q_transition * (round - 3) + (-q_transition + 1) * (round_shift - round - 1)
     const auto round_check = round_shift - round - 1;
-    // This selector is 1 at row 0 (via lagrange_first) and at transition rows where precompute_select == 1.
-    // It's used to constrain shifted values (like round_shift, scalar_sum_shift) that need to be checked
-    // both at the first active row AND at subsequent transitions between scalars.
     const auto precompute_select_transition_plus_lagrange_first =
         precompute_select * scaled_transition + scaled_lagrange_first;
+    // WNAF_DIGITS_PER_ROW - 1 = 7 was used for the old round max; now it's
+    // (NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW) - 1 = 3
+    constexpr size_t MAX_ROUND = 3; // 32/8 - 1
     std::get<9>(accumulator) +=
-        precompute_select * (scaled_transition * (round - round_check - 7) + scaling_factor * round_check);
-    // At a transition (or at row 0 via lagrange_first), the next round must be 0.
+        precompute_select *
+        (scaled_transition * (round - round_check - static_cast<int>(MAX_ROUND)) + scaling_factor * round_check);
     std::get<10>(accumulator) += precompute_select_transition_plus_lagrange_first * round_shift;
 
-    /**
-     * @brief Scalar transition/PC checks.
-     * 1: if q_transition = 1 or if lagrange_first = 1, scalar_sum_new = 0. (note that q_transition[0] == 0.)
-     * 2: if q_transition = 0, pc at next row = pc at current row
-     * 3: if q_transition = 1, pc at next row = pc at current row - 1 (decrements by 1)
-     * (we combine 2 and 3 into a single relation)
-     */
+    // Scalar transition / PC checks
     std::get<11>(accumulator) += precompute_select_transition_plus_lagrange_first * scalar_sum_shift;
-    // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)
-    // => q_transition * (-2 * (pc_shift - pc) - 1) + (pc_shift - pc)
     const auto pc_delta = pc_shift - pc;
     std::get<12>(accumulator) +=
         precompute_select * (scaled_transition * ((-pc_delta - pc_delta - 1)) + pc_delta * scaling_factor);
 
-    /**
-     * @brief Validate skew is 0 or 7
-     * 7 is the wnaf representation of -1.
-     * We have one skew variable per scalar multiplier. We can only represent odd integers in WNAF form.
-     * If input scalar is even, we must subtract 1 from WNAF scalar sum to get actual value (i.e. where skew = 7)
-     * We use skew in two places.
-     * 1: when validating sum of wnaf slices matches input scalar (we add skew to scalar_sum in ecc_set_relation)
-     * 2: in ecc_msm_relation. Final MSM round uses skew to conditionally subtract a point from the accumulator
-     */
+    // Validate skew is 0 or 7
     std::get<13>(accumulator) += precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling_factor;
 
-    // Set slices (a.k.a. compressed digits), pc, and round all to zero when `precompute_select == 0`.
-    // (this is for one of the multiset equality checks.) Defensively, we also set precompute_point_transition to 0 when
-    // precompute_select == 0.
+    // Set slices, pc, round, q_transition to zero when precompute_select == 0
     const auto precompute_select_zero = (-precompute_select + 1) * scaling_factor;
     std::get<14>(accumulator) += precompute_select_zero * (w0 + 15);
     std::get<15>(accumulator) += precompute_select_zero * (w1 + 15);
     std::get<16>(accumulator) += precompute_select_zero * (w2 + 15);
     std::get<17>(accumulator) += precompute_select_zero * (w3 + 15);
+    std::get<31>(accumulator) += precompute_select_zero * (w4 + 15);
+    std::get<32>(accumulator) += precompute_select_zero * (w5 + 15);
+    std::get<33>(accumulator) += precompute_select_zero * (w6 + 15);
+    std::get<34>(accumulator) += precompute_select_zero * (w7 + 15);
 
     std::get<18>(accumulator) += precompute_select_zero * round;
     std::get<19>(accumulator) += precompute_select_zero * pc;

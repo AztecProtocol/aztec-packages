@@ -11,24 +11,20 @@ namespace bb {
 /**
  * @brief ECCVMWnafRelationImpl evaluates relations that convert scalar multipliers into 4-bit WNAF slices
  * @details Each WNAF slice is a 4-bit slice representing one of 16 integers { -15, -13, ..., 15 }
- * Each WNAF slice is represented via two 2-bit columns (precompute_s1hi, ..., precompute_s4lo)
- * One 128-bit scalar multiplier is processed across 8 rows, indexed by a round variable.
+ * Each WNAF slice is represented via two 2-bit columns (precompute_s1hi, ..., precompute_s8lo)
+ * One 128-bit scalar multiplier is processed across 4 rows (8 digits/row), indexed by a round variable.
  * The following table describes the structure for one scalar.
  *
- * | point_transition | round | slices          | skew   | scalar_sum                      |
- * | ---------------- | ----- | --------------- | ------ | ------------------------------- |
- * | 0                | 0     | s0,s1,s2,s3     | 0      | 0                               |
- * | 0                | 1     | s4,s5,s6,s7     | 0      | \sum_{i=0}^4 16^i * s_{3 - i}   |
- * | 0                | 2     | s8,s9,s10,s11   | 0      | \sum_{i=0}^8 16^i * s_{7 - i}   |
- * | 0                | 3     | s12,s13,s14,s14 | 0      | \sum_{i=0}^12 16^i * s_{11 - i} |
- * | 0                | 4     | s16,s17,s18,s19 | 0      | \sum_{i=0}^16 16^i * s_{15 - i} |
- * | 0                | 5     | s20,s21,s22,s23 | 0      | \sum_{i=0}^20 16^i * s_{19 - i} |
- * | 0                | 6     | s24,s25,s26,s27 | 0      | \sum_{i=0}^24 16^i * s_{23 - i} |
- * | 1                | 7     | s28,s29,s30,s31 | s_skew | \sum_{i=0}^28 16^i * s_{27 - i} |
+ * | point_transition | round | slices                          | skew   | scalar_sum                        |
+ * | ---------------- | ----- | ------------------------------- | ------ | --------------------------------- |
+ * | 0                | 0     | s0,s1,s2,s3,s4,s5,s6,s7        | 0      | 0                                 |
+ * | 0                | 1     | s8,s9,s10,s11,s12,s13,s14,s15   | 0      | \sum_{i=0}^7 16^i * s_{7 - i}     |
+ * | 0                | 2     | s16,s17,s18,s19,s20,s21,s22,s23 | 0      | \sum_{i=0}^15 16^i * s_{15 - i}   |
+ * | 1                | 3     | s24,s25,s26,s27,s28,s29,s30,s31 | s_skew | \sum_{i=0}^23 16^i * s_{23 - i}   |
  *
  * The value of the input scalar is equal to the following:
  *
- * scalar = 2^16 * scalar_sum + 2^12 * s28 + 2^8 * s29 + 2^4 * s30 + s31 - s_skew
+ * scalar = 2^32 * scalar_sum + 2^28*s24 + ... + s31 - s_skew
  *
  * We use a multiset equality check in `ecc_set_relation.hpp` to validate the above value maps to the correct input
  * scalar for a given value of `pc` (i.e., for a given non-trivial EC point). In other words, this constrains that the
@@ -44,8 +40,21 @@ template <typename FF_> class ECCVMWnafRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS{ 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                                                                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
+    // 35 subrelations:
+    // 0-7:   range checks for slices 0-7 (degree 5)
+    // 8:     scalar sum consistency (degree 5)
+    // 9-12:  round/PC transition logic (degree 5)
+    // 13:    skew validation (degree 5)
+    // 14-17: slice-zero checks for w0-w3 (degree 5)
+    // 18-19: round/pc zero when inactive (degree 5)
+    // 20:    s1hi MSB positive at transitions (degree 5)
+    // 21:    q_transition zero when inactive (degree 5)
+    // 22:    precompute_select monotonicity (degree 5)
+    // 23-30: range checks for slices 8-15 (degree 5)
+    // 31-34: slice-zero checks for w4-w7 (degree 5)
+    static constexpr std::array<size_t, 35> SUBRELATION_PARTIAL_LENGTHS{
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
