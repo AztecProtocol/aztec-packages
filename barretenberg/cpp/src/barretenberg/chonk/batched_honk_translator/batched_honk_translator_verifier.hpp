@@ -29,21 +29,21 @@ namespace bb {
  *
  * @tparam Curve  curve::BN254 for native verification, stdlib::bn254<Builder> for recursive.
  */
-template <typename Curve> class BatchedHonkTranslatorVerifier_ {
+template <typename MegaFlavor, typename Curve> class BatchedHonkTranslatorVerifier_ {
   public:
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
-    // Select MegaZK flavor based on native vs recursive.
-    using MegaZKFlavorT = std::conditional_t<IsRecursive, MegaZKRecursiveFlavor_<UltraCircuitBuilder>, MegaZKFlavor>;
+    static constexpr size_t JOINT_LOG_N = std::max(MegaFlavor::VIRTUAL_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+
     // Select translator flavor based on native vs recursive.
     using TransFlavor = std::conditional_t<IsRecursive, TranslatorRecursiveFlavor, TranslatorFlavor>;
 
-    using FF = typename MegaZKFlavorT::FF;
-    using Commitment = typename MegaZKFlavorT::Commitment;
-    using MegaZKVerifierInstance = VerifierInstance_<MegaZKFlavorT>;
-    using MegaZKVKAndHash = typename MegaZKFlavorT::VKAndHash;
+    using FF = typename MegaFlavor::FF;
+    using Commitment = typename MegaFlavor::Commitment;
+    using MegaVerifierInstance = VerifierInstance_<MegaFlavor>;
+    using MegaVKAndHash = typename MegaFlavor::VKAndHash;
     using Transcript = std::conditional_t<IsRecursive, UltraStdlibTranscript, NativeTranscript>;
-    using MegaZKVerifierCommitments = typename MegaZKFlavorT::VerifierCommitments;
+    using MegaVerifierCommitments = typename MegaFlavor::VerifierCommitments;
     using TransVerifierCommitments = typename TransFlavor::VerifierCommitments;
 
     // Proof type: stdlib::Proof<UltraCircuitBuilder> for recursive, HonkProof for native.
@@ -67,9 +67,9 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     // Range 2 (MegaZK): witness[0..S-1] ↔ mega_zk_shifted[0..S-1]
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = [] {
         constexpr size_t TU = TranslatorFlavor::NUM_PCS_UNSHIFTED; // includes masking(1)
-        constexpr size_t P = MegaZKFlavorT::NUM_PRECOMPUTED_ENTITIES;
-        constexpr size_t W = MegaZKFlavorT::NUM_WITNESS_ENTITIES;
-        constexpr size_t S = MegaZKFlavorT::NUM_SHIFTED_ENTITIES;
+        constexpr size_t P = MegaFlavor::NUM_PRECOMPUTED_ENTITIES;
+        constexpr size_t W = MegaFlavor::NUM_WITNESS_ENTITIES;
+        constexpr size_t S = MegaFlavor::NUM_SHIFTED_ENTITIES;
         // Translator repeated: ordered(5)+z_perm(1)+concat(5) in Trans_rest ↔ Trans_shifted
         // Trans_rest starts at virtual 0; repeated starts at ordered_extra(1)+op(1)=2
         constexpr size_t TRANS_REPEAT_START = TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start;
@@ -100,7 +100,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     struct OinkResult {
         std::vector<FF> public_inputs;
         Commitment calldata_commitment;
-        std::array<Commitment, MegaZKFlavorT::NUM_WIRES> ecc_op_wires;
+        std::array<Commitment, MegaFlavor::NUM_WIRES> ecc_op_wires;
     };
 
     /**
@@ -108,7 +108,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
      * @details Only stores the VK and transcript. Proof data and ECCVM-derived params are passed
      * to the two-phase verification methods.
      */
-    BatchedHonkTranslatorVerifier_(std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash,
+    BatchedHonkTranslatorVerifier_(std::shared_ptr<MegaVKAndHash> mega_vk_and_hash,
                                    std::shared_ptr<Transcript> transcript);
 
     /**
@@ -116,7 +116,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
      * @details Loads mega_zk_proof into the transcript, runs OinkVerifier, stores verifier instance.
      * @return OinkResult with public inputs, calldata commitment, and ECC op wires.
      */
-    OinkResult verify_mega_zk_oink(const Proof& mega_zk_proof);
+    OinkResult verify_mega_oink(const Proof& mega_proof);
 
     /**
      * @brief Phase 2: Verify translator Oink + joint sumcheck + joint PCS.
@@ -141,29 +141,29 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
         const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
     bool verify_joint_sumcheck();
     ReductionResult verify_joint_pcs(bool sumcheck_verified,
-                                     MegaZKVerifierCommitments& mega_zk_commitments,
+                                     MegaVerifierCommitments& mega_commitments,
                                      TransVerifierCommitments& trans_commitments);
 
-    std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash;
+    std::shared_ptr<MegaVKAndHash> mega_vk_and_hash;
     std::shared_ptr<Transcript> transcript;
 
-    // Verifier instance stored after verify_mega_zk_oink (provides accessors)
-    std::shared_ptr<MegaZKVerifierInstance> mega_zk_verifier_instance;
+    // Verifier instance stored after verify_mega_oink (provides accessors)
+    std::shared_ptr<MegaVerifierInstance> mega_verifier_instance;
 
     // Builder pointer (only meaningful for recursive, nullptr for native).
     std::conditional_t<IsRecursive, UltraCircuitBuilder*, std::nullptr_t> builder = nullptr;
 
-    // Relation parameters populated during verify_mega_zk_oink / verify_translator_oink.
-    bb::RelationParameters<FF> mega_zk_relation_parameters;
+    // Relation parameters populated during verify_mega_oink / verify_translator_oink.
+    bb::RelationParameters<FF> mega_relation_parameters;
     bb::RelationParameters<FF> translator_relation_parameters;
 
     // State populated by verify_joint_sumcheck(), consumed by verify_joint_pcs().
     std::vector<FF> joint_challenge;
-    typename MegaZKFlavorT::AllValues mega_zk_evals;
+    typename MegaFlavor::AllValues mega_evals;
     typename TransFlavor::AllValues trans_evals;
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments;
-    FF libra_evaluation;
-    FF libra_challenge;
+    FF libra_evaluation = FF(0);
+    FF libra_challenge = FF(0);
 
     // Committed sumcheck data: round univariate commitments and evaluations at {0, 1, challenge}.
     std::vector<Commitment> round_univariate_commitments;
@@ -171,7 +171,8 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
 };
 
 // Type aliases.
-using BatchedHonkTranslatorVerifier = BatchedHonkTranslatorVerifier_<curve::BN254>;
-using BatchedHonkTranslatorRecursiveVerifier = BatchedHonkTranslatorVerifier_<stdlib::bn254<UltraCircuitBuilder>>;
+using BatchedHonkTranslatorVerifier = BatchedHonkTranslatorVerifier_<MegaZKFlavor, curve::BN254>;
+using BatchedHonkTranslatorRecursiveVerifier =
+    BatchedHonkTranslatorVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>, stdlib::bn254<UltraCircuitBuilder>>;
 
 } // namespace bb

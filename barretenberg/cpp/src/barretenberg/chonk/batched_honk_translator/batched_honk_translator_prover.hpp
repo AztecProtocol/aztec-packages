@@ -29,38 +29,38 @@ namespace bb {
  * The MegaZK circuit is treated as a 2^17 circuit via its RowDisablingPolynomial (padding_indicator
  * = [1]*16 + [0]), so its contribution to round 16 is zero by construction.
  */
-class BatchedHonkTranslatorProver {
+template <typename MegaFlavor> class BatchedHonkTranslatorProver {
   public:
-    using FF = MegaZKFlavor::FF;
-    using Curve = MegaZKFlavor::Curve;
-    using MegaZKCommitmentKey = MegaZKFlavor::CommitmentKey;
-    using MegaZKProverInstance = ProverInstance_<MegaZKFlavor>;
-    using MegaZKVK = MegaZKFlavor::VerificationKey;
-    using MegaZKProverRound = SumcheckProverRound<MegaZKFlavor>;
-    using MegaZKPartialEvals = MegaZKFlavor::PartiallyEvaluatedMultivariates;
-    using MegaZKSubrelationSeparators = std::array<FF, MegaZKFlavor::NUM_SUBRELATIONS - 1>;
+    using FF = MegaFlavor::FF;
+    using Curve = MegaFlavor::Curve;
+    using MegaCommitmentKey = MegaFlavor::CommitmentKey;
+    using MegaProverInstance = ProverInstance_<MegaFlavor>;
+    using MegaVK = MegaFlavor::VerificationKey;
+    using MegaProverRound = SumcheckProverRound<MegaFlavor>;
+    using MegaPartialEvals = MegaFlavor::PartiallyEvaluatedMultivariates;
+    using MegaSubrelationSeparators = std::array<FF, MegaFlavor::NUM_SUBRELATIONS - 1>;
     using TransProverRound = SumcheckProverRound<TranslatorFlavor>;
     using TransPartialEvals = TranslatorFlavor::PartiallyEvaluatedMultivariates;
     using TransSubrelationSeparators = std::array<FF, TranslatorFlavor::NUM_SUBRELATIONS - 1>;
-    using ZKData = ZKSumcheckData<MegaZKFlavor>;
+    using ZKData = std::conditional_t<MegaFlavor::HasZK, ZKSumcheckData<MegaFlavor>, void>;
     using Transcript = NativeTranscript;
-    using SumcheckRoundUnivariate = bb::Univariate<FF, MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH>;
+    using SumcheckRoundUnivariate = bb::Univariate<FF, MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH>;
 
-    // Translator log circuit size (= JOINT_LOG_N).
-    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
+    static constexpr size_t JOINT_LOG_N = std::max(MegaFlavor::VIRTUAL_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
-    BatchedHonkTranslatorProver(std::shared_ptr<MegaZKProverInstance> mega_zk_instance,
-                                std::shared_ptr<MegaZKVK> mega_zk_vk,
+    BatchedHonkTranslatorProver(std::shared_ptr<MegaProverInstance> mega_instance,
+                                std::shared_ptr<MegaVK> mega_vk,
                                 std::shared_ptr<Transcript> transcript);
 
     HonkProof prove_mega_zk_oink();
     HonkProof prove(std::shared_ptr<TranslatorProvingKey> translator_proving_key);
 
   private:
-    std::shared_ptr<MegaZKProverInstance> mega_zk_inst;
-    std::shared_ptr<MegaZKVK> mega_zk_vk;
+    std::shared_ptr<MegaProverInstance> mega_instance;
+    std::shared_ptr<MegaVK> mega_vk;
     std::shared_ptr<TranslatorProvingKey> translator_key;
     std::shared_ptr<Transcript> transcript;
+    size_t mega_log_n;
 
     // Translator relation parameters captured during execute_translator_oink()
     bb::RelationParameters<FF> translator_relation_parameters;
@@ -68,7 +68,7 @@ class BatchedHonkTranslatorProver {
     // Sumcheck state accumulated during execute_joint_sumcheck_rounds()
     ZKData zk_sumcheck_data;
     std::vector<FF> joint_challenge;                 // (u_0, ..., u_16)
-    MegaZKFlavor::AllValues mega_zk_claimed_evals;   // MegaZK circuit evaluations at joint challenge
+    MegaFlavor::AllValues mega_claimed_evals;        // Mega circuit evaluations at joint challenge
     TranslatorFlavor::AllValues trans_claimed_evals; // translator evaluations at joint challenge
     FF claimed_libra_evaluation;
 

@@ -207,7 +207,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
             // that contains univariate_{mega_zk_log_n} (or, when mega_zk_log_n == JOINT_LOG_N, in
             // the post-sumcheck round before evaluations_translator).
             if (i == mega_zk_log_n) {
-                m.add_entry(round, "Sumcheck:evaluations", MZK::NUM_ALL_ENTITIES);
+                m.add_entry(round, "Sumcheck:evaluations_smaller_circuit", MZK::NUM_ALL_ENTITIES);
             }
             if (i == JOINT_LOG_N) {
                 break; // No univariate/challenge for the extra iteration
@@ -225,7 +225,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         }
 
         // ── Post-sumcheck evaluations ─────────────────────────────────────────────
-        m.add_entry(round, "Sumcheck:evaluations_translator", Trans::NUM_FULL_CIRCUIT_EVALUATIONS);
+        m.add_entry(round, "Sumcheck:evaluations_larger_circuit", Trans::NUM_FULL_CIRCUIT_EVALUATIONS);
         m.add_entry(round, "Libra:claimed_evaluation", Fr);
         m.add_entry(round, "Libra:grand_sum_commitment", G);
         m.add_entry(round, "Libra:quotient_commitment", G);
@@ -309,7 +309,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
     // Pad so that hiding_log_n == JOINT_LOG_N.  We aim for JOINT_LOG_N-1 as the arithmetic
     // target because MegaCircuitBuilder's execution-trace overhead grows the dyadic size by one.
-    static constexpr size_t JOINT_LOG_N = BatchedHonkTranslatorProver::JOINT_LOG_N;
+    static constexpr size_t JOINT_LOG_N = BatchedHonkTranslatorProver<MegaZKFlavor>::JOINT_LOG_N;
     MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
 
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
@@ -320,7 +320,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // 3. Prove.
     // -------------------------------------------------------------------------
     auto prover_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    BatchedHonkTranslatorProver<MegaZKFlavor> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
 
     auto mega_zk_proof = prover.prove_mega_zk_oink();
     auto joint_proof = prover.prove(translator_key);
@@ -330,7 +330,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // -------------------------------------------------------------------------
     auto verifier_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
-    verifier.verify_mega_zk_oink(mega_zk_proof);
+    verifier.verify_mega_oink(mega_zk_proof);
     auto result = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
@@ -379,7 +379,7 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
-    verifier.verify_mega_zk_oink(mega_zk_proof);
+    verifier.verify_mega_oink(mega_zk_proof);
     [[maybe_unused]] auto _ = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
@@ -475,7 +475,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
 
     auto verifier_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
-    verifier.verify_mega_zk_oink(mega_zk_proof);
+    verifier.verify_mega_oink(mega_zk_proof);
     auto result = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
