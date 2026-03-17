@@ -1,10 +1,15 @@
 #!/bin/bash
 # Wrapper for zig c++ that pins glibc 2.35 on Linux (Ubuntu 22.04+ compat)
 # and uses native target on macOS.
-# Note: arch.cmake handles -march selection (skylake on x86, generic on ARM)
-# which overrides zig's native CPU detection, preventing CPU-specific instructions.
+# On ARM64 Linux, use an explicit aarch64 target instead of 'native' to produce
+# generic ARM64 code. This prevents CPU-specific instructions (e.g. SVE on Graviton)
+# from being emitted, ensuring binaries work across all ARM64 machines including
+# Apple Silicon in devcontainers.
 if [[ "$(uname -s)" == "Linux" ]]; then
-  exec zig c++ -target native-linux-gnu.2.35 "$@"
+  case "$(uname -m)" in
+    aarch64|arm64) exec zig c++ -target aarch64-linux-gnu.2.35 "$@" ;;
+    *)             exec zig c++ -target native-linux-gnu.2.35 "$@" ;;
+  esac
 else
   exec zig c++ "$@"
 fi
