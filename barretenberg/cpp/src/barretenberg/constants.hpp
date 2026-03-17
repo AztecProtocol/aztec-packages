@@ -62,10 +62,8 @@ static constexpr uint32_t NUM_WIRES = 4;
 static constexpr uint32_t GOBLIN_NUM_COLUMNS = NUM_WIRES / GOBLIN_BATCH_SIZE;
 
 // Maximum number of accumulation steps in a single Chonk IVC instance.
-// This bounds the number of subtables in the batch merge performed at the tail kernel.
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/XXXX): set this to the actual needed value.
+// This bounds the number of subtables in the batch merge performed at the hiding kernel.
 static constexpr uint32_t CHONK_MAX_ACCUMULATION_STEPS = 100;
-static constexpr uint32_t CHONK_MAX_ACCUMUALTION_STEPS_LOGN = 7;
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
