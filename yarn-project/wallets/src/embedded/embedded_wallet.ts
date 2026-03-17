@@ -100,6 +100,7 @@ export class EmbeddedWallet extends BaseWallet {
       opts.from,
       feeOptions,
       this.scopesFrom(opts.from, opts.additionalScopes),
+      true,
     );
 
     const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
