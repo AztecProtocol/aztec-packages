@@ -100,11 +100,12 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
    * @param feeEntrypointOptions - Optional entrypoint-specific options for wrapping. If not provided, will be auto-computed based on the payment method.
    * @returns A FeePaymentMethod that routes the original one through the account's entrypoint (AccountEntrypointMetaPaymentMethod)
    */
-  private getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
+  private async getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
     if (!this.address) {
       throw new Error('Instance is not yet constructed. This is a bug!');
     }
-    return new AccountEntrypointMetaPaymentMethod(this.account, originalPaymentMethod, feeEntrypointOptions);
+    const chainInfo = await this.wallet.getChainInfo();
+    return new AccountEntrypointMetaPaymentMethod(this.account, chainInfo, originalPaymentMethod, feeEntrypointOptions);
   }
 
   /**
@@ -128,7 +129,10 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     const executionPayloads = [deploymentExecutionPayload];
     // If this is a self-deployment, manage the fee accordingly
     if (opts?.deployer?.equals(AztecAddress.ZERO)) {
-      const feePaymentMethod = this.getSelfFeePaymentMethod(opts?.fee?.paymentMethod, opts?.fee?.feeEntrypointOptions);
+      const feePaymentMethod = await this.getSelfFeePaymentMethod(
+        opts?.fee?.paymentMethod,
+        opts?.fee?.feeEntrypointOptions,
+      );
       const feeExecutionPayload = await feePaymentMethod.getExecutionPayload();
       // Notice they are reversed (fee payment usually goes first):
       // this is because we need to construct the contract BEFORE it can pay for its own fee

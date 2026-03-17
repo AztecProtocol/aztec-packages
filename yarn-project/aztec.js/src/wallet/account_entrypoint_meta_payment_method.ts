@@ -1,4 +1,5 @@
 import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
+import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -25,6 +26,7 @@ import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
   constructor(
     private account: Account,
+    private chainInfo: ChainInfo,
     private paymentMethod?: FeePaymentMethod,
     private feeEntrypointOptions?: any,
   ) {}
@@ -61,7 +63,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
     }
 
     // Use the generic wrapping mechanism from the account interface
-    return this.account.wrapExecutionPayload(innerPayload, options);
+    return this.account.wrapExecutionPayload(innerPayload, this.chainInfo, options);
   }
 
   getFeePayer(): Promise<AztecAddress> {

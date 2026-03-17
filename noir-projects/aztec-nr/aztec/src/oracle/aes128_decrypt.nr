@@ -1,3 +1,12 @@
+use crate::utils::array::assert_bounded_vec_trimmed;
+
+#[oracle(aztec_utl_aes128Decrypt)]
+unconstrained fn aes128_decrypt_oracle<let N: u32>(
+    ciphertext: BoundedVec<u8, N>,
+    iv: [u8; 16],
+    sym_key: [u8; 16],
+) -> BoundedVec<u8, N> {}
+
 /// Decrypts a ciphertext, using AES128.
 ///
 /// Returns a BoundedVec containing the plaintext.
@@ -8,12 +17,15 @@
 /// Note that we accept ciphertext as a BoundedVec, not as an array. This is because this function is typically used
 /// when processing logs and at that point we don't have a comptime information about the length of the ciphertext as
 /// the log is not specific to any individual note.
-#[oracle(aztec_utl_aes128Decrypt)]
-pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
+pub unconstrained fn aes128_decrypt<let N: u32>(
     ciphertext: BoundedVec<u8, N>,
     iv: [u8; 16],
     sym_key: [u8; 16],
-) -> BoundedVec<u8, N> {}
+) -> BoundedVec<u8, N> {
+    let result = aes128_decrypt_oracle(ciphertext, iv, sym_key);
+    assert_bounded_vec_trimmed(result);
+    result
+}
 
 mod test {
     use crate::{
@@ -21,7 +33,7 @@ mod test {
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::aes128_decrypt_oracle;
+    use super::aes128_decrypt;
     use poseidon::poseidon2::Poseidon2;
     use std::aes128::aes128_encrypt;
 
@@ -49,7 +61,7 @@ mod test {
             // ciphertext length is fixed. But we do it anyway to not have to have duplicate oracles.
             let ciphertext_bvec = BoundedVec::<u8, TEST_CIPHERTEXT_LENGTH>::from_array(ciphertext);
 
-            let received_plaintext = aes128_decrypt_oracle(ciphertext_bvec, iv, sym_key);
+            let received_plaintext = aes128_decrypt(ciphertext_bvec, iv, sym_key);
 
             assert_eq(received_plaintext.len(), TEST_PLAINTEXT_LENGTH);
             assert_eq(received_plaintext.max_len(), TEST_CIPHERTEXT_LENGTH);
@@ -123,7 +135,7 @@ mod test {
             // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
             // work with logs of unknown length.
             let ciphertext_bvec = BoundedVec::<u8, 48>::from_array(ciphertext);
-            let received_plaintext = aes128_decrypt_oracle(ciphertext_bvec, iv, bad_sym_key);
+            let received_plaintext = aes128_decrypt(ciphertext_bvec, iv, bad_sym_key);
 
             let extracted_mac_as_bytes: [u8; TEST_MAC_LENGTH] =
                 subarray(received_plaintext.storage(), TEST_PLAINTEXT_LENGTH);
