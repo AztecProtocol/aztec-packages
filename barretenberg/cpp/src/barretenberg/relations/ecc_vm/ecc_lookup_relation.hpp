@@ -17,10 +17,10 @@ namespace bb {
 template <typename FF_> class ECCVMLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t NUM_LOOKUP_TERMS = 4;
-    static constexpr size_t NUM_TABLE_TERMS = 2;
+    static constexpr size_t NUM_LOOKUP_TERMS = 8;
+    static constexpr size_t NUM_TABLE_TERMS = 4;
     // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // 9
+    static constexpr size_t LENGTH = NUM_LOOKUP_TERMS + NUM_TABLE_TERMS + 3; // 15
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // grand product construction sub-relation
@@ -65,6 +65,12 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         if constexpr (index == 1) {
             return Accumulator(View(in.lookup_read_counts_1));
         }
+        if constexpr (index == 2) {
+            return Accumulator(View(in.lookup_read_counts_2));
+        }
+        if constexpr (index == 3) {
+            return Accumulator(View(in.lookup_read_counts_3));
+        }
         return Accumulator(1);
     }
 
@@ -86,6 +92,18 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         if constexpr (lookup_index == 3) {
             return Accumulator(View(in.msm_add4));
         }
+        if constexpr (lookup_index == 4) {
+            return Accumulator(View(in.msm_add5));
+        }
+        if constexpr (lookup_index == 5) {
+            return Accumulator(View(in.msm_add6));
+        }
+        if constexpr (lookup_index == 6) {
+            return Accumulator(View(in.msm_add7));
+        }
+        if constexpr (lookup_index == 7) {
+            return Accumulator(View(in.msm_add8));
+        }
         return Accumulator(1);
     }
 
@@ -95,9 +113,12 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         using View = typename Accumulator::View;
         // anytime `precompute_select` is on, we "turn on" the table predicate. This concretely means that the sP, where
         // s is a WNAF slice and P is the point being processed, are "written" to the lookup table, i.e., may be
-        // read/looked up later. `table_index == 0` corresponds to positive WNAF entries, `table_index == 1` corresponds
-        // to negative WNAF entries.
-        if constexpr (table_index == 0 || table_index == 1) {
+        // read/looked up later.
+        // table_index 0: point 1 positive WNAF entries
+        // table_index 1: point 1 negative WNAF entries
+        // table_index 2: point 2 positive WNAF entries
+        // table_index 3: point 2 negative WNAF entries
+        if constexpr (table_index < NUM_TABLE_TERMS) {
             return Accumulator(View(in.precompute_select));
         }
         return Accumulator(1);
@@ -105,6 +126,19 @@ template <typename FF_> class ECCVMLookupRelationImpl {
     /**
      * @brief Returns the fingerprint of `(precompute_pc, compressed_slice, (2 * compressed_slice - 15)[P])`, where [P]
      * is the point corresponding to `precompute_pc` and `compressed_slice`∈{0, ..., 15}.
+     *
+     * @details With 2 points per precompute row (tx/ty and tx2/ty2), we have 4 table terms:
+     *   table_index 0: point 1 positive — slice = 15 - 2*round, covers {15,13,11,9}
+     *   table_index 1: point 1 negative — slice = 2*round,      covers {0,2,4,6}
+     *   table_index 2: point 2 positive — slice = 14 - 2*round, covers {14,12,10,8}
+     *   table_index 3: point 2 negative — slice = 2*round + 1,  covers {1,3,5,7}
+     *
+     * Together these cover all 16 slice values {0, ..., 15}.
+     *
+     * Point 1 (tx, ty) at row round = table[15 - 2*round]:
+     *   round 0: 15P, round 1: 13P [was 11P], round 2: 11P [was 7P], round 3: 9P [was 3P]
+     * Point 2 (tx2, ty2) at row round = table[14 - 2*round]:
+     *   round 0: 13P, round 1: 9P, round 2: 5P, round 3: P
      */
     template <typename Accumulator, size_t table_index, typename AllEntities, typename Parameters>
     static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
@@ -112,58 +146,41 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         using View = typename Accumulator::View;
 
         static_assert(table_index < NUM_TABLE_TERMS);
-        // table_index == 0 means our wNAF digit is positive (i.e., ∈{1, 3..., 15}).
-        // table_index == 1 means our wNAF digit is negative (i.e., ∈{-15, -13..., -1})
-
-        // round starts at 0 and increments to 7
-        // point starts at 15[P] and decrements to [P]
-        // a slice value of 0 maps to -15[P]
-
-        // we have computed `(15 - 2 * round)[P] =: (precompute_tx, precompute_ty)`.
-        // `round`∈{0, 1..., 7}
-        // if table_index == 0, we want to write (pc, 15 - 2 * round, precompute_tx, precompute_ty)
-        // if table_index == 1, we want to write (pc, round, precompute_tx, -precompute_ty)
-        // to sum up, both:
-        //      (pc, round, precompute_tx, -precompute_ty) _and_
-        //      (pc, 15 - 2 * round, precompute_tx, precompute_ty)
-        // will be written to the lookup table.
-        //
-        // therefore, if `pc` corresponds to the elliptic curve point [P], we will write:
-        // | pc | 0  | -15[P].x | -15[P].y |
-        // | pc | 1  | -13[P].x | -13[P].y |
-        // | pc | 2  | -11[P].x | -11[P].y |
-        // | pc | 3  | -9[P].x  | -9[P].y  |
-        // | pc | 4  | -7[P].x  | -7[P].y  |
-        // | pc | 5  | -5[P].x  | -5[P].y  |
-        // | pc | 6  | -3[P].x  | -3[P].y  |
-        // | pc | 7  | -1[P].x  | -1[P].y  |
-        // | pc | 8  |   [P].x  |   [P].y  |
-        // | pc | 9  |  3[P].x  |  3[P].y  |
-        // | pc | 10 |  5[P].x  |  5[P].y  |
-        // | pc | 11 |  7[P].x  |  7[P].y  |
-        // | pc | 12 |  9[P].x  |  9[P].y  |
-        // | pc | 13 | 11[P].x  | 11[P].y  |
-        // | pc | 14 | 13[P].x  | 13[P].y  |
-        // | pc | 15 | 15[P].x  | 15[P].y  |
 
         const auto& precompute_pc = View(in.precompute_pc);
-        const auto& tx = View(in.precompute_tx);
-        const auto& ty = View(in.precompute_ty);
         const auto& precompute_round = View(in.precompute_round);
         const auto& gamma = params.gamma;
         const auto& beta = params.beta;
         const auto& beta_sqr = params.beta_sqr;
         const auto& beta_cube = params.beta_cube;
+        const auto precompute_round2 = precompute_round + precompute_round;
 
         if constexpr (table_index == 0) {
-            const auto positive_slice_value = -(precompute_round) + 15;
-            const auto positive_term =
-                precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
-            return positive_term; // degree 1
+            // Point 1 positive: slice = 15 - 2*round
+            const auto& tx = View(in.precompute_tx);
+            const auto& ty = View(in.precompute_ty);
+            const auto positive_slice_value = -(precompute_round2) + 15;
+            return precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube; // degree 1
         }
         if constexpr (table_index == 1) {
-            const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
-            return negative_term; // degree 1
+            // Point 1 negative: slice = 2*round
+            const auto& tx = View(in.precompute_tx);
+            const auto& ty = View(in.precompute_ty);
+            return precompute_pc + gamma + precompute_round2 * beta + tx * beta_sqr - ty * beta_cube; // degree 1
+        }
+        if constexpr (table_index == 2) {
+            // Point 2 positive: slice = 14 - 2*round
+            const auto& tx2 = View(in.precompute_tx2);
+            const auto& ty2 = View(in.precompute_ty2);
+            const auto positive_slice_value2 = -(precompute_round2) + 14;
+            return precompute_pc + gamma + positive_slice_value2 * beta + tx2 * beta_sqr + ty2 * beta_cube; // degree 1
+        }
+        if constexpr (table_index == 3) {
+            // Point 2 negative: slice = 2*round + 1
+            const auto& tx2 = View(in.precompute_tx2);
+            const auto& ty2 = View(in.precompute_ty2);
+            const auto negative_slice_value2 = precompute_round2 + 1;
+            return precompute_pc + gamma + negative_slice_value2 * beta + tx2 * beta_sqr - ty2 * beta_cube; // degree 1
         }
         return Accumulator(1);
     }
@@ -182,45 +199,46 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         const auto& beta_cube = params.beta_cube;
         const auto& msm_pc = View(in.msm_pc);
         const auto& msm_count = View(in.msm_count);
-        const auto& msm_slice1 = View(in.msm_slice1);
-        const auto& msm_slice2 = View(in.msm_slice2);
-        const auto& msm_slice3 = View(in.msm_slice3);
-        const auto& msm_slice4 = View(in.msm_slice4);
-        const auto& msm_x1 = View(in.msm_x1);
-        const auto& msm_x2 = View(in.msm_x2);
-        const auto& msm_x3 = View(in.msm_x3);
-        const auto& msm_x4 = View(in.msm_x4);
-        const auto& msm_y1 = View(in.msm_y1);
-        const auto& msm_y2 = View(in.msm_y2);
-        const auto& msm_y3 = View(in.msm_y3);
-        const auto& msm_y4 = View(in.msm_y4);
 
         // Recall that `pc` stands for point-counter. We recall how to compute the current pc.
         //
         // row pc = value of pc after msm
         // msm_count = number of (128-bit) multiplications processed so far in current MSM round (NOT INCLUDING current
-        // row) current_pc = msm_pc - msm_count next_pc = current_pc - {0, 1, 2, 3}, depending on how many adds are
+        // row) current_pc = msm_pc - msm_count next_pc = current_pc - {0, 1, ..., 7}, depending on how many adds are
         // performed in the current row.
         const auto current_pc = msm_pc - msm_count;
 
         if constexpr (lookup_index == 0) {
-            const auto lookup_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
-            return lookup_term1; // degree 1
+            return (current_pc) + gamma + View(in.msm_slice1) * beta + View(in.msm_x1) * beta_sqr +
+                   View(in.msm_y1) * beta_cube; // degree 1
         }
         if constexpr (lookup_index == 1) {
-            const auto lookup_term2 =
-                (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
-            return lookup_term2; // degree 1
+            return (current_pc - 1) + gamma + View(in.msm_slice2) * beta + View(in.msm_x2) * beta_sqr +
+                   View(in.msm_y2) * beta_cube; // degree 1
         }
         if constexpr (lookup_index == 2) {
-            const auto lookup_term3 =
-                (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
-            return lookup_term3; // degree 1
+            return (current_pc - 2) + gamma + View(in.msm_slice3) * beta + View(in.msm_x3) * beta_sqr +
+                   View(in.msm_y3) * beta_cube; // degree 1
         }
         if constexpr (lookup_index == 3) {
-            const auto lookup_term4 =
-                (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
-            return lookup_term4; // degree 1
+            return (current_pc - 3) + gamma + View(in.msm_slice4) * beta + View(in.msm_x4) * beta_sqr +
+                   View(in.msm_y4) * beta_cube; // degree 1
+        }
+        if constexpr (lookup_index == 4) {
+            return (current_pc - 4) + gamma + View(in.msm_slice5) * beta + View(in.msm_x5) * beta_sqr +
+                   View(in.msm_y5) * beta_cube; // degree 1
+        }
+        if constexpr (lookup_index == 5) {
+            return (current_pc - 5) + gamma + View(in.msm_slice6) * beta + View(in.msm_x6) * beta_sqr +
+                   View(in.msm_y6) * beta_cube; // degree 1
+        }
+        if constexpr (lookup_index == 6) {
+            return (current_pc - 6) + gamma + View(in.msm_slice7) * beta + View(in.msm_x7) * beta_sqr +
+                   View(in.msm_y7) * beta_cube; // degree 1
+        }
+        if constexpr (lookup_index == 7) {
+            return (current_pc - 7) + gamma + View(in.msm_slice8) * beta + View(in.msm_x8) * beta_sqr +
+                   View(in.msm_y8) * beta_cube; // degree 1
         }
         return Accumulator(1);
     }
@@ -231,8 +249,8 @@ template <typename FF_> class ECCVMLookupRelationImpl {
      * Table writes: ECCVMPointTable columns: we define Straus point table:
      * { {0, -15[P]}, {1, -13[P]}, ..., {15, 15[P]} }
      * write source: { precompute_round, precompute_tx, precompute_ty }
-     * Table reads: ECCVMMSM columns. Each row adds up to 4 points into MSM accumulator
-     * read source: { msm_slice1, msm_x1, msm_y1 }, ..., { msm_slice4, msm_x4, msm_y4 }
+     * Table reads: ECCVMMSM columns. Each row adds up to 8 points into MSM accumulator
+     * read source: { msm_slice1, msm_x1, msm_y1 }, ..., { msm_slice8, msm_x8, msm_y8 }
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param relation_params contains beta, gamma, and public_input_delta, ....
