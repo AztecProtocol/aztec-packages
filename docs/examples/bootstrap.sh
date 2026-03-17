@@ -42,9 +42,30 @@ function compile-circuits {
 
 function compile {
   echo_header "Compiling example contracts"
-  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/)
+  local CONTRACTS_DIR="$REPO_ROOT/docs/examples/contracts"
+
+  if [ ! -d "$CONTRACTS_DIR" ]; then
+    echo_stderr "No contracts directory found at $CONTRACTS_DIR"
+    return 0
+  fi
+
+  local contracts=()
+  if [ "$#" -gt 0 ]; then
+    contracts=("$@")
+  else
+    local contract
+    for contract in "$CONTRACTS_DIR"/*/; do
+      if [ -f "$contract/Nargo.toml" ]; then
+        contracts+=("$(basename "$contract")")
+      fi
+    done
+  fi
+
+  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/).
+  # Pass only contract packages so circuits in the shared docs workspace are not
+  # treated as contract artifacts by the noir-contracts bootstrap.
   DOCS_WORKING_DIR="$(cd .. && pwd)" \
-    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "$@"
+    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
 }
 
 function compile-solidity {
