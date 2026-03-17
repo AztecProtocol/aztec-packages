@@ -95,6 +95,8 @@ export class EmbeddedWallet extends BaseWallet {
       opts.fee?.gasSettings,
     );
 
+    // Simulate the transaction first to estimate gas and capture required
+    // private authwitesses based on offchain effects.
     const simulationResult = await this.simulateViaEntrypoint(
       executionPayload,
       opts.from,
