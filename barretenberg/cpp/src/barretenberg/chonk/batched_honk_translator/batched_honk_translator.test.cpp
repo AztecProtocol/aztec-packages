@@ -173,7 +173,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         m.add_entry(round, "Z_PERM", G);
         // Translator Oink: vk_hash, masking commitment, 10 wire commitments
         m.add_entry(round, "vk_hash", Fr);
-        m.add_entry(round, "MASKING_COMMITMENT", G);
+        m.add_entry(round, "Gemini:masking_poly_comm", G);
         for (size_t i = 0; i < 4; ++i) {
             m.add_entry(round, "CONCATENATED_RANGE_CONSTRAINTS_" + std::to_string(i), G);
         }

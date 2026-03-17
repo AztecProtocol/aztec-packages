@@ -70,32 +70,27 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = MegaFlavor::REPEATED_COMMITMENTS;
 
     // Group accessors and Lagrange basis (delegate to generic BS=1 helpers)
-    template <typename FF_>
-    static auto compute_lagrange_basis(std::span<const FF_> challenges)
+    template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> challenges)
     {
         return compute_lagrange_basis_impl<INTERLEAVING_BATCH_SIZE>(challenges);
     }
 
-    template <typename Entities>
-    static auto get_unshifted_groups(Entities& e)
+    template <typename Entities> static auto get_unshifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<true>(e);
     }
 
-    template <typename Entities>
-    static auto get_unshifted_groups_mut(Entities& e)
+    template <typename Entities> static auto get_unshifted_groups_mut(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<false>(e);
     }
 
-    template <typename Entities>
-    static auto get_to_be_shifted_groups(Entities& e)
+    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_to_be_shifted_groups(e);
     }
 
-    template <typename Entities>
-    static auto get_shifted_groups(Entities& e)
+    template <typename Entities> static auto get_shifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_shifted_groups(e);
     }
@@ -171,7 +166,7 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
 
     // BATCHED_RELATION_PARTIAL_LENGTH must match native flavor
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = BATCHED_RELATION_PARTIAL_LENGTH - 1;
 
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {

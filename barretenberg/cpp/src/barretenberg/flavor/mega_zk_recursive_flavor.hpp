@@ -51,18 +51,8 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
     static constexpr bool HasZK = true;
     static constexpr bool HasGeminiMasking = false;
 
+    // VIRTUAL_LOG_N differs from parent (HIDING_KERNEL_LOG_N vs CONST_FOLDING_LOG_N)
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
-    static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NativeFlavor::NUM_UNSHIFTED_ENTITIES;
-
-    static constexpr size_t INTERLEAVING_BATCH_SIZE = NativeFlavor::INTERLEAVING_BATCH_SIZE;
-    static constexpr size_t INTERLEAVING_LOG_K = NativeFlavor::INTERLEAVING_LOG_K;
-    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = NativeFlavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS;
-    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS =
-        NativeFlavor::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS;
-    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS = NativeFlavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
-    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = NativeFlavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
@@ -80,23 +70,7 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
 
     // Use false for masking parameter — MegaZK has no masking entities (translator provides masking)
     using VerifierCommitments = MultiMegaFlavor::VerifierCommitments_<Commitment, VerificationKey, false>;
-
-    using InterleavedCommitments = typename MultiMegaFlavor::template InterleavedWitnessCommitments_<Commitment, false>;
-    using InterleavedCommitmentLabels = typename NativeFlavor::InterleavedCommitmentLabels;
     using InterleavedPrecomputed = typename MultiMegaRecursiveFlavor_<BuilderType>::InterleavedPrecomputed;
-
-    template <typename Entities> static auto get_unshifted_groups(Entities& e)
-    {
-        return NativeFlavor::get_unshifted_groups(e);
-    }
-    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
-    {
-        return NativeFlavor::get_to_be_shifted_groups(e);
-    }
-    template <typename Entities> static auto get_shifted_groups(Entities& e)
-    {
-        return NativeFlavor::get_shifted_groups(e);
-    }
 };
 
 } // namespace bb

@@ -104,7 +104,7 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
 
         // For ZK flavors with Gemini masking: masking polynomial commitment is sent at end of oink
         if constexpr (flavor_has_gemini_masking<Flavor>()) {
-            manifest_expected.add_entry(round, "MASKING_COMMITMENT", data_types_per_G);
+            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", data_types_per_G);
         }
         manifest_expected.add_entry(round, "W_L", data_types_per_G);
         manifest_expected.add_entry(round, "W_R", data_types_per_G);

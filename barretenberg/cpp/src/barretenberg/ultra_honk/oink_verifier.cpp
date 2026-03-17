@@ -28,7 +28,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify(bool emit_alpha)
 
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
         verifier_instance->received_commitments.masking_commitment =
-            transcript->template receive_from_prover<Commitment>("MASKING_COMMITMENT");
+            transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
     }
 
     receive_wire_commitments();

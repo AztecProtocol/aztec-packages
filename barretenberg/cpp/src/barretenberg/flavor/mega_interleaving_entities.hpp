@@ -307,7 +307,7 @@ class MegaInterleavedCommitmentLabels_<4, true> : public MegaInterleavedWitnessC
         interleaved_lookup = "INTERLEAVED_LOOKUP";
         interleaved_inverses = "INTERLEAVED_INVERSES";
         interleaved_z_perm = "INTERLEAVED_Z_PERM";
-        masking_commitment = "MASKING_COMMITMENT";
+        masking_commitment = "Gemini:masking_poly_comm";
     }
 };
 

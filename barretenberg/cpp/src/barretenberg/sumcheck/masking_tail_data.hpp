@@ -208,6 +208,56 @@ template <typename Flavor> struct MaskingTailData {
                               m2 * (FF::one() - u0) * u1);
         }
     }
+    /**
+     * @brief Register tail polynomials with the PCS batcher (group-based interleaving path).
+     * @details Builds interleaved group tails and registers by group index. Used by ultra/mega provers
+     *          where the batcher holds interleaved group polynomials.
+     */
+    template <typename PolynomialBatcher> void add_tails_to_batcher(PolynomialBatcher& batcher, size_t pcs_size) const
+    {
+        if (!active) {
+            return;
+        }
+        auto register_groups = [&](const auto& groups, auto add_tail_fn) {
+            for (size_t g = 0; g < groups.size(); g++) {
+                auto gt = interleave_tail_group(groups[g], pcs_size);
+                if (!gt.is_empty()) {
+                    add_tail_fn(batcher, g, std::move(gt));
+                }
+            }
+        };
+        register_groups(Flavor::get_unshifted_groups(tails),
+                        [](auto& b, size_t g, Polynomial&& t) { b.add_unshifted_tail(g, std::move(t)); });
+        register_groups(Flavor::get_to_be_shifted_groups(tails),
+                        [](auto& b, size_t g, Polynomial&& t) { b.add_shifted_tail(g, std::move(t)); });
+    }
+
+    /**
+     * @brief Register tail polynomials with the PCS batcher (pointer-matching path).
+     * @details Finds batcher indices by comparing polynomial data pointers. Used by ECCVM and
+     *          batched translator where the batcher holds flat concatenated polynomial references.
+     */
+    template <typename ProverPolynomials, typename PolynomialBatcher>
+    void add_tails_to_batcher(const ProverPolynomials& prover_polynomials, PolynomialBatcher& batcher) const
+    {
+        if (!active) {
+            return;
+        }
+        for (auto [poly, tail] : zip_view(prover_polynomials.get_masked(), tails.get_masked())) {
+            for (size_t u = 0; u < batcher.unshifted.size(); u++) {
+                if (batcher.unshifted[u].data() == poly.data()) {
+                    batcher.add_unshifted_tail(u, Polynomial(tail));
+                    break;
+                }
+            }
+            for (size_t s = 0; s < batcher.to_be_shifted.size(); s++) {
+                if (batcher.to_be_shifted[s].data() == poly.data()) {
+                    batcher.add_shifted_tail(s, Polynomial(tail));
+                    break;
+                }
+            }
+        }
+    }
 };
 
 } // namespace bb

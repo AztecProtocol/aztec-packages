@@ -62,7 +62,7 @@ void ECCVMProver::execute_wire_commitments_round()
     // Create and commit to Gemini masking polynomial (for ZK-PCS)
     key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
-    transcript->send_to_verifier("MASKING_COMMITMENT", masking_commitment);
+    transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     // Register all masked polys upfront (generates random tail values for all witness entities)
     key->masking_tail_data.register_all_masked_polys();

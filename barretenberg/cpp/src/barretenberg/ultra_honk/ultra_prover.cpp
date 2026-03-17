@@ -193,19 +193,7 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
     // For ZK: build interleaved group tails from entity tails and register with the PCS batcher.
     if constexpr (Flavor::HasZK) {
         if (prover_instance->masking_tail_data.is_active()) {
-            auto& mtd = prover_instance->masking_tail_data;
-            auto register_tails = [&](const auto& groups, auto add_tail_fn) {
-                for (size_t g = 0; g < groups.size(); g++) {
-                    auto gt = mtd.interleave_tail_group(groups[g], pcs_size);
-                    if (!gt.is_empty()) {
-                        add_tail_fn(pcs_data.batcher, g, std::move(gt));
-                    }
-                }
-            };
-            register_tails(Flavor::get_unshifted_groups(mtd.tails),
-                           [](auto& b, size_t g, Polynomial&& t) { b.add_unshifted_tail(g, std::move(t)); });
-            register_tails(Flavor::get_to_be_shifted_groups(mtd.tails),
-                           [](auto& b, size_t g, Polynomial&& t) { b.add_shifted_tail(g, std::move(t)); });
+            prover_instance->masking_tail_data.add_tails_to_batcher(pcs_data.batcher, pcs_size);
         }
     }
 

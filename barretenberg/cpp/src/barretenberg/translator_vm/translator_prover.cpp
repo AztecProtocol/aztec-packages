@@ -69,7 +69,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     key->proving_key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
     auto masking_commitment =
         key->proving_key->commitment_key.commit(key->proving_key->polynomials.gemini_masking_poly);
-    transcript->send_to_verifier("MASKING_COMMITMENT", masking_commitment);
+    transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     // Commit to non-op-queue wires and ordered range constraints
     // Note: Op queue wires (op, x_lo_y_hi, x_hi_z_1, y_lo_z_2) are NOT committed to here

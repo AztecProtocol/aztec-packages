@@ -240,7 +240,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
         prover_instance->polynomials.gemini_masking_poly = Polynomial::random(polynomial_size);
 
         auto masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
-        transcript->send_to_verifier("MASKING_COMMITMENT", masking_commitment);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
     }
 };
 
