@@ -19,7 +19,6 @@
   "files": [
     "src/",
     "dest/",
-    "build/",
     "README.md"
   ],
   "scripts": {
@@ -64,6 +63,12 @@
     ],
     "testRegex": "./src/.*\\.test\\.ts$",
     "rootDir": "./src"
+  },
+  "optionalDependencies": {
+    "@aztec/bb.js-linux-x64": "0.1.0",
+    "@aztec/bb.js-linux-arm64": "0.1.0",
+    "@aztec/bb.js-darwin-x64": "0.1.0",
+    "@aztec/bb.js-darwin-arm64": "0.1.0"
   },
   "dependencies": {
     "comlink": "^4.4.1",

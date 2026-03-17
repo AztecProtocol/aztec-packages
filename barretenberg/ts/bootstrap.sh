@@ -64,6 +64,13 @@ function test {
 
 function release {
   cross_copy
+  ./scripts/prepare_arch_packages.sh
+  # Publish arch-specific packages first (the wrapper's optionalDependencies must already exist).
+  for pkg in packages/bb.js-*/; do
+    [ -d "$pkg" ] || continue
+    (cd "$pkg" && retry "deploy_npm $(dist_tag) ${REF_NAME#v}")
+  done
+  # Then publish the wrapper package.
   retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
