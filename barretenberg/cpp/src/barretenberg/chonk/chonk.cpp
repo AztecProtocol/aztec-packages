@@ -266,27 +266,23 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     // each with 2 limbs (lo=136-bit, hi=remainder), giving 4 StdlibFF elements per commitment.
     auto ecc_op_col_commitments = interleaved_commitments.get_ecc_op_wires().get_copy();
 
-    // Build the Poseidon2 input: columns || running_hash
-    std::vector<StdlibFF> hash_inputs;
-    if (verifier_inputs.type != QUEUE_TYPE::OINK) {
-        hash_inputs.push_back(updated_hash);
-        hash_inputs.back().set_origin_tag(OriginTag::constant());
+    // Update the running ECC op hash using ecc_op_hash_step (shared with BatchMergeVerifier).
+    // For the first circuit (OINK) there is no prior hash; for all subsequent circuits
+    // the previous hash is chained in as the first input.
+    const std::vector<RecursiveCommitment> ecc_op_col_commitments_vec(ecc_op_col_commitments.begin(),
+                                                                      ecc_op_col_commitments.end());
+    if (verifier_inputs.type == QUEUE_TYPE::OINK) {
+        updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec);
+    } else if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
+        updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
+        updated_hash = std::get<0>(RecursiveTranscript::Codec::split_challenge(updated_hash));
+    } else {
+        updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
     }
-    for (const auto& com : ecc_op_col_commitments) {
-        auto com_serialized = RecursiveTranscript::Codec::serialize_to_fields(com);
-        for (auto& el : com_serialized) {
-            el.set_origin_tag(OriginTag::constant());
-        }
-        hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
-    }
-    updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
-    updated_hash.unset_free_witness_tag();
-    updated_hash.set_origin_tag(OriginTag::constant());
 
     if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
         // Verify the batch merge using the full ECC op hash (covers all N subtables including the tail kernel)
-        auto [batch_merge_pairing_points, T_merged] =
-            goblin.recursively_verify_batch_merge(circuit, accumulation_recursive_transcript, updated_hash);
+        auto [batch_merge_pairing_points, T_merged] = goblin.recursively_verify_batch_merge(circuit, updated_hash);
         pairing_points.emplace_back(batch_merge_pairing_points);
         hiding_merged_tables = std::move(T_merged);
     }
@@ -567,7 +563,7 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         goblin.op_queue->merge();
         // If accumulating tail kernel, prove batch merge
         if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
-            goblin.prove_batch_merge(prover_accumulation_transcript);
+            goblin.prove_batch_merge();
         }
     }
 

@@ -285,6 +285,8 @@ template <typename Builder_> class field_t {
     field_t pow(const uint32_t& exponent) const;
     // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;
+    // N.B. we implicitly range-constrain 'exponent' to be a N-bit integer!
+    template <size_t LOG_N> field_t pow_log_n(const field_t& exponent) const;
 
     field_t operator+=(const field_t& other)
     {

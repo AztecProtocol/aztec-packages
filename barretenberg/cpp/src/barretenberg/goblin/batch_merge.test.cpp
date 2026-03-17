@@ -170,16 +170,16 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
     /**
      * @brief Proof byte-layout (all field elements, sizes in FFs):
      *
-     *  [0]           : N  (num_subtables, uint32 serialized as 1 FF)
-     *  [1 .. M]      : shift_size_i  (M uint32s)
-     *  [M+1 ..]      : M*NUM_COLUMNS column commitments    (each 4 FFs)
-     *  [..]          : NUM_COLUMNS merged-table commitments (each 4 FFs)
-     *  [..]          : REVERSED_COLUMNS commitment          (4 FFs)
-     *  [..]          : M*NUM_COLUMNS  c_evals               (1 FF each)
-     *  [..]          : NUM_COLUMNS    t_evals               (1 FF each)
-     *  [..]          : 1 reversed_cols_eval
-     *  [..]          : SHPLONK_Q commitment                 (4 FFs)
-     *  [..]          : KZG:W  commitment                    (4 FFs)
+     *  [0 ..]                                  : M*NUM_COLUMNS column commitments    (each 4 FFs)
+     *  [M*NUM_COLUMNS]                         : N  (num_subtables, uint32 serialized as 1 FF)
+     *  [M*NUM_COLUMNS+1 .. M*NUM_COLUMNS+M]    : shift_size_i  (M uint32s)
+     *  [M*NUM_COLUMNS+M ..]                    : NUM_COLUMNS merged-table commitments (each 4 FFs)
+     *  [..]                                    : REVERSED_COLUMNS commitment          (4 FFs)
+     *  [..]                                    : M*NUM_COLUMNS  c_evals               (1 FF each)
+     *  [..]                                    : NUM_COLUMNS    t_evals               (1 FF each)
+     *  [..]                                    : 1 reversed_cols_eval
+     *  [..]                                    : SHPLONK_Q commitment                 (4 FFs)
+     *  [..]                                    : KZG:W  commitment                    (4 FFs)
      *
      * Tamper operates on the native (pre-witness) proof bytes.
      */
@@ -190,8 +190,14 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
         switch (mode) {
         case TamperMode::ColumnCommitment: {
             // First column commitment starts at: 1 (N) + M (shift_sizes)
-            const size_t idx = 1 + M;
-            proof[idx] += bb::fr(1);
+            const size_t idx = 0;
+            auto commitment = NativeTranscript::Codec::deserialize_from_fields<NativeG1>(
+                std::vector<bb::fr>(proof.begin() + idx, proof.begin() + idx + NUM_FRS_COMM));
+            commitment = commitment += NativeG1::one(); // add generator to corrupt the commitment
+            auto corrupted_fields = NativeTranscript::Codec::serialize_to_fields(commitment);
+            for (size_t j = 0; j < NUM_FRS_COMM; j++) {
+                proof[idx + j] = corrupted_fields[j];
+            }
             break;
         }
         case TamperMode::MergedTableCommitment: {
@@ -223,7 +229,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
      *
      * Always computed on native field elements, regardless of the Curve template parameter.
      */
-    static bb::fr compute_running_hash(const std::vector<bb::fr>& proof, size_t N, size_t M)
+    static bb::fr compute_running_hash(const std::vector<bb::fr>& proof, size_t N)
     {
         static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
 
@@ -239,8 +245,8 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
         for (size_t k = 0; k < N; k++) {
             // Append all NUM_COLUMNS columns of subtable[M-1-k] to hash_inputs.
             for (size_t col = 0; col < NUM_COLUMNS; col++) {
-                const size_t col_global_idx = (M - 1 - k) * NUM_COLUMNS + col;
-                const size_t base = 1 + M + col_global_idx * NUM_FRS_COMM;
+                const size_t col_global_idx = k * NUM_COLUMNS + col;
+                const size_t base = col_global_idx * NUM_FRS_COMM;
                 for (size_t j = 0; j < NUM_FRS_COMM; j++) {
                     hash_inputs.push_back(proof[base + j]);
                 }
@@ -248,7 +254,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
             hash_val = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
             hash_inputs = { hash_val };
         }
-        return hash_val;
+        return std::get<0>(NativeTranscript::Codec::split_challenge(hash_val));
     }
 
     // --------------------------------------------------------
@@ -272,7 +278,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
 
         // 2. Compute the native running hash from the N actual column commitments.
         const size_t N = op_queue->get_num_subtables();
-        bb::fr native_hash = compute_running_hash(native_proof, N, MAX_SUBTABLES);
+        bb::fr native_hash = compute_running_hash(native_proof, N);
 
         // 3. Apply any proof tampering (not Hash mode — that corrupts the hash instead).
         if (tamper != TamperMode::None && tamper != TamperMode::Hash) {
@@ -507,10 +513,10 @@ template <typename TestParams> class BatchMergeManifestTests : public testing::T
 // Test type registrations
 // ============================================================
 
-using Parameters = ::testing::Types<BatchMergeTestParams<curve::BN254, 1, 24>,
-                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 1, 24>,
-                                    BatchMergeTestParams<curve::BN254, 2, 37>,
-                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 2, 37>,
+using Parameters = ::testing::Types<BatchMergeTestParams<curve::BN254, 1, 48>,
+                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 1, 48>,
+                                    BatchMergeTestParams<curve::BN254, 2, 74>,
+                                    BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 2, 74>,
                                     BatchMergeTestParams<curve::BN254, 4, 100>,
                                     BatchMergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 4, 100>>;
 

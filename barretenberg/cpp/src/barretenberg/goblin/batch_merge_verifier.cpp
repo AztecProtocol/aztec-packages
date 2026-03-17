@@ -33,6 +33,31 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     transcript->load_proof(proof);
 
     // -------------------------------------------------------------------------
+    // Receive commitments to columns to be merged (FIRST — before N/shift_sizes so
+    // that the transcript's Fiat-Shamir state covers the commitments before any
+    // other prover messages, matching the accumulation hash ordering).
+    // -------------------------------------------------------------------------
+    std::vector<std::vector<Commitment>> subtable_cols(MaxMergeSize, std::vector<Commitment>(NUM_COLUMNS));
+    std::vector<FF> calculated_hashes;
+    for (size_t idx = 0; idx < MaxMergeSize; ++idx) {
+        for (size_t col = 0; col < NUM_COLUMNS; ++col) {
+            subtable_cols[MaxMergeSize - idx - 1][col] = transcript->template receive_from_prover<Commitment>(
+                "COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)));
+        }
+        if (idx == 0) {
+            if constexpr (IsRecursive) {
+                info("NUM GATES: ",
+                     subtable_cols[MaxMergeSize - 1][0].get_context()->get_num_finalized_gates_inefficient());
+            }
+        }
+        calculated_hashes.push_back(transcript->template get_challenge<FF>("HASH_" + std::to_string(idx)));
+    }
+    if constexpr (IsRecursive) {
+        info("NUM GATES AFTER HASHES: ",
+             subtable_cols[MaxMergeSize - 1][0].get_context()->get_num_finalized_gates_inefficient());
+    }
+
+    // -------------------------------------------------------------------------
     // Receive N and shift sizes from the proof
     // -------------------------------------------------------------------------
     const FF N = transcript->template receive_from_prover<FF>("batch_merge_num_subtables");
@@ -46,25 +71,21 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
         shift_sizes[i] = shift_sizes[i] * indicator_array[i]; // zero out shift sizes for unused subtables
     }
 
-    // Set point at infinity
+    if constexpr (IsRecursive) {
+        info("NUM GATES AFTER SHIFT SIZES: ",
+             subtable_cols[MaxMergeSize - 1][0].get_context()->get_num_finalized_gates_inefficient());
+    }
+
+    // Set point at infinity (use context from a received commitment for the recursive case
+    // since N is now received after the commitments).
     Commitment point_at_infinity;
     if constexpr (IsRecursive) {
-        point_at_infinity = Commitment::from_witness(N.get_context(), Curve::NativeCurve::Group::point_at_infinity);
+        point_at_infinity =
+            Commitment::from_witness(subtable_cols[0][0].get_context(), Curve::NativeCurve::Group::point_at_infinity);
         point_at_infinity.fix_witness();
         point_at_infinity.set_origin_tag(OriginTag::constant());
     } else {
         point_at_infinity = Curve::Group::point_at_infinity;
-    }
-
-    // -------------------------------------------------------------------------
-    // Receive commitments to columns to be merged
-    // -------------------------------------------------------------------------
-    std::vector<std::vector<Commitment>> subtable_cols(MaxMergeSize, std::vector<Commitment>(NUM_COLUMNS));
-    for (size_t idx = 0; idx < MaxMergeSize; ++idx) {
-        for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            subtable_cols[idx][col] = transcript->template receive_from_prover<Commitment>(
-                "COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)));
-        }
     }
 
     // -------------------------------------------------------------------------
@@ -86,6 +107,11 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
         degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenges[0]);
     }
 
+    if constexpr (IsRecursive) {
+        info("NUM GATES AFTER DEGREE CHECK CHALLENGES: ",
+             subtable_cols[MaxMergeSize - 1][0].get_context()->get_num_finalized_gates_inefficient());
+    }
+
     // -------------------------------------------------------------------------
     // Receive [G] commitments from proof
     // -------------------------------------------------------------------------
@@ -103,6 +129,11 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
         betas.push_back(betas.back() * betas[0]);
     }
 
+    if constexpr (IsRecursive) {
+        info("NUM GATES AFTER SHPLONK CHALLENGES: ",
+             subtable_cols[MaxMergeSize - 1][0].get_context()->get_num_finalized_gates_inefficient());
+    }
+
     // -------------------------------------------------------------------------
     // Receive evaluation challenge κ
     // -------------------------------------------------------------------------
@@ -114,12 +145,21 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     // -------------------------------------------------------------------------
     std::vector<FF> powers_of_kappa(MaxMergeSize);
     for (size_t idx = 0; idx < MaxMergeSize; idx++) {
-        powers_of_kappa[idx] = kappa.pow(shift_sizes[idx] * FF(BATCH_SIZE));
+        if constexpr (IsRecursive) {
+            powers_of_kappa[idx] = kappa.template pow_log_n<CONST_ECCVM_LOG_N>(shift_sizes[idx] * FF(BATCH_SIZE));
+        } else {
+            powers_of_kappa[idx] = kappa.pow(shift_sizes[idx] * FF(BATCH_SIZE));
+        }
     }
 
     std::vector<FF> powers_of_kappa_inv(MaxMergeSize);
     for (size_t idx = 0; idx < MaxMergeSize; idx++) {
         powers_of_kappa_inv[idx] = powers_of_kappa[idx].invert();
+    }
+
+    if constexpr (IsRecursive) {
+        info("NUM GATES AFTER POWERS OF KAPPA: ",
+             subtable_cols[MaxMergeSize - 1][0].get_context()->get_num_finalized_gates_inefficient());
     }
 
     // -------------------------------------------------------------------------
@@ -162,7 +202,7 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     const bool concatenation_verified = check_concatenation_identity(c_evals, t_evals, powers_of_kappa);
     const bool degree_check_verified =
         check_degree_identity(c_evals, reversed_cols_eval, powers_of_kappa_inv, degree_check_challenges, kappa);
-    const bool hash_verified = check_hash_consistency(subtable_cols, hash, indicator_array, point_at_infinity);
+    const bool hash_verified = check_hash_consistency(hash, calculated_hashes, indicator_array);
 
     // -------------------------------------------------------------------------
     // Build Shplonk batch opening claim and reduce to KZG pairing check
@@ -266,15 +306,18 @@ std::vector<typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::FF> Ba
     shifted_indicator_array.reserve(MaxMergeSize);
     shifted_indicator_array = { FF(0) };
     for (size_t i = 0; i < MaxMergeSize - 1; ++i) {
-        shifted_indicator_array[i + 1] = indicator_array[i];
+        shifted_indicator_array.push_back(indicator_array[i]);
     }
 
     // Construct array s.t. dirac_array[i] = (i == (M - N))
     std::vector<FF> dirac_array;
     dirac_array.reserve(MaxMergeSize);
     for (size_t i = 0; i < MaxMergeSize; ++i) {
-        dirac_array[i] = indicator_array[i] - shifted_indicator_array[i];
+        dirac_array.push_back(indicator_array[i] - shifted_indicator_array[i]);
     }
+
+    // Reverse the array to get dirac_array[i] = (i == N)
+    std::reverse(dirac_array.begin(), dirac_array.end());
 
     return dirac_array;
 }
@@ -337,6 +380,39 @@ bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_degree_identity(
     }
 }
 
+template <size_t BatchSize, typename Curve, size_t MaxMergeSize>
+typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::FF BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::
+    ecc_op_hash_step(const std::vector<Commitment>& col_commitments, const std::optional<FF>& prev_hash)
+{
+    std::vector<FF> hash_inputs;
+    if (prev_hash.has_value()) {
+        if constexpr (IsRecursive) {
+            FF h = prev_hash.value();
+            h.set_origin_tag(OriginTag::constant());
+            hash_inputs.push_back(h);
+        } else {
+            hash_inputs.push_back(prev_hash.value());
+        }
+    }
+    for (const auto& com : col_commitments) {
+        auto com_serialized = Transcript::Codec::serialize_to_fields(com);
+        if constexpr (IsRecursive) {
+            for (auto& el : com_serialized) {
+                el.set_origin_tag(OriginTag::constant());
+            }
+        }
+        hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
+    }
+    if constexpr (IsRecursive) {
+        FF hash_result = stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs);
+        hash_result.unset_free_witness_tag();
+        hash_result.set_origin_tag(OriginTag::constant());
+        return hash_result;
+    } else {
+        return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
+    }
+}
+
 /**
  * @brief Native (non-circuit) version: verify column commitments match the running hash.
  *
@@ -347,131 +423,40 @@ bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_degree_identity(
  */
 template <size_t BatchSize, typename Curve, size_t MaxMergeSize>
 bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_hash_consistency(
-    const std::vector<std::vector<Commitment>>& subtable_cols,
-    const FF& hash,
-    const std::vector<FF>& indicator_array,
-    const Commitment& point_at_infinity) const
-    requires(!IsRecursive)
+    const FF& hash, const std::vector<FF>& calculated_hashes, const std::vector<FF>& indicator_array) const
 {
     // Construct array s.t. dirac_array[i] = (i == (M - N))
     std::vector<FF> dirac_array = compute_dirac_array(indicator_array);
 
-    // Compute calculated_hash: Poseidon2 chain over all M subtable batches, oldest-first.
-    std::vector<FF> hash_inputs;
-    FF calculated_hash;
-    for (size_t idx = 0; idx < MaxMergeSize; idx++) {
-        for (size_t col = 0; col < NUM_COLUMNS; col++) {
-            auto com_serialized = Transcript::Codec::serialize_to_fields(subtable_cols[MaxMergeSize - idx - 1][col]);
-            hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
-        }
-        calculated_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs);
-        hash_inputs = { calculated_hash };
-    }
-
-    // Compute expected_hash: extend `hash` with M−N rounds of point-at-infinity padding to
-    // account for unused subtable slots, then select the value at position index_diff = M−N.
-    std::vector<FF> extended_hash = { hash };
-    std::vector<FF> hash_inputs_extend;
-    FF expected_hash = hash;
-    auto infinity_serialized = Transcript::Codec::serialize_to_fields(point_at_infinity);
-
-    for (size_t idx = 0; idx < (MaxMergeSize - 1); idx++) {
-        hash_inputs_extend.push_back(extended_hash.back());
-        for (size_t col = 0; col < NUM_COLUMNS; col++) {
-            hash_inputs_extend.insert(hash_inputs_extend.end(), infinity_serialized.begin(), infinity_serialized.end());
-        }
-        extended_hash.push_back(crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(hash_inputs_extend));
-        hash_inputs_extend.clear();
-    }
-
     // Compute element-wise product of extended_hash and dirac_array
-    for (size_t i = 0; i < MaxMergeSize; ++i) {
-        extended_hash[i] = extended_hash[i] * dirac_array[i];
-    }
-    // Sum all elements to get expected_hash
-    expected_hash = std::accumulate(extended_hash.begin(), extended_hash.end(), FF(0));
-
-    return expected_hash == calculated_hash;
-}
-
-/**
- * @brief Recursive (in-circuit) version: verify column commitments match the running hash.
- *
- * @details Same logic as the native overload but uses stdlib Poseidon2 and manages origin tags
- * to avoid FREE_WITNESS / ORIGIN_TAGGED clashes inside the circuit hasher.
- */
-template <size_t BatchSize, typename Curve, size_t MaxMergeSize>
-bool BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::check_hash_consistency(
-    const std::vector<std::vector<Commitment>>& subtable_cols,
-    const FF& hash,
-    const std::vector<FF>& indicator_array,
-    const Commitment& point_at_infinity) const
-    requires IsRecursive
-{
-    // Construct array s.t. dirac_array[i] = (i == (M - N))
-    std::vector<FF> dirac_array = compute_dirac_array(indicator_array);
-
-    // Compute calculated_hash: Poseidon2 chain over all M subtable batches, oldest-first.
-    std::vector<FF> hash_inputs;
-    FF calculated_hash;
-    for (size_t idx = 0; idx < MaxMergeSize; idx++) {
-        for (size_t col = 0; col < NUM_COLUMNS; col++) {
-            auto com_serialized = Transcript::Codec::serialize_to_fields(subtable_cols[MaxMergeSize - idx - 1][col]);
-            hash_inputs.insert(hash_inputs.end(), com_serialized.begin(), com_serialized.end());
-        }
-        // The Poseidon2 permutation creates fresh witness_t elements (FREE_WITNESS) for each
-        // round's new state. When inputs exceed rate=3, an intermediate duplex fires and the
-        // resulting FREE_WITNESS state clashes with ORIGIN_TAGGED transcript fields in the next
-        // state+=cache step. Strip all origin tags first; the transcript has already bound these
-        // fields to the proof, so this is safe.
-        for (auto& f : hash_inputs) {
-            f.set_origin_tag(OriginTag::constant());
-        }
-        calculated_hash = stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs);
-        // Demote FREE_WITNESS output to CONSTANT so subsequent arithmetic (next hash iteration,
-        // the final expected_hash - calculated_hash comparison) does not clash with
-        // ORIGIN_TAGGED values (e.g. the index_diff condition in the extension loop).
-        calculated_hash.unset_free_witness_tag();
-        hash_inputs = { calculated_hash };
+    FF expected_hash = dirac_array[0] * calculated_hashes[0];
+    for (size_t i = 1; i < MaxMergeSize; ++i) {
+        expected_hash += calculated_hashes[i] * dirac_array[i];
     }
 
-    // Compute expected_hash: extend `hash` with M−N rounds of point-at-infinity padding to
-    // account for unused subtable slots, then select the value at position index_diff = M−N.
-    std::vector<FF> extended_hash = { hash };
-    std::vector<FF> hash_inputs_extend;
-    FF expected_hash = hash;
-    auto infinity_serialized = Transcript::Codec::serialize_to_fields(point_at_infinity);
-
-    for (size_t idx = 0; idx < (MaxMergeSize - 1); idx++) {
-        hash_inputs_extend.push_back(extended_hash.back());
-        for (size_t col = 0; col < NUM_COLUMNS; col++) {
-            hash_inputs_extend.insert(hash_inputs_extend.end(), infinity_serialized.begin(), infinity_serialized.end());
-        }
-        extended_hash.push_back(stdlib::poseidon2<typename Curve::Builder>::hash(hash_inputs_extend));
-        // Same reason as calculated_hash above: demote FREE_WITNESS output to CONSTANT so
-        // the conditional_assign below (which involves ORIGIN_TAGGED index_diff) does not throw.
-        extended_hash.back().unset_free_witness_tag();
-        hash_inputs_extend.clear();
+    if constexpr (IsRecursive) {
+        info("Expected hash ", expected_hash.get_value());
+    } else {
+        info("Expected hash: ", expected_hash);
     }
 
-    // Compute element-wise product of extended_hash and dirac_array
-    for (size_t i = 0; i < MaxMergeSize; ++i) {
-        extended_hash[i] = extended_hash[i] * dirac_array[i];
+    FF hash_diff = expected_hash - hash;
+    bool verified = true;
+    if constexpr (IsRecursive) {
+        verified = hash_diff.get_value() == 0;
+        hash_diff.assert_equal(FF(0), "BatchMergeVerifier: column commitments hash mismatch");
+    } else {
+        verified = hash_diff == FF(0);
     }
-    // Sum all elements to get expected_hash
-    expected_hash = std::accumulate(extended_hash.begin(), extended_hash.end(), FF(0));
 
-    FF hash_diff = expected_hash - calculated_hash;
-    bool verified = (hash_diff.get_value() == 0);
-    hash_diff.assert_equal(FF(0), "BatchMergeVerifier: column commitments hash mismatch");
     return verified;
 }
 
 // Explicit template instantiations
-template class BatchMergeVerifier_<1, curve::BN254, 24>;
-template class BatchMergeVerifier_<1, stdlib::bn254<MegaCircuitBuilder>, 24>;
-template class BatchMergeVerifier_<2, curve::BN254, 37>;
-template class BatchMergeVerifier_<2, stdlib::bn254<MegaCircuitBuilder>, 37>;
+template class BatchMergeVerifier_<1, curve::BN254, 48>;
+template class BatchMergeVerifier_<1, stdlib::bn254<MegaCircuitBuilder>, 48>;
+template class BatchMergeVerifier_<2, curve::BN254, 74>;
+template class BatchMergeVerifier_<2, stdlib::bn254<MegaCircuitBuilder>, 74>;
 template class BatchMergeVerifier_<4, curve::BN254, CHONK_MAX_ACCUMULATION_STEPS>;
 template class BatchMergeVerifier_<4, stdlib::bn254<MegaCircuitBuilder>, CHONK_MAX_ACCUMULATION_STEPS>;
 

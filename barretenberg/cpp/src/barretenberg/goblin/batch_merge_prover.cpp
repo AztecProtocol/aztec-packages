@@ -104,29 +104,33 @@ typename BatchMergeProver<BATCH_SIZE>::MergeProof BatchMergeProver<BATCH_SIZE>::
     }
     size_t max_shift_size = *std::ranges::max_element(shift_sizes);
 
-    // Send N and shift sizes to the verifier
-    transcript->send_to_verifier("batch_merge_num_subtables", static_cast<uint32_t>(N));
-    for (size_t i = 0; i < M; ++i) {
-        transcript->send_to_verifier("batch_merge_shift_size_" + std::to_string(i),
-                                     static_cast<uint32_t>(i < M - N ? 0U : shift_sizes[i - (M - N)]));
+    // -------------------------------------------------------------------------
+    // Step 2: Commit to columns to be merged (FIRST — before N/shift_sizes so that
+    // the transcript's Fiat-Shamir state covers the commitments before any other
+    // prover messages, matching the accumulation hash ordering).
+    // -------------------------------------------------------------------------
+    for (size_t idx = 0; idx < N; ++idx) {
+        for (size_t col = 0; col < NUM_COLUMNS; ++col) {
+            transcript->send_to_verifier(
+                "COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)),
+                pcs_commitment_key.commit_interleaved<BATCH_SIZE>(subtable_cols[N - idx - 1][col]));
+        }
+        FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx)); // update hash after each subtable
     }
 
-    // -------------------------------------------------------------------------
-    // Step 2: Commit to columns to be merged
-    // -------------------------------------------------------------------------
-    for (size_t idx = 0; idx < M - N; ++idx) {
+    for (size_t idx = N; idx < M; ++idx) {
         for (size_t col = 0; col < NUM_COLUMNS; ++col) {
             transcript->send_to_verifier("COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)),
                                          pcs_commitment_key.commit_interleaved<BATCH_SIZE>({}));
         }
+        FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx)); // update hash after each subtable
     }
 
-    for (size_t idx = M - N; idx < M; ++idx) {
-        for (size_t col = 0; col < NUM_COLUMNS; ++col) {
-            transcript->send_to_verifier(
-                "COLUMN_" + std::to_string(col + (idx * NUM_COLUMNS)),
-                pcs_commitment_key.commit_interleaved<BATCH_SIZE>(subtable_cols[idx - (M - N)][col]));
-        }
+    // Send N and shift sizes to the verifier (after commitments)
+    transcript->send_to_verifier("batch_merge_num_subtables", static_cast<uint32_t>(N));
+    for (size_t i = 0; i < M; ++i) {
+        transcript->send_to_verifier("batch_merge_shift_size_" + std::to_string(i),
+                                     static_cast<uint32_t>(i < M - N ? 0U : shift_sizes[i - (M - N)]));
     }
 
     // -------------------------------------------------------------------------

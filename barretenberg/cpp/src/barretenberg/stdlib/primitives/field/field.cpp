@@ -512,6 +512,57 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     return accumulator;
 }
 
+template <typename Builder>
+template <size_t LOG_N>
+field_t<Builder> field_t<Builder>::pow_log_n(const field_t& exponent) const
+{
+    uint256_t exponent_value = exponent.get_value();
+    static_assert(LOG_N <= 32U, "LOG_N must be at most 32 in field_t::pow_log_n");
+    BB_ASSERT_LT(exponent_value.get_msb(), LOG_N, "Exponent too large in field_t::pow_log_n");
+
+    if (is_constant() && exponent.is_constant()) {
+        return field_t(get_value().pow(exponent_value));
+    }
+    // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
+    if (exponent.is_constant()) {
+        return pow(static_cast<uint32_t>(exponent_value));
+    }
+
+    auto* ctx = validate_context(context, exponent.context);
+
+    std::array<bool_t<Builder>, LOG_N> exponent_bits;
+    // Collect individual bits as bool_t's
+    for (size_t i = 0; i < exponent_bits.size(); ++i) {
+        uint256_t value_bit = exponent_value & 1;
+        bool_t<Builder> bit;
+        bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
+        bit.set_origin_tag(exponent.tag);
+        exponent_bits[LOG_N - 1 - i] = bit;
+        exponent_value >>= 1;
+    }
+
+    field_t<Builder> exponent_accumulator(bb::fr::zero());
+    for (const auto& bit : exponent_bits) {
+        exponent_accumulator += exponent_accumulator;
+        exponent_accumulator += bit;
+    }
+    // Constrain the sum of bool_t bits to be equal to the original exponent value.
+    exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+
+    // Compute the result of exponentiation
+    field_t accumulator(ctx, bb::fr::one());
+    const field_t one(bb::fr::one());
+    for (size_t i = 0; i < LOG_N; ++i) {
+        accumulator *= accumulator;
+        // If current bit == 1, multiply by the base, else propagate the accumulator
+        const field_t multiplier = conditional_assign_internal(exponent_bits[i], *this, one);
+        accumulator *= multiplier;
+    }
+    accumulator = accumulator.normalize();
+    accumulator.tag = OriginTag(tag, exponent.tag);
+    return accumulator;
+}
+
 /**
  * @returns Efficiently compute `this * to_mul + to_add` using custom `big_mul` gate.
  */
@@ -1348,5 +1399,11 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at
 
 template class field_t<bb::UltraCircuitBuilder>;
 template class field_t<bb::MegaCircuitBuilder>;
+
+template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N>(
+    const field_t<bb::UltraCircuitBuilder>&) const;
+
+template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N>(
+    const field_t<bb::MegaCircuitBuilder>&) const;
 
 } // namespace bb::stdlib

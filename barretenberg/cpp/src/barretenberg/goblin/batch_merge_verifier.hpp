@@ -75,6 +75,15 @@ template <size_t BatchSize, typename Curve, size_t MaxMergeSize> class BatchMerg
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(const Proof& proof,
                                                                                                    const FF hash);
 
+    /**
+     * @brief Compute one step of the ECC op running hash (with previous hash).
+     * @details Returns Poseidon2([prev_hash, serialize_to_fields(col_commitments)]).
+     *          Used for all non-first accumulation steps in chonk.cpp and for all steps
+     *          after the first when rebuilding the hash chain in the batch merge verifier.
+     */
+    static FF ecc_op_hash_step(const std::vector<Commitment>& col_commitments,
+                               const std::optional<FF>& prev_hash = std::nullopt);
+
   private:
     std::vector<FF> compute_indicator_array(const FF& N) const;
 
@@ -93,17 +102,9 @@ template <size_t BatchSize, typename Curve, size_t MaxMergeSize> class BatchMerg
                                const FF& kappa) const;
 
     // Verify that the column commitments in the proof match the running hash from accumulation.
-    bool check_hash_consistency(const std::vector<std::vector<Commitment>>& subtable_cols,
-                                const FF& hash,
-                                const std::vector<FF>& indicator_array,
-                                const Commitment& point_at_infinity) const
-        requires IsRecursive;
-
-    bool check_hash_consistency(const std::vector<std::vector<Commitment>>& subtable_cols,
-                                const FF& hash,
-                                const std::vector<FF>& indicator_array,
-                                const Commitment& point_at_infinity) const
-        requires(!IsRecursive);
+    bool check_hash_consistency(const FF& hash,
+                                const std::vector<FF>& calculated_hashes,
+                                const std::vector<FF>& indicator_array) const;
 };
 
 // Type aliases for convenience
