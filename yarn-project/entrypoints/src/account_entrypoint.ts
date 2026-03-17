@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type FunctionAbi, FunctionCall, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
@@ -66,7 +67,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     options: DefaultAccountEntrypointOptions,
   ): Promise<TxExecutionRequest> {
     const { authWitnesses, capsules, extraHashedArgs } = exec;
-    const callData = await this.#buildEntrypointCallData(exec, options);
+    const callData = await this.#buildEntrypointCallData(exec, options, chainInfo);
     const entrypointHashedArgs = await HashedValues.fromArgs(callData.encodedArgs);
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
@@ -84,10 +85,11 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
 
   async wrapExecutionPayload(
     exec: ExecutionPayload,
+    chainInfo: ChainInfo,
     options: DefaultAccountEntrypointOptions,
   ): Promise<ExecutionPayload> {
     const { authWitnesses, capsules, extraHashedArgs, feePayer } = exec;
-    const callData = await this.#buildEntrypointCallData(exec, options);
+    const callData = await this.#buildEntrypointCallData(exec, options, chainInfo);
 
     // Build the entrypoint function call
     const entrypointCall = FunctionCall.from({
@@ -115,9 +117,14 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
    * This includes encoding calls, building entrypoint arguments, and creating the authwitness.
    * @param exec - The execution payload containing calls to encode
    * @param options - Account entrypoint options including tx nonce and fee payment method
+   * @param chainInfo - Chain information (chainId and version) for replay protection
    * @returns Encoded call data, ABI, function selector, and auth witness
    */
-  async #buildEntrypointCallData(exec: ExecutionPayload, options: DefaultAccountEntrypointOptions) {
+  async #buildEntrypointCallData(
+    exec: ExecutionPayload,
+    options: DefaultAccountEntrypointOptions,
+    chainInfo: ChainInfo,
+  ) {
     const { calls } = exec;
     const { cancellable, txNonce, feePaymentMethodOptions } = options;
 
@@ -129,7 +136,9 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
 
     const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
 
-    const payloadAuthWitness = await this.auth.createAuthWit(await encodedCalls.hash());
+    const payloadHash = await encodedCalls.hash();
+    const messageHash = await computeOuterAuthWitHash(this.address, chainInfo.chainId, chainInfo.version, payloadHash);
+    const payloadAuthWitness = await this.auth.createAuthWit(messageHash);
 
     return {
       encodedCalls,
