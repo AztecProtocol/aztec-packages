@@ -29,7 +29,7 @@ namespace bb {
  * @note This ensures the following:
  *   * every WNAF slice computed during scalar decomposition must be used exactly once during the MSM computation.
  * @warning There is a subtlety in this table, which slightly complicates the abstraction of multiset-equality testing.
- * On the denominator side, when `addX == 0` for all `X ∈ {1, 2, 3, 4}` (automatically forced by `add1 == 0`), we
+ * On the denominator side, when `addX == 0` for all `X ∈ {1, ..., 8}` (automatically forced by `add1 == 0`), we
  * multiply by 1. On the numerator side, to balance this out, this means that when `precompute_select == 0`, we must
  * multiply by an additional `eccvm_set_permutation_delta`, which is the _inverse_ of the fingerprint of the tuple `(0,
  * 0, 0)`. (This corresponds to "removing" the tuple `(0, 0, 0)` from the left multiset when `precompute_select == 0`).
@@ -94,14 +94,15 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
      * part of ECCVMWnafRelation.
      *
      * @details
-     * There are 4 tuple entries per row of the Precompute table. Moreover, the element that "increments" is
-     * 4 * `precompute_round`, due to the fact that the Precompute columns contain four "digits"/slices per row.
+     * There are 8 tuple entries per row of the Precompute table. Moreover, the element that "increments" is
+     * 8 * `precompute_round`, due to the fact that the Precompute columns contain eight "digits"/slices per row.
      *
      * @note
      * We only add this tuple if `precompute_select == 1`. Otherwise, we add a the tuple (0, 0, 0).
      */
 
-    // OPTIMIZE(@zac-williamson #2226) optimize degrees
+    // precompute_round8 = 8 * precompute_round (each row holds 8 digits)
+    const auto precompute_round8 = precompute_round4 + precompute_round4;
 
     Accumulator numerator(1); // degree-0
     {
@@ -113,7 +114,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += s1;
 
         const auto wnaf_slice_input0 =
-            wnaf_slice + gamma + precompute_pc * beta + precompute_round4 * beta_sqr + first_term_tag;
+            wnaf_slice + gamma + precompute_pc * beta + precompute_round8 * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input0; // degree-1
     }
     {
@@ -125,7 +126,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += s1;
 
         const auto wnaf_slice_input1 =
-            wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 1) * beta_sqr + first_term_tag;
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round8 + 1) * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input1; // degree-2
     }
     {
@@ -137,7 +138,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += s1;
 
         const auto wnaf_slice_input2 =
-            wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 2) * beta_sqr + first_term_tag;
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round8 + 2) * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input2; // degree-3
     }
     {
@@ -147,27 +148,76 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
+
         const auto wnaf_slice_input3 =
-            wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr + first_term_tag;
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round8 + 3) * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input3; // degree-4
+    }
+    {
+        const auto& s0 = View(in.precompute_s5hi);
+        const auto& s1 = View(in.precompute_s5lo);
+
+        auto wnaf_slice = s0 + s0;
+        wnaf_slice += wnaf_slice;
+        wnaf_slice += s1;
+
+        const auto wnaf_slice_input4 =
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round8 + 4) * beta_sqr + first_term_tag;
+        numerator *= wnaf_slice_input4; // degree-5
+    }
+    {
+        const auto& s0 = View(in.precompute_s6hi);
+        const auto& s1 = View(in.precompute_s6lo);
+
+        auto wnaf_slice = s0 + s0;
+        wnaf_slice += wnaf_slice;
+        wnaf_slice += s1;
+
+        const auto wnaf_slice_input5 =
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round8 + 5) * beta_sqr + first_term_tag;
+        numerator *= wnaf_slice_input5; // degree-6
+    }
+    {
+        const auto& s0 = View(in.precompute_s7hi);
+        const auto& s1 = View(in.precompute_s7lo);
+
+        auto wnaf_slice = s0 + s0;
+        wnaf_slice += wnaf_slice;
+        wnaf_slice += s1;
+
+        const auto wnaf_slice_input6 =
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round8 + 6) * beta_sqr + first_term_tag;
+        numerator *= wnaf_slice_input6; // degree-7
+    }
+    {
+        const auto& s0 = View(in.precompute_s8hi);
+        const auto& s1 = View(in.precompute_s8lo);
+
+        auto wnaf_slice = s0 + s0;
+        wnaf_slice += wnaf_slice;
+        wnaf_slice += s1;
+
+        const auto wnaf_slice_input7 =
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round8 + 7) * beta_sqr + first_term_tag;
+        numerator *= wnaf_slice_input7; // degree-8
     }
     {
         // skew product if relevant
         const auto& skew = View(in.precompute_skew);
         const auto& precompute_point_transition = View(in.precompute_point_transition);
         const auto skew_input = precompute_point_transition * (skew + gamma + precompute_pc * beta +
-                                                               (precompute_round4 + 4) * beta_sqr + first_term_tag) +
+                                                               (precompute_round8 + 8) * beta_sqr + first_term_tag) +
                                 (-precompute_point_transition + 1);
-        numerator *= skew_input; // degree-6
+        numerator *= skew_input; // degree-10
     }
     {
         // in `EccvmProver` and `ECCVMVerifier`, we see that `eccvm_set_permutation_delta` is initially computed as
-        // (γ+t·β⁴)·(γ+β²+t·β⁴)·(γ+2β²+t·β⁴)·(γ+3β²+t·β⁴) (where t = FIRST_TERM_TAG) and _then_ inverted.
+        // the product of 8 terms (γ+j·β²+t·β⁴) for j=0..7 (where t = FIRST_TERM_TAG) and _then_ inverted.
         const auto& eccvm_set_permutation_delta = params.eccvm_set_permutation_delta;
         // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
         // to work (as we have zero-padded the rows of the MSM table), we must multiply by the inverse of the
         // fingerprint of (0, 0, 0).
-        numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
+        numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-11
     }
 
     /**
@@ -205,7 +255,12 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         const auto w1 = convert_to_wnaf<Accumulator>(View(in.precompute_s2hi), View(in.precompute_s2lo));
         const auto w2 = convert_to_wnaf<Accumulator>(View(in.precompute_s3hi), View(in.precompute_s3lo));
         const auto w3 = convert_to_wnaf<Accumulator>(View(in.precompute_s4hi), View(in.precompute_s4lo));
+        const auto w4 = convert_to_wnaf<Accumulator>(View(in.precompute_s5hi), View(in.precompute_s5lo));
+        const auto w5 = convert_to_wnaf<Accumulator>(View(in.precompute_s6hi), View(in.precompute_s6lo));
+        const auto w6 = convert_to_wnaf<Accumulator>(View(in.precompute_s7hi), View(in.precompute_s7lo));
+        const auto w7 = convert_to_wnaf<Accumulator>(View(in.precompute_s8hi), View(in.precompute_s8lo));
 
+        // row_slice = 2^28*w0 + 2^24*w1 + ... + 2^4*w6 + w7 (Horner for 8 digits)
         auto row_slice = w0;
         row_slice += row_slice;
         row_slice += row_slice;
@@ -221,26 +276,62 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         row_slice += row_slice;
         row_slice += row_slice;
         row_slice += row_slice;
-        row_slice += w3; // row_slice = 2^12 w_0 + 2^8 w_1 + 2^4 w_2 + 2^0 w_3
+        row_slice += w3;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += w4;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += w5;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += w6;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += row_slice;
+        row_slice += w7;
 
+        // scalar_sum_full = 2^32 * wnaf_scalar_sum + row_slice + adjusted_skew
         auto scalar_sum_full = wnaf_scalar_sum + wnaf_scalar_sum;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += scalar_sum_full;
-        scalar_sum_full +=
-            row_slice + adjusted_skew; // scalar_sum_full = 2^16 * wnaf_scalar_sum + row_slice + adjusted_skew
+        scalar_sum_full += scalar_sum_full; // 4x
+        scalar_sum_full += scalar_sum_full; // 8x
+        scalar_sum_full += scalar_sum_full; // 16x
+        scalar_sum_full += scalar_sum_full; // 32x
+        scalar_sum_full += scalar_sum_full; // 64x
+        scalar_sum_full += scalar_sum_full; // 128x
+        scalar_sum_full += scalar_sum_full; // 256x
+        scalar_sum_full += scalar_sum_full; // 512x
+        scalar_sum_full += scalar_sum_full; // 1024x
+        scalar_sum_full += scalar_sum_full; // 2048x
+        scalar_sum_full += scalar_sum_full; // 4096x
+        scalar_sum_full += scalar_sum_full; // 8192x
+        scalar_sum_full += scalar_sum_full; // 16384x
+        scalar_sum_full += scalar_sum_full; // 32768x
+        scalar_sum_full += scalar_sum_full; // 65536x
+        scalar_sum_full += scalar_sum_full; // 2^17
+        scalar_sum_full += scalar_sum_full; // 2^18
+        scalar_sum_full += scalar_sum_full; // 2^19
+        scalar_sum_full += scalar_sum_full; // 2^20
+        scalar_sum_full += scalar_sum_full; // 2^21
+        scalar_sum_full += scalar_sum_full; // 2^22
+        scalar_sum_full += scalar_sum_full; // 2^23
+        scalar_sum_full += scalar_sum_full; // 2^24
+        scalar_sum_full += scalar_sum_full; // 2^25
+        scalar_sum_full += scalar_sum_full; // 2^26
+        scalar_sum_full += scalar_sum_full; // 2^27
+        scalar_sum_full += scalar_sum_full; // 2^28
+        scalar_sum_full += scalar_sum_full; // 2^29
+        scalar_sum_full += scalar_sum_full; // 2^30
+        scalar_sum_full += scalar_sum_full; // 2^31
+        scalar_sum_full += scalar_sum_full; // 2^32
+        scalar_sum_full += row_slice + adjusted_skew;
 
         auto precompute_point_transition = View(in.precompute_point_transition);
 
@@ -306,7 +397,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 {
     using View = typename Accumulator::View;
 
-    // OPTIMIZE(@zac-williamson). The degree of this contribution is 17! makes overall relation degree 19.
+    // OPTIMIZE(@zac-williamson). The degree of the denominator is 28, making overall relation degree ~29.
     // Can potentially optimize by refining the algebra.
     const auto& gamma = params.gamma;
     const auto& beta = params.beta;
@@ -324,7 +415,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 
     /**
      * @brief First term: tuple of (pc, round, wnaf_slice), used to determine which points we extract from lookup tables
-     * when evaluaing MSMs in ECCVMMsmRelation.
+     * when evaluating MSMs in ECCVMMsmRelation.
      * These values must be equivalent to the values computed in the 1st term of `compute_grand_product_numerator`
      */
     Accumulator denominator(1); // degree-0
@@ -362,6 +453,38 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
             add4 * (msm_slice4 + gamma + (msm_pc - msm_count - 3) * beta + msm_round * beta_sqr + first_term_tag) +
             (-add4 + 1);
         denominator *= wnaf_slice_output4; // degree-8
+    }
+    {
+        const auto& add5 = View(in.msm_add5);
+        const auto& msm_slice5 = View(in.msm_slice5);
+        auto wnaf_slice_output5 =
+            add5 * (msm_slice5 + gamma + (msm_pc - msm_count - 4) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add5 + 1);
+        denominator *= wnaf_slice_output5; // degree-10
+    }
+    {
+        const auto& add6 = View(in.msm_add6);
+        const auto& msm_slice6 = View(in.msm_slice6);
+        auto wnaf_slice_output6 =
+            add6 * (msm_slice6 + gamma + (msm_pc - msm_count - 5) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add6 + 1);
+        denominator *= wnaf_slice_output6; // degree-12
+    }
+    {
+        const auto& add7 = View(in.msm_add7);
+        const auto& msm_slice7 = View(in.msm_slice7);
+        auto wnaf_slice_output7 =
+            add7 * (msm_slice7 + gamma + (msm_pc - msm_count - 6) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add7 + 1);
+        denominator *= wnaf_slice_output7; // degree-14
+    }
+    {
+        const auto& add8 = View(in.msm_add8);
+        const auto& msm_slice8 = View(in.msm_slice8);
+        auto wnaf_slice_output8 =
+            add8 * (msm_slice8 + gamma + (msm_pc - msm_count - 7) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add8 + 1);
+        denominator *= wnaf_slice_output8; // degree-16
     }
 
     /**
@@ -419,7 +542,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 
         // point_table_init_write = degree 7
         auto point_table_init_write = transcript_mul * transcript_product + (-transcript_mul + 1);
-        denominator *= point_table_init_write; // degree 17
+        denominator *= point_table_init_write; // degree-25
     }
     /**
      * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
@@ -454,7 +577,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         auto msm_result_read = transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr +
                                full_msm_count * beta_cube + third_term_tag;
         msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
-        denominator *= msm_result_read; // degree-20
+        denominator *= msm_result_read; // degree-28
     }
     return denominator;
 }
@@ -480,10 +603,10 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     using View = typename Accumulator::View;
     using ShortView = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
 
-    // degree-11
+    // degree-15 (8 slices + skew + delta + second term + third term)
     Accumulator numerator_evaluation = compute_grand_product_numerator<Accumulator>(in, params);
 
-    // degree-20
+    // degree-27 (8 add-gated tuples + second term + third term)
     Accumulator denominator_evaluation = compute_grand_product_denominator<Accumulator>(in, params);
 
     const auto& lagrange_first = View(in.lagrange_first);
@@ -494,7 +617,7 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& z_perm_shift = View(in.z_perm_shift);
     const auto& z_perm_shift_short = ShortView(in.z_perm_shift);
 
-    // degree-21
+    // degree-28
     std::get<0>(accumulator) +=
         ((z_perm + lagrange_first) * numerator_evaluation - (z_perm_shift + lagrange_last) * denominator_evaluation) *
         scaling_factor;

@@ -27,7 +27,7 @@ template <typename FF_> class ECCVMSetRelationImpl {
     static constexpr uint64_t THIRD_TERM_TAG = 3;  // (pc, P.x, P.y, msm_size)
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        22, // grand product construction sub-relation
+        29, // grand product construction sub-relation (8-wide: denom degree 28 + 1)
         3   // left-shiftable polynomial sub-relation
     };
     // prover optimization to allow for skipping the computation of sub-relations at certain points in sumcheck.
