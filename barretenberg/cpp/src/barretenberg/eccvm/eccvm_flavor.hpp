@@ -65,7 +65,7 @@ class ECCVMFlavor {
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
-    static constexpr size_t NUM_WIRES = 85;
+    static constexpr size_t NUM_WIRES = 121; // was 85, +36 for 8-wide
 
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
@@ -73,16 +73,16 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 118;
+    // NUM_ALL_ENTITIES = masking(1) + precomputed(4) + witness(123) + shifted(28) = 156
+    static constexpr size_t NUM_ALL_ENTITIES = 156;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
-    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
+    // witness = non-shifted(94) + to-be-shifted-no-acc(24) + accumulators(3) + derived(2) = 123
+    static constexpr size_t NUM_WITNESS_ENTITIES = 123;
     // The number of entities in ShiftedEntities.
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 28; // was 26, +2 for precompute_tx2/ty2 shifts
     // The number of entities in DerivedWitnessEntities that are not going to be shifted.
     static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
@@ -251,7 +251,48 @@ class ECCVMFlavor {
                               transcript_msm_infinity,                    // column 56
                               transcript_msm_x_inverse,                   // column 57
                               transcript_msm_count_zero_at_transition,    // column 58
-                              transcript_msm_count_at_transition_inverse) // column 59
+                              transcript_msm_count_at_transition_inverse, // column 59
+                              // --- 8-wide additions: new precompute slice columns ---
+                              precompute_s5hi, // column 60
+                              precompute_s5lo, // column 61
+                              precompute_s6hi, // column 62
+                              precompute_s6lo, // column 63
+                              precompute_s7hi, // column 64
+                              precompute_s7lo, // column 65
+                              precompute_s8hi, // column 66
+                              precompute_s8lo, // column 67
+                              // --- 8-wide additions: new MSM add selectors ---
+                              msm_add5, // column 68
+                              msm_add6, // column 69
+                              msm_add7, // column 70
+                              msm_add8, // column 71
+                              // --- 8-wide additions: new MSM point coordinates ---
+                              msm_x5, // column 72
+                              msm_y5, // column 73
+                              msm_x6, // column 74
+                              msm_y6, // column 75
+                              msm_x7, // column 76
+                              msm_y7, // column 77
+                              msm_x8, // column 78
+                              msm_y8, // column 79
+                              // --- 8-wide additions: new MSM collision inverses ---
+                              msm_collision_x5, // column 80
+                              msm_collision_x6, // column 81
+                              msm_collision_x7, // column 82
+                              msm_collision_x8, // column 83
+                              // --- 8-wide additions: new MSM lambdas ---
+                              msm_lambda5, // column 84
+                              msm_lambda6, // column 85
+                              msm_lambda7, // column 86
+                              msm_lambda8, // column 87
+                              // --- 8-wide additions: new MSM slices ---
+                              msm_slice5, // column 88
+                              msm_slice6, // column 89
+                              msm_slice7, // column 90
+                              msm_slice8, // column 91
+                              // --- 8-wide additions: additional lookup read counts ---
+                              lookup_read_counts_2, // column 92
+                              lookup_read_counts_3) // column 93
     };
 
     /**
@@ -271,28 +312,31 @@ class ECCVMFlavor {
     template <typename DataType> class WireToBeShiftedWithoutAccumulatorsEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_mul,        // column 60
-                              transcript_msm_count,  // column 61
-                              precompute_scalar_sum, // column 62
-                              precompute_s1hi,       // column 63
-                              precompute_dx,         // column 64
-                              precompute_dy,         // column 65
-                              precompute_tx,         // column 66
-                              precompute_ty,         // column 67
-                              msm_transition,        // column 68
-                              msm_add,               // column 69
-                              msm_double,            // column 70
-                              msm_skew,              // column 71
-                              msm_accumulator_x,     // column 72
-                              msm_accumulator_y,     // column 73
-                              msm_count,             // column 74
-                              msm_round,             // column 75
-                              msm_add1,              // column 76
-                              msm_pc,                // column 77
-                              precompute_pc,         // column 78
-                              transcript_pc,         // column 79
-                              precompute_round,      // column 80
-                              precompute_select)     // column 81
+                              transcript_mul,        // column 94
+                              transcript_msm_count,  // column 95
+                              precompute_scalar_sum, // column 96
+                              precompute_s1hi,       // column 97
+                              precompute_dx,         // column 98
+                              precompute_dy,         // column 99
+                              precompute_tx,         // column 100
+                              precompute_ty,         // column 101
+                              msm_transition,        // column 102
+                              msm_add,               // column 103
+                              msm_double,            // column 104
+                              msm_skew,              // column 105
+                              msm_accumulator_x,     // column 106
+                              msm_accumulator_y,     // column 107
+                              msm_count,             // column 108
+                              msm_round,             // column 109
+                              msm_add1,              // column 110
+                              msm_pc,                // column 111
+                              precompute_pc,         // column 112
+                              transcript_pc,         // column 113
+                              precompute_round,      // column 114
+                              precompute_select,     // column 115
+                              // --- 8-wide additions: 2nd precomputed point (needs shift for inter-row constraints) ---
+                              precompute_tx2, // column 116
+                              precompute_ty2) // column 117
     };
 
     /**
@@ -302,9 +346,9 @@ class ECCVMFlavor {
     template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_accumulator_not_empty, // column 82
-                              transcript_accumulator_x,         // column 83
-                              transcript_accumulator_y)         // column 84
+                              transcript_accumulator_not_empty, // column 118
+                              transcript_accumulator_x,         // column 119
+                              transcript_accumulator_y)         // column 120
     };
 
     /**
@@ -365,10 +409,12 @@ class ECCVMFlavor {
                               transcript_pc_shift,                    // column 19
                               precompute_round_shift,                 // column 20
                               precompute_select_shift,                // column 21
-                              transcript_accumulator_not_empty_shift, // column 22
-                              transcript_accumulator_x_shift,         // column 23
-                              transcript_accumulator_y_shift,         // column 24
-                              z_perm_shift);                          // column 25
+                              precompute_tx2_shift,                   // column 22
+                              precompute_ty2_shift,                   // column 23
+                              transcript_accumulator_not_empty_shift, // column 24
+                              transcript_accumulator_x_shift,         // column 25
+                              transcript_accumulator_y_shift,         // column 26
+                              z_perm_shift);                          // column 27
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
@@ -397,10 +443,12 @@ class ECCVMFlavor {
                          entities.transcript_pc,                    // column 19
                          entities.precompute_round,                 // column 20
                          entities.precompute_select,                // column 21
-                         entities.transcript_accumulator_not_empty, // column 22
-                         entities.transcript_accumulator_x,         // column 23
-                         entities.transcript_accumulator_y,         // column 24
-                         entities.z_perm };                         // column 25
+                         entities.precompute_tx2,                   // column 22
+                         entities.precompute_ty2,                   // column 23
+                         entities.transcript_accumulator_not_empty, // column 24
+                         entities.transcript_accumulator_x,         // column 25
+                         entities.transcript_accumulator_y,         // column 26
+                         entities.z_perm };                         // column 27
     }
 
     /**
@@ -881,11 +929,50 @@ class ECCVMFlavor {
             Base::msm_slice2 = "MSM_SLICE2";
             Base::msm_slice3 = "MSM_SLICE3";
             Base::msm_slice4 = "MSM_SLICE4";
+            // 8-wide additions: new precompute slice labels
+            Base::precompute_s5hi = "PRECOMPUTE_S5HI";
+            Base::precompute_s5lo = "PRECOMPUTE_S5LO";
+            Base::precompute_s6hi = "PRECOMPUTE_S6HI";
+            Base::precompute_s6lo = "PRECOMPUTE_S6LO";
+            Base::precompute_s7hi = "PRECOMPUTE_S7HI";
+            Base::precompute_s7lo = "PRECOMPUTE_S7LO";
+            Base::precompute_s8hi = "PRECOMPUTE_S8HI";
+            Base::precompute_s8lo = "PRECOMPUTE_S8LO";
+            // 8-wide additions: new MSM labels
+            Base::msm_add5 = "MSM_ADD5";
+            Base::msm_add6 = "MSM_ADD6";
+            Base::msm_add7 = "MSM_ADD7";
+            Base::msm_add8 = "MSM_ADD8";
+            Base::msm_x5 = "MSM_X5";
+            Base::msm_y5 = "MSM_Y5";
+            Base::msm_x6 = "MSM_X6";
+            Base::msm_y6 = "MSM_Y6";
+            Base::msm_x7 = "MSM_X7";
+            Base::msm_y7 = "MSM_Y7";
+            Base::msm_x8 = "MSM_X8";
+            Base::msm_y8 = "MSM_Y8";
+            Base::msm_collision_x5 = "MSM_COLLISION_X5";
+            Base::msm_collision_x6 = "MSM_COLLISION_X6";
+            Base::msm_collision_x7 = "MSM_COLLISION_X7";
+            Base::msm_collision_x8 = "MSM_COLLISION_X8";
+            Base::msm_lambda5 = "MSM_LAMBDA5";
+            Base::msm_lambda6 = "MSM_LAMBDA6";
+            Base::msm_lambda7 = "MSM_LAMBDA7";
+            Base::msm_lambda8 = "MSM_LAMBDA8";
+            Base::msm_slice5 = "MSM_SLICE5";
+            Base::msm_slice6 = "MSM_SLICE6";
+            Base::msm_slice7 = "MSM_SLICE7";
+            Base::msm_slice8 = "MSM_SLICE8";
+            // 8-wide additions: new precomputed point labels
+            Base::precompute_tx2 = "PRECOMPUTE_TX2";
+            Base::precompute_ty2 = "PRECOMPUTE_TY2";
             Base::transcript_accumulator_not_empty = "TRANSCRIPT_ACCUMULATOR_NOT_EMPTY";
             Base::transcript_reset_accumulator = "TRANSCRIPT_RESET_ACCUMULATOR";
             Base::precompute_select = "PRECOMPUTE_SELECT";
             Base::lookup_read_counts_0 = "LOOKUP_READ_COUNTS_0";
             Base::lookup_read_counts_1 = "LOOKUP_READ_COUNTS_1";
+            Base::lookup_read_counts_2 = "LOOKUP_READ_COUNTS_2";
+            Base::lookup_read_counts_3 = "LOOKUP_READ_COUNTS_3";
             Base::transcript_base_infinity = "TRANSCRIPT_BASE_INFINITY";
             Base::transcript_base_x_inverse = "TRANSCRIPT_BASE_X_INVERSE";
             Base::transcript_base_y_inverse = "TRANSCRIPT_BASE_Y_INVERSE";
