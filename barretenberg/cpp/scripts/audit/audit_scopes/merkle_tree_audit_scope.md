@@ -1,7 +1,7 @@
 # External Audit Scope: merkle_tree
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: Most recent commit on branch 'next'
+Commit hash: 158dd845c99f8f702979c20f1625730d126c4b20
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
