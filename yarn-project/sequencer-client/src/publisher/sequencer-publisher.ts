@@ -128,7 +128,12 @@ export class SequencerPublisher {
 
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
+  /** Max entries for governance payload caches to prevent unbounded memory growth. */
+  private static readonly MAX_PAYLOAD_CACHE_SIZE = 1000;
+
+  /** Caches whether a governance payload address has code (empty = no code). Bounded to prevent memory leaks. */
   private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
+  /** Caches whether a governance payload has already been proposed. Bounded to prevent memory leaks. */
   private payloadProposedCache: Set<string> = new Set<string>();
 
   protected log: Logger;
@@ -883,6 +888,9 @@ export class SequencerPublisher {
           true,
         );
         if (proposed) {
+          if (this.payloadProposedCache.size >= SequencerPublisher.MAX_PAYLOAD_CACHE_SIZE) {
+            this.payloadProposedCache.clear();
+          }
           this.payloadProposedCache.add(cacheKey);
         }
       } catch (err) {
@@ -973,10 +981,13 @@ export class SequencerPublisher {
   private async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
     const key = payload.toString();
     const cached = this.isPayloadEmptyCache.get(key);
-    if (cached) {
+    if (cached !== undefined) {
       return cached;
     }
     const isEmpty = !(await this.l1TxUtils.getCode(payload));
+    if (this.isPayloadEmptyCache.size >= SequencerPublisher.MAX_PAYLOAD_CACHE_SIZE) {
+      this.isPayloadEmptyCache.clear();
+    }
     this.isPayloadEmptyCache.set(key, isEmpty);
     return isEmpty;
   }
