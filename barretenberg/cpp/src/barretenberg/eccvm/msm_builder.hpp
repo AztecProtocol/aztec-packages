@@ -263,6 +263,9 @@ class ECCVMMSMMBuilder {
         // doubling. if it is `true`, then we are doubling (i.e., the condition is that `p3 = p1.dbl()`), else we are
         // adding (i.e., the condition is that `p3 = p1 + p2`).
         std::vector<bool> is_double_or_add(num_point_adds_and_doubles);
+        // `is_used` records whether a trace entry is actually used (as opposed to padding for ADDITIONS_PER_ROW >
+        // DOUBLINGS_PER_ROW in doubling rows). Unused entries must be skipped during batch inversion.
+        std::vector<bool> is_used(num_point_adds_and_doubles, false);
         // accumulator_trace tracks the value of the ECCVM accumulator for each row
         std::span<Element> accumulator_trace(&points_to_normalize[num_point_adds_and_doubles * 3], num_accumulators);
 
@@ -328,6 +331,7 @@ class ECCVMMSMMBuilder {
                         p2_trace[trace_index] = p2;
                         p3_trace[trace_index] = accumulator;
                         is_double_or_add[trace_index] = false;
+                        is_used[trace_index] = true;
                         trace_index++;
                     }
                     // Now, `row.add_state` has been fully processed and we fill in the rest of the members of `row`.
@@ -366,10 +370,17 @@ class ECCVMMSMMBuilder {
                         accumulator = accumulator.dbl();
                         p3_trace[trace_index] = accumulator;
                         is_double_or_add[trace_index] = true;
+                        is_used[trace_index] = true;
                         trace_index++;
                     }
-                    // Skip unused trace slots for this row (ADDITIONS_PER_ROW allocated, only DOUBLINGS_PER_ROW used)
-                    trace_index += (ADDITIONS_PER_ROW - DOUBLINGS_PER_ROW);
+                    // Fill unused trace slots with dummy non-infinity points so batch_normalize doesn't
+                    // fail on z=0. These entries are not used for any relation computation.
+                    for (size_t pad = 0; pad < (ADDITIONS_PER_ROW - DOUBLINGS_PER_ROW); ++pad) {
+                        p1_trace[trace_index] = accumulator;
+                        p2_trace[trace_index] = accumulator;
+                        p3_trace[trace_index] = accumulator;
+                        trace_index++;
+                    }
                     accumulator_trace[msm_row_index] = accumulator;
                     msm_row_index++;
                 } else // process `wnaf_skew`, i.e., the skew digit.
@@ -402,6 +413,7 @@ class ECCVMMSMMBuilder {
                             p2_trace[trace_index] = add_state.point;
                             p3_trace[trace_index] = accumulator;
                             is_double_or_add[trace_index] = false;
+                            is_used[trace_index] = true;
                             trace_index++;
                         }
                         row.q_add = false;
@@ -427,7 +439,11 @@ class ECCVMMSMMBuilder {
         std::vector<FF> inverse_trace(num_point_adds_and_doubles);
         parallel_for_range(num_point_adds_and_doubles, [&](size_t start, size_t end) {
             for (size_t operation_idx = start; operation_idx < end; ++operation_idx) {
-                if (is_double_or_add[operation_idx]) {
+                if (!is_used[operation_idx]) {
+                    // Unused trace slots (padding for ADDITIONS_PER_ROW > DOUBLINGS_PER_ROW in doubling rows).
+                    // Set to 1 so batch_invert doesn't fail on zero.
+                    inverse_trace[operation_idx] = 1;
+                } else if (is_double_or_add[operation_idx]) {
                     inverse_trace[operation_idx] = (p1_trace[operation_idx].y + p1_trace[operation_idx].y);
                 } else {
                     inverse_trace[operation_idx] = (p2_trace[operation_idx].x - p1_trace[operation_idx].x);

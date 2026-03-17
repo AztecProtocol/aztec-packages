@@ -130,9 +130,12 @@ class ECCVMPointTablePrecomputationBuilder {
 
                     // N.B. we apply a constraint that requires slice1 to be positive for the 1st row of each scalar
                     // sum. This ensures we do not have WNAF representations of negative values
-                    const int row_chunk = slice7 + (slice6 * (1 << 4)) + (slice5 * (1 << 8)) + (slice4 * (1 << 12)) +
-                                          (slice3 * (1 << 16)) + (slice2 * (1 << 20)) + (slice1 * (1 << 24)) +
-                                          (slice0 * (1 << 28));
+                    // Use int64_t to avoid signed overflow: with 8 digits, slice0*(1<<28) can exceed INT_MAX
+                    const int64_t row_chunk =
+                        static_cast<int64_t>(slice7) + (static_cast<int64_t>(slice6) << 4) +
+                        (static_cast<int64_t>(slice5) << 8) + (static_cast<int64_t>(slice4) << 12) +
+                        (static_cast<int64_t>(slice3) << 16) + (static_cast<int64_t>(slice2) << 20) +
+                        (static_cast<int64_t>(slice1) << 24) + (static_cast<int64_t>(slice0) << 28);
 
                     bool chunk_negative = row_chunk < 0;
 
