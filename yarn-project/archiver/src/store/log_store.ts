@@ -315,13 +315,33 @@ export class LogStore {
     return this.db.transactionAsync(async () => {
       await Promise.all(
         blocks.map(async block => {
-          // Delete private logs
+          // Trim private logs: only remove entries that belong to the rolled-back block
           const privateKeys = (await this.#privateLogKeysByBlock.getAsync(block.number)) ?? [];
-          await Promise.all(privateKeys.map(tag => this.#privateLogsByTag.delete(tag)));
+          await Promise.all(
+            privateKeys.map(async tag => {
+              const existing = (await this.#privateLogsByTag.getAsync(tag)) ?? [];
+              const remaining = existing.filter(buf => TxScopedL2Log.fromBuffer(buf).blockNumber !== block.number);
+              if (remaining.length > 0) {
+                await this.#privateLogsByTag.set(tag, remaining);
+              } else {
+                await this.#privateLogsByTag.delete(tag);
+              }
+            }),
+          );
 
-          // Delete public logs
+          // Trim public logs: only remove entries that belong to the rolled-back block
           const publicKeys = (await this.#publicLogKeysByBlock.getAsync(block.number)) ?? [];
-          await Promise.all(publicKeys.map(key => this.#publicLogsByContractAndTag.delete(key)));
+          await Promise.all(
+            publicKeys.map(async key => {
+              const existing = (await this.#publicLogsByContractAndTag.getAsync(key)) ?? [];
+              const remaining = existing.filter(buf => TxScopedL2Log.fromBuffer(buf).blockNumber !== block.number);
+              if (remaining.length > 0) {
+                await this.#publicLogsByContractAndTag.set(key, remaining);
+              } else {
+                await this.#publicLogsByContractAndTag.delete(key);
+              }
+            }),
+          );
         }),
       );
 
