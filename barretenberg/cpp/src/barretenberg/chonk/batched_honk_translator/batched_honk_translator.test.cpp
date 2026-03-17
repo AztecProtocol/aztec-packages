@@ -135,7 +135,6 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         for (size_t i = 0; i < num_mega_zk_pub_inputs; ++i) {
             m.add_entry(round, "public_input_" + std::to_string(i), Fr);
         }
-        m.add_entry(round, "Gemini:masking_poly_comm", G);
         m.add_entry(round, "W_L", G);
         m.add_entry(round, "W_R", G);
         m.add_entry(round, "W_O", G);

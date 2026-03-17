@@ -122,6 +122,7 @@ export interface AztecNode
    * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
+   * @throws If the nullifier already exists in the tree, since non-inclusion cannot be proven.
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.

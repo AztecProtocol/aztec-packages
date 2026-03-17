@@ -1046,7 +1046,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    const committedDb = await this.getWorldState(referenceBlock);
+    // The Noir circuit checks the archive membership proof against `anchor_block_header.last_archive.root`,
+    // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
+    // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
+    const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
+    const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
       ? undefined
@@ -1131,21 +1135,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return new NullifierMembershipWitness(index, leafPreimage as NullifierLeafPreimage, path);
   }
 
-  /**
-   * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data
-   * (which contains the root of the nullifier tree in which we are searching for the nullifier).
-   * @param nullifier - Nullifier we try to find the low nullifier witness for.
-   * @returns The low nullifier membership witness (if found).
-   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
-   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
-   * we are trying to prove non-inclusion for.
-   *
-   * Note: This function returns the membership witness of the nullifier itself and not the low nullifier when
-   * the nullifier already exists in the tree. This is because the `getPreviousValueIndex` function returns the
-   * index of the nullifier itself when it already exists in the tree.
-   * TODO: This is a confusing behavior and we should eventually address that.
-   */
   public async getLowNullifierMembershipWitness(
     referenceBlock: BlockParameter,
     nullifier: Fr,
@@ -1157,7 +1146,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
     const { index, alreadyPresent } = findResult;
     if (alreadyPresent) {
-      this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+      throw new Error(
+        `Cannot prove nullifier non-inclusion: nullifier ${nullifier.toBigInt()} already exists in the tree`,
+      );
     }
     const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
@@ -1666,6 +1657,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     return snapshot;
+  }
+
+  /** Resolves a block parameter to a block number. */
+  protected async resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
+    if (block === 'latest') {
+      return BlockNumber(await this.blockSource.getBlockNumber());
+    }
+    if (BlockHash.isBlockHash(block)) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (block.equals(initialBlockHash)) {
+        return BlockNumber.ZERO;
+      }
+      const header = await this.blockSource.getBlockHeaderByHash(block);
+      if (!header) {
+        throw new Error(`Block hash ${block.toString()} not found.`);
+      }
+      return header.getBlockNumber();
+    }
+    return block as BlockNumber;
   }
 
   /**

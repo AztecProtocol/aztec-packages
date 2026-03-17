@@ -13,6 +13,11 @@ namespace bb {
 
 /**
  * @brief Child class of MegaFlavor that runs with ZK Sumcheck.
+ *
+ * @details MegaZKFlavor enables ZK sumcheck (Libra masking, row-disabling, extended relation degree)
+ * but does NOT include a Gemini masking polynomial in its entities. In the batched Chonk context,
+ * the translator's masking polynomial (sized at 2^17 = joint circuit size) serves as the single
+ * Gemini masking polynomial for the joint PCS.
  */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
@@ -22,38 +27,26 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
 
-    // The number of entities added for ZK (gemini_masking_poly)
-    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+    // MegaZK does not include a Gemini masking polynomial in its entities; the translator provides one
+    // at the correct joint circuit size in the batched Chonk flow.
+    static constexpr bool HasGeminiMasking = false;
 
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
-    // Override AllEntities to use ZK version (includes gemini_masking_poly via MaskingEntities)
-    template <typename DataType> using AllEntities = MegaFlavor::AllEntities_<DataType, HasZK>;
-
-    // NUM_WITNESS_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS;
-    // NUM_ALL_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_ALL_ENTITIES = MegaFlavor::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
-    // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
+    // Shplemini's remove_repeated_commitments uses offset = HasZK ? 2 : 1. Since MegaZK has HasZK=true
+    // but no masking poly in its entities, the offset is 1 larger than the actual entity layout.
+    // Compensate by shifting indices by -1 relative to MegaFlavor's REPEATED_COMMITMENTS.
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES - 1, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES - 1, NUM_SHIFTED_ENTITIES);
 
     // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
-    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = MegaFlavor::VIRTUAL_LOG_N)
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
     }
-
-    using AllValues = MegaFlavor::AllValues_<HasZK>;
-    using ProverPolynomials = MegaFlavor::ProverPolynomials_<HasZK>;
-    using PartiallyEvaluatedMultivariates = MegaFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
-    using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
-
-    // Override ProverUnivariates and ExtendedEdges to include gemini_masking_poly
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     using Transcript = NativeTranscript;
     using VKAndHash = MegaFlavor::VKAndHash;
