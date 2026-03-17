@@ -89,9 +89,8 @@ export class EmbeddedWallet extends BaseWallet {
 
   /**
    * Overrides the base sendTx to add a pre-simulation step before the actual send. The pre-simulation
-   * runs with high gas limits to estimate actual gas usage and to capture offchain effects (e.g.
-   * call authorization requests) that need authwitnesses. The estimated gas and captured authwitnesses
-   * are then folded into the real send. User-provided gas limits are respected when present.
+   * estimates actual gas usage and captures call authorization requests to generated
+   * the necessary authwitnesses.
    */
   public override async sendTx<W extends InteractionWaitOptions = undefined>(
     executionPayload: ExecutionPayload,
