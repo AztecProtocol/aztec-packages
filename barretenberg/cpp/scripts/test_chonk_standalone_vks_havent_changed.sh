@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
-export bb="$root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb"
+export bb="$root/barretenberg/cpp/$(./preset-build-dir)/bin/bb"
 
 # script path to auto update short hash
 script_path="$root/barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"

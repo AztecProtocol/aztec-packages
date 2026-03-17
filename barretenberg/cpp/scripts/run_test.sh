@@ -8,7 +8,7 @@ export native_preset=${NATIVE_PRESET:-clang20}
 
 cd $(dirname $0)/..
 # E.g. build, build-debug or build-coverage
-cd $(scripts/native-preset-build-dir)
+cd $(scripts/preset-build-dir)
 
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}

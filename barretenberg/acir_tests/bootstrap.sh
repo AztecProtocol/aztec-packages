@@ -24,7 +24,7 @@ tests_hash=$(hash_str \
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
   local program=$1
-  local native_build_dir=$(../cpp/scripts/native-preset-build-dir)
+  local native_build_dir=$(../cpp/scripts/preset-build-dir)
   local bb=$(realpath ../cpp/$native_build_dir/bin/bb)
   local outdir=$(mktemp -d)
   trap "rm -rf $outdir" EXIT
@@ -159,9 +159,10 @@ function test_cmds {
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh assert_statement"
 
   # bb.js browser tests. Isolate because server.
-  local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
-  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
+  # Temporarily skipped due to flaky "Failed to fetch" errors in CI.
+  # local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
+  # echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
+  # echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.

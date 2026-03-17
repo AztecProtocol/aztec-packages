@@ -40,7 +40,7 @@
       "path": "../stdlib"
     },
     {
-      "path": "../merkle-tree"
+      "path": "../world-state"
     },
     {
       "path": "../noir-test-contracts.js"

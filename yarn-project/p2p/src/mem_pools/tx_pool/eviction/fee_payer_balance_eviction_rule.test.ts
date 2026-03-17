@@ -162,8 +162,11 @@ describe('FeePayerBalanceEvictionRule', () => {
       expect(result.txsEvicted).toEqual(expect.arrayContaining(txHashes(tx2)));
       expect(result.txsEvicted.map(txHash => txHash.toString())).not.toContain(tx1.getTxHash().toString());
       expect(txPool.deleteTxs).toHaveBeenCalledWith(expect.arrayContaining(txHashes(tx2)));
-      // Ensure syncImmediate is called before accessing the world state snapshot
-      expect(worldStateSynchronizer.syncImmediate).toHaveBeenCalledWith(blockHeader.getBlockNumber());
+      // Ensure syncImmediate is called with blockNumber and blockHash before accessing the world state snapshot
+      expect(worldStateSynchronizer.syncImmediate).toHaveBeenCalledWith(
+        blockHeader.getBlockNumber(),
+        await blockHeader.hash(),
+      );
     });
 
     it('handles empty fee payer entries after BLOCK_MINED', async () => {
