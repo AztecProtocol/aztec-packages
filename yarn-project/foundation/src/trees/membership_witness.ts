@@ -94,7 +94,7 @@ export class MembershipWitness<N extends number> {
   static fromBuffer<N extends number>(buffer: Buffer | BufferReader, size: N): MembershipWitness<N> {
     const reader = BufferReader.asReader(buffer);
     const leafIndex = toBigIntBE(reader.readBytes(32));
-    const siblingPath = reader.readArray(size, Fr) as Tuple<Fr, N>;
+    const siblingPath = reader.readArray(size, Fr);
     return new MembershipWitness(size, leafIndex, siblingPath);
   }
 
@@ -108,7 +108,7 @@ export class MembershipWitness<N extends number> {
       fromBuffer: (buffer: Buffer | BufferReader) => {
         const reader = BufferReader.asReader(buffer);
         const leafIndex = toBigIntBE(reader.readBytes(32));
-        const siblingPath = reader.readArray(size, Fr) as Tuple<Fr, N>;
+        const siblingPath = reader.readArray(size, Fr);
         return new MembershipWitness(size, leafIndex, siblingPath);
       },
     };

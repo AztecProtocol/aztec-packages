@@ -85,14 +85,14 @@ export class TreeSnapshotDiffHints {
   static fromBuffer(buffer: Buffer | BufferReader): TreeSnapshotDiffHints {
     const reader = BufferReader.asReader(buffer);
     return new TreeSnapshotDiffHints(
-      reader.readTuple(NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
-      reader.readTuple(MAX_NULLIFIERS_PER_TX, NullifierLeafPreimage),
-      reader.readTuple(MAX_NULLIFIERS_PER_TX, {
+      reader.readArray(NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, NullifierLeafPreimage),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, {
         fromBuffer: buffer => MembershipWitness.fromBuffer(buffer, NULLIFIER_TREE_HEIGHT),
       }),
-      reader.readTuple(MAX_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readNumbers(MAX_NULLIFIERS_PER_TX),
-      reader.readTuple(NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
       MembershipWitness.fromBuffer(reader, PUBLIC_DATA_TREE_HEIGHT),
     );
   }
