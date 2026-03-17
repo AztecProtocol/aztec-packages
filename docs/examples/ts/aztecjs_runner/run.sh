@@ -53,8 +53,8 @@ setup_project() {
 
     cd "$project_dir"
 
-    # Clean up any previous setup
-    rm -rf node_modules .yarn package.json tsconfig.json artifacts 2>/dev/null || true
+    # Clean up any previous setup (include codegenCache.json so codegen re-generates artifacts/)
+    rm -rf node_modules .yarn package.json tsconfig.json artifacts codegenCache.json 2>/dev/null || true
 
     # Run codegen for custom contracts if specified in config.yaml
     local contract_count
@@ -66,10 +66,18 @@ setup_project() {
 
         while IFS= read -r contract_name; do
             local artifact="$ARTIFACTS_DIR/${contract_name}.json"
-            if [ -f "$artifact" ]; then
-                node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts > /dev/null 2>&1
+            if [ ! -f "$artifact" ]; then
+                echo -e "${RED}ERROR: Compiled artifact not found: ${artifact}${NC}"
+                echo -e "${RED}  The Noir compile step may have failed. Check 'Compile (Noir contracts)' output.${NC}"
+                return 1
             fi
+            echo -e "  Generating TS interface for ${contract_name}..."
+            node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
         done < <(yq eval '.contracts[]' config.yaml)
+
+        # Verify codegen produced the expected files
+        echo -e "  Generated artifacts:"
+        ls -la artifacts/ 2>/dev/null || echo -e "${RED}  ERROR: artifacts/ directory does not exist after codegen${NC}"
     fi
 
     # Initialize yarn
@@ -158,6 +166,7 @@ cleanup_project() {
            "$project_dir/tsconfig.json" \
            "$project_dir/.yarnrc.yml" \
            "$project_dir/artifacts" \
+           "$project_dir/codegenCache.json" \
            "$project_dir/data.json" 2>/dev/null || true
     # Keep yarn.lock empty
     > "$project_dir/yarn.lock"
