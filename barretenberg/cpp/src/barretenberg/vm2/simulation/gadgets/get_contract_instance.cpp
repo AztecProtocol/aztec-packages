@@ -1,15 +1,11 @@
 #include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
 
-#include <cassert>
-#include <cstdint>
 #include <stdexcept>
+#include <string>
+#include <utility>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
-#include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 
 namespace bb::avm2::simulation {
 
