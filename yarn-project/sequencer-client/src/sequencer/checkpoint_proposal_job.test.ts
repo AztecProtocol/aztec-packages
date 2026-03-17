@@ -336,11 +336,14 @@ describe('CheckpointProposalJob', () => {
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      // Last block in checkpoint gets no static per-block gas limits (capLimitsByCheckpointBudgets
+      // enforces the checkpoint-level DA gas and mana caps). maxTransactions is still set.
       expect(checkpointBuilder.buildBlockCalls[0]).toEqual(
         expect.objectContaining({
           blockNumber: newBlockNumber,
           opts: expect.objectContaining({
             maxTransactions: config.maxTxsPerBlock,
+            maxBlockGas: undefined,
           }),
         }),
       );

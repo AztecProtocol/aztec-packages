@@ -430,6 +430,8 @@ export class CheckpointProposalJob implements Traceable {
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
         forceCreate: timingInfo.isLastBlock && blocksBuilt === 0 && this.config.buildCheckpointIfEmpty,
+        // Last block gets all remaining checkpoint gas/tx budget instead of static per-block limits
+        isLastBlock: timingInfo.isLastBlock,
         // Build deadline is only set if we are enforcing the timetable
         buildDeadline: timingInfo.deadline
           ? new Date((this.getSlotStartBuildTimestamp() + timingInfo.deadline) * 1000)
@@ -533,6 +535,7 @@ export class CheckpointProposalJob implements Traceable {
     checkpointBuilder: CheckpointBuilder,
     opts: {
       forceCreate?: boolean;
+      isLastBlock?: boolean;
       blockTimestamp: bigint;
       blockNumber: BlockNumber;
       indexWithinCheckpoint: IndexWithinCheckpoint;
@@ -540,8 +543,15 @@ export class CheckpointProposalJob implements Traceable {
       txHashesAlreadyIncluded: Set<string>;
     },
   ): Promise<{ block: L2Block; usedTxs: Tx[] } | { error: Error } | undefined> {
-    const { blockTimestamp, forceCreate, blockNumber, indexWithinCheckpoint, buildDeadline, txHashesAlreadyIncluded } =
-      opts;
+    const {
+      blockTimestamp,
+      forceCreate,
+      isLastBlock,
+      blockNumber,
+      indexWithinCheckpoint,
+      buildDeadline,
+      txHashesAlreadyIncluded,
+    } = opts;
 
     this.log.verbose(
       `Preparing block ${blockNumber} index ${indexWithinCheckpoint} at checkpoint ${this.checkpointNumber} for slot ${this.slot}`,
@@ -575,13 +585,17 @@ export class CheckpointProposalJob implements Traceable {
       this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
 
       // Per-block limits derived at startup by computeBlockLimits(), further capped
-      // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
+      // by remaining checkpoint-level budgets inside CheckpointBuilder.capLimitsByCheckpointBudgets()
+      // before each block is built. For the last block, we omit the static per-block gas limits so
+      // capLimitsByCheckpointBudgets() gives it the full remaining checkpoint gas budget. The
+      // checkpoint-level caps for DA gas and L2 gas (mana) are always enforced by that method.
       // minValidTxs is passed into the builder so it can reject the block *before* updating state.
       const minValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
       const blockBuilderOptions: PublicProcessorLimits & { minValidTxs?: number } = {
         maxTransactions: this.config.maxTxsPerBlock,
-        maxBlockGas:
-          this.config.maxL2BlockGas !== undefined || this.config.maxDABlockGas !== undefined
+        maxBlockGas: isLastBlock
+          ? undefined
+          : this.config.maxL2BlockGas !== undefined || this.config.maxDABlockGas !== undefined
             ? new Gas(this.config.maxDABlockGas ?? Infinity, this.config.maxL2BlockGas ?? Infinity)
             : undefined,
         deadline: buildDeadline,
