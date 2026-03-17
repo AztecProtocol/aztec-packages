@@ -285,11 +285,19 @@ function post_github_failure_status {
   local sha="${COMMIT_HASH:-}"
   [[ -z "$token" || -z "$repo" || -z "$sha" ]] && return 0
 
+  # Strip the "denoise " wrapper so the status reads e.g. ci/cargo fmt --check
+  # instead of ci/denoise "cargo fmt --check".
+  local display_cmd="${test_cmd#denoise }"
+  # Also strip surrounding quotes left over from denoise "cmd".
+  display_cmd="${display_cmd#\"}"
+  display_cmd="${display_cmd%\"}"
+  display_cmd="${display_cmd#\'}"
+  display_cmd="${display_cmd%\'}"
   # Context: ci/<test_cmd>, truncated to 255 chars (GitHub limit).
-  local context="ci/${test_cmd}"
+  local context="ci/${display_cmd}"
   context="${context:0:255}"
   # Description: truncated to 140 chars (GitHub limit).
-  local description="${test_cmd}"
+  local description="${display_cmd}"
   description="${description:0:140}"
 
   local body
