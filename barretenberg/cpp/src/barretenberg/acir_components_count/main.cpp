@@ -27,9 +27,30 @@ int main(int argc, char* argv[])
     // 3. Build circuit and count circuit-level connected components
     acir_format::AcirProgram program{ .constraints = constraint_system, .witness = {} };
     auto builder = acir_format::create_circuit<bb::UltraCircuitBuilder>(program);
+    builder.finalize_circuit(false);
     cdg::UltraStaticAnalyzer analyzer(builder);
     auto circuit_cc = analyzer.find_connected_components();
     size_t circuit_components = circuit_cc.size();
+
+    uint32_t max_witness = constraint_system.max_witness_index;
+    // Count ACIR witness variables that appear in circuit gates but aren't in any CC.
+    // This happens for degree-0 variables (e.g., range-checked witnesses that don't share
+    // a gate with any other non-constant variable). Each such variable is its own singleton component.
+    std::unordered_set<uint32_t> vars_in_ccs;
+    for (const auto& cc : circuit_cc) {
+        for (auto v : cc.vars()) {
+            vars_in_ccs.insert(v);
+        }
+    }
+    auto gate_counts = analyzer.get_variables_gate_counts();
+    for (uint32_t i = 0; i <= max_witness; i++) {
+        uint32_t real_idx = builder.real_variable_index[i];
+        if (real_idx != 0 && !vars_in_ccs.contains(real_idx) && gate_counts.count(real_idx) &&
+            gate_counts.at(real_idx) > 0) {
+            circuit_components++;
+            vars_in_ccs.insert(real_idx); // avoid double-counting aliased witnesses
+        }
+    }
 
     // 4. Compare
     if (acir_components != circuit_components) {
