@@ -1,0 +1,11 @@
+Resolve v4 → v4-next merge conflicts. A conflict analysis gist is at {{GIST_URL}}.
+
+Steps:
+1. Checkout v4-next: git checkout v4-next
+2. Merge v4: git merge origin/v4 (this will produce conflicts)
+3. Resolve each conflicted file. v4-next is authoritative for structural changes; port v4 bugfixes/features into the v4-next code structure.
+4. Verify the build compiles (at minimum: cd yarn-project && yarn build)
+5. Create a PR targeting v4-next with the resolved merge.
+
+Use the conflict-details.diff file in the gist to see exactly what git produced.
+Do NOT create a PR with unresolved conflict markers.

@@ -1,0 +1,142 @@
+name: Pull v4 into v4-next
+
+on:
+  push:
+    branches:
+      - v4
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pull-v4-into-v4-next:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v4-next
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: v4-next
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "AztecBot"
+          git config user.email "tech@aztecprotocol.com"
+
+      - name: Attempt to merge v4 into v4-next
+        id: merge
+        run: |
+          git fetch origin v4
+          if git merge origin/v4 --no-edit; then
+            echo "conflict=false" >> $GITHUB_OUTPUT
+            echo "Merge succeeded without conflicts."
+          else
+            git merge --abort
+            echo "conflict=true" >> $GITHUB_OUTPUT
+            echo "Merge has conflicts."
+          fi
+
+      - name: Push merged v4-next
+        if: steps.merge.outputs.conflict == 'false'
+        run: git push origin v4-next
+
+      - name: Clean up stale conflict gist on successful merge
+        if: steps.merge.outputs.conflict == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Merge succeeded — delete any existing conflict gist (conflicts are resolved)
+          EXISTING=$(gh api gists --jq \
+            '[.[] | select(.description | startswith("v4 → v4-next merge conflicts"))][0].id // empty')
+          if [ -n "$EXISTING" ]; then
+            gh api "gists/$EXISTING" -X DELETE || true
+            echo "Cleaned up resolved conflict gist: $EXISTING"
+          fi
+
+      - name: Analyze conflicts and create/update gist
+        if: steps.merge.outputs.conflict == 'true'
+        id: conflict-gist
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Re-attempt merge to capture conflict state
+          git merge origin/v4 --no-commit --no-ff 2>/dev/null || true
+
+          # Gather conflict info
+          CONFLICTED_FILES=$(git diff --name-only --diff-filter=U)
+          CONFLICT_DIFF=$(git diff)
+          V4_HEAD=$(git rev-parse origin/v4)
+          V4_NEXT_HEAD=$(git rev-parse HEAD)
+          V4_LOG=$(git log --oneline -1 origin/v4)
+          V4_NEXT_LOG=$(git log --oneline -1 HEAD)
+          NUM_CONFLICTS=$(echo "$CONFLICTED_FILES" | wc -l)
+
+          git merge --abort 2>/dev/null || true
+
+          # Build human-readable summary from template
+          SUMMARY=$(cat .github/prompts/v4-v4next-conflict-summary.txt)
+          SUMMARY="${SUMMARY//\{\{DATE\}\}/$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+          SUMMARY="${SUMMARY//\{\{V4_SHORT\}\}/${V4_HEAD:0:7}}"
+          SUMMARY="${SUMMARY//\{\{V4_MSG\}\}/${V4_LOG#* }}"
+          SUMMARY="${SUMMARY//\{\{V4NEXT_SHORT\}\}/${V4_NEXT_HEAD:0:7}}"
+          SUMMARY="${SUMMARY//\{\{V4NEXT_MSG\}\}/${V4_NEXT_LOG#* }}"
+          SUMMARY="${SUMMARY//\{\{NUM_CONFLICTS\}\}/$NUM_CONFLICTS}"
+          # For multiline substitution, use a temp file approach
+          SUMMARY=$(echo "$SUMMARY" | sed "s|{{CONFLICTED_FILES}}|$(echo "$CONFLICTED_FILES" | sed 's/$/\\n/' | tr -d '\n')|")
+          # Slack link placeholder — will be updated after Slack post
+          SUMMARY="${SUMMARY//\{\{SLACK_LINK\}\}/https://aztecprotocol.slack.com/archives/C0AGN2WT3CP}"
+
+          # Check for existing conflict gist (deduplication)
+          EXISTING=$(gh api gists --jq \
+            '[.[] | select(.description | startswith("v4 → v4-next merge conflicts"))][0].id // empty')
+
+          GIST_DESC="v4 → v4-next merge conflicts ($(date -u +%Y-%m-%d))"
+
+          GIST_PAYLOAD=$(jq -n \
+            --arg desc "$GIST_DESC" \
+            --arg summary "$SUMMARY" \
+            --arg diff "$CONFLICT_DIFF" \
+            '{
+              description: $desc,
+              public: false,
+              files: {
+                "conflicts.md": {content: $summary},
+                "conflict-details.diff": {content: $diff}
+              }
+            }')
+
+          if [ -n "$EXISTING" ]; then
+            # Update existing gist — no new Slack message needed
+            echo "$GIST_PAYLOAD" | gh api "gists/$EXISTING" --input - --method PATCH > /dev/null
+            GIST_URL="https://gist.github.com/$EXISTING"
+            echo "Updated existing conflict gist: $GIST_URL"
+            echo "is_new=false" >> $GITHUB_OUTPUT
+          else
+            # Create new gist
+            GIST_URL=$(echo "$GIST_PAYLOAD" | gh api gists --input - --jq '.html_url')
+            echo "Created new conflict gist: $GIST_URL"
+            echo "is_new=true" >> $GITHUB_OUTPUT
+          fi
+
+          echo "gist_url=$GIST_URL" >> $GITHUB_OUTPUT
+          echo "num_conflicts=$NUM_CONFLICTS" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack (first conflict only)
+        if: steps.merge.outputs.conflict == 'true' && steps.conflict-gist.outputs.is_new == 'true'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          GIST_URL="${{ steps.conflict-gist.outputs.gist_url }}"
+          NUM="${{ steps.conflict-gist.outputs.num_conflicts }}"
+
+          # Read Slack message template and substitute
+          TEXT=$(cat .github/prompts/v4-v4next-slack-conflict.txt)
+          TEXT="${TEXT//\{\{NUM_CONFLICTS\}\}/$NUM}"
+          TEXT="${TEXT//\{\{GIST_URL\}\}/$GIST_URL}"
+
+          curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            -d "$(jq -n --arg c '#backports' --arg t "$TEXT" '{channel:$c, text:$t}')"

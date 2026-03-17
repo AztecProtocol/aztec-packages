@@ -1,0 +1,29 @@
+## ⚠️ v4 → v4-next merge conflict report
+
+**Date**: {{DATE}}
+**v4 HEAD**: `{{V4_SHORT}}` — {{V4_MSG}}
+**v4-next HEAD**: `{{V4NEXT_SHORT}}` — {{V4NEXT_MSG}}
+
+### Conflicted files ({{NUM_CONFLICTS}})
+
+```
+{{CONFLICTED_FILES}}
+```
+
+### How to resolve
+
+**Automatically**: Tag `@Claudebox` in the [#backports Slack thread]({{SLACK_LINK}}) with:
+> @Claudebox resolve these v4 → v4-next conflicts
+
+ClaudeBox will create a PR targeting v4-next with the conflicts resolved.
+
+**Manually**:
+```bash
+git checkout v4-next
+git fetch origin v4
+git merge origin/v4
+# resolve conflicts
+git push origin v4-next
+```
+
+See `conflict-details.diff` for the raw conflict markers.
