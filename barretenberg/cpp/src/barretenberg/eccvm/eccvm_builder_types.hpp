@@ -16,11 +16,12 @@ static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = NUM_SCALAR_BITS / NUM_WNAF_
 static constexpr uint64_t WNAF_MASK = static_cast<uint64_t>((1ULL << NUM_WNAF_DIGIT_BITS) - 1ULL);
 static constexpr size_t POINT_TABLE_SIZE =
     1ULL << (NUM_WNAF_DIGIT_BITS); // Corresponds to the odd multiples of [P] between -(2^w - 1) and 2^w - 1.
-static constexpr size_t WNAF_DIGITS_PER_ROW = 4;
+static constexpr size_t WNAF_DIGITS_PER_ROW = 8;
 static constexpr size_t ADDITIONS_PER_ROW =
-    4; // In the Straus algorithm for MSM, we proceed "digit-by-digit". (Here, digit means wNAF digit.) We chunk
-       // `ADDITIONS_PER_ROW` additions, all in the *same digit-slot*, in a row of the ECCVM's MSM table. Various parts
-       // of the implemention exploit the fact that `ADDITIONS_PER_ROWS == NUM_WNAF_DIGIT_BITS`.
+    8; // In the Straus algorithm for MSM, we proceed "digit-by-digit". (Here, digit means wNAF digit.) We chunk
+       // `ADDITIONS_PER_ROW` additions, all in the *same digit-slot*, in a row of the ECCVM's MSM table.
+static constexpr size_t DOUBLINGS_PER_ROW =
+    NUM_WNAF_DIGIT_BITS; // Number of doublings per doubling row. Always 4 (= w), independent of ADDITIONS_PER_ROW.
 
 template <typename CycleGroup> struct ScalarMul {
     uint32_t pc;
