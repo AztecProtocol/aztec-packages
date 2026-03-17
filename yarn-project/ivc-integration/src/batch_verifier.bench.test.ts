@@ -80,7 +80,6 @@ function createFifo(label: string): { fifoPath: string; cleanup: () => void } {
   };
 }
 
-/** Corrupt flat proof fields by flipping bytes in an early field element. */
 function corruptProofFields(fields: Uint8Array[]): Uint8Array[] {
   const corrupted = fields.map(f => Uint8Array.from(f));
   corrupted[2] = Uint8Array.from(corrupted[2]);
@@ -89,7 +88,6 @@ function corruptProofFields(fields: Uint8Array[]): Uint8Array[] {
   return corrupted;
 }
 
-/** Run the batch verifier with the given workload and collect all results. */
 async function runBatchVerifier(
   bb: Barretenberg,
   opts: {
@@ -161,6 +159,8 @@ describe('Batch Chonk Verifier Benchmarks', () => {
     await bb.destroy();
   });
 
+  // -- Core count sweep --
+
   for (const numCores of [4, 8, 16]) {
     it(`throughput: 16 proofs, batch_size=8, ${numCores} cores`, async () => {
       const numProofs = 16;
@@ -191,6 +191,8 @@ describe('Batch Chonk Verifier Benchmarks', () => {
     });
   }
 
+  // -- Batch size sweep --
+
   for (const batchSize of [2, 4, 8]) {
     it(`batch_size sweep: 8 proofs, batch_size=${batchSize}, 8 cores`, async () => {
       const numProofs = 8;
@@ -211,12 +213,11 @@ describe('Batch Chonk Verifier Benchmarks', () => {
         { name: `BatchVerify/batch_size_${batchSize}/throughput`, value: throughput, unit: 'proofs/sec' },
       );
 
-      logger.info(`batch_size=${batchSize}`, {
-        wallMs: Math.ceil(wallMs),
-        throughput: throughput.toFixed(2),
-      });
+      logger.info(`batch_size=${batchSize}`, { wallMs: Math.ceil(wallMs), throughput: throughput.toFixed(2) });
     });
   }
+
+  // -- Bisection overhead --
 
   it('bisection overhead: 8 proofs with 2 bad, batch_size=8, 8 cores', async () => {
     const numProofs = 8;
@@ -236,7 +237,6 @@ describe('Batch Chonk Verifier Benchmarks', () => {
     expect(byId.filter(r => r.status === 1)).toHaveLength(numBad);
 
     benchResults.push({ name: `BatchVerify/mixed_${numBad}_bad_of_${numProofs}/wall_time`, value: wallMs, unit: 'ms' });
-
     logger.info(`mixed ${numBad} bad of ${numProofs}`, { wallMs: Math.ceil(wallMs) });
   });
 });
