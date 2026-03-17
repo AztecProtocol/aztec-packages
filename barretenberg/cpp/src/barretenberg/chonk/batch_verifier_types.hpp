@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 #ifndef __wasm__
@@ -8,6 +9,7 @@
 #endif
 
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace bb {
@@ -17,7 +19,7 @@ namespace bb {
  */
 struct BatchVerifierConfig {
     uint32_t num_cores = 0;  // 0 = auto-detect
-    uint32_t batch_size = 4; // Number of proofs to accumulate before batch-checking
+    uint32_t batch_size = 8; // Number of proofs to accumulate before batch-checking
 };
 
 /**
@@ -75,28 +77,28 @@ struct VerifyRequest {
  */
 inline bool write_frame(int fd, const void* data, size_t len)
 {
-    auto write_all = [fd](const void* buf, size_t n) -> bool {
-        const auto* ptr = static_cast<const uint8_t*>(buf);
-        size_t remaining = n;
-        while (remaining > 0) {
-            auto written = ::write(fd, ptr, remaining);
-            if (written <= 0) {
-                return false;
-            }
-            ptr += written;
-            remaining -= static_cast<size_t>(written);
-        }
-        return true;
-    };
-
+    BB_ASSERT(len <= UINT32_MAX);
     auto len32 = static_cast<uint32_t>(len);
-    uint8_t header[4] = {
-        static_cast<uint8_t>((len32 >> 24) & 0xFF),
-        static_cast<uint8_t>((len32 >> 16) & 0xFF),
-        static_cast<uint8_t>((len32 >> 8) & 0xFF),
-        static_cast<uint8_t>(len32 & 0xFF),
-    };
-    return write_all(header, 4) && write_all(data, len);
+
+    // Combine header and payload into a single buffer for one write() syscall
+    std::vector<uint8_t> frame(4 + len);
+    frame[0] = static_cast<uint8_t>((len32 >> 24) & 0xFF);
+    frame[1] = static_cast<uint8_t>((len32 >> 16) & 0xFF);
+    frame[2] = static_cast<uint8_t>((len32 >> 8) & 0xFF);
+    frame[3] = static_cast<uint8_t>(len32 & 0xFF);
+    std::memcpy(frame.data() + 4, data, len);
+
+    const auto* ptr = frame.data();
+    size_t remaining = frame.size();
+    while (remaining > 0) {
+        auto written = ::write(fd, ptr, remaining);
+        if (written <= 0) {
+            return false;
+        }
+        ptr += written;
+        remaining -= static_cast<size_t>(written);
+    }
+    return true;
 }
 #endif // __wasm__
 

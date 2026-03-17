@@ -252,22 +252,31 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
     std::vector<size_t> left(indices.begin(), indices.begin() + static_cast<ptrdiff_t>(mid));
     std::vector<size_t> right(indices.begin() + static_cast<ptrdiff_t>(mid), indices.end());
 
-    // Check each half and recurse on failures
-    auto check_half = [&](std::vector<size_t> half) {
+    // Check left half; if it passes, all failures must be in the right half (skip redundant check)
+    set_parallel_for_concurrency(num_cores_);
+    auto t0 = std::chrono::steady_clock::now();
+    bool left_ok = batch_check(results, left);
+    double left_ms = ms_since(t0);
+
+    if (left_ok) {
+        emit_ok(results, left, reduce_start, left_ms, depth + 1);
+        // All failures are in the right half — recurse directly without re-checking
+        bisect(results, std::move(right), depth + 1, reduce_start);
+    } else {
+        // Left failed — need to check right independently
+        bisect(results, std::move(left), depth + 1, reduce_start);
+
         set_parallel_for_concurrency(num_cores_);
-        auto t0 = std::chrono::steady_clock::now();
-        bool ok = batch_check(results, half);
-        double check_ms = ms_since(t0);
+        auto t1 = std::chrono::steady_clock::now();
+        bool right_ok = batch_check(results, right);
+        double right_ms = ms_since(t1);
 
-        if (ok) {
-            emit_ok(results, half, reduce_start, check_ms, depth + 1);
+        if (right_ok) {
+            emit_ok(results, right, reduce_start, right_ms, depth + 1);
         } else {
-            bisect(results, std::move(half), depth + 1, reduce_start);
+            bisect(results, std::move(right), depth + 1, reduce_start);
         }
-    };
-
-    check_half(std::move(left));
-    check_half(std::move(right));
+    }
 }
 
 void ChonkBatchVerifier::emit_ok(const std::vector<ReduceResult>& results,

@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <deque>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -93,12 +94,12 @@ class ChonkBatchVerifier {
 
     std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks_;
     uint32_t num_cores_ = 1;
-    uint32_t batch_size_ = 4;
+    uint32_t batch_size_ = 8;
     ResultCallback on_result_;
 
     std::mutex mutex_;
     std::condition_variable cv_;
-    std::vector<VerifyRequest> queue_;
+    std::deque<VerifyRequest> queue_;
     bool shutdown_ = false;
     std::thread coordinator_thread_;
 };

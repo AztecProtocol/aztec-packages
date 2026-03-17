@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { Unpackr } from 'msgpackr';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -61,7 +61,7 @@ function readFifoResults(fifoPath: string, count: number): Promise<FifoVerifyRes
 /** Helper: create a FIFO and return its path + cleanup function. */
 function createFifo(label: string): { fifoPath: string; cleanup: () => void } {
   const fifoPath = path.join(os.tmpdir(), `bb-batch-${label}-${process.pid}-${Date.now()}.fifo`);
-  execSync(`mkfifo ${fifoPath}`);
+  execFileSync('mkfifo', [fifoPath]);
   return {
     fifoPath,
     cleanup: () => {

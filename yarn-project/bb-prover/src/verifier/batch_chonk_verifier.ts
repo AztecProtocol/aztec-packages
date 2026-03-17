@@ -9,7 +9,7 @@ import type { Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Unpackr } from 'msgpackr';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -113,7 +113,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     }
 
     // Create FIFO pipe for async result delivery
-    execSync(`mkfifo ${this.fifoPath}`);
+    execFileSync('mkfifo', [this.fifoPath]);
     this.registerExitCleanup();
 
     // Start the batch verifier service in bb
