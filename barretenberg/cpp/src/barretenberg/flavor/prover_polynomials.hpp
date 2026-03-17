@@ -155,14 +155,19 @@ class ProverPolynomialsBase : public AllEntitiesBase {
                 group_buffers_[g] = Polynomial(buffer_size, buffer_virtual_size);
             }
 
-            // Create strided views for each entity in the group
+            // Create strided views for each entity in the group.
+            // The strided view's start_index is derived from the group buffer's start (0 for
+            // non-shiftable, 1 for shiftable), NOT from the entity's natural start. Entities
+            // like sigmas/ids have data starting at row 1 but live in non-shiftable groups —
+            // their row-0 slot is simply zero (from the zero-initialized buffer).
+            const size_t group_logical_start = shiftable ? 1 : 0;
             for (size_t j = 0; j < groups[g].size(); j++) {
                 if (groups[g][j] != nullptr) {
                     auto it = entity_extents.find(groups[g][j]);
                     const auto& ext = it->second;
-                    const size_t logical_size = ext.end_index - ext.start_index;
+                    const size_t logical_size = ext.end_index - group_logical_start;
                     *groups[g][j] = Polynomial::strided_view(
-                        group_buffers_[g].backing_memory(), BS, j, ext.start_index, logical_size, virtual_size);
+                        group_buffers_[g].backing_memory(), BS, j, group_logical_start, logical_size, virtual_size);
                 }
             }
         }
