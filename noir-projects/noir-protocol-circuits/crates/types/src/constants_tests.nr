@@ -13,6 +13,7 @@ use crate::{
         DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NHK_M, DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE,
         DOM_SEP__NOTE_NULLIFIER, DOM_SEP__OVSK_M, DOM_SEP__PARTIAL_ADDRESS,
         DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT, DOM_SEP__PRIVATE_FUNCTION_LEAF,
+<<<<<<< HEAD
         DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS,
         DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
         DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER, DOM_SEP__PUBLIC_KEYS_HASH,
@@ -21,6 +22,17 @@ use crate::{
         DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2, DOM_SEP__TSK_M,
         DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST, DOM_SEP__UNIQUE_NOTE_HASH,
         NULL_MSG_SENDER_CONTRACT_ADDRESS, SIDE_EFFECT_MASKING_ADDRESS, TX_START_PREFIX,
+=======
+        DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER, DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
+        DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS, DOM_SEP__PUBLIC_BYTECODE,
+        DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
+        DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT,
+        DOM_SEP__PUBLIC_TX_HASH, DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD,
+        DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
+        DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2, DOM_SEP__TSK_M, DOM_SEP__TX_NULLIFIER,
+        DOM_SEP__TX_REQUEST, DOM_SEP__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS,
+        SIDE_EFFECT_MASKING_ADDRESS, TX_START_PREFIX,
+>>>>>>> 1c9652ad04 (feat!: include init_hash in private initialization nullifier to prevent privacy leak (#21427))
     },
     hash::poseidon2_hash_bytes,
     traits::{FromField, ToField},
@@ -130,7 +142,11 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
+<<<<<<< HEAD
     let mut tester = HashedValueTester::<51, 44>::new();
+=======
+    let mut tester = HashedValueTester::<53, 46>::new();
+>>>>>>> 1c9652ad04 (feat!: include init_hash in private initialization nullifier to prevent privacy leak (#21427))
 
     // -----------------
     // Domain separators
@@ -187,6 +203,10 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
         "public_initialization_nullifier",
+    );
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER,
+        "private_initialization_nullifier",
     );
     tester.assert_dom_sep_matches_derived(DOM_SEP__SECRET_HASH, "secret_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__TX_NULLIFIER, "tx_nullifier");
