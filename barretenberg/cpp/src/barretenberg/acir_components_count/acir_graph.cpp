@@ -1,4 +1,5 @@
 #include "acir_graph.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
 namespace acir_components_count {
 
@@ -18,15 +19,24 @@ void AcirGraph::add_constraint(const std::vector<WoC>& witnesses)
 
 void AcirGraph::add_constraint(const std::vector<uint32_t>& indices)
 {
-    // Ensure all vertices exist (even isolated ones count as their own component)
+    // Filter out IS_CONSTANT sentinel (UINT32_MAX) which marks unused quad wire slots.
+    // Without filtering, IS_CONSTANT acts as a hub vertex that spuriously merges unrelated components.
+    std::vector<uint32_t> filtered;
+    filtered.reserve(indices.size());
     for (auto idx : indices) {
+        if (idx != bb::stdlib::IS_CONSTANT) {
+            filtered.push_back(idx);
+        }
+    }
+    // Ensure all vertices exist (even isolated ones count as their own component)
+    for (auto idx : filtered) {
         adjacency_lists_[idx]; // default-inserts empty set if missing
     }
     // Connect all pairs
-    for (size_t i = 0; i < indices.size(); i++) {
-        for (size_t j = i + 1; j < indices.size(); j++) {
-            adjacency_lists_[indices[i]].insert(indices[j]);
-            adjacency_lists_[indices[j]].insert(indices[i]);
+    for (size_t i = 0; i < filtered.size(); i++) {
+        for (size_t j = i + 1; j < filtered.size(); j++) {
+            adjacency_lists_[filtered[i]].insert(filtered[j]);
+            adjacency_lists_[filtered[j]].insert(filtered[i]);
         }
     }
 }
