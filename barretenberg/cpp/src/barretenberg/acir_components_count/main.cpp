@@ -24,29 +24,55 @@ int main(int argc, char* argv[])
     acir_graph.process_acir_constraints(constraint_system);
     size_t acir_components = acir_graph.count_components();
 
-    // 3. Build circuit and count circuit-level connected components
+    // 3. Build circuit (without finalizing — finalization creates internal range-list CCs
+    // that don't correspond to ACIR-level components) and count circuit-level connected components.
     acir_format::AcirProgram program{ .constraints = constraint_system, .witness = {} };
     auto builder = acir_format::create_circuit<bb::UltraCircuitBuilder>(program);
-    builder.finalize_circuit(false);
     cdg::UltraStaticAnalyzer analyzer(builder);
     auto circuit_cc = analyzer.find_connected_components();
-    size_t circuit_components = circuit_cc.size();
 
+    // Filter circuit CCs to only those containing at least one ACIR witness variable.
     uint32_t max_witness = constraint_system.max_witness_index;
-    // Count ACIR witness variables that appear in circuit gates but aren't in any CC.
-    // This happens for degree-0 variables (e.g., range-checked witnesses that don't share
-    // a gate with any other non-constant variable). Each such variable is its own singleton component.
+    std::unordered_set<uint32_t> acir_real_indices;
+    for (uint32_t i = 0; i <= max_witness; i++) {
+        acir_real_indices.insert(builder.real_variable_index[i]);
+    }
+    auto contains_acir_witness = [&acir_real_indices](const cdg::ConnectedComponent& cc) {
+        return std::any_of(cc.vars().begin(), cc.vars().end(), [&acir_real_indices](uint32_t v) {
+            return acir_real_indices.contains(v);
+        });
+    };
+    size_t circuit_components =
+        static_cast<size_t>(std::count_if(circuit_cc.begin(), circuit_cc.end(), contains_acir_witness));
+
+    // Collect ACIR witness real indices that are already in some filtered CC.
     std::unordered_set<uint32_t> vars_in_ccs;
     for (const auto& cc : circuit_cc) {
-        for (auto v : cc.vars()) {
-            vars_in_ccs.insert(v);
+        if (contains_acir_witness(cc)) {
+            for (auto v : cc.vars()) {
+                vars_in_ccs.insert(v);
+            }
         }
     }
+
+    // Count ACIR witness variables not in any CC but still constrained — either they appear
+    // in gates (degree-0, e.g. bool gates for 1-bit range checks) or in pending range_lists
+    // (whose delta_range gates aren't created until finalize_circuit, which we skip).
     auto gate_counts = analyzer.get_variables_gate_counts();
+    std::unordered_set<uint32_t> range_list_vars;
+    for (const auto& [_, range_list] : builder.range_lists) {
+        for (auto var_idx : range_list.variable_indices) {
+            range_list_vars.insert(builder.real_variable_index[var_idx]);
+        }
+    }
     for (uint32_t i = 0; i <= max_witness; i++) {
         uint32_t real_idx = builder.real_variable_index[i];
-        if (real_idx != 0 && !vars_in_ccs.contains(real_idx) && gate_counts.count(real_idx) &&
-            gate_counts.at(real_idx) > 0) {
+        if (vars_in_ccs.contains(real_idx)) {
+            continue;
+        }
+        bool in_gate = gate_counts.count(real_idx) && gate_counts.at(real_idx) > 0;
+        bool in_range_list = range_list_vars.contains(real_idx);
+        if (in_gate || in_range_list) {
             circuit_components++;
             vars_in_ccs.insert(real_idx); // avoid double-counting aliased witnesses
         }
