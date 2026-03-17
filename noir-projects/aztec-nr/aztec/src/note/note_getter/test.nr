@@ -323,14 +323,61 @@ unconstrained fn constrain_view_note_rejects_mismatched_owner() {
         let _ = confirm_hinted_note(context, note, Option::some(owner), storage_slot);
     });
 }
+#[test]
+unconstrained fn extract_property_value_full_field_is_identity() {
+    let packed = [12345 as Field];
+    let selector = PropertySelector { index: 0, offset: 0, length: 32 };
+    let result = super::extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 12345);
+}
 
 #[test]
-unconstrained fn extract_property_value_from_selector_with_nonzero_offset() {
-    // 256 as a Field in big-endian bytes is [0, 0, ..., 0, 1, 0] (byte[30]=1, byte[31]=0).
-    // With offset: 1 and length: 1, we skip 1 byte from the least-significant end,
-    // so we should read byte[30] which is 1.
-    let packed = [256 as Field];
+unconstrained fn extract_property_value_zero_length_returns_zero() {
+    let packed = [12345 as Field];
+    let selector = PropertySelector { index: 0, offset: 0, length: 0 };
+    let result = super::extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 0);
+}
+
+#[test]
+unconstrained fn extract_property_value_with_zero_offset() {
+    // 0x030201 = [..., 0x03, 0x02, 0x01]. offset=0, length=2 reads [0x01, 0x02] -> 0x0201.
+    let packed = [0x030201 as Field];
+    let selector = PropertySelector { index: 0, offset: 0, length: 2 };
+    let result = super::extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 0x0201);
+}
+
+#[test]
+unconstrained fn extract_property_value_with_nonzero_offset() {
+    // 0x0100 = [..., 0x01, 0x00]. offset=1 skips 0x00, length=1 reads 0x01.
+    let packed = [0x0100 as Field];
     let selector = PropertySelector { index: 0, offset: 1, length: 1 };
     let result = super::extract_property_value_from_selector(packed, selector);
     assert_eq(result, 1);
+}
+
+#[test]
+unconstrained fn extract_property_value_nonzero_index() {
+    // index=1 skips the first Field (999) and reads from the second one (0x030201).
+    let packed = [999 as Field, 0x030201 as Field];
+    let selector = PropertySelector { index: 1, offset: 1, length: 2 };
+    let result = super::extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 0x0302);
+}
+
+#[test]
+unconstrained fn extract_property_value_max_offset_reads_first_byte() {
+    // 256^31 = byte[0]=1, rest=0. offset=31, length=1 reads byte[0].
+    let packed = [Field::pow_32(256, 31)];
+    let selector = PropertySelector { index: 0, offset: 31, length: 1 };
+    let result = super::extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 1);
+}
+
+#[test(should_fail_with = "PropertySelector offset + length exceeds field byte width")]
+unconstrained fn extract_property_value_rejects_offset_plus_length_exceeding_32() {
+    let packed = [1 as Field];
+    let selector = PropertySelector { index: 0, offset: 31, length: 2 };
+    let _ = super::extract_property_value_from_selector(packed, selector);
 }
