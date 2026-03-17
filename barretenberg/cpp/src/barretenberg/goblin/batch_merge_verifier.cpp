@@ -94,9 +94,20 @@ typename BatchMergeVerifier_<BatchSize, Curve, MaxMergeSize>::ReductionResult Ba
     // Compute powers of kappa and their inverses
     // -------------------------------------------------------------------------
     std::vector<FF> powers_of_kappa(MaxMergeSize);
+    // Shift sizes are at most 2^CONST_ECCVM_LOG_N, adjust the pow log n to take into account the batch size
+    static constexpr size_t POW_LOG_N = []() {
+        size_t pow_log_n = CONST_ECCVM_LOG_N;
+        if constexpr (BATCH_SIZE == 2) {
+            pow_log_n += 1;
+        } else if constexpr (BATCH_SIZE == 4) {
+            pow_log_n += 2;
+        }
+        return pow_log_n;
+    }();
+
     for (size_t idx = 0; idx < MaxMergeSize; idx++) {
         if constexpr (IsRecursive) {
-            powers_of_kappa[idx] = kappa.template pow_log_n<CONST_ECCVM_LOG_N>(shift_sizes[idx] * FF(BATCH_SIZE));
+            powers_of_kappa[idx] = kappa.template pow_log_n<POW_LOG_N>(shift_sizes[idx] * FF(BATCH_SIZE));
         } else {
             powers_of_kappa[idx] = kappa.pow(shift_sizes[idx] * FF(BATCH_SIZE));
         }

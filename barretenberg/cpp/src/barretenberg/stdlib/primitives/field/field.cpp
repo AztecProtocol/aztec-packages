@@ -1400,10 +1400,23 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at
 template class field_t<bb::UltraCircuitBuilder>;
 template class field_t<bb::MegaCircuitBuilder>;
 
+// Explicit instantations of pow_log_n for the various batch sizes
 template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N>(
     const field_t<bb::UltraCircuitBuilder>&) const;
 
 template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N>(
+    const field_t<bb::MegaCircuitBuilder>&) const;
+
+template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N + 1>(
+    const field_t<bb::UltraCircuitBuilder>&) const;
+
+template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N + 1>(
+    const field_t<bb::MegaCircuitBuilder>&) const;
+
+template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N + 2>(
+    const field_t<bb::UltraCircuitBuilder>&) const;
+
+template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow_log_n<CONST_ECCVM_LOG_N + 2>(
     const field_t<bb::MegaCircuitBuilder>&) const;
 
 } // namespace bb::stdlib

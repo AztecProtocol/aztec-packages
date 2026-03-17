@@ -193,7 +193,7 @@ template <typename TestParams> class BatchMergeTests : public testing::Test {
             const size_t idx = 0;
             auto commitment = NativeTranscript::Codec::deserialize_from_fields<NativeG1>(
                 std::vector<bb::fr>(proof.begin() + idx, proof.begin() + idx + NUM_FRS_COMM));
-            commitment = commitment += NativeG1::one(); // add generator to corrupt the commitment
+            commitment = commitment + NativeG1::one(); // add generator to corrupt the commitment
             auto corrupted_fields = NativeTranscript::Codec::serialize_to_fields(commitment);
             for (size_t j = 0; j < NUM_FRS_COMM; j++) {
                 proof[idx + j] = corrupted_fields[j];
