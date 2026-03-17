@@ -25,7 +25,8 @@ template <typename FF_> class ECCVMPointTableRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{ 6, 6, 6, 6, 6, 6 };
+    // 8 subrelations: 0-1 doubling, 2-3 Dx/Dy continuity, 4-5 intra-row add (Tx=Tx2+D), 6-7 inter-row add (Tx2=Tx'+D)
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS{ 6, 6, 6, 6, 6, 6, 6, 6 };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
