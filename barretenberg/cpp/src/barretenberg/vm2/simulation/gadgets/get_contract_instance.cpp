@@ -6,9 +6,19 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/common/uint1.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Construct a GetContractInstance gadget with its dependencies.
+ *
+ * @param execution_id_manager Provides monotonic execution clock values for event ordering.
+ * @param merkle_db High-level Merkle database for reading tree state (roots).
+ * @param event_emitter Emitter for GetContractInstanceEvent used by tracegen.
+ * @param instance_manager Manager that retrieves (and caches) contract instances from the world state.
+ */
 GetContractInstance::GetContractInstance(ExecutionIdManagerInterface& execution_id_manager,
                                          HighLevelMerkleDBInterface& merkle_db,
                                          EventEmitterInterface<GetContractInstanceEvent>& event_emitter,
@@ -19,6 +29,20 @@ GetContractInstance::GetContractInstance(ExecutionIdManagerInterface& execution_
     , instance_manager(instance_manager)
 {}
 
+/**
+ * @brief Retrieve a contract instance member and write the result to memory.
+ *
+ * Validates that dst_offset+1 is in bounds and that member_enum is valid, then retrieves the
+ * contract instance via the ContractInstanceManager. Writes the existence flag (U1) to dst_offset
+ * and the selected member value (FF) to dst_offset+1.
+ *
+ * @param memory The memory interface for the current context.
+ * @param contract_address The address of the contract to look up.
+ * @param dst_offset The memory offset at which to write the exists flag.
+ * @param member_enum The enum selecting which instance member to retrieve (deployer/class_id/init_hash).
+ * @throws GetContractInstanceException If dst_offset+1 is out of bounds (checked first).
+ * @throws GetContractInstanceException If member_enum is invalid (checked after bounds check).
+ */
 void GetContractInstance::get_contract_instance(MemoryInterface& memory,
                                                 const AztecAddress& contract_address,
                                                 MemoryAddress dst_offset,
@@ -74,6 +98,14 @@ void GetContractInstance::get_contract_instance(MemoryInterface& memory,
     event_emitter.emit(std::move(event));
 }
 
+/**
+ * @brief Write the contract instance existence flag and member value to memory.
+ *
+ * @param memory The memory interface for the current context.
+ * @param dst_offset The memory offset at which to write the exists flag (U1).
+ * @param exists Whether the contract instance was found.
+ * @param member_value The selected member value to write at dst_offset+1 (FF).
+ */
 void GetContractInstance::write_results(MemoryInterface& memory,
                                         MemoryAddress dst_offset,
                                         bool exists,
@@ -85,6 +117,14 @@ void GetContractInstance::write_results(MemoryInterface& memory,
     memory.set(dst_offset + 1, MemoryValue::from<FF>(member_value));
 }
 
+/**
+ * @brief Select a contract instance member by enum value.
+ *
+ * @param instance The contract instance to select from.
+ * @param member_enum The enum value identifying which member to return.
+ * @return The field value of the selected member.
+ * @throws std::runtime_error If member_enum is not a valid ContractInstanceMember (should be unreachable).
+ */
 FF GetContractInstance::select_instance_member(const ContractInstance& instance, uint8_t member_enum)
 {
     switch (static_cast<ContractInstanceMember>(member_enum)) {
