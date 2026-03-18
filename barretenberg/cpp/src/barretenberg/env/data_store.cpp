@@ -11,9 +11,7 @@ namespace {
 std::map<std::string, std::vector<uint8_t>> store;
 }
 
-extern "C" {
-
-void set_data(char const* key, uint8_t const* addr, size_t length)
+extern "C" void set_data(char const* key, uint8_t const* addr, size_t length)
 {
     std::string k = key;
     store[k] = std::vector<uint8_t>(addr, addr + length);
@@ -22,7 +20,7 @@ void set_data(char const* key, uint8_t const* addr, size_t length)
     // file.write(reinterpret_cast<const char*>(addr), (std::streamsize)length);
 }
 
-void get_data(char const* key, uint8_t* out_buf)
+extern "C" void get_data(char const* key, uint8_t* out_buf)
 {
     std::string k = key;
     if (store.contains(key)) {
@@ -31,5 +29,4 @@ void get_data(char const* key, uint8_t* out_buf)
     }
     // info("get data miss: ", key);
     // return nullptr;
-}
 }

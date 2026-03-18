@@ -214,6 +214,12 @@ add_library(
 # bb-external: A complete static library for external consumers (e.g. barretenberg-rs).
 # Includes everything from libbarretenberg.a plus env and vm2_stub.
 # This provides a single library file that external bindings can link against.
+#
+# The library is built with -fvisibility=hidden so all internal symbols are hidden by default. 
+# Only the public C API functions marked with WASM_EXPORT (which sets visibility("default")) remain 
+# visible to consumers.
+# A post-build step merges objects and strips symbol tables to ensure internal function
+# names cannot be recovered from the archive, reducing both size and information leakage.
 if(NOT WASM)
     add_library(
         bb-external
@@ -221,6 +227,23 @@ if(NOT WASM)
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:env_objects>
         $<TARGET_OBJECTS:vm2_stub>
+    )
+
+    # Post-build: merge all objects and strip non-WASM_EXPORT symbols.
+    # Only symbols marked WASM_EXPORT (visibility("default")) survive.
+    find_program(LLD_LINKER NAMES ld.lld-20 ld.lld REQUIRED)
+    find_program(LLVM_OBJCOPY NAMES llvm-objcopy-20 llvm-objcopy REQUIRED)
+    find_program(LLVM_STRIP NAMES llvm-strip-20 llvm-strip REQUIRED)
+    find_program(LLVM_AR_TOOL NAMES llvm-ar-20 llvm-ar REQUIRED)
+    add_custom_command(TARGET bb-external POST_BUILD
+        COMMAND ${LLD_LINKER} -r --whole-archive $<TARGET_FILE:bb-external> -o $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${LLVM_OBJCOPY} --localize-hidden $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${LLVM_STRIP} --strip-unneeded $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${CMAKE_COMMAND} -E rm -f $<TARGET_FILE:bb-external>
+        COMMAND ${LLVM_AR_TOOL} rcs $<TARGET_FILE:bb-external> $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${CMAKE_COMMAND} -E rm -f $<TARGET_FILE:bb-external>.merged.o
+        COMMENT "Stripping internal symbols from bb-external static library"
+        VERBATIM
     )
 endif()
 
