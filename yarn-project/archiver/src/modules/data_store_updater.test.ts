@@ -80,7 +80,7 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(retrievedInstance?.address.equals(instanceAddress)).toBe(true);
     });
 
-    it('removes contract class and instance data when blocks are pruned via setCheckpointData', async () => {
+    it('soft-deletes contract class and instance data when blocks are pruned via setCheckpointData', async () => {
       // First, add a local provisional block with contract data
       const localBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
@@ -114,12 +114,17 @@ describe('ArchiverDataStoreUpdater', () => {
       // This should detect the conflict and prune the local block
       await updater.addCheckpoints([publishedCheckpoint]);
 
-      // Verify the contract data from the local block was removed
+      // Contract data should still be accessible after prune (soft-deleted)
+      expect(await store.getContractClass(contractClassId)).toBeDefined();
+      expect(await store.getContractInstance(instanceAddress, timestamp)).toBeDefined();
+
+      // Hard-delete occurs on finalization
+      await updater.setFinalizedCheckpointNumber(CheckpointNumber(1));
       expect(await store.getContractClass(contractClassId)).toBeUndefined();
       expect(await store.getContractInstance(instanceAddress, timestamp)).toBeUndefined();
     });
 
-    it('removes contract data when checkpoints are unwound', async () => {
+    it('soft-deletes contract data when checkpoints are unwound', async () => {
       // Create block with contract data and add it as a checkpoint
       const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
@@ -137,12 +142,45 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(await store.getContractClass(contractClassId)).toBeDefined();
       expect(await store.getContractInstance(instanceAddress, timestamp)).toBeDefined();
 
-      // Remove the checkpoint
+      // Remove the checkpoint, data should still be accessible (soft-deleted)
+      await updater.removeCheckpointsAfter(CheckpointNumber(0));
+      expect(await store.getContractClass(contractClassId)).toBeDefined();
+      expect(await store.getContractInstance(instanceAddress, timestamp)).toBeDefined();
+    });
+
+    it('re-deploy after prune prevents finalization from hard-deleting contract class and instance', async () => {
+      // Add block with contract data
+      const block = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      block.body.txEffects[0].contractClassLogs = [contractClassLog];
+      block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
+
+      const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
+      await updater.addCheckpoints([publishedCheckpoint]);
+
+      // Prune the checkpoint
       await updater.removeCheckpointsAfter(CheckpointNumber(0));
 
-      // Verify the contract data was removed
-      expect(await store.getContractClass(contractClassId)).toBeUndefined();
-      expect(await store.getContractInstance(instanceAddress, timestamp)).toBeUndefined();
+      // Re-add the same contract data in a new block
+      const newBlock = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      newBlock.body.txEffects[0].contractClassLogs = [contractClassLog];
+      newBlock.body.txEffects[0].privateLogs = [
+        PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload()),
+      ];
+
+      const newCheckpoint = makePublishedCheckpoint(makeCheckpoint([newBlock]), 20);
+      await updater.addCheckpoints([newCheckpoint]);
+
+      // Finalize, data should survive because re-deploy removed it from the pending-deletion map
+      await updater.setFinalizedCheckpointNumber(CheckpointNumber(1));
+      const timestamp = newBlock.header.globalVariables.timestamp + 1n;
+      expect(await store.getContractClass(contractClassId)).toBeDefined();
+      expect(await store.getContractInstance(instanceAddress, timestamp)).toBeDefined();
     });
   });
 

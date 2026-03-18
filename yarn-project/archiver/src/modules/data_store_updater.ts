@@ -288,6 +288,9 @@ export class ArchiverDataStoreUpdater {
   public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.store.transactionAsync(async () => {
       await this.store.setFinalizedCheckpointNumber(checkpointNumber);
+      // Hard-delete pruned contract data for blocks at or before the finalized checkpoint
+      const finalizedBlockNumber = await this.store.getFinalizedL2BlockNumber();
+      await this.store.finalizeContractData(finalizedBlockNumber);
       await this.l2TipsCache?.refresh();
     });
   }
@@ -312,7 +315,12 @@ export class ArchiverDataStoreUpdater {
       await Promise.all([
         this.updatePublishedContractClasses(contractClassLogs, block.number, operation),
         this.updateDeployedContractInstances(privateLogs, block.number, operation),
-        this.updateUpdatedContractInstances(publicLogs, block.header.globalVariables.timestamp, operation),
+        this.updateUpdatedContractInstances(
+          publicLogs,
+          block.header.globalVariables.timestamp,
+          block.number,
+          operation,
+        ),
         operation === Operation.Store
           ? this.storeBroadcastedIndividualFunctions(contractClassLogs, block.number)
           : Promise.resolve(true),
@@ -379,6 +387,7 @@ export class ArchiverDataStoreUpdater {
   private async updateUpdatedContractInstances(
     allLogs: PublicLog[],
     timestamp: UInt64,
+    blockNum: BlockNumber,
     operation: Operation,
   ): Promise<boolean> {
     const contractUpdates = allLogs
@@ -393,7 +402,7 @@ export class ArchiverDataStoreUpdater {
       if (operation == Operation.Store) {
         return await this.store.addContractInstanceUpdates(contractUpdates, timestamp);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractInstanceUpdates(contractUpdates, timestamp);
+        return await this.store.deleteContractInstanceUpdates(contractUpdates, timestamp, blockNum);
       }
     }
     return true;

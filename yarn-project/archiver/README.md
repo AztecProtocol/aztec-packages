@@ -123,6 +123,18 @@ Both message and checkpoint sync detect L1 reorgs by comparing local state again
 4. Archiver unwinds checkpoints 14 and 15
 5. Next sync iteration re-fetches the new checkpoints 14 and 15
 
+#### Contract Data Soft-Deletion
+
+When a prune/reorg occurs, the archiver removes blocks and their associated contract data (classes, instances, instance updates). However, an in-flight checkpoint build may hold a world-state fork created before the prune. That fork's nullifier tree still contains deployment nullifiers for contracts in the pruned blocks. If the AVM executes a tx on this fork and looks up a contract whose data was already hard-deleted from the archiver, it triggers a `BB_ASSERT` crash (`"Contract instance should be found if nullifier exists"`).
+
+To prevent this, contract data is **soft-deleted** on prune: entries are marked as pruned in separate tracking maps but remain in the main data maps. Getters continue to return the data normally. **Hard-deletion** occurs only when a checkpoint is finalized via `setFinalizedCheckpointNumber()`, at which point no in-flight fork can reference the pruned data.
+
+This is safe because the world-state nullifier tree is the source of truth for contract existence, not the archiver. A new fork created after the prune won't have the deployment nullifier, so the AVM will correctly reject txs referencing the pruned contract — regardless of whether the archiver still has the metadata.
+
+When a pruned contract is re-deployed (same txs re-included in new blocks), the `add*` methods remove it from the pending-deletion map and store fresh data. Subsequent finalization won't delete it since the tracking entry was already removed.
+
+The implementation lives in `ContractInstanceStore` and `ContractClassStore` (in `src/store/`), orchestrated by `ArchiverDataStoreUpdater` (in `src/modules/`).
+
 #### Epoch Prune
 
 If a prune would occur on the next checkpoint submission (checked via `canPruneAtTime`), the archiver preemptively unwinds to the proven checkpoint.
