@@ -795,7 +795,7 @@ describe('PeerManager', () => {
 
       const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [enr]);
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       const isPrivatePeer = (newPeerManager as any).isPrivatePeer.bind(newPeerManager);
 
@@ -971,7 +971,7 @@ describe('PeerManager', () => {
     });
 
     it('should not accept auth from non-preferred peer', async () => {
-      const { privateKey, peerId } = await generateTestKeyPair();
+      const { privateKey } = await generateTestKeyPair();
       const enr = SignableENR.createFromPrivateKey(privateKey);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
@@ -990,7 +990,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       const someOtherPeer = await createSecp256k1PeerId();
 
@@ -1019,7 +1019,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1075,7 +1075,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1191,7 +1191,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       let receivedAuth: AuthRequest | undefined;
 
@@ -1244,7 +1244,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // Mock the auth request to fail
       mockReqResp.sendRequestToPeer.mockImplementation(
@@ -1296,7 +1296,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1367,7 +1367,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1437,7 +1437,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1516,7 +1516,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1616,7 +1616,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1918,7 +1918,7 @@ describe('PeerManager', () => {
         p2pMaxFailedAuthAttemptsAllowed: 2,
       });
 
-      await peerManager.initializePeers();
+      peerManager.initializePeers();
       await peerManager.heartbeat();
 
       mockReqResp.sendRequestToPeer.mockImplementation(

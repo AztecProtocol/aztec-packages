@@ -120,7 +120,7 @@ export class PeerManager implements PeerManagerInterface {
    *
    * This function is called when the peer manager is initialized.
    */
-  async initializePeers() {
+  initializePeers() {
     if (this.config.trustedPeers) {
       const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
       try {

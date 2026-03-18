@@ -204,12 +204,12 @@ export async function getPeerIdPrivateKey(
  * @param privateKey - peer ID private key as hex string
  * @returns The peer ID.
  */
-export async function createLibP2PPeerIdFromPrivateKey(privateKey: string): Promise<PeerId> {
+export function createLibP2PPeerIdFromPrivateKey(privateKey: string): PeerId {
   if (!privateKey?.length) {
     throw new Error('No peer private key provided');
   }
 
-  const asLibp2pPrivateKey: PrivateKey = await privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKey, 'hex')));
+  const asLibp2pPrivateKey: PrivateKey = privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKey, 'hex')));
   return peerIdFromPrivateKey(asLibp2pPrivateKey);
 }
 
@@ -218,8 +218,8 @@ export async function createLibP2PPeerIdFromPrivateKey(privateKey: string): Prom
  * @param privateKeyHex - The hex-encoded private key string.
  * @returns The libp2p PrivateKey object.
  */
-export async function unmarshalLibP2PPrivateKey(privateKeyHex: string): Promise<PrivateKey> {
-  return await privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKeyHex, 'hex')));
+export function unmarshalLibP2PPrivateKey(privateKeyHex: string): PrivateKey {
+  return privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKeyHex, 'hex')));
 }
 
 /** Creates a new secp256k1 peer ID. */

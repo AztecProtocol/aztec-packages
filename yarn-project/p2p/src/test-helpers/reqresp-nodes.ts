@@ -32,7 +32,6 @@ import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import type { BootnodeConfig, P2PConfig } from '../config.js';
-import { createSecp256k1PeerId } from '../index.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { APP_SPECIFIC_WEIGHT } from '../services/gossipsub/scoring.js';

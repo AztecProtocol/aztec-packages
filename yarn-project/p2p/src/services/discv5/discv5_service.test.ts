@@ -100,8 +100,8 @@ describe('Discv5Service', () => {
 
     await runDiscoveryUntil([node1, node2], () => node1.getKadValues().length >= 2 && node2.getKadValues().length >= 2);
 
-    const node1Peers = await getPeers(node1);
-    const node2Peers = await getPeers(node2);
+    const node1Peers = getPeers(node1);
+    const node2Peers = getPeers(node2);
 
     expect(node1Peers).toHaveLength(2);
     expect(node2Peers).toHaveLength(2);
@@ -164,9 +164,9 @@ describe('Discv5Service', () => {
       () => node1.getKadValues().length >= 2 && node2.getKadValues().length >= 2,
     );
 
-    const node1Peers = await getPeers(node1);
-    const node2Peers = await getPeers(node2);
-    const node3Peers = await getPeers(node3);
+    const node1Peers = getPeers(node1);
+    const node2Peers = getPeers(node2);
+    const node3Peers = getPeers(node3);
 
     expect(node1Peers).toHaveLength(2);
     expect(node2Peers).toHaveLength(2);
@@ -235,8 +235,8 @@ describe('Discv5Service', () => {
     // Verify node2 and node3 are connected to the trusted peer
     expect(node2.getKadValues().length).toBe(1);
     expect(node3.getKadValues().length).toBe(1);
-    expect(await getPeers(node2)).toContain(trustedNode.getPeerId().toString());
-    expect(await getPeers(node3)).toContain(trustedNode.getPeerId().toString());
+    expect(getPeers(node2)).toContain(trustedNode.getPeerId().toString());
+    expect(getPeers(node3)).toContain(trustedNode.getPeerId().toString());
 
     await runDiscoveryUntil(
       [node1, node2, node3, trustedNode],
@@ -246,13 +246,13 @@ describe('Discv5Service', () => {
     expect(node1.getKadValues()).toHaveLength(0);
 
     // Verify node2 and node3 discovered each other through the trusted peer
-    const node2Peers = await getPeers(node2);
+    const node2Peers = getPeers(node2);
     expect(node2Peers).toHaveLength(2);
     expect(node2Peers).toContain(node3.getPeerId().toString());
-    const node3Peers = await getPeers(node3);
+    const node3Peers = getPeers(node3);
     expect(node3Peers).toHaveLength(2);
     expect(node3Peers).toContain(node2.getPeerId().toString());
-    const trustedNodePeers = await getPeers(trustedNode);
+    const trustedNodePeers = getPeers(trustedNode);
     expect(trustedNodePeers).toHaveLength(2);
     expect(trustedNodePeers).toContain(node2.getPeerId().toString());
     expect(trustedNodePeers).toContain(node3.getPeerId().toString());

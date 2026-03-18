@@ -49,7 +49,7 @@ export function injectCommands(program: Command, log: LogFn) {
     .argument('<enr>', 'The encoded ENR string')
     .action(async (enr: string) => {
       const { printENR } = await import('@aztec/p2p/enr');
-      await printENR(enr, log);
+      printENR(enr, log);
     });
 
   program
