@@ -250,14 +250,12 @@ template <typename Curve> class GeminiProver_ {
 
             Fr r_inv = r_challenge.invert();
             if (has_to_be_shifted_by_one()) {
-                batched_to_be_shifted_by_one *= r_inv;
-                A_0_pos += batched_to_be_shifted_by_one;
-                A_0_neg -= batched_to_be_shifted_by_one;
+                A_0_pos.add_scaled(batched_to_be_shifted_by_one, r_inv);
+                A_0_neg.add_scaled(batched_to_be_shifted_by_one, -r_inv);
             }
             if (!batched_shifted_tail_.is_empty()) {
-                batched_shifted_tail_ *= r_inv;
-                A_0_pos += batched_shifted_tail_;
-                A_0_neg -= batched_shifted_tail_;
+                A_0_pos.add_scaled(batched_shifted_tail_, r_inv);
+                A_0_neg.add_scaled(batched_shifted_tail_, -r_inv);
             }
 
             return { A_0_pos, A_0_neg };
