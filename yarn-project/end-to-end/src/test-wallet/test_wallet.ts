@@ -128,7 +128,7 @@ export class TestWallet extends BaseWallet {
    * Controls how the test wallet simulates transactions:
    * - `kernelless`: Skips kernel circuits but uses the real account contract. Default.
    * - `kernelless-override`: Skips kernels and replaces the account with a stub that doesn't do authwit validation.
-   * - `full`: Uses real kernel circuits and real account contracts. Slow!.
+   * - `full`: Uses real kernel circuits and real account contracts. Slow!
    */
   private simulationMode: 'kernelless' | 'kernelless-override' | 'full' = 'kernelless';
 

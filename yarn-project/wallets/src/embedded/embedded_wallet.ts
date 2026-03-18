@@ -129,7 +129,6 @@ export class EmbeddedWallet extends BaseWallet {
         executionPayload.authWitnesses.push(authwit);
       }
     }
-
     const estimated = getGasLimits(simulationResult, this.estimatedGasPadding);
     this.log.verbose(
       `Estimated gas limits for tx: DA=${estimated.gasLimits.daGas} L2=${estimated.gasLimits.l2Gas} teardownDA=${estimated.teardownGasLimits.daGas} teardownL2=${estimated.teardownGasLimits.l2Gas}`,

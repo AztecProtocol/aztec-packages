@@ -105,11 +105,12 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
    * @param feeEntrypointOptions - Optional entrypoint-specific options for wrapping. If not provided, will be auto-computed based on the payment method.
    * @returns A FeePaymentMethod that routes the original one through the account's entrypoint (AccountEntrypointMetaPaymentMethod)
    */
-  private getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
+  private async getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
     if (!this.address) {
       throw new Error('Instance is not yet constructed. This is a bug!');
     }
-    return new AccountEntrypointMetaPaymentMethod(this.account, originalPaymentMethod, feeEntrypointOptions);
+    const chainInfo = await this.wallet.getChainInfo();
+    return new AccountEntrypointMetaPaymentMethod(this.account, chainInfo, originalPaymentMethod, feeEntrypointOptions);
   }
 
   /**
