@@ -15,8 +15,8 @@ Here, "split" refers to the option of splitting up the multiset-equality check i
 | NUM_WIRES | 85 | 121 (+36) | 123 (+38) |
 | Precompute rows/scalar | 8 | 4 | 4 |
 | MSM ADD rows/digit | ⌈m/4⌉ | ⌈m/8⌉ | ⌈m/8⌉ |
-| MSM doubling rows | 31 | 16 (with Step 3) | 16 |
-| MSM row formula | `33·⌈m/4⌉+31` | `33·⌈m/8⌉+16` | `33·⌈m/8⌉+16` |
+| MSM doubling rows | 31 | 31 (unchanged) | 31 |
+| MSM row formula | `33·⌈m/4⌉+31` | `33·⌈m/8⌉+31` | `33·⌈m/8⌉+31` |
 | MAX_PARTIAL_RELATION_LENGTH | 22 | 29 | 17 |
 | ECCVM proof size (Fr) | 608 | 756 (+148) | ~764 (+156) |
 
@@ -74,7 +74,7 @@ Wire up in `eccvm_circuit_builder.hpp` `ProverPolynomials` constructor (follows 
 #### 1d. Relations
 
 **`ecc_msm_relation_impl.hpp`:**
-- Extend addition chain 4→8, skew chain 4→8. Doubling chain unchanged in Step 1 (4, lambda1–4); widened to 8 in Step 3.
+- Extend addition chain 4→8, skew chain 4→8. Doubling chain **unchanged** (4, lambda1–4).
 - 4 new add slope subrelations + 4 skew slope subrelations (separate to prevent cancellation)
 - Extend collision checks, slice-zero, addition continuity, count update to 8
 - Cross-row: `(-add8 + 1) * add1_shift`. Max partial length: 8→**12**.
@@ -122,101 +122,30 @@ Wire up in `eccvm_circuit_builder.hpp` `ProverPolynomials` constructor (follows 
 - Regenerate VKs: `./test_chonk_standalone_vks_havent_changed.sh --update_inputs`
 - Recursive verifier: relation changes auto-propagate via templates. Flavor entity changes (new columns) need manual mirroring in `stdlib/eccvm_verifier/`
 
-### Step 3: Double the doublings per row (DOUBLINGS_PER_ROW 4→8)
+### Step 3 (infeasible): Double the doublings per row
 
-Pack 2 doubling rounds into 1 row, cutting doubling rows from 31 to 16 per MSM. This requires **no new columns**: on doubling rows, `lambda5..lambda8` are unused (they're only for addition slots 5-8 on add rows), and `q_add`/`q_double`/`q_skew` are mutually exclusive. So we reuse `lambda5..lambda8` for the second set of 4 doublings on doubling rows.
+~~Pack 2 doubling rounds into 1 row, cutting doubling rows from 31 to 16.~~
 
-**Why this matters:** Without this, the 8-wide change only achieves ~1.65x capacity (28 apps) instead of the expected 2x. The 31 doubling rows per MSM are a fixed cost that doesn't benefit from the additions widening. With this fix, the MSM row formula changes:
+**This doesn't work.** The 31 doubling rounds are structurally tied to the Straus algorithm: each one occurs between two consecutive digit-slot ADD phases. The sequence is:
 
-| | Old (4-wide) | After Step 1 (8-wide, 4 dbl/row) | After Step 3 (8-wide, 8 dbl/row) |
-|--|:--:|:--:|:--:|
-| MSM rows | `33·⌈m/4⌉ + 31` | `33·⌈m/8⌉ + 31` | `33·⌈m/8⌉ + 16` |
-| Max apps (LOG_N=15) | 17 | 28 | ~30 |
-
-#### 3a. Constants
-
-**`eccvm_builder_types.hpp`:**
-```cpp
-DOUBLINGS_PER_ROW = 2 * NUM_WNAF_DIGIT_BITS; // was NUM_WNAF_DIGIT_BITS (4), now 8
+```
+ADD(d0) → DBL(×16) → ADD(d1) → DBL(×16) → ADD(d2) → ... → ADD(d31) → SKEW
 ```
 
-#### 3b. Builder (`msm_builder.hpp`)
+Each DBL must happen before the next ADD because the additions for digit d_{j+1} operate on the already-shifted accumulator. You cannot combine two consecutive DBL rounds into one row without removing the ADD round between them.
 
-The doubling loop (currently iterating `DOUBLINGS_PER_ROW = 4` times per doubling row) now iterates 8 times. Each doubling row performs 8 point doublings (= 2 rounds of 4 doublings each = multiply accumulator by 2^8 = 256).
+To remove the intervening ADD, you'd need to process digit pairs (d_j, d_{j+1}) in one cycle and do ×256 between cycles. But this changes the scalar decomposition from 4-bit to 8-bit digits, requiring a point table of size 256 (currently 16). That's impractical.
 
-- The doubling row generation loop at line ~346 already uses `DOUBLINGS_PER_ROW` — it will auto-adjust to 8.
-- The number of doubling rows changes: currently `NUM_WNAF_DIGITS_PER_SCALAR - 1 = 31` rows. With 2 rounds per row: `ceil(31/2) = 16` rows. But 31 is odd, so the last doubling row only does 4 doublings (1 round), not 8. Must handle this: either pad to 32 rounds (adding an extra no-op doubling at the start), or track a "half-doubling" flag for the last row.
+**Bottom line:** The 31 doubling rows per MSM are an inherent cost of the 4-bit wNAF structure. The 8-wide change achieves ~1.65x capacity improvement (17→28 apps at LOG_N=15), not the theoretical 2x, because doubling rows don't benefit from addition widening.
 
-**Simplest approach:** Keep 31 rounds, emit `ceil(31/2) = 16` doubling rows. The first 15 rows each do 8 doublings (2 rounds). The last row does 4 doublings (1 round) with `lambda5..8` unused/zeroed. The relation must handle this — use the existing `add_state[i].point` slots for "is this doubling slot active" or simply check if `point_idx < actual_doublings_this_row`.
+### Step 3 (actual): Test and measure
 
-Actually, even simpler: the relation doesn't need to know whether a doubling slot is "active" — the doubling chain is purely sequential. If we always do 8 doublings, the last doubling row would do an extra 4 doublings that shouldn't happen. So we need a selector or convention:
-
-**Option A (recommended):** Change from 31 to 30 doubling rounds by adjusting the Straus algorithm: use `NUM_WNAF_DIGITS_PER_SCALAR = 32` digit slots but start the MSM at digit 31 instead of digit 32. This makes the number of inter-digit doublings 30 (even), giving exactly 15 doubling rows with 8 doublings each. This requires a small tweak to the scalar decomposition — the leading digit is constrained to be in a smaller range (no change to security, just a tighter range check on the most significant digit).
-
-**Option B:** Keep 31 doubling rounds, emit 16 rows. The last row uses only 4 doublings (lambda1..4). Gate the second set of 4 doublings with a new boolean column `q_double_second` (or reuse a spare signal, e.g. the last doubling row has `msm_round` that distinguishes it). Alternatively, the relation just checks: if `round == 0` (first round after the leading digit), only 4 doublings; otherwise, 8.
-
-**Option C (simplest):** Add one extra dummy doubling round (32 total inter-digit gaps by starting from an identity-like state), making it 32 rounds = 16 rows × 8 doublings. The extra doubling at the end is a no-op since the skew round follows.
-
-Recommend **Option B** — it's the most straightforward and doesn't change the scalar decomposition. The relation already has `q_double` and `round` available. On a "half" doubling row, constrain `acc_x_shift = x_d4` (after 4 doublings) instead of `acc_x_shift = x_d8` (after 8). The condition is: this is the last doubling row, i.e., the row where `round` transitions from digit 0 to the skew round. In practice, every other doubling row can be detected by checking if the *next* doubling row follows (via `q_double_shift`) or if an add/skew row follows.
-
-#### 3c. Relation (`ecc_msm_relation_impl.hpp`)
-
-Currently the doubling chain does:
-```
-[x_d1, y_d1] = dbl(acc_x, acc_y, lambda1)
-[x_d2, y_d2] = dbl(x_d1, y_d1, lambda2)
-[x_d3, y_d3] = dbl(x_d2, y_d2, lambda3)
-[x_d4, y_d4] = dbl(x_d3, y_d3, lambda4)
-constrain: acc_x_shift = x_d4, acc_y_shift = y_d4
-```
-
-Extend to:
-```
-[x_d5, y_d5] = dbl(x_d4, y_d4, lambda5)
-[x_d6, y_d6] = dbl(x_d5, y_d5, lambda6)
-[x_d7, y_d7] = dbl(x_d6, y_d6, lambda7)
-[x_d8, y_d8] = dbl(x_d7, y_d7, lambda8)
-```
-
-For a "full" doubling row (2 rounds): `acc_shift = (x_d8, y_d8)`
-For a "half" doubling row (1 round, last one): `acc_shift = (x_d4, y_d4)`
-
-The output constraint becomes:
-```
-q_double * q_double_shift * (acc_x_shift - x_d8) = 0  // full: next row is also double
-q_double * (-q_double_shift + 1) * (acc_x_shift - x_d4) = 0  // half: next row is NOT double
-```
-(Same for y.) This adds 2 subrelations and replaces the existing 2 output subrelations (indices 10, 11). Max degree: `q_double * q_double_shift * (acc_x_shift - x_d8)` = degree 1+1+1 = 3. No increase to MSM relation max partial length (still 12).
-
-New doubling slope subrelations for `lambda5..8`: 4 new subrelations (same structure as existing `double_slope_relation1..4`). Total MSM subrelations: 67 + 4 + 2 = ~73. (The +2 is for splitting the output constraint into full/half cases; the original 2 are replaced.)
-
-#### 3d. Row tracker (`eccvm_row_tracker.hpp`)
-
-Update `num_eccvm_msm_rows`:
-```cpp
-const size_t num_double_rounds = eccvm::NUM_WNAF_DIGITS_PER_SCALAR - 1; // 31
-const size_t num_double_rows = (num_double_rounds + 1) / 2; // ceil(31/2) = 16
-```
-
-#### 3e. Capacity impact
-
-With `DOUBLINGS_PER_ROW = 8`:
-- MSM rows per MSM: `33 * ceil(m/8) + 16` (was `33 * ceil(m/8) + 31`)
-- Per-app saving: ~15 fewer doubling rows per MSM × ~2 MSMs per app ≈ ~30 rows/app
-- Expected max apps at LOG_N=15: ~30 (up from 28, closer to the theoretical 2x of 34)
-
-#### 3f. No new columns needed
-
-This is key: `lambda5..lambda8` already exist in the flavor for additions 5-8. On doubling rows (`q_double = 1`), additions are inactive (`q_add = 0`), so `lambda5..8` are free to be repurposed for doublings 5-8. The relation just needs to read them in both the addition and doubling sections, gated by the respective selectors.
-
-### Step 4: Test and measure
-
-- `eccvm_tests` after doubling widening
-- `chonk_tests` MaxCapacityPassing — verify increased capacity
+- `eccvm_tests` after widening
+- `chonk_tests`, `goblin_tests` after full integration
 - Measure actual workload row counts → decide if `CONST_ECCVM_LOG_N` can drop 15→14
 - If yes: update `constants.hpp`, cascade to Noir/TS
 
-### Step 5 (optional): Grand product split
+### Step 4 (optional): Grand product split
 
 Split the single `ECCVMSetRelation` grand product into 3 independent ones to drop `MAX_PARTIAL_RELATION_LENGTH` from 29→17. Only worth doing if degree 29 causes measurable performance issues.
 
