@@ -28,6 +28,7 @@ pub struct NoteHashAndNullifier {
     pub inner_nullifier: Option<Field>,
 }
 
+<<<<<<< HEAD
 /// A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
 /// type ID and attempts to compute its note hash (not hashed by note nonce nor siloed by address) and inner nullifier
 /// (not siloed by address).
@@ -38,27 +39,37 @@ pub struct NoteHashAndNullifier {
 ///
 /// ```
 /// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
+=======
+/// A contract's way of computing note hashes.
+///
+/// Each contract in the network is free to compute their note's hash as they see fit - the hash function itself is not
+/// enshrined or standardized. Some aztec-nr functions however do need to know the details of this computation (e.g.
+/// when finding new notes), which is what this type represents.
+///
+/// This function takes a note's packed content, storage slot, note type ID, address of the emitting contract and
+/// randomness, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce).
+///
+/// ## Transient Notes
+///
+/// This function is meant to always be used on **settled** notes, i.e. those that have been inserted into the trees
+/// and for which the nonce is known. It is never invoked in the context of a transient note, as those are not involved
+/// in message processing.
+///
+/// ## Automatic Implementation
+///
+/// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
+/// for each contract by inspecting all note types in use and the storage layout. This injected function is a
+/// `#[contract_library_method]` called `_compute_note_hash`, and it looks something like this:
+///
+/// ```noir
+/// |packed_note, owner, storage_slot, note_type_id, _contract_address, randomness| {
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
 ///     if note_type_id == MyNoteType::get_id() {
 ///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
 ///             Option::none()
 ///         } else {
 ///             let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
-///
-///             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-///             let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///                 HintedNote {
-///                     note, contract_address, owner, randomness, storage_slot,
-///                     metadata: SettledNoteMetadata::new(note_nonce).into(),
-///                 },
-///             );
-///
-///             let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
-///
-///             Option::some(
-///                 aztec::messages::discovery::NoteHashAndNullifier {
-///                     note_hash, inner_nullifier
-///                 }
-///             )
+///             Option::some(note.compute_note_hash(owner, storage_slot, randomness))
 ///         }
 ///     } else if note_type_id == MyOtherNoteType::get_id() {
 ///           ... // Similar to above but calling MyOtherNoteType::unpack
@@ -67,9 +78,30 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
+pub type ComputeNoteHash = unconstrained fn(/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /*
  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
-randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
+randomness */ Field) -> Option<Field>;
+
+/// A contract's way of computing note nullifiers.
+///
+/// Like [`ComputeNoteHash`], each contract is free to derive nullifiers as they see fit. This function takes the
+/// unique note hash (used as the note hash for nullification for settled notes), plus the note's packed content and
+/// metadata, and attempts to compute the inner nullifier (not siloed by address).
+///
+/// ## Automatic Implementation
+///
+/// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
+/// for each contract called `_compute_note_nullifier`. It dispatches on `note_type_id` similarly to
+/// [`ComputeNoteHash`], then calls the note's
+/// [`compute_nullifier_unconstrained`](crate::note::note_interface::NoteHash::compute_nullifier_unconstrained) method.
+pub type ComputeNoteNullifier = unconstrained fn(/* unique_note_hash */Field, /* packed_note */ BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+/* owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress,
+/* randomness */ Field) -> Option<Field>;
+
+/// Deprecated: use [`ComputeNoteHash`] and [`ComputeNoteNullifier`] instead.
+pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+/* owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress,
+/*randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
@@ -79,11 +111,25 @@ randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 /// That should be close to the chain tip as block synchronization is performed before contract function simulation is
 /// done.
 ///
+<<<<<<< HEAD
 /// Receives the address of the contract on which discovery is performed along with its
 /// `compute_note_hash_and_nullifier` function.
 pub unconstrained fn do_sync_state<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+=======
+/// As blocks are mined, it is possible for a contract's private state to change (e.g. with new notes being created),
+/// but because these changes are private they will be invisible to most actors. This is the function that processes
+/// new transactions in order to discover new notes, events, and other kinds of private state changes.
+///
+/// The private state will be synchronized up to the block that will be used for private transactions (i.e. the anchor
+/// block. This will typically be close to the tip of the chain.
+pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
@@ -102,7 +148,13 @@ pub unconstrained fn do_sync_state<Env>(
 
             process_message_ciphertext(
                 contract_address,
+<<<<<<< HEAD
                 compute_note_hash_and_nullifier,
+=======
+                compute_note_hash,
+                compute_note_nullifier,
+                process_custom_message,
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
                 message_ciphertext,
                 pending_tagged_log.context,
             );
@@ -121,7 +173,13 @@ pub unconstrained fn do_sync_state<Env>(
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
+<<<<<<< HEAD
                 compute_note_hash_and_nullifier,
+=======
+                compute_note_hash,
+                compute_note_nullifier,
+                process_custom_message,
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
                 msg.message_ciphertext,
                 msg.message_context,
             );
@@ -133,7 +191,11 @@ pub unconstrained fn do_sync_state<Env>(
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    partial_notes::fetch_and_process_partial_note_completion_logs(contract_address, compute_note_hash_and_nullifier);
+    partial_notes::fetch_and_process_partial_note_completion_logs(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+    );
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
@@ -144,7 +206,11 @@ mod test {
     use crate::{
         capsules::CapsuleArray,
         messages::{
+<<<<<<< HEAD
             discovery::{do_sync_state, NoteHashAndNullifier},
+=======
+            discovery::{CustomMessageHandler, do_sync_state},
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
             logs::note::MAX_NOTE_PACKED_LEN,
             processing::{
                 offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
@@ -168,21 +234,42 @@ mod test {
             assert_eq(logs.len(), 1);
 
             let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
+<<<<<<< HEAD
             do_sync_state(contract_address, dummy_compute_nhnn, no_inbox_sync);
+=======
+            do_sync_state(
+                contract_address,
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
+                no_handler,
+                no_inbox_sync,
+            );
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
 
             assert_eq(logs.len(), 0);
         });
     }
 
-    unconstrained fn dummy_compute_nhnn(
+    unconstrained fn dummy_compute_note_hash(
         _packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
         _owner: AztecAddress,
         _storage_slot: Field,
         _note_type_id: Field,
         _contract_address: AztecAddress,
         _randomness: Field,
-        _note_nonce: Field,
-    ) -> Option<NoteHashAndNullifier> {
+    ) -> Option<Field> {
+        Option::none()
+    }
+
+    unconstrained fn dummy_compute_note_nullifier(
+        _unique_note_hash: Field,
+        _packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+        _owner: AztecAddress,
+        _storage_slot: Field,
+        _note_type_id: Field,
+        _contract_address: AztecAddress,
+        _randomness: Field,
+    ) -> Option<Field> {
         Option::none()
     }
 }
