@@ -25,8 +25,8 @@ export class UnavailableOracleError extends Error {
   }
 }
 
-function optionalAddressFromAcvmFields(scopeSome: ACVMField, scopeValue: ACVMField) {
-  return Fr.fromString(scopeSome).toNumber() === 1 ? AztecAddress.fromField(Fr.fromString(scopeValue)) : undefined;
+function optionalAddressFromAcvmFields(addressSome: ACVMField, addressValue: ACVMField) {
+  return Fr.fromString(addressSome).toNumber() === 1 ? AztecAddress.fromField(Fr.fromString(addressValue)) : undefined;
 }
 
 /**
