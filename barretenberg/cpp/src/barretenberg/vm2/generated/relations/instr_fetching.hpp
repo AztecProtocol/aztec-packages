@@ -14,7 +14,7 @@ template <typename FF_> class instr_fetchingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 3, 4, 3, 3,
+    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 3, 4, 3, 3, 3,
                                                                             3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -38,15 +38,16 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_PC_OUT_OF_RANGE_TOGGLE = 7;
     static constexpr size_t SR_INSTR_OUT_OF_RANGE_TOGGLE = 9;
-    static constexpr size_t SR_TAG_VALUE = 10;
-    static constexpr size_t SR_ADDRESSING_MODE_BYTES_DECOMPOSITION = 12;
-    static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 13;
-    static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 14;
-    static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 15;
-    static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 16;
-    static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 17;
-    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 18;
-    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 19;
+    static constexpr size_t SR_SEL_HAS_TAG_ZERO = 10;
+    static constexpr size_t SR_TAG_VALUE = 11;
+    static constexpr size_t SR_ADDRESSING_MODE_BYTES_DECOMPOSITION = 13;
+    static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 14;
+    static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 15;
+    static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 16;
+    static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 17;
+    static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 18;
+    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 19;
+    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 20;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -55,6 +56,8 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
             return "PC_OUT_OF_RANGE_TOGGLE";
         case SR_INSTR_OUT_OF_RANGE_TOGGLE:
             return "INSTR_OUT_OF_RANGE_TOGGLE";
+        case SR_SEL_HAS_TAG_ZERO:
+            return "SEL_HAS_TAG_ZERO";
         case SR_TAG_VALUE:
             return "TAG_VALUE";
         case SR_ADDRESSING_MODE_BYTES_DECOMPOSITION:
