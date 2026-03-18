@@ -1,6 +1,6 @@
 # @aztec/foundation
 
-Version: v5.0.0-nightly.20260317
+Version: v5.0.0-nightly.20260318
 
 ## Quick Import Reference
 

@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v5.0.0-nightly.20260317
+Version: v5.0.0-nightly.20260318
 
 ## Quick Import Reference
 
@@ -408,7 +408,7 @@ A filter used to fetch notes.
 
 ### ORACLE_VERSION
 ```typescript
-type ORACLE_VERSION = 16
+type ORACLE_VERSION = 17
 ```
 
 ### PXEConfig

@@ -13,16 +13,16 @@ import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
-import type { AccessScopes, NotesFilter } from '@aztec/pxe/client/lazy';
+import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
-import type { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
+import type { SimulationOverrides, TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import type { AccountType } from './constants.js';
@@ -224,21 +224,19 @@ export class CLIWallet extends BaseWallet {
    */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
+    opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResult> {
-    if (from.equals(AztecAddress.ZERO)) {
-      return super.simulateViaEntrypoint(
-        executionPayload,
-        from,
-        feeOptions,
-        scopes,
-        skipTxValidation,
-        skipFeeEnforcement,
-      );
+    const { from, feeOptions, scopes } = opts;
+    let overrides: SimulationOverrides | undefined;
+    let fromAccount: Account;
+    if (!from.equals(AztecAddress.ZERO)) {
+      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
+      fromAccount = account;
+      overrides = {
+        contracts: { [from.toString()]: { instance, artifact } },
+      };
+    } else {
+      fromAccount = await this.getAccountFromAddress(from);
     }
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -251,7 +249,6 @@ export class CLIWallet extends BaseWallet {
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
 
-    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
     const chainInfo = await this.getChainInfo();
     const txRequest = await fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
@@ -263,9 +260,7 @@ export class CLIWallet extends BaseWallet {
       simulatePublic: true,
       skipFeeEnforcement: true,
       skipTxValidation: true,
-      overrides: {
-        contracts: { [from.toString()]: { instance, artifact } },
-      },
+      overrides,
       scopes,
     });
   }
