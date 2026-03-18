@@ -26,7 +26,7 @@ describe('CustomMessage - Multi-Log Pattern', () => {
       accounts: [account],
     } = await setup(1));
     await ensureAccountContractsPublished(wallet, [account]);
-    contract = await CustomMessageContract.deploy(wallet).send({ from: account });
+    ({ contract } = await CustomMessageContract.deploy(wallet).send({ from: account }));
   });
 
   afterAll(() => teardown());
@@ -40,8 +40,8 @@ describe('CustomMessage - Multi-Log Pattern', () => {
 
     const events = await wallet.getPrivateEvents<MultiLogEvent>(CustomMessageContract.events.MultiLogEvent, {
       contractAddress: contract.address,
-      fromBlock: BlockNumber(tx.blockNumber!),
-      toBlock: BlockNumber(tx.blockNumber! + 1),
+      fromBlock: BlockNumber(tx.receipt.blockNumber!),
+      toBlock: BlockNumber(tx.receipt.blockNumber! + 1),
       scopes: [account],
     });
 
@@ -63,16 +63,16 @@ describe('CustomMessage - Multi-Log Pattern', () => {
 
     const events = await wallet.getPrivateEvents<MultiLogEvent>(CustomMessageContract.events.MultiLogEvent, {
       contractAddress: contract.address,
-      fromBlock: BlockNumber(tx.blockNumber!),
-      toBlock: BlockNumber(tx.blockNumber! + 1),
+      fromBlock: BlockNumber(tx.receipt.blockNumber!),
+      toBlock: BlockNumber(tx.receipt.blockNumber! + 1),
       scopes: [account],
     });
 
     expect(events.length).toBe(2);
 
     // Events may arrive in any order, so match by value0
-    const eventA = events.find(e => e.event.value0 === valuesA[0].toBigInt())!;
-    const eventB = events.find(e => e.event.value0 === valuesB[0].toBigInt())!;
+    const eventA = events.find((e: { event: MultiLogEvent }) => e.event.value0 === valuesA[0].toBigInt())!;
+    const eventB = events.find((e: { event: MultiLogEvent }) => e.event.value0 === valuesB[0].toBigInt())!;
 
     expect(eventA).toBeDefined();
     expect(eventA.event.value1).toBe(valuesA[1].toBigInt());
