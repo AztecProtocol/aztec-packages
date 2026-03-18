@@ -1,2 +1,2 @@
-export { BaseWallet, type FeeOptions } from './base_wallet.js';
+export { BaseWallet, type FeeOptions, type SimulateViaEntrypointOptions } from './base_wallet.js';
 export { simulateViaNode, buildMergedSimulationResult, extractOptimizablePublicStaticCalls } from './utils.js';

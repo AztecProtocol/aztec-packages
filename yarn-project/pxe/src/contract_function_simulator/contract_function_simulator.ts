@@ -448,6 +448,8 @@ export async function generateSimulatedProvingResult(
     privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader.globalVariables.timestamp +
     BigInt(MAX_TX_LIFETIME);
 
+  let feePayer = AztecAddress.zero();
+
   const executions = [privateExecutionResult.entrypoint];
 
   while (executions.length !== 0) {
@@ -461,6 +463,13 @@ export async function generateSimulatedProvingResult(
     }
 
     const { contractAddress } = execution.publicInputs.callContext;
+
+    if (execution.publicInputs.isFeePayer) {
+      if (!feePayer.isZero()) {
+        throw new Error('Multiple fee payers found in private execution result');
+      }
+      feePayer = contractAddress;
+    }
 
     scopedNoteHashes.push(
       ...execution.publicInputs.noteHashes
@@ -682,7 +691,7 @@ export async function generateSimulatedProvingResult(
         daGas: TX_DA_GAS_OVERHEAD,
       }),
     ),
-    /*feePayer=*/ AztecAddress.zero(),
+    /*feePayer=*/ feePayer,
     /*expirationTimestamp=*/ expirationTimestamp,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
