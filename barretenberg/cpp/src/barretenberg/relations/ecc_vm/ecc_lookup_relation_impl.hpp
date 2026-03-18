@@ -18,8 +18,8 @@ namespace bb {
  * Table writes: ECCVMPointTable columns: we define Straus point table:
  * { {0, -15[P]}, {1, -13[P]}, ..., {15, 15[P]} }
  * write source: { precompute_round, precompute_tx, precompute_ty }
- * Table reads: ECCVMMSM columns. Each row adds up to 4 points into MSM accumulator
- * read source: { msm_slice1, msm_x1, msm_y1 }, ..., { msm_slice4, msm_x4, msm_y4 }
+ * Table reads: ECCVMMSM columns. Each row adds up to 8 points into MSM accumulator
+ * read source: { msm_slice1, msm_x1, msm_y1 }, ..., { msm_slice8, msm_x8, msm_y8 }
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Accumulator edges.
  * @param parameters contains beta, gamma, and public_input_delta, ....

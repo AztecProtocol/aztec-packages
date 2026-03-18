@@ -45,13 +45,13 @@ class ECCVMMSMMBuilder {
         bool q_double = false;
         bool q_skew = false;
 
-        // Each row in the MSM portion of the ECCVM can handle (up to) 4 point-additions.
-        // For each row in the VM we represent the point addition data via a size-4 array of
+        // Each row in the MSM portion of the ECCVM can handle (up to) 8 point-additions.
+        // For each row in the VM we represent the point addition data via a size-8 array of
         // AddState objects.
         struct AddState {
             bool add = false; // are we adding a point at this location in the VM?
-                              // e.g if the MSM is of size-2 then the 3rd and 4th AddState objects will have this set
-                              // to `false`.
+                              // e.g if the MSM is of size-2 then the 3rd through 8th AddState objects will have this
+                              // set to `false`.
             int slice = 0; // wNAF slice value. This has values in {0, ..., 15} and corresponds to an odd number in the
                            // range {-15, -13, ..., 15} via the monotonic bijection.
             AffineElement point{ 0, 0 }; // point being added into the accumulator. (This is of the form nP,
@@ -67,8 +67,8 @@ class ECCVMMSMMBuilder {
             arr.fill(AddState{ false, 0, { 0, 0 }, 0, 0 });
             return arr;
         }();
-        // The accumulator here is, in general, the result of four EC additions: A + Q_1 + Q_2 + Q_3 + Q_4.
-        // We do not explicitly store the intermediate values A + Q_1, A + Q_1 + Q_2, and A + Q_1 + Q_2 + Q_3, although
+        // The accumulator here is, in general, the result of eight EC additions: A + Q_1 + ... + Q_8.
+        // We do not explicitly store the intermediate values A + Q_1, ..., A + Q_1 + ... + Q_7, although
         // these values are implicitly used in the values of `AddState.lambda` and `AddState.collision_inverse`.
 
         FF accumulator_x = 0; // `(accumulator_x, accumulator_y)` is the accumulator to which I potentially want to add
@@ -294,7 +294,7 @@ class ECCVMMSMMBuilder {
                         auto& add_state = row.add_state[point_idx];
                         add_state.add = num_points_in_row > point_idx;
                         int slice = add_state.add ? msm[offset + point_idx].wnaf_digits[digit_idx] : 0;
-                        // In the MSM columns in the ECCVM circuit, we can add up to 4 points per row.
+                        // In the MSM columns in the ECCVM circuit, we can add up to 8 points per row.
                         // if `row.add_state[point_idx].add = 1`, this indicates that we want to add the
                         // `point_idx`'th point in the MSM columns into the MSM accumulator `add_state.slice` = A
                         // 4-bit WNAF slice of the scalar multiplier associated with the point we are adding (the

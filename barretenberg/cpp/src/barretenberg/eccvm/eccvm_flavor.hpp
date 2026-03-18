@@ -588,13 +588,13 @@ class ECCVMFlavor {
          *          precompute_round: round counter for Straus precomputation algorithm
          *          precompute_scalar_sum: accumulating sum of Straus scalar slices
          *          precompute_s1hi/lo: 2-bit hi/lo components of a Straus 4-bit scalar slice
-         *          precompute_s2hilo/precompute_s3hi/loprecompute_s4hi/lo: same as above but for a total of 4 Straus
-         4-bit scalar slices
+         *          precompute_s2hi/lo through precompute_s8hi/lo: same as above, for a total of 8 Straus
+         4-bit scalar slices per row
          *          precompute_skew: Straus WNAF skew parameter for a single scalar multiplier
-         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
-         point (from transcript)
-         *          precompute_ty: y-coordinate of point accumulator used to generate Straus lookup table for an input
-         point (from transcript)
+         *          precompute_tx: x-coordinate of first precomputed point in row (Straus lookup table entry)
+         *          precompute_ty: y-coordinate of first precomputed point in row
+         *          precompute_tx2: x-coordinate of second precomputed point in row (2 points per row)
+         *          precompute_ty2: y-coordinate of second precomputed point in row
          *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
          *          precompute_dy: y-coordinate of D
          *          msm_pc: point counter for Straus MSM columns
@@ -606,34 +606,16 @@ class ECCVMFlavor {
          *          msm_size_of_msm: size of multiscalar multiplication current row is a part of
          *          msm_round: describes which round of the Straus MSM algorithm the current row represents
          *          msm_count: number of points processed for the round indicated by `msm_round`
-         *          msm_x1: x-coordinate of potential point in Straus MSM round
-         *          msm_y1: y-coordinate of potential point in Straus MSM round
-         *          msm_x2: x-coordinate of potential point in Straus MSM round
-         *          msm_y2: y-coordinate of potential point in Straus MSM round
-         *          msm_x3: x-coordinate of potential point in Straus MSM round
-         *          msm_y3: y-coordinate of potential point in Straus MSM round
-         *          msm_x4: x-coordinate of potential point in Straus MSM round
-         *          msm_y4: y-coordinate of potential point in Straus MSM round
-         *          msm_add1: are we adding msm_x1/msm_y1 into accumulator at current round?
-         *          msm_add2: are we adding msm_x2/msm_y2 into accumulator at current round?
-         *          msm_add3: are we adding msm_x3/msm_y3 into accumulator at current round?
-         *          msm_add4: are we adding msm_x4/msm_y4 into accumulator at current round?
-         *          msm_lambda1: temp variable used for ecc point addition algorithm if msm_add1 = 1
-         *          msm_lambda2: temp variable used for ecc point addition algorithm if msm_add2 = 1
-         *          msm_lambda3: temp variable used for ecc point addition algorithm if msm_add3 = 1
-         *          msm_lambda4: temp variable used for ecc point addition algorithm if msm_add4 = 1
-         *          msm_slice1: wNAF digit/slice for first add
-         *          msm_slice2: wNAF digit/slice for second add
-         *          msm_slice3: wNAF digit/slice for third add
-         *          msm_slice4: wNAF digit/slice for fourth add
-         *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
-         *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
-         *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1
-         *          msm_collision_x4: used to ensure incomplete ecc addition exceptions not triggered if msm_add4 = 1
-         *          lookup_read_counts_0: stores number of times a point has been read from a Straus precomputation
-         table (reads come from msm_x/y1, msm_x/y2)
-         *          lookup_read_counts_1: stores number of times a point has been read from a Straus precomputation
-         table (reads come from msm_x/y3, msm_x/y4)
+         *          msm_x1..msm_x8: x-coordinates of potential points in Straus MSM round (8 per row)
+         *          msm_y1..msm_y8: y-coordinates of potential points in Straus MSM round (8 per row)
+         *          msm_add1..msm_add8: are we adding msm_xi/msm_yi into accumulator at current round?
+         *          msm_lambda1..msm_lambda8: temp variables for ecc point addition algorithm
+         *          msm_slice1..msm_slice8: wNAF digit/slice for each of the 8 additions per row
+         *          msm_collision_x1..msm_collision_x8: ensure incomplete ecc addition exceptions not triggered
+         *          lookup_read_counts_0: read counts for Straus lookup table term 0 (point 1 positive slices)
+         *          lookup_read_counts_1: read counts for Straus lookup table term 1 (point 1 negative slices)
+         *          lookup_read_counts_2: read counts for Straus lookup table term 2 (point 2 positive slices)
+         *          lookup_read_counts_3: read counts for Straus lookup table term 3 (point 2 negative slices)
          * @return ProverPolynomials
          */
         ProverPolynomials(const CircuitBuilder& builder)
