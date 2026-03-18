@@ -14,7 +14,7 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, offchain::OffchainInboxSync, OffchainMessageWithContext, MessageContext,
+            get_private_logs, MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
             pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },

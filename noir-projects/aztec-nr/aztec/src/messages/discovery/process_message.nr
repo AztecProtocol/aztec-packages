@@ -105,7 +105,11 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
             // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.
             // This most likely means the message is malformed or a custom message was incorrectly assigned a reserved
             // ID. Custom message types must use IDs allocated via `custom_msg_type_id`.
-            aztecnr_warn_log_format!("Message type ID {0} is in the reserved range but is not recognized, ignoring. See https://docs.aztec.network/errors/3")([msg_type_id as Field]);
+            aztecnr_warn_log_format!(
+                "Message type ID {0} is in the reserved range but is not recognized, ignoring. See https://docs.aztec.network/errors/3",
+            )(
+                [msg_type_id as Field],
+            );
         } else if process_custom_message.is_some() {
             process_custom_message.unwrap()(
                 contract_address,
@@ -117,7 +121,11 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
         } else {
             // A custom message was received but no handler is configured. This likely means the contract emits custom
             // messages but forgot to register a handler via `AztecConfig::custom_message_handler`.
-            aztecnr_warn_log_format!("Received custom message with type id {0} but no handler is configured, ignoring. See https://docs.aztec.network/errors/2")([msg_type_id as Field]);
+            aztecnr_warn_log_format!(
+                "Received custom message with type id {0} but no handler is configured, ignoring. See https://docs.aztec.network/errors/2",
+            )(
+                [msg_type_id as Field],
+            );
         }
     } else {
         aztecnr_warn_log_format!("Could not decode message plaintext from tx {0}, ignoring")([message_context.tx_hash]);
