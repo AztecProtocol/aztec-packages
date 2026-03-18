@@ -61,32 +61,27 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
 
     // Group accessors and Lagrange basis (delegate to generic BS=1 helpers)
-    template <typename FF_>
-    static auto compute_lagrange_basis(std::span<const FF_> challenges)
+    template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> challenges)
     {
         return compute_lagrange_basis_impl<INTERLEAVING_BATCH_SIZE>(challenges);
     }
 
-    template <typename Entities>
-    static auto get_unshifted_groups(Entities& e)
+    template <typename Entities> static auto get_unshifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<true>(e);
     }
 
-    template <typename Entities>
-    static auto get_unshifted_groups_mut(Entities& e)
+    template <typename Entities> static auto get_unshifted_groups_mut(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<false>(e);
     }
 
-    template <typename Entities>
-    static auto get_to_be_shifted_groups(Entities& e)
+    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_to_be_shifted_groups(e);
     }
 
-    template <typename Entities>
-    static auto get_shifted_groups(Entities& e)
+    template <typename Entities> static auto get_shifted_groups(Entities& e)
     {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_shifted_groups(e);
     }
