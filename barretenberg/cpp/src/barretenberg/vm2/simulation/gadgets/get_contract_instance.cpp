@@ -49,53 +49,58 @@ void GetContractInstance::get_contract_instance(MemoryInterface& memory,
                                                 uint8_t member_enum)
 {
     const auto& tree_state = merkle_db.get_tree_state();
-    GetContractInstanceEvent event{
-        .execution_clk = execution_id_manager.get_execution_id(),
-        .contract_address = contract_address,
-        .dst_offset = dst_offset,
-        .member_enum = member_enum,
-        .space_id = memory.get_space_id(),
-        .nullifier_tree_root = tree_state.nullifier_tree.tree.root,
-        .public_data_tree_root = tree_state.public_data_tree.tree.root,
-    };
+    const auto execution_clk = execution_id_manager.get_execution_id();
+    const auto space_id = memory.get_space_id();
+    const auto& nullifier_tree_root = tree_state.nullifier_tree.tree.root;
+    const auto& public_data_tree_root = tree_state.public_data_tree.tree.root;
 
     // Memory bounds checking for dst_offset+1
     // Note that execution does address resolution for dst_offset, so we already
     // know that dst_offset is in bounds.
     // So, the only scenario when dstOffset+1 can be out of bounds is if dstOffset == MAX address.
     if (dst_offset == AVM_HIGHEST_MEM_ADDRESS) {
-        event_emitter.emit(std::move(event));
+        event_emitter.emit({ .execution_clk = execution_clk,
+                             .contract_address = contract_address,
+                             .dst_offset = dst_offset,
+                             .member_enum = member_enum,
+                             .space_id = space_id,
+                             .nullifier_tree_root = nullifier_tree_root,
+                             .public_data_tree_root = public_data_tree_root });
         throw GetContractInstanceException("Write dst out of range: " + field_to_string(dst_offset));
     }
 
     // Member enum validation
     if (member_enum > static_cast<uint8_t>(ContractInstanceMember::MAX)) {
-        event_emitter.emit(std::move(event));
+        event_emitter.emit({ .execution_clk = execution_clk,
+                             .contract_address = contract_address,
+                             .dst_offset = dst_offset,
+                             .member_enum = member_enum,
+                             .space_id = space_id,
+                             .nullifier_tree_root = nullifier_tree_root,
+                             .public_data_tree_root = public_data_tree_root });
         throw GetContractInstanceException("Invalid member enum: " + std::to_string(member_enum));
     }
 
     // Retrieve contract instance using shared ContractInstanceManager
-    auto maybe_instance = instance_manager.get_contract_instance(event.contract_address);
-    bool instance_exists = maybe_instance.has_value();
-    event.instance_exists = instance_exists;
+    auto maybe_instance = instance_manager.get_contract_instance(contract_address);
+    const bool instance_exists = maybe_instance.has_value();
 
-    // Extract all member values for event (even if we only use one for the memory write)
-    // This is needed for the PIL gadget trace generation which includes all retrieved members
-    FF selected_member_value = 0; // default if instance does not exist
-    if (instance_exists) {
-        const auto& instance = maybe_instance.value();
-        event.retrieved_deployer_addr = instance.deployer;
-        event.retrieved_class_id = instance.current_contract_class_id;
-        event.retrieved_init_hash = instance.initialization_hash;
-
-        // Select the requested member based on the enum
-        selected_member_value = select_instance_member(instance, member_enum);
-    }
-
-    // Perform two memory writes
+    // Select the requested member and write results to memory
+    const FF selected_member_value =
+        instance_exists ? select_instance_member(maybe_instance.value(), member_enum) : FF(0);
     write_results(memory, dst_offset, instance_exists, selected_member_value);
 
-    event_emitter.emit(std::move(event));
+    event_emitter.emit({ .execution_clk = execution_clk,
+                         .contract_address = contract_address,
+                         .dst_offset = dst_offset,
+                         .member_enum = member_enum,
+                         .space_id = space_id,
+                         .nullifier_tree_root = nullifier_tree_root,
+                         .public_data_tree_root = public_data_tree_root,
+                         .instance_exists = instance_exists,
+                         .retrieved_deployer_addr = instance_exists ? maybe_instance->deployer : FF(0),
+                         .retrieved_class_id = instance_exists ? maybe_instance->current_contract_class_id : FF(0),
+                         .retrieved_init_hash = instance_exists ? maybe_instance->initialization_hash : FF(0) });
 }
 
 /**
