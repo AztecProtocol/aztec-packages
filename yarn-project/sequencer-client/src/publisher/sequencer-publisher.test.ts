@@ -519,6 +519,54 @@ describe('SequencerPublisher', () => {
     expect((publisher as any).requests.length).toEqual(0);
   });
 
+  it('does not include gas config from expired requests', async () => {
+    const currentL2Slot = publisher.getCurrentL2Slot();
+
+    // Add an expired request with a gas config
+    publisher.addRequest({
+      action: 'vote-offenses',
+      request: {
+        to: mockRollupAddress,
+        data: encodeFunctionData({
+          abi: EmpireBaseAbi,
+          functionName: 'signal',
+          args: [EthAddress.random().toString()],
+        }),
+      },
+      lastValidL2Slot: SlotNumber(1), // expired
+      gasConfig: { gasLimit: 500_000n },
+      checkSuccess: () => true,
+    });
+
+    // Add a valid request with a gas config
+    publisher.addRequest({
+      action: 'propose',
+      request: {
+        to: mockRollupAddress,
+        data: encodeFunctionData({
+          abi: EmpireBaseAbi,
+          functionName: 'signal',
+          args: [EthAddress.random().toString()],
+        }),
+      },
+      lastValidL2Slot: SlotNumber(Number(currentL2Slot) + 10), // valid
+      gasConfig: { gasLimit: 100_000n },
+      checkSuccess: () => true,
+    });
+
+    forwardSpy.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      errorMsg: undefined,
+    });
+
+    await publisher.sendRequests();
+
+    expect(forwardSpy).toHaveBeenCalledTimes(1);
+    // The gas config should only include the valid request's gas (100_000), not the expired one (500_000)
+    const txConfig = forwardSpy.mock.calls[0][2];
+    expect(txConfig?.gasLimit).toEqual(100_000n);
+  });
+
   it('does not signal for payload when quorum is reached', async () => {
     const { govPayload } = mockGovernancePayload();
 
