@@ -51,7 +51,7 @@ import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
-import { identify } from '@libp2p/identify';
+import { identify, identifyPush } from '@libp2p/identify';
 import {
   type Message,
   type MultiaddrConnection,
@@ -421,6 +421,9 @@ export class LibP2PService extends WithTracer implements P2PService {
         identify: identify({
           protocolPrefix: 'aztec',
           runOnConnectionOpen: true,
+        }),
+        identifyPush: identifyPush({
+          protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
           directPeers,
