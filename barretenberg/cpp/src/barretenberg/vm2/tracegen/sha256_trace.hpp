@@ -1,6 +1,7 @@
 #pragma once
 
-#include <memory>
+#include <array>
+#include <cstdint>
 
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"

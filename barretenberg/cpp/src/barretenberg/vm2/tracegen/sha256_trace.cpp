@@ -1,20 +1,14 @@
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 
 #include <algorithm>
-#include <any>
-#include <concepts>
 #include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <ranges>
-#include <stdexcept>
 
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256_mem.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
