@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -224,8 +225,13 @@ export class BotFactory {
 
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await deployMethod.send({
+<<<<<<< HEAD
           from: AztecAddress.ZERO,
           fee: { paymentMethod },
+=======
+          from: NO_FROM,
+          fee: { gasSettings, paymentMethod },
+>>>>>>> 2257864cba (feat!: no_from (#21716))
           wait: NO_WAIT,
         });
         this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);

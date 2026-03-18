@@ -4,6 +4,7 @@ import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExec
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
+  NO_FROM,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   extractOffchainOutput,
@@ -78,7 +79,7 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'executeUtility' as const,
-        args: [call, { scope: options.from, authWitnesses: options.authWitnesses }],
+        args: [call, { scopes: options.from === NO_FROM ? [] : [options.from], authWitnesses: options.authWitnesses }],
       });
     }
 

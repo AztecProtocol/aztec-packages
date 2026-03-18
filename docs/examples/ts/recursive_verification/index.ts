@@ -5,12 +5,18 @@ import { getSponsoredFPCInstance } from "./scripts/sponsored_fpc.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
+<<<<<<< HEAD
 import { AztecAddress } from "@aztec/aztec.js/addresses";
+=======
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { Fr } from "@aztec/aztec.js/fields";
+>>>>>>> 2257864cba (feat!: no_from (#21716))
 import assert from "node:assert";
 import { Fr } from "@aztec/aztec.js/fields";
 // docs:end:imports
 
 // docs:start:sample_data
+<<<<<<< HEAD
 // Sample proof data - in production this comes from generate_data.ts
 // These are placeholder values for type-checking purposes
 const data = {
@@ -19,6 +25,15 @@ const data = {
   proofAsFields: [] as string[],
   publicInputs: ["2"],
 };
+=======
+if (!fs.existsSync("data.json")) {
+  console.error(
+    "data.json not found. Run 'yarn data' first to generate proof data.",
+  );
+  process.exit(1);
+}
+const data = JSON.parse(fs.readFileSync("data.json", "utf-8"));
+>>>>>>> 2257864cba (feat!: no_from (#21716))
 // docs:end:sample_data
 
 export const NODE_URL = "http://localhost:8080";
@@ -56,8 +71,14 @@ async function main() {
   const manager = await account.getDeployMethod();
 
   // Deploy the account contract
+<<<<<<< HEAD
   await manager.send({
     from: AztecAddress.ZERO,
+=======
+  const deployMethod = await manager.getDeployMethod();
+  await deployMethod.send({
+    from: NO_FROM,
+>>>>>>> 2257864cba (feat!: no_from (#21716))
     fee: { paymentMethod: sponsoredPaymentMethod },
   });
 
@@ -84,9 +105,11 @@ async function main() {
 
   // Step 3: Read initial counter value
   // simulate() executes without submitting a transaction
-  let counterValue = (await valueNotEqual.methods
-    .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item })).result;
+  let counterValue = (
+    await valueNotEqual.methods
+      .get_counter(accounts[0].item)
+      .simulate({ from: accounts[0].item })
+  ).result;
   console.log(`Counter value: ${counterValue}`); // Should be 10
 
   // Step 4: Call increment() with proof data
@@ -107,9 +130,11 @@ async function main() {
   await interaction.send(opts);
 
   // Step 6: Read updated counter
-  counterValue = (await valueNotEqual.methods
-    .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item })).result;
+  counterValue = (
+    await valueNotEqual.methods
+      .get_counter(accounts[0].item)
+      .simulate({ from: accounts[0].item })
+  ).result;
   console.log(`Counter value: ${counterValue}`); // Should be 11
 
   assert(counterValue === 11n, "Counter should be 11 after verification");

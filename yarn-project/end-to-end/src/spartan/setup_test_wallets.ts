@@ -1,4 +1,5 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
@@ -89,7 +90,7 @@ export async function deploySponsoredTestAccountsWithTokens(
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const recipientDeployMethod = await recipientAccount.getDeployMethod();
   await recipientDeployMethod.send({
-    from: AztecAddress.ZERO,
+    from: NO_FROM,
     fee: { paymentMethod },
     wait: { timeout: 2400 },
   });
@@ -97,7 +98,7 @@ export async function deploySponsoredTestAccountsWithTokens(
     fundedAccounts.map(async a => {
       const deployMethod = await a.getDeployMethod();
       await deployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         fee: { paymentMethod },
         wait: { timeout: 2400 },
       }); // increase timeout on purpose in order to account for two empty epochs
@@ -141,12 +142,12 @@ async function deployAccountWithDiagnostics(
   try {
     let gasSettings;
     if (estimateGas) {
-      const sim = await deployMethod.simulate({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+      const sim = await deployMethod.simulate({ from: NO_FROM, fee: { paymentMethod } });
       gasSettings = sim.estimatedGas;
       logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
     }
     const deployResult = await deployMethod.send({
-      from: AztecAddress.ZERO,
+      from: NO_FROM,
       fee: { paymentMethod, gasSettings },
       wait: NO_WAIT,
     });
@@ -269,7 +270,7 @@ export async function deployTestAccountsWithTokens(
     fundedAccounts.map(async (a, i) => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.address, claims[i]);
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+      await deployMethod.send({ from: NO_FROM, fee: { paymentMethod } });
       logger.info(`Account deployed at ${a.address}`);
     }),
   );

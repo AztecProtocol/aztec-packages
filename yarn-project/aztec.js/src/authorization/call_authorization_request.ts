@@ -23,6 +23,11 @@ export class CallAuthorizationRequest {
      */
     public innerHash: Fr,
     /**
+     * The address on whose behalf the auth witness should be created.
+     * This is the account that must sign the authorization.
+     */
+    public onBehalfOf: AztecAddress,
+    /**
      * The address performing the call
      */
     public msgSender: AztecAddress,
@@ -75,11 +80,12 @@ export class CallAuthorizationRequest {
     }
     const request = new CallAuthorizationRequest(
       selector,
-      reader.readField(),
-      AztecAddress.fromField(reader.readField()),
-      FunctionSelector.fromField(reader.readField()),
-      reader.readField(),
-      reader.readFieldArray(reader.remainingFields()),
+      reader.readField(), // inner_hash
+      AztecAddress.fromField(reader.readField()), // on_behalf_of
+      AztecAddress.fromField(reader.readField()), // msg_sender
+      FunctionSelector.fromField(reader.readField()), // fn_selector
+      reader.readField(), // args_hash
+      reader.readFieldArray(reader.remainingFields()), // args
     );
     await request.validate();
     return request;
