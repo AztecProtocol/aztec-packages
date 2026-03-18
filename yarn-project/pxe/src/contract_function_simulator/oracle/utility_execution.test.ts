@@ -161,6 +161,7 @@ describe('Utility Execution test suite', () => {
     const contractAddress = await computeContractAddressFromInstance(instanceFields);
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    // The init check calls check_nullifier_exists, which queries findLeavesIndexes.
     aztecNode.findLeavesIndexes.mockResolvedValue([
       { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() },
     ]);
