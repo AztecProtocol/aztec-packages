@@ -12,9 +12,7 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::hash_args,
     messages::{
-        discovery::{
-            ComputeNoteHash, ComputeNoteNullifier, process_message::process_message_plaintext,
-        },
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, process_message::process_message_plaintext},
         encoding::MESSAGE_PLAINTEXT_LEN,
         logs::{event::encode_private_event_message, note::encode_private_note_message},
         processing::{MessageContext, validate_and_store_enqueued_notes_and_events},

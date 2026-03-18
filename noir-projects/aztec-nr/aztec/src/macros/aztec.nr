@@ -9,10 +9,7 @@ use crate::macros::{
     emit_public_init_nullifier::generate_emit_public_init_nullifier,
     internals_functions_generation::{create_fn_abi_exports, process_functions},
     storage::STORAGE_LAYOUT_NAME,
-    utils::{
-        is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
-        module_has_storage,
-    },
+    utils::{is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test, module_has_storage},
 };
 
 use compute_note_hash_and_nullifier::generate_contract_library_methods_compute_note_hash_and_nullifier;
