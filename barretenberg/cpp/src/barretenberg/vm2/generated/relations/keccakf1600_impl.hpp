@@ -20,7 +20,7 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
     const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
     const auto constants_AVM_KECCAKF1600_STATE_SIZE = FF(25);
-    const auto keccakf1600_LATCH_CONDITION = in.get(C::keccakf1600_last) + in.get(C::precomputed_first_row);
+    const auto keccakf1600_LATCH_CONDITION = in.get(C::keccakf1600_end) + in.get(C::precomputed_first_row);
     const auto keccakf1600_ROT_LEN_01 = FF(36);
     const auto keccakf1600_POW_ROT_LEN_01 = FF(68719476736UL);
     const auto keccakf1600_POW_ROT_64_MIN_LEN_01 = FF(268435456);
@@ -129,63 +129,62 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
             static_cast<View>(in.get(C::keccakf1600_sel)) * (FF(1) - static_cast<View>(in.get(C::keccakf1600_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // TRACE_CONTINUITY
+    { // SEL_ON_START_OR_END
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-                   (FF(1) - static_cast<View>(in.get(C::keccakf1600_sel))) *
-                   static_cast<View>(in.get(C::keccakf1600_sel_shift));
+        auto tmp = (static_cast<View>(in.get(C::keccakf1600_start)) + static_cast<View>(in.get(C::keccakf1600_end))) *
+                   (FF(1) - static_cast<View>(in.get(C::keccakf1600_sel)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
-    { // SEL_NO_ERROR
+    { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - CView(keccakf1600_LATCH_CONDITION)) * (static_cast<View>(in.get(C::keccakf1600_sel)) -
+                                                                   static_cast<View>(in.get(C::keccakf1600_sel_shift)));
+        std::get<2>(evals) += (tmp * scaling_factor);
+    }
+    { // START_AFTER_LATCH
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::keccakf1600_sel_shift)) *
+                   (static_cast<View>(in.get(C::keccakf1600_start_shift)) - CView(keccakf1600_LATCH_CONDITION));
+        std::get<3>(evals) += (tmp * scaling_factor);
+    }
+    { // SEL_NO_ERROR
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::keccakf1600_sel)) *
                    ((static_cast<View>(in.get(C::keccakf1600_sel_no_error)) - FF(1)) +
                     static_cast<View>(in.get(C::keccakf1600_error)));
-        std::get<2>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::keccakf1600_start)) * (FF(1) - static_cast<View>(in.get(C::keccakf1600_start)));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::keccakf1600_start)) * (static_cast<View>(in.get(C::keccakf1600_round)) - FF(1));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
-    { // KECCAK_SEL_ROUND_NON_ZERO
+    {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::keccakf1600_round)) *
-                        ((FF(1) - static_cast<View>(in.get(C::keccakf1600_sel))) *
-                             (FF(1) - static_cast<View>(in.get(C::keccakf1600_round_inv))) +
-                         static_cast<View>(in.get(C::keccakf1600_round_inv))) -
-                    static_cast<View>(in.get(C::keccakf1600_sel)));
+        auto tmp =
+            static_cast<View>(in.get(C::keccakf1600_start)) * (FF(1) - static_cast<View>(in.get(C::keccakf1600_start)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::keccakf1600_last)) * (FF(1) - static_cast<View>(in.get(C::keccakf1600_last)));
+            static_cast<View>(in.get(C::keccakf1600_start)) * (static_cast<View>(in.get(C::keccakf1600_round)) - FF(1));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    { // LAST_ON_ERROR
+    { // KECCAK_SEL_ROUND_NON_ZERO
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::keccakf1600_error)) * (static_cast<View>(in.get(C::keccakf1600_last)) - FF(1));
+        auto tmp = (static_cast<View>(in.get(C::keccakf1600_round)) *
+                        ((FF(1) - static_cast<View>(in.get(C::keccakf1600_sel))) *
+                             (FF(1) - static_cast<View>(in.get(C::keccakf1600_round_inv))) +
+                         static_cast<View>(in.get(C::keccakf1600_round_inv))) -
+                    static_cast<View>(in.get(C::keccakf1600_sel)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
-    { // START_AFTER_LATCH
+    {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::keccakf1600_sel_shift)) *
-                   (static_cast<View>(in.get(C::keccakf1600_start_shift)) - CView(keccakf1600_LATCH_CONDITION));
+        auto tmp =
+            static_cast<View>(in.get(C::keccakf1600_end)) * (FF(1) - static_cast<View>(in.get(C::keccakf1600_end)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
-    { // LAST_HAS_SEL_ON
+    { // END_ON_ERROR
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::keccakf1600_last)) * (FF(1) - static_cast<View>(in.get(C::keccakf1600_sel)));
+            static_cast<View>(in.get(C::keccakf1600_error)) * (static_cast<View>(in.get(C::keccakf1600_end)) - FF(1));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     { // KECCAK_ROUND_INCREMENT
@@ -1239,7 +1238,7 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<158, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::keccakf1600_sel_slice_write)) -
-             static_cast<View>(in.get(C::keccakf1600_sel_no_error)) * static_cast<View>(in.get(C::keccakf1600_last)));
+             static_cast<View>(in.get(C::keccakf1600_sel_no_error)) * static_cast<View>(in.get(C::keccakf1600_end)));
         std::get<158>(evals) += (tmp * scaling_factor);
     }
 }

@@ -57,7 +57,7 @@ namespace keccakf1600;
 //#################################################################################################
 //                  High-Level Trace Structure Columns
 //#################################################################################################
-//   ctr   sel   start   last    state_in_00  state_in_01 ....
+//   ctr   sel   start   end     state_in_00  state_in_01 ....
 //    1     1      1      0
 //    2     1      0      0         ROUND FUNCTION SPECIFICS
 //    3     1      0      0
@@ -76,11 +76,22 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel = 0;
 
-// Weaker than the standard recipe: only prevents 0->1 transitions (not 1->0 mid-block).
-// However, this is safe because a truncated block (sel dropping to 0 early) cannot produce a valid
-// write: #[WRITE_TO_SLICE] is a permutation requiring round == 24 on a row with sel == 1.
+// ==== MULTI-ROW COMPUTATION SELECTORS ====
+// See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+
+pol LATCH_CONDITION = end + precomputed.first_row;
+
+// If start or end is active, sel must be active.
+#[SEL_ON_START_OR_END]
+(start + end) * (1 - sel) = 0;
+
+// sel is continuous within a computation block: it cannot change except at a latch.
 #[TRACE_CONTINUITY]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+(1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+// A new computation block must start immediately after a latch.
+#[START_AFTER_LATCH]
+sel' * (start' - LATCH_CONDITION) = 0;
 
 // error is defined below after round function
 pol commit sel_no_error; // @boolean (by definition)
@@ -102,30 +113,19 @@ start * (round - 1) = 0;
 pol commit round_inv;
 #[KECCAK_SEL_ROUND_NON_ZERO]
 round * ((1 - sel) * (1 - round_inv) + round_inv) - sel = 0;
-// This implies that `start == 1 ==> sel == 1`.
 
 // Selector for the last round of a keccak permutation
-// If no error is detected in row where `start == 1`, we have last == 1 <==> round == AVM_KECCAKF1600_NUM_ROUNDS (24)
+// If no error is detected in row where `start == 1`, we have end == 1 <==> round == AVM_KECCAKF1600_NUM_ROUNDS (24)
 // This is achieved through #[SEL_SLICE_WRITE] and #[WRITE_TO_SLICE]. If there is no error,
-// the former guarantees that the write slice is active whenever `last == 1`. The latter guarantees
+// the former guarantees that the write slice is active whenever `end == 1`. The latter guarantees
 // that `round` is equal to 24 (by fixing a constant 24 in the destination permutation tuple).
-pol commit last; // @boolean
-last * (1 - last) = 0;
+pol commit end; // @boolean
+end * (1 - end) = 0;
 
-// We enforce that `last == 1` whenever `error == 1`.
+// We enforce that `end == 1` whenever `error == 1`.
 // Note that error is constrained only on the start row.
-#[LAST_ON_ERROR]
-error * (last - 1) = 0;
-
-#[START_AFTER_LATCH]
-sel' * (start' - LATCH_CONDITION) = 0;
-
-#[LAST_HAS_SEL_ON]
-last * (1 - sel) = 0;
-
-// `sel == 0` on the first row because of shift relations and thus `last` is mutually
-// exclusive with `precomputed.first_row`.
-pol LATCH_CONDITION = last + precomputed.first_row;
+#[END_ON_ERROR]
+error * (end - 1) = 0;
 
 #[KECCAK_ROUND_INCREMENT]
 // Note: sel factor is required for an empty row to satisfy this relation
@@ -1302,7 +1302,7 @@ bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.ac
 //#############################################################################
 //                      Next state Inputs OR Outputs
 //#############################################################################
-// If last == 1, state_iota_00 and state_chi_ij's for (i,j) != (0,0) are
+// If end == 1, state_iota_00 and state_chi_ij's for (i,j) != (0,0) are
 // the output state, otherwise we set the next state_in values for the next round with the current state
 
 #[NEXT_STATE_IN_00]
@@ -1409,7 +1409,7 @@ error = 1 - (1 - src_out_of_range_error) * (1 - dst_out_of_range_error) * (1 - t
 #[SPACE_ID_PROPAGATION]
 (1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
 
-// It is crucial to propagate sel_no_error to the bottom (last == 1) as to properly
+// It is crucial to propagate sel_no_error to the bottom (end == 1) as to properly
 // activate the slice write lookup (see below).
 #[SEL_NO_ERROR_PROPAGATION]
 (1 - LATCH_CONDITION) * (sel_no_error' - sel_no_error) = 0;
@@ -1427,13 +1427,13 @@ pol commit sel_slice_write;
 #[SEL_SLICE_READ]
 sel_slice_read = start * (1 - src_out_of_range_error) * (1 - dst_out_of_range_error);
 #[SEL_SLICE_WRITE]
-sel_slice_write = sel_no_error * last;
+sel_slice_write = sel_no_error * end;
 
 // Prevention of illegitimate writes to memory:
 // sel_slice_write == 1 ==> round == 24 (by #[WRITE_TO_SLICE])
 // From #[KECCAK_SEL_ROUND_NON_ZERO], we have `sel == 1`.
-// Since `last` is a boolean and `sel_no_error` is boolean on an active row,
-// `last == 1` and `sel_no_error == 1`.
+// Since `end` is a boolean and `sel_no_error` is boolean on an active row,
+// `end == 1` and `sel_no_error == 1`.
 // This row must have `start == 0` because otherwise `round` would be equal to 1 instead of 24.
 // As a consequence, the previous row must have `LATCH_CONDITION == 0` by #[START_AFTER_LATCH]
 // which enforces a bottom-up propagation of `sel_no_error` and a decreasing counter for `round`
@@ -1442,7 +1442,7 @@ sel_slice_write = sel_no_error * last;
 // 1) The row above is `precomputed.first_row == 1` which implies that `start == 1`.
 // 2) Otherwise, by #[TRACE_CONTINUITY], the above row must be active (sel == 1)
 //    and we cannot decrement `round` anymore (would be zero which contradicts #[KECCAK_SEL_ROUND_NON_ZERO]).
-//    As a consequence, the above row must have `last == LATCH_CONDITION == 1` which implies that `start == 1`.
+//    As a consequence, the above row must have `end == LATCH_CONDITION == 1` which implies that `start == 1`.
 // This shows that any "slice write to memory" operation was triggered by a legitimate keccak permutation
 // because `start` is the destination selector for the keccak permutation.
 

@@ -165,7 +165,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
               ROW_FIELD_EQ(keccakf1600_sel_slice_read, 1),
               ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
               ROW_FIELD_EQ(keccakf1600_src_addr, src_addr),
-              ROW_FIELD_EQ(keccakf1600_last, 0)));
+              ROW_FIELD_EQ(keccakf1600_end, 0)));
 
     // Check values on all rows of the keccakf1600 permutation subtrace.
     for (size_t i = 1; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -191,7 +191,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
                       ROW_FIELD_EQ(keccakf1600_sel_slice_read, 0),
                       ROW_FIELD_EQ(keccakf1600_sel_slice_write, 1),
                       ROW_FIELD_EQ(keccakf1600_src_addr, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1)));
+                      ROW_FIELD_EQ(keccakf1600_end, 1)));
 }
 
 // We test when the memory tag is not U64 for a read value at index (1, 2).
@@ -260,7 +260,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 1),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
+                      ROW_FIELD_EQ(keccakf1600_end, 1))); // We set last at the initial row when there is an error.
 
     // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -300,7 +300,7 @@ TEST(KeccakF1600TraceGenTest, SrcAddressOutOfBounds)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 0),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
+                      ROW_FIELD_EQ(keccakf1600_end, 1))); // We set last at the initial row when there is an error.
 
     // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -343,7 +343,7 @@ TEST(KeccakF1600TraceGenTest, DstAddressOutOfBounds)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 0),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
+                      ROW_FIELD_EQ(keccakf1600_end, 1))); // We set last at the initial row when there is an error.
 
     // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {

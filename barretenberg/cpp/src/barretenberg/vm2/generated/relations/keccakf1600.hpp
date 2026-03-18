@@ -15,7 +15,7 @@ template <typename FF_> class keccakf1600Impl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 159> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2,
+        3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 4, 3, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -41,12 +41,12 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr const std::string_view NAME = "keccakf1600";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_SEL_NO_ERROR = 2;
-    static constexpr size_t SR_KECCAK_SEL_ROUND_NON_ZERO = 5;
-    static constexpr size_t SR_LAST_ON_ERROR = 7;
-    static constexpr size_t SR_START_AFTER_LATCH = 8;
-    static constexpr size_t SR_LAST_HAS_SEL_ON = 9;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 1;
+    static constexpr size_t SR_TRACE_CONTINUITY = 2;
+    static constexpr size_t SR_START_AFTER_LATCH = 3;
+    static constexpr size_t SR_SEL_NO_ERROR = 4;
+    static constexpr size_t SR_KECCAK_SEL_ROUND_NON_ZERO = 7;
+    static constexpr size_t SR_END_ON_ERROR = 9;
     static constexpr size_t SR_KECCAK_ROUND_INCREMENT = 10;
     static constexpr size_t SR_THETA_XOR_ROW_MSB_0_BOOLEAN = 14;
     static constexpr size_t SR_THETA_XOR_ROW_0_DECOMPOSITION = 15;
@@ -172,18 +172,18 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_SEL_NO_ERROR:
             return "SEL_NO_ERROR";
         case SR_KECCAK_SEL_ROUND_NON_ZERO:
             return "KECCAK_SEL_ROUND_NON_ZERO";
-        case SR_LAST_ON_ERROR:
-            return "LAST_ON_ERROR";
-        case SR_START_AFTER_LATCH:
-            return "START_AFTER_LATCH";
-        case SR_LAST_HAS_SEL_ON:
-            return "LAST_HAS_SEL_ON";
+        case SR_END_ON_ERROR:
+            return "END_ON_ERROR";
         case SR_KECCAK_ROUND_INCREMENT:
             return "KECCAK_ROUND_INCREMENT";
         case SR_THETA_XOR_ROW_MSB_0_BOOLEAN:

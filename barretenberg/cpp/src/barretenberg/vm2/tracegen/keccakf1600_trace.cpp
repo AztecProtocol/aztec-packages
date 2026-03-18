@@ -537,25 +537,25 @@ void KeccakF1600TraceBuilder::process_permutation(
             // Selectors start and last.
             // src_address required on first row
             if (round_idx == 0) {
-                trace.set(row,
-                          { {
-                              { C::keccakf1600_start, 1 },
-                              { C::keccakf1600_highest_slice_address, HIGHEST_SLICE_ADDRESS },
-                              { C::keccakf1600_src_addr, event.src_addr },
-                              { C::keccakf1600_src_out_of_range_error, event.src_out_of_range ? 1 : 0 },
-                              { C::keccakf1600_dst_out_of_range_error, event.dst_out_of_range ? 1 : 0 },
-                              { C::keccakf1600_tag_error, event.tag_error ? 1 : 0 },
-                              { C::keccakf1600_sel_slice_read, out_of_range ? 0 : 1 },
-                              { C::keccakf1600_error, error ? 1 : 0 },
-                              { C::keccakf1600_last,
-                                error ? 1 : 0 }, // We set last at the initial row when there is an error.
-                                                 // Note that the loop will stop after the initial round.
-                          } });
+                trace.set(
+                    row,
+                    { {
+                        { C::keccakf1600_start, 1 },
+                        { C::keccakf1600_highest_slice_address, HIGHEST_SLICE_ADDRESS },
+                        { C::keccakf1600_src_addr, event.src_addr },
+                        { C::keccakf1600_src_out_of_range_error, event.src_out_of_range ? 1 : 0 },
+                        { C::keccakf1600_dst_out_of_range_error, event.dst_out_of_range ? 1 : 0 },
+                        { C::keccakf1600_tag_error, event.tag_error ? 1 : 0 },
+                        { C::keccakf1600_sel_slice_read, out_of_range ? 0 : 1 },
+                        { C::keccakf1600_error, error ? 1 : 0 },
+                        { C::keccakf1600_end, error ? 1 : 0 }, // We set end at the initial row when there is an error.
+                                                               // Note that the loop will stop after the initial round.
+                    } });
 
             } else if (round_idx == AVM_KECCAKF1600_NUM_ROUNDS - 1) {
                 trace.set(row,
                           { {
-                              { C::keccakf1600_last, 1 },
+                              { C::keccakf1600_end, 1 },
                               { C::keccakf1600_sel_slice_write, error ? 0 : 1 },
                           } });
             };
