@@ -42,6 +42,7 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
@@ -134,6 +135,7 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
   protected aztecSlotDuration: bigint;
+  private dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -187,6 +189,7 @@ export class SequencerPublisher {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
+    this.dateProvider = deps.dateProvider;
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
@@ -612,9 +615,11 @@ export class SequencerPublisher {
 
     const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+    const l1Constants = this.epochCache.getL1Constants();
+    const nextL1SlotTs = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants) + slotOffset;
 
     return this.rollupContract
-      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, slotOffset, {
+      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       })
       .catch(err => {
@@ -652,7 +657,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    const ts = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), this.epochCache.getL1Constants());
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
