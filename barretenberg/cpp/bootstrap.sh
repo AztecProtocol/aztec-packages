@@ -447,7 +447,7 @@ function bench {
   bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
-# Upload assets to release (skipped when no GitHub release exists, e.g. nightly/devnet).
+# Upload assets to release (skipped when no GitHub release exists, e.g. nightly/private).
 function release {
   echo_header "bb cpp release"
   if ! gh release view "$REF_NAME" &>/dev/null; then

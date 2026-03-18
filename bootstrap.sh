@@ -500,11 +500,12 @@ function versions {
 }
 
 function release_github {
-  # Skip GitHub release creation for nightly and devnet tags.
+  # Skip GitHub release creation for nightly and private tags.
   # These only need a git tag — not a full GitHub release — to keep the releases page clean.
   # They still get Docker images and npm packages via the per-project release steps.
+  # Devnet tags DO get a GitHub release (for the release page).
   local dist_tag=$(semver prerelease $REF_NAME | sed 's/\..*//')
-  if [ "$dist_tag" = "nightly" ] || [ "$dist_tag" = "devnet" ]; then
+  if [ "$dist_tag" = "nightly" ] || [ "$dist_tag" = "private" ]; then
     echo "Skipping GitHub release for $REF_NAME (dist tag: $dist_tag). Tag is sufficient."
     return
   fi
