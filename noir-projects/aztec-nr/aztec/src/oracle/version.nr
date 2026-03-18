@@ -4,11 +4,7 @@
 ///
 /// @dev Whenever a contract function or Noir test is run, the `aztec_utl_assertCompatibleOracleVersion` oracle is
 /// called and if the oracle version is incompatible an error is thrown.
-<<<<<<< HEAD
-pub global ORACLE_VERSION: Field = 18;
-=======
-pub global ORACLE_VERSION: Field = 17;
->>>>>>> 3d501c2c36 (feat!(aztec-nr,pxe,txe): make AES128 decrypt oracle return Option)
+pub global ORACLE_VERSION: Field = 19;
 
 /// Asserts that the version of the oracle is compatible with the version expected by the contract.
 pub fn assert_compatible_oracle_version() {
