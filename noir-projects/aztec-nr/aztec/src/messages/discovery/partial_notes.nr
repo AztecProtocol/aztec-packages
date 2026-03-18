@@ -72,11 +72,7 @@ pub unconstrained fn process_partial_note_private_msg(
 
 /// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
 /// being delivered to PXE if completed.
-<<<<<<< HEAD
-pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
-=======
 pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,

@@ -23,11 +23,7 @@ pub struct DiscoveredNoteInfo {
 ///
 /// Due to how nonces are computed, this function requires knowledge of the transaction in which the note was created,
 /// more specifically the list of all unique note hashes in it plus the value of its first nullifier.
-<<<<<<< HEAD
-pub unconstrained fn attempt_note_nonce_discovery<Env>(
-=======
 pub(crate) unconstrained fn attempt_note_nonce_discovery(
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     compute_note_hash: ComputeNoteHash,

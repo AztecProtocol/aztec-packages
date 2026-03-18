@@ -7,11 +7,7 @@ use crate::messages::{
 };
 use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX};
 
-<<<<<<< HEAD
-pub unconstrained fn process_private_note_msg<Env>(
-=======
 pub(crate) unconstrained fn process_private_note_msg(
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,

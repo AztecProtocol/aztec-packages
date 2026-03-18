@@ -1,10 +1,6 @@
 use crate::messages::{
     discovery::{
-<<<<<<< HEAD
-        ComputeNoteHashAndNullifier, partial_notes::process_partial_note_private_msg,
-=======
-        ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
+        ComputeNoteHash, ComputeNoteNullifier, partial_notes::process_partial_note_private_msg,
         private_events::process_private_event_msg, private_notes::process_private_note_msg,
     },
     encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
@@ -28,17 +24,10 @@ use crate::protocol::address::AztecAddress;
 ///
 /// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 /// enqueueing the event data and commitment for validation.
-<<<<<<< HEAD
-pub unconstrained fn process_message_ciphertext<Env>(
-    contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-=======
-pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
+pub unconstrained fn process_message_ciphertext(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
-    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
@@ -47,13 +36,8 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
     if message_plaintext_option.is_some() {
         process_message_plaintext(
             contract_address,
-<<<<<<< HEAD
-            compute_note_hash_and_nullifier,
-=======
             compute_note_hash,
             compute_note_nullifier,
-            process_custom_message,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
             message_plaintext_option.unwrap(),
             message_context,
         );
@@ -62,17 +46,10 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
     }
 }
 
-<<<<<<< HEAD
-pub unconstrained fn process_message_plaintext<Env>(
-    contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-=======
-pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
+pub unconstrained fn process_message_plaintext(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
-    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
     message_context: MessageContext,
 ) {

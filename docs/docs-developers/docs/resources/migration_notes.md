@@ -9,8 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
-=======
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
@@ -41,46 +39,6 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 
 **Impact**: Contracts that call `attempt_note_discovery` or related discovery functions directly with a custom `_compute_note_hash_and_nullifier` argument. The old combined function is still generated (deprecated) but is no longer used by the framework. Additionally, if you had a custom `_compute_note_hash_and_nullifier` function then compilation will now fail as you'll need to also produce the corresponding `_compute_note_hash` and `_compute_note_nullifier` functions.
 
-### Private initialization nullifier now includes `init_hash`
-
-The private initialization nullifier is no longer derived from just the contract address. It is now computed as a Poseidon2 hash of `[address, init_hash]` using a dedicated domain separator. This prevents observers from determining whether a fully private contract has been initialized by simply knowing its address.
-
-Note that `Wallet.getContractMetadata` now returns `isContractInitialized: undefined` when the wallet does not have the contract instance registered, since `init_hash` is needed to compute the nullifier and initialization status cannot be determined. Previously, this check worked for any address. Callers should check for `undefined` before branching on the boolean value.
-
-If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_initialized_by` from `aztec::history::deployment`, these now require an additional `init_hash: Field` parameter:
-
-```diff
-+ let instance = get_contract_instance(contract_address);
-  assert_contract_was_initialized_by(
-      block_header,
-      contract_address,
-+     instance.initialization_hash,
-  );
-```
-
-### [Aztec.js] `TxReceipt` now includes `epochNumber`
-
-`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
-
-### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
-
-The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
-
-**Migration:**
-
-```diff
-- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
-- // epoch was passed in by the caller
-+ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
-+ // epoch is now available on the returned witness
-+ const epoch = witness.epochNumber;
-```
-
-The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
-
-**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
-
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
 ### Two separate init nullifiers for private and public
 
 Contract initialization now emits two separate nullifiers instead of one: a **private init nullifier** and a **public init nullifier**. Each nullifier gates its respective execution domain:

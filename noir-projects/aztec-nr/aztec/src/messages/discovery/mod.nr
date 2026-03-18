@@ -28,18 +28,6 @@ pub struct NoteHashAndNullifier {
     pub inner_nullifier: Option<Field>,
 }
 
-<<<<<<< HEAD
-/// A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
-/// type ID and attempts to compute its note hash (not hashed by note nonce nor siloed by address) and inner nullifier
-/// (not siloed by address).
-///
-/// This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in
-/// a contract. The `#[aztec]` macro automatically creates such a contract library method called
-/// `_compute_note_hash_and_nullifier`, which looks something like this:
-///
-/// ```
-/// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
-=======
 /// A contract's way of computing note hashes.
 ///
 /// Each contract in the network is free to compute their note's hash as they see fit - the hash function itself is not
@@ -63,7 +51,6 @@ pub struct NoteHashAndNullifier {
 ///
 /// ```noir
 /// |packed_note, owner, storage_slot, note_type_id, _contract_address, randomness| {
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
 ///     if note_type_id == MyNoteType::get_id() {
 ///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
 ///             Option::none()
@@ -111,25 +98,16 @@ pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note
 /// That should be close to the chain tip as block synchronization is performed before contract function simulation is
 /// done.
 ///
-<<<<<<< HEAD
-/// Receives the address of the contract on which discovery is performed along with its
-/// `compute_note_hash_and_nullifier` function.
-pub unconstrained fn do_sync_state<Env>(
-    contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-=======
 /// As blocks are mined, it is possible for a contract's private state to change (e.g. with new notes being created),
 /// but because these changes are private they will be invisible to most actors. This is the function that processes
 /// new transactions in order to discover new notes, events, and other kinds of private state changes.
 ///
 /// The private state will be synchronized up to the block that will be used for private transactions (i.e. the anchor
 /// block. This will typically be close to the tip of the chain.
-pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
+pub unconstrained fn do_sync_state(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
-    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
@@ -148,13 +126,8 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 
             process_message_ciphertext(
                 contract_address,
-<<<<<<< HEAD
-                compute_note_hash_and_nullifier,
-=======
                 compute_note_hash,
                 compute_note_nullifier,
-                process_custom_message,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
                 message_ciphertext,
                 pending_tagged_log.context,
             );
@@ -173,13 +146,8 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
-<<<<<<< HEAD
-                compute_note_hash_and_nullifier,
-=======
                 compute_note_hash,
                 compute_note_nullifier,
-                process_custom_message,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
                 msg.message_ciphertext,
                 msg.message_context,
             );
@@ -206,11 +174,7 @@ mod test {
     use crate::{
         capsules::CapsuleArray,
         messages::{
-<<<<<<< HEAD
-            discovery::{do_sync_state, NoteHashAndNullifier},
-=======
-            discovery::{CustomMessageHandler, do_sync_state},
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
+            discovery::do_sync_state,
             logs::note::MAX_NOTE_PACKED_LEN,
             processing::{
                 offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
@@ -234,17 +198,12 @@ mod test {
             assert_eq(logs.len(), 1);
 
             let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
-<<<<<<< HEAD
-            do_sync_state(contract_address, dummy_compute_nhnn, no_inbox_sync);
-=======
             do_sync_state(
                 contract_address,
                 dummy_compute_note_hash,
                 dummy_compute_note_nullifier,
-                no_handler,
                 no_inbox_sync,
             );
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
 
             assert_eq(logs.len(), 0);
         });
