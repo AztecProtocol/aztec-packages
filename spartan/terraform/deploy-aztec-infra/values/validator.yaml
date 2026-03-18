@@ -21,6 +21,34 @@ validator:
         export BOOTSTRAP_NODES=$(curl -X POST -H "content-type: application/json" --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
       fi
 
+      # HA replicas discover the primary validator's ENR and set it as a preferred peer.
+      # This ensures gossipsub direct peering between HA pairs for consistent mempool propagation.
+      if [ -n "${VALIDATOR_HA_PRIMARY_RELEASE_NAME:-}" ]; then
+        POD_INDEX="${K8S_POD_NAME##*-}"
+        PRIMARY_HOST="http://${VALIDATOR_HA_PRIMARY_RELEASE_NAME}-${POD_INDEX}.${VALIDATOR_HA_PRIMARY_RELEASE_NAME}-headless.${K8S_NAMESPACE_NAME}.svc.cluster.local:8080"
+
+        echo "Waiting for primary validator at ${PRIMARY_HOST}..."
+        TIMEOUT=120
+        ELAPSED=0
+        PRIMARY_ENR=""
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          PRIMARY_ENR=$(curl -s -X POST -H "content-type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"node_getEncodedEnr","params":[],"id":1}' \
+            "$PRIMARY_HOST" 2>/dev/null | jq -r '.result // empty')
+          if [ -n "$PRIMARY_ENR" ]; then
+            echo "Got primary ENR: ${PRIMARY_ENR:0:40}..."
+            export P2P_PREFERRED_PEERS="$PRIMARY_ENR"
+            break
+          fi
+          sleep 2
+          ELAPSED=$((ELAPSED + 2))
+        done
+
+        if [ -z "$PRIMARY_ENR" ]; then
+          echo "WARNING: Could not discover primary ENR after ${TIMEOUT}s, starting without preferred peer"
+        fi
+      fi
+
     env:
       L1_PRIORITY_FEE_BUMP_PERCENTAGE: 30
       L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE: 80

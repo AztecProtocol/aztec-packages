@@ -263,7 +263,12 @@ locals {
           "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
           "validator.service.p2p.port"                    = local.p2p_port_validators[idx]
-        }
+        },
+        # HA replicas (idx>0) get the primary's release name so they can discover its ENR at startup
+        # and set P2P_PREFERRED_PEERS for guaranteed gossipsub direct peering
+        idx > 0 ? {
+          "validator.node.env.VALIDATOR_HA_PRIMARY_RELEASE_NAME" = "${var.RELEASE_PREFIX}-validator"
+        } : {}
       )
     })
   } : {}
