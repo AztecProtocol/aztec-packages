@@ -132,8 +132,6 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         recursive_instance->relation_parameters.public_input_delta =
             FF::from_witness(builder, native_instance->relation_parameters.public_input_delta);
 
-        // Note: hypernova only uses MegaFlavor (non-ZK), so no masking commitment conversion needed.
-
         return recursive_instance;
     }
 

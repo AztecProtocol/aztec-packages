@@ -10,9 +10,7 @@
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
-#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include <cstddef>
 
 namespace bb::ProofLength {
@@ -63,26 +61,6 @@ template <> struct Oink<MultiMegaZKFlavor> : CodecConstants<MultiMegaZKFlavor> {
 
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
         MultiMegaZKFlavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
-};
-
-/**
- * @brief Partial specialization for recursive MultiMegaFlavor (any builder type).
- */
-template <typename BuilderType>
-struct Oink<MultiMegaRecursiveFlavor_<BuilderType>> : CodecConstants<MultiMegaRecursiveFlavor_<BuilderType>> {
-    using Flavor = MultiMegaRecursiveFlavor_<BuilderType>;
-    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
-};
-
-/**
- * @brief Partial specialization for recursive MultiMegaZKFlavor (any builder type).
- */
-template <typename BuilderType>
-struct Oink<MultiMegaZKRecursiveFlavor_<BuilderType>> : CodecConstants<MultiMegaZKRecursiveFlavor_<BuilderType>> {
-    using Flavor = MultiMegaZKRecursiveFlavor_<BuilderType>;
-    static constexpr size_t num_frs_in_comm = CodecConstants<Flavor>::num_frs_in_comm;
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
 };
 
 /**
@@ -142,134 +120,17 @@ template <typename Flavor> struct Shplemini : CodecConstants<Flavor> {
  * @details Honk proof = Oink + Sumcheck + Shplemini.
  *          Note: IPA proof is handled separately for rollup flavors (appended by prover, split by verifier).
  */
+/**
+ * @brief Full Honk proof layout (used by UltraVerifier).
+ * @details Honk proof = Oink + Sumcheck + Shplemini.
+ *          For interleaved flavors (INTERLEAVING_LOG_K > 0), sumcheck operates at log_n while
+ *          PCS operates at log_n + INTERLEAVING_LOG_K.
+ *          Note: IPA proof is handled separately for rollup flavors (appended by prover, split by verifier).
+ */
 template <typename Flavor> struct Honk {
     static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
     {
-        return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
-               Shplemini<Flavor>::LENGTH(log_n);
-    }
-
-    /**
-     * @brief Derive num_public_inputs from proof size.
-     * @param proof_size Total proof size in field elements
-     * @param log_n Log of circuit size (VIRTUAL_LOG_N for padded, vk->log_circuit_size for non-padded)
-     */
-    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
-    {
-        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
-    }
-
-    /**
-     * @brief Expected proof size for API-level validation (excludes user public inputs).
-     * @details Computes: IO::PUBLIC_INPUTS_SIZE + Honk proof + IPA proof (if IO::HasIPA)
-     * @tparam IO The IO type (DefaultIO, RollupIO, etc.)
-     */
-    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
-    {
-        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
-        if constexpr (IO::HasIPA) {
-            size += IPA_PROOF_LENGTH;
-        }
-        return size;
-    }
-};
-
-/**
- * @brief Specialization for MultiMegaFlavor: sumcheck uses log_n, PCS uses log_n + INTERLEAVING_LOG_K.
- */
-template <> struct Honk<MultiMegaFlavor> {
-    static constexpr size_t INTERLEAVING_LOG_K = MultiMegaFlavor::INTERLEAVING_LOG_K;
-
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
-    {
-        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        return Oink<MultiMegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<MultiMegaFlavor>::LENGTH(log_n) +
-               Shplemini<MultiMegaFlavor>::LENGTH(pcs_log_n);
-    }
-
-    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
-    {
-        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
-    }
-
-    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
-    {
-        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
-        if constexpr (IO::HasIPA) {
-            size += IPA_PROOF_LENGTH;
-        }
-        return size;
-    }
-};
-
-/**
- * @brief Specialization for MultiMegaZKFlavor: sumcheck uses log_n, PCS uses log_n + INTERLEAVING_LOG_K.
- * @details Masking chunk evaluations are part of sumcheck claimed_evaluations (NUM_ALL_ENTITIES includes them).
- */
-template <> struct Honk<MultiMegaZKFlavor> {
-    static constexpr size_t INTERLEAVING_LOG_K = MultiMegaZKFlavor::INTERLEAVING_LOG_K;
-
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
-    {
-        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        return Oink<MultiMegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<MultiMegaZKFlavor>::LENGTH(log_n) +
-               Shplemini<MultiMegaZKFlavor>::LENGTH(pcs_log_n);
-    }
-
-    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
-    {
-        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
-    }
-
-    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
-    {
-        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
-        if constexpr (IO::HasIPA) {
-            size += IPA_PROOF_LENGTH;
-        }
-        return size;
-    }
-};
-
-/**
- * @brief Partial specialization for recursive MultiMegaFlavor (any builder type).
- */
-template <typename BuilderType> struct Honk<MultiMegaRecursiveFlavor_<BuilderType>> {
-    using Flavor = MultiMegaRecursiveFlavor_<BuilderType>;
-    static constexpr size_t INTERLEAVING_LOG_K = Flavor::INTERLEAVING_LOG_K;
-
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
-    {
-        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
-               Shplemini<Flavor>::LENGTH(pcs_log_n);
-    }
-
-    static constexpr size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
-    {
-        return proof_size - LENGTH_WITHOUT_PUB_INPUTS(log_n);
-    }
-
-    template <typename IO> static constexpr size_t expected_proof_size(size_t log_n)
-    {
-        size_t size = IO::PUBLIC_INPUTS_SIZE + LENGTH_WITHOUT_PUB_INPUTS(log_n);
-        if constexpr (IO::HasIPA) {
-            size += IPA_PROOF_LENGTH;
-        }
-        return size;
-    }
-};
-
-/**
- * @brief Partial specialization for recursive MultiMegaZKFlavor (any builder type).
- */
-template <typename BuilderType> struct Honk<MultiMegaZKRecursiveFlavor_<BuilderType>> {
-    using Flavor = MultiMegaZKRecursiveFlavor_<BuilderType>;
-    static constexpr size_t INTERLEAVING_LOG_K = Flavor::INTERLEAVING_LOG_K;
-
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
-    {
-        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        const size_t pcs_log_n = log_n + Flavor::INTERLEAVING_LOG_K;
         return Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS + Sumcheck<Flavor>::LENGTH(log_n) +
                Shplemini<Flavor>::LENGTH(pcs_log_n);
     }
