@@ -3,7 +3,8 @@ mod test;
 
 use aztec::macros::aztec;
 
-/// A minimal contract used to test the macro-generated `_compute_note_hash_and_nullifier` function.
+/// A minimal contract used to test the macro-generated `_compute_note_hash`, `_compute_note_nullifier` and
+/// (deprecated) `_compute_note_hash_and_nullifier` functions.
 #[aztec]
 pub contract NoteHashAndNullifier {
     use aztec::{
