@@ -4,9 +4,13 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/test.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <numeric>
+#include <random>
+#include <set>
 
 using namespace bb;
 
@@ -144,6 +148,88 @@ TEST_F(ChonkBatchVerifierTests, TamperedProofBisected)
     EXPECT_TRUE(good->verified()) << "good proof should verify, error=" << good->error_message;
     EXPECT_FALSE(bad->verified()) << "bad proof should fail";
     EXPECT_GT(bad->batch_failure_count, 0u) << "bisection should have occurred";
+}
+
+/**
+ * @brief Parameterized mixed good/bad batch test.
+ *
+ * The seed drives everything: total proof count, how many are bad, batch size,
+ * and which indices are corrupted. Each seed produces a deterministic scenario.
+ */
+TEST_F(ChonkBatchVerifierTests, RandomMixedBatches)
+{
+    BB_DISABLE_ASSERTS();
+    auto [good_proof_template, vk] = generate_chonk_proof();
+
+    // { seed, total, num_bad, batch_size, num_cores }
+    struct TestCase {
+        uint32_t seed;
+        size_t total;
+        size_t num_bad;
+        uint32_t batch_size;
+        uint32_t num_cores;
+    };
+    const std::vector<TestCase> cases = {
+        { 42, 16, 0, 16, 4 },    // all valid
+        { 100, 8, 8, 8, 4 },     // all invalid
+        { 8080, 30, 1, 30, 4 },  // needle in haystack
+        { 2025, 30, 10, 30, 4 }, // ~1/3 bad
+        { 6174, 30, 15, 30, 4 }, // half bad
+        { 9999, 30, 29, 30, 4 }, // inverted needle
+        { 1337, 30, 7, 8, 4 },   // failures across multiple batches
+        { 314, 12, 3, 12, 1 },   // single core
+        { 555, 8, 3, 1, 4 },     // degenerate batch_size=1
+    };
+
+    for (const auto& [seed, total, num_bad, batch_size, num_cores] : cases) {
+        SCOPED_TRACE("seed=" + std::to_string(seed) + " total=" + std::to_string(total) +
+                     " num_bad=" + std::to_string(num_bad) + " batch_size=" + std::to_string(batch_size));
+
+        // Pick bad indices via seeded Fisher-Yates shuffle
+        std::vector<size_t> indices(total);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::mt19937 rng(seed);
+        for (size_t i = total - 1; i > 0; --i) {
+            std::uniform_int_distribution<size_t> dist(0, i);
+            std::swap(indices[i], indices[dist(rng)]);
+        }
+        std::set<size_t> bad_indices(indices.begin(), indices.begin() + static_cast<ptrdiff_t>(num_bad));
+
+        // Build proofs, corrupting IPA for bad ones
+        std::vector<ChonkProof> proofs;
+        proofs.reserve(total);
+        for (size_t i = 0; i < total; ++i) {
+            proofs.push_back(good_proof_template);
+            if (bad_indices.count(i)) {
+                proofs.back().ipa_proof[0] = proofs.back().ipa_proof[0] + bb::fr(1);
+            }
+        }
+
+        ResultCollector collector;
+        ChonkBatchVerifier verifier;
+        verifier.start({ vk }, num_cores, batch_size, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+
+        for (size_t i = 0; i < total; ++i) {
+            verifier.enqueue(
+                VerifyRequest{ .request_id = static_cast<uint64_t>(i), .vk_index = 0, .proof = std::move(proofs[i]) });
+        }
+
+        collector.wait_for(total, std::chrono::seconds(300));
+        verifier.stop();
+
+        ASSERT_EQ(collector.results.size(), total);
+        std::sort(collector.results.begin(), collector.results.end(), [](auto& a, auto& b) {
+            return a.request_id < b.request_id;
+        });
+        for (size_t i = 0; i < total; ++i) {
+            EXPECT_EQ(collector.results[i].request_id, i);
+            if (bad_indices.count(i)) {
+                EXPECT_FALSE(collector.results[i].verified()) << "proof " << i << " should fail";
+            } else {
+                EXPECT_TRUE(collector.results[i].verified()) << "proof " << i << " should pass";
+            }
+        }
+    }
 }
 
 TEST_F(ChonkBatchVerifierTests, InvalidVkIndex)
