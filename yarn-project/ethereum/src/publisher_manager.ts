@@ -1,6 +1,7 @@
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 
+import { Multicall3 } from './contracts/multicall.js';
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 
 // Defines the order in which we prioritise publishers based on their state (first is better)
@@ -169,26 +170,15 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     }
   }
 
-  /** Fund publishers sequentially. Re-reads funder balance after each transfer. */
+  /** Fund publishers via a single Multicall3 aggregate3Value transaction. */
   private async fundPublishers(publishers: UtilsType[]): Promise<void> {
     const fundingAmount = this.config.publisherFundingAmount!;
+    const calls = publishers.map(pub => ({
+      to: pub.getSenderAddress().toString(),
+      value: fundingAmount,
+    }));
 
-    for (const publisher of publishers) {
-      const address = publisher.getSenderAddress();
-      try {
-        this.log.info(`Funding publisher ${address}`, { fundingAmount });
-        await this.funder!.sendAndMonitorTransaction({ to: address.toString(), data: '0x', value: fundingAmount });
-        this.log.info(`Funded publisher ${address}`);
-      } catch (err) {
-        this.log.error(`Failed to fund publisher ${address}`, { err });
-        continue;
-      }
-
-      const funderBalance = await this.funder!.getSenderBalance();
-      if (funderBalance < fundingAmount) {
-        this.log.warn(`Funder exhausted after funding, stopping`, { funderBalance, fundingAmount });
-        break;
-      }
-    }
+    await Multicall3.forwardValue(calls, this.funder!, this.log);
+    this.log.info(`Funded ${publishers.length} publishers`);
   }
 }

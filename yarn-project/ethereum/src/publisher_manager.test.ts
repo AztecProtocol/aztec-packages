@@ -2,9 +2,27 @@ import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { jest } from '@jest/globals';
+import { type Hex, encodeFunctionData } from 'viem';
 
+import { MULTI_CALL_3_ADDRESS, aggregate3ValueAbi } from './contracts/multicall.js';
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 import { PublisherManager } from './publisher_manager.js';
+
+/** Encode the expected aggregate3Value calldata for the given addresses and funding amount. */
+function expectedFundingData(addresses: EthAddress[], fundingAmount: bigint): Hex {
+  return encodeFunctionData({
+    abi: aggregate3ValueAbi,
+    functionName: 'aggregate3Value',
+    args: [
+      addresses.map(addr => ({
+        target: addr.toString() as `0x${string}`,
+        allowFailure: false,
+        value: fundingAmount,
+        callData: '0x' as Hex,
+      })),
+    ],
+  });
+}
 
 describe('PublisherManager', () => {
   let mockPublishers: (TestL1TxUtils & L1TxUtils)[];
@@ -206,9 +224,11 @@ describe('PublisherManager', () => {
       await waitForFunding();
 
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ to: mockPublishers[0].getSenderAddress().toString(), value: fundingAmount }),
-      );
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
+        to: MULTI_CALL_3_ADDRESS,
+        data: expectedFundingData([mockPublishers[0].getSenderAddress()], fundingAmount),
+        value: fundingAmount,
+      });
     });
 
     it('does not fund when publisher balance is above threshold', async () => {
@@ -232,31 +252,16 @@ describe('PublisherManager', () => {
       await publisherManager.getAvailablePublisher();
       await waitForFunding();
 
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ to: mockPublishers[0].getSenderAddress().toString(), value: fundingAmount }),
-      );
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ to: mockPublishers[2].getSenderAddress().toString(), value: fundingAmount }),
-      );
-    });
-
-    it('handles funding transaction failure gracefully', async () => {
-      mockPublishers = createMockPublishers(2);
-      mockPublishers[0].balance = 50n;
-      mockPublishers[1].balance = 50n;
-      publisherManager = createFundedManager(mockPublishers, funder);
-
-      // First call fails, second succeeds
-      funder.sendAndMonitorTransaction
-        .mockRejectedValueOnce(new Error('tx failed'))
-        .mockResolvedValueOnce({ receipt: { transactionHash: '0xdef' }, state: {} });
-
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
-
-      // Both attempted despite first failure
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
+      // Single multicall for both underfunded publishers
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
+        to: MULTI_CALL_3_ADDRESS,
+        data: expectedFundingData(
+          [mockPublishers[0].getSenderAddress(), mockPublishers[2].getSenderAddress()],
+          fundingAmount,
+        ),
+        value: 2n * fundingAmount,
+      });
     });
 
     it('correctly sends the funding transaction', async () => {
@@ -268,10 +273,25 @@ describe('PublisherManager', () => {
       await waitForFunding();
 
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
-        to: mockPublishers[0].getSenderAddress().toString(),
-        data: '0x',
+        to: MULTI_CALL_3_ADDRESS,
+        data: expectedFundingData([mockPublishers[0].getSenderAddress()], fundingAmount),
         value: fundingAmount,
       });
+    });
+
+    it('handles funding transaction failure gracefully', async () => {
+      mockPublishers = createMockPublishers(2);
+      mockPublishers[0].balance = 50n;
+      mockPublishers[1].balance = 50n;
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      funder.sendAndMonitorTransaction.mockRejectedValueOnce(new Error('tx failed'));
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      // Single multicall attempted and failed — error caught by triggerFundingIfNeeded
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
     });
 
     it('concurrent guard prevents overlapping funding runs', async () => {
@@ -284,7 +304,7 @@ describe('PublisherManager', () => {
       const fundingBlocked = new Promise<void>(r => (resolveFunding = r));
       funder.sendAndMonitorTransaction.mockImplementation(async () => {
         await fundingBlocked;
-        return { receipt: { transactionHash: '0x1' }, state: {} };
+        return { receipt: { transactionHash: '0x1', status: 'success' }, state: {} };
       });
 
       // First call triggers funding (sets isFunding = true)
@@ -339,30 +359,6 @@ describe('PublisherManager', () => {
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
     });
 
-    it('stops funding when funder balance exhausted mid-run', async () => {
-      mockPublishers = createMockPublishers(3);
-      mockPublishers[0].balance = 10n;
-      mockPublishers[1].balance = 10n;
-      mockPublishers[2].balance = 10n;
-      // Funder starts with enough for all, but after first fund balance drops below fundingAmount
-      funder.balance = 5000n;
-      publisherManager = createFundedManager(mockPublishers, funder);
-
-      let callCount = 0;
-      funder.sendAndMonitorTransaction.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          funder.balance = 10n; // exhausted after first fund
-        }
-        return Promise.resolve({ receipt: { transactionHash: '0x1' }, state: {} });
-      });
-
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
-
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
-    });
-
     it('disables funding when funder address matches a publisher', async () => {
       const sharedAddress = EthAddress.random();
       mockPublishers = createMockPublishers(2, [sharedAddress]);
@@ -390,8 +386,16 @@ describe('PublisherManager', () => {
       await publisherManager.getAvailablePublisher();
       await waitForFunding();
 
-      // Both should be funded, even the busy one
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
+      // Single multicall funds both, even the busy one
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
+        to: MULTI_CALL_3_ADDRESS,
+        data: expectedFundingData(
+          [mockPublishers[0].getSenderAddress(), mockPublishers[1].getSenderAddress()],
+          fundingAmount,
+        ),
+        value: 2n * fundingAmount,
+      });
     });
   });
 
@@ -409,7 +413,7 @@ class TestL1TxUtils {
   public lastMinedAtBlockNumber: bigint | undefined = undefined;
   public balance: bigint = 1000n;
   public sendAndMonitorTransaction = jest.fn<() => Promise<any>>().mockResolvedValue({
-    receipt: { transactionHash: '0xabc' },
+    receipt: { transactionHash: '0xabc', status: 'success' },
     state: {},
   });
 
