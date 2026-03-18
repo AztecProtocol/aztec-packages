@@ -228,7 +228,7 @@ jobs:
             nightly_tag="${{ inputs.nightly_tag }}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
-            nightly_tag="${current_version}-spartan.$(date -u +%Y%m%d)"
+            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
           fi
           echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
           echo "Using nightly tag: $nightly_tag"
