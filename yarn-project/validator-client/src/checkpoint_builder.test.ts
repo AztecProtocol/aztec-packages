@@ -171,10 +171,10 @@ describe('CheckpointBuilder', () => {
 
     it('uses the same contractsDB across multiple block builds', async () => {
       await mockSuccessfulBlock();
-      await checkpointBuilder.buildBlock([], blockNumber, 1000n);
+      await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts());
 
       await mockSuccessfulBlock();
-      await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + 1), 1001n);
+      await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + 1), 1001n, validatorOpts());
 
       expect(createCheckpointSpy).toHaveBeenCalledTimes(2);
       expect(commitCheckpointSpy).toHaveBeenCalledTimes(2);
@@ -184,7 +184,9 @@ describe('CheckpointBuilder', () => {
     it('calls revertCheckpoint when public processor fails', async () => {
       processor.process.mockRejectedValue(new Error('processor failure'));
 
-      await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n)).rejects.toThrow('processor failure');
+      await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts())).rejects.toThrow(
+        'processor failure',
+      );
 
       expect(createCheckpointSpy).toHaveBeenCalledTimes(1);
       expect(commitCheckpointSpy).not.toHaveBeenCalled();
