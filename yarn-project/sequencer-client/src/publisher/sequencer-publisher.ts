@@ -399,8 +399,8 @@ export class SequencerPublisher {
     // @note - we can only have one blob config per bundle
     // find requests with gas and blob configs
     // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const gasConfigs = requestsToProcess.filter(request => request.gasConfig).map(request => request.gasConfig);
-    const blobConfigs = requestsToProcess.filter(request => request.blobConfig).map(request => request.blobConfig);
+    const gasConfigs = validRequests.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const blobConfigs = validRequests.filter(request => request.blobConfig).map(request => request.blobConfig);
 
     if (blobConfigs.length > 1) {
       throw new Error('Multiple blob configs found');
