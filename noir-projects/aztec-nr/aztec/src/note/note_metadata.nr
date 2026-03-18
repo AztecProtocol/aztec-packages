@@ -82,13 +82,8 @@ impl NoteMetadata {
         self.stage == NoteStage.PENDING_PREVIOUS_PHASE
     }
 
-<<<<<<< HEAD
-    /// Returns `true` if the note is settled, i.e. if it's been created in a prior transaction and is therefore
-    /// already in the note hash tree.
-=======
     /// Returns `true` if the note is settled, i.e. if it's been created in a prior transaction and is therefore already
     /// in the note hash tree.
->>>>>>> d0b57f26ff (chore: use returns `true` for boolean fns (#21186))
     pub fn is_settled(self) -> bool {
         self.stage == NoteStage.SETTLED
     }

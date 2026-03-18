@@ -12,13 +12,9 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::hash_args,
     messages::{
-<<<<<<< HEAD
-        discovery::{ComputeNoteHashAndNullifier, NoteHashAndNullifier, process_message::process_message_plaintext},
-=======
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
         encoding::MESSAGE_PLAINTEXT_LEN,
         logs::{event::encode_private_event_message, note::encode_private_note_message},
         processing::{MessageContext, validate_and_store_enqueued_notes_and_events},
@@ -801,17 +797,14 @@ impl TestEnvironment {
             note.compute_nullifier_unconstrained(owner, unique_note_hash)
         };
 
+        let process_custom_message: Option<CustomMessageHandler<()>> = Option::none();
         self.discover_data_in_message_plaintext(
             message_plaintext,
             opts.contract_address,
             Option::some(note_message.new_note.owner),
-<<<<<<< HEAD
-            compute_note_hash_and_nullifier,
-=======
             compute_note_hash,
             compute_note_nullifier,
             process_custom_message,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
         );
     }
 
@@ -918,17 +911,11 @@ impl TestEnvironment {
             )
         };
 
+        let process_custom_message: Option<CustomMessageHandler<()>> = Option::none();
         self.discover_data_in_message_plaintext(
             message_plaintext,
             opts.contract_address,
             Option::some(recipient),
-<<<<<<< HEAD
-            compute_note_hash_and_nullifier,
-        );
-    }
-
-    unconstrained fn discover_data_in_message_plaintext<Env>(
-=======
             compute_note_hash,
             compute_note_nullifier,
             process_custom_message,
@@ -936,18 +923,13 @@ impl TestEnvironment {
     }
 
     unconstrained fn discover_data_in_message_plaintext<CustomMessageHandlerEnv>(
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
         self,
         message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
         contract_address: Option<AztecAddress>,
         recipient: Option<AztecAddress>,
-<<<<<<< HEAD
-        compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-=======
         compute_note_hash: ComputeNoteHash,
         compute_note_nullifier: ComputeNoteNullifier,
         process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     ) {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
         // on a message plaintext.
@@ -975,13 +957,9 @@ impl TestEnvironment {
         self.utility_context_opts(UtilityContextOptions { contract_address }, |context| {
             process_message_plaintext(
                 context.this_address(),
-<<<<<<< HEAD
-                compute_note_hash_and_nullifier,
-=======
                 compute_note_hash,
                 compute_note_nullifier,
                 process_custom_message,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
                 message_plaintext,
                 message_context,
             );

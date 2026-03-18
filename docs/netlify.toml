@@ -778,14 +778,6 @@
     # Aztec-nr: note packed length exceeds MAX_NOTE_PACKED_LEN
     from = "/errors/4"
     to = "/aztec-nr-api/nightly/noir_aztec/macros/notes/fn.note.html"
-<<<<<<< HEAD
-=======
-
-[[redirects]]
-    # Aztec-nr: event serialized length exceeds MAX_EVENT_SERIALIZED_LEN
-    from = "/errors/5"
-    to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
->>>>>>> fb0e40662f (feat: add compile-time size check for events and error code links (#21024))
 
 [[redirects]]
     # Aztec-nr: event serialized length exceeds MAX_EVENT_SERIALIZED_LEN

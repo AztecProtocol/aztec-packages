@@ -399,36 +399,6 @@ impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, &mut Privat
 where
     T: Eq,
 {
-<<<<<<< HEAD
-    /// This function performs a historical public storage read (which is in the order of 4k gates), **regardless of
-    /// `T`'s packed length**. This is because [`DelayedPublicMutable::schedule_value_change`] stores not just the
-    /// value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
-    /// from public storage.
-    ///
-    /// Because of this reason, if two mutable values are often privately read together it can be convenient to group
-    /// them in a single type `T`. Note however that this will result in them sharing the mutation delay:
-    ///
-    /// ```noir
-    /// // Bad: reading both `paused` and `fee` will require two historical public storage reads
-    /// #[storage]
-    /// struct Storage<C> {
-    ///     paused: DelayedPublicMutable<bool, INITIAL_DELAY_S, C>,
-    ///     fee: DelayedPublicMutable<Field, INITIAL_DELAY_S, C>,
-    /// }
-    ///
-    /// // Good: both `paused` and `fee` are retrieved in a single historical public storage read
-    /// #[derive(Packable)]
-    /// struct Config {
-    ///     paused: bool,
-    ///     fee: Field,
-    /// }
-    ///
-    /// #[storage]
-    /// struct Storage<Context> {
-    ///     config: DelayedPublicMutable<Config, INITIAL_DELAY_S, Context>,
-    /// }
-    /// ```
-=======
     /// Returns the current value.
     ///
     /// This sets the transaction's `expiration_timestamp` (see
@@ -502,10 +472,6 @@ where
     ///
     /// ## Cost
     ///
-<<<<<<< HEAD
-    /// This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.
->>>>>>> 1382d2b481 (docs: add delayedpublicmutable apiref, fix misc docs (#20512))
-=======
     /// This function performs a historical public storage read (which is ~4k gates), **regardless of
     /// `T`'s packed length**. This is because [`DelayedPublicMutable::schedule_value_change`] stores not just the
     /// value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
@@ -534,7 +500,6 @@ where
     ///     config: DelayedPublicMutable<Config, INITIAL_DELAY_S, Context>,
     /// }
     /// ```
->>>>>>> 3e59b5aa07 (docs: small delayedpubmut update (#21229))
     pub fn get_current_value(self) -> T
     where
         T: Packable,

@@ -13,13 +13,8 @@ pub contract Auth {
     };
 
     // docs:start:delayed_public_mutable_storage
-<<<<<<< HEAD
-    // Authorizing a new address has a certain delay before it goes into effect. Set to 360 seconds which is 5 slots.
-    pub(crate) global CHANGE_AUTHORIZED_DELAY: u64 = 360;
-=======
     // Authorizing a new address has a certain delay before it goes into effect. Set to 180 seconds.
     pub(crate) global CHANGE_AUTHORIZED_DELAY: u64 = 180;
->>>>>>> 1382d2b481 (docs: add delayedpublicmutable apiref, fix misc docs (#20512))
 
     #[storage]
     struct Storage<Context> {

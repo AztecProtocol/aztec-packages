@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-use crate::macros::{
-    calls_generation::{
-        external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
-        internal_functions::generate_call_internal_struct,
-    },
-    dispatch::generate_public_dispatch,
-    emit_public_init_nullifier::generate_emit_public_init_nullifier,
-    internals_functions_generation::{create_fn_abi_exports, process_functions},
-    notes::NOTES,
-    storage::STORAGE_LAYOUT_NAME,
-    utils::{
-        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
-        module_has_storage,
-=======
 mod compute_note_hash_and_nullifier;
 
 use crate::{
@@ -26,18 +11,13 @@ use crate::{
         internals_functions_generation::{create_fn_abi_exports, process_functions},
         storage::STORAGE_LAYOUT_NAME,
         utils::{is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test, module_has_storage},
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     },
 };
 
-<<<<<<< HEAD
-/// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `sync_state` utility function.
-=======
 use compute_note_hash_and_nullifier::generate_contract_library_methods_compute_note_hash_and_nullifier;
 
-/// Configuration for the [`aztec`] macro.
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
+/// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
+/// the `sync_state` utility function.
 ///
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
@@ -184,15 +164,10 @@ comptime fn generate_sync_state() -> Quoted {
             let address = aztec::context::UtilityContext::new().this_address();
             aztec::messages::discovery::do_sync_state(
                 address,
-<<<<<<< HEAD
-                _compute_note_hash_and_nullifier,
-                Option::some(aztec::messages::processing::offchain::sync_inbox),
-=======
                 _compute_note_hash,
                 _compute_note_nullifier,
-                $process_custom_message_option,
-                $offchain_inbox_sync_option,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
+                Option::none(),
+                Option::some(aztec::messages::processing::offchain::sync_inbox),
             );
         }
     }
@@ -219,13 +194,9 @@ comptime fn generate_process_message() -> Quoted {
 
             aztec::messages::discovery::process_message::process_message_ciphertext(
                 address,
-<<<<<<< HEAD
-                _compute_note_hash_and_nullifier,
-=======
                 _compute_note_hash,
                 _compute_note_nullifier,
-                $process_custom_message_option,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
+                Option::none(),
                 message_ciphertext,
                 message_context,
             );
