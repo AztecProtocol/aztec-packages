@@ -26,7 +26,7 @@ mod test;
 ///
 /// ## Cost
 ///
-/// This function performs a full merkle tree inclusion proof, which is in the order of 4k gates.
+/// This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.
 ///
 /// If you don't need to assert existence at a _specific_ past block, consider using
 /// [`PrivateContext::assert_nullifier_exists`](crate::context::PrivateContext::assert_nullifier_exists) instead, which
@@ -82,7 +82,7 @@ pub fn assert_nullifier_existed_by(block_header: BlockHeader, siloed_nullifier: 
 ///
 /// ## Cost
 ///
-/// This function performs a full merkle tree inclusion proof, which is in the order of 4k gates.
+/// This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.
 pub fn assert_nullifier_did_not_exist_by(block_header: BlockHeader, siloed_nullifier: Field) {
     // 1) Get the membership witness of a low nullifier of the nullifier.
     // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
