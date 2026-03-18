@@ -2,6 +2,7 @@ add_executable(
     acir_components_count
     main.cpp
     acir_graph.cpp
+    components_check.cpp
 )
 target_link_libraries(
     acir_components_count
