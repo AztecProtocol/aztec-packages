@@ -569,6 +569,8 @@ export class BlockProposalHandler {
         ? new Gas(this.config.validateMaxDABlockGas ?? Infinity, this.config.validateMaxL2BlockGas ?? Infinity)
         : undefined;
     const result = await checkpointBuilder.buildBlock(txs, blockNumber, blockHeader.globalVariables.timestamp, {
+      isBuildingProposal: false,
+      minValidTxs: 0,
       deadline,
       expectedEndState: blockHeader.state,
       maxTransactions: this.config.validateMaxTxsPerBlock,

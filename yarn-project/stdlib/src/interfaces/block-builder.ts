@@ -35,7 +35,8 @@ export interface IBlockFactory extends ProcessedTxHandler {
   setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 }
 
-export interface PublicProcessorLimits {
+/** Limits passed to the public processor for tx processing within a block. */
+export type PublicProcessorLimits = {
   /** Maximum number of txs to process. */
   maxTransactions?: number;
   /** L2 and DA gas limits. */
@@ -46,7 +47,30 @@ export interface PublicProcessorLimits {
   deadline?: Date;
   /** Whether this processor is building a proposal (as opposed to re-executing one). Skipping txs due to gas or blob limits is only done during proposal building. */
   isBuildingProposal?: boolean;
-}
+};
+
+/** Base fields shared by both proposer and validator block builder options. */
+type BlockBuilderOptionsBase = PublicProcessorLimits & {
+  /** Minimum number of successfully processed txs required. Block is rejected if fewer succeed. */
+  minValidTxs: number;
+};
+
+/** Proposer mode: redistribution params are required. */
+type ProposerBlockBuilderOptions = BlockBuilderOptionsBase & {
+  isBuildingProposal: true;
+  /** Maximum number of blocks per checkpoint, derived from the timetable. */
+  maxBlocksPerCheckpoint: number;
+  /** Per-block gas budget multiplier. Budget = (remaining / remainingBlocks) * multiplier. */
+  perBlockAllocationMultiplier: number;
+};
+
+/** Validator mode: no redistribution params needed. */
+type ValidatorBlockBuilderOptions = BlockBuilderOptionsBase & {
+  isBuildingProposal: false;
+};
+
+/** Options for building a block within a checkpoint. When proposing, redistribution params are required. */
+export type BlockBuilderOptions = ProposerBlockBuilderOptions | ValidatorBlockBuilderOptions;
 
 export interface PublicProcessorValidator {
   preprocessValidator?: TxValidator<Tx>;
@@ -64,9 +88,6 @@ export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime'
     | 'maxTxsPerCheckpoint'
     | 'maxL2BlockGas'
     | 'maxDABlockGas'
-    | 'redistributeCheckpointBudget'
-    | 'perBlockAllocationMultiplier'
-    | 'maxBlocksPerCheckpoint'
   >;
 
 export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
@@ -82,9 +103,6 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'maxL2BlockGas',
   'maxDABlockGas',
   'rollupManaLimit',
-  'redistributeCheckpointBudget',
-  'perBlockAllocationMultiplier',
-  'maxBlocksPerCheckpoint',
 ] as const;
 
 /** Thrown when the number of successfully processed transactions is below the required minimum. */
@@ -115,7 +133,7 @@ export interface ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits & { minValidTxs?: number },
+    opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult>;
 }
 

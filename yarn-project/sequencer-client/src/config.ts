@@ -122,9 +122,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
       'Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget.',
     ...booleanConfigHelper(DefaultSequencerConfig.redistributeCheckpointBudget),
   },
-  maxBlocksPerCheckpoint: {
-    description: 'Computed max number of blocks per checkpoint from timetable.',
-  },
   coinbase: {
     env: 'COINBASE',
     parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
