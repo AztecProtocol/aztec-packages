@@ -62,7 +62,7 @@ function release {
 
   # Publish to crates.io (--allow-dirty because version was just set and generated files are gitignored)
   local extra_flags=""
-  if ! gh release view "v$version" --repo AztecProtocol/aztec-packages &>/dev/null; then
+  if ! gh release view "v$version" --repo AztecProtocol/barretenberg &>/dev/null; then
     # No matching GitHub release yet — skip verification build (which would try to download libbb-external.a)
     echo "No GitHub release found for v$version, adding --no-verify (pass REF_NAME matching a release for full verification)"
     extra_flags="--no-verify"

@@ -115,7 +115,7 @@ install_bb() {
     local temp_tar="${temp_dir}/temp.tar.gz"
 
     # Download and extract
-    local release_url_base="https://github.com/AztecProtocol/aztec-packages/releases/download"
+    local release_url_base="https://github.com/AztecProtocol/barretenberg/releases/download"
     local release_tag="v${version}"
     if ! version_gte "$version" "0.77.0"; then
         release_tag="aztec-packages-v${version}"
