@@ -233,6 +233,26 @@ template <typename Curve> class GeminiProver_ {
         }
 
         /**
+         * @brief Compute rho-batched F and G (merging tails), return ownership.
+         * @details After calling compute_batched(rho), this extracts the accumulated F and G
+         *          (including tails), allowing delegation to the pre-batched Gemini::prove overload.
+         * @return {F, G, shift_exponent}
+         */
+        std::tuple<Polynomial, Polynomial, size_t> extract_batched_pair()
+        {
+            // Merge tails into the main batched polynomials
+            if (!batched_unshifted_tail_.is_empty()) {
+                Polynomial extended(batched_unshifted, full_batched_size - batched_unshifted.start_index());
+                extended += batched_unshifted_tail_;
+                batched_unshifted = std::move(extended);
+            }
+            if (!batched_shifted_tail_.is_empty()) {
+                batched_to_be_shifted += batched_shifted_tail_;
+            }
+            return { std::move(batched_unshifted), std::move(batched_to_be_shifted), shift_exponent };
+        }
+
+        /**
          * @brief Compute partially evaluated batched polynomials A₀₊ and A₀₋
          * @details We need A₀₊(r) = A₀(r) and A₀₋(-r) = A₀(-r), where A₀(X) = F(X) + G(X)/X^k.
          * Since (-r)^k = (-1)^k · r^k, the correct formulas are:
@@ -304,6 +324,22 @@ template <typename Curve> class GeminiProver_ {
     static std::vector<Claim> prove(size_t circuit_size,
                                     PolynomialBatcher& polynomial_batcher,
                                     const Fr& rho,
+                                    std::span<Fr> multilinear_challenge,
+                                    const CommitmentKey<Curve>& commitment_key,
+                                    const std::shared_ptr<Transcript>& transcript,
+                                    bool has_zk = false);
+
+    /**
+     * @brief Gemini prove from pre-batched polynomials F and G (bypasses PolynomialBatcher).
+     * @details Used when the caller has already rho-batched groups into F (unshifted) and G (to-be-shifted).
+     *          Computes A₀ = F + G/X^k, folds, commits, partial-evaluates, and constructs opening claims.
+     * @param shift_exponent The shift depth k (= BATCH_SIZE for interleaved flavors).
+     */
+    template <typename Transcript>
+    static std::vector<Claim> prove(size_t circuit_size,
+                                    Polynomial&& batched_unshifted,
+                                    Polynomial&& batched_to_be_shifted,
+                                    size_t shift_exponent,
                                     std::span<Fr> multilinear_challenge,
                                     const CommitmentKey<Curve>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,

@@ -116,6 +116,51 @@ class ProverPolynomialsBase : public AllEntitiesBase {
         return buf;
     }
 
+    /**
+     * @brief Pre-batch interleaved groups into F and G using rho powers, freeing entity memory.
+     * @details Shifted groups are processed first (they share polys with last unshifted groups).
+     *          Unshifted groups are freed greedily after consumption.
+     * @param Flavor The flavor providing GroupAccessors and NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS.
+     * @return {F, G} — rho-weighted batched polynomials of size n * BS.
+     */
+    template <typename Flavor, typename FF>
+    static std::pair<Polynomial, Polynomial> batch_interleaved_groups_with_rho(
+        ProverPolynomialsBase&& polynomials, const FF& rho, size_t n, size_t batch_size, size_t pcs_size)
+    {
+        constexpr size_t NUM_SHIFTABLE = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+
+        auto unshifted_groups = Flavor::get_unshifted_groups_mut(polynomials);
+        auto shifted_groups = Flavor::get_to_be_shifted_groups(polynomials);
+        const size_t num_groups = unshifted_groups.size();
+        const size_t shiftable_start = num_groups - NUM_SHIFTABLE;
+
+        Polynomial batched_unshifted(pcs_size);
+        Polynomial batched_to_be_shifted = Polynomial::shiftable(pcs_size, pcs_size, batch_size);
+
+        // Shifted groups first (they share polys with last unshifted groups — must read before freeing)
+        FF rho_shifted = rho.pow(num_groups);
+        for (size_t g = 0; g < shifted_groups.size(); g++) {
+            auto buf = build_interleaved_polynomial(shifted_groups[g], n, batch_size, true);
+            batched_to_be_shifted.add_scaled(buf, rho_shifted);
+            rho_shifted *= rho;
+        }
+
+        // Unshifted groups with greedy freeing
+        FF rho_power(1);
+        for (size_t g = 0; g < num_groups; g++) {
+            auto buf = build_interleaved_polynomial(unshifted_groups[g], n, batch_size, g >= shiftable_start);
+            batched_unshifted.add_scaled(buf, rho_power);
+            rho_power *= rho;
+            for (auto* ptr : unshifted_groups[g]) {
+                if (ptr != nullptr) {
+                    *ptr = Polynomial();
+                }
+            }
+        }
+
+        return { std::move(batched_unshifted), std::move(batched_to_be_shifted) };
+    }
+
     void increase_polynomials_virtual_size(const size_t size_in)
     {
         for (auto& polynomial : this->get_all()) {

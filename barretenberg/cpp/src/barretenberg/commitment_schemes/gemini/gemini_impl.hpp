@@ -57,44 +57,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {
-    // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
-    const size_t virtual_log_n = multilinear_challenge.size();
-    const size_t log_n = numeric::get_msb(circuit_size);
-
-    Polynomial A_0 = polynomial_batcher.compute_batched(rho);
-
-    // Construct the d-1 Gemini foldings of A₀(X)
-    std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);
-
-    // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
-    for (size_t l = 0; l < virtual_log_n - 1; l++) {
-        std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
-        // When has_zk is true, we are sending commitments to 0. Seems to work, but maybe brittle.
-        transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
-    }
-    const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
-
-    const bool gemini_challenge_in_small_subgroup = (has_zk) && (r_challenge.pow(Curve::SUBGROUP_SIZE) == Fr(1));
-
-    // If Gemini evaluation challenge lands in the multiplicative subgroup used by SmallSubgroupIPA protocol, the
-    // evaluations of prover polynomials at this challenge would leak witness data.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
-    if (gemini_challenge_in_small_subgroup) {
-        throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
-    }
-
-    // Compute polynomials A₀₊(X) = F(X) + G(X)/r^k and A₀₋(X) = F(X) - G(X)/r^k
-    auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
-    // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
-    std::vector<Claim> claims = construct_univariate_opening_claims(
-        virtual_log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
-
-    for (size_t l = 1; l <= virtual_log_n; l++) {
-        std::string label = "Gemini:a_" + std::to_string(l);
-        transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);
-    }
-
-    return claims;
+    // Batch all polynomials with rho, then extract F and G and delegate to the pre-batched overload
+    polynomial_batcher.compute_batched(rho);
+    auto [F, G, shift_exp] = polynomial_batcher.extract_batched_pair();
+    return prove(
+        circuit_size, std::move(F), std::move(G), shift_exp, multilinear_challenge, commitment_key, transcript, has_zk);
 };
 
 /**
@@ -227,6 +194,67 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
     for (size_t l = 0; l < log_n - 1; ++l) {
         Fr evaluation = fold_polynomials[l].evaluate(-r_squares[l + 1]);
         claims.emplace_back(Claim{ std::move(fold_polynomials[l]), { -r_squares[l + 1], evaluation }, gemini_fold });
+    }
+
+    return claims;
+};
+
+/**
+ * @brief Gemini prove from pre-batched polynomials F and G.
+ * @details Computes A₀ = F + G/X^k, folds, commits, constructs opening claims. Used by the interleaved
+ *          prover path (BS>1) which rho-batches groups externally and frees entity memory before PCS.
+ */
+template <typename Curve>
+template <typename Transcript>
+std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
+    size_t circuit_size,
+    Polynomial&& batched_unshifted,
+    Polynomial&& batched_to_be_shifted,
+    size_t shift_exponent,
+    std::span<Fr> multilinear_challenge,
+    const CommitmentKey<Curve>& commitment_key,
+    const std::shared_ptr<Transcript>& transcript,
+    bool has_zk)
+{
+    const size_t virtual_log_n = multilinear_challenge.size();
+    const size_t log_n = numeric::get_msb(circuit_size);
+
+    // A₀ = F + G/X^k
+    Polynomial A_0(circuit_size);
+    A_0 += batched_unshifted;
+    A_0 += batched_to_be_shifted.shifted(shift_exponent);
+
+    auto fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);
+    A_0 = {}; // free before committing folds
+
+    for (size_t l = 0; l < virtual_log_n - 1; l++) {
+        transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1),
+                                     commitment_key.commit(fold_polynomials[l]));
+    }
+    const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
+
+    const bool gemini_challenge_in_small_subgroup = has_zk && (r_challenge.pow(Curve::SUBGROUP_SIZE) == Fr(1));
+    if (gemini_challenge_in_small_subgroup) {
+        throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
+    }
+
+    // Partial evaluation: A₀₊ = F + G/r^k, A₀₋ = F ± G/r^k
+    Fr r_inv_k = r_challenge.pow(shift_exponent).invert();
+    batched_to_be_shifted *= r_inv_k;
+    Polynomial A_0_pos = batched_unshifted;
+    A_0_pos += batched_to_be_shifted;
+    // For even k: (-r)^k = r^k, so A₀₋ = A₀₊. For odd k: A₀₋ = F - G/r^k.
+    Polynomial A_0_neg = (shift_exponent % 2 == 0) ? Polynomial(A_0_pos) : [&]() {
+        Polynomial neg = std::move(batched_unshifted);
+        neg -= batched_to_be_shifted;
+        return neg;
+    }();
+
+    auto claims = construct_univariate_opening_claims(
+        virtual_log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
+
+    for (size_t l = 1; l <= virtual_log_n; l++) {
+        transcript->send_to_verifier("Gemini:a_" + std::to_string(l), claims[l].opening_pair.evaluation);
     }
 
     return claims;
