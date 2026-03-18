@@ -168,6 +168,12 @@ describe('e2e_offchain_payment', () => {
     const { result: bobAfterRollback } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobAfterRollback).toBe(0n);
 
+    // Advance L1 time to the next L2 slot. After the rollback the sequencer still remembers
+    // it proposed in the current slot (lastCheckpointProposed) and will skip it unconditionally.
+    // Without advancing, forceEmptyBlock would time out waiting for a block that can never come
+    // within the current slot's 72-second window.
+    await cheatCodes.rollup.advanceToNextSlot();
+
     // Resend the tx after the reorg and force block production so the sequencer picks it up.
     await provenTx.send({ wait: NO_WAIT });
     await forceEmptyBlock();
