@@ -820,15 +820,6 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignCapsule: ForeignCallArray,
-  ) {
-    return this.aztec_utl_storeCapsuleV2(foreignContractAddress, foreignSlot, foreignCapsule);
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_utl_storeCapsuleV2(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignCapsule: ForeignCallArray,
     foreignScopeIsSome?: ForeignCallSingle,
     foreignScopeValue?: ForeignCallSingle,
   ) {
@@ -843,16 +834,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_loadCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignTSize: ForeignCallSingle,
-  ) {
-    return this.aztec_utl_loadCapsuleV2(foreignContractAddress, foreignSlot, foreignTSize);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_loadCapsuleV2(
+  async aztec_utl_loadCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignTSize: ForeignCallSingle,
@@ -878,12 +860,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_deleteCapsule(foreignContractAddress: ForeignCallSingle, foreignSlot: ForeignCallSingle) {
-    return this.aztec_utl_deleteCapsuleV2(foreignContractAddress, foreignSlot);
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_utl_deleteCapsuleV2(
+  aztec_utl_deleteCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignScopeIsSome?: ForeignCallSingle,
@@ -899,17 +876,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_copyCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSrcSlot: ForeignCallSingle,
-    foreignDstSlot: ForeignCallSingle,
-    foreignNumEntries: ForeignCallSingle,
-  ) {
-    return this.aztec_utl_copyCapsuleV2(foreignContractAddress, foreignSrcSlot, foreignDstSlot, foreignNumEntries);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_copyCapsuleV2(
+  async aztec_utl_copyCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSrcSlot: ForeignCallSingle,
     foreignDstSlot: ForeignCallSingle,
