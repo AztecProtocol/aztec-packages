@@ -35,8 +35,10 @@ namespace execution;
     #[skippable_if]
     sel_execute_notehash_exists = 0; // from execution.pil.
 
-    // Constrained to be boolean by the lookup into gt. (provided that sel_execute_notehash_exists == 1).
-    pol commit note_hash_leaf_in_range;
+    // Boolean by lookup into gt when sel_execute_notehash_exists == 1.
+    // Forced to zero otherwise by #[LEAF_IN_RANGE_IS_ZERO].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit note_hash_leaf_in_range; // @boolean
 
     // Lookup constant support: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit note_hash_tree_leaf_count;
@@ -56,9 +58,14 @@ namespace execution;
         gt.res
     };
 
+    #[LEAF_IN_RANGE_IS_ZERO]
+    note_hash_leaf_in_range * (1 - sel_execute_notehash_exists) = 0;
+
     // If the leaf index is out of range, set the output to false
+    // By #[LEAF_IN_RANGE_IS_ZERO], `sel_execute_notehash_exists * note_hash_leaf_in_range == note_hash_leaf_in_range`
+    // and thus: `sel_execute_notehash_exists * (1 - note_hash_leaf_in_range) == sel_execute_notehash_exists - note_hash_leaf_in_range`
     #[NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE]
-    sel_execute_notehash_exists * (1 - note_hash_leaf_in_range) * register[2] = 0;
+    (sel_execute_notehash_exists - note_hash_leaf_in_range) * register[2] = 0;
 
     // If the leaf index is in range, check if the note hash exists in the note hash tree
     #[NOTE_HASH_READ]

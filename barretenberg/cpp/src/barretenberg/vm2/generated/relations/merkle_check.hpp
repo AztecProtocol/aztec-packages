@@ -14,7 +14,7 @@ template <typename FF_> class merkle_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 4, 3, 3, 3, 3, 4, 3,
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 5, 4, 3, 3, 3, 3, 4, 3,
                                                                             4, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -36,23 +36,23 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr const std::string_view NAME = "merkle_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_END_IFF_REM_PATH_EMPTY = 3;
-    static constexpr size_t SR_COMPUTATION_FINISH_AT_END = 4;
-    static constexpr size_t SR_SELECTOR_ON_START_OR_END = 5;
-    static constexpr size_t SR_PROPAGATE_READ_ROOT = 6;
-    static constexpr size_t SR_PROPAGATE_WRITE = 7;
-    static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 8;
-    static constexpr size_t SR_PATH_LEN_DECREMENTS = 9;
-    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 11;
-    static constexpr size_t SR_FINAL_INDEX_EQUAL_TO_FIRST_BIT = 12;
-    static constexpr size_t SR_READ_LEFT_NODE = 13;
-    static constexpr size_t SR_READ_RIGHT_NODE = 14;
-    static constexpr size_t SR_WRITE_LEFT_NODE = 15;
-    static constexpr size_t SR_WRITE_RIGHT_NODE = 16;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 18;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 19;
-    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 20;
-    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 21;
+    static constexpr size_t SR_END_IFF_REM_PATH_EMPTY = 4;
+    static constexpr size_t SR_COMPUTATION_FINISH_AT_END = 5;
+    static constexpr size_t SR_SELECTOR_ON_START_OR_END = 6;
+    static constexpr size_t SR_PROPAGATE_READ_ROOT = 7;
+    static constexpr size_t SR_PROPAGATE_WRITE = 8;
+    static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 9;
+    static constexpr size_t SR_PATH_LEN_DECREMENTS = 10;
+    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 12;
+    static constexpr size_t SR_FINAL_INDEX_EQUAL_TO_FIRST_BIT = 13;
+    static constexpr size_t SR_READ_LEFT_NODE = 14;
+    static constexpr size_t SR_READ_RIGHT_NODE = 15;
+    static constexpr size_t SR_WRITE_LEFT_NODE = 16;
+    static constexpr size_t SR_WRITE_RIGHT_NODE = 17;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 19;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 20;
+    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 21;
+    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 22;
 
     static std::string get_subrelation_label(size_t index)
     {
