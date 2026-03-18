@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -42,7 +42,17 @@ describe('ProposalValidator', () => {
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
     validator = new ProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: undefined }, 'test');
-    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: currentSlot,
+      ts: 0n,
+      nowMs: 0n,
+    });
+    epochCache.getTargetAndNextSlot.mockReturnValue({
+      targetSlot: currentSlot,
+      nextSlot,
+    });
+    epochCache.getTargetSlot.mockReturnValue(currentSlot);
   });
 
   describe.each([
@@ -61,7 +71,7 @@ describe('ProposalValidator', () => {
       const proposal = await factory(previousSlot, Secp256k1Signer.random());
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
+        epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
         nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
@@ -78,7 +88,7 @@ describe('ProposalValidator', () => {
       const proposal = await factory(previousSlot, signer);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
+        epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
         nowMs: 1000100n, // 100ms elapsed, within 500ms tolerance

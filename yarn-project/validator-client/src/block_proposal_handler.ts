@@ -166,11 +166,15 @@ export class BlockProposalHandler {
     // since a pending checkpoint prune may remove blocks we'd otherwise find.
     // This affects mostly the block_number_already_exists check, since a pending
     // checkpoint prune could remove a block that would conflict with this proposal.
-    // TODO(@Maddiaa0): This may break staggered slots.
-    const blockSourceSync = await this.waitForBlockSourceSync(slotNumber);
-    if (!blockSourceSync) {
-      this.log.warn(`Block source is not synced, skipping processing`, proposalInfo);
-      return { isValid: false, reason: 'block_source_not_synced' };
+    // When pipelining is enabled, the proposer builds ahead of L1 submission, so the
+    // block source won't have synced to the proposed slot yet. Skip the sync wait to
+    // avoid eating into the attestation window.
+    if (!this.epochCache.isProposerPipeliningEnabled()) {
+      const blockSourceSync = await this.waitForBlockSourceSync(slotNumber);
+      if (!blockSourceSync) {
+        this.log.warn(`Block source is not synced, skipping processing`, proposalInfo);
+        return { isValid: false, reason: 'block_source_not_synced' };
+      }
     }
 
     // Check that the parent proposal is a block we know, otherwise reexecution would fail.

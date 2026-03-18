@@ -133,6 +133,7 @@ export class SequencerPublisher {
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
+  protected aztecSlotDuration: bigint;
 
   private blobClient: BlobClientInterface;
 
@@ -166,7 +167,7 @@ export class SequencerPublisher {
 
   constructor(
     private config: Pick<SequencerPublisherConfig, 'fishermanMode' | 'l1TxFailedStore'> &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> & { l1ChainId: number },
+      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
@@ -185,6 +186,7 @@ export class SequencerPublisher {
   ) {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
+    this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
@@ -286,7 +288,7 @@ export class SequencerPublisher {
   }
 
   public getCurrentL2Slot(): SlotNumber {
-    return this.epochCache.getEpochAndSlotNow().slot;
+    return this.epochCache.getSlotNow();
   }
 
   /**
@@ -596,20 +598,23 @@ export class SequencerPublisher {
   }
 
   /**
-   * @notice  Will call `canProposeAtNextEthBlock` to make sure that it is possible to propose
+   * @notice  Will call `canProposeAt` to make sure that it is possible to propose
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(
+  public canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
+    const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
+    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
+      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, slotOffset, {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       })
       .catch(err => {
@@ -623,6 +628,7 @@ export class SequencerPublisher {
         return undefined;
       });
   }
+
   /**
    * @notice  Will simulate `validateHeader` to make sure that the block header is valid
    * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
@@ -811,7 +817,9 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    // Anchor the simulation timestamp to the checkpoint's own slot start time
+    // rather than the current L1 block timestamp, which may overshoot into the next slot if the build ran late.
+    const ts = checkpoint.header.timestamp;
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);

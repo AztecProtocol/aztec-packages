@@ -118,11 +118,11 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
-
+      aztecSlotDuration: 36,
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
       PublisherConfig &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
+      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> &
       L1TxUtilsConfig;
 
     rollup = mock<RollupContract>();
@@ -138,7 +138,13 @@ describe('SequencerPublisher', () => {
     slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(2),
+      ts: 3n,
+      nowMs: 3000n,
+    });
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(2));
     epochCache.getCommittee.mockResolvedValue({
       committee: [],
       seed: 1n,
@@ -320,6 +326,7 @@ describe('SequencerPublisher', () => {
         ts: 3n,
         nowMs: 3000n,
       });
+      epochCache.getSlotNow.mockReturnValue(SlotNumber(2));
       epochCache.getCommittee.mockResolvedValue({
         committee: [],
         seed: 1n,
@@ -327,19 +334,22 @@ describe('SequencerPublisher', () => {
         isEscapeHatchOpen: false,
       });
 
-      rotatingPublisher = new SequencerPublisher({ ethereumSlotDuration: 12, l1ChainId: 1 } as any, {
-        blobClient,
-        rollupContract: rollup,
-        l1TxUtils,
-        epochCache,
-        slashingProposerContract,
-        governanceProposerContract,
-        slashFactoryContract,
-        dateProvider: new TestDateProvider(),
-        metrics: l1Metrics,
-        lastActions: {},
-        getNextPublisher,
-      });
+      rotatingPublisher = new SequencerPublisher(
+        { ethereumSlotDuration: 12, aztecSlotDuration: 36, l1ChainId: 1 } as any,
+        {
+          blobClient,
+          rollupContract: rollup,
+          l1TxUtils,
+          epochCache,
+          slashingProposerContract,
+          governanceProposerContract,
+          slashFactoryContract,
+          dateProvider: new TestDateProvider(),
+          metrics: l1Metrics,
+          lastActions: {},
+          getNextPublisher,
+        },
+      );
     });
 
     it('rotates to next publisher when forward throws and retries successfully', async () => {
