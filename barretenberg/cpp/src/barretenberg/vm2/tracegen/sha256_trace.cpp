@@ -58,7 +58,11 @@ constexpr std::array<uint32_t, 64> round_constants = {
 
 }; // namespace
 
-// These are helper functions to iterate and set repetitive columns in the trace.
+/**
+ * @brief Set the 16 message-schedule helper columns (w0..w15) at the current row.
+ * @param prev_w_helpers The 16 previous w helper values for this round.
+ * @param trace The trace container to populate.
+ */
 void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace)
 {
     for (size_t i = 0; i < 16; i++) {
@@ -66,6 +70,11 @@ void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_
     }
 }
 
+/**
+ * @brief Set the 8 round-state columns (a..h) at the current row.
+ * @param state The 8 state values for this round.
+ * @param trace The trace container to populate.
+ */
 void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, TraceContainer& trace)
 {
     for (size_t i = 0; i < 8; i++) {
@@ -73,6 +82,11 @@ void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, Tr
     }
 }
 
+/**
+ * @brief Set the 8 initial-state columns (init_a..init_h) at the current row.
+ * @param init_state The 8 initial hash state values (propagated unchanged across all rows).
+ * @param trace The trace container to populate.
+ */
 void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init_state, TraceContainer& trace)
 {
     for (size_t i = 0; i < 8; i++) {
@@ -80,7 +94,18 @@ void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init
     }
 }
 
-// Decomposes a into two 32-bit values at the bit position b and inserts witness data into the trace.
+/**
+ * @brief Decompose a value into high and low limbs at a given bit position and write them to the trace.
+ * @param a The value to decompose.
+ * @param b The bit position at which to split (low limb has b bits).
+ * @param c_lhs The column for the high limb (a >> b).
+ * @param c_rhs The column for the low limb (a & (2^b - 1)).
+ * @param trace The trace container to populate.
+ * @pre b must satisfy b < 64. A value >= 64 would cause undefined behavior per the C++ standard
+ *      for 64-bit operands (a >> b and 1 << b). This is an internal helper; all callers pass
+ *      either fixed SHA-256 rotation/shift amounts (2, 3, 6, 7, 10, 11, 13, 17, 18, 19, 22, 25)
+ *      or the literal 32 for modular reduction, so this precondition is always satisfied.
+ */
 void Sha256TraceBuilder::into_limbs_with_witness(
     uint64_t a, const uint8_t b, Column c_lhs, Column c_rhs, TraceContainer& trace)
 {
@@ -89,7 +114,21 @@ void Sha256TraceBuilder::into_limbs_with_witness(
     trace.set(row, { { { c_lhs, a_lhs }, { c_rhs, a_rhs } } });
 }
 
-// Performs 32-bit rotation with witness data inserted into the trace.
+/**
+ * @brief Perform a 32-bit right rotation and insert the result and limb decomposition into the trace.
+ * @param val The 32-bit value to rotate.
+ * @param shift The number of bits to rotate right.
+ * @param c_result The column for the rotation result.
+ * @param c_lhs The column for the high limb of the decomposition.
+ * @param c_rhs The column for the low limb of the decomposition.
+ * @param trace The trace container to populate.
+ * @return The rotated 32-bit value.
+ * @pre shift must satisfy 0 < shift < 32. A shift >= 32 causes undefined behavior per the
+ *      C++ standard for 32-bit operands. A shift == 0 also causes undefined behavior because
+ *      the reconstruction `val << (32 - shift)` becomes a left shift by 32. This is an internal
+ *      helper; all callers use fixed SHA-256 rotation amounts (2, 6, 7, 11, 13, 17, 18, 19,
+ *      22, 25), so this precondition is always satisfied.
+ */
 uint32_t Sha256TraceBuilder::ror_with_witness(
     const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace)
 {
@@ -99,7 +138,19 @@ uint32_t Sha256TraceBuilder::ror_with_witness(
     return result;
 }
 
-// Performs 32-bit shift right with witness data inserted into the trace.
+/**
+ * @brief Perform a 32-bit right shift and insert the result and limb decomposition into the trace.
+ * @param val The 32-bit value to shift.
+ * @param shift The number of bits to shift right.
+ * @param c_result The column for the shift result.
+ * @param c_lhs The column for the high limb of the decomposition.
+ * @param c_rhs The column for the low limb of the decomposition.
+ * @param trace The trace container to populate.
+ * @return The shifted 32-bit value.
+ * @pre shift must satisfy shift < 32. A shift >= 32 would cause undefined behavior per the
+ *      C++ standard for 32-bit operands. This is an internal helper; all callers use fixed
+ *      SHA-256 shift amounts (3, 10), so this precondition is always satisfied.
+ */
 uint32_t Sha256TraceBuilder::shr_with_witness(
     const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace)
 {
@@ -109,7 +160,16 @@ uint32_t Sha256TraceBuilder::shr_with_witness(
     return result;
 }
 
-// Computes and returns the message schedule (w) value for that round, and inserts witness data into the trace.
+/**
+ * @brief Compute the message schedule word w[j] for a non-input round and insert witness data into the trace.
+ *
+ * Implements w[j] = w[j-16] + s0 + w[j-7] + s1 where s0 and s1 are computed from rotations
+ * and shifts of previous w values, with all intermediate results recorded as trace columns.
+ *
+ * @param prev_w_helpers The 16 most recent w values (sliding window), indexed 0..15.
+ * @param trace The trace container to populate.
+ * @return The computed w value for this round (reduced modulo 2^32).
+ */
 uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 16>& prev_w_helpers,
                                                     TraceContainer& trace)
 {
@@ -166,7 +226,19 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     return static_cast<uint32_t>(computed_w);
 }
 
-// Perform the SHA-256 compression function for a single round and insert witness data into the trace.
+/**
+ * @brief Perform one round of the SHA-256 compression function and insert all witness data into the trace.
+ *
+ * Computes S0, S1, ch, maj, temp1, temp2, and the updated state for a single SHA-256 round.
+ * All intermediate values (rotations, bitwise ops, modular additions) are written to the trace.
+ *
+ * @param state The 8-element state array [a, b, c, d, e, f, g, h] at the start of this round.
+ * @param round_w The message schedule word w[i] for this round.
+ * @param round_constant The SHA-256 round constant k[i] for this round.
+ * @param row The trace row index to write witness data to.
+ * @param trace The trace container to populate.
+ * @return The updated 8-element state array after this round.
+ */
 std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(const std::array<uint32_t, 8>& state,
                                                                              uint32_t round_w,
                                                                              uint32_t round_constant,
@@ -269,7 +341,12 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     };
 }
 
-// Computes the final output from the final round state and inserts witness data into the trace.
+/**
+ * @brief Compute the final SHA-256 output (init_state + final_round_state mod 2^32) and write to the trace.
+ * @param out_state The 8-element state array after the final (64th) compression round.
+ * @param init_state The 8-element initial hash state before compression.
+ * @param trace The trace container to populate with the output limb decompositions.
+ */
 void Sha256TraceBuilder::compute_sha256_output(const std::array<uint32_t, 8>& out_state,
                                                const std::array<uint32_t, 8>& init_state,
                                                TraceContainer& trace)
@@ -282,6 +359,23 @@ void Sha256TraceBuilder::compute_sha256_output(const std::array<uint32_t, 8>& ou
     }
 }
 
+/**
+ * @brief Process the SHA-256 compression events and populate the relevant columns in the trace.
+ *
+ * Events are emitted in the following flavors:
+ * - Normal execution: state has 8 valid U32 elements, input has 16 valid U32 elements,
+ *   output contains the computed compression result. Produces 65 rows (64 rounds + 1 final).
+ * - Address out-of-range error: one or more of state/input/output address ranges exceed the
+ *   maximum memory address. Produces 1 row with error flags set.
+ * - Invalid state tag error: at least one state element has a non-U32 tag. State is fully
+ *   loaded but invalid. Produces 1 row with batched tag check and error flags.
+ * - Invalid input tag error: state is valid but an input element has a non-U32 tag. Input
+ *   contains elements up to and including the first invalid one. Produces rows for each
+ *   input element loaded (up to 16), with error flags propagated.
+ *
+ * @param events Container of Sha256CompressionEvent to process.
+ * @param trace The trace container to populate.
+ */
 void Sha256TraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::Sha256CompressionEvent>::Container& events,
     TraceContainer& trace)

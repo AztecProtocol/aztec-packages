@@ -26,7 +26,21 @@ constexpr std::array<uint32_t, 64> round_constants{
 
 } // namespace
 
-// Don't worry about any weird edge cases since we have fixed non-zero shifts
+/**
+ * @brief Perform a 32-bit right rotation on a MemoryValue.
+ * @param x The value to rotate (must hold a uint32_t).
+ * @param shift The number of bits to rotate right (must be non-zero and < 32).
+ * @return The rotated 32-bit result wrapped in a MemoryValue.
+ * @pre x must be tagged as U32. This is an internal helper; all callers (sha256_compress) guarantee
+ *      the precondition by validating tags before invoking this function. The cast exception is
+ *      therefore never thrown in practice.
+ * @pre shift must satisfy 0 < shift < 32. A shift >= 32 causes undefined behavior per the
+ *      C++ standard for 32-bit operands. A shift == 0 also causes undefined behavior because
+ *      the reconstruction `lo << (32 - shift)` becomes a left shift by 32. All callers use
+ *      fixed SHA-256 rotation amounts (2, 6, 7, 11, 13, 17, 18, 19, 22, 25), so this
+ *      precondition is always satisfied.
+ * @note Asserts that the lower bits extracted during decomposition are in range (lo < 2^shift).
+ */
 MemoryValue Sha256::ror(const MemoryValue& x, uint8_t shift)
 {
     auto val = x.as<uint32_t>();
@@ -41,7 +55,19 @@ MemoryValue Sha256::ror(const MemoryValue& x, uint8_t shift)
     return MemoryValue::from<uint32_t>(result);
 }
 
-// Don't need to worry about edge cases with shifts since we know we only shift by 3 and 10 for sha256
+/**
+ * @brief Perform a 32-bit right shift on a MemoryValue.
+ * @param x The value to shift (must hold a uint32_t).
+ * @param shift The number of bits to shift right (only 3 and 10 are used in SHA-256).
+ * @return The shifted 32-bit result wrapped in a MemoryValue.
+ * @pre x must be tagged as U32. This is an internal helper; all callers (sha256_compress) guarantee
+ *      the precondition by validating tags before invoking this function. The cast exception is
+ *      therefore never thrown in practice.
+ * @pre shift must satisfy shift < 32. A shift >= 32 would cause undefined behavior per the
+ *      C++ standard for 32-bit operands. All callers use fixed SHA-256 shift amounts
+ *      (3, 10), so this precondition is always satisfied.
+ * @note Asserts that the lower bits extracted during decomposition are in range (lo < 2^shift).
+ */
 MemoryValue Sha256::shr(const MemoryValue& x, uint8_t shift)
 {
     uint32_t input = x.as<uint32_t>();
@@ -56,7 +82,15 @@ MemoryValue Sha256::shr(const MemoryValue& x, uint8_t shift)
     return MemoryValue::from<uint32_t>(hi);
 }
 
-// This function is used to sum the values in the vector and return the result modulo 2^32.
+/**
+ * @brief Sum a span of U32 MemoryValues and return the result modulo 2^32.
+ * @param values A span of MemoryValue elements, each expected to hold a uint32_t.
+ * @return The sum reduced modulo 2^32, wrapped in a MemoryValue.
+ * @pre Every element in values must be tagged as U32. This is an internal helper; all callers
+ *      (sha256_compress) guarantee the precondition by validating tags before invoking this
+ *      function. The cast exception is therefore never thrown in practice.
+ * @note Asserts that both the low and high 32-bit halves of the 64-bit sum are in range.
+ */
 MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
 {
     uint64_t sum = 0;
@@ -76,6 +110,28 @@ MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
     return MemoryValue::from<uint32_t>(lo);
 }
 
+/**
+ * @brief Execute the SHA-256 compression function: read state and input from memory, compress, and write output.
+ *
+ * Events are emitted in the following flavors:
+ * - Normal execution: all fields populated (state, input of 16 elements, computed output).
+ * - Error (address out of range, invalid state tag, or invalid input tag): state is partially
+ *   populated (up to the point of failure), input contains elements read before the error,
+ *   output is zeroed.
+ *
+ * In all cases the event is emitted before re-throwing the exception.
+ *
+ * @param memory The memory interface to read state/input from and write output to.
+ * @param state_addr The starting address of the 8-element hash state in memory.
+ * @param input_addr The starting address of the 16-element hash input in memory.
+ * @param output_addr The starting address where the 8-element output will be written.
+ * @throws Sha256CompressionException If any of state/input/output address ranges exceed the
+ *         maximum memory address (checked first).
+ * @throws Sha256CompressionException If any of the 8 state values do not have tag U32
+ *         (checked after address validation).
+ * @throws Sha256CompressionException If any of the 16 input values do not have tag U32
+ *         (checked after state tag validation, on first invalid element).
+ */
 void Sha256::compression(MemoryInterface& memory,
                          MemoryAddress state_addr,
                          MemoryAddress input_addr,
