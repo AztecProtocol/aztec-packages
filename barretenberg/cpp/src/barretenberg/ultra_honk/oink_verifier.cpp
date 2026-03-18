@@ -86,33 +86,16 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
 template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 {
     if constexpr (BATCH_SIZE > 1) {
-        // Receive W₁: [w_l, w_r, w_o, ZERO]
-        verifier_instance->received_commitments.interleaved_wires =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_wires);
-
-        // Receive W₂: [ecc_op_wire_1..4]
-        verifier_instance->received_commitments.interleaved_ecc_op_wires =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_ecc_op_wires);
-
-        // Receive W₃: [calldata, ZERO, ZERO, ZERO]
-        verifier_instance->received_commitments.interleaved_calldata =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_calldata);
-
-        // Receive W₄: [secondary_calldata, ZERO, ZERO, ZERO]
-        verifier_instance->received_commitments.interleaved_secondary_calldata =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_secondary_calldata);
-
-        // Receive W₅: [cd_read_counts, cd_read_tags, scd_read_counts, scd_read_tags]
-        verifier_instance->received_commitments.interleaved_databus_tags =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_databus_tags);
-
-        // Receive W₆: [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
-        verifier_instance->received_commitments.interleaved_return_data_tags =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_return_data_tags);
-
-        // Receive W₇: [return_data, ZERO, ZERO, ZERO]
-        verifier_instance->received_commitments.interleaved_return_data =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_return_data);
+        auto& rc = verifier_instance->received_commitments;
+        rc.interleaved_wires = transcript->template receive_from_prover<Commitment>("INTERLEAVED_WIRES");
+        rc.interleaved_ecc_op_wires = transcript->template receive_from_prover<Commitment>("INTERLEAVED_ECC_OP_WIRES");
+        rc.interleaved_calldata = transcript->template receive_from_prover<Commitment>("INTERLEAVED_CALLDATA");
+        rc.interleaved_secondary_calldata =
+            transcript->template receive_from_prover<Commitment>("INTERLEAVED_SECONDARY_CALLDATA");
+        rc.interleaved_databus_tags = transcript->template receive_from_prover<Commitment>("INTERLEAVED_DATABUS_TAGS");
+        rc.interleaved_return_data_tags =
+            transcript->template receive_from_prover<Commitment>("INTERLEAVED_RETURN_DATA_TAGS");
+        rc.interleaved_return_data = transcript->template receive_from_prover<Commitment>("INTERLEAVED_RETURN_DATA");
     } else {
         // Standard individual commitment path
         verifier_instance->received_commitments.w_l =
@@ -147,13 +130,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_
     verifier_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
     if constexpr (BATCH_SIZE > 1) {
-        // Receive W₈: [w_4, ZERO, ZERO, ZERO]
-        verifier_instance->received_commitments.interleaved_w_4 =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_w_4);
-
-        // Receive W₉: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
-        verifier_instance->received_commitments.interleaved_lookup =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_lookup);
+        auto& rc = verifier_instance->received_commitments;
+        rc.interleaved_w_4 = transcript->template receive_from_prover<Commitment>("INTERLEAVED_W_4");
+        rc.interleaved_lookup = transcript->template receive_from_prover<Commitment>("INTERLEAVED_LOOKUP");
     } else {
         // Get commitments to lookup argument polynomials and fourth wire
         verifier_instance->received_commitments.lookup_read_counts =
@@ -175,9 +154,8 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitmen
     verifier_instance->relation_parameters.gamma = gamma;
 
     if constexpr (BATCH_SIZE > 1) {
-        // Receive W₁₀: [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
         verifier_instance->received_commitments.interleaved_inverses =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_inverses);
+            transcript->template receive_from_prover<Commitment>("INTERLEAVED_INVERSES");
     } else {
         verifier_instance->received_commitments.lookup_inverses =
             transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
@@ -205,9 +183,8 @@ template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_rou
                                            vk->pub_inputs_offset);
 
     if constexpr (BATCH_SIZE > 1) {
-        // Receive W₁₁: [z_perm, ZERO, ZERO, ZERO]
         verifier_instance->received_commitments.interleaved_z_perm =
-            transcript->template receive_from_prover<Commitment>(interleaved_labels.interleaved_z_perm);
+            transcript->template receive_from_prover<Commitment>("INTERLEAVED_Z_PERM");
     } else {
         verifier_instance->received_commitments.z_perm =
             transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);

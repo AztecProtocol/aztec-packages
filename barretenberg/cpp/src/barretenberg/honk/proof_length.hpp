@@ -33,34 +33,21 @@ template <typename Flavor> struct CodecConstants {
 
 /**
  * @brief Computes Oink proof length from flavor traits.
- * @details Oink sends witness commitments (W_L, W_R, W_O, etc.).
- *          For ZK flavors, NUM_WITNESS_ENTITIES includes the Gemini masking polynomial commitment.
+ * @details For interleaved flavors, uses NUM_INTERLEAVED_WITNESS_COMMITMENTS instead of NUM_WITNESS_ENTITIES.
+ *          Recursive flavors delegate to their NativeFlavor since proof sizes are native concepts.
  */
 template <typename Flavor> struct Oink : CodecConstants<Flavor> {
     using CodecConstants<Flavor>::num_frs_in_comm;
 
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = Flavor::NUM_WITNESS_ENTITIES * num_frs_in_comm;
-};
+    static constexpr size_t num_witness_commitments = []() {
+        if constexpr (Flavor::INTERLEAVING_BATCH_SIZE > 1) {
+            return Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS;
+        } else {
+            return Flavor::NUM_WITNESS_ENTITIES;
+        }
+    }();
 
-/**
- * @brief Specialization for MultiMegaFlavor which uses interleaved commitments.
- * @details MultiMegaFlavor batches polynomials into 11 interleaved commitments.
- */
-template <> struct Oink<MultiMegaFlavor> : CodecConstants<MultiMegaFlavor> {
-    using CodecConstants<MultiMegaFlavor>::num_frs_in_comm;
-
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
-        MultiMegaFlavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
-};
-
-/**
- * @brief Specialization for MultiMegaZKFlavor: same as non-ZK (no masking in oink, translator provides it).
- */
-template <> struct Oink<MultiMegaZKFlavor> : CodecConstants<MultiMegaZKFlavor> {
-    using CodecConstants<MultiMegaZKFlavor>::num_frs_in_comm;
-
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS =
-        MultiMegaZKFlavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS * num_frs_in_comm;
+    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS = num_witness_commitments * num_frs_in_comm;
 };
 
 /**

@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/ultra_honk/oink_prover.hpp" // for InterleavedOinkTypes
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
@@ -44,10 +43,6 @@ template <typename Flavor> class OinkVerifier {
     std::shared_ptr<Instance> verifier_instance;
     typename Flavor::CommitmentLabels comm_labels;
     size_t num_public_inputs;
-
-    // Interleaved commitment labels (empty struct for BATCH_SIZE=1)
-    using InterleavedLabelsType = typename detail::InterleavedOinkTypes<Flavor>::LabelsType;
-    InterleavedLabelsType interleaved_labels;
 
     OinkVerifier(const std::shared_ptr<Instance>& verifier_instance,
                  const std::shared_ptr<Transcript>& transcript,

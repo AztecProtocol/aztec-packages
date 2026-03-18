@@ -85,19 +85,13 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
     if constexpr (BATCH_SIZE > 1) {
         auto& polys = prover_instance->polynomials;
 
-        interleaved_commitments.interleaved_wires = commit_group(polys.w_l, interleaved_labels.interleaved_wires);
-        interleaved_commitments.interleaved_ecc_op_wires =
-            commit_group(polys.ecc_op_wire_1, interleaved_labels.interleaved_ecc_op_wires);
-        interleaved_commitments.interleaved_calldata =
-            commit_group(polys.calldata, interleaved_labels.interleaved_calldata);
-        interleaved_commitments.interleaved_secondary_calldata =
-            commit_group(polys.secondary_calldata, interleaved_labels.interleaved_secondary_calldata);
-        interleaved_commitments.interleaved_databus_tags =
-            commit_group(polys.calldata_read_counts, interleaved_labels.interleaved_databus_tags);
-        interleaved_commitments.interleaved_return_data_tags =
-            commit_group(polys.return_data_read_tags, interleaved_labels.interleaved_return_data_tags);
-        interleaved_commitments.interleaved_return_data =
-            commit_group(polys.return_data, interleaved_labels.interleaved_return_data);
+        commit_group(polys.w_l, "INTERLEAVED_WIRES");
+        commit_group(polys.ecc_op_wire_1, "INTERLEAVED_ECC_OP_WIRES");
+        commit_group(polys.calldata, "INTERLEAVED_CALLDATA");
+        commit_group(polys.secondary_calldata, "INTERLEAVED_SECONDARY_CALLDATA");
+        commit_group(polys.calldata_read_counts, "INTERLEAVED_DATABUS_TAGS");
+        commit_group(polys.return_data_read_tags, "INTERLEAVED_RETURN_DATA_TAGS");
+        commit_group(polys.return_data, "INTERLEAVED_RETURN_DATA");
     } else {
         auto batch = commitment_key.start_batch();
         auto& tails = prover_instance->masking_tail_data.tails;
@@ -150,9 +144,8 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_
     if constexpr (BATCH_SIZE > 1) {
         auto& polys = prover_instance->polynomials;
 
-        interleaved_commitments.interleaved_w_4 = commit_group(polys.w_4, interleaved_labels.interleaved_w_4);
-        interleaved_commitments.interleaved_lookup =
-            commit_group(polys.lookup_read_counts, interleaved_labels.interleaved_lookup);
+        commit_group(polys.w_4, "INTERLEAVED_W_4");
+        commit_group(polys.lookup_read_counts, "INTERLEAVED_LOOKUP");
     } else {
         auto batch = commitment_key.start_batch();
         auto& tails = prover_instance->masking_tail_data.tails;
@@ -184,8 +177,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
     compute_logderivative_inverses(*prover_instance);
 
     if constexpr (BATCH_SIZE > 1) {
-        interleaved_commitments.interleaved_inverses =
-            commit_group(prover_instance->polynomials.lookup_inverses, interleaved_labels.interleaved_inverses);
+        commit_group(prover_instance->polynomials.lookup_inverses, "INTERLEAVED_INVERSES");
     } else {
         auto batch = commitment_key.start_batch();
         auto& tails = prover_instance->masking_tail_data.tails;
@@ -222,8 +214,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
     compute_grand_product_polynomial(*prover_instance);
 
     if constexpr (BATCH_SIZE > 1) {
-        interleaved_commitments.interleaved_z_perm =
-            commit_group(prover_instance->polynomials.z_perm, interleaved_labels.interleaved_z_perm);
+        commit_group(prover_instance->polynomials.z_perm, "INTERLEAVED_Z_PERM");
     } else {
         auto& z_perm = prover_instance->polynomials.z_perm;
         auto batch = commitment_key.start_batch();
@@ -250,8 +241,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
  *          group tail from entity tails (using Flavor::get_unshifted_groups on the tails).
  */
 template <typename Flavor>
-typename OinkProver<Flavor>::Commitment OinkProver<Flavor>::commit_group(const Polynomial& representative_entity,
-                                                                         const std::string& label)
+void OinkProver<Flavor>::commit_group(const Polynomial& representative_entity, const std::string& label)
 {
     const auto& group_buffer = prover_instance->polynomials.group_buffer_for(representative_entity);
     Commitment commitment = commitment_key.commit(group_buffer);
@@ -274,7 +264,6 @@ typename OinkProver<Flavor>::Commitment OinkProver<Flavor>::commit_group(const P
     }
 
     transcript->send_to_verifier(label, commitment);
-    return commitment;
 }
 
 /**

@@ -27,22 +27,6 @@
 
 namespace bb {
 
-// Helper to conditionally provide interleaved commitment types (empty for non-interleaved flavors)
-namespace detail {
-template <typename Flavor, bool = (Flavor::INTERLEAVING_BATCH_SIZE > 1)> struct InterleavedOinkTypes {
-    struct Empty {
-        auto get_all() { return RefArray<typename Flavor::Commitment, 0>{}; }
-        auto get_all() const { return RefArray<const typename Flavor::Commitment, 0>{}; }
-    };
-    using CommitmentsType = Empty;
-    using LabelsType = Empty;
-};
-template <typename Flavor> struct InterleavedOinkTypes<Flavor, true> {
-    using CommitmentsType = typename Flavor::InterleavedCommitments;
-    using LabelsType = typename Flavor::InterleavedCommitmentLabels;
-};
-} // namespace detail
-
 /**
  * @brief Executes the "Oink" phase of the Honk proving protocol: the initial rounds that commit to
  * witness data, lookup/logderivative inverses, and the permutation grand product, producing the
@@ -89,12 +73,6 @@ template <typename Flavor> class OinkProver {
 
     typename Flavor::CommitmentLabels commitment_labels;
 
-    // Interleaved commitment storage and labels (empty structs for BATCH_SIZE=1)
-    using InterleavedCommitmentsType = typename detail::InterleavedOinkTypes<Flavor>::CommitmentsType;
-    using InterleavedLabelsType = typename detail::InterleavedOinkTypes<Flavor>::LabelsType;
-    InterleavedCommitmentsType interleaved_commitments;
-    InterleavedLabelsType interleaved_labels;
-
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
                const std::shared_ptr<Transcript>& transcript)
@@ -125,7 +103,7 @@ template <typename Flavor> class OinkProver {
      * @brief Commit to the group buffer for the given entity and send to verifier.
      * @details For ZK, also builds and commits the interleaved group tail from entity tails.
      */
-    Commitment commit_group(const Polynomial& representative_entity, const std::string& label);
+    void commit_group(const Polynomial& representative_entity, const std::string& label);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;
