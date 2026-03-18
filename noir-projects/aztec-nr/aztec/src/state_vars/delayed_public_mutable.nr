@@ -399,79 +399,51 @@ impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, &mut Privat
 where
     T: Eq,
 {
-<<<<<<< HEAD
-    /// This function performs a historical public storage read (which is in the order of 4k gates), **regardless of
-    /// `T`'s packed length**. This is because [`DelayedPublicMutable::schedule_value_change`] stores not just the
-    /// value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
-    /// from public storage.
-    ///
-    /// Because of this reason, if two mutable values are often privately read together it can be convenient to group
-    /// them in a single type `T`. Note however that this will result in them sharing the mutation delay:
-    ///
-    /// ```noir
-    /// // Bad: reading both `paused` and `fee` will require two historical public storage reads
-    /// #[storage]
-    /// struct Storage<C> {
-    ///     paused: DelayedPublicMutable<bool, INITIAL_DELAY_S, C>,
-    ///     fee: DelayedPublicMutable<Field, INITIAL_DELAY_S, C>,
-    /// }
-    ///
-    /// // Good: both `paused` and `fee` are retrieved in a single historical public storage read
-    /// #[derive(Packable)]
-    /// struct Config {
-    ///     paused: bool,
-    ///     fee: Field,
-    /// }
-    ///
-    /// #[storage]
-    /// struct Storage<Context> {
-    ///     config: DelayedPublicMutable<Config, INITIAL_DELAY_S, Context>,
-    /// }
-    /// ```
-=======
     /// Returns the current value.
     ///
     /// If [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) has never been called, then this
     /// returns the default empty public storage value, which is all zeroes - equivalent to `let t =
     /// T::unpack(std::mem::zeroed());`.
     ///
-    /// It is not possible to detect if a `DelayedPublicMutable` has ever been initialized or not other than by testing
-    /// for the zero sentinel value. For a more robust solution, store an `Option<T>` in the `DelayedPublicMutable`.
+    /// It is not possible to detect if a `DelayedPublicMutable` has ever been initialized or not other than by
+    /// testing for the zero sentinel value. For a more robust solution, store an `Option<T>` in the
+    /// `DelayedPublicMutable`.
     ///
     /// ## Privacy
     ///
-    /// This function does leak some privacy, though in a subtle way. Understanding this is key to understanding how to
-    /// use `DelayedPublicMutable` in a privacy-preserving way.
+    /// This function does leak some privacy, though in a subtle way. Understanding this is key to understanding how
+    /// to use `DelayedPublicMutable` in a privacy-preserving way.
     ///
     /// Private reads are based on a historical public storage read at the anchor block (i.e.
     /// [`crate::history::storage::public_storage_historical_read`]). `DelayedPublicMutable` is able to provide
     /// guarantees about values read in the past remaining the state variable's current value into the future due to
-    /// the existence of delays when scheduling writes. It then sets the `expiration_timestamp` property of the current
-    /// transaction (see
+    /// the existence of delays when scheduling writes. It then sets the `expiration_timestamp` property of the
+    /// current transaction (see
     /// [`PrivateContext::set_expiration_timestamp`](crate::context::PrivateContext::set_expiration_timestamp)) to
     /// ensure that the transaction can only be included in a block **prior** to the state variable's value changing.
-    /// In other words, it knows some facts about the near future up until some time horizon, and then makes sure that
-    /// it doesn't act on this knowledge past said moment.
+    /// In other words, it knows some facts about the near future up until some time horizon, and then makes sure
+    /// that it doesn't act on this knowledge past said moment.
     ///
     /// Because the `expiration_timestamp` property is part of the transaction's public information, any mutation to
-    /// this value could result in transaction fingerprinting. Note that multiple contracts may set this value during a
-    /// transaction: it is the smallest (most restrictive) timestamp that will be used.
+    /// this value could result in transaction fingerprinting. Note that multiple contracts may set this value during
+    /// a transaction: it is the smallest (most restrictive) timestamp that will be used.
     ///
-    /// If the state variable **does not** have any value changes scheduled, then the timestamp will be set to that of
-    /// the anchor block plus the current delay. If multiple contracts use the same delay for their
+    /// If the state variable **does not** have any value changes scheduled, then the timestamp will be set to that
+    /// of the anchor block plus the current delay. If multiple contracts use the same delay for their
     /// `DelayedPublicMutable` state variables, then these will all be in the same privacy set.
     ///
-    /// If the state variable **does** have a value change scheduled, then the timestamp will be set to equal the time
-    /// at which the current value will change, i.e. the one
-    /// [`get_scheduled_value`](DelayedPublicMutable::get_scheduled_value) returns - which is public information. This
-    /// results in an unavoidable privacy leak of any transactions in which a contract privately reads a
+    /// If the state variable **does** have a value change scheduled, then the timestamp will be set to equal the
+    /// time at which the current value will change, i.e. the one
+    /// [`get_scheduled_value`](DelayedPublicMutable::get_scheduled_value) returns - which is public information.
+    /// This results in an unavoidable privacy leak of any transactions in which a contract privately reads a
     /// `DelayedPublicMutable` that will change soon.
     ///
     /// Transactions that do not read from a `DelayedPublicMutable` are part of a privacy set in which the
-    /// `expiration_timestamp` is set to their anchor block plus [`crate::protocol::constants::MAX_TX_LIFETIME`],
-    /// making this the most privacy-preserving delay. The less frequent said value changes are, the more private the
-    /// contract is. Wallets can also then choose to further lower this timestamp to make it less obvious that their
-    /// transactions are interacting with this soon-to-change variable.
+    /// `expiration_timestamp` is set to their anchor block plus
+    /// [`crate::protocol::constants::MAX_TX_LIFETIME`], making this the most privacy-preserving delay. The less
+    /// frequent said value changes are, the more private the contract is. Wallets can also then choose to further
+    /// lower this timestamp to make it less obvious that their transactions are interacting with this
+    /// soon-to-change variable.
     ///
     /// ## Examples
     ///
@@ -501,7 +473,6 @@ where
     /// ## Cost
     ///
     /// This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.
->>>>>>> 1382d2b481 (docs: add delayedpublicmutable apiref, fix misc docs (#20512))
     pub fn get_current_value(self) -> T
     where
         T: Packable,

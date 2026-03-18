@@ -28,16 +28,9 @@ mod test;
 /// A value stored in a `PublicImmutable` can be read and initialized from public contract functions.
 ///
 /// Unlike [`PublicMutable`](crate::state_vars::PublicMutable) it is **also** possible to read a `PublicImmutable` from
-<<<<<<< HEAD
-/// a
-/// private contract function, though it is not possible to initialize one. A common pattern is to have these functions
-/// [enqueue a public self calls](crate::contract_self::ContractSelfPrivate::enqueue) in which the initialization
-/// operation is performed.
-=======
 /// a private contract function, though it is not possible to initialize one. A common pattern is to have these
-/// functions [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the
+/// functions [enqueue a public self calls](crate::contract_self::ContractSelfPrivate::enqueue) in which the
 /// initialization operation is performed.
->>>>>>> 1382d2b481 (docs: add delayedpublicmutable apiref, fix misc docs (#20512))
 ///
 /// For a mutable (with restrictions) variant which also can be read from private functions see
 /// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable).
