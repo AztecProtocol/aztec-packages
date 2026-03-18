@@ -142,7 +142,7 @@ describe('CheckpointBuilder', () => {
 
     async function mockSuccessfulBlock() {
       const block = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block, timings: {} });
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue(block);
       processor.process.mockResolvedValue([[{ hash: TxHash.random() } as ProcessedTx], [], [], [], []]);
       return block;
     }
