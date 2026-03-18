@@ -311,8 +311,8 @@ export function createBootstrapNodeFromPrivateKey(
  * @param port - the port of the bootstrap node
  * @returns the bootstrap node ENR
  */
-export async function getBootstrapNodeEnr(privateKeyHex: string, port: number) {
-  const libp2pPrivateKey = await unmarshalLibP2PPrivateKey(privateKeyHex);
+export function getBootstrapNodeEnr(privateKeyHex: string, port: number) {
+  const libp2pPrivateKey = unmarshalLibP2PPrivateKey(privateKeyHex);
   const enr = SignableENR.createFromPrivateKey(libp2pPrivateKey);
   const listenAddrUdp = multiaddr(convertToMultiaddr('127.0.0.1', port, 'udp'));
   enr.setLocationMultiaddr(listenAddrUdp);

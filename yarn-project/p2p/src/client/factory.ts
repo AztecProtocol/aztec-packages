@@ -233,8 +233,8 @@ async function createP2PService(
 
   // Create peer discovery service
   const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
-  const libp2pPrivateKey = await unmarshalLibP2PPrivateKey(peerIdPrivateKey.getValue());
-  const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey.getValue());
+  const libp2pPrivateKey = unmarshalLibP2PPrivateKey(peerIdPrivateKey.getValue());
+  const peerId = createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey.getValue());
 
   const p2pService = await (p2pServiceFactory ?? LibP2PService.new)(config, peerId, libp2pPrivateKey, {
     packageVersion,

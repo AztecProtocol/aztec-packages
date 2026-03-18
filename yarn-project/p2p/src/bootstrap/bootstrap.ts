@@ -57,9 +57,9 @@ export class BootstrapNode implements P2PBootstrapApi {
     const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, config.p2pBroadcastPort!, 'udp'));
 
     const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
-    const libp2pPrivateKey = await unmarshalLibP2PPrivateKey(peerIdPrivateKey.getValue());
+    const libp2pPrivateKey = unmarshalLibP2PPrivateKey(peerIdPrivateKey.getValue());
 
-    const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
+    const { enr: ourEnr, peerId } = createBootnodeENRandPeerId(
       peerIdPrivateKey.getValue(),
       p2pIp,
       config.p2pBroadcastPort!,

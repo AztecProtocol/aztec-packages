@@ -12,12 +12,8 @@ import { setAztecEnrKey } from '../versioning.js';
  * @param ports - The ports of the p2p nodes
  * @returns A list of ENRs
  */
-export async function makeEnrs(p2pPrivateKeys: string[], ports: number[], config: ChainConfig) {
-  return await Promise.all(
-    p2pPrivateKeys.map((pk, i) => {
-      return makeEnr(pk, ports[i], config);
-    }),
-  );
+export function makeEnrs(p2pPrivateKeys: string[], ports: number[], config: ChainConfig) {
+  return p2pPrivateKeys.map((pk, i) => makeEnr(pk, ports[i], config));
 }
 
 /**
@@ -26,8 +22,8 @@ export async function makeEnrs(p2pPrivateKeys: string[], ports: number[], config
  * @param port - The port of the p2p node
  * @returns The ENR of the p2p node
  */
-export async function makeEnr(p2pPrivateKey: string, port: number, config: ChainConfig) {
-  const libp2pPrivateKey = await unmarshalLibP2PPrivateKey(p2pPrivateKey);
+export function makeEnr(p2pPrivateKey: string, port: number, config: ChainConfig) {
+  const libp2pPrivateKey = unmarshalLibP2PPrivateKey(p2pPrivateKey);
   const enr = SignableENR.createFromPrivateKey(libp2pPrivateKey);
 
   const p2pIp = `127.0.0.1`;

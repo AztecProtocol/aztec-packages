@@ -22,7 +22,7 @@ describe('p2p utils', () => {
       const peerId = peerIdFromPrivateKey(libp2pPrivateKey);
       const privateKeyString = Buffer.from(privateKeyToProtobuf(libp2pPrivateKey)).toString('hex');
 
-      const reconstructedPeerId = await createLibP2PPeerIdFromPrivateKey(privateKeyString);
+      const reconstructedPeerId = createLibP2PPeerIdFromPrivateKey(privateKeyString);
       expect(reconstructedPeerId.toString()).toEqual(peerId.toString());
     });
   });
@@ -62,7 +62,7 @@ describe('p2p utils', () => {
       expect(peerIdPrivateKey2.getValue()).toBe(peerIdPrivateKey);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
+      const peerId = createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
       expect(peerId).toBeDefined();
     });
 
@@ -80,7 +80,7 @@ describe('p2p utils', () => {
       expect(peerIdPrivateKey2.getValue()).toBe(peerIdPrivateKey);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
+      const peerId = createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
       expect(peerId).toBeDefined();
     });
 
@@ -98,7 +98,7 @@ describe('p2p utils', () => {
       expect(peerIdPrivateKey2.getValue()).toBe(peerIdPrivateKey);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
+      const peerId = createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
       expect(peerId).toBeDefined();
     });
 
@@ -122,7 +122,7 @@ describe('p2p utils', () => {
       expect(peerIdPrivateKey2.getValue()).toBe(privateKeyString);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
+      const peerId = createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
       expect(peerId).toBeDefined();
     });
 
@@ -145,7 +145,7 @@ describe('p2p utils', () => {
       expect(peerIdPrivateKey2.getValue()).toBe(privateKeyString);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
+      const peerId = createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
       expect(peerId).toBeDefined();
     });
 
@@ -167,7 +167,7 @@ describe('p2p utils', () => {
       expect(peerIdPrivateKey2.getValue()).toBe(privateKeyString);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
+      const peerId = createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
       expect(peerId).toBeDefined();
     });
   });

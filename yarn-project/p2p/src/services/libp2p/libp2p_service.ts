@@ -549,7 +549,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       [ReqRespSubProtocol.BLOCK]: this.validateRequestedBlock.bind(this),
     };
 
-    await this.peerManager.initializePeers();
+    this.peerManager.initializePeers();
 
     await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
 
