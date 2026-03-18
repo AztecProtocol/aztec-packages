@@ -39,6 +39,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
     }
     metadata.dyadic_size = compute_dyadic_size(circuit);
+    masking_tail_data.dyadic_size = metadata.dyadic_size;
 
     // Find index of last non-trivial wire value in the trace
     circuit.blocks.compute_offsets(); // compute offset of each block within the trace
@@ -131,8 +132,8 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
 {
     BB_BENCH_NAME("allocate_wires");
 
-    // If no ZK, allocate only the active range of the trace; else allocate full dyadic size to allow for blinding
-    const size_t wire_size = Flavor::HasZK ? dyadic_size() : trace_active_range_size();
+    // Allocate wires to active trace range only. For ZK, masking values are stored in MaskingTailData.
+    const size_t wire_size = trace_active_range_size();
 
     for (auto& wire : polynomials.get_wires()) {
         wire = Polynomial::shiftable(wire_size, dyadic_size());
@@ -151,9 +152,8 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_ar
         id = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
     }
 
-    // If no ZK, allocate only the active range of the trace; else allocate full dyadic size to allow for blinding
-    const size_t z_perm_size = Flavor::HasZK ? dyadic_size() : trace_active_range_size();
-    polynomials.z_perm = Polynomial::shiftable(z_perm_size, dyadic_size());
+    // Allocate z_perm to active trace range only. For ZK, masking values are stored in MaskingTailData.
+    polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
@@ -195,18 +195,17 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
     }
 
     // Read counts and tags: track which table entries have been read
-    // For non-ZK, allocate just the table size; for ZK: allocate full dyadic_size
-    const size_t counts_and_tags_size = Flavor::HasZK ? dyadic_size() : tables_size;
-    polynomials.lookup_read_counts = Polynomial(counts_and_tags_size, dyadic_size());
-    polynomials.lookup_read_tags = Polynomial(counts_and_tags_size, dyadic_size());
+    // Allocate just the table size. For ZK, masking values are stored in MaskingTailData.
+    polynomials.lookup_read_counts = Polynomial(tables_size, dyadic_size());
+    polynomials.lookup_read_tags = Polynomial(tables_size, dyadic_size());
 
     // Lookup inverses: used in the log-derivative lookup argument
     // Must cover both the lookup gate block (where reads occur) and the table data itself
     const size_t lookup_block_end = circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.size();
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_size);
 
-    const size_t lookup_inverses_size = (Flavor::HasZK ? dyadic_size() : lookup_inverses_end);
-    polynomials.lookup_inverses = Polynomial(lookup_inverses_size, dyadic_size());
+    // Allocate to the minimum needed size. For ZK, masking values are stored in MaskingTailData.
+    polynomials.lookup_inverses = Polynomial(lookup_inverses_end, dyadic_size());
 }
 
 template <typename Flavor>
@@ -234,29 +233,26 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
 
-    // Allocate only enough space for the databus data; for ZK, allocate full dyadic size
-    const size_t calldata_poly_size = Flavor::HasZK ? dyadic_size() : calldata_size;
-    const size_t sec_calldata_poly_size = Flavor::HasZK ? dyadic_size() : sec_calldata_size;
-    const size_t return_data_poly_size = Flavor::HasZK ? dyadic_size() : return_data_size;
+    // Allocate only enough space for the databus data. For ZK, masking values are stored in MaskingTailData.
+    polynomials.calldata = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_counts = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_tags = Polynomial(calldata_size, dyadic_size());
 
-    polynomials.calldata = Polynomial(calldata_poly_size, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(calldata_poly_size, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(calldata_poly_size, dyadic_size());
+    polynomials.secondary_calldata = Polynomial(sec_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_tags = Polynomial(sec_calldata_size, dyadic_size());
 
-    polynomials.secondary_calldata = Polynomial(sec_calldata_poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(sec_calldata_poly_size, dyadic_size());
-
-    polynomials.return_data = Polynomial(return_data_poly_size, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(return_data_poly_size, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(return_data_poly_size, dyadic_size());
+    polynomials.return_data = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_counts = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_tags = Polynomial(return_data_size, dyadic_size());
 
     // Databus lookup inverses: used in the log-derivative lookup argument
     // Must cover both the databus gate block (where reads occur) and the databus data itself
     const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
-    size_t calldata_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(calldata_size, q_busread_end);
-    size_t sec_calldata_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(sec_calldata_size, q_busread_end);
-    size_t return_data_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(return_data_size, q_busread_end);
+    // Allocate to the minimum needed size. For ZK, masking values are stored in MaskingTailData.
+    size_t calldata_inverses_size = std::max(calldata_size, q_busread_end);
+    size_t sec_calldata_inverses_size = std::max(sec_calldata_size, q_busread_end);
+    size_t return_data_inverses_size = std::max(return_data_size, q_busread_end);
 
     polynomials.calldata_inverses = Polynomial(calldata_inverses_size, dyadic_size());
     polynomials.secondary_calldata_inverses = Polynomial(sec_calldata_inverses_size, dyadic_size());

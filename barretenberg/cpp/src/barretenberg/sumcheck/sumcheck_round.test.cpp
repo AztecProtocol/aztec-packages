@@ -308,8 +308,9 @@ TEST(SumcheckRound, ComputeEffectiveRoundSize)
 }
 
 /**
- * @brief Test that compute_effective_round_size returns full size for ZK flavors
- * @details For ZK flavors, we must always iterate over the full round_size including masked rows
+ * @brief Test that compute_effective_round_size excludes disabled rows for ZK flavors
+ * @details For ZK flavors, we always cap at round_size - 2 (disabled rows are handled separately
+ * via compute_disabled_contribution)
  */
 TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
 {
@@ -321,10 +322,9 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
     const size_t round_size = full_size;
     SumcheckProverRound<Flavor> round(round_size);
 
-    // Create polynomials - ZK flavor always uses full size
+    // Create polynomials for ZK flavor
     std::vector<bb::Polynomial<FF>> random_polynomials(Flavor::NUM_ALL_ENTITIES);
     for (auto& poly : random_polynomials) {
-        // For ZK flavor, all polynomials (including witnesses) are allocated at full size
         poly = bb::Polynomial<FF>(full_size);
     }
 
@@ -334,8 +334,8 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
     }
 
     size_t effective_size = round.compute_effective_round_size(prover_polynomials);
-    // For ZK flavors, should always return full round_size regardless of witness sizes
-    EXPECT_EQ(effective_size, round_size);
+    // In round 0, excluded_tail_size = 4 (2 edge pairs of disabled rows)
+    EXPECT_EQ(effective_size, round_size - 4);
 }
 
 /**
