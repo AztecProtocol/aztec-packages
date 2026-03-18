@@ -1,15 +1,35 @@
+include "bitwise.pil";
 include "precomputed.pil";
 include "gt.pil";
 include "constants_gen.pil";
 include "sha256_mem.pil";
 
 /**
- * This subtrace performs the Sha256 Compression function on a set of given inputs
- * It is organised into 65 rows (64 compression rounds + 1 row for the output).
+ * This subtrace performs the Sha256 Compression function on a set of given inputs.
  * All input values are assumed to be range checked to 32-bits by the calling function
  * (i.e. inputs come from the sha256_mem.pil). Outputs values are guaranteed to be 32-bits
  * by this subtrace. To simulate modulo operations we use the convention lhs_a and rhs_a to
  * indicate the big-endian decomposition of a value `a`, there lhs_a is the MSB while rhs_a is the LSB.
+ *
+ * TRACE SHAPE:
+ * The number of rows per event depends on whether an error occurs:
+ * - Normal execution: 65 rows (64 compression rounds + 1 final output row).
+ * - Address out-of-range error: 1 row (latch immediately on the start row).
+ * - Invalid state tag error: 1 row (latch on the start row after state is loaded).
+ * - Invalid input tag error: 1..16 rows (one row per input loaded, latch on the row
+ *   with the first invalid tag).
+ * See sha256_mem.pil header for detailed error handling, trace diagrams, and temporality groups.
+ *
+ * INTERACTIONS:
+ * - As destination: execution.pil dispatches into this component via a permutation on `start`.
+ *   See sha256_mem.pil header for the full USAGE block (tuple, selector, column roles).
+ * - As source: this file looks up into:
+ *   - gt.sel_sha256: range checks for rotation limbs and modular addition limbs.
+ *     Tuple: { bound, value, result }, where result = 1 iff bound > value.
+ *   - bitwise.start_sha256: XOR and AND operations for compression computation.
+ *     Tuple: { input_a, input_b, output_c, op_id, tag }.
+ *   - precomputed.sel_sha256_compression: round constant lookup by round index.
+ *     Tuple: { round_index, constant }.
  *
  * NOTE_ON_ROTATIONS
  * A more detailed explanation can be found in keccakf1600.pil but we re-formulate it here for the 32-bit case
@@ -29,6 +49,8 @@ namespace sha256;
 
     pol SEL_NO_ERR = sel * (1 - err);
 
+    // ========== INITIAL STATE & CONTROL FLOW =============
+
     // Initial state values loaded from state_offset;
     pol commit init_a;
     pol commit init_b;
@@ -41,7 +63,9 @@ namespace sha256;
 
     // Output state values to be written to memory, the need to be "limbed" since it's addition modulo 2^32
     // We could re-use the init columns but we need to reverse the round orders.
-    // Only the output_X_rhs is written to memory
+    // Only the output_X_rhs is written to memory.
+    // NOTE: These columns are only constrained on the `last` row (round 64). On all other rows they are
+    // unconstrained, which is safe because they are only read (via memory writes in sha256_mem) on `last` rows.
     pol commit output_a_lhs;
     pol commit output_a_rhs;
     pol commit output_b_lhs;
@@ -74,14 +98,21 @@ namespace sha256;
     pol commit last;
     last = SEL_NO_ERR * latch;
 
-    // Counter
+    // Counter — tracks how many compression rounds remain.
+    // The constraint below is a compound: on the start row it forces rounds_remaining = 64,
+    // and on every perform_round row it decrements by 1 (rounds_remaining' = rounds_remaining - 1).
+    // Both terms are mutually exclusive (start implies first row, perform_round excludes start/latch).
     pol NUM_ROUNDS = 64;
     pol commit rounds_remaining;
     start * (rounds_remaining - NUM_ROUNDS) + perform_round * (rounds_remaining - rounds_remaining' - 1) = 0;
     pol commit round_count;
     SEL_NO_ERR * (round_count - (NUM_ROUNDS - rounds_remaining)) = 0;
+    // rounds_remaining_inv is the inverse of rounds_remaining, used in the zero-check below.
+    // It is only constrained when SEL_NO_ERR = 1; on error/inactive rows it is free (safe since
+    // it is not referenced outside the SEL_NO_ERR guard).
     pol commit rounds_remaining_inv;
-    // latch == 1 when the rounds_remaining == 0
+    // latch == 1 iff rounds_remaining == 0 (zero-check with error support).
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     SEL_NO_ERR * (rounds_remaining * (latch * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + latch) = 0;
 
     pol commit two_pow_32; // todo: while we no support for constants
@@ -361,6 +392,7 @@ namespace sha256;
     in
     bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
+    // Bitwise NOT of e: not_e = (2^32 - 1) - e, i.e. the ones' complement for 32-bit values.
     pol commit not_e;
     perform_round * (e + not_e - (2**32 - 1)) = 0;
 
@@ -506,6 +538,9 @@ namespace sha256;
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
 
+    // ========== STATE TRANSITION (SHA-256 round update) =============
+    // After each round: a' = (s0 + maj + tmp1) mod 2^32, e' = (d + tmp1) mod 2^32,
+    // and the remaining state values shift: b'=a, c'=b, d'=c, f'=e, g'=f, h'=g.
     perform_round * (a' - next_a_rhs) = 0;
     perform_round * (b' - a) = 0;
     perform_round * (c' - b) = 0;
@@ -515,6 +550,9 @@ namespace sha256;
     perform_round * (g' - f) = 0;
     perform_round * (h' - g) = 0;
 
+    // ========== OUTPUT COMPUTATION =============
+    // Add the initial state to the final round state (modulo 2^32) to produce the compression output.
+    // Each output is decomposed into lhs (overflow) and rhs (result mod 2^32). Only rhs is written to memory.
     // TODO: These constraints could be better - we might have to reverse the order of the rounds
     pol OUT_A = a + init_a;
     last * (OUT_A - (output_a_lhs * 2**32 + output_a_rhs)) = 0;
@@ -533,7 +571,8 @@ namespace sha256;
     pol OUT_H = h + init_h;
     last * (OUT_H - (output_h_lhs * 2**32 + output_h_rhs)) = 0;
 
-    // Check Modulo Add Operation for final outputs
+    // ========== OUTPUT RANGE CHECKS =============
+    // Range-check both limbs of each output decomposition via GT lookups (lhs, rhs < 2^32).
     #[RANGE_COMP_A_LHS]
     last { two_pow_32, output_a_lhs, /*result = 1*/ last }
     in
