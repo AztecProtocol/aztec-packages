@@ -1,3 +1,4 @@
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact, FunctionArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -16,10 +17,12 @@ import {
   type RequestDeployOptions,
   type SimulateDeployOptions,
 } from '../contract/deploy_method.js';
-import type {
-  FeePaymentMethodOption,
-  InteractionWaitOptions,
-  ProfileInteractionOptions,
+import {
+  type FeePaymentMethodOption,
+  type InteractionWaitOptions,
+  NO_FROM,
+  type NoFrom,
+  type ProfileInteractionOptions,
 } from '../contract/interaction_options.js';
 import type { WaitOpts } from '../contract/wait_opts.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
@@ -41,6 +44,8 @@ export type DeployAccountFeePaymentMethodOption = FeePaymentMethodOption & {
 export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'contractAddressSalt' | 'fee'> & {
   /** Fee options specific to account deployment */
   fee?: DeployAccountFeePaymentMethodOption;
+  /** The original `from` value from send options, used to detect self-deployment (NO_FROM). */
+  from?: AztecAddress | NoFrom;
 };
 
 /**
@@ -109,6 +114,8 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
 
   /**
    * Returns the execution payload that allows this operation to happen on chain.
+   * For self-deployments (from === NO_FROM), the payload is wrapped through the
+   * multicall entrypoint on the app side so the wallet can execute it directly.
    * @param opts - Configuration options.
    * @returns The execution payload for this operation
    */
@@ -127,12 +134,16 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     const deploymentExecutionPayload = await super.request({ ...optionsWithDefaults, fee: undefined });
     const executionPayloads = [deploymentExecutionPayload];
     // If this is a self-deployment, manage the fee accordingly
-    if (opts?.deployer?.equals(AztecAddress.ZERO)) {
+    if (opts?.from === NO_FROM) {
       const feePaymentMethod = this.getSelfFeePaymentMethod(opts?.fee?.paymentMethod, opts?.fee?.feeEntrypointOptions);
       const feeExecutionPayload = await feePaymentMethod.getExecutionPayload();
       // Notice they are reversed (fee payment usually goes first):
       // this is because we need to construct the contract BEFORE it can pay for its own fee
       executionPayloads.push(feeExecutionPayload);
+      // Wrap the merged payload through the multicall entrypoint,
+      // producing a single-call payload that DefaultEntrypoint can execute directly.
+      const multicall = new DefaultMultiCallEntrypoint();
+      return multicall.wrapExecutionPayload(mergeExecutionPayloads(executionPayloads));
     } else {
       const feeExecutionPayload = opts?.fee?.paymentMethod
         ? await opts.fee.paymentMethod.getExecutionPayload()
@@ -144,14 +155,13 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     return mergeExecutionPayloads(executionPayloads);
   }
 
-  override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployOptions {
+  override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployAccountOptions {
     return {
       ...options,
-      // Deployer is handled in the request method and forcibly set to undefined,
-      // since our account contracts are created with universalDeployment: true
-      // We need to forward it though, because depending on the deployer we have to assemble
-      // The fee payment method one way or another
-      deployer: options.from,
+      // Account contracts are always universally deployed (deployer = ZERO),
+      // but we still need to know the original `from` to detect self-deployment.
+      deployer: options.from === NO_FROM ? AztecAddress.ZERO : options.from,
+      from: options.from,
     };
   }
 

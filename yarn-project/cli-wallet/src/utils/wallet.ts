@@ -2,7 +2,7 @@ import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
 import { getIdentities } from '@aztec/accounts/utils';
-import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, NO_FROM, NoAccount, type NoFrom } from '@aztec/aztec.js/account';
 import {
   type InteractionFeeOptions,
   getContractInstanceFromInstantiationParams,
@@ -90,11 +90,12 @@ export class CLIWallet extends BaseWallet {
     return await this.pxe.proveTx(cancellationTxRequest, this.scopesFrom(from));
   }
 
-  override async getAccountFromAddress(address: AztecAddress) {
+  override async getAccountFromAddress(address: AztecAddress | NoFrom) {
+    if (address === NO_FROM) {
+      return new NoAccount();
+    }
     let account: Account | undefined;
-    if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
-    } else if (this.accountCache.has(address.toString())) {
+    if (this.accountCache.has(address.toString())) {
       return this.accountCache.get(address.toString())!;
     } else {
       const accountManager = await this.createOrRetrieveAccount(address);
@@ -185,11 +186,10 @@ export class CLIWallet extends BaseWallet {
    */
   private async getFakeAccountDataFor(address: AztecAddress) {
     const originalAccount = await this.getAccountFromAddress(address);
-    // Account contracts can only be overridden if they have an associated address
-    // Overwriting SignerlessAccount is not supported, and does not really make sense
-    // since it has no authorization mechanism.
-    if (originalAccount instanceof SignerlessAccount) {
-      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    // Account contracts can only be overridden if they have an associated address.
+    // NoAccount (used for NO_FROM) has no authorization mechanism and cannot be overridden.
+    if (originalAccount instanceof NoAccount) {
+      throw new Error(`Cannot create fake account data for NoAccount at address: ${address}`);
     }
     const originalAddress = (originalAccount as Account).getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
@@ -220,7 +220,7 @@ export class CLIWallet extends BaseWallet {
 
   /**
    * Uses a stub account for kernelless simulation, bypassing real account authorization.
-   * Falls through to the standard entrypoint path for SignerlessAccount (ZERO address).
+   * Falls through to the NoAccount path for NO_FROM transactions.
    */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
@@ -229,14 +229,14 @@ export class CLIWallet extends BaseWallet {
     const { from, feeOptions, scopes } = opts;
     let overrides: SimulationOverrides | undefined;
     let fromAccount: Account;
-    if (!from.equals(AztecAddress.ZERO)) {
+    if (from === NO_FROM) {
+      fromAccount = await this.getAccountFromAddress(from);
+    } else {
       const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
       fromAccount = account;
       overrides = {
         contracts: { [from.toString()]: { instance, artifact } },
       };
-    } else {
-      fromAccount = await this.getAccountFromAddress(from);
     }
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();

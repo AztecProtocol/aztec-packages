@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -227,7 +228,7 @@ export class BotFactory {
 
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await deployMethod.send({
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           fee: { gasSettings, paymentMethod },
           wait: NO_WAIT,
         });

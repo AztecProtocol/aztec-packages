@@ -1,7 +1,7 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
-import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, NO_FROM, NoAccount, type NoFrom } from '@aztec/aztec.js/account';
 import {
   type CallIntent,
   type ContractFunctionInteractionCallIntent,
@@ -104,8 +104,8 @@ export class TestWallet extends BaseWallet {
 
   async getFakeAccountDataFor(address: AztecAddress) {
     const originalAccount = await this.getAccountFromAddress(address);
-    if (originalAccount instanceof SignerlessAccount) {
-      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    if (originalAccount instanceof NoAccount) {
+      throw new Error(`Cannot create fake account data for NoAccount at address: ${address}`);
     }
     const originalAddress = (originalAccount as Account).getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
@@ -140,13 +140,11 @@ export class TestWallet extends BaseWallet {
     this.minFeePadding = value ?? 0.5;
   }
 
-  protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
-    let account: Account | undefined;
-    if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
-    } else {
-      account = this.accounts.get(address?.toString() ?? '');
+  protected getAccountFromAddress(address: AztecAddress | NoFrom): Promise<Account> {
+    if (address === NO_FROM) {
+      return Promise.resolve(new NoAccount());
     }
+    const account = this.accounts.get(address?.toString() ?? '');
 
     if (!account) {
       throw new Error(`Account not found in wallet for address: ${address}`);
@@ -220,18 +218,21 @@ export class TestWallet extends BaseWallet {
   ): Promise<TxSimulationResult> {
     const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
     const skipKernels = this.simulationMode !== 'full';
-    const useOverride = this.simulationMode === 'kernelless-override' && !from.equals(AztecAddress.ZERO);
-
     let overrides: SimulationOverrides | undefined;
     let fromAccount: Account;
-    if (useOverride) {
-      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
-      fromAccount = account;
-      overrides = {
-        contracts: { [from.toString()]: { instance, artifact } },
-      };
-    } else {
+    if (from === NO_FROM) {
       fromAccount = await this.getAccountFromAddress(from);
+    } else {
+      const useOverride = this.simulationMode === 'kernelless-override';
+      if (useOverride) {
+        const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
+        fromAccount = account;
+        overrides = {
+          contracts: { [from.toString()]: { instance, artifact } },
+        };
+      } else {
+        fromAccount = await this.getAccountFromAddress(from);
+      }
     }
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();

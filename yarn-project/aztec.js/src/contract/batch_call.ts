@@ -1,9 +1,11 @@
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
+  NO_FROM,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   extractOffchainOutput,
@@ -78,7 +80,10 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'executeUtility' as const,
-        args: [call, { scope: options.from, authWitnesses: options.authWitnesses }],
+        args: [
+          call,
+          { scope: options.from === NO_FROM ? AztecAddress.ZERO : options.from, authWitnesses: options.authWitnesses },
+        ],
       });
     }
 

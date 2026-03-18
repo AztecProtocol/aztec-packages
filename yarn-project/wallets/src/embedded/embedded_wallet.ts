@@ -1,4 +1,4 @@
-import { type Account, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, NO_FROM, NoAccount, type NoFrom } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
@@ -51,11 +51,10 @@ export class EmbeddedWallet extends BaseWallet {
     super(pxe, aztecNode, log);
   }
 
-  protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
-    if (address.equals(AztecAddress.ZERO)) {
-      return new SignerlessAccount();
+  protected async getAccountFromAddress(address: AztecAddress | NoFrom): Promise<Account> {
+    if (address === NO_FROM) {
+      return new NoAccount();
     }
-
     const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);
     const accountManager = await this.createAccountInternal(type, secretKey, salt, signingKey);
     const account = await accountManager.getAccount();
@@ -116,7 +115,7 @@ export class EmbeddedWallet extends BaseWallet {
       offchainEffects.map(async effect => {
         try {
           const authRequest = await CallAuthorizationRequest.fromFields(effect.data);
-          return this.createAuthWit(opts.from, {
+          return this.createAuthWit(authRequest.onBehalfOf, {
             consumer: effect.contractAddress,
             innerHash: authRequest.innerHash,
           });
@@ -130,6 +129,7 @@ export class EmbeddedWallet extends BaseWallet {
         executionPayload.authWitnesses.push(authwit);
       }
     }
+
     const estimated = getGasLimits(simulationResult, this.estimatedGasPadding);
     this.log.verbose(
       `Estimated gas limits for tx: DA=${estimated.gasLimits.daGas} L2=${estimated.gasLimits.l2Gas} teardownDA=${estimated.teardownGasLimits.daGas} teardownL2=${estimated.teardownGasLimits.l2Gas}`,
@@ -160,14 +160,14 @@ export class EmbeddedWallet extends BaseWallet {
 
     let overrides: SimulationOverrides | undefined;
     let fromAccount: Account;
-    if (!from.equals(AztecAddress.ZERO)) {
+    if (from === NO_FROM) {
+      fromAccount = await this.getAccountFromAddress(from);
+    } else {
       const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
       fromAccount = account;
       overrides = {
         contracts: { [from.toString()]: { instance, artifact } },
       };
-    } else {
-      fromAccount = await this.getAccountFromAddress(from);
     }
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -197,8 +197,8 @@ export class EmbeddedWallet extends BaseWallet {
 
   private async getFakeAccountDataFor(address: AztecAddress) {
     const originalAccount = await this.getAccountFromAddress(address);
-    if (originalAccount instanceof SignerlessAccount) {
-      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    if (originalAccount instanceof NoAccount) {
+      throw new Error(`Cannot create fake account data for NoAccount at address: ${address}`);
     }
     const originalAddress = (originalAccount as Account).getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);

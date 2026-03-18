@@ -1,4 +1,5 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
@@ -47,7 +48,7 @@ describe('e2e_2_pxes', () => {
     );
     accountBAddress = accountBManager.address;
     const accountBDeployMethod = await accountBManager.getDeployMethod();
-    await accountBDeployMethod.send({ from: AztecAddress.ZERO });
+    await accountBDeployMethod.send({ from: NO_FROM });
 
     await walletA.registerSender(accountBAddress, 'accountB');
     await walletB.registerSender(accountAAddress, 'accountA');
@@ -182,7 +183,7 @@ describe('e2e_2_pxes', () => {
     const sharedAccount = initialFundedAccounts[2];
     const sharedAccountOnAManager = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
     const sharedAccountOnADeployMethod = await sharedAccountOnAManager.getDeployMethod();
-    await sharedAccountOnADeployMethod.send({ from: AztecAddress.ZERO });
+    await sharedAccountOnADeployMethod.send({ from: NO_FROM });
     const sharedAccountAddress = sharedAccountOnAManager.address;
 
     // Register the shared account on walletB.

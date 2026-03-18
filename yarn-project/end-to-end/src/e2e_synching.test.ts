@@ -34,6 +34,7 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { BatchCall, type Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
@@ -153,7 +154,7 @@ class TestVariant {
     await Promise.all(
       managers.map(async m => {
         const deployMethod = await m.getDeployMethod();
-        return deployMethod.send({ from: AztecAddress.ZERO });
+        return deployMethod.send({ from: NO_FROM });
       }),
     );
     return accounts.map(acc => acc.address);

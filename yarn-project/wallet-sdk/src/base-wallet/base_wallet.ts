@@ -1,4 +1,5 @@
-import type { Account } from '@aztec/aztec.js/account';
+import type { Account, NoFrom } from '@aztec/aztec.js/account';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
 import {
   type InteractionWaitOptions,
@@ -104,13 +105,13 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
-    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+  protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
     return [...scopeSet].map(AztecAddress.fromString);
   }
 
-  protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
+  protected abstract getAccountFromAddress(address: AztecAddress | NoFrom): Promise<Account>;
 
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
 
@@ -133,7 +134,7 @@ export abstract class BaseWallet implements Wallet {
 
   protected async createTxExecutionRequestFromPayloadAndFee(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
+    from: AztecAddress | NoFrom,
     feeOptions: FeeOptions,
   ): Promise<TxExecutionRequest> {
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -207,16 +208,22 @@ export abstract class BaseWallet implements Wallet {
    * @returns - Complete fee options that can be used to create a transaction execution request
    */
   protected async completeFeeOptions(
-    from: AztecAddress,
+    from: AztecAddress | NoFrom,
     feePayer?: AztecAddress,
     gasSettings?: Partial<FieldsOf<GasSettings>>,
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
       gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
-    // The transaction does not include a fee payment method, so we set the flag
-    // for the account to use its fee juice balance
-    if (!feePayer) {
+    if (from === NO_FROM) {
+      // NO_FROM transactions bypass account contract mediation.
+      // Fee handling is determined by the execution payload's feePayer field.
+      accountFeePaymentMethodOptions = feePayer
+        ? AccountFeePaymentMethodOptions.EXTERNAL
+        : AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
+    } else if (!feePayer) {
+      // The transaction does not include a fee payment method, so we set the flag
+      // for the account to use its fee juice balance
       accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
     } else {
       // The transaction includes fee payment method, so we check if we are the fee payer for it
@@ -243,7 +250,7 @@ export abstract class BaseWallet implements Wallet {
    * @param gasSettings - User-provided partial gas settings
    */
   protected async completeFeeOptionsForEstimation(
-    from: AztecAddress,
+    from: AztecAddress | NoFrom,
     feePayer?: AztecAddress,
     gasSettings?: Partial<FieldsOf<GasSettings>>,
   ) {
@@ -351,12 +358,13 @@ export abstract class BaseWallet implements Wallet {
       blockHeader = (await this.aztecNode.getBlockHeader())!;
     }
 
+    const simulationOrigin = opts.from === NO_FROM ? AztecAddress.ZERO : opts.from;
     const [optimizedResults, normalResult] = await Promise.all([
       optimizableCalls.length > 0
         ? simulateViaNode(
             this.aztecNode,
             optimizableCalls,
-            opts.from,
+            simulationOrigin,
             chainInfo,
             feeOptions.gasSettings,
             blockHeader,

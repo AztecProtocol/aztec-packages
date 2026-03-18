@@ -33,6 +33,7 @@ import {
   type FeeEstimationOptions,
   type GasSettingsOption,
   type InteractionWaitOptions,
+  NO_FROM,
   NO_WAIT,
   type ProfileInteractionOptions,
   type SendInteractionOptionsWithoutWait,
@@ -300,8 +301,10 @@ export const WaitOptsSchema = z.object({
   dontThrowOnRevert: optional(z.boolean()),
 });
 
+const FromSchema = z.union([schemas.AztecAddress, z.literal(NO_FROM)]);
+
 export const SendOptionsSchema = z.object({
-  from: schemas.AztecAddress,
+  from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
@@ -310,7 +313,7 @@ export const SendOptionsSchema = z.object({
 });
 
 export const SimulateOptionsSchema = z.object({
-  from: schemas.AztecAddress,
+  from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(WalletSimulationFeeOptionSchema),
