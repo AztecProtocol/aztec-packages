@@ -246,9 +246,6 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-<<<<<<< HEAD
-    describe('resolveMessageContexts', () => {
-=======
     describe('invalidateContractSyncCache', () => {
       it('throws when contract address does not match', async () => {
         const otherAddress = await AztecAddress.random();
@@ -267,8 +264,7 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('utilityResolveMessageContexts', () => {
->>>>>>> 68e4332d85 (feat: sync cache invalidation oracle (#21459))
+    describe('resolveMessageContexts', () => {
       const requestSlot = Fr.random();
       const responseSlot = Fr.random();
 
