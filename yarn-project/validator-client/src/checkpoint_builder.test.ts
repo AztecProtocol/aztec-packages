@@ -16,6 +16,7 @@ import { L2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
+  type BlockBuilderOptions,
   type FullNodeBlockBuilderConfig,
   InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
@@ -69,7 +70,7 @@ describe('CheckpointBuilder', () => {
     }
 
     /** Expose for testing */
-    public testCapLimits(opts: PublicProcessorLimits) {
+    public testCapLimits(opts: BlockBuilderOptions) {
       return this.capLimitsByCheckpointBudgets(opts);
     }
   }
@@ -93,7 +94,6 @@ describe('CheckpointBuilder', () => {
       l1ChainId: 1,
       rollupVersion: 1,
       rollupManaLimit: 200_000_000,
-      redistributeCheckpointBudget: false,
       ...overrideConfig,
     };
 
@@ -105,6 +105,28 @@ describe('CheckpointBuilder', () => {
       dateProvider,
       telemetryClient,
     );
+  }
+
+  /** Default opts for validator-mode tests (no redistribution). */
+  function validatorOpts(overrides?: Partial<PublicProcessorLimits> & { minValidTxs?: number }): BlockBuilderOptions {
+    return { ...overrides, isBuildingProposal: false, minValidTxs: overrides?.minValidTxs ?? 0 };
+  }
+
+  /** Default opts for proposer-mode tests (with redistribution). */
+  function proposerOpts(
+    overrides?: Partial<PublicProcessorLimits> & {
+      minValidTxs?: number;
+      maxBlocksPerCheckpoint?: number;
+      perBlockAllocationMultiplier?: number;
+    },
+  ): BlockBuilderOptions {
+    return {
+      ...overrides,
+      isBuildingProposal: true,
+      maxBlocksPerCheckpoint: overrides?.maxBlocksPerCheckpoint ?? 5,
+      perBlockAllocationMultiplier: overrides?.perBlockAllocationMultiplier ?? 1.2,
+      minValidTxs: overrides?.minValidTxs ?? 0,
+    };
   }
 
   beforeEach(() => {
@@ -185,7 +207,7 @@ describe('CheckpointBuilder', () => {
         [], // debugLogs
       ]);
 
-      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
+      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts());
 
       expect(result.block).toBe(expectedBlock);
       expect(result.numTxs).toBe(1);
@@ -206,7 +228,7 @@ describe('CheckpointBuilder', () => {
         [], // debugLogs
       ]);
 
-      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, { minValidTxs: 0 });
+      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts({ minValidTxs: 0 }));
 
       expect(result.block).toBe(expectedBlock);
       expect(result.numTxs).toBe(0);
@@ -223,9 +245,9 @@ describe('CheckpointBuilder', () => {
         [], // debugLogs
       ]);
 
-      await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n, { minValidTxs: 1 })).rejects.toThrow(
-        InsufficientValidTxsError,
-      );
+      await expect(
+        checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts({ minValidTxs: 1 })),
+      ).rejects.toThrow(InsufficientValidTxsError);
 
       expect(lightweightCheckpointBuilder.addBlock).not.toHaveBeenCalled();
     });
@@ -243,7 +265,7 @@ describe('CheckpointBuilder', () => {
       ]);
 
       const err = await checkpointBuilder
-        .buildBlock([], blockNumber, 1000n, { minValidTxs: 2 })
+        .buildBlock([], blockNumber, 1000n, validatorOpts({ minValidTxs: 2 }))
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(InsufficientValidTxsError);
@@ -258,14 +280,14 @@ describe('CheckpointBuilder', () => {
 
       processor.process.mockResolvedValue([[], [], [], [], []]);
 
-      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
+      const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts());
 
       expect(result.numTxs).toBe(0);
       expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
     });
   });
 
-  describe('capLimitsByCheckpointBudgets', () => {
+  describe('capLimitsByCheckpointBudgets (validator mode)', () => {
     const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
     const firstBlockEndOverhead = getNumBlockEndBlobFields(true);
     const nonFirstBlockEndOverhead = getNumBlockEndBlobFields(false);
@@ -279,8 +301,9 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: priorManaUsed, txBlobFields: [10], blockBlobFieldCount: 20 }),
       ]);
 
-      const opts: PublicProcessorLimits = { maxBlockGas: new Gas(Infinity, 800_000) };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        validatorOpts({ maxBlockGas: new Gas(Infinity, 800_000) }),
+      );
 
       // Remaining mana = 1_000_000 - 600_000 = 400_000. Per-block = 800_000. Capped to 400_000.
       expect(capped.maxBlockGas!.l2Gas).toBe(400_000);
@@ -295,8 +318,9 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: priorManaUsed, txBlobFields: [10], blockBlobFieldCount: 20 }),
       ]);
 
-      const opts: PublicProcessorLimits = { maxBlockGas: new Gas(Infinity, 500_000) };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        validatorOpts({ maxBlockGas: new Gas(Infinity, 500_000) }),
+      );
 
       // Remaining mana = 800_000. Per-block = 500_000. Uses 500_000.
       expect(capped.maxBlockGas!.l2Gas).toBe(500_000);
@@ -309,8 +333,9 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: 100_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
       ]);
 
-      const opts: PublicProcessorLimits = { maxBlockGas: new Gas(Infinity, 500_000) };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        validatorOpts({ maxBlockGas: new Gas(Infinity, 500_000) }),
+      );
 
       // Remaining mana = 200_000_000 - 100_000 >> 500_000, so per-block limit is used
       expect(capped.maxBlockGas!.l2Gas).toBe(500_000);
@@ -327,8 +352,9 @@ describe('CheckpointBuilder', () => {
       ]);
 
       const perBlockDAGas = 500_000;
-      const opts: PublicProcessorLimits = { maxBlockGas: new Gas(perBlockDAGas, Infinity) };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        validatorOpts({ maxBlockGas: new Gas(perBlockDAGas, Infinity) }),
+      );
 
       // Remaining DA gas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT - priorDAGas
       const expectedRemainingDAGas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT - priorDAGas;
@@ -344,8 +370,7 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: priorManaUsed, txBlobFields: [100], blockBlobFieldCount: 110 }),
       ]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
 
       expect(capped.maxBlockGas!.l2Gas).toBe(400_000);
       expect(capped.maxBlockGas!.daGas).toBe(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT - 100 * DA_GAS_PER_FIELD);
@@ -359,8 +384,9 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: 0, txBlobFields: [], blockBlobFieldCount }),
       ]);
 
-      const opts: PublicProcessorLimits = { maxBlobFields: 99999 };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        validatorOpts({ maxBlobFields: 99999 }),
+      );
 
       // Second block: remaining = totalBlobCapacity - 100, minus non-first block end overhead
       const expectedMaxBlobFields = totalBlobCapacity - blockBlobFieldCount - nonFirstBlockEndOverhead;
@@ -372,8 +398,7 @@ describe('CheckpointBuilder', () => {
 
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
 
       // First block: full capacity minus first block end overhead
       const expectedMaxBlobFields = totalBlobCapacity - firstBlockEndOverhead;
@@ -388,8 +413,9 @@ describe('CheckpointBuilder', () => {
       const block2 = createMockBlock({ manaUsed: 200_000, txBlobFields: [150], blockBlobFieldCount: 160 });
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([block1, block2]);
 
-      const opts: PublicProcessorLimits = { maxBlockGas: new Gas(Infinity, Infinity) };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        validatorOpts({ maxBlockGas: new Gas(Infinity, Infinity) }),
+      );
 
       // Remaining mana = 1_000_000 - 300_000 - 200_000 = 500_000
       expect(capped.maxBlockGas!.l2Gas).toBe(500_000);
@@ -413,7 +439,7 @@ describe('CheckpointBuilder', () => {
       const block1 = createMockBlock({ manaUsed: 0, txBlobFields: [], blockBlobFieldCount: block1BlobFieldCount });
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([block1]);
 
-      const afterOneBlock = (checkpointBuilder as TestCheckpointBuilder).testCapLimits({});
+      const afterOneBlock = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
 
       const expectedAfterOneBlock = totalBlobCapacity - block1BlobFieldCount - nonFirstBlockEndOverhead;
       expect(afterOneBlock.maxBlobFields).toBe(expectedAfterOneBlock);
@@ -422,7 +448,7 @@ describe('CheckpointBuilder', () => {
       const block2 = createMockBlock({ manaUsed: 0, txBlobFields: [], blockBlobFieldCount: block2BlobFieldCount });
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([block1, block2]);
 
-      const afterTwoBlocks = (checkpointBuilder as TestCheckpointBuilder).testCapLimits({});
+      const afterTwoBlocks = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
 
       const expectedAfterTwoBlocks =
         totalBlobCapacity - block1BlobFieldCount - block2BlobFieldCount - nonFirstBlockEndOverhead;
@@ -441,8 +467,7 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: 0, txBlobFields: [10, 10, 10], blockBlobFieldCount: 40 }),
       ]);
 
-      const opts: PublicProcessorLimits = { maxTransactions: 15 };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts({ maxTransactions: 15 }));
 
       // Remaining txs = 20 - 3 = 17. Per-block = 15. Capped to min(15, 17) = 15.
       expect(capped.maxTransactions).toBe(15);
@@ -457,8 +482,7 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: 0, txBlobFields: [10, 10, 10, 10], blockBlobFieldCount: 50 }),
       ]);
 
-      const opts: PublicProcessorLimits = { maxTransactions: 5 };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts({ maxTransactions: 5 }));
 
       // Remaining txs = 10 - 8 = 2. Per-block = 5. Capped to min(5, 2) = 2.
       expect(capped.maxTransactions).toBe(2);
@@ -472,8 +496,7 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: 0, txBlobFields: [10, 10, 10, 10, 10], blockBlobFieldCount: 60 }),
       ]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
 
       // Remaining txs = 15 - 5 = 10
       expect(capped.maxTransactions).toBe(10);
@@ -484,8 +507,7 @@ describe('CheckpointBuilder', () => {
 
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
 
-      const opts: PublicProcessorLimits = { maxTransactions: 99 };
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts({ maxTransactions: 99 }));
 
       // Passthrough: maxTransactions = 99
       expect(capped.maxTransactions).toBe(99);
@@ -496,41 +518,166 @@ describe('CheckpointBuilder', () => {
 
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
 
       // Neither config nor caller sets it, so it remains undefined
       expect(capped.maxTransactions).toBeUndefined();
     });
+
+    it('does not apply redistribution multiplier in validator mode', () => {
+      const rollupManaLimit = 1_000_000;
+      setupBuilder({ rollupManaLimit });
+
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
+        createMockBlock({ manaUsed: 200_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
+      ]);
+
+      // Validator mode should not redistribute — just remaining budget
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
+
+      // No fair share, just remaining budget = 800_000
+      expect(capped.maxBlockGas!.l2Gas).toBe(800_000);
+    });
   });
 
-  describe('redistributeCheckpointBudget', () => {
-    it('evenly splits budget with multiplier=1', () => {
-      const rollupManaLimit = 1_000_000;
-      setupBuilder({
-        redistributeCheckpointBudget: true,
-        perBlockAllocationMultiplier: 1,
-        maxBlocksPerCheckpoint: 5,
-        rollupManaLimit,
-      });
+  describe('multi-block gas redistribution through buildBlock', () => {
+    // This test exercises the production code path where:
+    // 1. CheckpointProposalJob passes maxBlocksPerCheckpoint and perBlockAllocationMultiplier via opts
+    // 2. CheckpointBuilder.capLimitsByCheckpointBudgets redistributes remaining budget across remaining blocks
 
-      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+    const rollupManaLimit = 1_000_000;
+    const maxBlocks = 5;
+    const multiplier = 1.2;
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+    // Opts that mimic what CheckpointProposalJob passes: operator per-block gas limit + redistribution params
+    const staticPerBlockL2Gas = Math.min(rollupManaLimit, Math.ceil((rollupManaLimit / maxBlocks) * multiplier));
+    // = min(1_000_000, 240_000) = 240_000
 
-      // Fair share = ceil(1_000_000 / 5 * 1) = 200_000
-      expect(capped.maxBlockGas!.l2Gas).toBe(200_000);
+    const blockBuilderOpts: BlockBuilderOptions = proposerOpts({
+      maxBlockGas: new Gas(Infinity, staticPerBlockL2Gas),
+      maxBlocksPerCheckpoint: maxBlocks,
+      perBlockAllocationMultiplier: multiplier,
     });
 
-    it('computes fair share with multiplier=1.2, 5 max blocks, 2 existing', () => {
-      const rollupManaLimit = 1_000_000;
-      setupBuilder({
-        redistributeCheckpointBudget: true,
-        perBlockAllocationMultiplier: 1.2,
-        maxBlocksPerCheckpoint: 5,
-        rollupManaLimit,
+    it('tightens per-block L2 gas limit when prior blocks consumed more than their even share', async () => {
+      setupBuilder({ rollupManaLimit });
+
+      // Simulate: blocks 0 and 1 already built, each using 300k mana (above even share of 200k)
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
+        createMockBlock({ manaUsed: 300_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
+        createMockBlock({ manaUsed: 300_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
+      ]);
+
+      const expectedBlock = await L2Block.random(blockNumber);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
+
+      // Build block 2
+      await checkpointBuilder.buildBlock([], blockNumber, 1000n, blockBuilderOpts);
+
+      // Remaining mana = 1M - 600k = 400k, with 3 blocks remaining (out of 5).
+      // Expected fair share = ceil(400k / 3 * 1.2) = ceil(160_000) = 160_000
+      // Expected cap = min(staticPerBlockL2Gas=240k, fairShare=160k, remaining=400k) = 160_000
+      const processCall = processor.process.mock.calls[0];
+      const limitsPassedToProcessor = processCall[1] as PublicProcessorLimits;
+      expect(limitsPassedToProcessor.maxBlockGas!.l2Gas).toBe(160_000);
+    });
+
+    it('progressively tightens limits across all blocks in checkpoint', async () => {
+      setupBuilder({ rollupManaLimit });
+
+      const expectedBlock = await L2Block.random(blockNumber);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
+
+      const capturedL2GasLimits: number[] = [];
+
+      // Build 5 blocks. Each block uses 200k mana (its even share).
+      for (let i = 0; i < maxBlocks; i++) {
+        // Set up prior blocks (each used 200k mana)
+        const priorBlocks = Array.from({ length: i }, () =>
+          createMockBlock({ manaUsed: 200_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
+        );
+        lightweightCheckpointBuilder.getBlocks.mockReturnValue(priorBlocks);
+
+        await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + i), 1000n, blockBuilderOpts);
+
+        const processCall = processor.process.mock.calls[i];
+        const limits = processCall[1] as PublicProcessorLimits;
+        capturedL2GasLimits.push(limits.maxBlockGas!.l2Gas);
+      }
+
+      // With correct redistribution (5 blocks, each using 200k mana):
+      // Block 0: remaining=1M,   remainingBlocks=5, fairShare=ceil(1M/5*1.2)=240k,   cap=min(240k,240k,1M)=240k
+      // Block 1: remaining=800k, remainingBlocks=4, fairShare=ceil(800k/4*1.2)=240k,  cap=min(240k,240k,800k)=240k
+      // Block 2: remaining=600k, remainingBlocks=3, fairShare=ceil(600k/3*1.2)=240k,  cap=min(240k,240k,600k)=240k
+      // Block 3: remaining=400k, remainingBlocks=2, fairShare=ceil(400k/2*1.2)=240k,  cap=min(240k,240k,400k)=240k
+      // Block 4: remaining=200k, remainingBlocks=1, fairShare=ceil(200k/1*1.2)=240k,  cap=min(240k,240k,200k)=200k
+      expect(capturedL2GasLimits).toEqual([240_000, 240_000, 240_000, 240_000, 200_000]);
+    });
+
+    it('prevents block starvation when early blocks are heavy', async () => {
+      setupBuilder({ rollupManaLimit });
+
+      const expectedBlock = await L2Block.random(blockNumber);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
+
+      const capturedL2GasLimits: number[] = [];
+
+      // Build 5 blocks. First 2 blocks use 300k each (heavy), rest use whatever they get.
+      const manaUsedPerBlock = [300_000, 300_000, 0, 0, 0]; // only first 2 are "used" as prior blocks
+
+      for (let i = 0; i < maxBlocks; i++) {
+        const priorBlocks = Array.from({ length: i }, (_, j) =>
+          createMockBlock({ manaUsed: manaUsedPerBlock[j], txBlobFields: [10], blockBlobFieldCount: 20 }),
+        );
+        lightweightCheckpointBuilder.getBlocks.mockReturnValue(priorBlocks);
+
+        await checkpointBuilder.buildBlock([], BlockNumber(blockNumber + i), 1000n, blockBuilderOpts);
+
+        const processCall = processor.process.mock.calls[i];
+        const limits = processCall[1] as PublicProcessorLimits;
+        capturedL2GasLimits.push(limits.maxBlockGas!.l2Gas);
+      }
+
+      // With correct redistribution and heavy early blocks (300k each):
+      // Block 0: remaining=1M,   remainingBlocks=5, fairShare=ceil(1M/5*1.2)=240k,   cap=min(240k,240k,1M)=240k
+      // Block 1: remaining=700k, remainingBlocks=4, fairShare=ceil(700k/4*1.2)=210k,  cap=min(240k,210k,700k)=210k
+      // Block 2: remaining=400k, remainingBlocks=3, fairShare=ceil(400k/3*1.2)=160k,  cap=min(240k,160k,400k)=160k
+      // Block 3: remaining=400k, remainingBlocks=2, fairShare=ceil(400k/2*1.2)=240k,  cap=min(240k,240k,400k)=240k
+      // Block 4: remaining=400k, remainingBlocks=1, fairShare=ceil(400k/1*1.2)=480k,  cap=min(240k,480k,400k)=240k
+      expect(capturedL2GasLimits[0]).toBe(240_000); // Block 0: full fair share
+      expect(capturedL2GasLimits[1]).toBe(210_000); // Block 1: tightened by redistribution
+      expect(capturedL2GasLimits[2]).toBe(160_000); // Block 2: tightened further
+      expect(capturedL2GasLimits[3]).toBe(240_000); // Block 3: relaxed (blocks 2-3 used nothing)
+      expect(capturedL2GasLimits[4]).toBe(240_000); // Block 4: still has plenty of budget
+    });
+
+    it('explicit per-block limit wins over redistribution when tighter', async () => {
+      setupBuilder({ rollupManaLimit });
+
+      const expectedBlock = await L2Block.random(blockNumber);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
+
+      // Explicit per-block limit (100k) is TIGHTER than redistribution.
+      // No prior blocks: remaining=1M, 5 remaining, fairShare=ceil(1M/5*1.2)=240k.
+      // cap = min(100k, 240k, 1M) = 100k — explicit wins.
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+      await checkpointBuilder.buildBlock([], blockNumber, 1000n, {
+        ...blockBuilderOpts,
+        maxBlockGas: new Gas(Infinity, 100_000),
       });
+
+      expect((processor.process.mock.calls[0][1] as PublicProcessorLimits).maxBlockGas!.l2Gas).toBe(100_000);
+    });
+  });
+
+  describe('proposer redistribution via opts', () => {
+    it('computes fair share with multiplier across remaining blocks', () => {
+      const rollupManaLimit = 1_000_000;
+      setupBuilder({ rollupManaLimit });
 
       // 2 existing blocks used 400_000 mana total
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([
@@ -538,8 +685,7 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: 200_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
       ]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(proposerOpts());
 
       // remainingMana = 600_000, remainingBlocks = 3, multiplier = 1.2
       // fairShare = ceil(600_000 / 3 * 1.2) = ceil(240_000) = 240_000
@@ -548,12 +694,7 @@ describe('CheckpointBuilder', () => {
 
     it('gives all remaining budget to last block (remainingBlocks=1)', () => {
       const rollupManaLimit = 1_000_000;
-      setupBuilder({
-        redistributeCheckpointBudget: true,
-        perBlockAllocationMultiplier: 1.2,
-        maxBlocksPerCheckpoint: 3,
-        rollupManaLimit,
-      });
+      setupBuilder({ rollupManaLimit });
 
       // 2 existing blocks used 800_000 total
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([
@@ -561,44 +702,23 @@ describe('CheckpointBuilder', () => {
         createMockBlock({ manaUsed: 400_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
       ]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        proposerOpts({ maxBlocksPerCheckpoint: 3 }),
+      );
 
       // remainingMana = 200_000, remainingBlocks = 1, multiplier = 1.2
       // fairShare = ceil(200_000 / 1 * 1.2) = 240_000. min(200_000, 240_000, 200_000) = 200_000
       expect(capped.maxBlockGas!.l2Gas).toBe(200_000);
     });
 
-    it('uses old behavior when redistributeCheckpointBudget is false', () => {
-      const rollupManaLimit = 1_000_000;
-      setupBuilder({
-        redistributeCheckpointBudget: false,
-        maxBlocksPerCheckpoint: 5,
-        rollupManaLimit,
-      });
-
-      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
-        createMockBlock({ manaUsed: 200_000, txBlobFields: [10], blockBlobFieldCount: 20 }),
-      ]);
-
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
-
-      // Old behavior: no fair share, just remaining budget = 800_000
-      expect(capped.maxBlockGas!.l2Gas).toBe(800_000);
-    });
-
     it('redistributes DA gas across remaining blocks', () => {
-      setupBuilder({
-        redistributeCheckpointBudget: true,
-        perBlockAllocationMultiplier: 1,
-        maxBlocksPerCheckpoint: 4,
-      });
+      setupBuilder();
 
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        proposerOpts({ maxBlocksPerCheckpoint: 4, perBlockAllocationMultiplier: 1 }),
+      );
 
       // fairShareDA = ceil(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 4 * 1)
       const expectedDA = Math.ceil(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 4);
@@ -606,20 +726,16 @@ describe('CheckpointBuilder', () => {
     });
 
     it('redistributes tx count across remaining blocks', () => {
-      setupBuilder({
-        redistributeCheckpointBudget: true,
-        perBlockAllocationMultiplier: 1,
-        maxBlocksPerCheckpoint: 4,
-        maxTxsPerCheckpoint: 100,
-      });
+      setupBuilder({ maxTxsPerCheckpoint: 100 });
 
       // 1 existing block with 10 txs
       lightweightCheckpointBuilder.getBlocks.mockReturnValue([
         createMockBlock({ manaUsed: 0, txBlobFields: new Array(10).fill(1), blockBlobFieldCount: 20 }),
       ]);
 
-      const opts: PublicProcessorLimits = {};
-      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        proposerOpts({ maxBlocksPerCheckpoint: 4, perBlockAllocationMultiplier: 1 }),
+      );
 
       // remainingTxs = 90, remainingBlocks = 3, multiplier = 1
       // fairShareTxs = ceil(90 / 3 * 1) = 30

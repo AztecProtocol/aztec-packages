@@ -34,8 +34,8 @@ import { type Checkpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
+  type BlockBuilderOptions,
   InsufficientValidTxsError,
-  type PublicProcessorLimits,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -270,7 +270,8 @@ export class CheckpointProposalJob implements Traceable {
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
-      // Final validation round for the checkpoint before we propose it, just for safety
+      // Final validation: per-block limits are only checked if the operator set them explicitly.
+      // Otherwise, checkpoint-level budgets were already enforced by the redistribution logic.
       try {
         validateCheckpoint(checkpoint, {
           rollupManaLimit: this.l1Constants.rollupManaLimit,
@@ -574,11 +575,11 @@ export class CheckpointProposalJob implements Traceable {
       );
       this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
 
-      // Per-block limits derived at startup by computeBlockLimits(), further capped
+      // Per-block limits are operator overrides (from SEQ_MAX_L2_BLOCK_GAS etc.) further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       // minValidTxs is passed into the builder so it can reject the block *before* updating state.
       const minValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
-      const blockBuilderOptions: PublicProcessorLimits & { minValidTxs?: number } = {
+      const blockBuilderOptions: BlockBuilderOptions = {
         maxTransactions: this.config.maxTxsPerBlock,
         maxBlockGas:
           this.config.maxL2BlockGas !== undefined || this.config.maxDABlockGas !== undefined
@@ -587,6 +588,8 @@ export class CheckpointProposalJob implements Traceable {
         deadline: buildDeadline,
         isBuildingProposal: true,
         minValidTxs,
+        maxBlocksPerCheckpoint: this.timetable.maxNumberOfBlocks,
+        perBlockAllocationMultiplier: this.config.perBlockAllocationMultiplier,
       };
 
       // Actually build the block by executing txs. The builder throws InsufficientValidTxsError
@@ -657,7 +660,7 @@ export class CheckpointProposalJob implements Traceable {
     pendingTxs: AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     blockTimestamp: bigint,
-    blockBuilderOptions: PublicProcessorLimits & { minValidTxs?: number },
+    blockBuilderOptions: BlockBuilderOptions,
   ) {
     try {
       const workTimer = new Timer();
