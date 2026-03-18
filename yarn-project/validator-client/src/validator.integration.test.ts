@@ -212,7 +212,12 @@ describe('ValidatorClient Integration', () => {
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
     const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {});
+    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {
+      isBuildingProposal: true,
+      maxBlocksPerCheckpoint: 1,
+      perBlockAllocationMultiplier: 1.2,
+      minValidTxs: 0,
+    });
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,

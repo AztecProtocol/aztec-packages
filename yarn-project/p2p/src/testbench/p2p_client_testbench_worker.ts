@@ -4,7 +4,7 @@
  * Used when running testbench commands.
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -28,6 +28,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
+import { mock } from 'jest-mock-extended';
 
 import type { P2PClient } from '../client/index.js';
 import type { P2PConfig } from '../config.js';
@@ -40,7 +41,7 @@ import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requ
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
-import { MissingTxsTracker } from '../services/tx_collection/missing_txs_tracker.js';
+import { RequestTracker } from '../services/tx_collection/request_tracker.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
@@ -49,7 +50,6 @@ import {
   InMemoryAttestationPool,
   InMemoryTxPool,
   UNLIMITED_RATE_LIMIT_QUOTA,
-  createMockEpochCache,
   createMockWorldStateSynchronizer,
   filterTxsByDistribution,
 } from '../test-helpers/index.js';
@@ -273,10 +273,9 @@ async function runAggregatorBenchmark(
         noopTxValidator,
       );
       const fetchedTxs = await collector.collectTxs(
-        MissingTxsTracker.fromArray(txHashes),
+        RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
         blockProposal,
         pinnedPeer,
-        timeoutMs,
       );
       const durationMs = timer.ms();
       return {
@@ -293,10 +292,9 @@ async function runAggregatorBenchmark(
       BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
     );
     const fetchedTxs = await collector.collectTxs(
-      MissingTxsTracker.fromArray(txHashes),
+      RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
       blockProposal,
       pinnedPeer,
-      timeoutMs,
     );
     const durationMs = timer.ms();
     return {
@@ -346,7 +344,7 @@ process.on('message', async msg => {
       workerConfig = config;
       workerTxPool = new InMemoryTxPool();
       workerAttestationPool = new InMemoryAttestationPool();
-      const epochCache = createMockEpochCache();
+      const epochCache = mock<EpochCache>();
       const worldState = createMockWorldStateSynchronizer();
       const l2BlockSource = new MockL2BlockSource();
 
