@@ -56,7 +56,7 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 **Migration:**
 
 ```diff
-attempt_note_discovery(
+    attempt_note_discovery(
       contract_address,
       tx_hash,
       unique_note_hashes_in_tx,
