@@ -66,17 +66,22 @@ use initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 ///
 /// ## How It Works
 ///
-/// Initializers emit nullifiers to mark the contract as initialized. Two separate nullifiers are used (a private init
-/// nullifier and a public init nullifier) because private nullifiers are committed before public execution
-/// begins: if a single nullifier were used, public functions enqueued by the initializer would see it as
-/// existing *before* the public initialization code had a chance to run.
+/// Initializers emit nullifiers to mark the contract as initialized. Two separate nullifiers are used (a private
+/// initialization nullifier and a public initialization nullifier) because private nullifiers are committed before
+/// public execution begins: if a single nullifier were used, public functions enqueued by the initializer would see
+/// it as existing *before* the public initialization code had a chance to run.
 ///
-/// - **Private initializers** emit the private init nullifier. For contracts that also have external public functions,
-///   they auto-enqueue a call to an auto-generated public function that emits the public init nullifier during public
-///   execution. This function name is reserved and cannot be used by contract developers.
+/// The private initialization nullifier is computed from the contract address and the contract's `init_hash`. This
+/// means that address knowledge alone is insufficient to check whether a contract has been initialized, preventing
+/// a privacy leak for fully private contracts.
+///
+/// - **Private initializers** emit the private initialization nullifier. For contracts that also have external
+///   public functions, they auto-enqueue a call to an auto-generated public function that emits the public
+///   initialization nullifier during public execution. This function name is reserved and cannot be used by
+///   contract developers.
 /// - **Public initializers** emit both nullifiers directly.
-/// - **Private external functions** check the private init nullifier.
-/// - **Public external functions** check the public init nullifier.
+/// - **Private external functions** check the private initialization nullifier.
+/// - **Public external functions** check the public initialization nullifier.
 ///
 /// For private non-initializer functions, the cost of this check is equivalent to a call to
 /// [`PrivateContext::assert_nullifier_exists`](crate::context::PrivateContext::assert_nullifier_exists). For public
@@ -199,20 +204,21 @@ pub comptime fn allow_phase_change(f: FunctionDefinition) {
 /// ## Initialization Checks
 ///
 /// `only_self` functions implicitly skip initialization checks (as if they had [`noinitcheck`]). We want
-/// `only_self` functions to be callable during initialization, so we can't have them check the init nullifier
-/// since it would fail.
+/// `only_self` functions to be callable during initialization, so we can't have them check the initialization
+/// nullifier since it would fail.
 ///
 /// This is safe because `only_self` functions can be called only by the contract the function is in, meaning
 /// execution must start with another external function in the same contract. Eventually the call stack reaches the
 /// `only_self` function, but let's focus on that external entry point:
-///  - If it already performed an init check, then we are safe.
-///  - If it skipped the init check (via [`noinitcheck`]), then the contract developer is explicitly choosing to not
-///    check for initialization, and so will our `only_self` function. That's a design choice by the developer. If
-///    we didn't skip the init check on `only_self`, the developer would just add `noinitcheck` to it anyway.
-///  - If it was the initializer, note that init nullifiers are emitted at the end of initialization: the private
-///    init nullifier after all private execution, and the public one after all public execution. So in terms of
-///    init checking, everything behaves as if the contract hasn't been initialized yet, and the same two points
-///    above still apply.
+///  - If it already performed an initialization check, then we are safe.
+///  - If it skipped the initialization check (via [`noinitcheck`]), then the contract developer is explicitly
+///    choosing to not check for initialization, and so will our `only_self` function. That's a design choice by
+///    the developer. If we didn't skip the initialization check on `only_self`, the developer would just add
+///    `noinitcheck` to it anyway.
+///  - If it was the initializer, note that initialization nullifiers are emitted at the end of initialization:
+///    the private initialization nullifier after all private execution, and the public one after all public
+///    execution. So in terms of initialization checking, everything behaves as if the contract hasn't been
+///    initialized yet, and the same two points above still apply.
 pub comptime fn only_self(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 

@@ -91,13 +91,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       ),
     utilityDeleteCapsule: (contractAddress: ACVMField[], slot: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_deleteCapsule(contractAddress, slot, acvmOptionNone().isSome, acvmOptionNone().value),
-    utilityAes128Decrypt: (
-      ciphertextBVecStorage: ACVMField[],
-      ciphertextLength: ACVMField[],
-      iv: ACVMField[],
-      symKey: ACVMField[],
-    ): Promise<(ACVMField | ACVMField[])[]> =>
-      oracle.aztec_utl_aes128Decrypt(ciphertextBVecStorage, ciphertextLength, iv, symKey),
     utilityGetSharedSecret: (
       address: ACVMField[],
       ephPKField0: ACVMField[],

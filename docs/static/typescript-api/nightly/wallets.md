@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: v5.0.0-nightly.20260316
+Version: v5.0.0-nightly.20260318
 
 ## Quick Import Reference
 
@@ -54,7 +54,7 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated. `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
@@ -65,7 +65,7 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `setMinFeePadding(value?: number) => void`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, _skipTxValidation?: boolean, _skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
 ### NodeEmbeddedWallet
@@ -105,7 +105,7 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated. `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
@@ -116,7 +116,7 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `setMinFeePadding(value?: number) => void`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, _skipTxValidation?: boolean, _skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
 ### WalletDB
