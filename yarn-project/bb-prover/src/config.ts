@@ -3,8 +3,11 @@ export interface BBConfig {
   bbWorkingDirectory: string;
   /** Whether to skip tmp dir cleanup for debugging purposes */
   bbSkipCleanup: boolean;
-  numConcurrentIVCVerifiers: number;
   bbIVCConcurrency: number;
+  /** Max concurrent verifications for the RPC verifier (QueuedIVCVerifier concurrency). Defaults to BB_NUM_IVC_VERIFIERS or 8. */
+  bbRpcVerifyConcurrency: number;
+  /** Max batch size for the peer chonk verifier (BatchChonkVerifier batch size). Defaults to BB_NUM_IVC_VERIFIERS or 8. */
+  bbPeerVerifyBatchSize: number;
 }
 
 export interface ACVMConfig {

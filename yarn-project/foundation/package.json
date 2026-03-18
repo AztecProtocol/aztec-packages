@@ -94,7 +94,8 @@
     "./promise": "./dest/promise/index.js",
     "./string": "./dest/string/index.js",
     "./message": "./dest/message/index.js",
-    "./number": "./dest/number/index.js"
+    "./number": "./dest/number/index.js",
+    "./fifo": "./dest/fifo/index.js"
   },
   "scripts": {
     "build": "yarn clean && ../scripts/tsc.sh",

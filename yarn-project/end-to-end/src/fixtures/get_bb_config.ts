@@ -13,8 +13,10 @@ const {
   BB_SKIP_CLEANUP = '',
   TEMP_DIR = tmpdir(),
   BB_WORKING_DIRECTORY = '',
-  BB_NUM_IVC_VERIFIERS = '1',
   BB_IVC_CONCURRENCY = '1',
+  BB_NUM_IVC_VERIFIERS = '8',
+  BB_RPC_VERIFY_CONCURRENCY,
+  BB_PEER_VERIFY_BATCH_SIZE,
 } = process.env;
 
 export const getBBConfig = async (
@@ -41,16 +43,18 @@ export const getBBConfig = async (
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
     const cleanup = bbSkipCleanup ? () => Promise.resolve() : () => tryRmDir(directoryToCleanup);
 
-    const numIvcVerifiers = Number(BB_NUM_IVC_VERIFIERS);
     const ivcConcurrency = Number(BB_IVC_CONCURRENCY);
+
+    const numIvcVerifiers = Number(BB_NUM_IVC_VERIFIERS);
 
     return {
       bbSkipCleanup,
       bbBinaryPath,
       bbWorkingDirectory,
       cleanup,
-      numConcurrentIVCVerifiers: numIvcVerifiers,
       bbIVCConcurrency: ivcConcurrency,
+      bbRpcVerifyConcurrency: BB_RPC_VERIFY_CONCURRENCY ? Number(BB_RPC_VERIFY_CONCURRENCY) : numIvcVerifiers,
+      bbPeerVerifyBatchSize: BB_PEER_VERIFY_BATCH_SIZE ? Number(BB_PEER_VERIFY_BATCH_SIZE) : numIvcVerifiers,
     };
   } catch (err) {
     logger.error(`Native BB not available, error: ${err}`);

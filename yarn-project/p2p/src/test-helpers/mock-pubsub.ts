@@ -52,7 +52,7 @@ export function getMockPubSubP2PServiceFactory(
       mempools: MemPools;
       l2BlockSource: L2BlockSource & ContractDataSource;
       epochCache: EpochCacheInterface;
-      proofVerifier: ClientProtocolCircuitVerifier;
+      proofVerifier: ClientProtocolCircuitVerifier | undefined;
       worldStateSynchronizer: WorldStateSynchronizer;
       peerStore: AztecAsyncKVStore;
       telemetry: TelemetryClient;
