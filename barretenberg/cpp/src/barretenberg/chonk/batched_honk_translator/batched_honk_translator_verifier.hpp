@@ -187,8 +187,12 @@ template <typename MegaFlavor, size_t MegaLogN, typename Curve> class BatchedHon
 };
 
 // Type aliases.
-using BatchedHidingKernelVerifier = BatchedHonkTranslatorVerifier_<MegaZKFlavor, 16, curve::BN254>;
-using BatchedHidingKernelRecursiveVerifier =
+using BatchedChonkVerifier = BatchedHonkTranslatorVerifier_<MegaZKFlavor, 16, curve::BN254>;
+using BatchedChonkRecursiveVerifier =
     BatchedHonkTranslatorVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>, 16, stdlib::bn254<UltraCircuitBuilder>>;
+
+using BatchedAvmRecursiveVerifier = BatchedHonkTranslatorVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                                                   MEGA_AVM_LOG_N,
+                                                                   stdlib::bn254<UltraCircuitBuilder>>;
 
 } // namespace bb

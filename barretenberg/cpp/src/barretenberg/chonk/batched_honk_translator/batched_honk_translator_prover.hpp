@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -94,5 +95,8 @@ template <typename MegaFlavor, size_t MegaLogN> class BatchedHonkTranslatorProve
     void execute_joint_sumcheck_rounds();
     void execute_joint_pcs();
 };
+
+using BatchedChonkProver = BatchedHonkTranslatorProver<MegaZKFlavor, 16>;
+using BatchedAvmProver = BatchedHonkTranslatorProver<MegaAvmFlavor, MegaAvmFlavor::VIRTUAL_LOG_N>;
 
 } // namespace bb

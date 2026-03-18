@@ -3,7 +3,6 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/sumcheck/masking_tail_data.hpp"
@@ -456,7 +455,5 @@ HonkProof BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::prove(
 template class BatchedHonkTranslatorProver<MegaZKFlavor, 16>;
 template class BatchedHonkTranslatorProver<MegaZKFlavor, 17>; // Testing
 template class BatchedHonkTranslatorProver<MegaAvmFlavor, MegaAvmFlavor::VIRTUAL_LOG_N>;
-
-using BatchedHidingKernelProver = BatchedHonkTranslatorProver<MegaZKFlavor, 16>;
 
 } // namespace bb

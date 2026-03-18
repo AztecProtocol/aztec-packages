@@ -558,8 +558,8 @@ ChonkProof Chonk::prove()
     goblin.transcript = transcript;
 
     // Phase 1: MegaZK Oink on the shared transcript.
-    BatchedHonkTranslatorProver batched_prover(hiding_prover_inst, hiding_vk, transcript);
-    auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
+    BatchedChonkProver batched_prover(hiding_prover_inst, hiding_vk, transcript);
+    auto hiding_oink_proof = batched_prover.prove_mega_oink();
 
     // Phase 2: Merge proof on the shared transcript (APPEND — hiding kernel's subtable).
     goblin.prove_merge(transcript, MergeSettings::APPEND);
