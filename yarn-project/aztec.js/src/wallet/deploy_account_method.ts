@@ -160,8 +160,10 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
   override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployAccountOptions {
     return {
       ...options,
-      // Account contracts are always universally deployed (deployer = ZERO),
-      // but we still need to know the original `from` to detect self-deployment.
+      // Deployer is handled in the request method and forcibly set to undefined,
+      // since our account contracts are created with universalDeployment: true
+      // We need to forward it though, because depending on the deployer we have to assemble
+      // The fee payment method one way or another
       deployer: options.from === NO_FROM ? AztecAddress.ZERO : options.from,
     };
   }

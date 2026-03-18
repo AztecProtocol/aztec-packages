@@ -79,7 +79,8 @@ export type NoWait = typeof NO_WAIT;
  * When used as the `from` parameter, the wallet executes the payload directly
  * via the DefaultEntrypoint without wrapping it in an account contract entrypoint.
  * The app is responsible for assembling the complete execution payload, including
- * any entrypoint wrapping (e.g. multicall) if needed.
+ * any entrypoint wrapping (e.g. multicall) if needed. This will result in the
+ * first call of the chain receiving msg_sender as Option::none
  */
 export const NO_FROM = 'NO_FROM' as const;
 
