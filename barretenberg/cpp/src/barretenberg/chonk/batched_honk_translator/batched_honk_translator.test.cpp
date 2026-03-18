@@ -14,6 +14,7 @@
 #include "batched_honk_translator_prover.hpp"
 #include "batched_honk_translator_verifier.hpp"
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
@@ -420,6 +421,8 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifyAvm)
                                   stdlib_accumulated_result,
                                   stdlib_ecc_op_wires);
 
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());
 }
