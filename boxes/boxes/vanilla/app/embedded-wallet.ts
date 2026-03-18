@@ -19,6 +19,7 @@ import {
   EmbeddedWallet as EmbeddedWalletBase,
   type EmbeddedWalletOptions,
 } from '@aztec/wallets/embedded';
+import { NO_FROM } from '@aztec/aztec.js/account';
 
 const logger = createLogger('wallet');
 const LocalStorageKey = 'aztec-account';
@@ -153,7 +154,7 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
     const sponsoredFPCAddress = await this.#getSponsoredFPCAddress();
 
     const deployOpts: DeployAccountOptions<InteractionWaitOptions> = {
-      from: AztecAddress.ZERO,
+      from: NO_FROM,
       fee: {
         paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPCAddress),
       },
