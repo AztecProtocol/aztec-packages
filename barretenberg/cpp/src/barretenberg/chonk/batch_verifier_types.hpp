@@ -84,7 +84,7 @@ inline bool write_frame(int fd, const void* data, size_t len)
     const auto* ptr = frame.data();
     size_t remaining = frame.size();
     while (remaining > 0) {
-        auto written = ::write(fd, ptr, remaining);
+        auto written = ::write(fd, ptr, static_cast<unsigned int>(remaining));
         if (written <= 0) {
             return false;
         }
