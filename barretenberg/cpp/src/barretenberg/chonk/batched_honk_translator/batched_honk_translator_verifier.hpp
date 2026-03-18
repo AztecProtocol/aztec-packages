@@ -29,11 +29,9 @@ namespace bb {
  *
  * @tparam Curve  curve::BN254 for native verification, stdlib::bn254<Builder> for recursive.
  */
-template <typename MegaFlavor, typename Curve> class BatchedHonkTranslatorVerifier_ {
+template <typename MegaFlavor, size_t MegaLogN, typename Curve> class BatchedHonkTranslatorVerifier_ {
   public:
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
-
-    static constexpr size_t JOINT_LOG_N = std::max(MegaFlavor::VIRTUAL_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     // Select translator flavor based on native vs recursive.
     using TransFlavor = std::conditional_t<IsRecursive, TranslatorRecursiveFlavor, TranslatorFlavor>;
@@ -57,33 +55,51 @@ template <typename MegaFlavor, typename Curve> class BatchedHonkTranslatorVerifi
     using TransBF = typename TransFlavor::BF;
 
     // Joint RepeatedCommitmentsData for Shplemini's remove_repeated_commitments optimization.
-    // Joint unshifted = [Trans_unshifted(TU), MZK_unshifted(P+W)]. The translator's gemini_masking_poly
-    // is at position 0 of unshifted and is consumed by Shplemini's offset=2 (Q + masking).
-    // After Shplemini's offset=2, the virtual layout is:
-    //   Unshifted: [Trans_rest(TU-1) | MZK_precomputed(P) | MZK_witness(W)]
-    //   Shifted:   [MZK_shifted(S) | Trans_shifted(TS)]
+    // Joint unshifted = [Trans_unshifted(TU), Mega_unshifted(P+W)]. The translator's gemini_masking_poly
+    // is at position 0 of unshifted.
+    //
+    // Shplemini's remove_repeated_commitments applies offset = HasZK ? 2 : 1 (Q + masking vs Q only).
+    // When HasZK=true (MegaZK), offset=2 consumes Q and the translator's masking poly, so the virtual
+    // layout starts after the masking poly (TU-1 remaining translator entries).
+    // When HasZK=false (MegaAvm), offset=1 consumes only Q, so the masking poly remains in the virtual
+    // layout (TU translator entries remain).
+    //
+    // After offset, the virtual layout is:
+    //   Unshifted: [Trans_rest(TU - masking_consumed) | Mega_precomputed(P) | Mega_witness(W)]
+    //   Shifted:   [Mega_shifted(S) | Trans_shifted(TS)]
     //
     // Range 1 (Translator merged): ordered(5)+z_perm(1)+concat(5) in unshifted ↔ same in shifted
-    // Range 2 (MegaZK): witness[0..S-1] ↔ mega_zk_shifted[0..S-1]
+    // Range 2 (Mega): witness[0..S-1] ↔ mega_shifted[0..S-1]
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = [] {
         constexpr size_t TU = TranslatorFlavor::NUM_PCS_UNSHIFTED; // includes masking(1)
         constexpr size_t P = MegaFlavor::NUM_PRECOMPUTED_ENTITIES;
         constexpr size_t W = MegaFlavor::NUM_WITNESS_ENTITIES;
         constexpr size_t S = MegaFlavor::NUM_SHIFTED_ENTITIES;
+        // When HasZK=true, offset=2 consumes the masking poly; when false, offset=1 does not.
+        // The number of translator entries remaining in the virtual layout differs accordingly.
+        constexpr size_t MASKING_CONSUMED = MegaFlavor::HasZK ? 1 : 0;
+        constexpr size_t TRANS_VIRTUAL = TU - MASKING_CONSUMED; // translator entries after offset
         // Translator repeated: ordered(5)+z_perm(1)+concat(5) in Trans_rest ↔ Trans_shifted
         // Trans_rest starts at virtual 0; repeated starts at ordered_extra(1)+op(1)=2
-        constexpr size_t TRANS_REPEAT_START = TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start;
+        constexpr size_t TRANS_REPEAT_START =
+            TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start + (1 - MASKING_CONSUMED);
         constexpr size_t TRANS_REPEAT_COUNT =
             TranslatorFlavor::REPEATED_COMMITMENTS.first.count + TranslatorFlavor::REPEATED_COMMITMENTS.second.count;
         // In shifted section: op_queue entries precede the repeated entries
         constexpr size_t TRANS_SHIFTED_SKIP = TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED - TRANS_REPEAT_COUNT;
-        return RepeatedCommitmentsData(TRANS_REPEAT_START,                        // Translator original in unshifted
-                                       (TU - 1) + P + W + S + TRANS_SHIFTED_SKIP, // Translator duplicate in shifted
-                                       TRANS_REPEAT_COUNT,                        // Translator count
-                                       (TU - 1) + P,     // MegaZK original: witness start in unshifted
-                                       (TU - 1) + P + W, // MegaZK duplicate: shifted start
-                                       S);               // MegaZK count
+        return RepeatedCommitmentsData(TRANS_REPEAT_START, // Translator original in unshifted
+                                       TRANS_VIRTUAL + P + W + S +
+                                           TRANS_SHIFTED_SKIP, // Translator duplicate in shifted
+                                       TRANS_REPEAT_COUNT,     // Translator count
+                                       TRANS_VIRTUAL + P,      // Mega original: witness start in unshifted
+                                       TRANS_VIRTUAL + P + W,  // Mega duplicate: shifted start
+                                       S);                     // Mega count
     }();
+
+    static constexpr size_t MEGA_LOG_N = MegaLogN;
+    static constexpr bool IS_MEGA_SMALLER = MEGA_LOG_N <= TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+    static constexpr size_t MIN_LOG_N = std::min(MEGA_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    static constexpr size_t JOINT_LOG_N = std::max(MEGA_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     /**
      * @brief Result of the batched sumcheck/PCS reduction.
@@ -171,8 +187,8 @@ template <typename MegaFlavor, typename Curve> class BatchedHonkTranslatorVerifi
 };
 
 // Type aliases.
-using BatchedHonkTranslatorVerifier = BatchedHonkTranslatorVerifier_<MegaZKFlavor, curve::BN254>;
-using BatchedHonkTranslatorRecursiveVerifier =
-    BatchedHonkTranslatorVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>, stdlib::bn254<UltraCircuitBuilder>>;
+using BatchedHidingKernelVerifier = BatchedHonkTranslatorVerifier_<MegaZKFlavor, 16, curve::BN254>;
+using BatchedHidingKernelRecursiveVerifier =
+    BatchedHonkTranslatorVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>, 16, stdlib::bn254<UltraCircuitBuilder>>;
 
 } // namespace bb

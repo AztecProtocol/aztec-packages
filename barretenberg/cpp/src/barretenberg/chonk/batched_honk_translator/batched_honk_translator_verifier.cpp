@@ -2,6 +2,8 @@
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
@@ -18,8 +20,8 @@
 
 namespace bb {
 
-template <typename MegaFlavor, typename Curve>
-BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::BatchedHonkTranslatorVerifier_(
+template <typename MegaFlavor, size_t MegaLogN, typename Curve>
+BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::BatchedHonkTranslatorVerifier_(
     std::shared_ptr<MegaVKAndHash> mega_zk_vk_and_hash, std::shared_ptr<Transcript> transcript)
     : mega_vk_and_hash(std::move(mega_zk_vk_and_hash))
     , transcript(std::move(transcript))
@@ -31,9 +33,10 @@ BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::BatchedHonkTranslatorVerifier
  * between Phase 1 and Phase 2 (public inputs, calldata commitment, ECC op wires).
  * Populates mega_zk_relation_parameters.
  */
-template <typename MegaFlavor, typename Curve>
-typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::OinkResult BatchedHonkTranslatorVerifier_<
+template <typename MegaFlavor, size_t MegaLogN, typename Curve>
+typename BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::OinkResult BatchedHonkTranslatorVerifier_<
     MegaFlavor,
+    MegaLogN,
     Curve>::verify_mega_oink(const Proof& mega_proof)
 {
     transcript->load_proof(mega_proof);
@@ -65,15 +68,14 @@ typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::OinkResult BatchedHo
  * proof, hashes the VK, sets relation parameters, and receives wire + permutation commitments.
  * Populates translator_relation_parameters.
  */
-template <typename MegaFlavor, typename Curve>
-typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::TransVerifierCommitments BatchedHonkTranslatorVerifier_<
-    MegaFlavor,
-    Curve>::verify_translator_oink(const Proof& joint_proof,
-                                   const TransBF& evaluation_input_x,
-                                   const TransBF& batching_challenge_v,
-                                   const TransBF& accumulated_result,
-                                   const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>&
-                                       op_queue_wire_commitments)
+template <typename MegaFlavor, size_t MegaLogN, typename Curve>
+typename BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::TransVerifierCommitments
+BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::verify_translator_oink(
+    const Proof& joint_proof,
+    const TransBF& evaluation_input_x,
+    const TransBF& batching_challenge_v,
+    const TransBF& accumulated_result,
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
 {
     // Pass the full joint_proof to TranslatorVerifier. It calls
     // transcript->load_proof(proof) in receive_pre_sumcheck(), loading everything
@@ -97,11 +99,9 @@ typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::TransVerifierCommitm
  * Populates joint_challenge, mega_zk_evals, trans_evals, libra_commitments, libra_evaluation, libra_challenge.
  * @return true if sumcheck verification passed.
  */
-template <typename MegaFlavor, typename Curve>
-bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
+template <typename MegaFlavor, size_t MegaLogN, typename Curve>
+bool BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::verify_joint_sumcheck()
 {
-    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
-
     // Draw joint alpha after all pre-sumcheck commitments from both circuits.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -137,22 +137,11 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
-    const size_t mega_log_n = [&]() -> size_t {
-        if constexpr (IsRecursive) {
-            return static_cast<size_t>(static_cast<uint64_t>(mega_vk_and_hash->vk->log_circuit_size.get_value()));
-        } else {
-            return static_cast<size_t>(mega_vk_and_hash->vk->log_circuit_size);
-        }
-    }();
-
     joint_challenge.clear();
     joint_challenge.reserve(JOINT_LOG_N);
 
-    const bool is_mega_smaller = mega_log_n <= TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-    const size_t min_log_n = std::min(mega_log_n, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-
     // ==================== Real rounds 0..mega_log_n-1 ====================
-    for (size_t round_idx = 0; round_idx < min_log_n; round_idx++) {
+    for (size_t round_idx = 0; round_idx < MIN_LOG_N; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
@@ -166,7 +155,7 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
     // Receive MegaZK circuit evaluations: P_j(u_0,...,u_{d-1}) without the tau factor.
     // These are obtained before virtual-round challenges are drawn, eliminating prover
     // freedom in the zero-padded region.
-    if (is_mega_smaller) {
+    if constexpr (IS_MEGA_SMALLER) {
         auto transcript_evals = transcript->template receive_from_prover<std::array<FF, MegaFlavor::NUM_ALL_ENTITIES>>(
             "Sumcheck:evaluations_smaller_circuit");
 
@@ -182,7 +171,7 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
     }
 
     // ==================== Virtual rounds mega_log_n..JOINT_LOG_N-1 ====================
-    for (size_t round_idx = min_log_n; round_idx < JOINT_LOG_N; round_idx++) {
+    for (size_t round_idx = MIN_LOG_N; round_idx < JOINT_LOG_N; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
@@ -197,10 +186,10 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
     // This is the verifier-determined zero-padding extension — the prover has no control over it.
     {
         FF tau = FF(1);
-        for (size_t k = min_log_n; k < JOINT_LOG_N; k++) {
+        for (size_t k = MIN_LOG_N; k < JOINT_LOG_N; k++) {
             tau *= (FF(1) - joint_challenge[k]);
         }
-        if (is_mega_smaller) {
+        if constexpr (IS_MEGA_SMALLER) {
             for (auto& eval : mega_evals.get_all()) {
                 eval *= tau;
             }
@@ -211,7 +200,7 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
         }
     }
 
-    if (is_mega_smaller) {
+    if constexpr (IS_MEGA_SMALLER) {
         // Send Translator circuit evaluations after all rounds, since they include the virtual-round contributions.
         // Receive translator evaluations (full-circuit subset, then complete from minicircuit + precomputed).
         auto get_full_circuit_evals =
@@ -258,7 +247,7 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
                     stdlib::compute_padding_indicator_array<Curve, JOINT_LOG_N>(mega_vk_and_hash->vk->log_circuit_size);
                 return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, mega_zk_padding);
             } else {
-                return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, mega_log_n);
+                return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, MEGA_LOG_N);
             }
         }();
         frv_mega_zk *= rdp_d;
@@ -301,9 +290,10 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::verify_joint_sumcheck()
  * @details Combines commitments and evaluations from both circuits into a single batch opening
  * claim, then reduces to a KZG pairing check.
  */
-template <typename MegaFlavor, typename Curve>
-typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
+template <typename MegaFlavor, size_t MegaLogN, typename Curve>
+typename BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
     MegaFlavor,
+    MegaLogN,
     Curve>::verify_joint_pcs(bool sumcheck_verified,
                              MegaVerifierCommitments& mega_commitments,
                              TransVerifierCommitments& trans_commitments)
@@ -358,26 +348,46 @@ typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::ReductionResult Batc
     // All-ones padding for the joint Shplemini call (row-disabling already applied in FRV).
     std::vector<FF> joint_padding(JOINT_LOG_N, FF(1));
 
-    auto [opening_claim, consistency_checked] =
-        MegaShplemini::compute_batch_opening_claim(joint_padding,
-                                                   joint_claim_batcher,
-                                                   joint_challenge,
-                                                   one_commitment,
-                                                   transcript,
-                                                   REPEATED_COMMITMENTS,
-                                                   libra_commitments,
-                                                   libra_evaluation,
-                                                   round_univariate_commitments,
-                                                   round_univariate_evaluations);
+    PairingPoints pairing_points;
+    bool result = sumcheck_verified;
 
-    auto pairing_points = MegaFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
+    if constexpr (MegaFlavor::HasZK) {
+        auto [opening_claim, consistency_checked] =
+            MegaShplemini::compute_batch_opening_claim(joint_padding,
+                                                       joint_claim_batcher,
+                                                       joint_challenge,
+                                                       one_commitment,
+                                                       transcript,
+                                                       REPEATED_COMMITMENTS,
+                                                       libra_commitments,
+                                                       libra_evaluation,
+                                                       round_univariate_commitments,
+                                                       round_univariate_evaluations);
 
-    return { pairing_points, sumcheck_verified && consistency_checked };
+        pairing_points = MegaFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
+        result = sumcheck_verified && consistency_checked;
+    } else {
+        auto opening_claim = MegaShplemini::compute_batch_opening_claim(joint_padding,
+                                                                        joint_claim_batcher,
+                                                                        joint_challenge,
+                                                                        one_commitment,
+                                                                        transcript,
+                                                                        REPEATED_COMMITMENTS,
+                                                                        {},
+                                                                        FF(0),
+                                                                        round_univariate_commitments,
+                                                                        round_univariate_evaluations)
+                                 .batch_opening_claim;
+        pairing_points = MegaFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
+    }
+
+    return { pairing_points, result };
 }
 
-template <typename MegaFlavor, typename Curve>
-typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
+template <typename MegaFlavor, size_t MegaLogN, typename Curve>
+typename BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
     MegaFlavor,
+    MegaLogN,
     Curve>::verify(const Proof& joint_proof,
                    const TransBF& evaluation_input_x,
                    const TransBF& batching_challenge_v,
@@ -394,8 +404,18 @@ typename BatchedHonkTranslatorVerifier_<MegaFlavor, Curve>::ReductionResult Batc
 }
 
 // Explicit instantiations.
-template class BatchedHonkTranslatorVerifier_<MegaZKFlavor, curve::BN254>;
+template class BatchedHonkTranslatorVerifier_<MegaZKFlavor, 16, curve::BN254>;
 template class BatchedHonkTranslatorVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                              16,
+                                              stdlib::bn254<UltraCircuitBuilder>>;
+
+template class BatchedHonkTranslatorVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                              MEGA_AVM_LOG_N,
+                                              stdlib::bn254<UltraCircuitBuilder>>;
+
+template class BatchedHonkTranslatorVerifier_<MegaZKFlavor, 17, curve::BN254>;
+template class BatchedHonkTranslatorVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                              17,
                                               stdlib::bn254<UltraCircuitBuilder>>;
 
 } // namespace bb

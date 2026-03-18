@@ -15,6 +15,8 @@
 #include "batched_honk_translator_verifier.hpp"
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -320,7 +322,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // 3. Prove.
     // -------------------------------------------------------------------------
     auto prover_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorProver<MegaZKFlavor> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    BatchedHonkTranslatorProver<MegaZKFlavor, JOINT_LOG_N> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
 
     auto mega_zk_proof = prover.prove_mega_oink();
     auto joint_proof = prover.prove(translator_key);
@@ -329,10 +331,94 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // 4. Verify.
     // -------------------------------------------------------------------------
     auto verifier_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
+    BatchedHonkTranslatorVerifier_<MegaZKFlavor, JOINT_LOG_N, bb::curve::BN254> verifier(mega_zk_vk_and_hash,
+                                                                                         verifier_transcript);
     verifier.verify_mega_oink(mega_zk_proof);
     auto result = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
+
+    EXPECT_TRUE(result.reduction_succeeded);
+    EXPECT_TRUE(result.pairing_points.check());
+}
+
+TEST_F(BatchedHonkTranslatorTests, ProveAndVerifyAvm)
+{
+    using MegaProverInst = ProverInstance_<MegaAvmFlavor>;
+    using MegaVK = MegaAvmFlavor::VerificationKey;
+    using MegaVKAndHash = MegaAvmFlavor::VKAndHash;
+    using RecursiveMegaVKandHash = MegaRecursiveFlavor_<UltraCircuitBuilder>::VKAndHash;
+    using StdlibBigField = stdlib::bigfield<UltraCircuitBuilder, Bn254FqParams>;
+    using StdlibCommitment = MegaRecursiveFlavor_<UltraCircuitBuilder>::Commitment;
+
+    // -------------------------------------------------------------------------
+    // 1. Translator inputs (random translation challenges — no ECCVM needed).
+    // -------------------------------------------------------------------------
+    const Fq batching_challenge_v = Fq::random_element();
+    const Fq evaluation_input_x = Fq::random_element();
+
+    auto translator_key = build_translator_key(batching_challenge_v, evaluation_input_x);
+
+    // Initialise the translator commitment key (normally done by TranslatorProver ctor).
+    {
+        auto tmp = std::make_shared<Transcript>();
+        TranslatorProver init_prover(translator_key, tmp); // side-effect: initialises commitment_key
+    }
+    const Fq accumulated_result = get_accumulated_result(translator_key);
+    const auto op_queue_wire_commitments = commit_op_queue_wires(translator_key);
+
+    // -------------------------------------------------------------------------
+    // 2. Hiding kernel inputs: pad to JOINT_LOG_N = 17 so hiding_log_n == JOINT_LOG_N.
+    // -------------------------------------------------------------------------
+    MegaCircuitBuilder mega_zk_circuit;
+    GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
+    MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, MEGA_AVM_LOG_N - 1, /*include_public_inputs=*/false);
+
+    auto mega_zk_inst = std::make_shared<MegaProverInst>(mega_zk_circuit);
+    auto mega_zk_vk = std::make_shared<MegaVK>(mega_zk_inst->get_precomputed());
+    auto mega_zk_vk_and_hash = std::make_shared<MegaVKAndHash>(mega_zk_vk);
+
+    // -------------------------------------------------------------------------
+    // 3. Prove.
+    // -------------------------------------------------------------------------
+    auto prover_transcript = std::make_shared<Transcript>();
+    BatchedHonkTranslatorProver<MegaAvmFlavor, MEGA_AVM_LOG_N> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+
+    auto mega_proof = prover.prove_mega_oink();
+    auto joint_proof = prover.prove(translator_key);
+
+    // -------------------------------------------------------------------------
+    // 4. Verify.
+    // -------------------------------------------------------------------------
+    UltraCircuitBuilder builder;
+
+    StdlibBigField stdlib_evaluation_input_x = StdlibBigField::from_witness(&builder, evaluation_input_x);
+    StdlibBigField stdlib_batching_challenge_v = StdlibBigField::from_witness(&builder, batching_challenge_v);
+    StdlibBigField stdlib_accumulated_result = StdlibBigField::from_witness(&builder, accumulated_result);
+    stdlib_evaluation_input_x.unset_free_witness_tag();
+    stdlib_batching_challenge_v.unset_free_witness_tag();
+    stdlib_accumulated_result.unset_free_witness_tag();
+
+    std::array<StdlibCommitment, 4> stdlib_ecc_op_wires;
+    for (size_t idx = 0; idx < op_queue_wire_commitments.size(); ++idx) {
+        const auto& commitment = op_queue_wire_commitments[idx];
+        stdlib_ecc_op_wires[idx] = StdlibCommitment::from_witness(&builder, commitment);
+        stdlib_ecc_op_wires[idx].unset_free_witness_tag();
+    }
+
+    auto recursive_mega_vk_and_hash = std::make_shared<RecursiveMegaVKandHash>(builder, mega_zk_vk_and_hash->vk);
+    stdlib::Proof<UltraCircuitBuilder> stdlib_mega_proof(builder, mega_proof);
+    stdlib::Proof<UltraCircuitBuilder> stdlib_joint_proof(builder, joint_proof);
+    auto verifier_transcript = std::make_shared<UltraStdlibTranscript>();
+    BatchedHonkTranslatorVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                   MEGA_AVM_LOG_N,
+                                   bb::stdlib::bn254<UltraCircuitBuilder>>
+        verifier(recursive_mega_vk_and_hash, verifier_transcript);
+    verifier.verify_mega_oink(stdlib_mega_proof);
+    auto result = verifier.verify(stdlib_joint_proof,
+                                  stdlib_evaluation_input_x,
+                                  stdlib_batching_challenge_v,
+                                  stdlib_accumulated_result,
+                                  stdlib_ecc_op_wires);
 
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());
@@ -350,6 +436,8 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     using MegaZKVK = MegaZKFlavor::VerificationKey;
     using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
 
+    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+
     const Fq batching_challenge_v = Fq::random_element();
     const Fq evaluation_input_x = Fq::random_element();
 
@@ -363,6 +451,7 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
 
     MegaCircuitBuilder mega_zk_circuit;
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
+    MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
 
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
     auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
@@ -371,14 +460,15 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     // Prove with manifest tracking enabled.
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->enable_manifest();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    BatchedHonkTranslatorProver<MegaZKFlavor, JOINT_LOG_N> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
     auto mega_zk_proof = prover.prove_mega_oink();
     auto joint_proof = prover.prove(translator_key);
 
     // Verify with manifest tracking enabled.
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
-    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
+    BatchedHonkTranslatorVerifier_<MegaZKFlavor, JOINT_LOG_N, bb::curve::BN254> verifier(mega_zk_vk_and_hash,
+                                                                                         verifier_transcript);
     verifier.verify_mega_oink(mega_zk_proof);
     [[maybe_unused]] auto _ = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
@@ -404,6 +494,8 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
     using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
     using MegaZKVK = MegaZKFlavor::VerificationKey;
 
+    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+
     const Fq batching_challenge_v = Fq::random_element();
     const Fq evaluation_input_x = Fq::random_element();
 
@@ -415,6 +507,7 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
 
     MegaCircuitBuilder mega_zk_circuit;
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
+    MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
     auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
 
@@ -424,7 +517,7 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
     // Prove with manifest tracking enabled.
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->enable_manifest();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    BatchedHonkTranslatorProver<MegaZKFlavor, JOINT_LOG_N> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
     [[maybe_unused]] auto _ = prover.prove_mega_oink();
     [[maybe_unused]] auto __ = prover.prove(translator_key);
 
@@ -460,21 +553,24 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
     const auto op_queue_wire_commitments = commit_op_queue_wires(translator_key);
 
     // Use a small hiding circuit — NOT padded to JOINT_LOG_N.
-    // hiding_log_n will be well below 17, exercising the variable-size code paths.
+    // hiding_log_n will be 16, exercising the variable-size code paths.
     MegaCircuitBuilder mega_zk_circuit;
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
+    MockCircuits::construct_arithmetic_circuit(
+        mega_zk_circuit, HIDING_KERNEL_LOG_N - 1, /*include_public_inputs=*/false);
 
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
     auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
     auto mega_zk_vk_and_hash = std::make_shared<MegaZKVKAndHash>(mega_zk_vk);
 
     auto prover_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    BatchedHonkTranslatorProver<MegaZKFlavor, HIDING_KERNEL_LOG_N> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
     auto mega_zk_proof = prover.prove_mega_oink();
     auto joint_proof = prover.prove(translator_key);
 
     auto verifier_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
+    BatchedHonkTranslatorVerifier_<MegaZKFlavor, HIDING_KERNEL_LOG_N, bb::curve::BN254> verifier(mega_zk_vk_and_hash,
+                                                                                                 verifier_transcript);
     verifier.verify_mega_oink(mega_zk_proof);
     auto result = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);

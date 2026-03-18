@@ -29,7 +29,7 @@ namespace bb {
  * The MegaZK circuit is treated as a 2^17 circuit via its RowDisablingPolynomial (padding_indicator
  * = [1]*16 + [0]), so its contribution to round 16 is zero by construction.
  */
-template <typename MegaFlavor> class BatchedHonkTranslatorProver {
+template <typename MegaFlavor, size_t MegaLogN> class BatchedHonkTranslatorProver {
   public:
     using FF = MegaFlavor::FF;
     using Curve = MegaFlavor::Curve;
@@ -44,7 +44,23 @@ template <typename MegaFlavor> class BatchedHonkTranslatorProver {
     using TransSubrelationSeparators = std::array<FF, TranslatorFlavor::NUM_SUBRELATIONS - 1>;
     using ZKData = ZKSumcheckData<MegaFlavor>;
     using Transcript = NativeTranscript;
-    using SumcheckRoundUnivariate = bb::Univariate<FF, MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH>;
+
+    static constexpr size_t MAX_BATCHED_RELATION_PARTIAL_LENGTH =
+        std::max(MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH, TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
+    using SumcheckRoundUnivariate = bb::Univariate<FF, MAX_BATCHED_RELATION_PARTIAL_LENGTH>;
+
+    // Use committed sumcheck infrastructure: commits to round univariates and stores them for Shplemini.
+    static constexpr bool IS_MEGA_LENGTH_SMALLER =
+        MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH < TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    using RoundUnivariateHandlerType =
+        std::conditional_t<IS_MEGA_LENGTH_SMALLER,
+                           RoundUnivariateHandler<TranslatorFlavor, /*CommittedSumcheck=*/true>,
+                           RoundUnivariateHandler<MegaFlavor, /*CommittedSumcheck=*/true>>;
+
+    static constexpr size_t MEGA_LOG_N = MegaLogN;
+    static constexpr bool IS_MEGA_SMALLER = MEGA_LOG_N <= TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+    static constexpr size_t MIN_LOG_N = std::min(MEGA_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    static constexpr size_t JOINT_LOG_N = std::max(MEGA_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     BatchedHonkTranslatorProver(std::shared_ptr<MegaProverInstance> mega_instance,
                                 std::shared_ptr<MegaVK> mega_vk,
@@ -58,11 +74,6 @@ template <typename MegaFlavor> class BatchedHonkTranslatorProver {
     std::shared_ptr<MegaVK> mega_vk;
     std::shared_ptr<TranslatorProvingKey> translator_key;
     std::shared_ptr<Transcript> transcript;
-
-    size_t mega_log_n;
-    bool is_mega_smaller;
-    size_t min_log_n;
-    size_t joint_log_n;
 
     // Translator relation parameters captured during execute_translator_oink()
     bb::RelationParameters<FF> translator_relation_parameters;
