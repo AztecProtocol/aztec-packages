@@ -923,6 +923,23 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_invalidateContractSyncCache(
+    foreignContractAddress: ForeignCallSingle,
+    foreignScopes: ForeignCallArray,
+    foreignScopeCount: ForeignCallSingle,
+  ) {
+    const contractAddress = addressFromSingle(foreignContractAddress);
+    const count = fromSingle(foreignScopeCount).toNumber();
+    const scopes = fromArray(foreignScopes)
+      .slice(0, count)
+      .map(f => new AztecAddress(f));
+
+    this.handlerAsUtility().invalidateContractSyncCache(contractAddress, scopes);
+
+    return Promise.resolve(toForeignCallResult([]));
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_emitOffchainEffect(_foreignData: ForeignCallArray) {
     throw new Error('Offchain effects are not yet supported in the TestEnvironment');
   }
