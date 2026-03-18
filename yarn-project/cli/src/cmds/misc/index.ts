@@ -39,7 +39,7 @@ export function injectCommands(program: Command, log: LogFn) {
     .addOption(l1ChainIdOption)
     .action(async (privateKey: string, p2pIp: string, p2pPort: number, options) => {
       const { generateEncodedBootnodeENR } = await import('./generate_bootnode_enr.js');
-      await generateEncodedBootnodeENR(privateKey, p2pIp, p2pPort, options.l1ChainId, log);
+      generateEncodedBootnodeENR(privateKey, p2pIp, p2pPort, options.l1ChainId, log);
     });
 
   program
