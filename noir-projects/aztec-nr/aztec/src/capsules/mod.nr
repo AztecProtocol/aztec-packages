@@ -76,8 +76,12 @@ impl<T> CapsuleArray<T> {
         capsules::store(self.contract_address, self.base_slot, current_length - 1);
     }
 
-    /// Iterates over the entire array, calling the callback with all values and their array index. The order in which
-    /// values are processed is arbitrary.
+    /// Calls a function on each element of the array.
+    ///
+    /// The function `f` is called once with each array value and its corresponding index. The order in which values
+    /// are processed is arbitrary.
+    ///
+    /// ## Array Mutation
     ///
     /// It is safe to delete the current element (and only the current element) from inside the callback via `remove`:
     /// ```noir
