@@ -78,8 +78,6 @@ describe('e2e_offchain_payment', () => {
     await cheatCodes.eth.reorg(1);
     await aztecNodeAdmin.rollbackTo(Number(block) - 1);
     expect(await aztecNode.getBlockNumber()).toBe(Number(block) - 1);
-
-    await aztecNodeAdmin.resumeSync();
   }
 
   it('processes an offchain-delivered private payment via QR-style handoff', async () => {
