@@ -21,6 +21,11 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_DOM_SEP__PUBLIC_KEYS_HASH = FF(777457226);
     const auto constants_DOM_SEP__PARTIAL_ADDRESS = FF(2103633018);
     const auto constants_DOM_SEP__CONTRACT_ADDRESS_V1 = FF(1788365517);
+    const auto address_derivation_X3 = in.get(C::address_derivation_incoming_viewing_key_x) *
+                                       in.get(C::address_derivation_incoming_viewing_key_x) *
+                                       in.get(C::address_derivation_incoming_viewing_key_x);
+    const auto address_derivation_Y2 =
+        in.get(C::address_derivation_incoming_viewing_key_y) * in.get(C::address_derivation_incoming_viewing_key_y);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -31,32 +36,32 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_partial_address_domain_separator)) -
-                    CView(constants_DOM_SEP__PARTIAL_ADDRESS));
+                   (static_cast<View>(in.get(C::address_derivation_const_two)) - FF(2));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_two)) - FF(2));
+                   (static_cast<View>(in.get(C::address_derivation_const_three)) - FF(3));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_three)) - FF(3));
+                   (static_cast<View>(in.get(C::address_derivation_const_four)) - FF(4));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_four)) - FF(4));
+                   (static_cast<View>(in.get(C::address_derivation_const_thirteen)) - FF(13));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_thirteen)) - FF(13));
+                   (static_cast<View>(in.get(C::address_derivation_partial_address_domain_separator)) -
+                    CView(constants_DOM_SEP__PARTIAL_ADDRESS));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
@@ -84,6 +89,12 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
                    (static_cast<View>(in.get(C::address_derivation_g1_y)) - CView(constants_GRUMPKIN_ONE_Y));
         std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    { // IVK_ON_CURVE_CHECK
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
+                   (CView(address_derivation_Y2) - (CView(address_derivation_X3) - FF(17)));
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
 }
 
