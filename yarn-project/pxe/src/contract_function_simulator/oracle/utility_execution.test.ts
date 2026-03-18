@@ -232,6 +232,7 @@ describe('Utility Execution test suite', () => {
         capsuleStore,
         privateEventStore,
         messageContextService,
+        contractSyncService,
         jobId: 'test-job-id',
         scopes: 'ALL_SCOPES',
       });
@@ -245,7 +246,29 @@ describe('Utility Execution test suite', () => {
       });
     });
 
+<<<<<<< HEAD
     describe('resolveMessageContexts', () => {
+=======
+    describe('invalidateContractSyncCache', () => {
+      it('throws when contract address does not match', async () => {
+        const otherAddress = await AztecAddress.random();
+        const scope = await AztecAddress.random();
+        expect(() => utilityExecutionOracle.invalidateContractSyncCache(otherAddress, [scope])).toThrow(
+          `Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`,
+        );
+        expect(contractSyncService.invalidateContractForScopes).not.toHaveBeenCalled();
+      });
+
+      it('invalidates cache for the given scopes', async () => {
+        const scopeA = await AztecAddress.random();
+        const scopeB = await AztecAddress.random();
+        utilityExecutionOracle.invalidateContractSyncCache(contractAddress, [scopeA, scopeB]);
+        expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
+      });
+    });
+
+    describe('utilityResolveMessageContexts', () => {
+>>>>>>> 68e4332d85 (feat: sync cache invalidation oracle (#21459))
       const requestSlot = Fr.random();
       const responseSlot = Fr.random();
 
