@@ -1,6 +1,7 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -847,7 +848,7 @@ export const deployAccounts =
       );
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
       });
     }
