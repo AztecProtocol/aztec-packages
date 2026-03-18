@@ -47,9 +47,7 @@ template <typename Flavor, typename Instance> static auto build_pcs_commitments(
     }
 
     // VK precomputed + received witness commitments
-    auto all_comms = concatenate(vk->get_all(), received.get_all());
-    result.unshifted.reserve(result.unshifted.size() + all_comms.size());
-    for (auto& c : all_comms) {
+    for (auto& c : concatenate(vk->get_all(), received.get_all())) {
         result.unshifted.push_back(c);
     }
 
@@ -86,6 +84,7 @@ static auto build_pcs_evaluations(typename Flavor::AllValues& claimed_evaluation
         for (size_t i = 0; i < eval_groups.size(); i++) {
             FF eval(0);
             for (size_t j = 0; j < BATCH_SIZE; j++) {
+                // nullptr slots are padding (e.g. group [w_l, w_r, w_o, nullptr] for BS=4)
                 if (j < eval_groups[i].size() && eval_groups[i][j] != nullptr) {
                     eval += *eval_groups[i][j] * lagrange_basis[j];
                 }
@@ -99,15 +98,29 @@ static auto build_pcs_evaluations(typename Flavor::AllValues& claimed_evaluation
                    compute_group_evals(Flavor::get_shifted_groups(claimed_evaluations)) };
 }
 
+/**
+ * @brief Compute log_n based on flavor.
+ * @details Returns VIRTUAL_LOG_N for padded flavors, or VK's log_circuit_size otherwise.
+ *          Called early in verification to derive num_public_inputs from proof size.
+ */
 template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_log_n() const
 {
     if constexpr (Flavor::USE_PADDING) {
         return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
     } else {
+        // Non-padded: use actual circuit size from VK (native only)
         return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
     }
 }
 
+/**
+ * @brief Compute padding indicator array based on flavor configuration.
+ * @details Must be called AFTER OinkVerifier::verify() so that VK fields are properly
+ *          tagged through the transcript (for recursive ZK flavors).
+ *          - Non-ZK flavors: all 1s (no masking needed)
+ *          - ZK without padding: all 1s (log_n == log_circuit_size)
+ *          - ZK with padding: 1s for real rounds, 0s for padding rounds
+ */
 template <typename Flavor, class IO>
 std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_indicator_array(size_t log_n) const
 {
@@ -128,6 +141,11 @@ std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_ind
     return padding_indicator_array;
 }
 
+/**
+ * @brief Split a combined rollup proof [honk_proof | ipa_proof] into its two components.
+ * @details Symmetric with UltraProver_::export_proof() which appends the IPA proof.
+ *          IPA proof is exactly IPA_PROOF_LENGTH (= 4*CONST_ECCVM_LOG_N + 4) elements at the end.
+ */
 template <typename Flavor, class IO>
 std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Flavor, IO>::Proof> UltraVerifier_<
     Flavor,
@@ -147,6 +165,9 @@ std::pair<typename UltraVerifier_<Flavor, IO>::Proof, typename UltraVerifier_<Fl
     return std::make_pair(honk_proof, ipa_proof);
 }
 
+/**
+ * @brief Verify IPA proof for rollup circuits (native verifier only).
+ */
 template <typename Flavor, class IO>
 bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPAClaim& ipa_claim)
     requires(!IsRecursiveFlavor<Flavor> && IO::HasIPA)
@@ -164,9 +185,11 @@ bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPACla
 }
 
 /**
- * @brief Reduce ultra proof to verification claims (works for both native and recursive)
+ * @brief Reduce ultra proof to verification claims (works for both native and recursive).
  * @details Contains all shared verification logic: Oink, Sumcheck, Shplemini.
- *          For interleaved flavors (BATCH_SIZE > 1), uses interleaved claim batching.
+ *          For interleaved flavors (BATCH_SIZE > 1), evaluations are Lagrange-combined per group
+ *          before being passed to the PCS.
+ * @return ReductionResult with pairing points and intermediate consistency checks.
  */
 template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
@@ -280,6 +303,12 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     return reduction_result;
 }
 
+/**
+ * @brief Verify an Ultra Honk proof.
+ * @details For Rollup flavors, splits the combined proof into honk + IPA components.
+ *          Native: performs immediate pairing verification (+ IPA for Rollup).
+ *          Recursive: returns pairing points (+ IPA proof for Rollup) for deferred verification.
+ */
 template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
