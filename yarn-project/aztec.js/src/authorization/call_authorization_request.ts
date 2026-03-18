@@ -1,14 +1,16 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { AuthorizationSelector, FunctionSelector } from '@aztec/stdlib/abi';
+import { computeInnerAuthWitHash } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeVarArgsHash } from '@aztec/stdlib/hash';
 
 /**
  * An authwit request for a function call. Includes the preimage of the data
  * to be signed, as opposed of just the inner hash.
  */
 export class CallAuthorizationRequest {
-  constructor(
+  private constructor(
     /**
      * The selector of the authwit type, used to identify it
      * when emitted from `emit_offchain_effect`oracle.
@@ -38,6 +40,26 @@ export class CallAuthorizationRequest {
     public args: Fr[],
   ) {}
 
+  /** Validates that innerHash and argsHash are consistent with the provided preimage fields. */
+  private async validate(): Promise<void> {
+    const expectedArgsHash = await computeVarArgsHash(this.args);
+    if (!expectedArgsHash.equals(this.argsHash)) {
+      throw new Error(
+        `CallAuthorizationRequest argsHash mismatch: expected ${expectedArgsHash.toString()}, got ${this.argsHash.toString()}`,
+      );
+    }
+    const expectedInnerHash = await computeInnerAuthWitHash([
+      this.msgSender.toField(),
+      this.functionSelector.toField(),
+      this.argsHash,
+    ]);
+    if (!expectedInnerHash.equals(this.innerHash)) {
+      throw new Error(
+        `CallAuthorizationRequest innerHash mismatch: expected ${expectedInnerHash.toString()}, got ${this.innerHash.toString()}`,
+      );
+    }
+  }
+
   static getSelector(): Promise<AuthorizationSelector> {
     return AuthorizationSelector.fromSignature('CallAuthorization((Field),(u32),Field)');
   }
@@ -51,7 +73,7 @@ export class CallAuthorizationRequest {
         `Invalid authorization selector for CallAuthwit: expected ${expectedSelector.toString()}, got ${selector.toString()}`,
       );
     }
-    return new CallAuthorizationRequest(
+    const request = new CallAuthorizationRequest(
       selector,
       reader.readField(),
       AztecAddress.fromField(reader.readField()),
@@ -59,5 +81,7 @@ export class CallAuthorizationRequest {
       reader.readField(),
       reader.readFieldArray(reader.remainingFields()),
     );
+    await request.validate();
+    return request;
   }
 }
