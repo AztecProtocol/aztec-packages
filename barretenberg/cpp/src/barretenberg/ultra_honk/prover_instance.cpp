@@ -58,27 +58,23 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
 
         populate_memory_records(circuit);
 
-        if constexpr (Flavor::INTERLEAVING_BATCH_SIZE > 1) {
-            // For interleaved flavors: allocate group buffers and create strided entity views.
-            // This replaces the per-entity allocation methods and set_shifted().
-            allocate_interleaved_polynomial_groups(circuit);
-        } else {
-            allocate_wires();
-            allocate_permutation_argument_polynomials();
-            allocate_selectors(circuit);
-            allocate_table_lookup_polynomials(circuit);
-            allocate_lagrange_polynomials();
+        // Allocate individual entity polynomials sized to their actual data extents.
+        // For interleaved flavors (BS>1), interleaved group buffers are built on-the-fly
+        // at commitment/PCS time — no persistent group buffers are stored.
+        allocate_wires();
+        allocate_permutation_argument_polynomials();
+        allocate_selectors(circuit);
+        allocate_table_lookup_polynomials(circuit);
+        allocate_lagrange_polynomials();
 
-            if constexpr (IsMegaFlavor<Flavor>) {
-                allocate_ecc_op_polynomials(circuit);
-            }
-            if constexpr (HasDataBus<Flavor>) {
-                allocate_databus_polynomials(circuit);
-            }
-
-            // Set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
-            polynomials.set_shifted();
+        if constexpr (IsMegaFlavor<Flavor>) {
+            allocate_ecc_op_polynomials(circuit);
         }
+        if constexpr (HasDataBus<Flavor>) {
+            allocate_databus_polynomials(circuit);
+        }
+
+        polynomials.set_shifted();
     }
 
     // Construct and add to proving key the wire, selector and copy constraint polynomials
@@ -352,116 +348,6 @@ template <typename Flavor> void ProverInstance_<Flavor>::populate_memory_records
     for (auto& index : circuit.memory_write_records) {
         memory_write_records.emplace_back(index + ram_rom_offset);
     }
-}
-
-/**
- * @brief Allocate interleaved group buffers for BS > 1 flavors.
- * @details Computes per-entity (start_index, end_index) from circuit metadata,
- *          then delegates to ProverPolynomials::allocate_interleaved_groups.
- *          Replaces the per-entity allocate_* methods for interleaved flavors.
- */
-template <typename Flavor>
-void ProverInstance_<Flavor>::allocate_interleaved_polynomial_groups(const Circuit& circuit)
-    requires(Flavor::INTERLEAVING_BATCH_SIZE > 1)
-{
-    constexpr size_t BS = Flavor::INTERLEAVING_BATCH_SIZE;
-    using EntityExtent = typename ProverPolynomials::EntityExtent;
-
-    const size_t n = dyadic_size();
-    const size_t active = trace_active_range_size();
-    const size_t wire_size = Flavor::HasZK ? n : active;
-    const size_t z_perm_size = wire_size; // same rule as wires
-
-    const size_t tables_size = circuit.get_tables_size();
-    const size_t counts_and_tags_size = Flavor::HasZK ? n : tables_size;
-    const size_t lookup_block_end = circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.size();
-    const size_t lookup_inverses_end = std::max(lookup_block_end, tables_size);
-    const size_t lookup_inverses_size = Flavor::HasZK ? n : lookup_inverses_end;
-
-    std::unordered_map<const Polynomial*, EntityExtent> ext;
-    auto set = [&](const Polynomial& p, size_t start, size_t end) { ext[&p] = { start, end }; };
-
-    // Wires (shiftable: start=1)
-    set(polynomials.w_l, 1, wire_size);
-    set(polynomials.w_r, 1, wire_size);
-    set(polynomials.w_o, 1, wire_size);
-    set(polynomials.w_4, 1, wire_size);
-
-    // Permutation argument (shiftable: start=1)
-    set(polynomials.sigma_1, 1, active);
-    set(polynomials.sigma_2, 1, active);
-    set(polynomials.sigma_3, 1, active);
-    set(polynomials.sigma_4, 1, active);
-    set(polynomials.id_1, 1, active);
-    set(polynomials.id_2, 1, active);
-    set(polynomials.id_3, 1, active);
-    set(polynomials.id_4, 1, active);
-    set(polynomials.z_perm, 1, z_perm_size);
-
-    // Non-gate selectors
-    for (auto& sel : polynomials.get_non_gate_selectors()) {
-        set(sel, 0, active);
-    }
-
-    // Gate selectors (block-specific offsets and sizes)
-    for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
-        set(selector, block.trace_offset(), block.trace_offset() + block.size());
-    }
-
-    // Tables
-    for (auto& table_poly : polynomials.get_tables()) {
-        set(table_poly, 0, tables_size);
-    }
-
-    // Lookup
-    set(polynomials.lookup_read_counts, 0, counts_and_tags_size);
-    set(polynomials.lookup_read_tags, 0, counts_and_tags_size);
-    set(polynomials.lookup_inverses, 0, lookup_inverses_size);
-
-    // Lagrange
-    set(polynomials.lagrange_first, 0, 1);
-    set(polynomials.lagrange_last, final_active_wire_idx, final_active_wire_idx + 1);
-
-    if constexpr (IsMegaFlavor<Flavor>) {
-        const size_t ecc_op_block_size = circuit.blocks.ecc_op.size();
-        for (auto& wire : polynomials.get_ecc_op_wires()) {
-            set(wire, 0, ecc_op_block_size);
-        }
-        set(polynomials.lagrange_ecc_op, 0, ecc_op_block_size);
-    }
-
-    if constexpr (HasDataBus<Flavor>) {
-        const size_t calldata_size = circuit.get_calldata().size();
-        const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
-        const size_t return_data_size = circuit.get_return_data().size();
-        const size_t calldata_poly_size = Flavor::HasZK ? n : calldata_size;
-        const size_t sec_calldata_poly_size = Flavor::HasZK ? n : sec_calldata_size;
-        const size_t return_data_poly_size = Flavor::HasZK ? n : return_data_size;
-        const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
-
-        set(polynomials.calldata, 0, calldata_poly_size);
-        set(polynomials.calldata_read_counts, 0, calldata_poly_size);
-        set(polynomials.calldata_read_tags, 0, calldata_poly_size);
-        set(polynomials.secondary_calldata, 0, sec_calldata_poly_size);
-        set(polynomials.secondary_calldata_read_counts, 0, sec_calldata_poly_size);
-        set(polynomials.secondary_calldata_read_tags, 0, sec_calldata_poly_size);
-        set(polynomials.return_data, 0, return_data_poly_size);
-        set(polynomials.return_data_read_counts, 0, return_data_poly_size);
-        set(polynomials.return_data_read_tags, 0, return_data_poly_size);
-
-        set(polynomials.calldata_inverses, 0, Flavor::HasZK ? n : std::max(calldata_size, q_busread_end));
-        set(polynomials.secondary_calldata_inverses, 0, Flavor::HasZK ? n : std::max(sec_calldata_size, q_busread_end));
-        set(polynomials.return_data_inverses, 0, Flavor::HasZK ? n : std::max(return_data_size, q_busread_end));
-
-        const size_t max_databus_column_size =
-            std::max({ calldata_size, sec_calldata_size, return_data_size, size_t{ 2 } });
-        set(polynomials.databus_id, 0, max_databus_column_size);
-    }
-
-    polynomials.template allocate_interleaved_groups<BS, GroupAccessors_<BS>>(
-        n, Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS, ext);
-
-    polynomials.set_shifted();
 }
 
 template class ProverInstance_<UltraFlavor>;

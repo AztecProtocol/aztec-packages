@@ -328,9 +328,12 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
         mega_zk_inst->masking_tail_data.add_tails_to_batcher(mega_zk_inst->polynomials, polynomial_batcher);
     }
 
+    const auto rho = transcript->template get_challenge<typename Curve::ScalarField>("rho");
+
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(joint_circuit_size,
                                        polynomial_batcher,
+                                       rho,
                                        joint_challenge,
                                        ck,
                                        transcript,

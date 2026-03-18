@@ -257,8 +257,12 @@ TEST_F(IPATest, ShpleminiIPAWithoutShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(n,
+                                                     mock_claims.polynomial_batcher,
+                                                     prover_transcript->template get_challenge<Fr>("rho"),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
@@ -297,8 +301,12 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(n,
+                                                     mock_claims.polynomial_batcher,
+                                                     prover_transcript->template get_challenge<Fr>("rho"),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
@@ -338,8 +346,12 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(n,
+                                                     mock_claims.polynomial_batcher,
+                                                     prover_transcript->template get_challenge<Fr>("rho"),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);

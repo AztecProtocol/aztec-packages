@@ -190,8 +190,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(n,
+                                                     mock_claims.polynomial_batcher,
+                                                     prover_transcript->template get_challenge<Fr>("rho"),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -243,8 +247,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(n,
+                                                     mock_claims.polynomial_batcher,
+                                                     prover_transcript->template get_challenge<Fr>("rho"),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -299,8 +307,12 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(n,
+                                                     mock_claims.polynomial_batcher,
+                                                     prover_transcript->template get_challenge<Fr>("rho"),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)

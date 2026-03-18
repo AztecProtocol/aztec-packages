@@ -236,34 +236,57 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 };
 
 /**
- * @brief Commit to the group buffer containing the representative entity and send to verifier.
- * @details Looks up the group buffer via backing memory. For ZK, also builds the interleaved
- *          group tail from entity tails (using Flavor::get_unshifted_groups on the tails).
+ * @brief Build an interleaved group polynomial on-the-fly, commit, and send to verifier.
+ * @details Finds the group containing the representative entity via GroupAccessors, builds a
+ *          temporary interleaved buffer, commits it, and discards. For ZK, also commits the
+ *          interleaved group tail. No persistent group buffers are stored.
  */
 template <typename Flavor>
-void OinkProver<Flavor>::commit_group(const Polynomial& representative_entity, const std::string& label)
+void OinkProver<Flavor>::commit_group([[maybe_unused]] const Polynomial& representative_entity,
+                                      [[maybe_unused]] const std::string& label)
 {
-    const auto& group_buffer = prover_instance->polynomials.group_buffer_for(representative_entity);
-    Commitment commitment = commitment_key.commit(group_buffer);
+    if constexpr (BATCH_SIZE <= 1) {
+        return;
+    } else {
+        using ProverPolynomials = typename Flavor::ProverPolynomials;
 
-    if constexpr (Flavor::HasZK) {
-        if (prover_instance->masking_tail_data.is_active()) {
-            auto tail_groups = Flavor::get_unshifted_groups(prover_instance->masking_tail_data.tails);
-            auto& buffers = prover_instance->polynomials.group_buffers_;
-            for (size_t g = 0; g < buffers.size(); g++) {
-                if (buffers[g].backing_memory().raw_data == group_buffer.backing_memory().raw_data) {
-                    auto group_tail = prover_instance->masking_tail_data.interleave_tail_group(
-                        tail_groups[g], group_buffer.virtual_size());
-                    if (!group_tail.is_empty()) {
-                        commitment = commitment + commitment_key.commit(group_tail);
-                    }
+        auto groups = Flavor::get_unshifted_groups(prover_instance->polynomials);
+        const size_t num_groups = groups.size();
+        const size_t shiftable_start = num_groups - Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+        const size_t vsize = prover_instance->dyadic_size();
+
+        for (size_t g = 0; g < num_groups; g++) {
+            bool found = false;
+            for (size_t j = 0; j < groups[g].size(); j++) {
+                if (groups[g][j] == &representative_entity) {
+                    found = true;
                     break;
                 }
             }
-        }
-    }
+            if (!found) {
+                continue;
+            }
 
-    transcript->send_to_verifier(label, commitment);
+            auto group_poly =
+                ProverPolynomials::build_interleaved_polynomial(groups[g], vsize, BATCH_SIZE, g >= shiftable_start);
+            Commitment commitment = commitment_key.commit(group_poly);
+
+            if constexpr (Flavor::HasZK) {
+                if (prover_instance->masking_tail_data.is_active()) {
+                    auto tail_groups = Flavor::get_unshifted_groups(prover_instance->masking_tail_data.tails);
+                    auto group_tail = prover_instance->masking_tail_data.interleave_tail_group(
+                        tail_groups[g], group_poly.virtual_size());
+                    if (!group_tail.is_empty()) {
+                        commitment = commitment + commitment_key.commit(group_tail);
+                    }
+                }
+            }
+
+            transcript->send_to_verifier(label, commitment);
+            return;
+        }
+        throw_or_abort("Representative entity not found in any group");
+    }
 }
 
 /**

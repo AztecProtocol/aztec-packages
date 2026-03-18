@@ -88,7 +88,8 @@ struct MetaData {
 template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct PrecomputedData_ {
     RefArray<Polynomial, NUM_PRECOMPUTED_ENTITIES> polynomials; // polys whose commitments comprise the VK
     MetaData metadata;                                          // execution trace metadata
-    std::span<Polynomial> precomputed_group_buffers;            // interleaved group buffers (empty for BS=1)
+    // For BS>1: precomputed entity pointers grouped by interleaved group (for commit_interleaved)
+    std::vector<std::vector<Polynomial const*>> precomputed_groups;
 };
 
 // ===== Fixed verification keys (ECCVM, Translator, AVM) =====
@@ -204,12 +205,17 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
                 commitment = commitment_key.commit(polynomial);
             }
         } else {
-            // Interleaved storage: group buffers ARE the interleaved polynomials — commit directly
-            BB_ASSERT(!precomputed.precomputed_group_buffers.empty(),
-                      "BS>1 requires precomputed group buffers for VK commitment");
+            // Commit interleaved precomputed groups using commit_interleaved (no full buffer needed)
+            using Fr = typename Codec::DataType;
             CommitmentKey commitment_key{ precomputed.metadata.dyadic_size * InterleavingBatchSize };
-            for (auto [group_buffer, commitment] : zip_view(precomputed.precomputed_group_buffers, this->get_all())) {
-                commitment = commitment_key.commit(group_buffer);
+            for (auto [group, commitment] : zip_view(precomputed.precomputed_groups, this->get_all())) {
+                std::vector<PolynomialSpan<const Fr>> spans;
+                for (const auto* ptr : group) {
+                    if (ptr != nullptr) {
+                        spans.push_back(*ptr);
+                    }
+                }
+                commitment = commitment_key.template commit_interleaved<InterleavingBatchSize>(spans);
             }
         }
     }

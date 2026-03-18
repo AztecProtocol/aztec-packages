@@ -195,9 +195,12 @@ void ECCVMProver::execute_pcs_rounds()
         key->masking_tail_data.add_tails_to_batcher(key->polynomials, polynomial_batcher);
     }
 
+    const auto rho = transcript->template get_challenge<typename Curve::ScalarField>("rho");
+
     OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
                          polynomial_batcher,
+                         rho,
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,

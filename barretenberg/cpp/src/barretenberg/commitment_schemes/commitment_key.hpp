@@ -165,6 +165,36 @@ template <class Curve> class CommitmentKey {
     };
 
     CommitBatch start_batch() { return CommitBatch{ this, {}, {} }; }
+
+    /**
+     * @brief Commit to an interleaved group of polynomials without materializing the full buffer.
+     * @details Computes [F] where F(X) = Σⱼ fⱼ(X^{batch_size}) · X^j for j=0..batch_size-1.
+     *          If fewer than BATCH_SIZE chunks are provided, missing slots are zero.
+     * @param chunks Span of polynomial spans representing the group members
+     */
+    template <size_t BATCH_SIZE> Commitment commit_interleaved(std::span<const PolynomialSpan<const Fr>> chunks) const
+    {
+        if (chunks.size() > BATCH_SIZE) {
+            throw_or_abort("commit_interleaved: chunks.size() must be <= BATCH_SIZE");
+        }
+        std::span<const Commitment> point_table = get_monomial_points();
+
+        size_t n = 0;
+        for (const auto& chunk : chunks) {
+            n = std::max(n, chunk.end_index());
+        }
+        const size_t total_size = n * BATCH_SIZE;
+
+        if (total_size > get_monomial_size()) {
+            throw_or_abort(format("Attempting to commit to interleaved polynomial that needs ",
+                                  total_size,
+                                  " points with an SRS of size ",
+                                  get_monomial_size()));
+        }
+
+        return scalar_multiplication::pippenger_interleaved<Curve>(
+            chunks, std::span<const Commitment>{ point_table.data(), total_size }, BATCH_SIZE);
+    }
 };
 
 } // namespace bb

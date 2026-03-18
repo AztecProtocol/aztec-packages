@@ -21,9 +21,11 @@ HonkProof HypernovaDeciderProver::construct_proof(Accumulator& accumulator)
     polynomial_batcher.set_unshifted(RefVector(accumulator.non_shifted_polynomial));
     polynomial_batcher.set_to_be_shifted(RefVector(accumulator.shifted_polynomial));
 
+    const auto rho = transcript->template get_challenge<typename Curve::ScalarField>("rho");
+
     OpeningClaim prover_opening_claim;
     prover_opening_claim =
-        ShpleminiProver::prove(dyadic_size, polynomial_batcher, accumulator.challenge, ck, transcript);
+        ShpleminiProver::prove(dyadic_size, polynomial_batcher, rho, accumulator.challenge, ck, transcript);
 
     vinfo("HypernovaFoldingDecider: executed multivariate-to-univariate reduction");
 

@@ -303,8 +303,10 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     small_subgroup_ipa_prover.prove();
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
+    const auto rho = prover_transcript->template get_challenge<Fr>("rho");
     const auto opening_claim = ShpleminiProver::prove(this->n,
                                                       mock_claims.polynomial_batcher,
+                                                      rho,
                                                       mle_opening_point,
                                                       ck,
                                                       prover_transcript,
@@ -409,8 +411,10 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     small_subgroup_ipa_prover.prove();
 
     // Reduce proving to a single claimed fed to KZG or IPA
+    const auto rho = prover_transcript->template get_challenge<Fr>("rho");
     const auto opening_claim = ShpleminiProver::prove(this->n,
                                                       mock_claims.polynomial_batcher,
+                                                      rho,
                                                       challenge,
                                                       ck,
                                                       prover_transcript,
@@ -515,8 +519,12 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
     auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run Shplemini prover
-    const auto opening_claim =
-        ShpleminiProver::prove(this->n, mock_claims.polynomial_batcher, u, ck, prover_transcript);
+    const auto opening_claim = ShpleminiProver::prove(this->n,
+                                                      mock_claims.polynomial_batcher,
+                                                      prover_transcript->template get_challenge<Fr>("rho"),
+                                                      u,
+                                                      ck,
+                                                      prover_transcript);
 
     // Run KZG/IPA prover
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
@@ -582,7 +590,9 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
     auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
     // Run Shplemini prover
-    const auto opening_claim = ShpleminiProver::prove(big_n, mock_claims.polynomial_batcher, u, ck, prover_transcript);
+    const auto rho = prover_transcript->template get_challenge<Fr>("rho");
+    const auto opening_claim =
+        ShpleminiProver::prove(big_n, mock_claims.polynomial_batcher, rho, u, ck, prover_transcript);
 
     // Run KZG/IPA prover
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
@@ -665,8 +675,10 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
     small_subgroup_ipa_prover.prove();
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
+    const auto rho = prover_transcript->template get_challenge<Fr>("rho");
     const auto opening_claim = ShpleminiProver::prove(this->n,
                                                       mock_claims.polynomial_batcher,
+                                                      rho,
                                                       mle_opening_point,
                                                       ck,
                                                       prover_transcript,
@@ -762,8 +774,9 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
         witness_polynomials[static_cast<size_t>(tamper_polynomial)].at(0) += Fr::random_element();
     }
 
+    const auto rho = prover_transcript->template get_challenge<Fr>("rho");
     const auto opening_claim = ShpleminiProver::prove(
-        test->n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript, witness_polynomials);
+        test->n, mock_claims.polynomial_batcher, rho, mle_opening_point, ck, prover_transcript, witness_polynomials);
 
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         ShpleminiTest<TypeParam>::IPA::compute_opening_proof(test->ck(), opening_claim, prover_transcript);
@@ -986,8 +999,9 @@ TEST_F(ShpleminiKZGTest, InterleavedOpenings)
     batcher.set_unshifted(RefVector<Polynomial>{ P_unshiftable, P_shiftable });
     batcher.set_to_be_shifted(RefVector<Polynomial>{ shiftable_for_batcher });
 
+    auto rho = prover_transcript->template get_challenge<Fr>("rho");
     OpeningClaim claim =
-        ShpleminiProver_<curve::BN254>::prove(interleaved_size, batcher, full_challenge, ck, prover_transcript);
+        ShpleminiProver_<curve::BN254>::prove(interleaved_size, batcher, rho, full_challenge, ck, prover_transcript);
     KZG<curve::BN254>::compute_opening_proof(ck, claim, prover_transcript);
 
     // --- Verifier ---
@@ -1114,8 +1128,9 @@ TEST_F(ShpleminiKZGTest, InterleavedOpeningsWithGroupBuffers)
     batcher.set_unshifted(RefVector<Polynomial>{ unshiftable_buf, shiftable_buf });
     batcher.set_to_be_shifted(RefVector<Polynomial>{ shiftable_buf });
 
+    auto rho = prover_transcript->template get_challenge<Fr>("rho");
     OpeningClaim claim =
-        ShpleminiProver_<curve::BN254>::prove(interleaved_size, batcher, full_challenge, ck, prover_transcript);
+        ShpleminiProver_<curve::BN254>::prove(interleaved_size, batcher, rho, full_challenge, ck, prover_transcript);
     KZG<curve::BN254>::compute_opening_proof(ck, claim, prover_transcript);
 
     // --- Verifier ---

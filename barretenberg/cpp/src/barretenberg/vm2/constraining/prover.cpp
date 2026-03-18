@@ -252,8 +252,10 @@ void AvmProver::execute_pcs_rounds()
     polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
     polynomial_batcher.set_to_be_shifted(RefVector{ batched_shifted });
 
+    const auto rho = transcript->template get_challenge<FF>("rho");
+
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        circuit_dyadic_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+        circuit_dyadic_size, polynomial_batcher, rho, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }

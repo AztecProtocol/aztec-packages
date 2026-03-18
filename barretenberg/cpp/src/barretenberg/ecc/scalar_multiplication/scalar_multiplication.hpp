@@ -364,6 +364,19 @@ template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points) noexcept;
 
+/**
+ * @brief MSM for interleaved polynomial groups without materializing the interleaved buffer.
+ * @details Computes [F] where F(X) = Σⱼ fⱼ(X^{batch_size}) · X^j. Builds the interleaved scalar
+ *          array from individual chunk spans and delegates to standard MSM.
+ * @param chunks Individual polynomial spans (one per group member, can be < batch_size)
+ * @param points SRS points (size must be >= max_end_index * batch_size)
+ * @param batch_size Interleaving width
+ */
+template <typename Curve>
+typename Curve::Element pippenger_interleaved(std::span<const PolynomialSpan<const typename Curve::ScalarField>> chunks,
+                                              std::span<const typename Curve::AffineElement> points,
+                                              size_t batch_size) noexcept;
+
 extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
 

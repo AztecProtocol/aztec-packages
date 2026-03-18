@@ -191,9 +191,12 @@ void TranslatorProver::execute_pcs_rounds()
     // Shifted for PCS (base to-be-shifted + concatenated)
     polynomial_batcher.set_to_be_shifted(key->proving_key->polynomials.get_pcs_to_be_shifted());
 
+    const auto rho = transcript->template get_challenge<typename Curve::ScalarField>("rho");
+
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
                                        polynomial_batcher,
+                                       rho,
                                        sumcheck_output.challenge,
                                        ck,
                                        transcript,

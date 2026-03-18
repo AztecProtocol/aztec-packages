@@ -153,8 +153,9 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             mock_claims.polynomial_batcher.to_be_shifted = RefVector{ squashed_shifted };
         }
 
-        auto prover_opening_claims =
-            ShpleminiProver::prove(N, mock_claims.polynomial_batcher, u_challenge, commitment_key, prover_transcript);
+        auto rho = prover_transcript->template get_challenge<NativeFr>("rho");
+        auto prover_opening_claims = ShpleminiProver::prove(
+            N, mock_claims.polynomial_batcher, rho, u_challenge, commitment_key, prover_transcript);
 
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
 

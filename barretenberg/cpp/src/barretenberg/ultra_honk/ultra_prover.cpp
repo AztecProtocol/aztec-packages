@@ -14,42 +14,6 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
-/**
- * @brief Prepare polynomial data for PCS and configure the batcher.
- * @details For BS>1, shares the interleaved group buffers (they ARE the PCS polynomials).
- *          For BS=1, shares individual polynomials. The caller's ProverPolynomials must outlive
- *          the returned result (shared polynomial backing memory is referenced by the batcher).
- */
-template <typename Flavor>
-static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials& polynomials, size_t pcs_size)
-{
-    using Polynomial = typename Flavor::Polynomial;
-    using PolynomialBatcher = typename GeminiProver_<typename Flavor::Curve>::PolynomialBatcher;
-    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
-
-    struct Result {
-        std::vector<Polynomial> unshifted_storage;
-        std::vector<Polynomial> shifted_storage;
-        PolynomialBatcher batcher;
-    };
-
-    Result result{ {}, {}, PolynomialBatcher(pcs_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE) };
-
-    constexpr size_t num_shiftable = []() {
-        if constexpr (BATCH_SIZE > 1) {
-            return Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
-        } else {
-            return size_t{ 0 };
-        }
-    }();
-    std::tie(result.unshifted_storage, result.shifted_storage) = polynomials.get_pcs_polynomials(num_shiftable);
-
-    result.batcher.set_unshifted(RefVector<Polynomial>(result.unshifted_storage));
-    result.batcher.set_to_be_shifted(RefVector<Polynomial>(result.shifted_storage));
-
-    return result;
-}
-
 template <typename Flavor>
 UltraProver_<Flavor>::UltraProver_(std::shared_ptr<ProverInstance> prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
@@ -184,22 +148,121 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
         libra_witness_polys = small_subgroup_ipa_prover.get_witness_polynomials();
     }
 
-    auto pcs_data = build_pcs_polynomial_batcher<Flavor>(prover_instance->polynomials, pcs_size);
-
-    // For ZK: build interleaved group tails from entity tails and register with the PCS batcher.
-    if constexpr (Flavor::HasZK) {
-        if (prover_instance->masking_tail_data.is_active()) {
-            prover_instance->masking_tail_data.add_tails_to_batcher(pcs_data.batcher, pcs_size);
-        }
-    }
+    // Get the batching challenge ρ
+    const FF rho = transcript->template get_challenge<FF>("rho");
 
     OpeningClaim prover_opening_claim;
-    if constexpr (Flavor::HasZK) {
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            pcs_size, pcs_data.batcher, full_challenge, ck, transcript, libra_witness_polys);
-    } else {
+    if constexpr (BATCH_SIZE > 1) {
+        // Pre-batch interleaved groups into F and G using rho, freeing entity memory.
+        // Each group's interleaved buffer is built, accumulated, and discarded one at a time.
+        using GeminiProver = GeminiProver_<Curve>;
+        using ProverPolynomials = typename Flavor::ProverPolynomials;
+        constexpr size_t NUM_SHIFTABLE = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+
+        Polynomial batched_unshifted(pcs_size);
+        Polynomial batched_to_be_shifted = Polynomial::shiftable(pcs_size, pcs_size, BATCH_SIZE);
+        {
+            auto polys = std::move(prover_instance->polynomials);
+            auto unshifted_groups = Flavor::get_unshifted_groups_mut(polys);
+            auto shifted_groups = Flavor::get_to_be_shifted_groups(polys);
+            const size_t num_groups = unshifted_groups.size();
+            const size_t shiftable_start = num_groups - NUM_SHIFTABLE;
+
+            // Shifted groups first (they share polys with last unshifted groups — must read before freeing)
+            FF rho_shifted = rho.pow(num_groups); // shifted powers start after all unshifted
+            for (size_t g = 0; g < shifted_groups.size(); g++) {
+                auto buf = ProverPolynomials::build_interleaved_polynomial(shifted_groups[g], n, BATCH_SIZE, true);
+                batched_to_be_shifted.add_scaled(buf, rho_shifted);
+                rho_shifted *= rho;
+            }
+
+            // Unshifted groups with greedy freeing
+            FF rho_power(1);
+            for (size_t g = 0; g < num_groups; g++) {
+                auto buf = ProverPolynomials::build_interleaved_polynomial(
+                    unshifted_groups[g], n, BATCH_SIZE, g >= shiftable_start);
+                batched_unshifted.add_scaled(buf, rho_power);
+                rho_power *= rho;
+                // Free consumed entity polynomials
+                for (auto* ptr : unshifted_groups[g]) {
+                    if (ptr != nullptr) {
+                        *ptr = Polynomial();
+                    }
+                }
+            }
+        } // prover_instance->polynomials (moved-from) freed here
+
+        // ZK: accumulate interleaved masking tails into the batched polynomials
+        if constexpr (Flavor::HasZK) {
+            if (prover_instance->masking_tail_data.is_active()) {
+                auto unshifted_groups = Flavor::get_unshifted_groups(prover_instance->masking_tail_data.tails);
+                prover_instance->masking_tail_data.accumulate_interleaved_tails(
+                    batched_unshifted, batched_to_be_shifted, rho, unshifted_groups.size(), pcs_size);
+            }
+        }
+        vinfo("pre-batched interleaved groups");
+
+        // Manual Gemini: fold, commit, partial evaluate, construct claims
+        const size_t log_n = numeric::get_msb(pcs_size);
+        const size_t virtual_log_n = full_challenge.size();
+
+        Polynomial A_0(pcs_size);
+        A_0 += batched_unshifted;
+        A_0 += batched_to_be_shifted.shifted(BATCH_SIZE);
+
+        auto fold_polynomials = GeminiProver::compute_fold_polynomials(log_n, full_challenge, A_0, Flavor::HasZK);
+        A_0 = {}; // free A₀ before committing folds
+
+        for (size_t l = 0; l < virtual_log_n - 1; l++) {
+            transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1), ck.commit(fold_polynomials[l]));
+        }
+        const FF r_challenge = transcript->template get_challenge<FF>("Gemini:r");
+
+        // Partial evaluation: A₀₊ = F + G/r^k, A₀₋ = F ± G/r^k
+        FF r_inv_k = r_challenge.pow(BATCH_SIZE).invert();
+        batched_to_be_shifted *= r_inv_k;
+        Polynomial A_0_pos = batched_unshifted;
+        A_0_pos += batched_to_be_shifted; // A₀₊ = F + G/r^k
+        // For even k: (-r)^k = r^k, so A₀₋ = A₀₊
+        Polynomial A_0_neg = A_0_pos;
+
+        auto opening_claims = GeminiProver::construct_univariate_opening_claims(
+            virtual_log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
+
+        for (size_t l = 1; l <= virtual_log_n; l++) {
+            transcript->send_to_verifier("Gemini:a_" + std::to_string(l), opening_claims[l].opening_pair.evaluation);
+        }
+
+        // ZK: compute Libra opening claims at gemini_r
+        std::vector<OpeningClaim> libra_opening_claims;
+        if constexpr (Flavor::HasZK) {
+            const FF gemini_r = opening_claims[0].opening_pair.challenge;
+            libra_opening_claims =
+                ShpleminiProver_<Curve>::compute_libra_opening_claims(gemini_r, libra_witness_polys, transcript);
+        }
+
         prover_opening_claim =
-            ShpleminiProver_<Curve>::prove(pcs_size, pcs_data.batcher, full_challenge, ck, transcript);
+            ShplonkProver_<Curve>::prove(ck, opening_claims, transcript, libra_opening_claims, {}, virtual_log_n);
+    } else {
+        // BS=1: standard flow through PolynomialBatcher + Shplemini
+        using PolynomialBatcher = typename GeminiProver_<Curve>::PolynomialBatcher;
+        PolynomialBatcher batcher(pcs_size);
+        batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
+        batcher.set_to_be_shifted(prover_instance->polynomials.get_to_be_shifted());
+
+        if constexpr (Flavor::HasZK) {
+            if (prover_instance->masking_tail_data.is_active()) {
+                prover_instance->masking_tail_data.add_tails_to_batcher(prover_instance->polynomials, batcher);
+            }
+        }
+
+        if constexpr (Flavor::HasZK) {
+            prover_opening_claim = ShpleminiProver_<Curve>::prove(
+                pcs_size, batcher, rho, full_challenge, ck, transcript, libra_witness_polys);
+        } else {
+            prover_opening_claim =
+                ShpleminiProver_<Curve>::prove(pcs_size, batcher, rho, full_challenge, ck, transcript);
+        }
     }
 
     vinfo("executed multivariate-to-univariate reduction");

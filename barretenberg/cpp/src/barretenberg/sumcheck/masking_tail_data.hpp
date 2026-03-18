@@ -233,6 +233,47 @@ template <typename Flavor> struct MaskingTailData {
     }
 
     /**
+     * @brief Accumulate interleaved tails into pre-batched polynomials F and G using rho powers.
+     * @details For each group, builds the interleaved tail, then adds it to batched_unshifted or
+     *          batched_to_be_shifted at the correct rho power. Used by the BS>1 manual PCS path
+     *          where PolynomialBatcher is bypassed.
+     * @param batched_unshifted The rho-weighted sum of unshifted interleaved groups (F).
+     * @param batched_to_be_shifted The rho-weighted sum of shifted interleaved groups (G).
+     * @param rho The batching challenge.
+     * @param num_unshifted_groups Total number of unshifted groups (shifted rho powers start after).
+     * @param pcs_size The interleaved polynomial size (n * BS).
+     */
+    void accumulate_interleaved_tails(Polynomial& batched_unshifted,
+                                      Polynomial& batched_to_be_shifted,
+                                      const FF& rho,
+                                      size_t num_unshifted_groups,
+                                      size_t pcs_size) const
+    {
+        if (!active) {
+            return;
+        }
+        auto unshifted_tail_groups = Flavor::get_unshifted_groups(tails);
+        FF rho_power(1);
+        for (size_t g = 0; g < unshifted_tail_groups.size(); g++) {
+            auto gt = interleave_tail_group(unshifted_tail_groups[g], pcs_size);
+            if (!gt.is_empty()) {
+                batched_unshifted.add_scaled(gt, rho_power);
+            }
+            rho_power *= rho;
+        }
+
+        auto shifted_tail_groups = Flavor::get_to_be_shifted_groups(tails);
+        FF rho_shifted = rho.pow(num_unshifted_groups);
+        for (size_t g = 0; g < shifted_tail_groups.size(); g++) {
+            auto gt = interleave_tail_group(shifted_tail_groups[g], pcs_size);
+            if (!gt.is_empty()) {
+                batched_to_be_shifted.add_scaled(gt, rho_shifted);
+            }
+            rho_shifted *= rho;
+        }
+    }
+
+    /**
      * @brief Register tail polynomials with the PCS batcher (pointer-matching path).
      * @details Finds batcher indices by comparing polynomial data pointers. Used by ECCVM and
      *          batched translator where the batcher holds flat concatenated polynomial references.
