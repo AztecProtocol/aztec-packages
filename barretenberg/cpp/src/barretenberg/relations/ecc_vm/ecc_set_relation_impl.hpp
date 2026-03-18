@@ -342,14 +342,12 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         point_table_init_read =
             precompute_point_transition * (point_table_init_read + gamma) + (-precompute_point_transition + 1);
 
-        numerator *= point_table_init_read; // degree-9
+        numerator *= point_table_init_read; // degree-13 (cumulative: 11 + 2)
     }
     /**
      * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
-     * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
      *        (P.x, P.y) is the output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the same values (P.x, P.y) are present in the Transcript columns and describe a
-     *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *
      *        If `msm_transition_shift == 1`, this indicates the current row is the last row of a multiscalar
@@ -388,7 +386,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
 
         // msm_result_write = degree 2
         msm_result_write = msm_transition_shift * (msm_result_write + gamma) + (-msm_transition_shift + 1);
-        numerator *= msm_result_write; // degree-11
+        numerator *= msm_result_write; // degree-16 (cumulative: 13 + 3; msm_transition_shift is degree 2)
     }
     return numerator;
 }
@@ -399,8 +397,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 {
     using View = typename Accumulator::View;
 
-    // OPTIMIZE(@zac-williamson). The degree of the denominator is 28, making overall relation degree ~29.
-    // Can potentially optimize by refining the algebra.
+    // OPTIMIZE(@zac-williamson). The degree of the denominator is 26, making overall relation degree 27
+    // (partial length upper bound = 29). Can potentially optimize by refining the algebra.
     const auto& gamma = params.gamma;
     const auto& beta = params.beta;
     const auto& beta_sqr = params.beta_sqr;
@@ -518,7 +516,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         auto transcript_input1 = transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube +
                                  second_term_tag; // degree = 1
         auto transcript_input2 = (transcript_pc - lookup_first) + transcript_Px * cube_root_unity * beta -
-                                 transcript_Py * beta_sqr + z2 * beta_cube + second_term_tag; // degree = 2
+                                 transcript_Py * beta_sqr + z2 * beta_cube + second_term_tag; // degree = 1
 
         // The following diagram expresses a fingerprint of part of the tuple. It does not include `transcript_pc` and
         // has not weighted the X and Y with beta and beta_sqr respectively. The point is nonetheless to show exactly
@@ -537,14 +535,14 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         // | 1     | 1       | 0       |             1 | 1                           |
         // | 1     | 1       | 1       |             1 | 1                           |
         transcript_input1 = (transcript_input1 + gamma) * lookup_first + (-lookup_first + 1);   // degree 2
-        transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1); // degree 3
+        transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1); // degree 2
 
-        // transcript_product = degree 6
+        // transcript_product = degree 5 (deg2 * deg2 * deg1 + deg0)
         auto transcript_product = (transcript_input1 * transcript_input2) * (-base_infinity + 1) + base_infinity;
 
-        // point_table_init_write = degree 7
+        // point_table_init_write = degree 6 (deg1 * deg5 + deg1)
         auto point_table_init_write = transcript_mul * transcript_product + (-transcript_mul + 1);
-        denominator *= point_table_init_write; // degree-25
+        denominator *= point_table_init_write; // degree-22 (cumulative: 16 + 6)
     }
     /**
      * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
@@ -554,12 +552,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
      *        `transcript_pc` and has size `transcript_msm_count`.
      * @note  In the case of an honest prover, `(transcript_msm_output_x, transcript_msm_output_y)` is the value of the
      *        just-completed MSM + `OFFSET` (as this is what the MSM table computes with to avoid branch logic.)
-     *
-     *        in `transcript_msm_output_x, transcript_msm_output_y`, for a given multi-scalar multiplication starting at
-     *        `transcript_pc` and has size `transcript_msm_count`.
-     * @note  In the case of an honest prover, `(transcript_msm_output_x, transcript_msm_output_y)` is the value of the
-     *        just-completed MSM + `OFFSET` (as this is what the MSM table computes with to avoid branch logic.)
-     *
      */
     {
         const auto& transcript_pc_shift = View(in.transcript_pc_shift);
@@ -575,11 +567,12 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         // do not add to count if point at infinity!
         auto full_msm_count =
             transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1)) * (-base_infinity + 1);
-        // msm_result_read = degree 2
+        // msm_result_read = degree 3 (dominated by full_msm_count which is degree 3)
         auto msm_result_read = transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr +
                                full_msm_count * beta_cube + third_term_tag;
+        // after gating by transcript_msm_transition (degree 1): degree 1 * degree 3 + degree 1 = degree 4
         msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
-        denominator *= msm_result_read; // degree-28
+        denominator *= msm_result_read; // degree-26 (cumulative: 22 + 4)
     }
     return denominator;
 }
@@ -605,10 +598,10 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     using View = typename Accumulator::View;
     using ShortView = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
 
-    // degree-15 (8 slices + skew + delta + second term + third term)
+    // numerator degree = 16 (8 slice fingerprints + skew + delta + second term + third term)
     Accumulator numerator_evaluation = compute_grand_product_numerator<Accumulator>(in, params);
 
-    // degree-27 (8 add-gated tuples + second term + third term)
+    // denominator degree = 26 (16 from 8 add-gated tuples + 6 from second term + 4 from third term)
     Accumulator denominator_evaluation = compute_grand_product_denominator<Accumulator>(in, params);
 
     const auto& lagrange_first = View(in.lagrange_first);
@@ -619,7 +612,7 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& z_perm_shift = View(in.z_perm_shift);
     const auto& z_perm_shift_short = ShortView(in.z_perm_shift);
 
-    // degree-28
+    // full expression degree = max(1+16, 1+26) = 27; partial length upper bound = 29
     std::get<0>(accumulator) +=
         ((z_perm + lagrange_first) * numerator_evaluation - (z_perm_shift + lagrange_last) * denominator_evaluation) *
         scaling_factor;
