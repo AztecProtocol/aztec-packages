@@ -48,9 +48,8 @@ import { computeAppNullifierHidingKey, deriveKeys } from '@aztec/stdlib/keys';
 import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-<<<<<<< HEAD
-import { makeBlockHeader, makeL2Tips } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { makeBlockHeader, makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   HashedValues,
@@ -60,12 +59,7 @@ import {
   TxExecutionRequest,
   TxHash,
 } from '@aztec/stdlib/tx';
-=======
-import { makeBlockHeader, makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { BlockHeader, HashedValues, TxContext, TxExecutionRequest, TxHash } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
->>>>>>> 1c9652ad04 (feat!: include init_hash in private initialization nullifier to prevent privacy leak (#21427))
 
 import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
