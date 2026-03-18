@@ -44,11 +44,18 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
             message_context,
         );
     } else {
+<<<<<<< HEAD
         aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([message_context.tx_hash]);
+=======
+        debug_log_format(
+            "Could not decrypt message ciphertext from tx {0}, ignoring",
+            [message_context.tx_hash],
+        );
+>>>>>>> 79e063f101 (feat!: make unused msg disco fns private (#20831))
     }
 }
 
-pub unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
+pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
