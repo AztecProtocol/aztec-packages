@@ -55,11 +55,18 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Assign each singleton a unique "virtual CC" id (starting after real CCs)
-    size_t next_singleton_id = circuit_cc.size();
-    std::unordered_map<uint32_t, size_t> singleton_ids; // real_idx → virtual cc id
+    // Build set of constant variable indices (from put_constant_variable cache).
+    // Witnesses whose real_variable_index maps to a constant are maximally constrained.
+    std::unordered_set<uint32_t> constant_var_set;
+    for (const auto& [_, var_idx] : builder.constant_variable_indices) {
+        constant_var_set.insert(var_idx);
+    }
 
-    // Build: acir_witness → circuit_cc_id (real CC id, or virtual singleton id, or NO_CIRCUIT_CC)
+    // Assign each singleton/constant a unique "virtual CC" id (starting after real CCs)
+    size_t next_virtual_id = circuit_cc.size();
+    std::unordered_map<uint32_t, size_t> virtual_cc_ids; // real_idx → virtual cc id
+
+    // Build: acir_witness → circuit_cc_id (real CC id, or virtual id, or NO_CIRCUIT_CC)
     std::unordered_map<uint32_t, size_t> circuit_witness_map;
     for (uint32_t i = 0; i <= max_witness; i++) {
         uint32_t real_idx = builder.real_variable_index[i];
@@ -71,15 +78,24 @@ int main(int argc, char* argv[])
             continue;
         }
 
+        // Check if mapped to a constant variable (e.g., via assert_equal to zero_idx).
+        // This is maximally constrained — the witness is fixed to the constant value.
+        if (constant_var_set.contains(real_idx)) {
+            if (!virtual_cc_ids.contains(real_idx)) {
+                virtual_cc_ids[real_idx] = next_virtual_id++;
+            }
+            circuit_witness_map[i] = virtual_cc_ids[real_idx];
+            continue;
+        }
+
         // Check if it's a singleton (in a gate or range_list but not in any CC)
         bool in_gate = gate_counts.count(real_idx) && gate_counts.at(real_idx) > 0;
         bool in_range_list = range_list_vars.contains(real_idx);
         if (in_gate || in_range_list) {
-            // Assign virtual CC: witnesses with same real_idx share the same singleton
-            if (!singleton_ids.contains(real_idx)) {
-                singleton_ids[real_idx] = next_singleton_id++;
+            if (!virtual_cc_ids.contains(real_idx)) {
+                virtual_cc_ids[real_idx] = next_virtual_id++;
             }
-            circuit_witness_map[i] = singleton_ids[real_idx];
+            circuit_witness_map[i] = virtual_cc_ids[real_idx];
             continue;
         }
 
