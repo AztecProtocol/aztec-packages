@@ -17,26 +17,23 @@ namespace bb {
 /**
  * @brief Prepare polynomial data for PCS and configure the batcher.
  * @details For BS>1, shares the interleaved group buffers (they ARE the PCS polynomials).
- *          For BS=1, shares individual polynomials. Returns storage that must outlive the batcher.
+ *          For BS=1, shares individual polynomials. The caller's ProverPolynomials must outlive
+ *          the returned result (shared polynomial backing memory is referenced by the batcher).
  */
 template <typename Flavor>
-static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& polynomials, size_t pcs_size)
+static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials& polynomials, size_t pcs_size)
 {
     using Polynomial = typename Flavor::Polynomial;
     using PolynomialBatcher = typename GeminiProver_<typename Flavor::Curve>::PolynomialBatcher;
     constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
     struct Result {
-        std::unique_ptr<typename Flavor::ProverPolynomials> polynomials_storage;
         std::vector<Polynomial> unshifted_storage;
         std::vector<Polynomial> shifted_storage;
         PolynomialBatcher batcher;
     };
 
-    Result result{ std::make_unique<typename Flavor::ProverPolynomials>(std::move(polynomials)),
-                   {},
-                   {},
-                   PolynomialBatcher(pcs_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE) };
+    Result result{ {}, {}, PolynomialBatcher(pcs_size, /*actual_data_size=*/0, /*shift_exponent=*/BATCH_SIZE) };
 
     constexpr size_t num_shiftable = []() {
         if constexpr (BATCH_SIZE > 1) {
@@ -45,8 +42,7 @@ static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& po
             return size_t{ 0 };
         }
     }();
-    std::tie(result.unshifted_storage, result.shifted_storage) =
-        result.polynomials_storage->get_pcs_polynomials(num_shiftable);
+    std::tie(result.unshifted_storage, result.shifted_storage) = polynomials.get_pcs_polynomials(num_shiftable);
 
     result.batcher.set_unshifted(RefVector<Polynomial>(result.unshifted_storage));
     result.batcher.set_to_be_shifted(RefVector<Polynomial>(result.shifted_storage));
@@ -188,7 +184,7 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
         libra_witness_polys = small_subgroup_ipa_prover.get_witness_polynomials();
     }
 
-    auto pcs_data = build_pcs_polynomial_batcher<Flavor>(std::move(prover_instance->polynomials), pcs_size);
+    auto pcs_data = build_pcs_polynomial_batcher<Flavor>(prover_instance->polynomials, pcs_size);
 
     // For ZK: build interleaved group tails from entity tails and register with the PCS batcher.
     if constexpr (Flavor::HasZK) {

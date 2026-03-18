@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -243,9 +244,9 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     Verifier verifier_copy(vk_and_hash_copy);
     auto proof_copy = prover_copy.construct_proof();
 
-    auto relation_failures_copy =
-        RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
-    EXPECT_TRUE(relation_failures.empty());
+    auto relation_failures_copy = RelationChecker<Flavor>::check_all(prover_instance_copy->polynomials,
+                                                                     prover_instance_copy->relation_parameters);
+    EXPECT_TRUE(relation_failures_copy.empty());
     bool result_copy = verifier_copy.verify_proof(proof_copy).result;
     EXPECT_TRUE(result_copy);
 }
@@ -385,14 +386,19 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
  * @brief Verify that masked witness commitments differ from naive poly commits, and unmasked are equal.
  * @details For ZK flavors, MaskingTailData adds random tail values that shift masked commitments away
  * from commit(short_poly). Unmasked witness poly commitments should match exactly.
+ * Uses the oink prover/verifier round-trip to check commitments against the verifier's view.
  */
 TYPED_TEST(MegaHonkTests, MaskingTailCommitments)
 {
     using Flavor = TypeParam;
     if constexpr (!Flavor::HasZK) {
         GTEST_SKIP() << "Masking only applies to ZK flavors";
+    } else if constexpr (Flavor::INTERLEAVING_BATCH_SIZE > 1) {
+        // For BS>1, entity-level commitments are not populated (only group-level interleaved ones are).
+        GTEST_SKIP() << "Entity-level masking commitment check not applicable for interleaved flavors (BS>1)";
     } else {
         using Builder = typename Flavor::CircuitBuilder;
+        using Transcript = typename Flavor::Transcript;
         using CommitmentKey = typename Flavor::CommitmentKey;
 
         Builder builder;
@@ -400,25 +406,39 @@ TYPED_TEST(MegaHonkTests, MaskingTailCommitments)
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
         auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
 
-        // Run oink to populate commitments
-        auto transcript = std::make_shared<typename Flavor::Transcript>();
-        OinkProver<Flavor> oink(prover_instance, verification_key, transcript);
-        oink.prove();
+        // Run oink prover, then oink verifier on the same proof to get verifier-side commitments
+        OinkProver<Flavor> oink_prover(prover_instance, verification_key, std::make_shared<Transcript>());
+        oink_prover.prove();
+        HonkProof proof = oink_prover.export_proof();
+
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+        auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(vk_and_hash);
+        auto verifier_transcript = std::make_shared<Transcript>();
+        verifier_transcript->load_proof(proof);
+        OinkVerifier<Flavor> oink_verifier{ verifier_instance,
+                                            verifier_transcript,
+                                            verification_key->num_public_inputs };
+        oink_verifier.verify();
+
+        // Build unified VerifierCommitments (precomputed from VK + witness from received)
+        typename Flavor::VerifierCommitments verifier_commitments(verifier_instance->get_vk(),
+                                                                  verifier_instance->received_commitments);
 
         CommitmentKey ck(prover_instance->dyadic_size());
 
-        // Masked polys: commit(poly) should differ from stored commitment
+        // Masked polys: naive commit(poly) should differ from the verifier commitment (tails shift it)
         auto masked_polys = prover_instance->polynomials.get_masked();
-        auto masked_commitments = prover_instance->commitments.get_masked();
-        for (auto [poly, commitment] : zip_view(masked_polys, masked_commitments)) {
+        auto masked_verifier_commitments = verifier_commitments.get_masked();
+        for (auto [poly, commitment] : zip_view(masked_polys, masked_verifier_commitments)) {
             EXPECT_NE(ck.commit(poly), commitment) << "Masked commitment should differ from naive commit";
         }
 
-        // Unmasked witness polys: commit(poly) should equal stored commitment
+        // Unmasked witness polys: naive commit(poly) should equal the verifier commitment
         auto witness_polys = prover_instance->polynomials.get_witness();
-        auto witness_commitments = prover_instance->commitments.get_all();
+        auto witness_verifier_commitments = verifier_commitments.get_witness();
         auto witness_flags = prover_instance->masking_tail_data.is_masked.get_witness();
-        for (auto [poly, commitment, is_masked] : zip_view(witness_polys, witness_commitments, witness_flags)) {
+        for (auto [poly, commitment, is_masked] :
+             zip_view(witness_polys, witness_verifier_commitments, witness_flags)) {
             if (!is_masked && !commitment.is_point_at_infinity()) {
                 EXPECT_EQ(ck.commit(poly), commitment) << "Unmasked witness commitment should equal naive commit";
             }
