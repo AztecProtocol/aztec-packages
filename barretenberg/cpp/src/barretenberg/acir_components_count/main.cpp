@@ -6,6 +6,9 @@
 #include <iostream>
 #include <string>
 
+// Sentinel value for witnesses not found in any circuit component.
+static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
+
 int main(int argc, char* argv[])
 {
     if (argc < 2) {
@@ -19,46 +22,31 @@ int main(int argc, char* argv[])
     auto bytecode = get_bytecode(bytecode_path);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
 
-    // 2. Count ACIR-level connected components
+    // 2. Build ACIR-level component map: witness_index → acir_component_id
     acir_components_count::AcirGraph acir_graph;
     acir_graph.set_max_witness_index(constraint_system.max_witness_index);
     acir_graph.process_acir_constraints(constraint_system);
-    size_t acir_components = acir_graph.count_components();
+    auto acir_witness_map = acir_graph.get_witness_component_map();
 
-    // 3. Build circuit (without finalizing — finalization creates internal range-list CCs
-    // that don't correspond to ACIR-level components) and count circuit-level connected components.
+    // 3. Build circuit and find connected components
     acir_format::AcirProgram program{ .constraints = constraint_system, .witness = {} };
     auto builder = acir_format::create_circuit<bb::UltraCircuitBuilder>(program);
     cdg::UltraStaticAnalyzer analyzer(builder);
     auto circuit_cc = analyzer.find_connected_components();
 
-    // Filter circuit CCs to only those containing at least one ACIR witness variable.
+    // 4. Build circuit-level component map: acir_witness_real_index → circuit_component_id
+    //    Also handle singletons (degree-0 witnesses in gates or range_lists).
     uint32_t max_witness = constraint_system.max_witness_index;
-    std::unordered_set<uint32_t> acir_real_indices;
-    for (uint32_t i = 0; i <= max_witness; i++) {
-        acir_real_indices.insert(builder.real_variable_index[i]);
-    }
-    auto contains_acir_witness = [&acir_real_indices](const cdg::ConnectedComponent& cc) {
-        return std::any_of(cc.vars().begin(), cc.vars().end(), [&acir_real_indices](uint32_t v) {
-            return acir_real_indices.contains(v);
-        });
-    };
-    size_t circuit_components =
-        static_cast<size_t>(std::count_if(circuit_cc.begin(), circuit_cc.end(), contains_acir_witness));
 
-    // Collect ACIR witness real indices that are already in some filtered CC.
-    std::unordered_set<uint32_t> vars_in_ccs;
-    for (const auto& cc : circuit_cc) {
-        if (contains_acir_witness(cc)) {
-            for (auto v : cc.vars()) {
-                vars_in_ccs.insert(v);
-            }
+    // Map each circuit CC variable to its CC index
+    std::unordered_map<uint32_t, size_t> circuit_var_to_cc;
+    for (size_t cc_id = 0; cc_id < circuit_cc.size(); cc_id++) {
+        for (auto v : circuit_cc[cc_id].vars()) {
+            circuit_var_to_cc[v] = cc_id;
         }
     }
 
-    // Count ACIR witness variables not in any CC but still constrained — either they appear
-    // in gates (degree-0, e.g. bool gates for 1-bit range checks) or in pending range_lists
-    // (whose delta_range gates aren't created until finalize_circuit, which we skip).
+    // For singleton detection
     auto gate_counts = analyzer.get_variables_gate_counts();
     std::unordered_set<uint32_t> range_list_vars;
     for (const auto& [_, range_list] : builder.range_lists) {
@@ -66,31 +54,100 @@ int main(int argc, char* argv[])
             range_list_vars.insert(builder.real_variable_index[var_idx]);
         }
     }
+
+    // Assign each singleton a unique "virtual CC" id (starting after real CCs)
+    size_t next_singleton_id = circuit_cc.size();
+    std::unordered_map<uint32_t, size_t> singleton_ids; // real_idx → virtual cc id
+
+    // Build: acir_witness → circuit_cc_id (real CC id, or virtual singleton id, or NO_CIRCUIT_CC)
+    std::unordered_map<uint32_t, size_t> circuit_witness_map;
     for (uint32_t i = 0; i <= max_witness; i++) {
         uint32_t real_idx = builder.real_variable_index[i];
-        if (vars_in_ccs.contains(real_idx)) {
+
+        // Check if in a real CC
+        auto it = circuit_var_to_cc.find(real_idx);
+        if (it != circuit_var_to_cc.end()) {
+            circuit_witness_map[i] = it->second;
             continue;
         }
+
+        // Check if it's a singleton (in a gate or range_list but not in any CC)
         bool in_gate = gate_counts.count(real_idx) && gate_counts.at(real_idx) > 0;
         bool in_range_list = range_list_vars.contains(real_idx);
         if (in_gate || in_range_list) {
-            circuit_components++;
-            vars_in_ccs.insert(real_idx); // avoid double-counting aliased witnesses
+            // Assign virtual CC: witnesses with same real_idx share the same singleton
+            if (!singleton_ids.contains(real_idx)) {
+                singleton_ids[real_idx] = next_singleton_id++;
+            }
+            circuit_witness_map[i] = singleton_ids[real_idx];
+            continue;
+        }
+
+        circuit_witness_map[i] = NO_CIRCUIT_CC;
+    }
+
+    // 5. Structural comparison: for each ACIR component, check that all its witnesses
+    //    map to the same circuit component. Report any splits or disappearances.
+    bool has_error = false;
+
+    // Group ACIR witnesses by their ACIR component
+    std::unordered_map<size_t, std::vector<uint32_t>> acir_comp_witnesses;
+    for (const auto& [witness, acir_comp] : acir_witness_map) {
+        acir_comp_witnesses[acir_comp].push_back(witness);
+    }
+
+    for (const auto& [acir_comp, witnesses] : acir_comp_witnesses) {
+        // Find the circuit CC for each witness in this ACIR component
+        std::unordered_set<size_t> circuit_ccs_seen;
+        std::vector<uint32_t> unconstrained_witnesses;
+
+        for (auto w : witnesses) {
+            if (w > max_witness) {
+                continue; // internal ACIR witness beyond max_witness_index
+            }
+            auto it = circuit_witness_map.find(w);
+            if (it == circuit_witness_map.end() || it->second == NO_CIRCUIT_CC) {
+                unconstrained_witnesses.push_back(w);
+            } else {
+                circuit_ccs_seen.insert(it->second);
+            }
+        }
+
+        // Error: ACIR component split across multiple circuit components
+        if (circuit_ccs_seen.size() > 1) {
+            has_error = true;
+            std::cerr << "SPLIT: ACIR component " << acir_comp << " is split across " << circuit_ccs_seen.size()
+                      << " circuit components. Witnesses: ";
+            for (auto w : witnesses) {
+                if (w <= max_witness) {
+                    std::cerr << "w" << w << "(cc=";
+                    auto cit = circuit_witness_map.find(w);
+                    if (cit != circuit_witness_map.end() && cit->second != NO_CIRCUIT_CC) {
+                        std::cerr << cit->second;
+                    } else {
+                        std::cerr << "none";
+                    }
+                    std::cerr << ") ";
+                }
+            }
+            std::cerr << std::endl;
+        }
+
+        // Error: ACIR component has witnesses unconstrained at circuit level
+        if (!unconstrained_witnesses.empty()) {
+            has_error = true;
+            std::cerr << "UNCONSTRAINED: ACIR component " << acir_comp << " has "
+                      << unconstrained_witnesses.size() << " witness(es) missing from circuit: ";
+            for (auto w : unconstrained_witnesses) {
+                std::cerr << "w" << w << " ";
+            }
+            std::cerr << std::endl;
         }
     }
 
-    // 4. Compare
-    if (acir_components != circuit_components) {
-        std::cerr << "MISMATCH: ACIR has " << acir_components << " components, circuit has " << circuit_components
-                  << " components." << std::endl;
+    if (has_error) {
+        std::cerr << "ACIR components: " << acir_graph.count_components() << std::endl;
         analyzer.print_connected_components_info();
-        for (const auto& c : circuit_cc) {
-            std::cout << "Variables: ";
-            for (const auto& v : c.vars()) {
-                std::cout << v << " ";
-            }
-            std::cout << std::endl;
-        }
         for (const auto& v : analyzer.get_variables_in_one_gate()) {
             std::cout << v << " ";
             analyzer.print_variable_info(v);

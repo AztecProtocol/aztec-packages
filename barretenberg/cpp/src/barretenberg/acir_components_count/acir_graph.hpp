@@ -13,12 +13,12 @@ namespace acir_components_count {
 using WoC = acir_format::WitnessOrConstant<bb::fr>;
 
 /**
- * @brief Builds an undirected graph on ACIR witnesses and constants, then counts connected components.
+ * @brief Builds an undirected graph on ACIR witnesses and constants, then finds connected components.
  *
  * @details Vertices are either witness indices or constant-value IDs (assigned via value-based caching,
  * mirroring the circuit builder's put_constant_variable). For each ACIR constraint, all involved
  * witnesses and constants are connected pairwise. Shared constants merge components just like they
- * do at the circuit level. count_components() returns only components containing at least one witness.
+ * do at the circuit level.
  */
 class AcirGraph {
   public:
@@ -32,6 +32,13 @@ class AcirGraph {
      * @brief Process all constraints in an AcirFormat, building the graph.
      */
     void process_acir_constraints(const acir_format::AcirFormat& constraints);
+
+    /**
+     * @brief Get witness → component_id mapping for all witnesses that appear in the graph.
+     * Only assigns component IDs to components containing at least one witness.
+     * Component IDs are 0-based and dense.
+     */
+    std::unordered_map<uint32_t, size_t> get_witness_component_map() const;
 
     /**
      * @brief Count connected components that contain at least one witness vertex.
@@ -50,7 +57,6 @@ class AcirGraph {
 
     /**
      * @brief Map a WitnessOrConstant to a vertex ID.
-     * Witnesses use their index directly. Constants are assigned value-based cached IDs.
      */
     uint32_t to_vertex_id(const WoC& woc);
 
@@ -58,6 +64,12 @@ class AcirGraph {
      * @brief Connect all witnesses/constants in a constraint pairwise.
      */
     void add_constraint(const std::vector<WoC>& witnesses);
+
+    /**
+     * @brief Run DFS, returning components (each as a vector of vertex IDs).
+     * Only returns components that contain at least one witness vertex.
+     */
+    std::vector<std::vector<uint32_t>> find_components() const;
 };
 
 } // namespace acir_components_count

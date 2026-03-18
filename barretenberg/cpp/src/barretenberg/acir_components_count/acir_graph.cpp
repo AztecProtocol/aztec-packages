@@ -36,23 +36,24 @@ void AcirGraph::add_constraint(const std::vector<WoC>& witnesses)
     }
 }
 
-size_t AcirGraph::count_components() const
+std::vector<std::vector<uint32_t>> AcirGraph::find_components() const
 {
+    std::vector<std::vector<uint32_t>> result;
     std::unordered_set<uint32_t> visited;
-    size_t count = 0;
 
     for (const auto& [vertex, _] : adjacency_lists_) {
         if (visited.contains(vertex)) {
             continue;
         }
-        // Iterative DFS
+        std::vector<uint32_t> component;
+        bool has_witness = false;
         std::stack<uint32_t> stack;
         stack.push(vertex);
         visited.insert(vertex);
-        bool has_witness = false;
         while (!stack.empty()) {
             auto current = stack.top();
             stack.pop();
+            component.push_back(current);
             if (current < witness_id_ceiling_) {
                 has_witness = true;
             }
@@ -66,12 +67,30 @@ size_t AcirGraph::count_components() const
                 }
             }
         }
-        // Only count components that contain at least one witness vertex.
         if (has_witness) {
-            count++;
+            result.push_back(std::move(component));
         }
     }
-    return count;
+    return result;
+}
+
+size_t AcirGraph::count_components() const
+{
+    return find_components().size();
+}
+
+std::unordered_map<uint32_t, size_t> AcirGraph::get_witness_component_map() const
+{
+    auto components = find_components();
+    std::unordered_map<uint32_t, size_t> witness_to_component;
+    for (size_t comp_id = 0; comp_id < components.size(); comp_id++) {
+        for (auto vertex : components[comp_id]) {
+            if (vertex < witness_id_ceiling_) {
+                witness_to_component[vertex] = comp_id;
+            }
+        }
+    }
+    return witness_to_component;
 }
 
 // Helper: collect only real witness wires from a quad gate, skipping IS_CONSTANT sentinels.
