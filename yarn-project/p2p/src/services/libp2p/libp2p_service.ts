@@ -18,7 +18,6 @@ import {
   type CheckpointProposalCore,
   type Gossipable,
   P2PMessage,
-  type ValidationResult as P2PValidationResult,
   PeerErrorSeverity,
   PeerErrorSeverityByHarshness,
   TopicType,
@@ -1740,31 +1739,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     }
 
     return PeerErrorSeverity.HighToleranceError;
-  }
-
-  /**
-   * Validate a checkpoint attestation.
-   *
-   * @param attestation - The checkpoint attestation to validate.
-   * @returns True if the checkpoint attestation is valid, false otherwise.
-   */
-  @trackSpan('Libp2pService.validateCheckpointAttestation', async (_, attestation) => ({
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber,
-    [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
-    [Attributes.P2P_ID]: await attestation.p2pMessageLoggingIdentifier().then(i => i.toString()),
-  }))
-  public async validateCheckpointAttestation(
-    peerId: PeerId,
-    attestation: CheckpointAttestation,
-  ): Promise<P2PValidationResult> {
-    const result = await this.checkpointAttestationValidator.validate(attestation);
-
-    if (result.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for checkpoint attestation validation failure`);
-      this.peerManager.penalizePeer(peerId, result.severity);
-    }
-
-    return result;
   }
 
   public getPeerScore(peerId: PeerId): number {
