@@ -64,9 +64,13 @@ void ECCVMProver::execute_wire_commitments_round()
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
+    // Register all masked polys upfront (generates random tail values for all witness entities)
+    key->masking_tail_data.register_all_masked_polys();
+
     auto batch = key->commitment_key.start_batch();
-    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
-        batch.add_to_batch(wire, label, /* mask for zk? */ true);
+    for (const auto& [wire, tail, label] : zip_view(
+             key->polynomials.get_wires(), key->masking_tail_data.tails.get_wires(), commitment_labels.get_wires())) {
+        batch.add_to_batch(wire, label, &tail);
     }
     batch.commit_and_send_to_verifier(transcript);
 }
@@ -106,7 +110,10 @@ void ECCVMProver::execute_log_derivative_commitments_round()
                                   typename Flavor::LookupRelation,
                                   typename Flavor::ProverPolynomials,
                                   true>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
+    auto& li = key->polynomials.lookup_inverses;
+    transcript->send_to_verifier(commitment_labels.lookup_inverses,
+                                 key->commitment_key.commit(li) +
+                                     key->commitment_key.commit(key->masking_tail_data.tails.lookup_inverses));
 }
 
 /**
@@ -118,7 +125,10 @@ void ECCVMProver::execute_grand_product_computation_round()
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
+    auto& zp = key->polynomials.z_perm;
+    transcript->send_to_verifier(commitment_labels.z_perm,
+                                 key->commitment_key.commit(zp) +
+                                     key->commitment_key.commit(key->masking_tail_data.tails.z_perm));
 }
 
 /**
@@ -149,7 +159,7 @@ void ECCVMProver::execute_relation_check_rounds()
 
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
-    sumcheck_output = sumcheck.prove(zk_sumcheck_data);
+    sumcheck_output = sumcheck.prove(zk_sumcheck_data, key->masking_tail_data);
 }
 
 /**
@@ -179,6 +189,11 @@ void ECCVMProver::execute_pcs_rounds()
     PolynomialBatcher polynomial_batcher(key->circuit_size);
     polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
+
+    // Add small tail polynomials for masked witness polys (avoids extending all polys to full dyadic size)
+    if (key->masking_tail_data.is_active()) {
+        key->masking_tail_data.add_tails_to_batcher(key->polynomials, polynomial_batcher);
+    }
 
     OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
@@ -271,12 +286,23 @@ void ECCVMProver::compute_translation_opening_claims()
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
 
-    // Collect the polynomials to be batched
-    RefArray translation_polynomials{ key->polynomials.transcript_op,
-                                      key->polynomials.transcript_Px,
-                                      key->polynomials.transcript_Py,
-                                      key->polynomials.transcript_z1,
-                                      key->polynomials.transcript_z2 };
+    // Create full-size copies of translation polys with masking tail values merged in.
+    // Only translation polys need this (for univariate evaluation); all other witness polys
+    // remain short and use tail batching in PCS instead.
+    auto& mtd = key->masking_tail_data;
+    auto extend_with_tail = [&](const Polynomial& poly, const Polynomial& tail) -> Polynomial {
+        Polynomial extended(poly, poly.virtual_size() - poly.start_index());
+        extended += tail;
+        return extended;
+    };
+
+    Polynomial masked_op = extend_with_tail(key->polynomials.transcript_op, mtd.tails.transcript_op);
+    Polynomial masked_Px = extend_with_tail(key->polynomials.transcript_Px, mtd.tails.transcript_Px);
+    Polynomial masked_Py = extend_with_tail(key->polynomials.transcript_Py, mtd.tails.transcript_Py);
+    Polynomial masked_z1 = extend_with_tail(key->polynomials.transcript_z1, mtd.tails.transcript_z1);
+    Polynomial masked_z2 = extend_with_tail(key->polynomials.transcript_z2, mtd.tails.transcript_z2);
+
+    RefArray translation_polynomials{ masked_op, masked_Px, masked_Py, masked_z1, masked_z2 };
 
     // Extract the masking terms of `translation_polynomials`, concatenate them in the Lagrange basis over SmallSubgroup
     // H, mask the resulting polynomial, and commit to it
@@ -338,11 +364,4 @@ void ECCVMProver::compute_translation_opening_claims()
  * @param polynomial
  * @param label
  */
-void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
-{
-    // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
-    // information via the commitment and evaluations. -1 is caused by shifts.
-    polynomial.mask();
-    transcript->send_to_verifier(label, key->commitment_key.commit(polynomial));
-}
 } // namespace bb

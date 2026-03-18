@@ -170,6 +170,11 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
     return VkPolicy::DEFAULT; // default
 }
 
+#ifndef __wasm__
+// Forward declaration — defined in bbapi_chonk.hpp
+class ChonkBatchVerifierService;
+#endif
+
 struct BBApiRequest {
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
@@ -184,6 +189,10 @@ struct BBApiRequest {
     VkPolicy vk_policy = VkPolicy::DEFAULT;
     // Error message - empty string means no error
     std::string error_message;
+#ifndef __wasm__
+    // Batch verifier service instance (persists across RPC calls)
+    std::shared_ptr<ChonkBatchVerifierService> batch_verifier_service;
+#endif
 };
 
 /**
