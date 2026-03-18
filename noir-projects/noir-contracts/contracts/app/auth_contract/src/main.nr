@@ -12,6 +12,7 @@ pub contract Auth {
         state_vars::{DelayedPublicMutable, PublicImmutable},
     };
 
+    // docs:start:delayed_public_mutable_storage
     // Authorizing a new address has a certain delay before it goes into effect. Set to 180 seconds.
     pub(crate) global CHANGE_AUTHORIZED_DELAY: u64 = 180;
 
