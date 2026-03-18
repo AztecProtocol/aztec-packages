@@ -16,8 +16,8 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt --break-system-packages
 COPY . .
 
-# Optional: acir_components_count binary (copy via prepare_binaries.sh before build)
-RUN chmod +x /app/proving/acir_components_count 2>/dev/null || true
+# Optional: acir_components_check binary (copy via prepare_binaries.sh before build)
+RUN chmod +x /app/proving/acir_components_check 2>/dev/null || true
 
 WORKDIR /app/proving/src
 ENV PYTHONUNBUFFERED=1

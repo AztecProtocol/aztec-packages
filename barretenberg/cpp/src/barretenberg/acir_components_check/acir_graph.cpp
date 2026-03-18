@@ -1,6 +1,7 @@
 #include "acir_graph.hpp"
+#include <stack>
 
-namespace acir_components_count {
+namespace acir_components_check {
 
 void AcirGraph::add_constraint(const std::vector<WoC>& witnesses)
 {
@@ -58,11 +59,6 @@ std::vector<std::vector<uint32_t>> AcirGraph::find_components() const
     return result;
 }
 
-size_t AcirGraph::count_components() const
-{
-    return find_components().size();
-}
-
 std::unordered_map<uint32_t, size_t> AcirGraph::get_witness_component_map() const
 {
     auto components = find_components();
@@ -94,17 +90,17 @@ void collect_quad_witnesses(std::vector<WoC>& wits, const bb::mul_quad_<bb::fr>&
 }
 } // namespace
 
-void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
+void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& constraints)
 {
     // --- QuadConstraint (mul_quad_<fr>) ---
-    for (const auto& c : cs.quad_constraints) {
+    for (const auto& c : constraints.quad_constraints) {
         std::vector<WoC> wits;
         collect_quad_witnesses(wits, c);
         add_constraint(wits);
     }
 
     // --- BigQuadConstraint (vector of QuadConstraint) ---
-    for (const auto& big : cs.big_quad_constraints) {
+    for (const auto& big : constraints.big_quad_constraints) {
         std::vector<WoC> wits;
         for (const auto& c : big) {
             collect_quad_witnesses(wits, c);
@@ -113,19 +109,19 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     }
 
     // --- LogicConstraint ---
-    for (const auto& c : cs.logic_constraints) {
+    for (const auto& c : constraints.logic_constraints) {
         std::vector<WoC> wits = { c.a, c.b };
         wits.push_back(WoC::from_index(c.result));
         add_constraint(wits);
     }
 
     // --- RangeConstraint ---
-    for (const auto& c : cs.range_constraints) {
+    for (const auto& c : constraints.range_constraints) {
         add_constraint(std::vector<WoC>{ WoC::from_index(c.witness) });
     }
 
     // --- Sha256Compression ---
-    for (const auto& c : cs.sha256_compression) {
+    for (const auto& c : constraints.sha256_compression) {
         std::vector<WoC> wits(c.inputs.begin(), c.inputs.end());
         wits.insert(wits.end(), c.hash_values.begin(), c.hash_values.end());
         for (auto idx : c.result) {
@@ -135,7 +131,7 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     }
 
     // --- Poseidon2Constraint ---
-    for (const auto& c : cs.poseidon2_constraints) {
+    for (const auto& c : constraints.poseidon2_constraints) {
         std::vector<WoC> wits(c.state.begin(), c.state.end());
         for (auto idx : c.result) {
             wits.push_back(WoC::from_index(idx));
@@ -144,31 +140,30 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     }
 
     // --- EcAdd ---
-    // Note: result_infinite is excluded — the circuit auto-detects infinity from (0,0) coordinates
-    // and never constrains this witness (soundness bug tracked separately).
-    for (const auto& c : cs.ec_add_constraints) {
+    for (const auto& c : constraints.ec_add_constraints) {
         std::vector<WoC> wits = {
             c.input1_x, c.input1_y, c.input1_infinite, c.input2_x, c.input2_y, c.input2_infinite
         };
         wits.push_back(WoC::from_index(c.result_x));
         wits.push_back(WoC::from_index(c.result_y));
+        wits.push_back(WoC::from_index(c.result_infinite));
         wits.push_back(c.predicate);
         add_constraint(wits);
     }
 
     // --- MultiScalarMul ---
-    // Note: out_point_is_infinite is excluded — same reason as EcAdd above.
-    for (const auto& c : cs.multi_scalar_mul_constraints) {
+    for (const auto& c : constraints.multi_scalar_mul_constraints) {
         std::vector<WoC> wits(c.points.begin(), c.points.end());
         wits.insert(wits.end(), c.scalars.begin(), c.scalars.end());
         wits.push_back(WoC::from_index(c.out_point_x));
         wits.push_back(WoC::from_index(c.out_point_y));
+        wits.push_back(WoC::from_index(c.out_point_is_infinite));
         wits.push_back(c.predicate);
         add_constraint(wits);
     }
 
     // --- AES128Constraint ---
-    for (const auto& c : cs.aes128_constraints) {
+    for (const auto& c : constraints.aes128_constraints) {
         std::vector<WoC> wits(c.inputs.begin(), c.inputs.end());
         wits.insert(wits.end(), c.iv.begin(), c.iv.end());
         wits.insert(wits.end(), c.key.begin(), c.key.end());
@@ -197,15 +192,15 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
         wits.push_back(c.predicate);
         add_constraint(wits);
     };
-    for (const auto& c : cs.ecdsa_k1_constraints) {
+    for (const auto& c : constraints.ecdsa_k1_constraints) {
         process_ecdsa(c);
     }
-    for (const auto& c : cs.ecdsa_r1_constraints) {
+    for (const auto& c : constraints.ecdsa_r1_constraints) {
         process_ecdsa(c);
     }
 
     // --- Blake2sConstraint ---
-    for (const auto& c : cs.blake2s_constraints) {
+    for (const auto& c : constraints.blake2s_constraints) {
         std::vector<WoC> wits(c.inputs.begin(), c.inputs.end());
         for (auto idx : c.result) {
             wits.push_back(WoC::from_index(idx));
@@ -214,7 +209,7 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     }
 
     // --- Blake3Constraint ---
-    for (const auto& c : cs.blake3_constraints) {
+    for (const auto& c : constraints.blake3_constraints) {
         std::vector<WoC> wits(c.inputs.begin(), c.inputs.end());
         for (auto idx : c.result) {
             wits.push_back(WoC::from_index(idx));
@@ -223,7 +218,7 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     }
 
     // --- Keccakf1600 ---
-    for (const auto& c : cs.keccak_permutations) {
+    for (const auto& c : constraints.keccak_permutations) {
         std::vector<WoC> wits(c.state.begin(), c.state.end());
         for (auto idx : c.result) {
             wits.push_back(WoC::from_index(idx));
@@ -247,21 +242,21 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
         wits.push_back(c.predicate);
         add_constraint(wits);
     };
-    for (const auto& c : cs.honk_recursion_constraints) {
+    for (const auto& c : constraints.honk_recursion_constraints) {
         process_recursion(c);
     }
-    for (const auto& c : cs.avm_recursion_constraints) {
+    for (const auto& c : constraints.avm_recursion_constraints) {
         process_recursion(c);
     }
-    for (const auto& c : cs.hn_recursion_constraints) {
+    for (const auto& c : constraints.hn_recursion_constraints) {
         process_recursion(c);
     }
-    for (const auto& c : cs.chonk_recursion_constraints) {
+    for (const auto& c : constraints.chonk_recursion_constraints) {
         process_recursion(c);
     }
 
     // --- BlockConstraint ---
-    for (const auto& c : cs.block_constraints) {
+    for (const auto& c : constraints.block_constraints) {
         std::vector<WoC> wits;
         for (auto idx : c.init) {
             wits.push_back(WoC::from_index(idx));
@@ -274,4 +269,4 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     }
 }
 
-} // namespace acir_components_count
+} // namespace acir_components_check

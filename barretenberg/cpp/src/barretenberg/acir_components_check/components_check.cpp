@@ -2,6 +2,8 @@
 
 namespace acir_components_check {
 
+static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
+
 std::vector<Error> ComponentsChecker::check()
 {
     build_acir_component_map();
@@ -11,7 +13,7 @@ std::vector<Error> ComponentsChecker::check()
 
 void ComponentsChecker::build_acir_component_map()
 {
-    acir_components_count::AcirGraph acir_graph;
+    AcirGraph acir_graph;
     acir_graph.process_acir_constraints(constraints_);
     acir_witness_map_ = acir_graph.get_witness_component_map();
 }
@@ -144,9 +146,9 @@ std::string ComponentsChecker::format_witness_debug(uint32_t w) const
     bool in_cc = circuit_var_to_cc_.contains(real_idx);
     bool has_gates = gate_counts_.contains(real_idx) && gate_counts_.at(real_idx) > 0;
     bool in_rl = range_list_vars_.contains(real_idx);
-    return "w" + std::to_string(w) + "(real=" + std::to_string(real_idx) + ",const=" + std::to_string(is_const) +
-           ",cc=" + std::to_string(in_cc) + ",gates=" + std::to_string(has_gates) + ",rl=" + std::to_string(in_rl) +
-           ")";
+    auto b = [](bool v) { return v ? "true" : "false"; };
+    return "w" + std::to_string(w) + "(real=" + std::to_string(real_idx) + ",const=" + b(is_const) + ",cc=" + b(in_cc) +
+           ",gates=" + b(has_gates) + ",rl=" + b(in_rl) + ")";
 }
 
 } // namespace acir_components_check

@@ -10,8 +10,6 @@
 
 namespace acir_components_check {
 
-static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
-
 struct Error {
     enum class Type { SPLIT, UNCONSTRAINED };
     Type type;

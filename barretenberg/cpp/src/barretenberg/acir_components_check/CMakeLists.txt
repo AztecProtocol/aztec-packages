@@ -1,11 +1,11 @@
 add_executable(
-    acir_components_count
+    acir_components_check
     main.cpp
     acir_graph.cpp
     components_check.cpp
 )
 target_link_libraries(
-    acir_components_count
+    acir_components_check
     PRIVATE
     dsl
     boomerang_value_detection

@@ -2,12 +2,11 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include <cstdint>
-#include <stack>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-namespace acir_components_count {
+namespace acir_components_check {
 
 using WoC = acir_format::WitnessOrConstant<bb::fr>;
 
@@ -29,11 +28,6 @@ class AcirGraph {
      */
     std::unordered_map<uint32_t, size_t> get_witness_component_map() const;
 
-    /**
-     * @brief Count connected components.
-     */
-    size_t count_components() const;
-
   private:
     std::unordered_map<uint32_t, std::unordered_set<uint32_t>> adjacency_lists_;
 
@@ -48,4 +42,4 @@ class AcirGraph {
     std::vector<std::vector<uint32_t>> find_components() const;
 };
 
-} // namespace acir_components_count
+} // namespace acir_components_check

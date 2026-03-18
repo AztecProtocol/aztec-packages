@@ -1,6 +1,6 @@
-#include "components_check.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "components_check.hpp"
 #include <iostream>
 
 int main(int argc, char* argv[])
