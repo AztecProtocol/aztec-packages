@@ -1,5 +1,6 @@
 use crate::protocol::{
-    address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator, traits::Hash,
+    address::AztecAddress, constants::DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::Hash,
 };
 
 use crate::{
@@ -62,7 +63,6 @@ mod test;
 ///
 /// Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
 /// infer who likely exercised the claim, so consider that when designing flows.
-/// ```
 pub struct SingleUseClaim<Context> {
     context: Context,
     storage_slot: Field,
@@ -82,8 +82,10 @@ impl<Context> SingleUseClaim<Context> {
     /// This function is primarily used internally by functions [`SingleUseClaim::claim`],
     /// [`SingleUseClaim::assert_claimed`] and [`SingleUseClaim::has_claimed`] to coherently write and read state.
     fn compute_nullifier(self, owner_nhk_app: Field) -> Field {
-        // TODO(F-180): make sure we follow the nullifier convention
-        poseidon2_hash_with_separator([owner_nhk_app, self.storage_slot], DOM_SEP__NOTE_HASH)
+        poseidon2_hash_with_separator(
+            [owner_nhk_app, self.storage_slot],
+            DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
+        )
     }
 }
 

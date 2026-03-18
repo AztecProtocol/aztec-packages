@@ -1,13 +1,8 @@
 use aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
-    note::note_interface::NoteHash,
-    protocol::{
-        address::AztecAddress,
-        constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
-        hash::poseidon2_hash_with_separator,
-        traits::Packable,
-    },
+    note::{note_interface::NoteHash, utils::{compute_note_hash, compute_note_nullifier}},
+    protocol::{address::AztecAddress, traits::Packable},
 };
 use std::mem::zeroed;
 
@@ -29,8 +24,8 @@ impl NoteHash for TransparentNote {
         storage_slot: Field,
         randomness: Field,
     ) -> Field {
-        let inputs = self.pack().concat([storage_slot, randomness]);
-        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
+        let data = self.pack().concat([randomness]);
+        compute_note_hash(storage_slot, data)
     }
 
     // Computing a nullifier in a transparent note is not guarded by making secret a part of the nullifier preimage (as
@@ -47,10 +42,7 @@ impl NoteHash for TransparentNote {
         _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullification],
-            DOM_SEP__NOTE_NULLIFIER as Field,
-        )
+        compute_note_nullifier(note_hash_for_nullification, [])
     }
 
     unconstrained fn compute_nullifier_unconstrained(
