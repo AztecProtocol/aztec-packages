@@ -975,6 +975,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       } else if (wasIgnored) {
         return { result: TopicValidatorResult.Ignore, obj: tx };
       } else {
+        this.logger.warn(`Gossiped tx ${txHash.toString()} unexpectedly rejected by pool`, {
+          source: source.toString(),
+          txHash: txHash.toString(),
+        });
+        this.peerManager.penalizePeer(source, PeerErrorSeverity.HighToleranceError);
         return { result: TopicValidatorResult.Reject };
       }
     };
