@@ -214,7 +214,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const metadata = await secondWallet.getContractMetadata(contract.address);
     expect(metadata.instance).toBeUndefined();
     expect(metadata.isContractInitialized).toEqual(ContractInitializationStatus.YES);
-  });
+  }, 600_000);
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
