@@ -29,8 +29,6 @@ export interface SequencerConfig {
   perBlockAllocationMultiplier?: number;
   /** Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget. */
   redistributeCheckpointBudget?: boolean;
-  /** Computed max number of blocks per checkpoint from timetable. */
-  maxBlocksPerCheckpoint?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -99,7 +97,6 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     maxDABlockGas: z.number().optional(),
     perBlockAllocationMultiplier: z.number().optional(),
     redistributeCheckpointBudget: z.boolean().optional(),
-    maxBlocksPerCheckpoint: z.number().optional(),
     coinbase: schemas.EthAddress.optional(),
     feeRecipient: schemas.AztecAddress.optional(),
     acvmWorkingDirectory: z.string().optional(),
@@ -148,9 +145,7 @@ type SequencerConfigOptionalKeys =
   | 'maxTxsPerCheckpoint'
   | 'maxL2BlockGas'
   | 'maxDABlockGas'
-  | 'perBlockAllocationMultiplier'
-  | 'redistributeCheckpointBudget'
-  | 'maxBlocksPerCheckpoint';
+  | 'redistributeCheckpointBudget';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

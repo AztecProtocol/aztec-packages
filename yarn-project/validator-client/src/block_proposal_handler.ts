@@ -487,7 +487,9 @@ export class BlockProposalHandler {
   }
 
   private getReexecuteFailureReason(err: any): BlockProposalValidationFailureReason {
-    if (err instanceof ReExInitialStateMismatchError) {
+    if (err instanceof TransactionsNotAvailableError) {
+      return 'txs_not_available';
+    } else if (err instanceof ReExInitialStateMismatchError) {
       return 'initial_state_mismatch';
     } else if (err instanceof ReExStateMismatchError) {
       return 'state_mismatch';
@@ -567,6 +569,8 @@ export class BlockProposalHandler {
         ? new Gas(this.config.validateMaxDABlockGas ?? Infinity, this.config.validateMaxL2BlockGas ?? Infinity)
         : undefined;
     const result = await checkpointBuilder.buildBlock(txs, blockNumber, blockHeader.globalVariables.timestamp, {
+      isBuildingProposal: false,
+      minValidTxs: 0,
       deadline,
       expectedEndState: blockHeader.state,
       maxTransactions: this.config.validateMaxTxsPerBlock,

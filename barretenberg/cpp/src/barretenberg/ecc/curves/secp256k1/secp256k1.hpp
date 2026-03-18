@@ -271,7 +271,6 @@ using fr = field<FrParams>;
 struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
     static constexpr bool can_hash_to_curve = true;
-    static constexpr bool small_elements = true;
     static constexpr bool has_a = false;
 
     static constexpr fq b = fq(7);

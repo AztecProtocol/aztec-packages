@@ -208,8 +208,11 @@ export type PublicEvent<T> = Event<
 export type ContractMetadata = {
   /** The contract instance */
   instance?: ContractInstanceWithAddress;
-  /** Whether the contract has been initialized (init nullifier exists) */
-  isContractInitialized: boolean;
+  /**
+   * Whether the contract has been initialized (initialization nullifier exists).
+   * Undefined when instance is not registered.
+   */
+  isContractInitialized: boolean | undefined;
   /** Whether the contract instance is publicly deployed on-chain */
   isContractPublished: boolean;
   /** Whether the contract has been updated to a different class */
@@ -371,7 +374,7 @@ export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
 
 export const ContractMetadataSchema = z.object({
   instance: optional(ContractInstanceWithAddressSchema),
-  isContractInitialized: z.boolean(),
+  isContractInitialized: optional(z.boolean()),
   isContractPublished: z.boolean(),
   isContractUpdated: z.boolean(),
   updatedContractClassId: optional(schemas.Fr),

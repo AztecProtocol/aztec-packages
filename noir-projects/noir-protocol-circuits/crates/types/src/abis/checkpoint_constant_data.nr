@@ -2,7 +2,6 @@ use crate::{
     abis::gas_fees::GasFees,
     address::{AztecAddress, EthAddress},
     constants::CHECKPOINT_CONSTANT_DATA_LENGTH,
-    tests::utils::make_fixture,
     traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
@@ -40,9 +39,9 @@ impl Empty for CheckpointConstantData {
 }
 
 #[test]
-fn serialization_of_checkpoint_constant_data() {
-    let data: CheckpointConstantData = make_fixture(1);
-    let serialized: [Field; CHECKPOINT_CONSTANT_DATA_LENGTH] = data.serialize();
-    let deserialized = CheckpointConstantData::deserialize(serialized);
-    assert_eq(data, deserialized);
+fn serialization_of_empty_checkpoint_constant_data() {
+    let fields = [0; CHECKPOINT_CONSTANT_DATA_LENGTH].mapi(|i, _| i as Field);
+    let deserialized = CheckpointConstantData::deserialize(fields);
+    let serialized = deserialized.serialize();
+    assert_eq(serialized, fields);
 }

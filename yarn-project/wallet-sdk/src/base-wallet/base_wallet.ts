@@ -50,7 +50,7 @@ import {
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computeSiloedPrivateInitializationNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   BlockHeader,
@@ -80,6 +80,16 @@ export type FeeOptions = {
   gasSettings: GasSettings;
 };
 
+/** Options for `simulateViaEntrypoint`. */
+export type SimulateViaEntrypointOptions = Pick<
+  SimulateOptions,
+  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement'
+> & {
+  /** Fee options for the entrypoint */
+  feeOptions: FeeOptions;
+  /** Scopes to use for the simulation */
+  scopes: AccessScopes;
+};
 /**
  * A base class for Wallet implementations
  */
@@ -300,22 +310,20 @@ export abstract class BaseWallet implements Wallet {
   /**
    * Simulates calls through the standard PXE path (account entrypoint).
    * @param executionPayload - The execution payload to simulate.
-   * @param from - The sender address.
-   * @param feeOptions - Fee options for the transaction.
-   * @param skipTxValidation - Whether to skip tx validation.
-   * @param skipFeeEnforcement - Whether to skip fee enforcement.
-   * @param scopes - The scopes to use for the simulation.
+   * @param opts - Simulation options.
    */
-  protected async simulateViaEntrypoint(
-    executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
-  ) {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
-    return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement, scopes });
+  protected async simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(
+      executionPayload,
+      opts.from,
+      opts.feeOptions,
+    );
+    return this.pxe.simulateTx(txRequest, {
+      simulatePublic: true,
+      skipTxValidation: opts.skipTxValidation,
+      skipFeeEnforcement: opts.skipFeeEnforcement,
+      scopes: opts.scopes,
+    });
   }
 
   /**
@@ -357,14 +365,13 @@ export abstract class BaseWallet implements Wallet {
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
-        ? this.simulateViaEntrypoint(
-            remainingPayload,
-            opts.from,
+        ? this.simulateViaEntrypoint(remainingPayload, {
+            from: opts.from,
             feeOptions,
-            this.scopesFrom(opts.from, opts.additionalScopes),
-            opts.skipTxValidation,
-            opts.skipFeeEnforcement ?? true,
-          )
+            scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+            skipTxValidation: opts.skipTxValidation,
+            skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
+          })
         : Promise.resolve(null),
     ]);
 
@@ -390,7 +397,7 @@ export abstract class BaseWallet implements Wallet {
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const offchainOutput = extractOffchainOutput(
       provenTx.getOffchainEffects(),
-      provenTx.publicInputs.expirationTimestamp,
+      provenTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,
     );
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
@@ -471,17 +478,36 @@ export abstract class BaseWallet implements Wallet {
     return decodedEvents;
   }
 
+  /**
+   * Returns metadata about a contract, including whether it has been initialized, published, and updated.
+   *
+   * `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the
+   * instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
+   * @param address - The contract address to query.
+   */
   async getContractMetadata(address: AztecAddress) {
     const instance = await this.pxe.getContractInstance(address);
-    const initNullifier = await siloNullifier(address, address.toField());
-    const publiclyRegisteredContract = await this.aztecNode.getContract(address);
-    const initNullifierMembershipWitness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
+    const publiclyRegisteredContractPromise = this.aztecNode.getContract(address);
+    // We check only the private initialization nullifier. It is emitted by both private and public initializers and
+    // includes init_hash, preventing observers from determining initialization status from the address alone. Without
+    // the instance (and thus init_hash), we can't compute it, so we return undefined.
+    //
+    // We skip the public initialization nullifier because it's not always emitted (contracts without public external
+    // functions that require initialization checks won't emit it). If the private one exists, the public one was
+    // created in the same tx and will also be present.
+    let isContractInitialized: boolean | undefined = undefined;
+    if (instance) {
+      const initNullifier = await computeSiloedPrivateInitializationNullifier(address, instance.initializationHash);
+      const witness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
+      isContractInitialized = !!witness;
+    }
+    const publiclyRegisteredContract = await publiclyRegisteredContractPromise;
     const isContractUpdated =
       publiclyRegisteredContract &&
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
     return {
       instance: instance ?? undefined,
-      isContractInitialized: !!initNullifierMembershipWitness,
+      isContractInitialized,
       isContractPublished: !!publiclyRegisteredContract,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,

@@ -2,6 +2,11 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
+  echo "AVM_TRANSPILER=0, skipping."
+  exit 0
+fi
+
 hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 export GIT_COMMIT=$(git -C ../noir/noir-repo rev-parse HEAD)
@@ -47,6 +52,9 @@ function build_cross {
         ;;
       arm64-macos)
         rust_target=aarch64-apple-darwin
+        ;;
+      amd64-windows)
+        rust_target=x86_64-pc-windows-gnu
         ;;
       *)
         echo_stderr "Unknown target: $target"

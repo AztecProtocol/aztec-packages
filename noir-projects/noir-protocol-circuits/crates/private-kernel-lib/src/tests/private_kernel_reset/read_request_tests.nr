@@ -1,7 +1,7 @@
 use super::TestBuilder;
+use protocol_test_utils::assert_array_eq;
 use types::{
-    address::aztec_address::AztecAddress, hash::compute_siloed_nullifier,
-    tests::utils::assert_array_eq, traits::FromField,
+    address::aztec_address::AztecAddress, hash::compute_siloed_nullifier, traits::FromField,
 };
 
 // Note: Only a few cases are tested here to ensure that the code path to the `ReadRequestValidator` is reached for both

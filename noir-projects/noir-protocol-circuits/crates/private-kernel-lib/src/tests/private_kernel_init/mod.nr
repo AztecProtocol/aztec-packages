@@ -5,6 +5,7 @@ use crate::{
     components::private_kernel_circuit_output_composer::get_expiration_timestamp_for_contract_updates,
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
 };
+use protocol_test_utils::FixtureBuilder;
 use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -12,7 +13,6 @@ use types::{
     },
     address::AztecAddress,
     hash::{compute_siloed_nullifier, create_protocol_nullifier},
-    tests::fixture_builder::FixtureBuilder,
 };
 
 struct TestBuilder {

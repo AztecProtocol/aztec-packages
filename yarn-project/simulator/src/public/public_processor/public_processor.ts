@@ -306,6 +306,9 @@ export class PublicProcessor implements Traceable {
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
         totalBlobFields += txBlobFields;
+
+        // Commit the tx-level contracts checkpoint on success
+        this.contractsDB.commitCheckpoint();
       } catch (err: any) {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
@@ -325,14 +328,10 @@ export class PublicProcessor implements Traceable {
           // 1. At least one outstanding checkpoint that has not been committed (the one created before we processed the tx).
           // 2. Possible state updates on that checkpoint or any others created during execution.
 
-          // First we revert a checkpoint as managed by the ForkCheckpoint. This will revert whatever is the current checkpoint
-          // which may not be the one originally created by this object. But that is ok, we do this to fulfil the ForkCheckpoint
-          // lifecycle expectations and ensure it doesn't attempt to commit later on.
-          await checkpoint.revert();
-
-          // Now we want to revert any/all remaining checkpoints, destroying any outstanding state updates.
-          // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
-          await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+          // Revert all checkpoints at or above this checkpoint's depth (inclusive), destroying any outstanding state
+          // updates from this tx and any nested checkpoints created during execution. This preserves any checkpoints
+          // created by callers below our depth.
+          await checkpoint.revertToCheckpoint();
 
           // Revert any contracts added to the DB for the tx.
           this.contractsDB.revertCheckpoint();
@@ -344,9 +343,9 @@ export class PublicProcessor implements Traceable {
           break;
         }
 
-        // Roll back state to start of TX before proceeding to next TX
-        await checkpoint.revert();
-        await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+        // Roll back state to start of TX before proceeding to next TX.
+        // Reverts all checkpoints at or above this checkpoint's depth, preserving any caller checkpoints below.
+        await checkpoint.revertToCheckpoint();
         this.contractsDB.revertCheckpoint();
         const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
@@ -358,7 +357,6 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
-        this.contractsDB.commitCheckpointOkIfNone();
       }
     }
 

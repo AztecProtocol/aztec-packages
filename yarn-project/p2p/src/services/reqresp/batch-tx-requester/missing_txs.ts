@@ -2,7 +2,7 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { IMissingTxsTracker } from '../../tx_collection/missing_txs_tracker.js';
+import type { IRequestTracker } from '../../tx_collection/request_tracker.js';
 import { DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { ITxMetadataCollection } from './interface.js';
 
@@ -41,10 +41,10 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   private txMetadata = new Map<string, MissingTxMetadata>();
 
   constructor(
-    private missingTxsTracker: IMissingTxsTracker,
+    private requestTracker: IRequestTracker,
     private readonly txBatchSize: number = DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE,
   ) {
-    missingTxsTracker.missingTxHashes.forEach(hash => this.txMetadata.set(hash, new MissingTxMetadata(hash)));
+    requestTracker.missingTxHashes.forEach(hash => this.txMetadata.set(hash, new MissingTxMetadata(hash)));
   }
 
   public getPrioritizingNotInFlightAndLowerRequestCount(txs: string[]): MissingTxMetadata[] {
@@ -65,7 +65,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   }
 
   public getMissingTxHashes(): Set<string> {
-    return this.missingTxsTracker.missingTxHashes;
+    return this.requestTracker.missingTxHashes;
   }
 
   public getTxsPeerHas(peer: PeerId): Set<string> {
@@ -128,7 +128,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   }
 
   public alreadyFetched(txHash: TxHash): boolean {
-    return !this.missingTxsTracker.isMissing(txHash.toString());
+    return !this.requestTracker.isMissing(txHash.toString());
   }
 
   public markFetched(peerId: PeerId, tx: Tx): boolean {
@@ -144,7 +144,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
     }
 
     txMeta.peers.add(peerId.toString());
-    return this.missingTxsTracker.markFetched(tx);
+    return this.requestTracker.markFetched(tx);
   }
 
   public markPeerHas(peerId: PeerId, txHash: TxHash[]) {
@@ -157,5 +157,12 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
           txMeta.peers.add(peerIdStr);
         }
       });
+  }
+
+  public clearPeerData(peerId: PeerId) {
+    const peerIdStr = peerId.toString();
+    for (const txMeta of this.txMetadata.values()) {
+      txMeta.peers.delete(peerIdStr);
+    }
   }
 }

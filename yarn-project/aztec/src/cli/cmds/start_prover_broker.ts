@@ -2,6 +2,8 @@ import { getL1Config } from '@aztec/cli/config';
 import { getGenesisStateConfigEnvVars } from '@aztec/ethereum/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import {
   type ProverBrokerConfig,
   ProvingJobBrokerSchema,
@@ -38,7 +40,12 @@ export async function startProverBroker(
 
   const genesisConfig = getGenesisStateConfigEnvVars();
   const { genesisArchiveRoot } = await computeExpectedGenesisRoot(genesisConfig, userLog);
-  await waitForCompatibleRollup(config, genesisArchiveRoot, options.port, userLog);
+  await waitForCompatibleRollup(
+    config,
+    { genesisArchiveRoot, vkTreeRoot: getVKTreeRoot(), protocolContractsHash },
+    options.port,
+    userLog,
+  );
 
   const { addresses, config: rollupConfig } = await getL1Config(
     config.l1Contracts.registryAddress,

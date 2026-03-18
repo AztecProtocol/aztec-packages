@@ -49,6 +49,7 @@ import {
   CannotOverwriteCheckpointedBlockError,
   CheckpointNumberNotSequentialError,
   InitialCheckpointNumberNotSequentialError,
+  L1ToL2MessagesNotReadyError,
   OutOfOrderLogInsertionError,
 } from '../errors.js';
 import { MessageStoreError } from '../store/message_store.js';
@@ -1786,19 +1787,146 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
-  it('deleteLogs', async () => {
-    const block = publishedCheckpoints[0].checkpoint.blocks[0];
-    await store.addProposedBlock(block);
-    await expect(store.addLogs([block])).resolves.toEqual(true);
+  describe('deleteLogs', () => {
+    it('deletes public logs for a block', async () => {
+      const block = publishedCheckpoints[0].checkpoint.blocks[0];
+      await store.addProposedBlock(block);
+      await expect(store.addLogs([block])).resolves.toEqual(true);
 
-    expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
-      block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
-    );
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
+        block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
+      );
 
-    // This one is a pain for memory as we would never want to just delete memory in the middle.
-    await store.deleteLogs([block]);
+      await store.deleteLogs([block]);
 
-    expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+    });
+
+    it('deletes contract class logs for a block', async () => {
+      // Create a block that explicitly has contract class logs
+      const block = await L2Block.random(BlockNumber(1), {
+        txsPerBlock: 2,
+        txOptions: { numContractClassLogs: 1 },
+        state: makeStateForBlock(1, 2),
+      });
+      await store.addProposedBlock(block);
+      await store.addLogs([block]);
+
+      const logsBefore = await store.getContractClassLogs({ fromBlock: BlockNumber(1) });
+      expect(logsBefore.logs.length).toBeGreaterThan(0);
+
+      await store.deleteLogs([block]);
+
+      const logsAfter = await store.getContractClassLogs({ fromBlock: BlockNumber(1) });
+      expect(logsAfter.logs.length).toEqual(0);
+    });
+
+    it('retains private logs from non-reorged block when same tag appears in reorged block', async () => {
+      const sharedTag = makePrivateLogTag(1, 0, 0);
+
+      // Block 1 with a private log using sharedTag
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 1 },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      // Block 2 with a private log using the SAME tag
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 1 },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+      // Override block2's private log tag to match block1's
+      block2.body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Both blocks' logs should be present
+      const logsBefore = await store.getPrivateLogsByTags([sharedTag]);
+      expect(logsBefore[0]).toHaveLength(2);
+
+      // Reorg: delete block 2
+      await store.deleteLogs([block2]);
+
+      // Block 1's log should still be present
+      const logsAfter = await store.getPrivateLogsByTags([sharedTag]);
+      expect(logsAfter[0]).toHaveLength(1);
+      expect(logsAfter[0][0].blockNumber).toEqual(1);
+    });
+
+    it('retains public logs from non-reorged block when same tag appears in reorged block', async () => {
+      const contractAddress = AztecAddress.fromNumber(543254);
+      const sharedTag = makePublicLogTag(1, 0, 0);
+
+      // Block 1 with a public log using sharedTag
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      // Block 2 with a public log using the SAME tag from the same contract
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+      // Override block2's public log tag to match block1's
+      block2.body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Both blocks' logs should be present
+      const logsBefore = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(logsBefore[0]).toHaveLength(2);
+
+      // Reorg: delete block 2
+      await store.deleteLogs([block2]);
+
+      // Block 1's log should still be present
+      const logsAfter = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(logsAfter[0]).toHaveLength(1);
+      expect(logsAfter[0][0].blockNumber).toEqual(1);
+    });
+
+    it('deletes multiple blocks at once', async () => {
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx: 1 },
+        publicLogs: { numLogsPerTx: 1 },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx: 1 },
+        publicLogs: { numLogsPerTx: 1 },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Verify logs exist
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toBeGreaterThan(0);
+
+      // Delete both blocks at once
+      await store.deleteLogs([block1, block2]);
+
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+    });
+
+    it('is a no-op when deleting blocks with no logs', async () => {
+      const block = publishedCheckpoints[0].checkpoint.blocks[0];
+      // Don't add logs, just try to delete
+      await expect(store.deleteLogs([block])).resolves.toEqual(true);
+    });
   });
 
   describe('getTxEffect', () => {
@@ -2053,6 +2181,43 @@ describe('KVArchiverDataStore', () => {
 
       await store.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
+    });
+
+    describe('inbox tree in progress guard', () => {
+      it('throws when checkpointNumber >= treeInProgress', async () => {
+        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(5) });
+        await store.addL1ToL2Messages(msgs);
+
+        // Set treeInProgress to 7, meaning checkpoints 5 and 6 are sealed, 7+ are not
+        await store.setInboxTreeInProgress(7n);
+
+        // Sealed checkpoint should succeed
+        await expect(store.getL1ToL2Messages(CheckpointNumber(5))).resolves.toEqual([msgs[0].leaf]);
+
+        // Unsealed checkpoint (== treeInProgress) should throw
+        await expect(store.getL1ToL2Messages(CheckpointNumber(7))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+
+        // Future checkpoint should also throw
+        await expect(store.getL1ToL2Messages(CheckpointNumber(8))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+      });
+
+      it('returns messages when checkpointNumber < treeInProgress', async () => {
+        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(10) });
+        await store.addL1ToL2Messages(msgs);
+
+        await store.setInboxTreeInProgress(13n);
+
+        await expect(store.getL1ToL2Messages(CheckpointNumber(10))).resolves.toEqual([msgs[0].leaf]);
+        await expect(store.getL1ToL2Messages(CheckpointNumber(11))).resolves.toEqual([msgs[1].leaf]);
+      });
+
+      it('skips guard when treeInProgress is not set', async () => {
+        const msgs = makeInboxMessages(2, { initialCheckpointNumber: CheckpointNumber(1) });
+        await store.addL1ToL2Messages(msgs);
+
+        // No setInboxTreeInProgress call — guard should be permissive
+        await expect(store.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
+      });
     });
   });
 
@@ -2959,6 +3124,24 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
+    it('"tag" filter param is respected', async () => {
+      // Get a random tag from the logs
+      const targetBlockIndex = randomInt(numBlocksForPublicLogs);
+      const targetBlock = publishedCheckpoints[targetBlockIndex].checkpoint.blocks[0];
+      const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
+      const targetLogIndex = randomInt(getPublicLogsPerTx(targetBlock, targetTxIndex));
+      const targetTag = targetBlock.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].fields[0];
+
+      const response = await store.getPublicLogs({ tag: targetTag });
+
+      expect(response.maxLogsHit).toBeFalsy();
+      expect(response.logs.length).toBeGreaterThan(0);
+
+      for (const extendedLog of response.logs) {
+        expect(extendedLog.log.fields[0].equals(targetTag)).toBeTruthy();
+      }
+    });
+
     it('"afterLog" filter param is respected', async () => {
       // Get a random log as reference
       const targetBlockIndex = randomInt(numBlocksForPublicLogs);
@@ -2994,13 +3177,13 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
-    it('"txHash" filter param is ignored when "afterLog" is set', async () => {
-      // Get random txHash
+    it('"txHash" filter param is respected when "afterLog" is set', async () => {
+      // A random txHash should match nothing, even with afterLog set
       const txHash = TxHash.random();
       const afterLog = new LogId(BlockNumber(1), BlockHash.random(), TxHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
-      expect(response.logs.length).toBeGreaterThan(1);
+      expect(response.logs.length).toBe(0);
     });
 
     it('intersecting works', async () => {

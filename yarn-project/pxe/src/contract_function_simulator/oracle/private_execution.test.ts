@@ -1,10 +1,4 @@
-import {
-  DomainSeparator,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULL_MSG_SENDER_CONTRACT_ADDRESS,
-  PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { DomainSeparator, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -17,8 +11,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
@@ -37,29 +29,22 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
-  type ContractInstanceWithAddress,
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierHidingKey, deriveKeys } from '@aztec/stdlib/keys';
 import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { makeBlockHeader, makeL2Tips } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import {
-  BlockHeader,
-  HashedValues,
-  PartialStateReference,
-  StateReference,
-  TxContext,
-  TxExecutionRequest,
-  TxHash,
-} from '@aztec/stdlib/tx';
+import { makeBlockHeader, makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHeader, HashedValues, TxContext, TxExecutionRequest, TxHash } from '@aztec/stdlib/tx';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
@@ -130,7 +115,6 @@ describe('Private Execution test suite', () => {
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
 
-  let defaultContractAddress: AztecAddress;
   const ownerSk = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
   const recipientSk = Fr.fromHexString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
   const senderForTagsSk = Fr.fromHexString('2f0e5a8f3ba9c0738d6f3a9e0c2e13f7b2d4207f36efda729a2c6e2a5a9f8b1d');
@@ -150,13 +134,14 @@ describe('Private Execution test suite', () => {
 
   const TEST_JOB_ID = 'test-job-id';
 
-  const treeHeights: { [name: string]: number } = {
-    noteHash: NOTE_HASH_TREE_HEIGHT,
-    l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
-    publicData: PUBLIC_DATA_TREE_HEIGHT,
+  const treeNameToId: { [name: string]: MerkleTreeId } = {
+    noteHash: MerkleTreeId.NOTE_HASH_TREE,
+    l1ToL2Messages: MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    publicData: MerkleTreeId.PUBLIC_DATA_TREE,
   };
 
-  let trees: { [name: keyof typeof treeHeights]: AppendOnlyTree<Fr> } = {};
+  let ws: NativeWorldStateService;
+  let fork: MerkleTreeWriteOperations;
   const txContextFields: FieldsOf<TxContext> = {
     chainId: new Fr(10),
     version: new Fr(20),
@@ -171,15 +156,12 @@ describe('Private Execution test suite', () => {
       return expectedValue?.toString() === actualValue.toString();
     }, 'Matches aztec addresses');
 
-  const mockContractInstance = async (artifact: ContractArtifact, address: AztecAddress) => {
-    contracts[address.toString()] = artifact;
+  const mockContractInstance = async (artifact: ContractArtifact) => {
     const contractClass = await getContractClassFromArtifact(artifact);
-
-    contractStore.getContractInstance.calledWith(aztecAddressMatcher(address)).mockResolvedValue({
-      currentContractClassId: contractClass.id,
-      originalContractClassId: contractClass.id,
-      address,
-    } as ContractInstanceWithAddress);
+    const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
+    contracts[instance.address.toString()] = artifact;
+    contractStore.getContractInstance.calledWith(aztecAddressMatcher(instance.address)).mockResolvedValue(instance);
+    return instance.address;
   };
 
   const runSimulator = async ({
@@ -201,9 +183,9 @@ describe('Private Execution test suite', () => {
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
     const functionArtifact = getFunctionArtifactByName(artifact, functionName);
-    contractAddress = contractAddress ?? defaultContractAddress;
+    contractAddress = contractAddress ?? (await mockContractInstance(artifact));
+    contracts[contractAddress.toString()] = artifact;
     const selector = await FunctionSelector.fromNameAndParameters(functionName, functionArtifact.parameters);
-    await mockContractInstance(artifact, contractAddress);
 
     const hashedArguments = await HashedValues.fromArgs(encodeArguments(functionArtifact, args));
     const txRequest = TxExecutionRequest.from({
@@ -229,49 +211,22 @@ describe('Private Execution test suite', () => {
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
-    if (!treeHeights[name]) {
+    const treeId = treeNameToId[name];
+    if (treeId === undefined) {
       throw new Error(`Unknown tree ${name}`);
     }
-    if (!trees[name]) {
-      const db = openTmpStore();
-      const poseidon = new Poseidon();
-      trees[name] = await newTree(StandardTree, db, poseidon, name, Fr, treeHeights[name]);
-    }
-    const tree = trees[name];
 
-    tree.appendLeaves(leaves);
+    await fork.appendLeaves(treeId, leaves);
+    const state = await fork.getStateReference();
 
-    // Create a new snapshot.
-    const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
-
-    if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
-      anchorBlockHeader = new BlockHeader(
-        anchorBlockHeader.lastArchive,
-        new StateReference(
-          name === 'l1ToL2Messages' ? newSnap : anchorBlockHeader.state.l1ToL2MessageTree,
-          new PartialStateReference(
-            name === 'noteHash' ? newSnap : anchorBlockHeader.state.partial.noteHashTree,
-            anchorBlockHeader.state.partial.nullifierTree,
-            name === 'publicData' ? newSnap : anchorBlockHeader.state.partial.publicDataTree,
-          ),
-        ),
-        anchorBlockHeader.spongeBlobHash,
-        anchorBlockHeader.globalVariables,
-        anchorBlockHeader.totalFees,
-        anchorBlockHeader.totalManaUsed,
-      );
-    } else {
-      anchorBlockHeader = new BlockHeader(
-        anchorBlockHeader.lastArchive,
-        new StateReference(newSnap, anchorBlockHeader.state.partial),
-        anchorBlockHeader.spongeBlobHash,
-        anchorBlockHeader.globalVariables,
-        anchorBlockHeader.totalFees,
-        anchorBlockHeader.totalManaUsed,
-      );
-    }
-
-    return trees[name];
+    anchorBlockHeader = new BlockHeader(
+      anchorBlockHeader.lastArchive,
+      state,
+      anchorBlockHeader.spongeBlobHash,
+      anchorBlockHeader.globalVariables,
+      anchorBlockHeader.totalFees,
+      anchorBlockHeader.totalManaUsed,
+    );
   };
 
   const computeNoteHash = (note: Note, owner: AztecAddress, storageSlot: Fr, randomness: Fr) => {
@@ -308,12 +263,16 @@ describe('Private Execution test suite', () => {
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
     senderForTags = senderForTagsCompleteAddress.address;
+  });
 
-    defaultContractAddress = await AztecAddress.random();
+  afterEach(async () => {
+    await fork?.close();
+    await ws?.close();
   });
 
   beforeEach(async () => {
-    trees = {};
+    ws = await NativeWorldStateService.tmp();
+    fork = await ws.fork();
     contractStore = mock<ContractStore>();
     noteStore = mock<NoteStore>();
     noteStore.getNotes.mockResolvedValue([]);
@@ -553,9 +512,7 @@ describe('Private Execution test suite', () => {
     };
 
     beforeEach(async () => {
-      contractAddress = await AztecAddress.random();
-
-      await mockContractInstance(StatefulTestContractArtifact, contractAddress);
+      contractAddress = await mockContractInstance(StatefulTestContractArtifact);
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
@@ -716,11 +673,10 @@ describe('Private Execution test suite', () => {
 
     it('parent should call child', async () => {
       const childArtifact = getFunctionArtifactByName(ChildContractArtifact, 'value');
-      const parentAddress = await AztecAddress.random();
-      const childAddress = await AztecAddress.random();
+      const parentAddress = await mockContractInstance(ParentContractArtifact);
+      const childAddress = await mockContractInstance(ChildContractArtifact);
       const childSelector = await FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
 
-      await mockContractInstance(ChildContractArtifact, childAddress);
       logger.info(`Parent deployed at ${parentAddress.toString()}`);
       logger.info(`Calling child function ${childSelector.toString()} at ${childAddress.toString()}`);
 
@@ -748,11 +704,9 @@ describe('Private Execution test suite', () => {
 
     it('syncs private state for child in nested calls', async () => {
       const childArtifact = getFunctionArtifactByName(ChildContractArtifact, 'value');
-      const parentAddress = await AztecAddress.random();
-      const childAddress = await AztecAddress.random();
+      const parentAddress = await mockContractInstance(ParentContractArtifact);
+      const childAddress = await mockContractInstance(ChildContractArtifact);
       const childSelector = await FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
-
-      await mockContractInstance(ChildContractArtifact, childAddress);
 
       contractStore.getFunctionCall.mockClear();
 
@@ -773,7 +727,7 @@ describe('Private Execution test suite', () => {
     let contractAddress: AztecAddress;
 
     beforeEach(async () => {
-      contractAddress = await AztecAddress.random();
+      contractAddress = await mockContractInstance(TestContractArtifact);
     });
     describe('L1 to L2', () => {
       let bridgedAmount = 100n;
@@ -813,9 +767,9 @@ describe('Private Execution test suite', () => {
       ];
 
       const mockOracles = async () => {
-        const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
+        await insertLeaves([preimage.hash()], 'l1ToL2Messages');
         aztecNode.getL1ToL2MessageMembershipWitness.mockImplementation(async () => {
-          return Promise.resolve([0n, await tree.getSiblingPath(0n, true)]);
+          return Promise.resolve([0n, await fork.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 0n)]);
         });
         aztecNode.findLeavesIndexes.mockImplementation(() => {
           return Promise.resolve([]);
@@ -991,10 +945,9 @@ describe('Private Execution test suite', () => {
       expect(childFunctionArtifact).toBeDefined();
       childFunctionArtifact.isOnlySelf = isOnlySelf;
 
-      const childAddress = await AztecAddress.random();
-      await mockContractInstance(childContractArtifact, childAddress);
+      const childAddress = await mockContractInstance(childContractArtifact);
       const childSelector = await FunctionSelector.fromSignature('pub_set_value(Field)');
-      const parentAddress = await AztecAddress.random();
+      const parentAddress = await mockContractInstance(ParentContractArtifact);
 
       const args = [childAddress, childSelector, 42n];
       const result = await runSimulator({
@@ -1017,8 +970,7 @@ describe('Private Execution test suite', () => {
       const parentFunctionArtifact = parentContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(parentFunctionArtifact).toBeDefined();
 
-      const parentAddress = await AztecAddress.random();
-      await mockContractInstance(parentContractArtifact, parentAddress);
+      const parentAddress = await mockContractInstance(parentContractArtifact);
 
       // Only recurse once, so that we only enqueue 2 calls. #total-args should be low.
       const args = [/*remainingRecursions=*/ 1];
@@ -1026,7 +978,7 @@ describe('Private Execution test suite', () => {
         msgSender: parentAddress,
         contractAddress: parentAddress,
         anchorBlockHeader,
-        artifact: ParentContractArtifact,
+        artifact: parentContractArtifact,
         functionName: 'enqueue_call_to_child_with_many_args_and_recurse',
         args,
       });
@@ -1038,8 +990,7 @@ describe('Private Execution test suite', () => {
       const parentFunctionArtifact = parentContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(parentFunctionArtifact).toBeDefined();
 
-      const parentAddress = await AztecAddress.random();
-      await mockContractInstance(parentContractArtifact, parentAddress);
+      const parentAddress = await mockContractInstance(parentContractArtifact);
 
       // 10 recursions (11 enqueued public calls) should overflow the total args limit
       // since each call enqueues a call with max / 10 args (plus 1 each time for function selector)
@@ -1049,7 +1000,7 @@ describe('Private Execution test suite', () => {
           msgSender: parentAddress,
           contractAddress: parentAddress,
           anchorBlockHeader,
-          artifact: ParentContractArtifact,
+          artifact: parentContractArtifact,
           functionName: 'enqueue_call_to_child_with_many_args_and_recurse',
           args,
         }),
@@ -1074,24 +1025,19 @@ describe('Private Execution test suite', () => {
 
   describe('setting fee payer', () => {
     it('should default to not being a fee payer', async () => {
-      // arbitrary random function that doesn't set a fee payer
-      const contractAddress = await AztecAddress.random();
       const { entrypoint: result } = await runSimulator({
         artifact: TestContractArtifact,
         anchorBlockHeader,
         functionName: 'get_this_address',
-        contractAddress,
       });
       expect(result.publicInputs.isFeePayer).toBe(false);
     });
 
     it('should be able to set a fee payer', async () => {
-      const contractAddress = await AztecAddress.random();
       const { entrypoint: result } = await runSimulator({
         artifact: TestContractArtifact,
         anchorBlockHeader,
         functionName: 'test_setting_fee_payer',
-        contractAddress,
       });
       expect(result.publicInputs.isFeePayer).toBe(true);
     });
@@ -1099,13 +1045,10 @@ describe('Private Execution test suite', () => {
 
   describe('phase checking', () => {
     it('should be able to end setup checking phases', async () => {
-      // arbitrary random function that doesn't set a fee payer
-      const contractAddress = await AztecAddress.random();
       const { entrypoint: result } = await runSimulator({
         artifact: TestContractArtifact,
         anchorBlockHeader,
         functionName: 'end_setup_checking_phases',
-        contractAddress,
       });
       const minRevertibleSideEffectCounter = result.publicInputs.minRevertibleSideEffectCounter.toNumber();
       const expectedNonRevertibleSideEffectCounter =
@@ -1119,17 +1062,12 @@ describe('Private Execution test suite', () => {
   });
 
   describe('pending note hashes contract', () => {
-    beforeEach(async () => {
-      await mockContractInstance(PendingNoteHashesContractArtifact, defaultContractAddress);
-    });
-
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
       noteStore.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
-      const contractAddress = await AztecAddress.random();
-
+      const contractAddress = await mockContractInstance(PendingNoteHashesContractArtifact);
       const sender = owner;
       const args = [amountToTransfer, owner, sender];
       const { entrypoint: result } = await runSimulator({
@@ -1290,7 +1228,7 @@ describe('Private Execution test suite', () => {
 
   describe('Context oracles', () => {
     it('this_address should return the current context address', async () => {
-      const contractAddress = await AztecAddress.random();
+      const contractAddress = await mockContractInstance(TestContractArtifact);
 
       const { entrypoint: result } = await runSimulator({
         artifact: TestContractArtifact,

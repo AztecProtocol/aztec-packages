@@ -102,7 +102,7 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                  (FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)))));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
-    { // LAST_ON_ERROR
+    { // END_ON_ERROR
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::bitwise_err)) * (static_cast<View>(in.get(C::bitwise_end)) - FF(1));
         std::get<13>(evals) += (tmp * scaling_factor);

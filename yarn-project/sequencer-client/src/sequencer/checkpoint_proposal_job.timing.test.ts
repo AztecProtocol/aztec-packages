@@ -14,8 +14,8 @@ import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
+  BlockBuilderOptions,
   MerkleTreeWriteOperations,
-  PublicProcessorLimits,
   ResolvedSequencerConfig,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -80,7 +80,7 @@ class TimingAwareMockCheckpointBuilder extends MockCheckpointBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits,
+    opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult> {
     const startTime = this.getSecondsIntoSlot();
 

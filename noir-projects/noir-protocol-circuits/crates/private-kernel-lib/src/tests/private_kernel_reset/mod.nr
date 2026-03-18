@@ -15,6 +15,7 @@ use crate::{
     private_kernel_reset::PrivateKernelResetCircuitPrivateInputs,
     reset::{KeyValidationHint, ReadRequestHintsBuilder, TransientDataSquashingHint},
 };
+use protocol_test_utils::{FixtureBuilder, pad_end, pad_end_with};
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 use types::{
     abis::{
@@ -30,13 +31,8 @@ use types::{
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
     hash::{compute_app_siloed_secret_key, compute_siloed_nullifier},
-    merkle_tree::{LeafPreimage, MembershipWitness},
+    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
     side_effect::{Counted, Scoped},
-    tests::{
-        fixture_builder::FixtureBuilder,
-        merkle_tree_utils::SingleSubtreeMerkleTree,
-        utils::{pad_end, pad_end_with},
-    },
     traits::Empty,
     utils::arrays::find_first_index,
 };

@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 pub contract Parent {
     use aztec::{
         macros::functions::{external, initializer},
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
             traits::ToField,
@@ -41,11 +41,11 @@ pub contract Parent {
         let _ = self.context.call_private_function(target, selector, [nullifier]);
     }
 
-    // Forward a call to test_nullifier_inclusion(Field) on the target contract.
+    // Forward a call to test_settled_nullifier_inclusion(Field) on the target contract.
     #[external("private")]
-    fn forward_test_nullifier_inclusion(target: AztecAddress, nullifier: Field) {
+    fn forward_test_settled_nullifier_inclusion(target: AztecAddress, nullifier: Field) {
         let selector =
-            comptime { FunctionSelector::from_signature("test_nullifier_inclusion(Field)") };
+            comptime { FunctionSelector::from_signature("test_settled_nullifier_inclusion(Field)") };
         let _ = self.context.call_private_function(target, selector, [nullifier]);
     }
 
