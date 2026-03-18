@@ -67,7 +67,6 @@ Run specific example(s):
 ./run.sh connection           # aztecjs_connection
 ./run.sh getting_started      # aztecjs_getting_started
 ./run.sh advanced authwit     # multiple examples
-./run.sh swap                 # example_swap
 ./run.sh recursive_verification
 ```
 
@@ -76,9 +75,9 @@ Run specific example(s):
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `AZTEC_NODE_URL` | URL of the Aztec node to connect to | `http://localhost:8080` |
-| `ETHEREUM_HOST` | URL of the L1 RPC used by bridging / swap examples | `http://localhost:8545` |
+| `ETHEREUM_HOST` | URL of the L1 RPC used by examples that interact with Ethereum | `http://localhost:8545` |
 
-The `AZTEC_NODE_URL` env var is used by the runner script and the example `index.ts` files. `ETHEREUM_HOST` is used by examples that interact with L1. In Docker Compose, these are set to `http://local-network:8080` and `http://fork:8545`.
+The `AZTEC_NODE_URL` env var is used by both the runner script and the example `index.ts` files. `ETHEREUM_HOST` is used by examples that bridge or otherwise touch L1. In Docker Compose, these are set to `http://local-network:8080` and `http://fork:8545`.
 
 ### Currently Tested Examples
 
@@ -89,7 +88,6 @@ The `AZTEC_NODE_URL` env var is used by the runner script and the example `index
 | `aztecjs_advanced` | NO_WAIT transactions, BatchCall, sponsored FPC, events |
 | `aztecjs_authwit` | Authentication witnesses for delegated actions |
 | `aztecjs_testing` | Test patterns: minting, transfers, revert testing |
-| `example_swap` | Cross-chain token swap via L1 uniswap portal (L2→L1→L2) |
 | `recursive_verification` | Recursive proof generation and onchain verification flow |
 
 ### Examples Not Executed (Type-Checked Only)
