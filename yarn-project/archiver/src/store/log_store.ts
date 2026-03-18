@@ -1,6 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { filterAsync } from '@aztec/foundation/collection';
+import { compactArray, filterAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
@@ -313,18 +313,49 @@ export class LogStore {
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
-      await Promise.all(
-        blocks.map(async block => {
-          // Delete private logs
-          const privateKeys = (await this.#privateLogKeysByBlock.getAsync(block.number)) ?? [];
-          await Promise.all(privateKeys.map(tag => this.#privateLogsByTag.delete(tag)));
+      const blockNumbers = new Set(blocks.map(block => block.number));
+      const firstBlockToDelete = Math.min(...blockNumbers);
 
-          // Delete public logs
-          const publicKeys = (await this.#publicLogKeysByBlock.getAsync(block.number)) ?? [];
-          await Promise.all(publicKeys.map(key => this.#publicLogsByContractAndTag.delete(key)));
-        }),
+      // Collect all unique private tags across all blocks being deleted
+      const allPrivateTags = new Set(
+        compactArray(await Promise.all(blocks.map(block => this.#privateLogKeysByBlock.getAsync(block.number)))).flat(),
       );
 
+      // Trim private logs: for each tag, delete all instances including and after the first block being deleted.
+      // This hinges on the invariant that logs for a given tag are always inserted in order of block number, which is enforced in #addPrivateLogs.
+      for (const tag of allPrivateTags) {
+        const existing = await this.#privateLogsByTag.getAsync(tag);
+        if (existing === undefined || existing.length === 0) {
+          continue;
+        }
+        const lastIndexToKeep = existing.findLastIndex(
+          buf => TxScopedL2Log.getBlockNumberFromBuffer(buf) < firstBlockToDelete,
+        );
+        const remaining = existing.slice(0, lastIndexToKeep + 1);
+        await (remaining.length > 0 ? this.#privateLogsByTag.set(tag, remaining) : this.#privateLogsByTag.delete(tag));
+      }
+
+      // Collect all unique public keys across all blocks being deleted
+      const allPublicKeys = new Set(
+        compactArray(await Promise.all(blocks.map(block => this.#publicLogKeysByBlock.getAsync(block.number)))).flat(),
+      );
+
+      // And do the same as we did with private logs
+      for (const key of allPublicKeys) {
+        const existing = await this.#publicLogsByContractAndTag.getAsync(key);
+        if (existing === undefined || existing.length === 0) {
+          continue;
+        }
+        const lastIndexToKeep = existing.findLastIndex(
+          buf => TxScopedL2Log.getBlockNumberFromBuffer(buf) < firstBlockToDelete,
+        );
+        const remaining = existing.slice(0, lastIndexToKeep + 1);
+        await (remaining.length > 0
+          ? this.#publicLogsByContractAndTag.set(key, remaining)
+          : this.#publicLogsByContractAndTag.delete(key));
+      }
+
+      // After trimming the tagged logs, we can delete the block-level keys that track which tags are in which blocks.
       await Promise.all(
         blocks.map(block =>
           Promise.all([

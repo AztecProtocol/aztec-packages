@@ -178,29 +178,32 @@ export class CheckpointProposal extends Gossipable {
       blockNumber: lastBlockInfo?.blockHeader?.globalVariables.blockNumber ?? BlockNumber(0),
       dutyType: DutyType.CHECKPOINT_PROPOSAL,
     };
-    const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
 
-    if (!lastBlockInfo) {
-      return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature);
+    if (lastBlockInfo) {
+      // Sign block proposal before signing checkpoint proposal to ensure HA protection
+      const lastBlockProposal = await BlockProposal.createProposalFromSigner(
+        lastBlockInfo.blockHeader,
+        lastBlockInfo.indexWithinCheckpoint,
+        checkpointHeader.inHash,
+        archiveRoot,
+        lastBlockInfo.txHashes,
+        lastBlockInfo.txs,
+        payloadSigner,
+      );
+
+      const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
+
+      return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature, {
+        blockHeader: lastBlockInfo.blockHeader,
+        indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
+        txHashes: lastBlockInfo.txHashes,
+        signature: lastBlockProposal.signature,
+        signedTxs: lastBlockProposal.signedTxs,
+      });
     }
 
-    const lastBlockProposal = await BlockProposal.createProposalFromSigner(
-      lastBlockInfo.blockHeader,
-      lastBlockInfo.indexWithinCheckpoint,
-      checkpointHeader.inHash,
-      archiveRoot,
-      lastBlockInfo.txHashes,
-      lastBlockInfo.txs,
-      payloadSigner,
-    );
-
-    return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature, {
-      blockHeader: lastBlockInfo.blockHeader,
-      indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-      txHashes: lastBlockInfo.txHashes,
-      signature: lastBlockProposal.signature,
-      signedTxs: lastBlockProposal.signedTxs,
-    });
+    const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
+    return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature);
   }
 
   /**
