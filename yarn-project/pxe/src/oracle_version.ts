@@ -4,9 +4,9 @@
 ///
 /// @dev Whenever a contract function or Noir test is run, the `aztec_utl_assertCompatibleOracleVersion` oracle is called
 /// and if the oracle version is incompatible an error is thrown.
-export const ORACLE_VERSION = 17;
+export const ORACLE_VERSION = 18;
 
 /// This hash is computed as by hashing the Oracle interface and it is used to detect when the Oracle interface changes,
 /// which in turn implies that you need to update the ORACLE_VERSION constant in this file and in
 /// `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
-export const ORACLE_INTERFACE_HASH = 'a794cd3a217228efafbace02297a5c5097ee2f6f7727dbc53bb2334bf1ebaa28';
+export const ORACLE_INTERFACE_HASH = 'ab9ba6bb6675a4663d66af494bec195ab1d18fa2b646549323e0f54cac6af1de';

@@ -23,6 +23,7 @@ import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage } from '../../contract_logging.js';
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
@@ -62,6 +63,7 @@ export type UtilityExecutionOracleArgs = {
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
   messageContextService: MessageContextService;
+  contractSyncService: ContractSyncService;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AccessScopes;
@@ -91,6 +93,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly capsuleStore: CapsuleStore;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly messageContextService: MessageContextService;
+  protected readonly contractSyncService: ContractSyncService;
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AccessScopes;
@@ -110,6 +113,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
     this.messageContextService = args.messageContextService;
+    this.contractSyncService = args.contractSyncService;
     this.jobId = args.jobId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
@@ -649,6 +653,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     return this.capsuleStore.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries, this.jobId);
+  }
+
+  /**
+   * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
+   * stored notes or events are discovered.
+   */
+  public invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
+    if (!contractAddress.equals(this.contractAddress)) {
+      throw new Error(`Contract ${this.contractAddress} cannot invalidate sync cache of ${contractAddress}`);
+    }
+    this.contractSyncService.invalidateContractForScopes(contractAddress, scopes);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
