@@ -90,7 +90,7 @@ function test_download {
   cargo clean -p barretenberg-rs 2>/dev/null || true
 
   # Build with a known release version
-  local version=${BARRETENBERG_VERSION:-$(gh release list --repo AztecProtocol/aztec-packages --limit 1 --json tagName --jq '.[0].tagName' | sed 's/^v//')}
+  local version=${BARRETENBERG_VERSION:-$(gh release list --repo AztecProtocol/barretenberg --limit 1 --json tagName --jq '.[0].tagName' | sed 's/^v//')}
   echo "Testing download with version: $version"
 
   # Retry logic for network flakiness (GitHub releases can be flaky)

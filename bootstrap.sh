@@ -503,7 +503,6 @@ function release_bb_github {
   # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
   # Users can manually create releases in aztec-packages via the GitHub UI if needed.
   local bb_repo="AztecProtocol/barretenberg"
-  local compare_link=""
   if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
     return
   fi

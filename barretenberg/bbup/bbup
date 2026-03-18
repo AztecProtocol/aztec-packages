@@ -123,7 +123,8 @@ install_bb() {
     local primary_url="https://github.com/AztecProtocol/barretenberg/releases/download/${release_tag}/${artifact}"
     local fallback_url="https://github.com/AztecProtocol/aztec-packages/releases/download/${release_tag}/${artifact}"
 
-    if ! curl -L --fail "$primary_url" -o "$temp_tar" 2>/dev/null; then
+    if ! curl -sL --fail "$primary_url" -o "$temp_tar"; then
+        printf "${BLUE}Trying fallback URL...${NC}\n"
         curl -L --fail "$fallback_url" -o "$temp_tar"
     fi
     mkdir -p "$BB_PATH"
