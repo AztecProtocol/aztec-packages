@@ -46,14 +46,7 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
             message_context,
         );
     } else {
-<<<<<<< HEAD
         aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([message_context.tx_hash]);
-=======
-        debug_log_format(
-            "Could not decrypt message ciphertext from tx {0}, ignoring",
-            [message_context.tx_hash],
-        );
->>>>>>> 79e063f101 (feat!: make unused msg disco fns private (#20831))
     }
 }
 
@@ -91,7 +84,6 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
         } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
             aztecnr_debug_log!("Processing partial note private msg");
 
-<<<<<<< HEAD
             process_partial_note_private_msg(
                 contract_address,
                 message_context.recipient,
@@ -109,42 +101,25 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 msg_content,
                 message_context.tx_hash,
             );
+        } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
+            // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.
+            // This most likely means the message is malformed or a custom message was incorrectly assigned a reserved
+            // ID. Custom message types must use IDs allocated via `custom_msg_type_id`.
+            aztecnr_warn_log_format!("Message type ID {0} is in the reserved range but is not recognized, ignoring. See https://docs.aztec.network/errors/3")([msg_type_id as Field]);
+        } else if process_custom_message.is_some() {
+            process_custom_message.unwrap()(
+                contract_address,
+                msg_type_id,
+                msg_metadata,
+                msg_content,
+                message_context,
+            );
         } else {
-            aztecnr_warn_log_format!("Unknown msg type id {0}")([msg_type_id as Field]);
+            // A custom message was received but no handler is configured. This likely means the contract emits custom
+            // messages but forgot to register a handler via `AztecConfig::custom_message_handler`.
+            aztecnr_warn_log_format!("Received custom message with type id {0} but no handler is configured, ignoring. See https://docs.aztec.network/errors/2")([msg_type_id as Field]);
         }
     } else {
         aztecnr_warn_log_format!("Could not decode message plaintext from tx {0}, ignoring")([message_context.tx_hash]);
-=======
-        process_private_event_msg(
-            contract_address,
-            message_context.recipient,
-            msg_metadata,
-            msg_content,
-            message_context.tx_hash,
-        );
-    } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
-        // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above. This
-        // most likely means the message is malformed or a custom message was incorrectly assigned a reserved ID.
-        // Custom message types must use IDs allocated via `custom_msg_type_id`.
-        debug_log_format(
-            "Message type ID {0} is in the reserved range but is not recognized, ignoring. See https://docs.aztec.network/errors/3",
-            [msg_type_id as Field],
-        );
-    } else if process_custom_message.is_some() {
-        process_custom_message.unwrap()(
-            contract_address,
-            msg_type_id,
-            msg_metadata,
-            msg_content,
-            message_context,
-        );
-    } else {
-        // A custom message was received but no handler is configured. This likely means the contract emits custom
-        // messages but forgot to register a handler via `AztecConfig::custom_message_handler`.
-        debug_log_format(
-            "Received custom message with type id {0} but no handler is configured, ignoring. See https://docs.aztec.network/errors/2",
-            [msg_type_id as Field],
-        );
->>>>>>> ae8b067f84 (feat: custom message handlers in Aztec.nr (#20379))
     }
 }

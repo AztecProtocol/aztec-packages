@@ -9,9 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
@@ -42,7 +39,16 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 
 **Impact**: Contracts that call `attempt_note_discovery` or related discovery functions directly with a custom `_compute_note_hash_and_nullifier` argument. The old combined function is still generated (deprecated) but is no longer used by the framework. Additionally, if you had a custom `_compute_note_hash_and_nullifier` function then compilation will now fail as you'll need to also produce the corresponding `_compute_note_hash` and `_compute_note_nullifier` functions.
 
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
+### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
+
+This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous (constrained computation of nullifiers can be performed only on the `ConfirmedNote` type). If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
+
+### [Aztec.nr] Changes to standard note hash computation
+
+Note hashes used to be computed with the storage slot being the last value of the preimage, it is now the first. This is to make it easier to ensure all note hashes have proper domain separation.
+
+This change requires no input from your side unless you were testing or relying on hardcoded note hashes.
+
 ### Private initialization nullifier now includes `init_hash`
 
 The private initialization nullifier is no longer derived from just the contract address. It is now computed as a Poseidon2 hash of `[address, init_hash]` using a dedicated domain separator. This prevents observers from determining whether a fully private contract has been initialized by simply knowing its address.
@@ -59,32 +65,7 @@ If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_init
 +     instance.initialization_hash,
   );
 ```
-<<<<<<< HEAD
-=======
 
-### [Aztec.js] `TxReceipt` now includes `epochNumber`
-
-`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
-
-### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
-
-The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
-
-**Migration:**
-
-```diff
-- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
-- // epoch was passed in by the caller
-+ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
-+ // epoch is now available on the returned witness
-+ const epoch = witness.epochNumber;
-```
-
-The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
-
-**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
-
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
 ### Two separate init nullifiers for private and public
 
 Contract initialization now emits two separate nullifiers instead of one: a **private init nullifier** and a **public init nullifier**. Each nullifier gates its respective execution domain:
@@ -131,17 +112,6 @@ The function signature has changed to resolve the epoch internally from a transa
 The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
 
 **Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
-=======
-### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
-
-This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous (constrained computation of nullifiers can be performed only on the `ConfirmedNote` type). If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
-
-### [Aztec.nr] Changes to standard note hash computation
-
-Note hashes used to be computed with the storage slot being the last value of the preimage, it is now the first. This is to make it easier to ensure all note hashes have proper domain separation.
-
-This change requires no input from your side unless you were testing or relying on hardcoded note hashes.
->>>>>>> b361b7be21 (feat: add note hash and nullifier helper functions with domain separation (#21189))
 
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 

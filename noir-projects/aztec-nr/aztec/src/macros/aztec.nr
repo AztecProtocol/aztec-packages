@@ -1,23 +1,5 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-use crate::macros::{
-    calls_generation::{
-        external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
-        internal_functions::generate_call_internal_struct,
-    },
-    dispatch::generate_public_dispatch,
-    emit_public_init_nullifier::generate_emit_public_init_nullifier,
-    internals_functions_generation::{create_fn_abi_exports, process_functions},
-    notes::NOTES,
-    storage::STORAGE_LAYOUT_NAME,
-    utils::{
-        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
-        module_has_storage,
-=======
-=======
 mod compute_note_hash_and_nullifier;
 
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
 use crate::{
     macros::{
         calls_generation::{
@@ -25,17 +7,11 @@ use crate::{
             internal_functions::generate_call_internal_struct,
         },
         dispatch::generate_public_dispatch,
+        emit_public_init_nullifier::generate_emit_public_init_nullifier,
         internals_functions_generation::{create_fn_abi_exports, process_functions},
+        notes::NOTES,
         storage::STORAGE_LAYOUT_NAME,
-<<<<<<< HEAD
-        utils::{
-            get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
-            module_has_storage,
-        },
->>>>>>> ae8b067f84 (feat: custom message handlers in Aztec.nr (#20379))
-=======
         utils::{is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test, module_has_storage},
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     },
     messages::discovery::CustomMessageHandler,
 };
@@ -246,11 +222,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 }
 
 /// Generates the `sync_state` utility function that performs message discovery.
-<<<<<<< HEAD
-comptime fn generate_sync_state() -> Quoted {
-=======
 comptime fn generate_sync_state(process_custom_message_option: Quoted) -> Quoted {
->>>>>>> ae8b067f84 (feat: custom message handlers in Aztec.nr (#20379))
     quote {
         pub struct sync_state_parameters {}
 
@@ -264,17 +236,10 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted) -> Quoted
             let address = aztec::context::UtilityContext::new().this_address();
             aztec::messages::discovery::do_sync_state(
                 address,
-<<<<<<< HEAD
-                _compute_note_hash_and_nullifier,
-<<<<<<< HEAD
-                Option::some(aztec::messages::processing::offchain::sync_inbox),
-=======
-=======
                 _compute_note_hash,
                 _compute_note_nullifier,
->>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
                 $process_custom_message_option,
->>>>>>> ae8b067f84 (feat: custom message handlers in Aztec.nr (#20379))
+                Option::some(aztec::messages::processing::offchain::sync_inbox),
             );
         }
     }
