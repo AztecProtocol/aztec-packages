@@ -21,7 +21,7 @@ BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::BatchedHonkTranslatorProver(
 {}
 
 /**
- * @brief Run the MegaZK circuit's Oink phase.
+ * @brief Run the Mega circuit's Oink phase.
  * @details Commits to witnesses and permutation polys. Alpha is NOT drawn here: a single joint
  * alpha ("Sumcheck:alpha") is drawn in execute_joint_sumcheck_rounds() after all pre-sumcheck
  * commitments from both circuits are on the transcript.
@@ -51,21 +51,23 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_translator_oink(
 }
 
 /**
- * @brief Execute the joint 17-round sumcheck.
+ * @brief Execute the joint JOINT_LOG_N-round sumcheck.
  *
  * @details Draws "Sumcheck:alpha" — binding to all pre-sumcheck messages from both circuits — then
- * runs 17 rounds, sending
- *   U_joint(x) = U_MZK(x) + α^{K_H} · U_translator(x) + L(x)
- * where L(x) is the joint Libra masking univariate.
+ * runs JOINT_LOG_N rounds, sending
+ *   U_joint(x) = U_Mega(x) + α^{K_H} · U_translator(x) [+ L(x) when HasZK]
+ * where L(x) is the Libra masking univariate (only present when MegaFlavor::HasZK is true).
  *
- * For rounds 0..mega_zk_log_n-1 ("real rounds"), the MegaZK contribution is computed via standard
- * compute_univariate minus compute_disabled_contribution (row-disabling for ZK).
+ * For rounds 0..MIN_LOG_N-1 ("real rounds"), both circuits contribute via standard
+ * compute_univariate. When HasZK, the Mega contribution also includes compute_disabled_contribution
+ * (row-disabling for ZK).
  *
- * For rounds mega_zk_log_n..JOINT_LOG_N-1 ("virtual rounds"), the MegaZK polynomials are treated as
- * zero-padded to 2^JOINT_LOG_N. The contribution is computed via compute_virtual_contribution
- * (evaluating the relation at the only non-zero edge), scaled by the RDP factor from real rounds.
- * After each virtual round, the partially-evaluated MegaZK polynomials are updated by multiplying
- * by (1 - u_k), so the final claimed evaluations include the tau factor ∏(1 - u_k).
+ * For rounds MIN_LOG_N..JOINT_LOG_N-1 ("virtual rounds"), the smaller circuit's polynomials are
+ * treated as zero-padded. Its contribution is computed via compute_virtual_contribution (evaluating
+ * the relation at the only non-zero edge). When HasZK, this is scaled by the RDP factor from real
+ * rounds. After each virtual round, the smaller circuit's partially-evaluated polynomials are
+ * updated by multiplying by (1 - u_k), so the final claimed evaluations include the tau factor
+ * ∏(1 - u_k).
  */
 template <typename MegaFlavor, size_t MegaLogN>
 void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_rounds()
@@ -88,7 +90,7 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
     const TransSubrelationSeparators translator_alphas =
         initialize_relation_separator<FF, TranslatorFlavor::NUM_SUBRELATIONS - 1>(alpha);
 
-    // Joint ZK data: single Libra masking for all 17 rounds.
+    // Joint ZK data: single Libra masking for all JOINT_LOG_N rounds (only when HasZK).
     constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
     if constexpr (MegaFlavor::HasZK) {
         MegaCommitmentKey small_ck(1 << (log_subgroup_size + 1));
@@ -96,7 +98,7 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
     }
 
     // Gate separator polynomials:
-    //   MegaZK circuit uses gate_challenges[0..mega_zk_log_n-1] for beta_products (real rounds only).
+    //   Mega circuit uses gate_challenges[0..MEGA_LOG_N-1] for beta_products (real rounds only).
     //   During virtual rounds, only betas[] and partial_evaluation_result are accessed.
     //   Translator uses all JOINT_LOG_N challenges.
     GateSeparatorPolynomial<FF> mega_gate_sep(gate_challenges, MEGA_LOG_N);
@@ -106,8 +108,8 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
     MegaProverRound mega_round(static_cast<size_t>(1) << MEGA_LOG_N);
     TransProverRound translator_round(static_cast<size_t>(1) << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
-    // Row disabling polynomial for the Mega circuit.
-    // (TranslatorFlavor does not use UseRowDisablingPolynomial.)
+    // Row disabling polynomial for the Mega circuit (only active when HasZK).
+    // TranslatorFlavor does not use UseRowDisablingPolynomial.
     RowDisablingPolynomial<FF> rdp;
 
     auto& mega_polys = mega_instance->polynomials;
@@ -171,7 +173,7 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
 
     auto& masking_tail = mega_instance->masking_tail_data;
 
-    // Per-round helper: compute U_joint = U_MZK + α^{K_H}·U_translator from given polynomial
+    // Per-round helper: compute U_joint = U_Mega + α^{K_H}·U_translator from given polynomial
     // sources, add Libra masking, send to verifier, and return the round challenge.
     // hpolys/tpolys are the full tables on round 0, the partial-eval tables on subsequent rounds.
     auto do_round = [&](auto& hpolys, auto& tpolys, size_t round_idx) -> FF {
@@ -209,7 +211,7 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
         update_round_state(0, u);
     }
 
-    // ==================== Real rounds 1..mega_zk_log_n-1 ====================
+    // ==================== Real rounds 1..MIN_LOG_N-1 ====================
     for (size_t round_idx = 1; round_idx < MIN_LOG_N; round_idx++) {
         const FF u = do_round(mega_partial, translator_partial, round_idx);
         // Fold masking values BEFORE partially_evaluate (rounds 2+ read PE at active positions)
@@ -225,12 +227,12 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
         update_round_state(round_idx, u);
     }
 
-    // Capture RDP scalar after all real rounds for use in virtual rounds (only used when MegaFlavor::HasZK).
+    // Capture RDP scalar after all real rounds for use in virtual rounds (only active when HasZK).
     // rdp_scalar = RDP(u_0,...,u_{d-1}) = 1 - u_2*...*u_{d-1}.
     const FF rdp_scalar = FF(1) - rdp.eval_at_1;
 
     if constexpr (IS_MEGA_SMALLER) {
-        // Send MegaZK circuit evaluations immediately after the real rounds.
+        // Send Mega circuit evaluations immediately after the real rounds.
         // These are P_j(u_0,...,u_{d-1}) — the natural d-variable evaluations without the tau factor.
         // The verifier will extend them by zero (multiply by τ = ∏(1-u_k)) after drawing virtual-round challenges.
         // This eliminates any prover freedom in the zero-padded region: the extension is verifier-determined.
@@ -240,12 +242,12 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
 
         if constexpr (MegaFlavor::HasZK) {
             // Apply masking tail corrections: short witness polys have zeros at tail positions,
-            // so claimed evals need Lagrange-basis corrections using the first mega_zk_log_n challenges.
+            // so claimed evals need Lagrange-basis corrections using the first MEGA_LOG_N challenges.
             if (masking_tail.is_active()) {
                 auto real_challenges = std::span<const FF>(joint_challenge.data(), MEGA_LOG_N);
                 masking_tail.apply_claimed_eval_corrections(mega_claimed_evals, real_challenges);
 
-                // Write corrected values back into mega_zk_partial so that compute_virtual_contribution
+                // Write corrected values back into mega_partial so that compute_virtual_contribution
                 // in virtual rounds uses the corrected evaluations.
                 for (auto [eval, poly] : zip_view(mega_claimed_evals.get_all(), mega_partial.get_all())) {
                     if (poly.end_index() > 0) {
@@ -268,10 +270,10 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
                                      TranslatorFlavor::get_full_circuit_evaluations(trans_claimed_evals));
     }
 
-    // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
-    // The MegaZK polynomials are zero-padded beyond 2^mega_zk_log_n. The virtual contribution
-    // is compute_virtual_contribution * rdp_scalar. The polynomial values are updated by
-    // (1-u_k) after each round for the virtual contribution computation.
+    // ==================== Virtual rounds MIN_LOG_N..JOINT_LOG_N-1 ====================
+    // The smaller circuit's polynomials are zero-padded beyond 2^MIN_LOG_N. The virtual contribution
+    // is compute_virtual_contribution (scaled by rdp_scalar when HasZK). The polynomial values are
+    // updated by (1-u_k) after each round for the virtual contribution computation.
     for (size_t round_idx = MIN_LOG_N; round_idx < JOINT_LOG_N; round_idx++) {
         U_joint = SumcheckRoundUnivariate::zero();
 
@@ -364,9 +366,9 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
  * @brief Execute the joint Shplemini / KZG PCS over both circuits' polynomials.
  *
  * @details All polynomials from both circuits are combined into a single PolynomialBatcher and
- * passed to ShpleminiProver_<Curve>::prove() at the joint sumcheck challenge (u_0,...,u_16).
- * The MegaZK circuit's 2^16-size polynomials are treated as 17-variable by constructing the
- * batcher with joint_circuit_size = 2^17; the upper half is implicitly zero.
+ * passed to ShpleminiProver_<Curve>::prove() at the joint sumcheck challenge.
+ * The smaller circuit's polynomials are treated as JOINT_LOG_N-variable by constructing the
+ * batcher with joint_circuit_size = 2^JOINT_LOG_N; the upper half is implicitly zero.
  */
 template <typename MegaFlavor, size_t MegaLogN>
 void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_pcs()
@@ -389,14 +391,14 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_pcs()
 
     PolynomialBatcher polynomial_batcher(joint_circuit_size, max_end_index);
 
-    // Combine unshifted polynomials: translator first (its masking poly at position 0 for Shplemini offset=2),
-    // then MegaZK (no masking poly — translator provides the joint masking poly).
+    // Combine unshifted polynomials: translator first (its masking poly at position 0 when HasZK),
+    // then Mega.
     auto trans_unshifted = translator_key->proving_key->polynomials.get_pcs_unshifted();
     auto mega_unshifted = mega_instance->polynomials.get_unshifted();
     auto joint_unshifted = concatenate(trans_unshifted, mega_unshifted);
     polynomial_batcher.set_unshifted(joint_unshifted);
 
-    // Combine shifted polynomials: MegaZK first, then translator.
+    // Combine shifted polynomials: Mega first, then translator.
     auto mega_shifted = mega_instance->polynomials.get_to_be_shifted();
     auto trans_shifted = translator_key->proving_key->polynomials.get_pcs_to_be_shifted();
     auto joint_shifted = concatenate(mega_shifted, trans_shifted);
@@ -411,7 +413,7 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_pcs()
             zk_sumcheck_data, joint_challenge, claimed_libra_evaluation, transcript, ck);
         small_subgroup_ipa.prove();
 
-        // Register MegaZK masking tails with the joint batcher
+        // Register Mega masking tails with the joint batcher
         if (mega_instance->masking_tail_data.is_active()) {
             mega_instance->masking_tail_data.add_tails_to_batcher(mega_instance->polynomials, polynomial_batcher);
         }

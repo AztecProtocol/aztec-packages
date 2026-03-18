@@ -17,16 +17,19 @@ namespace bb {
 /**
  * @brief Verifier for the batched Mega circuit + translator sumcheck and PCS.
  *
- * @details Mirrors BatchedHonkTranslatorProver in the verification direction. Processes the
- * Mega circuit's Oink proof and the translator's pre-sumcheck commitments on a shared transcript,
- * then verifies a single joint sumcheck and a single Shplemini / KZG reduction.
+ * @details Templated on MegaFlavor, MegaLogN, and Curve. Mirrors BatchedHonkTranslatorProver in
+ * the verification direction. Processes the Mega circuit's Oink proof and the translator's
+ * pre-sumcheck commitments on a shared transcript, then verifies a single joint sumcheck and a
+ * single Shplemini / KZG reduction.
  *
- * The final joint relation check is:
- *   FRV_joint = rdp_MZK · FRV_MZK(u) + α^{K_H} · FRV_translator(u) + libra_eval · libra_challenge
+ * When MegaFlavor::HasZK is true, the final joint relation check is:
+ *   FRV_joint = rdp · FRV_Mega(u) + α^{K_H} · FRV_translator(u) + libra_eval · libra_challenge
+ * where rdp is the row-disabling polynomial for the Mega circuit evaluated at the joint challenge.
  *
- * where rdp_H is the row-disabling polynomial for the MegaZK circuit evaluated at the joint
- * sumcheck challenge, and TranslatorFlavor does not use row-disabling (UseRowDisablingPolynomial
- * is false for TranslatorFlavor).
+ * When HasZK is false, FRV_Mega is not scaled by rdp and the Libra term is absent:
+ *   FRV_joint = FRV_Mega(u) + α^{K_H} · FRV_translator(u)
+ *
+ * TranslatorFlavor does not use row-disabling (UseRowDisablingPolynomial is false).
  *
  * @tparam Curve  curve::BN254 for native verification, stdlib::bn254<Builder> for recursive.
  */
@@ -60,9 +63,9 @@ template <typename MegaFlavor, size_t MegaLogN, typename Curve> class BatchedHon
     // is at position 0 of unshifted.
     //
     // Shplemini's remove_repeated_commitments applies offset = HasZK ? 2 : 1 (Q + masking vs Q only).
-    // When HasZK=true (MegaZK), offset=2 consumes Q and the translator's masking poly, so the virtual
+    // When HasZK=true, offset=2 consumes Q and the translator's masking poly, so the virtual
     // layout starts after the masking poly (TU-1 remaining translator entries).
-    // When HasZK=false (MegaAvm), offset=1 consumes only Q, so the masking poly remains in the virtual
+    // When HasZK=false, offset=1 consumes only Q, so the masking poly remains in the virtual
     // layout (TU translator entries remain).
     //
     // After offset, the virtual layout is:
@@ -118,7 +121,7 @@ template <typename MegaFlavor, size_t MegaLogN, typename Curve> class BatchedHon
     };
 
     /**
-     * @brief Result of Phase 1 (MegaZK Oink verification).
+     * @brief Result of Phase 1 (Mega Oink verification).
      * @details Contains the data that callers need between Phase 1 and Phase 2.
      */
     struct OinkResult {
@@ -136,8 +139,8 @@ template <typename MegaFlavor, size_t MegaLogN, typename Curve> class BatchedHon
                                    std::shared_ptr<Transcript> transcript);
 
     /**
-     * @brief Phase 1: Verify the MegaZK Oink phase on the shared transcript.
-     * @details Loads mega_zk_proof into the transcript, runs OinkVerifier, stores verifier instance.
+     * @brief Phase 1: Verify the Mega Oink phase on the shared transcript.
+     * @details Loads mega_proof into the transcript, runs OinkVerifier, stores verifier instance.
      * @return OinkResult with public inputs, calldata commitment, and ECC op wires.
      */
     OinkResult verify_mega_oink(const Proof& mega_proof);

@@ -17,18 +17,19 @@
 namespace bb {
 
 /**
- * @brief Prover for the batched MegaZK circuit + translator sumcheck and PCS.
+ * @brief Prover for the batched Mega circuit + translator sumcheck and PCS.
  *
- * @details Runs the MegaZK circuit (MegaZK) and translator pre-sumcheck phases on a shared transcript,
- * then executes a single joint 17-round sumcheck and a single Shplemini/KZG reduction over both
- * circuits' polynomials. The joint round univariate is:
+ * @details Templated on MegaFlavor (e.g. MegaZKFlavor, MegaAvmFlavor) and MegaLogN. Runs the Mega
+ * circuit and translator pre-sumcheck phases on a shared transcript, then executes a single joint
+ * JOINT_LOG_N-round sumcheck and a single Shplemini/KZG reduction over both circuits' polynomials.
+ * The joint round univariate is:
  *
- *   U_joint(x) = U_MZK(x) + α^{K_H} · U_translator(x)
+ *   U_joint(x) = U_Mega(x) + α^{K_H} · U_translator(x)
  *
- * where K_H = MegaZKFlavor::NUM_SUBRELATIONS and α is drawn after all pre-sumcheck commitments.
+ * where K_H = MegaFlavor::NUM_SUBRELATIONS and α is drawn after all pre-sumcheck commitments.
  *
- * The MegaZK circuit is treated as a 2^17 circuit via its RowDisablingPolynomial (padding_indicator
- * = [1]*16 + [0]), so its contribution to round 16 is zero by construction.
+ * When MegaFlavor::HasZK is true, ZK machinery is enabled: row-disabling polynomial, Libra masking,
+ * masking tails, and committed sumcheck. When HasZK is false, these are all compiled out.
  */
 template <typename MegaFlavor, size_t MegaLogN> class BatchedHonkTranslatorProver {
   public:
