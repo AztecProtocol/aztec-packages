@@ -32,24 +32,6 @@ class ProverPolynomialsBase : public AllEntitiesBase {
     ProverPolynomialsBase& operator=(ProverPolynomialsBase&& o) noexcept = default;
     ~ProverPolynomialsBase() = default;
 
-    /**
-     * @brief Allocate polynomials of the given circuit size.
-     */
-    explicit ProverPolynomialsBase(size_t circuit_size)
-    {
-        for (auto& poly : this->get_to_be_shifted()) {
-            poly = Polynomial{ /*memory size*/ circuit_size - 1,
-                               /*largest possible index*/ circuit_size,
-                               /* offset */ 1 };
-        }
-        for (auto& poly : this->get_unshifted()) {
-            if (poly.is_empty()) {
-                poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
-            }
-        }
-        set_shifted();
-    }
-
     [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.virtual_size(); }
     [[nodiscard]] AllValuesType get_row(size_t row_idx) const
     {
@@ -133,8 +115,9 @@ class ProverPolynomialsBase : public AllEntitiesBase {
 
         for (size_t g = 0; g < num_groups; g++) {
             const bool shiftable = (g >= shiftable_start);
+            const size_t group_logical_start = shiftable ? 1 : 0;
 
-            // Compute group buffer size = max end_index across non-null entities in the group
+            // Single pass: compute max end_index and collect entity extents for strided view creation.
             size_t group_end_index = 0;
             for (size_t j = 0; j < groups[g].size(); j++) {
                 if (groups[g][j] != nullptr) {
@@ -144,11 +127,9 @@ class ProverPolynomialsBase : public AllEntitiesBase {
                 }
             }
 
-            // TODO(optimization): use group_end_index * BS once commitment/PCS size handling is verified
-            const size_t buffer_size = virtual_size * BS;
+            const size_t buffer_size = group_end_index * BS;
             const size_t buffer_virtual_size = virtual_size * BS;
 
-            // Allocate the group buffer
             if (shiftable) {
                 group_buffers_[g] = Polynomial::shiftable(buffer_size, buffer_virtual_size, BS);
             } else {
@@ -156,16 +137,13 @@ class ProverPolynomialsBase : public AllEntitiesBase {
             }
 
             // Create strided views for each entity in the group.
-            // The strided view's start_index is derived from the group buffer's start (0 for
-            // non-shiftable, 1 for shiftable), NOT from the entity's natural start. Entities
-            // like sigmas/ids have data starting at row 1 but live in non-shiftable groups —
-            // their row-0 slot is simply zero (from the zero-initialized buffer).
-            const size_t group_logical_start = shiftable ? 1 : 0;
+            // start_index is derived from the group buffer (0 for non-shiftable, 1 for shiftable),
+            // NOT from the entity's natural start. Entities like sigmas/ids that have data starting
+            // at row 1 but live in non-shiftable groups have their row-0 slot zero-initialized.
             for (size_t j = 0; j < groups[g].size(); j++) {
                 if (groups[g][j] != nullptr) {
                     auto it = entity_extents.find(groups[g][j]);
-                    const auto& ext = it->second;
-                    const size_t logical_size = ext.end_index - group_logical_start;
+                    const size_t logical_size = it->second.end_index - group_logical_start;
                     *groups[g][j] = Polynomial::strided_view(
                         group_buffers_[g].backing_memory(), BS, j, group_logical_start, logical_size, virtual_size);
                 }
