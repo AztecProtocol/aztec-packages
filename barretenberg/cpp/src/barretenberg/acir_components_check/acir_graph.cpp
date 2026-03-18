@@ -78,7 +78,7 @@ void collect_quad_witnesses(std::vector<WoC>& wits, const bb::mul_quad_<bb::fr>&
     if (c.a != bb::stdlib::IS_CONSTANT) {
         wits.push_back(WoC::from_index(c.a));
     }
-    if (c.b != bb::stdlib::IS_CONSTANT && c.b != c.a) {
+    if (c.b != bb::stdlib::IS_CONSTANT) {
         wits.push_back(WoC::from_index(c.b));
     }
     if (c.c != bb::stdlib::IS_CONSTANT) {
