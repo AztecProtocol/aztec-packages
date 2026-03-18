@@ -12,7 +12,6 @@ std::vector<Error> ComponentsChecker::check()
 void ComponentsChecker::build_acir_component_map()
 {
     acir_components_count::AcirGraph acir_graph;
-    acir_graph.set_max_witness_index(max_witness_);
     acir_graph.process_acir_constraints(constraints_);
     acir_witness_map_ = acir_graph.get_witness_component_map();
 }

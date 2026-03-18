@@ -2,25 +2,15 @@
 
 namespace acir_components_count {
 
-uint32_t AcirGraph::to_vertex_id(const WoC& woc)
-{
-    if (!woc.is_constant) {
-        return woc.index;
-    }
-    // Value-based caching for constants (mirrors circuit builder's put_constant_variable).
-    auto [it, inserted] = constant_vertex_ids_.try_emplace(woc.value, next_const_id_);
-    if (inserted) {
-        next_const_id_++;
-    }
-    return it->second;
-}
-
 void AcirGraph::add_constraint(const std::vector<WoC>& witnesses)
 {
+    // Extract non-constant witness indices
     std::vector<uint32_t> ids;
     ids.reserve(witnesses.size());
     for (const auto& w : witnesses) {
-        ids.push_back(to_vertex_id(w));
+        if (!w.is_constant) {
+            ids.push_back(w.index);
+        }
     }
 
     // Ensure all vertices exist (even isolated ones count as their own component)
@@ -46,7 +36,6 @@ std::vector<std::vector<uint32_t>> AcirGraph::find_components() const
             continue;
         }
         std::vector<uint32_t> component;
-        bool has_witness = false;
         std::stack<uint32_t> stack;
         stack.push(vertex);
         visited.insert(vertex);
@@ -54,9 +43,6 @@ std::vector<std::vector<uint32_t>> AcirGraph::find_components() const
             auto current = stack.top();
             stack.pop();
             component.push_back(current);
-            if (current < witness_id_ceiling_) {
-                has_witness = true;
-            }
             auto it = adjacency_lists_.find(current);
             if (it != adjacency_lists_.end()) {
                 for (auto neighbor : it->second) {
@@ -67,9 +53,7 @@ std::vector<std::vector<uint32_t>> AcirGraph::find_components() const
                 }
             }
         }
-        if (has_witness) {
-            result.push_back(std::move(component));
-        }
+        result.push_back(std::move(component));
     }
     return result;
 }
@@ -85,18 +69,15 @@ std::unordered_map<uint32_t, size_t> AcirGraph::get_witness_component_map() cons
     std::unordered_map<uint32_t, size_t> witness_to_component;
     for (size_t comp_id = 0; comp_id < components.size(); comp_id++) {
         for (auto vertex : components[comp_id]) {
-            if (vertex < witness_id_ceiling_) {
-                witness_to_component[vertex] = comp_id;
-            }
+            witness_to_component[vertex] = comp_id;
         }
     }
     return witness_to_component;
 }
 
 // Helper: collect only real witness wires from a quad gate, skipping IS_CONSTANT sentinels.
-// Constants in quad gates become the zero/constant variable in the circuit (filtered by the analyzer),
-// so they must NOT create connections in the ACIR graph.
-static void collect_quad_witnesses(std::vector<WoC>& wits, const bb::mul_quad_<bb::fr>& c)
+namespace {
+void collect_quad_witnesses(std::vector<WoC>& wits, const bb::mul_quad_<bb::fr>& c)
 {
     if (c.a != bb::stdlib::IS_CONSTANT) {
         wits.push_back(WoC::from_index(c.a));
@@ -111,13 +92,11 @@ static void collect_quad_witnesses(std::vector<WoC>& wits, const bb::mul_quad_<b
         wits.push_back(WoC::from_index(c.d));
     }
 }
+} // namespace
 
 void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
 {
-    witness_id_ceiling_ = next_const_id_;
-
     // --- QuadConstraint (mul_quad_<fr>) ---
-    // Only include real witness wires; constants become the filtered zero variable in the circuit.
     for (const auto& c : cs.quad_constraints) {
         std::vector<WoC> wits;
         collect_quad_witnesses(wits, c);
@@ -165,24 +144,25 @@ void AcirGraph::process_acir_constraints(const acir_format::AcirFormat& cs)
     }
 
     // --- EcAdd ---
+    // Note: result_infinite is excluded — the circuit auto-detects infinity from (0,0) coordinates
+    // and never constrains this witness (soundness bug tracked separately).
     for (const auto& c : cs.ec_add_constraints) {
         std::vector<WoC> wits = {
             c.input1_x, c.input1_y, c.input1_infinite, c.input2_x, c.input2_y, c.input2_infinite
         };
         wits.push_back(WoC::from_index(c.result_x));
         wits.push_back(WoC::from_index(c.result_y));
-        // wits.push_back(WoC::from_index(c.result_infinite));
         wits.push_back(c.predicate);
         add_constraint(wits);
     }
 
     // --- MultiScalarMul ---
+    // Note: out_point_is_infinite is excluded — same reason as EcAdd above.
     for (const auto& c : cs.multi_scalar_mul_constraints) {
         std::vector<WoC> wits(c.points.begin(), c.points.end());
         wits.insert(wits.end(), c.scalars.begin(), c.scalars.end());
         wits.push_back(WoC::from_index(c.out_point_x));
         wits.push_back(WoC::from_index(c.out_point_y));
-        // wits.push_back(WoC::from_index(c.out_point_is_infinite));
         wits.push_back(c.predicate);
         add_constraint(wits);
     }
