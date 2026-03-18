@@ -25,8 +25,8 @@ export interface IRequestTracker {
   get deadline(): Date;
   /** Remaining time in milliseconds until deadline. Returns 0 if already past. */
   get timeoutMs(): number;
-  /** Whether the request is cancelled (deadline expired or all fetched). */
-  get cancelled(): boolean;
+  /** Checks whether the request is cancelled (deadline expired or all fetched). May trigger cancellation if deadline has passed. */
+  checkCancelled(): boolean;
   /** Resolves when deadline expires or all txs are fetched. */
   get cancellationToken(): Promise<void>;
   /** Externally cancel the request. */
@@ -92,7 +92,7 @@ export class RequestTracker implements IRequestTracker {
     return Math.max(0, this.deadline.getTime() - now);
   }
 
-  get cancelled(): boolean {
+  checkCancelled(): boolean {
     if (this.done) {
       return true;
     }

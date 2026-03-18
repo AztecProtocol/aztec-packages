@@ -522,7 +522,7 @@ describe('TxCollection', () => {
         return () => captured!;
       };
 
-      // Step 1: notFinished() respects requestTracker.cancelled
+      // Step 1: notFinished() respects requestTracker.checkCancelled()
       it('stops node collection loop when tracker is externally cancelled', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
         const reqRespPromise = promiseWithResolvers<TxArray[]>();
@@ -650,7 +650,7 @@ describe('TxCollection', () => {
 
         await txCollection.collectFastForBlock(block, txHashes, { deadline });
 
-        expect(getRequest().requestTracker.cancelled).toBe(true);
+        expect(getRequest().requestTracker.checkCancelled()).toBe(true);
       });
 
       // Step 5: requestTracker.cancel() in stop()
@@ -665,11 +665,11 @@ describe('TxCollection', () => {
         await sleep(100);
         const request = getRequest();
         expect(request).toBeDefined();
-        expect(request.requestTracker.cancelled).toBe(false);
+        expect(request.requestTracker.checkCancelled()).toBe(false);
 
         await txCollection.stop();
 
-        expect(request.requestTracker.cancelled).toBe(true);
+        expect(request.requestTracker.checkCancelled()).toBe(true);
         reqRespPromise.resolve([]);
         await collectionPromise;
       });

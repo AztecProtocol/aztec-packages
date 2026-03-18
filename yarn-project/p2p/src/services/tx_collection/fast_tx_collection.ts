@@ -113,7 +113,7 @@ export class FastTxCollection {
 
       // If we have collected all txs or the request was cancelled, we can stop here.
       // Wait for node collection to settle so inner tasks finish before we return.
-      if (request.requestTracker.cancelled) {
+      if (request.requestTracker.checkCancelled()) {
         if (request.requestTracker.allFetched()) {
           this.log.debug(`All txs collected for slot ${blockInfo.slotNumber} without reqresp`, blockInfo);
         }
@@ -123,7 +123,7 @@ export class FastTxCollection {
 
       // Start blasting reqresp for the remaining txs. Note that node collection keeps running in parallel.
       // We stop when we have collected all txs, timed out, or both node collection and reqresp have given up.
-      // Inner tasks observe requestTracker.cancelled and stop themselves, so this settles shortly after cancellation.
+      // Inner tasks observe requestTracker.checkCancelled() and stop themselves, so this settles shortly after cancellation.
       await Promise.allSettled([this.collectFastViaReqResp(request, opts), nodeCollectionPromise]);
     } catch (err) {
       this.log.error(`Error collecting txs for ${request.type} for slot ${blockInfo.slotNumber}`, err, {
@@ -164,7 +164,7 @@ export class FastTxCollection {
     node: TxSource,
     attemptsPerTx: { txHash: string; attempts: number; found: boolean }[],
   ) {
-    const notFinished = () => !request.requestTracker.cancelled;
+    const notFinished = () => !request.requestTracker.checkCancelled();
 
     const maxParallelRequests = this.config.txCollectionFastMaxParallelRequestsPerNode;
     const maxBatchSize = this.config.txCollectionNodeRpcMaxBatchSize;

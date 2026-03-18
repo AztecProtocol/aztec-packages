@@ -1102,7 +1102,7 @@ describe('BatchTxRequester', () => {
       const result = await BatchTxRequester.collectAllTxs(requester.run());
 
       // Verify cancellation was actually triggered
-      expect(tracker.cancelled).toBe(true);
+      expect(tracker.checkCancelled()).toBe(true);
 
       expect(result).toBeDefined();
       expect(result!.length).toBeGreaterThan(0);
@@ -1151,7 +1151,7 @@ describe('BatchTxRequester', () => {
       const result = await runPromise;
 
       // Verify cancellation was triggered
-      expect(tracker.cancelled).toBe(true);
+      expect(tracker.checkCancelled()).toBe(true);
 
       // Verify peer was promoted to smart
       expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());

@@ -105,7 +105,7 @@ export class BatchTxRequester {
         return undefined;
       }
 
-      // Start workers in background. Workers stop themselves via requestTracker.cancelled.
+      // Start workers in background. Workers stop themselves via requestTracker.checkCancelled().
       const workersPromise = Promise.allSettled([
         this.smartRequester(),
         this.dumbRequester(),
@@ -345,7 +345,7 @@ export class BatchTxRequester {
     try {
       this.logger.trace(`Smart worker ${workerIndex} started`);
       await Promise.race([this.smartRequesterSemaphore.acquire(), this.requestTracker.cancellationToken]);
-      if (this.requestTracker.cancelled) {
+      if (this.requestTracker.checkCancelled()) {
         return;
       }
       this.logger.trace(`Smart worker ${workerIndex} acquired semaphore`);
@@ -372,7 +372,7 @@ export class BatchTxRequester {
           // When a dumb peer responds with valid txIndices, it gets
           // promoted to smart and releases the semaphore, waking this worker.
           await Promise.race([this.smartRequesterSemaphore.acquire(), this.requestTracker.cancellationToken]);
-          if (this.requestTracker.cancelled) {
+          if (this.requestTracker.checkCancelled()) {
             break;
           }
           this.logger.debug(`Worker loop smart: acquired next smart peer`);
@@ -620,11 +620,11 @@ export class BatchTxRequester {
    * Checks if the BatchTxRequester should stop fetching missing txs.
    * Delegates to requestTracker which covers: deadline hit, all txs fetched, or external cancellation. */
   private shouldStop() {
-    if (this.requestTracker.cancelled) {
+    if (this.requestTracker.checkCancelled()) {
       this.unlockSmartRequesterSemaphores();
     }
 
-    return this.requestTracker.cancelled;
+    return this.requestTracker.checkCancelled();
   }
 
   /*
@@ -642,7 +642,7 @@ export class BatchTxRequester {
    * This ensures we don't sleep past the deadline.
    * */
   private async sleepClampedToDeadline(durationMs: number) {
-    if (this.requestTracker.cancelled) {
+    if (this.requestTracker.checkCancelled()) {
       return;
     }
     await Promise.race([sleep(durationMs), this.requestTracker.cancellationToken]);
