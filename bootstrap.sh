@@ -732,11 +732,7 @@ case "$cmd" in
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1
-<<<<<<< HEAD
-    ./bootstrap.sh
-=======
     ./bootstrap.sh build yarn-project
->>>>>>> e68eb570ba (chore: replace dead BOOTSTRAP_TO env var with bootstrap.sh build arg (#21744))
     docs/bootstrap.sh ci
     ;;
   "ci-barretenberg")
