@@ -398,14 +398,31 @@ TEST_F(ChonkTests, VKIndependenceFromCircuitSize)
 };
 
 /**
- * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
- *
+ * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size.
+ * @details With 8-wide layout (ADDITIONS_PER_ROW = 8, WNAF_DIGITS_PER_ROW = 8), each app adds ~1104 ECCVM rows with a
+ * base overhead of ~1494 rows. At CONST_ECCVM_LOG_N = 15 (32768 rows): max apps = floor((32768 - 4 - 1494) / 1104) =
+ * 28. At CONST_ECCVM_LOG_N = 14 (16384 rows): max apps = 13.
  */
 HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = 17;
+    // Each app adds ~1104 ECCVM rows; base overhead ~1494 rows.
+    // LOG_N=15: floor((32768 - 4 - 1494) / 1104) = 28
+    // LOG_N=14: floor((16384 - 4 - 1494) / 1104) = 13
+    constexpr size_t ECCVM_ROWS_PER_APP = 1104;
+    constexpr size_t ECCVM_BASE_ROWS = 1494;
+    constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
+    constexpr size_t MAX_USABLE_ROWS = ECCVM_FIXED_SIZE - NUM_DISABLED_ROWS_IN_SUMCHECK;
+    const size_t NUM_APP_CIRCUITS = (MAX_USABLE_ROWS - ECCVM_BASE_ROWS) / ECCVM_ROWS_PER_APP;
+
+    info("MaxCapacityPassing: LOG_N=",
+         CONST_ECCVM_LOG_N,
+         ", ECCVM_FIXED_SIZE=",
+         ECCVM_FIXED_SIZE,
+         ", max apps=",
+         NUM_APP_CIRCUITS);
+
     auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = ChonkTests::verify_chonk(proof, vk);
