@@ -155,9 +155,15 @@ int main(int argc, char* argv[])
             std::cerr << "UNCONSTRAINED: ACIR component " << acir_comp << " has "
                       << unconstrained_witnesses.size() << " witness(es) missing from circuit: ";
             for (auto w : unconstrained_witnesses) {
-                std::cerr << "w" << w << " ";
+                uint32_t real_idx = builder.real_variable_index[w];
+                bool is_const = constant_var_set.contains(real_idx);
+                bool in_cc = circuit_var_to_cc.contains(real_idx);
+                bool has_gates = gate_counts.count(real_idx) && gate_counts.at(real_idx) > 0;
+                bool in_rl = range_list_vars.contains(real_idx);
+                std::cerr << "w" << w << "(real=" << real_idx << ",const=" << is_const << ",cc=" << in_cc
+                          << ",gates=" << has_gates << ",rl=" << in_rl << ") ";
             }
-            std::cerr << std::endl;
+            std::cerr << "\n";
         }
     }
 
