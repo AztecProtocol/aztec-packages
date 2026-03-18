@@ -1,6 +1,10 @@
 use crate::messages::{
     discovery::{
+<<<<<<< HEAD
         ComputeNoteHashAndNullifier, partial_notes::process_partial_note_private_msg,
+=======
+        ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
         private_events::process_private_event_msg, private_notes::process_private_note_msg,
     },
     encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
@@ -16,17 +20,25 @@ use crate::protocol::address::AztecAddress;
 ///
 /// Notes result in nonce discovery being performed prior to delivery, which requires knowledge of the transaction hash
 /// in which the notes would've been created (typically the same transaction in which the log was emitted), along with
-/// the list of unique note hashes in said transaction and the `compute_note_hash_and_nullifier` function. Once
-/// discovered, the notes are enqueued for validation.
+/// the list of unique note hashes in said transaction and the `compute_note_hash` and `compute_note_nullifier`
+/// functions. Once discovered, the notes are enqueued for validation.
 ///
 /// Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved
 /// to search for the note's completion public log.
 ///
 /// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 /// enqueueing the event data and commitment for validation.
+<<<<<<< HEAD
 pub unconstrained fn process_message_ciphertext<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+=======
+pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
@@ -35,7 +47,13 @@ pub unconstrained fn process_message_ciphertext<Env>(
     if message_plaintext_option.is_some() {
         process_message_plaintext(
             contract_address,
+<<<<<<< HEAD
             compute_note_hash_and_nullifier,
+=======
+            compute_note_hash,
+            compute_note_nullifier,
+            process_custom_message,
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
             message_plaintext_option.unwrap(),
             message_context,
         );
@@ -45,6 +63,7 @@ pub unconstrained fn process_message_ciphertext<Env>(
     }
 }
 
+<<<<<<< HEAD
 pub unconstrained fn process_message_plaintext<Env>(
 =======
         debug_log_format(
@@ -58,6 +77,13 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
 >>>>>>> 79e063f101 (feat!: make unused msg disco fns private (#20831))
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+=======
+pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
+>>>>>>> 59565ba41e (feat!: split compute note hash and nullifier to reduce hashing (#21639))
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
     message_context: MessageContext,
 ) {
@@ -79,7 +105,8 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
                 message_context.unique_note_hashes_in_tx,
                 message_context.first_nullifier_in_tx,
                 message_context.recipient,
-                compute_note_hash_and_nullifier,
+                compute_note_hash,
+                compute_note_nullifier,
                 msg_metadata,
                 msg_content,
             );
