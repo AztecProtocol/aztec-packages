@@ -20,7 +20,7 @@ use crate::{
             get_arr_of_size__message_bytes__from_PT, get_arr_of_size__message_bytes_padding__from_PT,
         },
     },
-    oracle::{aes128_decrypt::aes128_decrypt, random::random, shared_secret::get_shared_secret},
+    oracle::{aes128_decrypt::try_aes128_decrypt, random::random, shared_secret::get_shared_secret},
     utils::{
         array,
         conversion::{
@@ -424,27 +424,22 @@ impl MessageEncryption for AES128 {
                     let header_ciphertext_bvec =
                         BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
-                    // Decrypt header
-                    let header_plaintext = aes128_decrypt(header_ciphertext_bvec, header_iv, header_sym_key);
-
+                    try_aes128_decrypt(header_ciphertext_bvec, header_iv, header_sym_key)
                     // Extract ciphertext length from header (2 bytes, big-endian)
-                    extract_ciphertext_length(header_plaintext)
+                    .and_then(|header_plaintext| extract_ciphertext_length(header_plaintext))
                         .filter(|ciphertext_length| ciphertext_length <= MESSAGE_PLAINTEXT_SIZE_IN_BYTES)
-                        .and_then(|ciphertext_length| {
+                        .map(|ciphertext_length| {
                             // Extract and decrypt main ciphertext
                             let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
                             let ciphertext_with_padding: [u8; MESSAGE_PLAINTEXT_SIZE_IN_BYTES] =
                                 array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
-                            let ciphertext: BoundedVec<u8, MESSAGE_PLAINTEXT_SIZE_IN_BYTES> =
-                                BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
-
-                            // Decrypt main ciphertext and return it
-                            let plaintext_bytes = aes128_decrypt(ciphertext, body_iv, body_sym_key);
-
-                            // Convert bytes back to fields (32 bytes per field). Returns None if the actual bytes are
-                            // not valid.
-                            try_fields_from_bytes(plaintext_bytes)
+                            BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length)
                         })
+                        // Decrypt main ciphertext and return it
+                        .and_then(|ciphertext| try_aes128_decrypt(ciphertext, body_iv, body_sym_key))
+                        // Convert bytes back to fields (32 bytes per field). Returns None if the actual bytes are
+                        // not valid.
+                        .and_then(|plaintext_bytes| try_fields_from_bytes(plaintext_bytes))
                 })
             })
     }
@@ -690,7 +685,7 @@ mod test {
             let ciphertext = BoundedVec::from_array(AES128::encrypt(plaintext, recipient));
 
             let empty_header = BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::new();
-            let _ = OracleMock::mock("aztec_utl_aes128Decrypt").returns(empty_header).times(1);
+            let _ = OracleMock::mock("aztec_utl_tryAes128Decrypt").returns(Option::some(empty_header)).times(1);
 
             assert(AES128::decrypt(ciphertext, recipient).is_none());
         });
@@ -710,7 +705,7 @@ mod test {
             let bad_header = BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(encode_header(
                 MESSAGE_PLAINTEXT_SIZE_IN_BYTES + 1,
             ));
-            let _ = OracleMock::mock("aztec_utl_aes128Decrypt").returns(bad_header).times(1);
+            let _ = OracleMock::mock("aztec_utl_tryAes128Decrypt").returns(Option::some(bad_header)).times(1);
 
             assert(AES128::decrypt(ciphertext, recipient).is_none());
         });
