@@ -136,7 +136,10 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     const executionPayloads = [deploymentExecutionPayload];
     // If this is a self-deployment, manage the fee accordingly
     if (opts?.from === NO_FROM) {
-      const feePaymentMethod = this.getSelfFeePaymentMethod(opts?.fee?.paymentMethod, opts?.fee?.feeEntrypointOptions);
+      const feePaymentMethod = await this.getSelfFeePaymentMethod(
+        opts?.fee?.paymentMethod,
+        opts?.fee?.feeEntrypointOptions,
+      );
       const feeExecutionPayload = await feePaymentMethod.getExecutionPayload();
       // Notice they are reversed (fee payment usually goes first):
       // this is because we need to construct the contract BEFORE it can pay for its own fee
@@ -144,7 +147,8 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       // Wrap the merged payload through the multicall entrypoint,
       // producing a single-call payload that DefaultEntrypoint can execute directly.
       const multicall = new DefaultMultiCallEntrypoint();
-      return multicall.wrapExecutionPayload(mergeExecutionPayloads(executionPayloads));
+      const chainInfo = await this.wallet.getChainInfo();
+      return multicall.wrapExecutionPayload(mergeExecutionPayloads(executionPayloads), chainInfo);
     } else {
       const feeExecutionPayload = opts?.fee?.paymentMethod
         ? await opts.fee.paymentMethod.getExecutionPayload()
@@ -152,8 +156,8 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       if (feeExecutionPayload) {
         executionPayloads.unshift(feeExecutionPayload);
       }
+      return mergeExecutionPayloads(executionPayloads);
     }
-    return mergeExecutionPayloads(executionPayloads);
   }
 
   override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployAccountOptions {
