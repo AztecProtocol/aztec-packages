@@ -1,5 +1,6 @@
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { Multicall3 } from './contracts/multicall.js';
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
@@ -38,12 +39,15 @@ type PublisherManagerConfig = {
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log: Logger;
   private config: PublisherManagerConfig;
+  private static readonly FUNDING_CHECK_INTERVAL_MS = 2 * 60 * 1000;
   private isFunding = false;
+  private lastFundingCheckAt = 0;
   private funder?: UtilsType;
 
   constructor(
     private publishers: UtilsType[],
     config: PublisherManagerConfig,
+    private dateProvider: DateProvider,
     opts?: { bindings?: LoggerBindings; funder?: UtilsType },
   ) {
     this.funder = opts?.funder;
@@ -139,6 +143,12 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     if (!funder || config.publisherFundingThreshold === undefined || config.publisherFundingAmount === undefined) {
       return;
     }
+    const now = this.dateProvider.now();
+    if (now - this.lastFundingCheckAt < PublisherManager.FUNDING_CHECK_INTERVAL_MS) {
+      this.log.trace(`Skipping funding check`, { msSinceLastCheck: now - this.lastFundingCheckAt });
+      return;
+    }
+    this.lastFundingCheckAt = now;
     if (this.isFunding) {
       return;
     }

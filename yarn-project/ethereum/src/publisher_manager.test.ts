@@ -1,5 +1,6 @@
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { ManualDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import { type Hex, encodeFunctionData } from 'viem';
@@ -27,16 +28,18 @@ function expectedFundingData(addresses: EthAddress[], fundingAmount: bigint): He
 describe('PublisherManager', () => {
   let mockPublishers: (TestL1TxUtils & L1TxUtils)[];
   let publisherManager: PublisherManager<L1TxUtils>;
+  let dateProvider: ManualDateProvider;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    dateProvider = new ManualDateProvider();
   });
 
   describe('constructor', () => {
     it('should initialize with publishers', () => {
       mockPublishers = createMockPublishers(3);
 
-      expect(() => new PublisherManager(mockPublishers, {})).not.toThrow();
+      expect(() => new PublisherManager(mockPublishers, {}, dateProvider)).not.toThrow();
     });
   });
 
@@ -45,7 +48,7 @@ describe('PublisherManager', () => {
     beforeEach(() => {
       addresses = Array.from({ length: 3 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(3, addresses);
-      publisherManager = new PublisherManager(mockPublishers, {});
+      publisherManager = new PublisherManager(mockPublishers, {}, dateProvider);
     });
 
     it('should throw error when no valid publishers found', async () => {
@@ -70,7 +73,7 @@ describe('PublisherManager', () => {
       mockPublishers[1].state = TxUtilsState.CANCELLED;
       mockPublishers[2].state = TxUtilsState.NOT_MINED;
 
-      publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true });
+      publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true }, dateProvider);
       await expect(publisherManager.getAvailablePublisher(p => p.state === TxUtilsState.CANCELLED)).resolves.toBe(
         mockPublishers[1],
       );
@@ -147,7 +150,7 @@ describe('PublisherManager', () => {
     it('should prioritise same state publishers based on balance and then least recently used', async () => {
       const ethAddresses = Array.from({ length: 5 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(5, ethAddresses);
-      publisherManager = new PublisherManager(mockPublishers, {});
+      publisherManager = new PublisherManager(mockPublishers, {}, dateProvider);
 
       const filter = (utils: L1TxUtils) => utils.getSenderAddress() !== mockPublishers[2].getSenderAddress(); // Filter out publisher in index 2
 
@@ -203,6 +206,7 @@ describe('PublisherManager', () => {
       return new PublisherManager(
         publishers,
         { publisherFundingThreshold: threshold, publisherFundingAmount: fundingAmount, ...config },
+        dateProvider,
         { funder: funderInstance },
       );
     };
@@ -322,10 +326,14 @@ describe('PublisherManager', () => {
     it('no funding triggered when no funder configured', async () => {
       mockPublishers = createMockPublishers(1);
       mockPublishers[0].balance = 50n;
-      publisherManager = new PublisherManager(mockPublishers, {
-        publisherFundingThreshold: threshold,
-        publisherFundingAmount: fundingAmount,
-      });
+      publisherManager = new PublisherManager(
+        mockPublishers,
+        {
+          publisherFundingThreshold: threshold,
+          publisherFundingAmount: fundingAmount,
+        },
+        dateProvider,
+      );
 
       await publisherManager.getAvailablePublisher();
       await waitForFunding();
@@ -395,6 +403,29 @@ describe('PublisherManager', () => {
 
       // Funding is fully disabled because funder overlaps with a publisher
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
+    });
+
+    it('skips funding within cooldown and resumes after cooldown expires', async () => {
+      mockPublishers = createMockPublishers(1);
+      mockPublishers[0].balance = 50n;
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      // First call triggers funding
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
+
+      // Second call within cooldown — funding should be skipped
+      dateProvider.advanceTime(60); // 1 minute, less than 2 min cooldown
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
+
+      // Third call after cooldown expires — funding should trigger again
+      dateProvider.advanceTime(2 * 60); // another 2 minutes
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
     });
 
     it('funds publishers in busy states', async () => {
