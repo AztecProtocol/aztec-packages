@@ -1042,7 +1042,7 @@ describe('LibP2PService', () => {
     });
   });
 
-  describe.only('discv5 ip:changed bridge (queryForIp)', () => {
+  describe('discv5 ip:changed bridge (queryForIp)', () => {
     const p2pPort = 40400;
     const firstIp = '203.0.113.5';
     const secondIp = '198.51.100.2';
