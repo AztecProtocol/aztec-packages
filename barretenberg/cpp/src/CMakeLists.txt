@@ -197,6 +197,9 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
+# Save the core object list before adding lmdb/world_state (not needed by FFI consumers).
+set(BB_EXTERNAL_TARGET_OBJECTS ${BARRETENBERG_TARGET_OBJECTS})
+
 if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
     # enable merkle trees and lmdb (not for mobile builds)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
@@ -211,16 +214,34 @@ add_library(
     ${BARRETENBERG_TARGET_OBJECTS}
 )
 
-# bb-external: A complete static library for external consumers (e.g. barretenberg-rs).
-# Includes everything from libbarretenberg.a plus env and vm2_stub.
-# This provides a single library file that external bindings can link against.
+# bb-external: static library for external consumers (e.g. barretenberg-rs).
+# Uses the core object list without lmdb/world_state — FFI consumers only need bbapi().
+# Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
+# Post-build step merges objects and strips non-exported symbols.
 if(NOT WASM)
     add_library(
         bb-external
         STATIC
-        ${BARRETENBERG_TARGET_OBJECTS}
+        ${BB_EXTERNAL_TARGET_OBJECTS}
         $<TARGET_OBJECTS:env_objects>
         $<TARGET_OBJECTS:vm2_stub>
+    )
+
+    # Post-build: merge all objects and strip non-WASM_EXPORT symbols.
+    # Only symbols marked WASM_EXPORT (visibility("default")) survive.
+    find_program(LLD_LINKER NAMES ld.lld-20 ld.lld REQUIRED)
+    find_program(LLVM_OBJCOPY NAMES llvm-objcopy-20 llvm-objcopy REQUIRED)
+    find_program(LLVM_STRIP NAMES llvm-strip-20 llvm-strip REQUIRED)
+    find_program(LLVM_AR_TOOL NAMES llvm-ar-20 llvm-ar REQUIRED)
+    add_custom_command(TARGET bb-external POST_BUILD
+        COMMAND ${LLD_LINKER} -r --whole-archive $<TARGET_FILE:bb-external> $<TARGET_FILE:libdeflate::libdeflate_static> -o $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${LLVM_OBJCOPY} --localize-hidden $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${LLVM_STRIP} --strip-unneeded $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${CMAKE_COMMAND} -E rm -f $<TARGET_FILE:bb-external>
+        COMMAND ${LLVM_AR_TOOL} rcs $<TARGET_FILE:bb-external> $<TARGET_FILE:bb-external>.merged.o
+        COMMAND ${CMAKE_COMMAND} -E rm -f $<TARGET_FILE:bb-external>.merged.o
+        COMMENT "Stripping internal symbols from bb-external static library"
+        VERBATIM
     )
 endif()
 
