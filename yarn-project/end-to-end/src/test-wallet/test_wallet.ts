@@ -246,7 +246,8 @@ export class TestWallet extends BaseWallet {
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
         cancellable: this.cancellableTransactions,
-        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
+        // If from is an address, feeOptions include the way the account contract should handle the fee payment
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
       };
       txRequest = await fromAccount.createTxExecutionRequest(
         finalExecutionPayload,
