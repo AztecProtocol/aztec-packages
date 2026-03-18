@@ -44,7 +44,19 @@ the previous (global) behavior, call said methods with `Option::none()` as scope
 ```
 
 **Impact**: All code using capsule oracles directly or `CapsuleArray::at` must be updated. Pass `Option::none()` to oracle functions for the previous global behavior, or replace `CapsuleArray::at` with `CapsuleArray::at_global_scope`.
-  attempt_note_discovery(
+
+### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
+
+The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
+
+This split improves performance during nonce discovery: the note hash only needs to be computed once, while the old combined function recomputed it for every candidate nonce.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle this automatically. Only contracts that call `attempt_note_discovery` directly need to update.
+
+**Migration:**
+
+```diff
+attempt_note_discovery(
       contract_address,
       tx_hash,
       unique_note_hashes_in_tx,
@@ -60,14 +72,6 @@ the previous (global) behavior, call said methods with `Option::none()` as scope
       packed_note,
   );
 ```
-
-### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
-
-The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
-
-This split improves performance during nonce discovery: the note hash only needs to be computed once, while the old combined function recomputed it for every candidate nonce.
-
-Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle this automatically. Only contracts that call `attempt_note_discovery` directly need to update.
 
 **Impact**: Contracts that call `attempt_note_discovery` or related discovery functions directly with a custom `_compute_note_hash_and_nullifier` argument. The old combined function is still generated (deprecated) but is no longer used by the framework. Additionally, if you had a custom `_compute_note_hash_and_nullifier` function then compilation will now fail as you'll need to also produce the corresponding `_compute_note_hash` and `_compute_note_nullifier` functions.
 
