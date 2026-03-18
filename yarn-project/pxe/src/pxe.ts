@@ -68,6 +68,7 @@ import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
+import { MessageContextService } from './messages/message_context_service.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -106,7 +107,9 @@ export type SimulateTxOpts = {
   skipTxValidation?: boolean;
   /** If false, fees are enforced. */
   skipFeeEnforcement?: boolean;
-  /** State overrides for the simulation, such as contract instances and artifacts. */
+  /** If true, kernel logic is emulated in TS for simulation */
+  skipKernels?: boolean;
+  /** State overrides for the simulation, such as contract instances and artifacts. Requires skipKernels: true */
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AccessScopes;
@@ -158,6 +161,7 @@ export class PXE {
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
+    private messageContextService: MessageContextService,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -213,6 +217,8 @@ export class PXE {
       noteStore,
       createLogger('pxe:contract_sync', bindings),
     );
+    const messageContextService = new MessageContextService(node);
+
     const synchronizer = new BlockSynchronizer(
       node,
       store,
@@ -254,6 +260,7 @@ export class PXE {
       addressStore,
       privateEventStore,
       contractSyncService,
+      messageContextService,
       simulator,
       proverEnabled,
       proofCreator,
@@ -295,6 +302,7 @@ export class PXE {
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
+      messageContextService: this.messageContextService,
     });
   }
 
@@ -414,7 +422,14 @@ export class PXE {
   ) {
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-      return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], anchorBlockHeader, scopes, jobId);
+      const { result, offchainEffects } = await contractFunctionSimulator.runUtility(
+        call,
+        authWitnesses ?? [],
+        anchorBlockHeader,
+        scopes,
+        jobId,
+      );
+      return { result, offchainEffects };
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractStore, this.log);
@@ -766,17 +781,17 @@ export class PXE {
         // transaction before this one is included in a block from this PXE, and that transaction contains a log with
         // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
         // storing the tags here prevents linkage of txs sent from the same PXE.
-        const preTagsUsedInTheTx = privateExecutionResult.entrypoint.preTags;
-        if (preTagsUsedInTheTx.length > 0) {
+        const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
+        if (taggingIndexRangesUsedInTheTx.length > 0) {
           // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
           const txHash = (await txProvingResult.toTx()).txHash;
 
-          await this.senderTaggingStore.storePendingIndexes(preTagsUsedInTheTx, txHash, jobId);
-          this.log.debug(`Stored used pre-tags as sender for the tx`, {
-            preTagsUsedInTheTx,
+          await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
+          this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
+            taggingIndexRangesUsedInTheTx,
           });
         } else {
-          this.log.debug(`No pre-tags used in the tx`);
+          this.log.debug(`No tagging index ranges used in the tx`);
         }
 
         return txProvingResult;
@@ -883,7 +898,14 @@ export class PXE {
    */
   public simulateTx(
     txRequest: TxExecutionRequest,
-    { simulatePublic, skipTxValidation = false, skipFeeEnforcement = false, overrides, scopes }: SimulateTxOpts,
+    {
+      simulatePublic,
+      skipTxValidation = false,
+      skipFeeEnforcement = false,
+      skipKernels = true,
+      overrides,
+      scopes,
+    }: SimulateTxOpts,
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
@@ -907,13 +929,15 @@ export class PXE {
         await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
 
-        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-        // Temporary: in case there are overrides, we have to skip the kernels or validations
-        // will fail. Consider handing control to the user/wallet on whether they want to run them
-        // or not.
         const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
         const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-        const skipKernels = hasOverriddenContracts;
+
+        if (hasOverriddenContracts && !skipKernels) {
+          throw new Error(
+            'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
+          );
+        }
+        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
 
         // Set overridden contracts on the sync service so it knows to skip syncing them
         if (hasOverriddenContracts) {
@@ -1049,7 +1073,7 @@ export class PXE {
           scopes,
         );
 
-        const executionResult = await this.#executeUtility(
+        const { result: executionResult, offchainEffects } = await this.#executeUtility(
           contractFunctionSimulator,
           call,
           authwits ?? [],
@@ -1070,7 +1094,12 @@ export class PXE {
         };
 
         const simulationStats = contractFunctionSimulator.getStats();
-        return { result: executionResult, stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls } };
+        return {
+          result: executionResult,
+          offchainEffects,
+          anchorBlockTimestamp: anchorBlockHeader.globalVariables.timestamp,
+          stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls },
+        };
       } catch (err: any) {
         const { to, name, args } = call;
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');

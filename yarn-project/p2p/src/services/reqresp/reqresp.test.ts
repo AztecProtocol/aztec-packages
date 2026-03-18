@@ -24,7 +24,7 @@ import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type ReqRespResponse, ReqRespSubProtocol, RequestableBuffer } from './interface.js';
 import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
-import { ReqRespStatus, prettyPrintReqRespStatus } from './status.js';
+import { ReqRespStatus } from './status.js';
 
 const PING_REQUEST = Buffer.from('ping');
 
@@ -487,28 +487,46 @@ describe('ReqResp', () => {
 
     it('should stop after max retry attempts', async () => {
       const batchSize = 12;
+      const failedIndices = [10, 11];
       nodes = await createNodes(peerScoring, 3);
-
-      const requesterLoggerSpy = jest.spyOn((nodes[0].req as any).logger, 'warn');
 
       await startNodes(nodes);
       await sleep(500);
       await connectToPeers(nodes);
       await sleep(500);
 
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
-      // We will fail two of the responses - due to hitting the ping rate limit on the responding nodes
-      const expectResponses = Array.from({ length: batchSize - 2 }, _ =>
-        RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
+      const requests = Array.from({ length: batchSize }, (_, i) =>
+        RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)),
       );
+
+      // Mock sendRequestToPeer so that specific requests always fail with RATE_LIMIT_EXCEEDED,
+      // regardless of which peer they're sent to. This removes the timing dependency on the
+      // GCRA rate limiter leaking tokens between retries.
+      const originalSend = nodes[0].req.sendRequestToPeer.bind(nodes[0].req);
+      const sendSpy = jest
+        .spyOn(nodes[0].req, 'sendRequestToPeer')
+        .mockImplementation((peer: PeerId, protocol: ReqRespSubProtocol, buffer: Buffer) => {
+          const msg = buffer.toString();
+          if (failedIndices.some(i => msg === `ping${i}`)) {
+            return Promise.resolve({ status: ReqRespStatus.RATE_LIMIT_EXCEEDED, data: Buffer.alloc(0) });
+          }
+          return originalSend(peer, protocol, buffer);
+        });
 
       const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
-      expect(res).toEqual(expectResponses);
 
-      // Check that we did detect hitting a rate limit
-      expect(requesterLoggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`${prettyPrintReqRespStatus(ReqRespStatus.RATE_LIMIT_EXCEEDED)}`),
+      // 10 succeed, 2 permanently fail after all retry attempts are exhausted
+      const successes = res.filter(r => r !== undefined);
+      expect(successes).toHaveLength(batchSize - failedIndices.length);
+      expect(successes).toEqual(
+        times(batchSize - failedIndices.length, () => RequestableBuffer.fromBuffer(Buffer.from(`pong`))),
       );
+
+      // Verify retries actually happened — those 2 requests were attempted more than once
+      const failedCalls = sendSpy.mock.calls.filter(([, , buf]) =>
+        failedIndices.some(i => (buf as Buffer).toString() === `ping${i}`),
+      );
+      expect(failedCalls.length).toBeGreaterThan(failedIndices.length);
     });
   });
 });

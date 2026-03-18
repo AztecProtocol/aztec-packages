@@ -5,7 +5,6 @@ import type {
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
@@ -45,6 +44,8 @@ import type {
   TxMergeRollupPrivateInputs,
   TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
+
+import { createHash } from 'node:crypto';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';
 
@@ -659,8 +660,12 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
-  private generateId(type: ProvingRequestType, inputs: { toBuffer(): Buffer }, epochNumber = EpochNumber.ZERO) {
-    const inputsHash = sha256(inputs.toBuffer());
-    return makeProvingJobId(epochNumber, type, inputsHash.toString('hex'));
+  private generateId(
+    type: ProvingRequestType,
+    inputs: { toBuffer(): Buffer },
+    epochNumber = EpochNumber.ZERO,
+  ): ProvingJobId {
+    const inputsHash = createHash('sha256').update(inputs.toBuffer()).digest('hex');
+    return makeProvingJobId(epochNumber, type, inputsHash);
   }
 }

@@ -439,17 +439,6 @@ function bench_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
 
-function build_bench {
-  # TODO bench for arm64.
-  if [ $(arch) == arm64 ]; then
-    return
-  fi
-  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
-    barretenberg/cpp \
-    yarn-project/end-to-end
-}
-export -f build_bench
-
 function bench_merge {
   find . -path "*/bench-out/*.bench.json" -type f -print0 | \
   xargs -0 -I{} bash -c '
@@ -467,8 +456,6 @@ function bench {
     return
   fi
   echo_header "bench all"
-  build_bench
-
   bench_cmds > $bench_cmds_file
   denoise "bench_engine $bench_cmds_file"
 
@@ -786,6 +773,30 @@ case "$cmd" in
     bench_merge
     cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
+  "ci-network-block-capacity-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys network and runs block capacity benchmarks. Cleanup should be done separately.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run block capacity benchmarks
+    spartan/bootstrap.sh block_capacity_bench "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-block-capacity-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
     # Tears down a deployed network.
@@ -835,13 +846,13 @@ case "$cmd" in
     ;;
   "ci-barretenberg-full")
     export CI=1
+    export CI_FULL=1
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
-    barretenberg/cpp/bootstrap.sh build_bench
     ;;
 
   #######################

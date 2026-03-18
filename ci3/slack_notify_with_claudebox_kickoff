@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -eu
+# Post a Slack notification and dispatch ClaudeBox to investigate.
+#
+# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>]
+#
+# Requires: SLACK_BOT_TOKEN
+# Optional: CLAUDEBOX_REPO (default: AztecProtocol/aztec-packages)
+
+if [[ "${CI:-}" != "1" ]]; then
+  echo "Not in CI — skipping slack_notify_with_claudebox_kickoff"
+  exit 0
+fi
+
+channel="$1"
+slack_text="$2"
+prompt="$3"
+shift 3
+
+link=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --link) link="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+REPO="${CLAUDEBOX_REPO:-AztecProtocol/aztec-packages}"
+
+# Post to Slack (inline rather than via ci3/slack_notify because we need the response for permalink)
+if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+  RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    -d "$(jq -n --arg c "$channel" --arg t "$slack_text" '{channel:$c, text:$t}')")
+  echo "Slack response: $RESP"
+  TS=$(echo "$RESP" | jq -r '.ts // empty')
+  CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+
+  # Build Slack permalink as context link (prefer over provided link)
+  if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
+    link="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+  fi
+fi
+
+# Dispatch ClaudeBox workflow (CI=1 guaranteed above; gh auth assumed in CI)
+gh workflow run claudebox.yml \
+  -R "$REPO" --ref next \
+  -f prompt="$prompt" \
+  -f link="$link" || true
+echo "ClaudeBox dispatched"

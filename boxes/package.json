@@ -41,7 +41,6 @@
     "@aztec/blob-lib": "link:../yarn-project/blob-lib",
     "@aztec/native": "link:../yarn-project/native",
     "@aztec/builder": "link:../yarn-project/builder",
-    "@aztec/merkle-tree": "link:../yarn-project/merkle-tree",
     "@aztec/types": "link:../yarn-project/types",
     "@aztec/utils": "link:../yarn-project/utils",
     "@aztec/testing-utils": "link:../yarn-project/testing-utils",

@@ -108,7 +108,9 @@ export class L1TokenManager {
     const mintAmount = await this.getMintAmount();
     this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
     // NOTE: the handler mints a fixed amount.
-    await this.handler.write.mint([address]);
+    await this.extendedClient.waitForTransactionReceipt({
+      hash: await this.handler.write.mint([address]),
+    });
   }
 
   /**

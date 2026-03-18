@@ -4,10 +4,8 @@ use crate::{
     messaging::process_l1_to_l2_message,
     oracle::{
         call_private_function::call_private_function_internal,
-        enqueue_public_function_call::{
-            is_side_effect_counter_revertible_oracle_wrapper, notify_enqueued_public_function_call,
-            notify_set_min_revertible_side_effect_counter,
-        },
+        public_call::validate_public_calldata,
+        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
         execution_cache,
         logs::notify_created_contract_class_log,
         nullifiers::notify_created_nullifier,
@@ -190,7 +188,7 @@ impl PrivateContext {
     pub fn end_setup(&mut self) {
         self.side_effect_counter += 1;
         self.min_revertible_side_effect_counter = self.next_counter();
-        notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
+        notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
     pub fn in_revertible_phase(&mut self) -> bool {
@@ -198,7 +196,7 @@ impl PrivateContext {
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
         let is_revertible =
-            unsafe { is_side_effect_counter_revertible_oracle_wrapper(current_counter) };
+            unsafe { in_revertible_phase(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -364,14 +362,9 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        notify_enqueued_public_function_call(
-            contract_address,
-            calldata_hash,
-            counter,
-            is_static_call,
-        );
+        validate_public_calldata(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS

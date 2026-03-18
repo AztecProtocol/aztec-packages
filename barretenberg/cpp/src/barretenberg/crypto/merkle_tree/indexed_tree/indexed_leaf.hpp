@@ -17,7 +17,7 @@ namespace bb::crypto::merkle_tree {
 struct NullifierLeafValue {
     fr nullifier;
 
-    MSGPACK_FIELDS(nullifier)
+    SERIALIZATION_FIELDS(nullifier)
 
     NullifierLeafValue() = default;
     NullifierLeafValue(const fr& n)
@@ -76,7 +76,7 @@ struct PublicDataLeafValue {
     fr slot;
     fr value;
 
-    MSGPACK_FIELDS(slot, value)
+    SERIALIZATION_FIELDS(slot, value)
 
     PublicDataLeafValue() = default;
     PublicDataLeafValue(const fr& s, const fr& v)
@@ -139,7 +139,7 @@ template <typename LeafType> struct IndexedLeaf {
     index_t nextIndex;
     fr nextKey;
 
-    MSGPACK_FIELDS(leaf, nextIndex, nextKey)
+    SERIALIZATION_FIELDS(leaf, nextIndex, nextKey)
 
     IndexedLeaf() = default;
 

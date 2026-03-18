@@ -47,7 +47,10 @@ while (my ($key, $val) = each %ENV) {
         # so we mask each line independently if needed.
         # Naughty example: 'PUBLISHERS_PER_VALIDATOR_KEY: 2'
         for my $line (split /\n/, $val) {
-            push @secrets, $line if $line ne '' ;
+            # Apply the same min-length check per line to avoid redacting
+            # short tokens like "{" or "}" from multi-line JSON secrets.
+            next if $line eq '' or length($line) < 6;
+            push @secrets, $line;
         }
     }
 }
@@ -83,7 +86,10 @@ while (my $line = <STDIN>) {
         # Strip potential Windows carriage return
         $new_secret =~ s/\r$//;
 
-        if ($new_secret ne "") {
+        # Skip single-character masks – they'd redact common structural
+        # chars like { } " across all output (e.g. from JSON key files
+        # that get split and masked line-by-line).
+        if ($new_secret ne "" and length($new_secret) > 1) {
             push @secrets, $new_secret;
             $re = build_regex(@secrets);
         }

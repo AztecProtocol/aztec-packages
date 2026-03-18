@@ -134,6 +134,14 @@ export type L1FeeData = {
   blobFee: bigint;
 };
 
+/** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
+export type ManaMinFeeComponents = {
+  sequencerCost: bigint;
+  proverCost: bigint;
+  congestionCost: bigint;
+  congestionMultiplier: bigint;
+};
+
 /**
  * Reward configuration for the rollup
  */
@@ -379,6 +387,20 @@ export class RollupContract {
     return Fr.fromString(await this.rollup.read.archiveAt([0n]));
   }
 
+  @memoize
+  async getVkTreeRoot(): Promise<Fr> {
+    const slot = BigInt(RollupContract.stfStorageSlot) + 3n;
+    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+    return Fr.fromString(value ?? '0x0');
+  }
+
+  @memoize
+  async getProtocolContractsHash(): Promise<Fr> {
+    const slot = BigInt(RollupContract.stfStorageSlot) + 4n;
+    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+    return Fr.fromString(value ?? '0x0');
+  }
+
   /**
    * Returns rollup constants used for epoch queries.
    * Return type is `L1RollupConstants` which is defined in stdlib,
@@ -392,16 +414,25 @@ export class RollupContract {
     epochDuration: number;
     proofSubmissionEpochs: number;
     targetCommitteeSize: number;
+    rollupManaLimit: number;
   }> {
-    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs, targetCommitteeSize] =
-      await Promise.all([
-        this.getL1StartBlock(),
-        this.getL1GenesisTime(),
-        this.getSlotDuration(),
-        this.getEpochDuration(),
-        this.getProofSubmissionEpochs(),
-        this.getTargetCommitteeSize(),
-      ]);
+    const [
+      l1StartBlock,
+      l1GenesisTime,
+      slotDuration,
+      epochDuration,
+      proofSubmissionEpochs,
+      targetCommitteeSize,
+      rollupManaLimit,
+    ] = await Promise.all([
+      this.getL1StartBlock(),
+      this.getL1GenesisTime(),
+      this.getSlotDuration(),
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+      this.getTargetCommitteeSize(),
+      this.getManaLimit(),
+    ]);
     return {
       l1StartBlock,
       l1GenesisTime,
@@ -409,6 +440,7 @@ export class RollupContract {
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
       targetCommitteeSize,
+      rollupManaLimit: Number(rollupManaLimit),
     };
   }
 
@@ -503,8 +535,9 @@ export class RollupContract {
     return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber());
   }
 
-  async getProvenCheckpointNumber(): Promise<CheckpointNumber> {
-    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber());
+  async getProvenCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber(options));
   }
 
   async getSlotNumber(): Promise<SlotNumber> {
@@ -850,6 +883,16 @@ export class RollupContract {
 
   getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
     return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset]);
+  }
+
+  async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {
+    const result = await this.rollup.read.getManaMinFeeComponentsAt([timestamp, inFeeAsset]);
+    return {
+      sequencerCost: result.sequencerCost,
+      proverCost: result.proverCost,
+      congestionCost: result.congestionCost,
+      congestionMultiplier: result.congestionMultiplier,
+    };
   }
 
   async getSlotAt(timestamp: bigint): Promise<SlotNumber> {

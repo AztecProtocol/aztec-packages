@@ -34,7 +34,7 @@ import { execSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { createServer } from 'http';
 import { dirname, join } from 'path';
-import puppeteer, { Browser } from 'puppeteer';
+import { Browser, launch } from 'puppeteer';
 import { fileURLToPath } from 'url';
 
 const logger = createLogger('ivc-integration:test:browser');
@@ -89,7 +89,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
       logger.info("Using Puppeteer's default Chrome");
     }
 
-    browser = await puppeteer.launch(launchOptions);
+    browser = await launch(launchOptions);
     logger.info('Browser launched');
   });
 

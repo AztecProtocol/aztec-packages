@@ -16,6 +16,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
+import { buildLegacyOracleCallbacks } from './legacy_oracle_mappings.js';
 import { packAsHintedNote } from './note_packing_utils.js';
 
 export class UnavailableOracleError extends Error {
@@ -85,11 +86,13 @@ export class Oracle {
     });
 
     // Build callback object and return it
-    return oracleNames.reduce((acc, name) => {
+    const callback = oracleNames.reduce((acc, name) => {
       const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
       acc[name] = method.bind(this);
       return acc;
     }, {} as ACIRCallback);
+
+    return { ...callback, ...buildLegacyOracleCallbacks(this) };
   }
 
   // eslint-disable-next-line camelcase
@@ -461,52 +464,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifyEnqueuedPublicFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifyEnqueuedPublicFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
+  async aztec_prv_validatePublicCalldata([calldataHash]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().validatePublicCalldata(Fr.fromString(calldataHash));
     return [];
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifySetPublicTeardownFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifySetPublicTeardownFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
-    return [];
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_prv_notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
-    ACVMField[]
-  > {
-    await this.handlerAsPrivate().notifySetMinRevertibleSideEffectCounter(
-      Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
-    );
+  async aztec_prv_notifyRevertiblePhaseStart([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().notifyRevertiblePhaseStart(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
     return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_isSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    const isRevertible = await this.handlerAsPrivate().isSideEffectCounterRevertible(
-      Fr.fromString(sideEffectCounter).toNumber(),
-    );
+  async aztec_prv_inRevertiblePhase([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(Fr.fromString(sideEffectCounter).toNumber());
     return Promise.resolve([toACVMField(isRevertible)]);
   }
 
@@ -530,11 +501,15 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
+    [maxNotePackedLen]: ACVMField[],
+    [maxEventSerializedLen]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(noteValidationRequestsArrayBaseSlot),
       Fr.fromString(eventValidationRequestsArrayBaseSlot),
+      Fr.fromString(maxNotePackedLen).toNumber(),
+      Fr.fromString(maxEventSerializedLen).toNumber(),
     );
 
     return [];
@@ -550,6 +525,20 @@ export class Oracle {
       AztecAddress.fromString(contractAddress),
       Fr.fromString(logRetrievalRequestsArrayBaseSlot),
       Fr.fromString(logRetrievalResponsesArrayBaseSlot),
+    );
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_utilityResolveMessageContexts(
+    [contractAddress]: ACVMField[],
+    [messageContextRequestsArrayBaseSlot]: ACVMField[],
+    [messageContextResponsesArrayBaseSlot]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(messageContextRequestsArrayBaseSlot),
+      Fr.fromString(messageContextResponsesArrayBaseSlot),
     );
     return [];
   }
@@ -616,7 +605,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_aes128Decrypt(
+  async aztec_utl_tryAes128Decrypt(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],
     iv: ACVMField[],
@@ -626,8 +615,15 @@ export class Oracle {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    const plaintext = await this.handlerAsUtility().aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
-    return bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
+    // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
+    try {
+      const plaintext = await this.handlerAsUtility().aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+      const [storage, length] = bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
+      return [toACVMField(1), storage, length];
+    } catch {
+      const zeroStorage = Array(ciphertextBVecStorage.length).fill(toACVMField(0));
+      return [toACVMField(0), zeroStorage, toACVMField(0)];
+    }
   }
 
   // eslint-disable-next-line camelcase
@@ -646,7 +642,7 @@ export class Oracle {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_emitOffchainEffect(data: ACVMField[]) {
-    await this.handlerAsPrivate().emitOffchainEffect(data.map(Fr.fromString));
+    await this.handlerAsUtility().emitOffchainEffect(data.map(Fr.fromString));
     return [];
   }
 

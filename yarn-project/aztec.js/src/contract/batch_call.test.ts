@@ -1,12 +1,31 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
+import {
+  ExecutionPayload,
+  OFFCHAIN_MESSAGE_IDENTIFIER,
+  type OffchainEffect,
+  TxSimulationResult,
+  UtilityExecutionResult,
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BatchCall } from './batch_call.js';
+
+function mockTxSimResult(overrides: { anchorBlockTimestamp?: bigint; offchainEffects?: OffchainEffect[] } = {}) {
+  const txSimResult = mock<TxSimulationResult>();
+  Object.defineProperty(txSimResult, 'offchainEffects', { value: overrides.offchainEffects ?? [] });
+  Object.defineProperty(txSimResult, 'publicInputs', {
+    value: {
+      constants: {
+        anchorBlockHeader: { globalVariables: { timestamp: overrides.anchorBlockTimestamp ?? 0n } },
+      },
+    },
+  });
+  return txSimResult;
+}
 
 function createUtilityExecutionPayload(
   functionName: string,
@@ -114,12 +133,11 @@ describe('BatchCall', () => {
       const privateReturnValues = [Fr.random(), Fr.random()];
       const publicReturnValues = [Fr.random()];
 
-      const txSimResult = mock<TxSimulationResult>();
+      const txSimResult = mockTxSimResult();
       txSimResult.getPrivateReturnValues.mockReturnValue({
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
-      Object.defineProperty(txSimResult, 'offchainEffects', { value: [] });
 
       // Mock wallet.batch to return both utility results and simulateTx result
       wallet.batch.mockResolvedValue([
@@ -236,6 +254,81 @@ describe('BatchCall', () => {
       expect(results[0].offchainMessages).toEqual([]);
     });
 
+    // This is not a great test, mostly because it is very synthetic, mocking too much stuff around. I wanted something
+    // that exercised the offchain effects processing side of things in the case of batches, and this is more or less
+    // what matches how things are done in this suite, but the fact that we need to resort to mocking so much seems
+    // like a smell. We should revisit when we have more time to rethink the suite.
+    it('should extract offchain messages with anchor block timestamp from mixed batch', async () => {
+      const emitterContract = await AztecAddress.random();
+      const anchorBlockTimestamp = 1234567890n;
+
+      const utilityRecipient = await AztecAddress.random();
+      const utilityMsgPayload = [Fr.random(), Fr.random()];
+      const utilityRawEffectData = [Fr.random(), Fr.random()];
+
+      const txRecipient = await AztecAddress.random();
+      const txMsgPayload = [Fr.random(), Fr.random()];
+      const txRawEffectData = [Fr.random(), Fr.random()];
+
+      batchCall = new BatchCall(wallet, [
+        createUtilityExecutionPayload('getBalance', [Fr.random()], emitterContract),
+        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, 1),
+        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, 1),
+      ]);
+
+      const utilityResult = new UtilityExecutionResult(
+        [Fr.random()],
+        [
+          {
+            data: [OFFCHAIN_MESSAGE_IDENTIFIER, utilityRecipient.toField(), ...utilityMsgPayload],
+            contractAddress: emitterContract,
+          },
+          { data: utilityRawEffectData, contractAddress: emitterContract },
+        ],
+        anchorBlockTimestamp,
+      );
+
+      const txSimResult = mockTxSimResult({
+        anchorBlockTimestamp,
+        offchainEffects: [
+          {
+            data: [OFFCHAIN_MESSAGE_IDENTIFIER, txRecipient.toField(), ...txMsgPayload],
+            contractAddress: emitterContract,
+          },
+          { data: txRawEffectData, contractAddress: emitterContract },
+        ],
+      });
+      txSimResult.getPrivateReturnValues.mockReturnValue({
+        nested: [{ values: [Fr.random()] }, { values: [Fr.random()] }],
+      } as any);
+
+      wallet.batch.mockResolvedValue([
+        { name: 'executeUtility', result: utilityResult },
+        { name: 'simulateTx', result: txSimResult },
+      ] as any);
+
+      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      expect(results).toHaveLength(3);
+
+      expect(results[0].offchainMessages).toEqual([
+        {
+          recipient: utilityRecipient,
+          payload: utilityMsgPayload,
+          contractAddress: emitterContract,
+          anchorBlockTimestamp,
+        },
+      ]);
+      expect(results[0].offchainEffects).toEqual([{ data: utilityRawEffectData, contractAddress: emitterContract }]);
+
+      // Both private results share the single tx-level offchain output
+      for (const idx of [1, 2]) {
+        expect(results[idx].offchainMessages).toEqual([
+          { recipient: txRecipient, payload: txMsgPayload, contractAddress: emitterContract, anchorBlockTimestamp },
+        ]);
+        expect(results[idx].offchainEffects).toEqual([{ data: txRawEffectData, contractAddress: emitterContract }]);
+      }
+    });
+
     it('should handle only private/public calls using wallet.batch with simulateTx', async () => {
       const contractAddress1 = await AztecAddress.random();
       const contractAddress2 = await AztecAddress.random();
@@ -248,12 +341,11 @@ describe('BatchCall', () => {
       const privateReturnValues = [Fr.random()];
       const publicReturnValues = [Fr.random()];
 
-      const txSimResult = mock<TxSimulationResult>();
+      const txSimResult = mockTxSimResult();
       txSimResult.getPrivateReturnValues.mockReturnValue({
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
-      Object.defineProperty(txSimResult, 'offchainEffects', { value: [] });
 
       wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
 

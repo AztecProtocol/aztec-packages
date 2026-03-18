@@ -60,6 +60,12 @@ function release {
     (cd ../ts && yarn generate)
   fi
 
+  # Check if this version is already published on crates.io (idempotent re-runs).
+  if curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/barretenberg-rs/$version" | jq -e '.version.num' &>/dev/null; then
+    echo "barretenberg-rs@$version already published on crates.io. Skipping."
+    return 0
+  fi
+
   # Publish to crates.io (--allow-dirty because version was just set and generated files are gitignored)
   local extra_flags=""
   if ! gh release view "v$version" --repo AztecProtocol/aztec-packages &>/dev/null; then

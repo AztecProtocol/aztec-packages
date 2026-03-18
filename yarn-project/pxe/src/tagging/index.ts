@@ -16,4 +16,4 @@ export { getAllPrivateLogsByTags, getAllPublicLogsByTagsFromContract } from './g
 
 // Re-export tagging-related types from stdlib
 export { ExtendedDirectionalAppTaggingSecret, Tag, SiloedTag } from '@aztec/stdlib/logs';
-export { type PreTag } from '@aztec/stdlib/logs';
+export { type PreTag, type TaggingIndexRange } from '@aztec/stdlib/logs';

@@ -53,6 +53,8 @@ pub contract FeeJuice {
         message_leaf_index: Field,
     ) {
         let content_hash: Field = get_bridge_gas_msg_hash(to, amount);
+        // The Inbox changes the sender's address to `FEE_JUICE_ADDRESS` if it's from the FeeJuicePortal.
+        // This avoids the need to store the L1 address on L2 and prevents friction if the address changes.
         let portal_address: EthAddress = EthAddress::from_field(FEE_JUICE_ADDRESS.to_field());
         assert(!portal_address.is_zero());
 

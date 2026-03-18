@@ -185,13 +185,13 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBeInstanceOf(TxReceipt);
   });
 
-  it('getL2SlotNumber', async () => {
-    const result = await context.client.getL2SlotNumber();
+  it('getSyncedL2SlotNumber', async () => {
+    const result = await context.client.getSyncedL2SlotNumber();
     expect(result).toBe(SlotNumber(1));
   });
 
-  it('getL2EpochNumber', async () => {
-    const result = await context.client.getL2EpochNumber();
+  it('getSyncedL2EpochNumber', async () => {
+    const result = await context.client.getSyncedL2EpochNumber();
     expect(result).toBe(EpochNumber(1));
   });
 
@@ -508,10 +508,10 @@ class MockArchiver implements ArchiverApi {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getL2SlotNumber(): Promise<SlotNumber> {
+  getSyncedL2SlotNumber(): Promise<SlotNumber> {
     return Promise.resolve(SlotNumber(1));
   }
-  getL2EpochNumber(): Promise<EpochNumber | undefined> {
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
     return Promise.resolve(EpochNumber(1));
   }
   async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {

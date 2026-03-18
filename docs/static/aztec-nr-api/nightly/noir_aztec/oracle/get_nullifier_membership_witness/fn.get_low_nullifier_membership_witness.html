@@ -34,6 +34,13 @@
     nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> <a href="../../../noir_aztec/oracle/get_nullifier_membership_witness/struct.NullifierMembershipWitness.html" class="struct">NullifierMembershipWitness</a></code></pre>
 
+<div class="comments">
+<p>Returns a membership witness for the low nullifier of <code>nullifier</code> in the nullifier tree whose root is defined in
+<code>block_header</code>.</p>
+<p>The low nullifier is the leaf with the largest value that is still smaller than <code>nullifier</code>. This is used to prove
+non-inclusion: if the low nullifier's <code>next_value</code> is greater than <code>nullifier</code>, then <code>nullifier</code> is not in the
+tree.</p>
+</div>
 </main>
 </span>
 </body>

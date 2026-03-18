@@ -36,7 +36,7 @@ where
     // don't even care _where_ in the tree it is stored. This is because entries in the note hash tree are unique.
     assert_eq(
         block_header.state.partial.note_hash_tree.root,
-        root_from_sibling_path(unique_note_hash, witness.index, witness.path),
+        root_from_sibling_path(unique_note_hash, witness.leaf_index, witness.sibling_path),
         "Proving note inclusion failed",
     );
 

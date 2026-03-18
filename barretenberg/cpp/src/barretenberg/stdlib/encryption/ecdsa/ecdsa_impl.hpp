@@ -96,7 +96,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // We conditionally select a public key whose x and y coordinates are smaller than the base field modulus. We need
     // to do this to avoid circuit failures in the function validate_on_curve. Note that this doesn't allow any attack
     // as the result of the verification takes into account whether the original point coordinates were valid or not.
-    typename Curve::AffineElementNative native_double_generator(Curve::g1::one + Curve::g1::one);
+    typename Curve::AffineElementNative native_double_generator(Curve::GroupNative::one + Curve::GroupNative::one);
     G1 double_generator(Fq(native_double_generator.x), Fq(native_double_generator.y), /*assert_on_curve=*/false);
     G1 corrected_public_key = G1::conditional_assign(
         is_point_at_infinity || !is_x_less_than_modulus || !is_y_less_than_modulus, double_generator, public_key);
@@ -131,7 +131,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
         // This error comes from the lookup tables used in batch_mul. We could get rid of it by setting with_edgecase =
         // true. However, this would increase the gate count, and it would handle a case that should not appear in
         // general: someone using plus or minus the generator as a public key.
-        if ((corrected_public_key.get_value().x == Curve::g1::affine_one.x) && (!builder->failed())) {
+        if ((corrected_public_key.get_value().x == Curve::GroupNative::affine_one.x) && (!builder->failed())) {
             builder->failure("ECDSA input validation: the public key is equal to plus or minus the generator point.");
         }
         result = G1::batch_mul({ G1::one(builder), corrected_public_key }, { u1, u2 });
@@ -181,14 +181,14 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
     using Curve = stdlib::secp256k1<Builder>;
 
     // Native types
-    using FrNative = typename Curve::fr;
-    using FqNative = typename Curve::fq;
-    using G1Native = typename Curve::g1;
+    using FrNative = typename Curve::ScalarFieldNative;
+    using FqNative = typename Curve::BaseFieldNative;
+    using G1Native = typename Curve::GroupNative;
 
     // Stdlib types
-    using Fr = typename Curve::bigfr_ct;
-    using Fq = typename Curve::fq_ct;
-    using G1 = typename Curve::g1_bigfr_ct;
+    using Fr = typename Curve::ScalarField;
+    using Fq = typename Curve::BaseField;
+    using G1 = typename Curve::Group;
 
     std::string message_string = "Instructions unclear, ask again later.";
 

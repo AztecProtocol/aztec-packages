@@ -9,6 +9,100 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
+
+The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
+
+This split improves performance during nonce discovery: the note hash only needs to be computed once, while the old combined function recomputed it for every candidate nonce.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle this automatically. Only contracts that call `attempt_note_discovery` directly need to update.
+
+**Migration:**
+
+```diff
+  attempt_note_discovery(
+      contract_address,
+      tx_hash,
+      unique_note_hashes_in_tx,
+      first_nullifier_in_tx,
+      recipient,
+-     _compute_note_hash_and_nullifier,
++     _compute_note_hash,
++     _compute_note_nullifier,
+      owner,
+      storage_slot,
+      randomness,
+      note_type_id,
+      packed_note,
+  );
+```
+
+**Impact**: Contracts that call `attempt_note_discovery` or related discovery functions directly with a custom `_compute_note_hash_and_nullifier` argument. The old combined function is still generated (deprecated) but is no longer used by the framework. Additionally, if you had a custom `_compute_note_hash_and_nullifier` function then compilation will now fail as you'll need to also produce the corresponding `_compute_note_hash` and `_compute_note_nullifier` functions.
+
+### Private initialization nullifier now includes `init_hash`
+
+The private initialization nullifier is no longer derived from just the contract address. It is now computed as a Poseidon2 hash of `[address, init_hash]` using a dedicated domain separator. This prevents observers from determining whether a fully private contract has been initialized by simply knowing its address.
+
+Note that `Wallet.getContractMetadata` now returns `isContractInitialized: undefined` when the wallet does not have the contract instance registered, since `init_hash` is needed to compute the nullifier and initialization status cannot be determined. Previously, this check worked for any address. Callers should check for `undefined` before branching on the boolean value.
+
+If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_initialized_by` from `aztec::history::deployment`, these now require an additional `init_hash: Field` parameter:
+
+```diff
++ let instance = get_contract_instance(contract_address);
+  assert_contract_was_initialized_by(
+      block_header,
+      contract_address,
++     instance.initialization_hash,
+  );
+```
+
+### [Aztec.js] `TxReceipt` now includes `epochNumber`
+
+`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
+
+### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+
+The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+
+**Migration:**
+
+```diff
+- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
+- // epoch was passed in by the caller
++ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
++ // epoch is now available on the returned witness
++ const epoch = witness.epochNumber;
+```
+
+The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+
+**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
+
+### Two separate init nullifiers for private and public
+
+Contract initialization now emits two separate nullifiers instead of one: a **private init nullifier** and a **public init nullifier**. Each nullifier gates its respective execution domain:
+
+- Private external functions check the private init nullifier.
+- Public external functions check the public init nullifier.
+
+**How initializers work:**
+
+- **Private initializers** emit the private init nullifier. If the contract has any external public functions, the protocol auto-enqueues a public call to emit the public init nullifier.
+- **Public initializers** emit both nullifiers directly.
+- Contracts with no public functions only emit the private init nullifier.
+
+**`only_self` functions no longer have init checks.** They behave as if marked `noinitcheck`.
+
+**External functions called during private initialization must be `#[only_self]`.** Init nullifiers are emitted at the end of the initializer, so any external functions called on the initializing contract (e.g. via `enqueue_self` or `call_self`) during initialization will fail the init check unless they skip it.
+
+**Breaking change for deployment:** If your contract has external public functions and a private initializer, the class must be registered onchain before initialization. You can no longer pass `skipClassPublication: true`, because the auto-enqueued public call requires the class to be available.
+
+```diff
+  const deployed = await MyContract.deploy(wallet, ...args).send({
+-   skipClassPublication: true,
+  }).deployed();
+```
+
 ### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
 
 This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous (constrained computation of nullifiers can be performed only on the `ConfirmedNote` type). If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
@@ -86,9 +180,14 @@ When using `NO_WAIT`, returns `{ txHash, offchainEffects, offchainMessages }` in
 Offchain messages emitted by the transaction are available on the result:
 
 ```typescript
-const { receipt, offchainMessages } = await contract.methods.foo(args).send({ from: sender });
+const { receipt, offchainMessages } = await contract.methods
+  .foo(args)
+  .send({ from: sender });
 for (const msg of offchainMessages) {
-  console.log(`Message for ${msg.recipient} from contract ${msg.contractAddress}:`, msg.payload);
+  console.log(
+    `Message for ${msg.recipient} from contract ${msg.contractAddress}:`,
+    msg.payload,
+  );
 }
 ```
 
@@ -143,6 +242,7 @@ counter/
 This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
 
 **What changed:**
+
 - Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
 - Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
 - Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
@@ -202,6 +302,7 @@ my_project/
 ```
 
 **What changed:**
+
 - The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
 - Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
 - The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
@@ -227,7 +328,7 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
 
 2. **Operations that access another contract's private state** (e.g., withdrawing from an escrow contract that nullifies the contract's own token notes).
 
-```
+````
 
 **Example: deploying a contract with private storage (e.g., `PrivateToken`)**
 
@@ -241,7 +342,7 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
     from: sender,
 +   additionalScopes: [tokenInstance.address],
   });
-```
+````
 
 **Example: withdrawing from an escrow contract**
 
@@ -290,22 +391,26 @@ The `include_by_timestamp` field has been renamed to `expiration_timestamp` acro
 The Aztec CLI is now installed without Docker. The installation command has changed:
 
 **Old installation (deprecated):**
+
 ```bash
 bash -i <(curl -sL https://install.aztec.network)
 aztec-up <version>
 ```
 
 **New installation:**
+
 ```bash
 VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
 ```
 
 For example, to install version `#include_version_without_prefix`:
+
 ```bash
 VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 ```
 
 **Key changes:**
+
 - Docker is no longer required to run the Aztec CLI tools
 - The `VERSION` environment variable must be set in the installation command
 - The version must also be included in the URL path
@@ -314,12 +419,13 @@ VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec
 
 After installation, `aztec-up` functions as a version manager with the following commands:
 
-| Command | Description |
-|---------|-------------|
+| Command                      | Description                                 |
+| ---------------------------- | ------------------------------------------- |
 | `aztec-up install <version>` | Install a specific version and switch to it |
-| `aztec-up use <version>` | Switch to an already installed version |
-| `aztec-up list` | List all installed versions |
-| `aztec-up self-update` | Update aztec-up itself |
+| `aztec-up use <version>`     | Switch to an already installed version      |
+| `aztec-up list`              | List all installed versions                 |
+| `aztec-up self-update`       | Update aztec-up itself                      |
+
 ### `@aztec/test-wallet` replaced by `@aztec/wallets`
 
 The `@aztec/test-wallet` package has been removed. Use `@aztec/wallets` instead, which provides `EmbeddedWallet` with a `static create()` factory:
@@ -2948,7 +3054,7 @@ Doing the changes is as straightforward as:
 
 `UintNote` has also been updated to use the native `u128` type.
 
-### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
+### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifier`
 
 This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
 

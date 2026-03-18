@@ -239,11 +239,11 @@ L1 enforces gas and blob capacity per checkpoint. The node enforces these during
 
 Per-block budgets prevent one block from consuming the entire checkpoint budget.
 
-**Proposer**: `computeBlockLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. The multiplier greater than 1 allows early blocks to use more than their even share of the checkpoint budget, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` / `SEQ_MAX_TX_PER_BLOCK` (capped at checkpoint limits). Per-block TX limits follow the same derivation pattern when `SEQ_MAX_TX_PER_CHECKPOINT` is set.
+**Proposer**: `computeBlockLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 1.2. The multiplier greater than 1 allows early blocks to use more than their even share of the checkpoint budget, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` / `SEQ_MAX_TX_PER_BLOCK` (capped at checkpoint limits). Per-block TX limits follow the same derivation pattern when `SEQ_MAX_TX_PER_CHECKPOINT` is set.
 
 **Validator**: Optionally enforces per-block limits via `VALIDATOR_MAX_L2_BLOCK_GAS`, `VALIDATOR_MAX_DA_BLOCK_GAS`, and `VALIDATOR_MAX_TX_PER_BLOCK`. When set, these are passed to `buildBlock` during re-execution and to `validateCheckpoint` for final validation. When unset, no per-block limit is enforced for that dimension (checkpoint-level protocol limits still apply). These are independent of the `SEQ_` vars so operators can tune proposer and validation limits separately.
 
-**Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by `checkpointBudget - sum(used by prior blocks)` for all three gas dimensions and for transaction count (when `SEQ_MAX_TX_PER_CHECKPOINT` is set). This applies to both proposer and validator paths.
+**Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by the remaining checkpoint budget. When `SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET` is enabled (default: true), the remaining budget is distributed evenly across remaining blocks with the multiplier applied: `min(perBlockLimit, ceil(remainingBudget / remainingBlocks * multiplier), remainingBudget)`. This prevents early blocks from consuming the entire checkpoint budget, producing smoother distribution. When disabled, each block can consume up to the full remaining budget, ie caps by `checkpointBudget - sum(used by prior blocks)`. This applies to all four dimensions (L2 gas, DA gas, blob fields, transaction count). Validators always cap by the total remaining.
 
 ### Per-transaction enforcement
 
@@ -259,7 +259,8 @@ Per-block budgets prevent one block from consuming the entire checkpoint budget.
 | `SEQ_MAX_DA_BLOCK_GAS` | *auto* | Per-block DA gas. Auto-derived from checkpoint DA limit / maxBlocks * multiplier. |
 | `SEQ_MAX_TX_PER_BLOCK` | *none* | Per-block tx count. If `SEQ_MAX_TX_PER_CHECKPOINT` is set and per-block is not, derived as `ceil(checkpointLimit / maxBlocks * multiplier)`. |
 | `SEQ_MAX_TX_PER_CHECKPOINT` | *none* | Total txs across all blocks in a checkpoint. When set, per-block tx limit is derived from it (unless explicitly overridden) and checkpoint-level capping is enforced. |
-| `SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER` | 2 | Multiplier for per-block budget computation. |
+| `SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER` | 1.2 | Multiplier for per-block budget computation. |
+| `SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET` | true | Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing one block to consume it all. |
 | `VALIDATOR_MAX_L2_BLOCK_GAS` | *none* | Per-block L2 gas limit for validation. Proposals exceeding this are rejected. |
 | `VALIDATOR_MAX_DA_BLOCK_GAS` | *none* | Per-block DA gas limit for validation. Proposals exceeding this are rejected. |
 | `VALIDATOR_MAX_TX_PER_BLOCK` | *none* | Per-block tx count limit for validation. Proposals exceeding this are rejected. |

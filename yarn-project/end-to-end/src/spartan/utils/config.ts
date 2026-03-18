@@ -8,6 +8,7 @@ const logger = createLogger('e2e:k8s-utils');
 const testConfigSchema = z.object({
   NAMESPACE: z.string().default('scenario'),
   REAL_VERIFIER: schemas.Boolean.optional().default(true),
+  DEBUG_FORCE_TX_PROOF_VERIFICATION: schemas.Boolean.optional().default(true),
   CREATE_ETH_DEVNET: schemas.Boolean.optional().default(false),
   L1_RPC_URLS_JSON: z.string().optional(),
   L1_ACCOUNT_MNEMONIC: z.string().optional(),

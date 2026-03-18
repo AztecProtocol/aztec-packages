@@ -18,7 +18,7 @@ struct ContractInstanceRetrievalEvent {
 
     // Nullifier info
     FF deployment_nullifier = FF(0);
-    bool exists;
+    bool exists = false;
 
     bool is_protocol_contract = false;
 

@@ -652,34 +652,19 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_notifyEnqueuedPublicFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
+  public aztec_prv_validatePublicCalldata(_foreignCalldataHash: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_notifySetPublicTeardownFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
+  public aztec_prv_notifyRevertiblePhaseStart(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_notifySetMinRevertibleSideEffectCounter(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
-  }
-
-  // eslint-disable-next-line camelcase
-  public async aztec_prv_isSideEffectCounterRevertible(foreignSideEffectCounter: ForeignCallSingle) {
+  public async aztec_prv_inRevertiblePhase(foreignSideEffectCounter: ForeignCallSingle) {
     const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
-    const isRevertible = await this.handlerAsPrivate().isSideEffectCounterRevertible(sideEffectCounter);
+    const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(sideEffectCounter);
     return toForeignCallResult([toSingle(new Fr(isRevertible))]);
   }
 
@@ -766,15 +751,21 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMaxNotePackedLen: ForeignCallSingle,
+    foreignMaxEventSerializedLen: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
+    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
+    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
+      maxNotePackedLen,
+      maxEventSerializedLen,
     );
 
     return toForeignCallResult([]);
@@ -794,6 +785,25 @@ export class RPCTranslator {
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
+    );
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  public async aztec_utl_utilityResolveMessageContexts(
+    foreignContractAddress: ForeignCallSingle,
+    foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
+  ) {
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
+    const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
+    const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
+
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      contractAddress,
+      messageContextRequestsArrayBaseSlot,
+      messageContextResponsesArrayBaseSlot,
     );
 
     return toForeignCallResult([]);
@@ -869,7 +879,7 @@ export class RPCTranslator {
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
   // eslint-disable-next-line camelcase
-  async aztec_utl_aes128Decrypt(
+  async aztec_utl_tryAes128Decrypt(
     foreignCiphertextBVecStorage: ForeignCallArray,
     foreignCiphertextLength: ForeignCallSingle,
     foreignIv: ForeignCallArray,
@@ -879,11 +889,18 @@ export class RPCTranslator {
     const iv = fromUintArray(foreignIv, 8);
     const symKey = fromUintArray(foreignSymKey, 8);
 
-    const plaintextBuffer = await this.handlerAsUtility().aes128Decrypt(ciphertext, iv, symKey);
-
-    return toForeignCallResult(
-      arrayToBoundedVec(bufferToU8Array(plaintextBuffer), foreignCiphertextBVecStorage.length),
-    );
+    // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
+    try {
+      const plaintextBuffer = await this.handlerAsUtility().aes128Decrypt(ciphertext, iv, symKey);
+      const [storage, length] = arrayToBoundedVec(
+        bufferToU8Array(plaintextBuffer),
+        foreignCiphertextBVecStorage.length,
+      );
+      return toForeignCallResult([toSingle(new Fr(1)), storage, length]);
+    } catch {
+      const zeroStorage = toArray(Array(foreignCiphertextBVecStorage.length).fill(new Fr(0)));
+      return toForeignCallResult([toSingle(new Fr(0)), zeroStorage, toSingle(new Fr(0))]);
+    }
   }
 
   // eslint-disable-next-line camelcase
