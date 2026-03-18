@@ -236,8 +236,8 @@ export type ContractClassMetadata = {
  * Options for executing a utility function call.
  */
 export type ExecuteUtilityOptions = {
-  /** The scope for the utility execution (determines which notes and keys are visible). */
-  scope: AztecAddress;
+  /** The scopes for the utility execution (determines which notes and keys are visible). */
+  scopes: AztecAddress[];
   /** Optional auth witnesses to use during execution. */
   authWitnesses?: AuthWitness[];
 };
@@ -552,7 +552,7 @@ const WalletMethodSchemas = {
     .args(
       FunctionCall.schema,
       z.object({
-        scope: schemas.AztecAddress,
+        scopes: z.array(schemas.AztecAddress),
         authWitnesses: optional(z.array(AuthWitness.schema)),
       }),
     )

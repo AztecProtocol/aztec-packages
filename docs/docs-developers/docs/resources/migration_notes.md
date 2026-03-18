@@ -50,6 +50,21 @@ Using other contracts for wrapping (for example, supporting more calls) is also 
 
 **Impact**: Any code that passes `AztecAddress.ZERO` as the `from` option in `.send()`, `.simulate()`, or deploy options must switch to `NO_FROM`. Wallets use `DefaultEntrypoint` directly for `NO_FROM` transactions, instead of the `DefaultMultiCallEntrypoint` that was used internally before when specifying `AztecAddress.ZERO`.
 
+### [Aztec.js] `ExecuteUtilityOptions.scope` renamed to `scopes` and type changed to `AztecAddress[]`
+
+The `scope` field in `ExecuteUtilityOptions` has been renamed to `scopes` and changed from a single `AztecAddress` to `AztecAddress[]`. This aligns the wallet's `executeUtility` API with the PXE API and `sendTx` in `Wallet`, which both accept an array of scopes.
+
+**Migration:**
+
+```diff
+  wallet.executeUtility(call, {
+-   scope: myAddress,
++   scopes: [myAddress],
+  });
+```
+
+**Impact**: Any code that calls `wallet.executeUtility` directly must update the options object. Wallets must update to adapt to the new interface
+
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).

@@ -470,7 +470,7 @@ export abstract class BaseWallet implements Wallet {
   }
 
   executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
-    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
+    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: opts.scopes });
   }
 
   async getPrivateEvents<T>(
