@@ -149,8 +149,6 @@ describe('Utility Execution test suite', () => {
 
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
-    // Build a contract instance with a properly derived address so that the init check's
-    // get_contract_instance oracle assertion (instance.to_address() == address) passes.
     const instanceFields = {
       version: 1 as const,
       salt: Fr.random(),
