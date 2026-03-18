@@ -1802,10 +1802,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        MissingTxsTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1897,10 +1896,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        MissingTxsTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1992,10 +1990,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        MissingTxsTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
