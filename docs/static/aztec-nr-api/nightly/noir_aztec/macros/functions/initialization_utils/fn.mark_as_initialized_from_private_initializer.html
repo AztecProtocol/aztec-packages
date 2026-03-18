@@ -24,6 +24,7 @@
 <li><a href="fn.assert_is_initialized_private.html">assert_is_initialized_private</a></div></li>
 <li><a href="fn.assert_is_initialized_public.html">assert_is_initialized_public</a></div></li>
 <li><a href="fn.compute_initialization_hash.html">compute_initialization_hash</a></div></li>
+<li><a href="fn.compute_private_initialization_nullifier.html">compute_private_initialization_nullifier</a></div></li>
 <li><a href="fn.mark_as_initialized_from_private_initializer.html">mark_as_initialized_from_private_initializer</a></div></li>
 <li><a href="fn.mark_as_initialized_from_public_initializer.html">mark_as_initialized_from_public_initializer</a></div></li>
 <li><a href="fn.mark_as_initialized_public.html">mark_as_initialized_public</a></div></li>
@@ -40,8 +41,9 @@
 <div class="comments">
 <p>Emits the private initialization nullifier and, if relevant, enqueues the emission of the public one.</p>
 <p>If the contract has public functions that perform initialization checks (i.e. that don't have <code>#[noinitcheck]</code>),
-this also enqueues a call to the auto-generated <code>__emit_public_init_nullifier</code> function so the public nullifier is
-emitted in public. Called by private <a href="../../../../noir_aztec/macros/functions/fn.initializer.html"><code>initializer</code></a> macros.</p></div>
+this also enqueues a call to the auto-generated <code>__emit_public_init_nullifier</code> function so the public
+initialization nullifier is emitted in public. Called by private
+<a href="../../../../noir_aztec/macros/functions/fn.initializer.html"><code>initializer</code></a> macros.</p></div>
 </main>
 </span>
 </body>
