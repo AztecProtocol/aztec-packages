@@ -30,6 +30,7 @@ import {
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
 } from '@aztec/constants';
 import { AccountFeePaymentMethodOptions, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -111,7 +112,7 @@ export abstract class BaseWallet implements Wallet {
     return [...scopeSet].map(AztecAddress.fromString);
   }
 
-  protected abstract getAccountFromAddress(address: AztecAddress | NoFrom): Promise<Account>;
+  protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
 
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
 
@@ -138,16 +139,22 @@ export abstract class BaseWallet implements Wallet {
     feeOptions: FeeOptions,
   ): Promise<TxExecutionRequest> {
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
+      : executionPayload;
+    const chainInfo = await this.getChainInfo();
+
+    if (from === NO_FROM) {
+      const entrypoint = new DefaultEntrypoint();
+      return entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+    }
+
+    const fromAccount = await this.getAccountFromAddress(from);
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),
       cancellable: this.cancellableTransactions,
       feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
     };
-    const finalExecutionPayload = feeExecutionPayload
-      ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
-      : executionPayload;
-    const fromAccount = await this.getAccountFromAddress(from);
-    const chainInfo = await this.getChainInfo();
     return fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
       feeOptions.gasSettings,

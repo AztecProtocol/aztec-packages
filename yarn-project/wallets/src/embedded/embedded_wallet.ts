@@ -1,9 +1,10 @@
-import { type Account, NO_FROM, NoAccount, type NoFrom } from '@aztec/aztec.js/account';
+import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
@@ -16,6 +17,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import {
   ExecutionPayload,
   SimulationOverrides,
+  type TxExecutionRequest,
   type TxSimulationResult,
   collectOffchainEffects,
   mergeExecutionPayloads,
@@ -51,10 +53,7 @@ export class EmbeddedWallet extends BaseWallet {
     super(pxe, aztecNode, log);
   }
 
-  protected async getAccountFromAddress(address: AztecAddress | NoFrom): Promise<Account> {
-    if (address === NO_FROM) {
-      return new NoAccount();
-    }
+  protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);
     const accountManager = await this.createAccountInternal(type, secretKey, salt, signingKey);
     const account = await accountManager.getAccount();
@@ -157,34 +156,35 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<TxSimulationResult> {
     const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
 
-    let overrides: SimulationOverrides | undefined;
-    let fromAccount: Account;
-    if (from === NO_FROM) {
-      fromAccount = await this.getAccountFromAddress(from);
-    } else {
-      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
-      fromAccount = account;
-      overrides = {
-        contracts: { [from.toString()]: { instance, artifact } },
-      };
-    }
-
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    const executionOptions: DefaultAccountEntrypointOptions = {
-      txNonce: Fr.random(),
-      cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
-    };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
     const chainInfo = await this.getChainInfo();
-    const txRequest = await fromAccount.createTxExecutionRequest(
-      finalExecutionPayload,
-      feeOptions.gasSettings,
-      chainInfo,
-      executionOptions,
-    );
+
+    let overrides: SimulationOverrides | undefined;
+    let txRequest: TxExecutionRequest;
+    if (from === NO_FROM) {
+      const entrypoint = new DefaultEntrypoint();
+      txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+    } else {
+      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
+      overrides = {
+        contracts: { [from.toString()]: { instance, artifact } },
+      };
+      const executionOptions: DefaultAccountEntrypointOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
+      };
+      txRequest = await account.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        chainInfo,
+        executionOptions,
+      );
+    }
+
     return this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipFeeEnforcement,
@@ -196,10 +196,7 @@ export class EmbeddedWallet extends BaseWallet {
 
   private async getFakeAccountDataFor(address: AztecAddress) {
     const originalAccount = await this.getAccountFromAddress(address);
-    if (originalAccount instanceof NoAccount) {
-      throw new Error(`Cannot create fake account data for NoAccount at address: ${address}`);
-    }
-    const originalAddress = (originalAccount as Account).getCompleteAddress();
+    const originalAddress = originalAccount.getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
