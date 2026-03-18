@@ -604,9 +604,8 @@ export class Oracle {
     return [];
   }
 
-  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash PXE.
   // eslint-disable-next-line camelcase
-  async aztec_utl_aes128Decrypt(
+  async aztec_utl_tryAes128Decrypt(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],
     iv: ACVMField[],
@@ -616,8 +615,15 @@ export class Oracle {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    const plaintext = await this.handlerAsUtility().aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
-    return bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
+    // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
+    try {
+      const plaintext = await this.handlerAsUtility().aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+      const [storage, length] = bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
+      return [toACVMField(1), storage, length];
+    } catch {
+      const zeroStorage = Array(ciphertextBVecStorage.length).fill(toACVMField(0));
+      return [toACVMField(0), zeroStorage, toACVMField(0)];
+    }
   }
 
   // eslint-disable-next-line camelcase
