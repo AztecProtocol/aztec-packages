@@ -359,6 +359,28 @@ describe('PublisherManager', () => {
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
     });
 
+    it('caps funding to affordable number of publishers', async () => {
+      mockPublishers = createMockPublishers(3);
+      mockPublishers[0].balance = 10n;
+      mockPublishers[1].balance = 10n;
+      mockPublishers[2].balance = 10n;
+      funder.balance = 2n * fundingAmount; // enough for 2, not 3
+      publisherManager = createFundedManager(mockPublishers, funder);
+
+      await publisherManager.getAvailablePublisher();
+      await waitForFunding();
+
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
+      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
+        to: MULTI_CALL_3_ADDRESS,
+        data: expectedFundingData(
+          [mockPublishers[0].getSenderAddress(), mockPublishers[1].getSenderAddress()],
+          fundingAmount,
+        ),
+        value: 2n * fundingAmount,
+      });
+    });
+
     it('disables funding when funder address matches a publisher', async () => {
       const sharedAddress = EthAddress.random();
       mockPublishers = createMockPublishers(2, [sharedAddress]);

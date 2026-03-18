@@ -159,12 +159,20 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
       if (funderBalance < 10n * fundingAmount) {
         this.log.warn(`Funding account balance is low`, { funderBalance, threshold: 10n * fundingAmount });
       }
-      if (funderBalance < fundingAmount) {
+      const affordableCount = Number(funderBalance / fundingAmount);
+      if (affordableCount === 0) {
         this.log.error(`Funding account balance too low to fund any publisher`, { funderBalance, fundingAmount });
         return;
       }
+      if (affordableCount < lowBalance.length) {
+        this.log.warn(`Funder can only afford ${affordableCount}/${lowBalance.length} publishers`, {
+          funderBalance,
+          fundingAmount,
+        });
+      }
 
-      await this.fundPublishers(lowBalance.map(p => p.publisher));
+      const toFund = lowBalance.slice(0, affordableCount).map(p => p.publisher);
+      await this.fundPublishers(toFund);
     } finally {
       this.isFunding = false;
     }
