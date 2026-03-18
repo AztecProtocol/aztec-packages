@@ -21,7 +21,6 @@ import {
   type FeePaymentMethodOption,
   type InteractionWaitOptions,
   NO_FROM,
-  type NoFrom,
   type ProfileInteractionOptions,
 } from '../contract/interaction_options.js';
 import type { WaitOpts } from '../contract/wait_opts.js';
@@ -44,8 +43,6 @@ export type DeployAccountFeePaymentMethodOption = FeePaymentMethodOption & {
 export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'contractAddressSalt' | 'fee'> & {
   /** Fee options specific to account deployment */
   fee?: DeployAccountFeePaymentMethodOption;
-  /** The original `from` value from send options, used to detect self-deployment (NO_FROM). */
-  from?: AztecAddress | NoFrom;
 };
 
 /**
@@ -135,7 +132,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     const deploymentExecutionPayload = await super.request({ ...optionsWithDefaults, fee: undefined });
     const executionPayloads = [deploymentExecutionPayload];
     // If this is a self-deployment, manage the fee accordingly
-    if (opts?.from === NO_FROM) {
+    if (opts?.deployer?.equals(AztecAddress.ZERO)) {
       const feePaymentMethod = await this.getSelfFeePaymentMethod(
         opts?.fee?.paymentMethod,
         opts?.fee?.feeEntrypointOptions,
@@ -166,7 +163,6 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       // Account contracts are always universally deployed (deployer = ZERO),
       // but we still need to know the original `from` to detect self-deployment.
       deployer: options.from === NO_FROM ? AztecAddress.ZERO : options.from,
-      from: options.from,
     };
   }
 
