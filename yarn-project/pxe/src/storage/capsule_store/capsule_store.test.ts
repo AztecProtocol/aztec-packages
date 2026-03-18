@@ -115,6 +115,25 @@ describe('capsule data provider', () => {
 
       expect(await capsuleStore.loadCapsule(contract, slot, 'test')).toBeNull();
     });
+
+    it('deletes a scoped capsule without affecting other scopes', async () => {
+      const scopeA = await AztecAddress.random();
+      const scopeB = await AztecAddress.random();
+      const slot = Fr.random();
+      const valuesA = [Fr.random(), Fr.random(), Fr.random()];
+      const valuesB = [Fr.random(), Fr.random(), Fr.random()];
+      const globalValues = [Fr.random(), Fr.random(), Fr.random()];
+
+      capsuleStore.storeCapsule(contract, slot, valuesA, 'test', scopeA);
+      capsuleStore.storeCapsule(contract, slot, valuesB, 'test', scopeB);
+      capsuleStore.storeCapsule(contract, slot, globalValues, 'test');
+
+      capsuleStore.deleteCapsule(contract, slot, 'test', scopeA);
+
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeA)).toBeNull();
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
+      expect(await capsuleStore.loadCapsule(contract, slot, 'test')).toEqual(globalValues);
+    });
   });
 
   describe('copy', () => {
