@@ -23,7 +23,7 @@ resources:
 
 persistence:
   enabled: true
-  size: 1Gi
+  size: 10Gi
   storageClass: ""  # Use default
 
 service:

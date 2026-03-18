@@ -24,7 +24,7 @@ This module validates `CheckpointAttestation` gossipsub messages. Attestations a
 |---|------|-------------|
 | 8 | Sender recoverable (pool-side) | Silent drop |
 | 9 | Not a duplicate (same slot + proposalId + signer) | IGNORE |
-| 10 | Per-signer cap: `MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER` = 3 | IGNORE |
+| 10 | Per-signer cap: `MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER` = 2 | IGNORE |
 
 Own attestations added via `addOwnCheckpointAttestations` bypass the per-signer cap.
 
