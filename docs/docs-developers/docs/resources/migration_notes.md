@@ -9,6 +9,28 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec.js] `isContractInitialized` is now a tri-state enum
+
+`ContractMetadata.isContractInitialized` changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `YES`, `NO`, and `UNKNOWN`.
+
+- `YES`: the contract has been initialized (initialization nullifier found)
+- `NO`: the contract instance is registered but has not been initialized
+- `UNKNOWN`: the instance is not registered and no public initialization nullifier was found
+
+When the instance is not registered, the wallet now attempts to check the public initialization nullifier (computed from address alone) before returning `UNKNOWN`. Previously this case returned `undefined`.
+
+**Migration:**
+
+```diff
++ import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
+
+  const metadata = await wallet.getContractMetadata(address);
+- if (metadata.isContractInitialized) {
++ if (metadata.isContractInitialized === ContractInitializationStatus.YES) {
+    // contract is initialized
+  }
+```
+
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
