@@ -74,7 +74,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
           skipFeeEnforcement: true,
         })
         .then(simulationResult => {
-          const rawReturnValues = simulationResult.getPrivateReturnValues().nested[0].values;
+          const rawReturnValues = simulationResult.getPrivateReturnValues().values;
           return decodeFromAbi(abi.returnTypes, rawReturnValues!);
         }) as Promise<AztecAddress>;
     }
