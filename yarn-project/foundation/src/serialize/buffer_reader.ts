@@ -286,39 +286,16 @@ export class BufferReader {
   }
 
   /**
-   * Read an array from the buffer using lazy allocation (new Array + loop).
-   * Safe for use with untrusted sizes — does not pre-allocate memory proportional to size.
+   * Read an array of a fixed size with elements of type T from the buffer.
+   * The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance as input,
+   * and returns an instance of the desired deserialized data type T.
+   * This method will call the 'fromBuffer' method for each element in the array and return the resulting array.
    *
-   * @param size - The number of elements to read.
+   * @param size - The fixed number of elements in the array.
    * @param itemDeserializer - An object with a 'fromBuffer' method to deserialize individual elements of type T.
    * @returns An array of instances of type T.
    */
-  public readArray<T>(
-    size: number,
-    itemDeserializer: {
-      /**
-       * A function for deserializing data from a BufferReader instance.
-       */
-      fromBuffer: (reader: BufferReader) => T;
-    },
-  ): T[] {
-    const result = new Array<T>(size);
-    for (let i = 0; i < size; i++) {
-      result[i] = itemDeserializer.fromBuffer(this);
-    }
-    return result;
-  }
-
-  /**
-   * Read a fixed-size tuple from the buffer using dense allocation (Array.from).
-   * Only use with compile-time constant sizes — the size parameter MUST NOT come from untrusted input
-   * as Array.from pre-allocates memory proportional to size.
-   *
-   * @param size - The fixed number of elements (must be a compile-time constant).
-   * @param itemDeserializer - An object with a 'fromBuffer' method to deserialize individual elements of type T.
-   * @returns A densely-allocated tuple of instances of type T.
-   */
-  public readTuple<T, N extends number>(
+  public readArray<T, N extends number>(
     size: N,
     itemDeserializer: {
       /**

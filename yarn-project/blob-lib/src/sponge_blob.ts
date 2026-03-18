@@ -91,8 +91,8 @@ export class Poseidon2Sponge {
   static fromBuffer(buffer: Buffer | BufferReader): Poseidon2Sponge {
     const reader = BufferReader.asReader(buffer);
     return new Poseidon2Sponge(
-      reader.readTuple(3, Fr),
-      reader.readTuple(4, Fr),
+      reader.readArray(3, Fr),
+      reader.readArray(4, Fr),
       reader.readNumber(),
       reader.readBoolean(),
     );

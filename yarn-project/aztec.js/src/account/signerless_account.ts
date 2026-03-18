@@ -28,8 +28,8 @@ export class SignerlessAccount implements Account {
     return this.entrypoint.createTxExecutionRequest(exec, gasSettings, chainInfo);
   }
 
-  wrapExecutionPayload(exec: ExecutionPayload, options?: any): Promise<ExecutionPayload> {
-    return this.entrypoint.wrapExecutionPayload(exec, options);
+  wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any): Promise<ExecutionPayload> {
+    return this.entrypoint.wrapExecutionPayload(exec, chainInfo, options);
   }
 
   createAuthWit(_intent: Fr | Buffer | IntentInnerHash | CallIntent): Promise<AuthWitness> {

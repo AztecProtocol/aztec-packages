@@ -32,6 +32,21 @@ pub trait StateMachine {
     /// Apply a command on the System Under Test.
     fn run_command(&self, system: &mut Self::System, cmd: &Self::Command) -> Self::Result;
 
+    /// Execute a batch of commands, potentially in parallel.
+    ///
+    /// The default implementation runs them sequentially via `run_command`.
+    /// Machines that want parallel execution should override this, delegating
+    /// to their System (which holds the transport/bridge).
+    fn run_command_batch(
+        &self,
+        system: &mut Self::System,
+        cmds: &[Self::Command],
+    ) -> Vec<Self::Result> {
+        cmds.iter()
+            .map(|cmd| self.run_command(system, cmd))
+            .collect()
+    }
+
     /// Use assertions to check that the result returned by the System Under Test
     /// was correct, given the model pre-state.
     fn check_result(&self, cmd: &Self::Command, pre_state: &Self::State, result: Self::Result);
@@ -56,6 +71,15 @@ pub trait StateMachine {
     ) -> bool;
 }
 
+/// Trait for commands that can be batched for parallel execution.
+pub trait Batchable {
+    /// Returns `true` if executing `self` and `other` concurrently could produce
+    /// different results than executing them sequentially.
+    /// Queries (non-state-changing commands) must conflict with sends so they
+    /// observe prior state, but two queries can safely batch together.
+    fn conflicts(&self, other: &Self) -> bool;
+}
+
 /// Run a state machine test by generating `max_steps` commands.
 ///
 /// It is expected to panic if some post condition fails.
@@ -76,6 +100,75 @@ pub fn run<T: StateMachine>(
             break;
         }
     }
+    Ok(())
+}
+
+/// Run a state machine test with batched parallel execution of non-conflicting commands.
+///
+/// Commands are generated sequentially and deterministically. Consecutive non-conflicting
+/// state-changing commands are buffered into a batch and fired concurrently via
+/// `StateMachine::run_command_batch()`. Non-state-changing commands (queries) and
+/// conflicting commands flush the pending batch first.
+pub fn run_batched<T>(
+    u: &mut Unstructured,
+    t: &mut T,
+    max_steps: usize,
+    max_batch_size: usize,
+) -> arbitrary::Result<()>
+where
+    T: StateMachine<Result = anyhow::Result<String>>,
+    T::Command: Batchable,
+{
+    let state = t.gen_state(u)?;
+    let mut system = t.new_system(&state);
+
+    // Two parallel vecs (not Vec<(Cmd, State)>) so we can pass &[Command] to
+    // run_command_batch without allocating a temporary vec of references.
+    let mut batch_cmds: Vec<T::Command> = Vec::new();
+    let mut batch_states: Vec<T::State> = Vec::new();
+    // Model state tracks all generated commands (including those still pending
+    // in the batch). Used for gen_command and pre-state snapshots.
+    let mut model = state;
+
+    let flush = |t: &T,
+                 system: &mut T::System,
+                 cmds: &[T::Command],
+                 states: &[T::State],
+                 post_state: &T::State|
+     -> bool {
+        let results = t.run_command_batch(system, cmds);
+        let mut ok = true;
+        for ((cmd, pre_state), result) in cmds.iter().zip(states).zip(results) {
+            t.check_result(cmd, pre_state, result);
+            ok = ok && t.check_system(cmd, post_state, system);
+        }
+        ok
+    };
+
+    for _ in 0..max_steps {
+        ensure_has_randomness(u)?;
+        let cmd = t.gen_command(u, &model)?;
+
+        // Flush if the new command conflicts with anything in the batch or if
+        // the batch is at capacity.
+        if batch_cmds.len() >= max_batch_size || batch_cmds.iter().any(|prev| cmd.conflicts(prev)) {
+            if !flush(t, &mut system, &batch_cmds, &batch_states, &model) {
+                return Ok(());
+            }
+            batch_cmds.clear();
+            batch_states.clear();
+        }
+
+        // Snapshot model *before* applying the command (for check_result later).
+        batch_states.push(model.clone());
+        model = t.next_state(&cmd, model);
+        batch_cmds.push(cmd);
+    }
+
+    if !batch_cmds.is_empty() {
+        flush(t, &mut system, &batch_cmds, &batch_states, &model);
+    }
+
     Ok(())
 }
 

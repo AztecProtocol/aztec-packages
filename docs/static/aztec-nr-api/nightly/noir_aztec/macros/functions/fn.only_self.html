@@ -72,20 +72,21 @@ internal mechanism.</p>
 total supply is incremented.</p>
 <h2>Initialization Checks</h2>
 <p><code>only_self</code> functions implicitly skip initialization checks (as if they had <a href="../../../noir_aztec/macros/functions/fn.noinitcheck.html"><code>noinitcheck</code></a>). We want
-<code>only_self</code> functions to be callable during initialization, so we can't have them check the init nullifier
-since it would fail.</p>
+<code>only_self</code> functions to be callable during initialization, so we can't have them check the initialization
+nullifier since it would fail.</p>
 <p>This is safe because <code>only_self</code> functions can be called only by the contract the function is in, meaning
 execution must start with another external function in the same contract. Eventually the call stack reaches the
 <code>only_self</code> function, but let's focus on that external entry point:</p>
 <ul>
-<li>If it already performed an init check, then we are safe.</li>
-<li>If it skipped the init check (via <a href="../../../noir_aztec/macros/functions/fn.noinitcheck.html"><code>noinitcheck</code></a>), then the contract developer is explicitly choosing to not
-check for initialization, and so will our <code>only_self</code> function. That's a design choice by the developer. If
-we didn't skip the init check on <code>only_self</code>, the developer would just add <code>noinitcheck</code> to it anyway.</li>
-<li>If it was the initializer, note that init nullifiers are emitted at the end of initialization: the private
-init nullifier after all private execution, and the public one after all public execution. So in terms of
-init checking, everything behaves as if the contract hasn't been initialized yet, and the same two points
-above still apply.</li>
+<li>If it already performed an initialization check, then we are safe.</li>
+<li>If it skipped the initialization check (via <a href="../../../noir_aztec/macros/functions/fn.noinitcheck.html"><code>noinitcheck</code></a>), then the contract developer is explicitly
+choosing to not check for initialization, and so will our <code>only_self</code> function. That's a design choice by
+the developer. If we didn't skip the initialization check on <code>only_self</code>, the developer would just add
+<code>noinitcheck</code> to it anyway.</li>
+<li>If it was the initializer, note that initialization nullifiers are emitted at the end of initialization:
+the private initialization nullifier after all private execution, and the public one after all public
+execution. So in terms of initialization checking, everything behaves as if the contract hasn't been
+initialized yet, and the same two points above still apply.</li>
 </ul></div>
 </main>
 </span>

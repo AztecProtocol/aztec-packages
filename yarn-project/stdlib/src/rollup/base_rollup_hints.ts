@@ -86,7 +86,7 @@ export class PrivateBaseRollupHints {
       reader.readObject(SpongeBlob),
       reader.readObject(TreeSnapshotDiffHints),
       reader.readObject(PublicDataTreeLeafPreimage),
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
       reader.readObject(BlockConstantData),
     );
@@ -163,7 +163,7 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       reader.readObject(SpongeBlob),
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
     );
   }

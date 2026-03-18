@@ -88,11 +88,11 @@ export class AvmAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
-      reader.readTuple(MAX_NOTE_HASHES_PER_TX, Fr),
-      reader.readTuple(MAX_NULLIFIERS_PER_TX, Fr),
-      reader.readTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readObject(FlatPublicLogs),
-      reader.readTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
+      reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
 
@@ -115,9 +115,9 @@ export class AvmAccumulatedData {
     return new this(
       reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
-      reader.readTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readObject(FlatPublicLogs),
-      reader.readTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
+      reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
 

@@ -60,8 +60,8 @@ export class BlockRootFirstRollupPrivateInputs {
       ProofData.fromBuffer(reader, ParityPublicInputs),
       [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
       AppendOnlyTreeSnapshot.fromBuffer(reader),
-      reader.readTuple(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
@@ -124,8 +124,8 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
       ProofData.fromBuffer(reader, ParityPublicInputs),
       ProofData.fromBuffer(reader, TxRollupPublicInputs),
       AppendOnlyTreeSnapshot.fromBuffer(reader),
-      reader.readTuple(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
@@ -206,8 +206,8 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
       StateReference.fromBuffer(reader),
       CheckpointConstantData.fromBuffer(reader),
       reader.readUInt64(),
-      reader.readTuple(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
@@ -248,7 +248,7 @@ export class BlockRootRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootRollupPrivateInputs(
       [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
@@ -289,7 +289,7 @@ export class BlockRootSingleTxRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootSingleTxRollupPrivateInputs(
       ProofData.fromBuffer(reader, TxRollupPublicInputs),
-      reader.readTuple(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
