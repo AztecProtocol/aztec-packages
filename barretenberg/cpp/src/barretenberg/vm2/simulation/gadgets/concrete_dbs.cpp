@@ -10,6 +10,7 @@ namespace bb::avm2::simulation {
 // Contracts DB starts.
 std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAddress& address) const
 {
+    // Get the contract instance from the raw DB.
     std::optional<ContractInstance> instance = raw_contract_db.get_contract_instance(address);
     // If we didn't get a contract instance, we don't prove anything.
     // It is the responsibility of the caller to prove what the protocol expects.
@@ -20,6 +21,7 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     // For protocol contracts the input address is the canonical address, we need to retrieve the derived address.
     AztecAddress derived_address;
     if (is_protocol_contract_address(address)) {
+        // Extract the stored derived address from the protocol contract.
         auto maybe_derived = get_derived_address(protocol_contracts, address);
         BB_ASSERT(maybe_derived.has_value(),
                   "Derived address should be found for protocol contract whose instance is found");
@@ -27,6 +29,10 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     } else {
         derived_address = address;
     }
+
+    // Perform address derivation to verify the derived_address is correctly calculated from the instance.
+    // Emits AddressDerivationEvent (and corresponding Poseidon2HashEvents, Poseidon2PermutationEvents, ScalarMulEvent,
+    // and EccAddEvents) if we have yet to derive it. Otherwise, ignores the instance and simply returns.
     address_derivation.assert_derivation(derived_address, instance.value());
     return instance;
 }
