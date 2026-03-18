@@ -346,14 +346,18 @@ describe('Kernelless simulation', () => {
         from: adminAddress,
       });
 
-      // Kernelless simulation of reading + nullifying that settled note produces a settled
-      // read request that gets verified against the note hash tree at the anchor block
+      // Spy on the node API that generateSimulatedProvingResult uses to verify settled read requests
+      const noteHashMembershipWitnessSpy = jest.spyOn(aztecNode, 'getNoteHashMembershipWitness');
+
       wallet.setSimulationMode('kernelless-override');
       await expect(
         pendingNoteHashesContract.methods.get_then_nullify_note(mintAmount, adminAddress).simulate({
           from: adminAddress,
         }),
       ).resolves.toBeDefined();
+
+      expect(noteHashMembershipWitnessSpy).toHaveBeenCalled();
+      noteHashMembershipWitnessSpy.mockRestore();
     });
   });
 });
