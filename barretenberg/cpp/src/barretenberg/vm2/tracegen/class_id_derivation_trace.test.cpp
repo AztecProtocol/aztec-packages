@@ -13,7 +13,6 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using testing::ElementsAre;
-using testing::Field;
 
 using R = TestTraceContainer::Row;
 

@@ -13,10 +13,10 @@ import { computePrivateFunctionsRoot } from './private_function.js';
  *
  * ```
  * version = 1
- * private_function_leaves = private_functions.map(fn => pedersen([fn.function_selector as Field, fn.vk_hash], GENERATOR__PRIVATE_FUNCTION_LEAF))
+ * private_function_leaves = private_functions.map(fn => poseidon2(DOM_SEP__PRIVATE_FUNCTION_LEAF, [fn.function_selector as Field, fn.vk_hash]))
  * private_functions_root = merkleize(private_function_leaves)
  * bytecode_commitment = calculate_commitment(packed_bytecode)
- * contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
+ * contract_class_id = poseidon2(DOM_SEP__CONTRACT_CLASS_ID, [version, artifact_hash, private_functions_root, bytecode_commitment])
  * ```
  * @param contractClass - Contract class.
  * @returns The identifier.
