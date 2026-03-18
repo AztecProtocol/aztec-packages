@@ -77,7 +77,7 @@ export type FeeOptions = {
    */
   walletFeePaymentMethod?: FeePaymentMethod;
   /** Configuration options for the account to properly handle the selected fee payment method */
-  accountFeePaymentMethodOptions: AccountFeePaymentMethodOptions;
+  accountFeePaymentMethodOptions?: AccountFeePaymentMethodOptions;
   /** The gas settings to use for the transaction */
   gasSettings: GasSettings;
 };
@@ -147,20 +147,21 @@ export abstract class BaseWallet implements Wallet {
     if (from === NO_FROM) {
       const entrypoint = new DefaultEntrypoint();
       return entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+    } else {
+      const fromAccount = await this.getAccountFromAddress(from);
+      const executionOptions: DefaultAccountEntrypointOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        // If from is an address, feeOptions include the way the account contract should handle the fee payment
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
+      };
+      return fromAccount.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        chainInfo,
+        executionOptions,
+      );
     }
-
-    const fromAccount = await this.getAccountFromAddress(from);
-    const executionOptions: DefaultAccountEntrypointOptions = {
-      txNonce: Fr.random(),
-      cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
-    };
-    return fromAccount.createTxExecutionRequest(
-      finalExecutionPayload,
-      feeOptions.gasSettings,
-      chainInfo,
-      executionOptions,
-    );
   }
 
   public async createAuthWit(
@@ -222,22 +223,20 @@ export abstract class BaseWallet implements Wallet {
     const maxFeesPerGas =
       gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
-    if (from === NO_FROM) {
-      // NO_FROM transactions bypass account contract mediation.
-      // Fee handling is determined by the execution payload's feePayer field.
-      accountFeePaymentMethodOptions = feePayer
-        ? AccountFeePaymentMethodOptions.EXTERNAL
-        : AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
-    } else if (!feePayer) {
-      // The transaction does not include a fee payment method, so we set the flag
-      // for the account to use its fee juice balance
-      accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
-    } else {
-      // The transaction includes fee payment method, so we check if we are the fee payer for it
-      // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
-      accountFeePaymentMethodOptions = from.equals(feePayer)
-        ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
-        : AccountFeePaymentMethodOptions.EXTERNAL;
+    // If from is an address, we need to determine the appropriate fee payment method options for the
+    // account contract entrypoint to use
+    if (from !== NO_FROM) {
+      if (!feePayer) {
+        // The transaction does not include a fee payment method, so we set the flag
+        // for the account to use its fee juice balance
+        accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
+      } else {
+        // The transaction includes fee payment method, so we check if we are the fee payer for it
+        // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
+        accountFeePaymentMethodOptions = from.equals(feePayer)
+          ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
+          : AccountFeePaymentMethodOptions.EXTERNAL;
+      }
     }
     const fullGasSettings: GasSettings = GasSettings.default({ ...gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, fullGasSettings);

@@ -11,4 +11,3 @@ export type { AuthWitnessProvider, ChainInfo } from '@aztec/entrypoints/interfac
 export { ChainInfoSchema } from '@aztec/entrypoints/interfaces';
 
 export { NO_FROM, type NoFrom } from '../contract/interaction_options.js';
-export { SignerlessAccount } from '../account/signerless_account.js';
