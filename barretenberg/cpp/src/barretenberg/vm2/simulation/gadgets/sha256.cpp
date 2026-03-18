@@ -2,11 +2,10 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
-#include <memory>
-#include <stdexcept>
+#include <vector>
 
-#include "barretenberg/vm2/simulation/lib/sha256_compression.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 
