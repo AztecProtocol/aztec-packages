@@ -192,7 +192,7 @@ pub global MessageDelivery: MessageDeliveryEnum =
 /// be created, there is no point in delivering the message.
 ///
 /// `delivery_mode` must be one of [`MessageDeliveryEnum`].
-pub(crate) fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
+pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     context: &mut PrivateContext,
     encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
     maybe_note_hash_counter: Option<u32>,

@@ -774,6 +774,7 @@
     from = "/errors/3"
     to = "/aztec-nr-api/nightly/noir_aztec/messages/msg_type/index.html"
 
+<<<<<<< HEAD
 [[redirects]]
     # Aztec-nr: note packed length exceeds MAX_NOTE_PACKED_LEN
     from = "/errors/4"
@@ -793,3 +794,10 @@
     # Aztec-nr: user-defined 'offchain_receive' is not allowed
     from = "/errors/7"
     to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
+=======
+# Example (uncomment and modify when adding error codes):
+# [[redirects]]
+#     from = "/errors/4"
+#     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+
+>>>>>>> ae8b067f84 (feat: custom message handlers in Aztec.nr (#20379))

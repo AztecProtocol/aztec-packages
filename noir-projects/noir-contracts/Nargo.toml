@@ -42,7 +42,12 @@ members = [
     "contracts/test/avm_test_contract",
     "contracts/test/benchmarking_contract",
     "contracts/test/child_contract",
+<<<<<<< HEAD
     "contracts/test/counter_contract",
+=======
+    "contracts/test/counter_contract/contract",
+    "contracts/test/custom_message_contract",
+>>>>>>> ae8b067f84 (feat: custom message handlers in Aztec.nr (#20379))
     "contracts/test/event_only_contract",
     "contracts/test/import_test_contract",
     "contracts/test/init_test_contract",
