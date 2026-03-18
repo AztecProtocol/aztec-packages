@@ -1,5 +1,7 @@
 include "gt.pil";
 include "constants_gen.pil";
+include "memory.pil";
+include "precomputed.pil";
 include "sha256.pil";
 
 /**
@@ -43,6 +45,14 @@ include "sha256.pil";
  * - M[rop[2] + 15]: M[input_addr + 15] aka input[15] (the last value of the hash input array)
  *     - guaranteed by this gadget to be U32
 *
+ * INTERACTIONS (as source):
+ * - gt.sel_others: address range checks for state/input/output address bounds.
+ *   Tuple: { max_addr, max_mem_addr, out_of_range_result }.
+ * - memory.sel_sha256_op[0..7]: 8 parallel memory permutations for state reads and output writes.
+ *   Tuple: { clk, space_id, address, value, tag, rw }.
+ * - memory.sel_sha256_read: sequential memory reads for the 16 input values.
+ *   Tuple: { clk, space_id, address, value, tag, rw=0 }.
+ *
  * ERROR HANDLING:
  * Three errors need to be handled as part of this trace:
  * (1) OUTPUT_OUT_OF_BOUNDS_ACCESS: If the reads or writes would access a memory address outside
@@ -51,7 +61,7 @@ include "sha256.pil";
  * (2) INVALID_STATE_READ_TAG: If any of the state values retrieved from memory are NOT U32.
  *     This utilises the batched zero check method (https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers)
  * (3) INVALID_INPUT_READ_TAG: If any of the input values retrieved from memory are NOT U32.
- *     Saee table below for how this is propagated
+ *     See table below for how this is propagated
  *
  * These form the error temporality groups for Sha256 Compression
  *
@@ -364,7 +374,11 @@ namespace sha256;
                           + 2**12 * STATE_TAG_DIFF_4 + 2**15 * STATE_TAG_DIFF_5
                           + 2**18 * STATE_TAG_DIFF_6 + 2**21 * STATE_TAG_DIFF_7;
 
+    // batch_tag_inv is the inverse of BATCHED_TAG_CHECK, used in the zero-check below.
+    // Only constrained when STATE_READ_CONDITION != 0; free on other rows (safe since
+    // it is not referenced outside that guard).
     pol commit batch_tag_inv;
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     #[BATCH_ZERO_CHECK_READ]
     (STATE_READ_CONDITION * BATCHED_TAG_CHECK) * ((1 - sel_invalid_state_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_state_tag_err = 0;
 
@@ -387,7 +401,11 @@ namespace sha256;
     //     then sel_is_input_round' = 0 based on this relation
     #[SEL_IS_INPUT_ROUND_START_COND]
     start * (sel_is_input_round - 1) = 0;
+    // input_rounds_rem_inv is the inverse of input_rounds_rem, used in the zero-check below.
+    // Only constrained when (1 - LATCH_CONDITION) != 0; free on latched/inactive rows.
     pol commit input_rounds_rem_inv;
+    // sel_is_input_round == 1 iff input_rounds_rem != 0 (zero-check with error support).
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     #[SEL_IS_INPUT_END]
     (1 - LATCH_CONDITION) * (input_rounds_rem * ((1 - sel_is_input_round) * (1 - input_rounds_rem_inv) + input_rounds_rem_inv) - sel_is_input_round) = 0;
     #[SEL_IS_INPUT_PROPAGATE]
@@ -425,7 +443,7 @@ namespace sha256;
     };
 
     ////////////////////////////////////////////////
-    // Error Handling - Invalid Input Tag (not FF)
+    // Error Handling - Invalid Input Tag (not U32)
     ////////////////////////////////////////////////
     // This is 1 if any of the inputs loads fail, this is propagated from the row that errored back to the start row
     pol commit sel_invalid_input_tag_err;
@@ -436,8 +454,11 @@ namespace sha256;
     sel_invalid_input_row_tag_err * (1 - sel_invalid_input_row_tag_err) = 0;
 
     pol INPUT_TAG_DIFF = sel_read_input_from_memory * (input_tag - constants.MEM_TAG_U32);
+    // input_tag_diff_inv is the inverse of INPUT_TAG_DIFF, used in the zero-check below.
+    // Only constrained when sel_read_input_from_memory != 0; free on other rows.
     pol commit input_tag_diff_inv;
-    // Iff INPUT_TAG_DIFF != 0, sel_invalid_input_row_tag_err = 1
+    // sel_invalid_input_row_tag_err == 1 iff INPUT_TAG_DIFF != 0 (zero-check with error support).
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     #[INPUT_TAG_DIFF_CHECK]
     INPUT_TAG_DIFF * ((1 - sel_invalid_input_row_tag_err) * (1 - input_tag_diff_inv) + input_tag_diff_inv) - sel_invalid_input_row_tag_err = 0;
 
