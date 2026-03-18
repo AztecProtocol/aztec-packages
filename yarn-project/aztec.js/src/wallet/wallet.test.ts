@@ -107,7 +107,7 @@ describe('WalletSchema', () => {
     const result = await context.client.getContractMetadata(await AztecAddress.random());
     expect(result).toEqual({
       instance: undefined,
-      isContractInitialized: expect.any(Boolean),
+      isContractInitialized: undefined,
       isContractPublished: expect.any(Boolean),
       isContractUpdated: expect.any(Boolean),
       updatedContractClassId: undefined,
@@ -354,7 +354,7 @@ describe('WalletSchema', () => {
     expect(results[0]).toEqual({ name: 'getChainInfo', result: { chainId: expect.any(Fr), version: expect.any(Fr) } });
     expect(results[1]).toEqual({
       name: 'getContractMetadata',
-      result: expect.objectContaining({ isContractInitialized: expect.any(Boolean) }),
+      result: expect.objectContaining({ isContractPublished: expect.any(Boolean) }),
     });
     expect(results[2]).toEqual({
       name: 'getContractClassMetadata',
@@ -408,7 +408,7 @@ class MockWallet implements Wallet {
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
     return Promise.resolve({
       instance: undefined,
-      isContractInitialized: false,
+      isContractInitialized: undefined,
       isContractPublished: false,
       isContractUpdated: false,
       updatedContractClassId: undefined,

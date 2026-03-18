@@ -30,6 +30,12 @@ import {
   toSingle,
 } from './util/encoding.js';
 
+function optionalAddressFromForeignCall(addressIsSome?: ForeignCallSingle, addressValue?: ForeignCallSingle) {
+  return addressIsSome && fromSingle(addressIsSome).toBool()
+    ? AztecAddress.fromField(fromSingle(addressValue!))
+    : undefined;
+}
+
 const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
 
@@ -817,30 +823,10 @@ export class RPCTranslator {
     foreignScopeIsSome?: ForeignCallSingle,
     foreignScopeValue?: ForeignCallSingle,
   ) {
-    return this.aztec_utl_storeCapsuleV2(
-      foreignContractAddress,
-      foreignSlot,
-      foreignCapsule,
-      foreignScopeIsSome,
-      foreignScopeValue,
-    );
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_utl_storeCapsuleV2(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignCapsule: ForeignCallArray,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
-  ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const capsule = fromArray(foreignCapsule);
-    const scope =
-      foreignScopeIsSome && fromSingle(foreignScopeIsSome).toBool()
-        ? AztecAddress.fromField(fromSingle(foreignScopeValue!))
-        : undefined;
+    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
 
     this.handlerAsUtility().storeCapsule(contractAddress, slot, capsule, scope);
 
@@ -848,24 +834,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_loadCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignTSize: ForeignCallSingle,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
-  ) {
-    return this.aztec_utl_loadCapsuleV2(
-      foreignContractAddress,
-      foreignSlot,
-      foreignTSize,
-      foreignScopeIsSome,
-      foreignScopeValue,
-    );
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_loadCapsuleV2(
+  async aztec_utl_loadCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignTSize: ForeignCallSingle,
@@ -875,10 +844,7 @@ export class RPCTranslator {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const tSize = fromSingle(foreignTSize).toNumber();
-    const scope =
-      foreignScopeIsSome && fromSingle(foreignScopeIsSome).toBool()
-        ? AztecAddress.fromField(fromSingle(foreignScopeValue!))
-        : undefined;
+    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
 
     const values = await this.handlerAsUtility().loadCapsule(contractAddress, slot, scope);
 
@@ -900,22 +866,9 @@ export class RPCTranslator {
     foreignScopeIsSome?: ForeignCallSingle,
     foreignScopeValue?: ForeignCallSingle,
   ) {
-    return this.aztec_utl_deleteCapsuleV2(foreignContractAddress, foreignSlot, foreignScopeIsSome, foreignScopeValue);
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_utl_deleteCapsuleV2(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
-  ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
-    const scope =
-      foreignScopeIsSome && fromSingle(foreignScopeIsSome).toBool()
-        ? AztecAddress.fromField(fromSingle(foreignScopeValue!))
-        : undefined;
+    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
 
     this.handlerAsUtility().deleteCapsule(contractAddress, slot, scope);
 
@@ -923,26 +876,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_copyCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSrcSlot: ForeignCallSingle,
-    foreignDstSlot: ForeignCallSingle,
-    foreignNumEntries: ForeignCallSingle,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
-  ) {
-    return this.aztec_utl_copyCapsuleV2(
-      foreignContractAddress,
-      foreignSrcSlot,
-      foreignDstSlot,
-      foreignNumEntries,
-      foreignScopeIsSome,
-      foreignScopeValue,
-    );
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_copyCapsuleV2(
+  async aztec_utl_copyCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSrcSlot: ForeignCallSingle,
     foreignDstSlot: ForeignCallSingle,
@@ -954,10 +888,7 @@ export class RPCTranslator {
     const srcSlot = fromSingle(foreignSrcSlot);
     const dstSlot = fromSingle(foreignDstSlot);
     const numEntries = fromSingle(foreignNumEntries).toNumber();
-    const scope =
-      foreignScopeIsSome && fromSingle(foreignScopeIsSome).toBool()
-        ? AztecAddress.fromField(fromSingle(foreignScopeValue!))
-        : undefined;
+    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
 
     await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope);
 
@@ -968,9 +899,8 @@ export class RPCTranslator {
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
-  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash TXE.
   // eslint-disable-next-line camelcase
-  async aztec_utl_aes128Decrypt(
+  async aztec_utl_tryAes128Decrypt(
     foreignCiphertextBVecStorage: ForeignCallArray,
     foreignCiphertextLength: ForeignCallSingle,
     foreignIv: ForeignCallArray,
@@ -980,11 +910,18 @@ export class RPCTranslator {
     const iv = fromUintArray(foreignIv, 8);
     const symKey = fromUintArray(foreignSymKey, 8);
 
-    const plaintextBuffer = await this.handlerAsUtility().aes128Decrypt(ciphertext, iv, symKey);
-
-    return toForeignCallResult(
-      arrayToBoundedVec(bufferToU8Array(plaintextBuffer), foreignCiphertextBVecStorage.length),
-    );
+    // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
+    try {
+      const plaintextBuffer = await this.handlerAsUtility().aes128Decrypt(ciphertext, iv, symKey);
+      const [storage, length] = arrayToBoundedVec(
+        bufferToU8Array(plaintextBuffer),
+        foreignCiphertextBVecStorage.length,
+      );
+      return toForeignCallResult([toSingle(new Fr(1)), storage, length]);
+    } catch {
+      const zeroStorage = toArray(Array(foreignCiphertextBVecStorage.length).fill(new Fr(0)));
+      return toForeignCallResult([toSingle(new Fr(0)), zeroStorage, toSingle(new Fr(0))]);
+    }
   }
 
   // eslint-disable-next-line camelcase
