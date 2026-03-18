@@ -7,9 +7,13 @@ import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  computeContractAddressFromInstance,
+} from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { deriveKeys } from '@aztec/stdlib/keys';
+import { PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
@@ -138,7 +142,6 @@ describe('Utility Execution test suite', () => {
   });
 
   it('should run the summed_values function on StatefulTestContractArtifact', async () => {
-    const contractAddress = await AztecAddress.random();
     const artifact = {
       ...StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!,
       contractName: StatefulTestContractArtifact.name,
@@ -146,11 +149,26 @@ describe('Utility Execution test suite', () => {
 
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
-    aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
-    contractStore.getFunctionArtifact.mockResolvedValue(artifact);
-    contractStore.getContractInstance.mockResolvedValue({
+    // Build a contract instance with a properly derived address so that the init check's
+    // get_contract_instance oracle assertion (instance.to_address() == address) passes.
+    const instanceFields = {
+      version: 1 as const,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
+      initializationHash: Fr.random(),
+      publicKeys: await PublicKeys.random(),
+    };
+    const contractAddress = await computeContractAddressFromInstance(instanceFields);
+
+    aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+    aztecNode.findLeavesIndexes.mockResolvedValue([
+      { data: 1n, l2BlockNumber: BlockNumber(1), l2BlockHash: BlockHash.random() },
+    ]);
+    contractStore.getFunctionArtifact.mockResolvedValue(artifact);
+    contractStore.getContractInstance.mockResolvedValue({
+      ...instanceFields,
       address: contractAddress,
     } as ContractInstanceWithAddress);
     contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
