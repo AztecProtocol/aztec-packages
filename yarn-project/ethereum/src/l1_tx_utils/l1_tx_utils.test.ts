@@ -1639,6 +1639,9 @@ describe('L1TxUtils', () => {
       state.txConfigOverrides.checkIntervalMs = 100;
       state.txConfigOverrides.txTimeoutMs = 60_000;
       state.txConfigOverrides.cancelTxOnTimeout = false;
+      // Limit to 1 speed-up to prevent a second speed-up from firing between the test dropping
+      // txs and the timeout, which would re-add a pending tx to the mempool and corrupt the nonce.
+      state.txConfigOverrides.maxSpeedUpAttempts = 1;
 
       expect(gasUtils.state).toBe(TxUtilsState.SENT);
 

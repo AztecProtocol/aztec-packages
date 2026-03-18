@@ -73,7 +73,11 @@ import { TestWallet } from './test-wallet/test_wallet.js';
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
-const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
+
+const l1ContractsEnvVars = getL1ContractsConfigEnvVars();
+const ETHEREUM_SLOT_DURATION = l1ContractsEnvVars.ethereumSlotDuration;
+const AZTEC_SLOT_DURATION = l1ContractsEnvVars.aztecSlotDuration;
+
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -443,6 +447,7 @@ describe('e2e_synching', () => {
       {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
       },
       {
         blobClient,

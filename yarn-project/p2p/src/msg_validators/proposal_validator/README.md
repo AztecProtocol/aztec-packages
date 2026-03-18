@@ -28,7 +28,7 @@ Deserialization guards: `BlockProposal.fromBuffer` and `SignedTxs.fromBuffer` bo
 | # | Rule | Consequence |
 |---|------|-------------|
 | 9 | **Duplicate**: same archive root already stored | IGNORE (no penalty) |
-| 10 | **Per-position cap**: max 3 proposals per (slot, indexWithinCheckpoint) | REJECT + HighToleranceError |
+| 10 | **Per-position cap**: max 2 proposals per (slot, indexWithinCheckpoint) | REJECT + HighToleranceError |
 | 11 | **Equivocation**: >1 distinct proposal for same (slot, index) | ACCEPT (rebroadcast for detection). At count=2: `duplicateProposalCallback` fires -> slash event (`OffenseType.DUPLICATE_PROPOSAL`, configured via `slashDuplicateProposalPenalty`) |
 
 ### Stage 3: Validator-Client Processing (BlockProposalHandler)
@@ -84,7 +84,7 @@ The checkpoint's embedded `lastBlock` is extracted via `getBlockProposal()` and 
 | Rule | Consequence | File |
 |------|-------------|------|
 | Block proposal must pass `BlockProposalValidator.validate()` | If REJECT: entire checkpoint REJECTED | `libp2p_service.ts` |
-| Block proposal must not exceed per-position cap (3) | Checkpoint REJECTED + HighToleranceError | same |
+| Block proposal must not exceed per-position cap (2) | Checkpoint REJECTED + HighToleranceError | same |
 | Block equivocation detected (>1 proposals for same slot+index) | Checkpoint REJECTED (block itself is ACCEPT for re-broadcast) | same |
 
 ### Stage 3: Mempool (Attestation Pool)
@@ -92,7 +92,7 @@ The checkpoint's embedded `lastBlock` is extracted via `getBlockProposal()` and 
 | Rule | Consequence | File |
 |------|-------------|------|
 | Duplicate (same archive ID) | IGNORE (no penalty). Embedded block still processed if valid. | `attestation_pool.ts` |
-| Per-slot cap: `MAX_CHECKPOINT_PROPOSALS_PER_SLOT` = 5 | REJECT + HighToleranceError. Embedded block still processed. | same |
+| Per-slot cap: `MAX_CHECKPOINT_PROPOSALS_PER_SLOT` = 2 | REJECT + HighToleranceError. Embedded block still processed. | same |
 
 ### Stage 4: Equivocation Detection
 
