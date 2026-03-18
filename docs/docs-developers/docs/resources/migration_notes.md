@@ -152,14 +152,9 @@ When using `NO_WAIT`, returns `{ txHash, offchainEffects, offchainMessages }` in
 Offchain messages emitted by the transaction are available on the result:
 
 ```typescript
-const { receipt, offchainMessages } = await contract.methods
-  .foo(args)
-  .send({ from: sender });
+const { receipt, offchainMessages } = await contract.methods.foo(args).send({ from: sender });
 for (const msg of offchainMessages) {
-  console.log(
-    `Message for ${msg.recipient} from contract ${msg.contractAddress}:`,
-    msg.payload,
-  );
+  console.log(`Message for ${msg.recipient} from contract ${msg.contractAddress}:`, msg.payload);
 }
 ```
 
@@ -214,7 +209,6 @@ counter/
 This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
 
 **What changed:**
-
 - Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
 - Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
 - Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
@@ -274,7 +268,6 @@ my_project/
 ```
 
 **What changed:**
-
 - The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
 - Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
 - The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
@@ -300,7 +293,7 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
 
 2. **Operations that access another contract's private state** (e.g., withdrawing from an escrow contract that nullifies the contract's own token notes).
 
-````
+```
 
 **Example: deploying a contract with private storage (e.g., `PrivateToken`)**
 
@@ -314,7 +307,7 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
     from: sender,
 +   additionalScopes: [tokenInstance.address],
   });
-````
+```
 
 **Example: withdrawing from an escrow contract**
 
@@ -361,26 +354,22 @@ The `include_by_timestamp` field has been renamed to `expiration_timestamp` acro
 The Aztec CLI is now installed without Docker. The installation command has changed:
 
 **Old installation (deprecated):**
-
 ```bash
 bash -i <(curl -sL https://install.aztec.network)
 aztec-up <version>
 ```
 
 **New installation:**
-
 ```bash
 VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
 ```
 
 For example, to install version `#include_version_without_prefix`:
-
 ```bash
 VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 ```
 
 **Key changes:**
-
 - Docker is no longer required to run the Aztec CLI tools
 - The `VERSION` environment variable must be set in the installation command
 - The version must also be included in the URL path
@@ -389,13 +378,12 @@ VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec
 
 After installation, `aztec-up` functions as a version manager with the following commands:
 
-| Command                      | Description                                 |
-| ---------------------------- | ------------------------------------------- |
+| Command | Description |
+|---------|-------------|
 | `aztec-up install <version>` | Install a specific version and switch to it |
-| `aztec-up use <version>`     | Switch to an already installed version      |
-| `aztec-up list`              | List all installed versions                 |
-| `aztec-up self-update`       | Update aztec-up itself                      |
-
+| `aztec-up use <version>` | Switch to an already installed version |
+| `aztec-up list` | List all installed versions |
+| `aztec-up self-update` | Update aztec-up itself |
 ### `@aztec/test-wallet` replaced by `@aztec/wallets`
 
 The `@aztec/test-wallet` package has been removed. Use `@aztec/wallets` instead, which provides `EmbeddedWallet` with a `static create()` factory:
