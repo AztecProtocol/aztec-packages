@@ -8,17 +8,18 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
+#include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 
 /**
- * @brief Verifier for the batched MegaZK circuit + translator sumcheck and PCS.
+ * @brief Verifier for the batched Mega circuit + translator sumcheck and PCS.
  *
  * @details Mirrors BatchedHonkTranslatorProver in the verification direction. Processes the
- * MegaZK circuit's Oink proof and the translator's pre-sumcheck commitments on a shared transcript,
- * then verifies a single joint 17-round sumcheck and a single Shplemini / KZG reduction.
+ * Mega circuit's Oink proof and the translator's pre-sumcheck commitments on a shared transcript,
+ * then verifies a single joint sumcheck and a single Shplemini / KZG reduction.
  *
  * The final joint relation check is:
  *   FRV_joint = rdp_MZK · FRV_MZK(u) + α^{K_H} · FRV_translator(u) + libra_eval · libra_challenge
@@ -100,6 +101,13 @@ template <typename MegaFlavor, size_t MegaLogN, typename Curve> class BatchedHon
     static constexpr bool IS_MEGA_SMALLER = MEGA_LOG_N <= TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
     static constexpr size_t MIN_LOG_N = std::min(MEGA_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     static constexpr size_t JOINT_LOG_N = std::max(MEGA_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+
+    static constexpr bool COMMITTED_SUMCHECK = MegaFlavor::HasZK;
+    static constexpr bool IS_MEGA_LENGTH_SMALLER =
+        MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH < TransFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    using SumcheckVerifierRoundType = std::conditional_t<IS_MEGA_LENGTH_SMALLER,
+                                                         SumcheckVerifierRound<TransFlavor, COMMITTED_SUMCHECK>,
+                                                         SumcheckVerifierRound<MegaFlavor, COMMITTED_SUMCHECK>>;
 
     /**
      * @brief Result of the batched sumcheck/PCS reduction.

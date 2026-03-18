@@ -46,6 +46,8 @@ template <typename MegaFlavor, size_t MegaLogN> class BatchedHonkTranslatorProve
     using ZKData = ZKSumcheckData<MegaFlavor>;
     using Transcript = NativeTranscript;
 
+    static constexpr bool COMMITTED_SUMCHECK = MegaFlavor::HasZK;
+
     static constexpr size_t MAX_BATCHED_RELATION_PARTIAL_LENGTH =
         std::max(MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH, TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
     using SumcheckRoundUnivariate = bb::Univariate<FF, MAX_BATCHED_RELATION_PARTIAL_LENGTH>;
@@ -55,8 +57,8 @@ template <typename MegaFlavor, size_t MegaLogN> class BatchedHonkTranslatorProve
         MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH < TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     using RoundUnivariateHandlerType =
         std::conditional_t<IS_MEGA_LENGTH_SMALLER,
-                           RoundUnivariateHandler<TranslatorFlavor, /*CommittedSumcheck=*/true>,
-                           RoundUnivariateHandler<MegaFlavor, /*CommittedSumcheck=*/true>>;
+                           RoundUnivariateHandler<TranslatorFlavor, /*CommittedSumcheck=*/COMMITTED_SUMCHECK>,
+                           RoundUnivariateHandler<MegaFlavor, /*CommittedSumcheck=*/COMMITTED_SUMCHECK>>;
 
     static constexpr size_t MEGA_LOG_N = MegaLogN;
     static constexpr bool IS_MEGA_SMALLER = MEGA_LOG_N <= TranslatorFlavor::CONST_TRANSLATOR_LOG_N;

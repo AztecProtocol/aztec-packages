@@ -330,8 +330,10 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_sumcheck_r
 
     // Finalize committed sumcheck: populate the last round's evaluation at the final challenge.
     handler.finalize_last_round(JOINT_LOG_N, U_joint, joint_challenge.back());
-    round_univariates_list = std::move(handler.round_univariates);
-    round_evaluations_list = std::move(handler.round_evaluations);
+    if constexpr (COMMITTED_SUMCHECK) {
+        round_univariates_list = std::move(handler.round_univariates);
+        round_evaluations_list = std::move(handler.round_evaluations);
+    }
 
     if constexpr (IS_MEGA_SMALLER) {
         // Extract and send translator evaluations after all rounds.
@@ -401,6 +403,8 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_pcs()
     polynomial_batcher.set_to_be_shifted_by_one(joint_shifted);
 
     OpeningClaim prover_opening_claim;
+    std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> small_subgroup_ipa_evaluations;
+
     if constexpr (MegaFlavor::HasZK) {
         // Prove the small-subgroup IPA opening for the joint Libra polynomial.
         SmallSubgroupIPA small_subgroup_ipa(
@@ -412,24 +416,17 @@ void BatchedHonkTranslatorProver<MegaFlavor, MegaLogN>::execute_joint_pcs()
             mega_instance->masking_tail_data.add_tails_to_batcher(mega_instance->polynomials, polynomial_batcher);
         }
 
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(joint_circuit_size,
-                                                              polynomial_batcher,
-                                                              joint_challenge,
-                                                              ck,
-                                                              transcript,
-                                                              small_subgroup_ipa.get_witness_polynomials(),
-                                                              round_univariates_list,
-                                                              round_evaluations_list);
-    } else {
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(joint_circuit_size,
-                                                              polynomial_batcher,
-                                                              joint_challenge,
-                                                              ck,
-                                                              transcript,
-                                                              {},
-                                                              round_univariates_list,
-                                                              round_evaluations_list);
+        small_subgroup_ipa_evaluations = small_subgroup_ipa.get_witness_polynomials();
     }
+
+    prover_opening_claim = ShpleminiProver_<Curve>::prove(joint_circuit_size,
+                                                          polynomial_batcher,
+                                                          joint_challenge,
+                                                          ck,
+                                                          transcript,
+                                                          small_subgroup_ipa_evaluations,
+                                                          round_univariates_list,
+                                                          round_evaluations_list);
 
     MegaFlavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
 }

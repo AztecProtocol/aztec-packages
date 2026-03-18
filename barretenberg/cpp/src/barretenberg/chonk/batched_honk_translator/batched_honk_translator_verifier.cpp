@@ -14,7 +14,6 @@
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -132,8 +131,7 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::verify_joint_s
     }
 
     // Use committed sumcheck infrastructure: defers per-round checks to Shplemini.
-    static constexpr bool UseCommittedSumcheck = true;
-    SumcheckVerifierRound<MegaFlavor, UseCommittedSumcheck> joint_round(target_sum);
+    SumcheckVerifierRoundType joint_round(target_sum);
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
@@ -279,8 +277,10 @@ bool BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::verify_joint_s
 
     // Final verification via committed sumcheck round: checks first-round sum and populates Shplemini data.
     bool verified = joint_round.perform_final_verification(frv_joint);
-    round_univariate_commitments = std::move(joint_round.round_univariate_commitments);
-    round_univariate_evaluations = std::move(joint_round.round_univariate_evaluations);
+    if constexpr (COMMITTED_SUMCHECK) {
+        round_univariate_commitments = std::move(joint_round.round_univariate_commitments);
+        round_univariate_evaluations = std::move(joint_round.round_univariate_evaluations);
+    }
 
     return verified;
 }
@@ -348,38 +348,26 @@ typename BatchedHonkTranslatorVerifier_<MegaFlavor, MegaLogN, Curve>::ReductionR
     // All-ones padding for the joint Shplemini call (row-disabling already applied in FRV).
     std::vector<FF> joint_padding(JOINT_LOG_N, FF(1));
 
-    PairingPoints pairing_points;
     bool result = sumcheck_verified;
+    auto pcs_result = MegaShplemini::compute_batch_opening_claim(joint_padding,
+                                                                 joint_claim_batcher,
+                                                                 joint_challenge,
+                                                                 one_commitment,
+                                                                 transcript,
+                                                                 REPEATED_COMMITMENTS,
+                                                                 libra_commitments,
+                                                                 libra_evaluation,
+                                                                 round_univariate_commitments,
+                                                                 round_univariate_evaluations);
+
+    PairingPoints pairing_points;
 
     if constexpr (MegaFlavor::HasZK) {
-        auto [opening_claim, consistency_checked] =
-            MegaShplemini::compute_batch_opening_claim(joint_padding,
-                                                       joint_claim_batcher,
-                                                       joint_challenge,
-                                                       one_commitment,
-                                                       transcript,
-                                                       REPEATED_COMMITMENTS,
-                                                       libra_commitments,
-                                                       libra_evaluation,
-                                                       round_univariate_commitments,
-                                                       round_univariate_evaluations);
-
-        pairing_points = MegaFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-        result = sumcheck_verified && consistency_checked;
-    } else {
-        auto opening_claim = MegaShplemini::compute_batch_opening_claim(joint_padding,
-                                                                        joint_claim_batcher,
-                                                                        joint_challenge,
-                                                                        one_commitment,
-                                                                        transcript,
-                                                                        REPEATED_COMMITMENTS,
-                                                                        {},
-                                                                        FF(0),
-                                                                        round_univariate_commitments,
-                                                                        round_univariate_evaluations)
-                                 .batch_opening_claim;
-        pairing_points = MegaFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
+        result = result && pcs_result.consistency_checked;
     }
+
+    pairing_points =
+        MegaFlavor::PCS::reduce_verify_batch_opening_claim(std::move(pcs_result.batch_opening_claim), transcript);
 
     return { pairing_points, result };
 }
