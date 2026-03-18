@@ -86,7 +86,7 @@ BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorDeltaRangeCons
 BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorNonNativeFieldRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorPermutationRelation<Fr>>);
 
-// ECCVM (verifier work)
+// ECCVM
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMLookupRelation<Fq>>);
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMMSMRelation<Fq>>);
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMPointTableRelation<Fq>>);
@@ -94,15 +94,6 @@ BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMSetRelation<Fq>>);
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMTranscriptRelation<Fq>>);
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMWnafRelation<Fq>>);
 BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMBoolsRelation<Fq>>);
-
-// ECCVM (Sumcheck prover work — univariate accumulation)
-BENCHMARK(execute_relation_for_univariates<ECCVMFlavor, ECCVMLookupRelation<Fq>>);
-BENCHMARK(execute_relation_for_univariates<ECCVMFlavor, ECCVMMSMRelation<Fq>>);
-BENCHMARK(execute_relation_for_univariates<ECCVMFlavor, ECCVMPointTableRelation<Fq>>);
-BENCHMARK(execute_relation_for_univariates<ECCVMFlavor, ECCVMSetRelation<Fq>>);
-BENCHMARK(execute_relation_for_univariates<ECCVMFlavor, ECCVMTranscriptRelation<Fq>>);
-BENCHMARK(execute_relation_for_univariates<ECCVMFlavor, ECCVMWnafRelation<Fq>>);
-BENCHMARK(execute_relation_for_univariates<ECCVMFlavor, ECCVMBoolsRelation<Fq>>);
 
 } // namespace bb::benchmark::relations
 
