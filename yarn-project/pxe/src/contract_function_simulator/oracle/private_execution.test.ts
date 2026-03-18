@@ -49,7 +49,7 @@ import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeBlockHeader, makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   HashedValues,
@@ -59,7 +59,6 @@ import {
   TxExecutionRequest,
   TxHash,
 } from '@aztec/stdlib/tx';
-import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
