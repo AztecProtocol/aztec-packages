@@ -42,17 +42,15 @@ template <typename MegaFlavor> class BatchedHonkTranslatorProver {
     using TransProverRound = SumcheckProverRound<TranslatorFlavor>;
     using TransPartialEvals = TranslatorFlavor::PartiallyEvaluatedMultivariates;
     using TransSubrelationSeparators = std::array<FF, TranslatorFlavor::NUM_SUBRELATIONS - 1>;
-    using ZKData = std::conditional_t<MegaFlavor::HasZK, ZKSumcheckData<MegaFlavor>, void>;
+    using ZKData = ZKSumcheckData<MegaFlavor>;
     using Transcript = NativeTranscript;
     using SumcheckRoundUnivariate = bb::Univariate<FF, MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH>;
-
-    static constexpr size_t JOINT_LOG_N = std::max(MegaFlavor::VIRTUAL_LOG_N, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     BatchedHonkTranslatorProver(std::shared_ptr<MegaProverInstance> mega_instance,
                                 std::shared_ptr<MegaVK> mega_vk,
                                 std::shared_ptr<Transcript> transcript);
 
-    HonkProof prove_mega_zk_oink();
+    HonkProof prove_mega_oink();
     HonkProof prove(std::shared_ptr<TranslatorProvingKey> translator_proving_key);
 
   private:
@@ -60,7 +58,11 @@ template <typename MegaFlavor> class BatchedHonkTranslatorProver {
     std::shared_ptr<MegaVK> mega_vk;
     std::shared_ptr<TranslatorProvingKey> translator_key;
     std::shared_ptr<Transcript> transcript;
+
     size_t mega_log_n;
+    bool is_mega_smaller;
+    size_t min_log_n;
+    size_t joint_log_n;
 
     // Translator relation parameters captured during execute_translator_oink()
     bb::RelationParameters<FF> translator_relation_parameters;
@@ -76,7 +78,7 @@ template <typename MegaFlavor> class BatchedHonkTranslatorProver {
     std::vector<Polynomial<FF>> round_univariates_list;
     std::vector<std::array<FF, 3>> round_evaluations_list;
 
-    void execute_mega_zk_oink();
+    void execute_mega_oink();
     void execute_translator_oink();
     void execute_joint_sumcheck_rounds();
     void execute_joint_pcs();

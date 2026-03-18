@@ -25,7 +25,7 @@ BatchedHonkTranslatorProver<MegaFlavor>::BatchedHonkTranslatorProver(std::shared
  * alpha ("Sumcheck:alpha") is drawn in execute_joint_sumcheck_rounds() after all pre-sumcheck
  * commitments from both circuits are on the transcript.
  */
-template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::execute_mega_zk_oink()
+template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::execute_mega_oink()
 {
     OinkProver<MegaFlavor> oink_prover(mega_instance, mega_vk, transcript);
     oink_prover.prove(/*emit_alpha=*/false);
@@ -67,18 +67,17 @@ template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::exe
 template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::execute_joint_sumcheck_rounds()
 {
     // Derive Mega circuit log_circuit_size from the proving instance.
-    size_t mega_log_n = mega_instance->log_dyadic_size();
-    BB_ASSERT(mega_log_n <= JOINT_LOG_N);
-
-    const bool is_mega_smaller = mega_log_n <= TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-    const size_t min_log_n = std::min(mega_log_n, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    mega_log_n = mega_instance->log_dyadic_size();
+    is_mega_smaller = mega_log_n <= TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+    min_log_n = std::min(mega_log_n, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    joint_log_n = std::max(mega_log_n, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     // Draw joint alpha after all pre-sumcheck commitments from both circuits.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Draw joint gate challenges (17 total).
-    std::vector<FF> gate_challenges(JOINT_LOG_N);
-    for (size_t i = 0; i < JOINT_LOG_N; i++) {
+    std::vector<FF> gate_challenges(joint_log_n);
+    for (size_t i = 0; i < joint_log_n; i++) {
         gate_challenges[i] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(i));
     }
 
@@ -95,7 +94,7 @@ template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::exe
     constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
     if constexpr (MegaFlavor::HasZK) {
         MegaCommitmentKey small_ck(1 << (log_subgroup_size + 1));
-        zk_sumcheck_data = ZKData(JOINT_LOG_N, transcript, small_ck);
+        zk_sumcheck_data = ZKData(joint_log_n, transcript, small_ck);
     }
 
     // Gate separator polynomials:
@@ -126,7 +125,7 @@ template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::exe
     using MegaSumcheck = SumcheckProver<MegaFlavor>;
     using TransSumcheck = SumcheckProver<TranslatorFlavor>;
 
-    joint_challenge.reserve(JOINT_LOG_N);
+    joint_challenge.reserve(joint_log_n);
 
     SumcheckRoundUnivariate U_joint;
 
@@ -262,7 +261,7 @@ template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::exe
     // The MegaZK polynomials are zero-padded beyond 2^mega_zk_log_n. The virtual contribution
     // is compute_virtual_contribution * rdp_scalar. The polynomial values are updated by
     // (1-u_k) after each round for the virtual contribution computation.
-    for (size_t round_idx = min_log_n; round_idx < JOINT_LOG_N; round_idx++) {
+    for (size_t round_idx = min_log_n; round_idx < joint_log_n; round_idx++) {
         U_joint = SumcheckRoundUnivariate::zero();
 
         if (is_mega_smaller) {
@@ -319,7 +318,7 @@ template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::exe
     }
 
     // Finalize committed sumcheck: populate the last round's evaluation at the final challenge.
-    handler.finalize_last_round(JOINT_LOG_N, U_joint, joint_challenge.back());
+    handler.finalize_last_round(joint_log_n, U_joint, joint_challenge.back());
     round_univariates_list = std::move(handler.round_univariates);
     round_evaluations_list = std::move(handler.round_evaluations);
 
@@ -364,14 +363,12 @@ template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::exe
 
     // Use the translator's commitment key (sized to 2^17 = joint_circuit_size) for all PCS work.
     // The translator key is initialised by TranslatorProver in execute_translator_oink().
-    auto mega_ck = MegaCommitmentKey(1 << MegaFlavor::VIRTUAL_LOG_N);
-    auto& ck = MegaFlavor::VIRTUAL_LOG_N < TranslatorFlavor::CONST_TRANSLATOR_LOG_N
-                   ? translator_key->proving_key->commitment_key
-                   : mega_ck;
+    auto mega_ck = MegaCommitmentKey(1 << mega_log_n);
+    auto& ck = is_mega_smaller ? translator_key->proving_key->commitment_key : mega_ck;
 
     // Build joint PolynomialBatcher at joint_circuit_size = 2^17.
     // max_end_index covers hiding (2^16) and translator (2^17) polynomials; use the larger.
-    const size_t joint_circuit_size = static_cast<size_t>(1) << JOINT_LOG_N;
+    const size_t joint_circuit_size = static_cast<size_t>(1) << joint_log_n;
     const size_t mega_max_end = mega_instance->polynomials.max_end_index();
     const size_t trans_max_end = translator_key->proving_key->circuit_size; // translator polys fill 2^17
     const size_t max_end_index = std::max(mega_max_end, trans_max_end);
@@ -425,9 +422,9 @@ template <typename MegaFlavor> void BatchedHonkTranslatorProver<MegaFlavor>::exe
     MegaFlavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
 }
 
-template <typename MegaFlavor> HonkProof BatchedHonkTranslatorProver<MegaFlavor>::prove_mega_zk_oink()
+template <typename MegaFlavor> HonkProof BatchedHonkTranslatorProver<MegaFlavor>::prove_mega_oink()
 {
-    execute_mega_zk_oink();
+    execute_mega_oink();
     return transcript->export_proof();
 }
 

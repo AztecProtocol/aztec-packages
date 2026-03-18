@@ -309,7 +309,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
     // Pad so that hiding_log_n == JOINT_LOG_N.  We aim for JOINT_LOG_N-1 as the arithmetic
     // target because MegaCircuitBuilder's execution-trace overhead grows the dyadic size by one.
-    static constexpr size_t JOINT_LOG_N = BatchedHonkTranslatorProver<MegaZKFlavor>::JOINT_LOG_N;
+    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
     MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
 
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
@@ -322,7 +322,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     auto prover_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorProver<MegaZKFlavor> prover(mega_zk_inst, mega_zk_vk, prover_transcript);
 
-    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto mega_zk_proof = prover.prove_mega_oink();
     auto joint_proof = prover.prove(translator_key);
 
     // -------------------------------------------------------------------------
@@ -372,7 +372,7 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->enable_manifest();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
-    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto mega_zk_proof = prover.prove_mega_oink();
     auto joint_proof = prover.prove(translator_key);
 
     // Verify with manifest tracking enabled.
@@ -425,7 +425,7 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->enable_manifest();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
-    [[maybe_unused]] auto _ = prover.prove_mega_zk_oink();
+    [[maybe_unused]] auto _ = prover.prove_mega_oink();
     [[maybe_unused]] auto __ = prover.prove(translator_key);
 
     auto prover_manifest = prover_transcript->get_manifest();
@@ -470,7 +470,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
 
     auto prover_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
-    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto mega_zk_proof = prover.prove_mega_oink();
     auto joint_proof = prover.prove(translator_key);
 
     auto verifier_transcript = std::make_shared<Transcript>();
