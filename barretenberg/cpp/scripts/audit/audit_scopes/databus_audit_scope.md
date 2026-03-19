@@ -1,7 +1,7 @@
 # External Audit Scope: Databus
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 #### Relations:
