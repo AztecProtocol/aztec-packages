@@ -26,7 +26,9 @@
 <li><a href="struct.NoteHashAndNullifier.html">NoteHashAndNullifier</a></div></li>
 </ul>
 <h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.ComputeNoteHash.html">ComputeNoteHash</a></div></li>
 <li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
+<li><a href="type.ComputeNoteNullifier.html">ComputeNoteNullifier</a></div></li>
 <li><a href="type.CustomMessageHandler.html">CustomMessageHandler</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
@@ -39,50 +41,7 @@
 <pre><code>pub type ComputeNoteHashAndNullifier&lt;Env&gt; = unconstrained fn[Env](<a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 8&gt;, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/struct.NoteHashAndNullifier.html" class="struct">NoteHashAndNullifier</a>&gt;;</code></pre>
 
 <div class="comments">
-<p>A contract's way of computing note hashes and nullifiers.</p>
-<p>Each contract in the network is free to compute their note's hash and nullifiers as they see fit - the hash
-function itself and the nullifier derivation are not enshrined or standardized. Some aztec-nr functions however do
-need to know the details of this computation (e.g. when finding new notes), which is what this type represents.</p>
-<p>This function takes a note's packed content, storage slot, note type ID, address of the emitting contract,
-randomness and note nonce, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce)
-and inner nullifier (not siloed by address).</p>
-<h2>Transient Notes</h2>
-<p>This function is meant to always be used on <strong>settled</strong> notes, i.e. those that have been inserted into the trees
-and for which the nonce is known. It is never invoked in the context of a transient note, as those are not involved
-in message processing.</p>
-<h2>Automatic Implementation</h2>
-<p>The <a href="../../../noir_aztec/macros/fn.aztec.html"><code>[#aztec]</code></a> macro automatically creates a correct implementation of this function
-for each contract by inspecting all note types in use and the storage layout. This injected function is a
-<code>#[contract_library_method]</code> called <code>_compute_note_hash_and_nullifier</code>, and it looks something like this:</p>
-<pre><code>|packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
-    <span class="kw">if</span> note_type_id == MyNoteType::get_id() {
-        <span class="kw">if</span> packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
-            Option::none()
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), <span class="number">0</span>));
-
-            <span class="kw">let</span> note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-            <span class="kw">let</span> note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-                HintedNote {
-                    note, contract_address, owner, randomness, storage_slot,
-                    metadata: SettledNoteMetadata::new(note_nonce).into(),
-                },
-            );
-
-            <span class="kw">let</span> inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
-
-            Option::some(
-                aztec::messages::discovery::NoteHashAndNullifier {
-                    note_hash, inner_nullifier
-                }
-            )
-        }
-    } <span class="kw">else</span> <span class="kw">if</span> note_type_id == MyOtherNoteType::get_id() {
-          ... <span class="comment">// Similar to above but calling MyOtherNoteType::unpack</span>
-    } <span class="kw">else</span> {
-        Option::none() <span class="comment">// Unknown note type ID</span>
-    };
-}</code></pre></div>
+<p>Deprecated: use <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html"><code>ComputeNoteHash</code></a> and <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html"><code>ComputeNoteNullifier</code></a> instead.</p></div>
 </main>
 </span>
 </body>
