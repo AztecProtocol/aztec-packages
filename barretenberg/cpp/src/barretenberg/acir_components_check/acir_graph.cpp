@@ -14,10 +14,6 @@ void AcirGraph::add_constraint(const std::vector<WoC>& witnesses)
         }
     }
 
-    // Ensure all vertices exist (even isolated ones count as their own component)
-    for (auto id : ids) {
-        adjacency_lists_[id];
-    }
     // Connect all pairs
     for (size_t i = 0; i < ids.size(); i++) {
         for (size_t j = i + 1; j < ids.size(); j++) {
