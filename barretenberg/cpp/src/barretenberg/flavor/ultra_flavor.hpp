@@ -12,6 +12,7 @@
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/prover_polynomials.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
+#include "barretenberg/flavor/ultra_interleaving_entities.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -30,7 +31,16 @@
 
 namespace bb {
 
-class UltraFlavor {
+/**
+ * @brief The Ultra proving system flavor, parameterized on interleaving batch size.
+ *
+ * @details UltraFlavor_<1> (aliased as UltraFlavor) commits polynomials individually.
+ *          UltraFlavor_<2> (aliased as DualUltraFlavor) batches 2 polynomials per interleaved
+ *          commitment, reducing witness commitments from 8 to 5.
+ *
+ * @tparam BATCH_SIZE_ The number of polynomials interleaved per commitment (1 or 2).
+ */
+template <size_t BATCH_SIZE_ = 1> class UltraFlavor_ {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = curve::BN254;
@@ -53,9 +63,10 @@ class UltraFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
-    // Interleaving parameters (trivial for non-Multi flavors)
-    static constexpr size_t INTERLEAVING_BATCH_SIZE = 1;
-    static constexpr size_t INTERLEAVING_LOG_K = 0;
+
+    // Interleaving parameters
+    static constexpr size_t INTERLEAVING_BATCH_SIZE = BATCH_SIZE_;
+    static constexpr size_t INTERLEAVING_LOG_K = (BATCH_SIZE_ <= 1) ? 0 : (BATCH_SIZE_ <= 2) ? 1 : 2;
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
@@ -79,7 +90,6 @@ class UltraFlavor {
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     using SubrelationSeparator = FF;
@@ -92,6 +102,8 @@ class UltraFlavor {
 
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
+
+    static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -254,83 +266,47 @@ class UltraFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
 
     // ================================================================
-    // Interleaving group accessors (BS=1: each polynomial is its own group)
+    // Interleaving group accessors (Ultra-specific, BS-dependent)
     // ================================================================
 
     template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> interleaving_challenges)
     {
-        return compute_lagrange_basis_impl<INTERLEAVING_BATCH_SIZE>(interleaving_challenges);
+        return compute_lagrange_basis_impl<BATCH_SIZE_>(interleaving_challenges);
     }
 
     template <typename Entities> static auto get_unshifted_groups(Entities& e)
     {
-        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<true>(e);
+        return UltraGroupAccessors_<BATCH_SIZE_>::template get_unshifted_groups<true>(e);
     }
 
     template <typename Entities> static auto get_unshifted_groups_mut(Entities& e)
     {
-        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::template get_unshifted_groups<false>(e);
+        return UltraGroupAccessors_<BATCH_SIZE_>::template get_unshifted_groups<false>(e);
     }
 
     template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
     {
-        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_to_be_shifted_groups(e);
+        return UltraGroupAccessors_<BATCH_SIZE_>::get_to_be_shifted_groups(e);
     }
 
     template <typename Entities> static auto get_shifted_groups(Entities& e)
     {
-        return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_shifted_groups(e);
+        return UltraGroupAccessors_<BATCH_SIZE_>::get_shifted_groups(e);
     }
 
-    // Oink round group descriptors (Ultra: BS=1 always, no ecc_op/databus)
-    struct OinkRounds {
-        template <typename Entities> static auto wires(Entities& e)
-        {
-            using T = std::decay_t<decltype(e.w_l)>;
-            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
-            using D = OinkGroupDescriptor<Ptr>;
-            return std::vector<D>{
-                { { &e.w_l }, "W_L" },
-                { { &e.w_r }, "W_R" },
-                { { &e.w_o }, "W_O" },
-            };
-        }
-        template <typename Entities> static auto lookup_and_w4(Entities& e)
-        {
-            using T = std::decay_t<decltype(e.w_l)>;
-            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
-            using D = OinkGroupDescriptor<Ptr>;
-            return std::vector<D>{
-                { { &e.lookup_read_counts }, "LOOKUP_READ_COUNTS" },
-                { { &e.lookup_read_tags }, "LOOKUP_READ_TAGS" },
-                { { &e.w_4 }, "W_4" },
-            };
-        }
-        template <typename Entities> static auto inverses(Entities& e)
-        {
-            using T = std::decay_t<decltype(e.w_l)>;
-            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
-            using D = OinkGroupDescriptor<Ptr>;
-            return std::vector<D>{
-                { { &e.lookup_inverses }, "LOOKUP_INVERSES" },
-            };
-        }
-        template <typename Entities> static auto z_perm(Entities& e)
-        {
-            using T = std::decay_t<decltype(e.w_l)>;
-            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
-            using D = OinkGroupDescriptor<Ptr>;
-            return std::vector<D>{
-                { { &e.z_perm }, "Z_PERM" },
-            };
-        }
-    };
+    // Oink round group descriptors (Ultra-specific, BS-dependent)
+    using OinkRounds = UltraOinkWitnessRounds_<BATCH_SIZE_>;
 
     // ================================================================
-    // PCS constants (via InterleavingConstants_<1>)
+    // BATCH_SIZE-dependent constants (via UltraInterleavingConstants_)
     // ================================================================
 
-    using IC = InterleavingConstants_<INTERLEAVING_BATCH_SIZE>;
+    using IC = UltraInterleavingConstants_<BATCH_SIZE_>;
+
+    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS = IC::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS;
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = IC::NUM_INTERLEAVED_WITNESS_COMMITMENTS;
+    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS = IC::NUM_ALL_INTERLEAVED_COMMITMENTS;
+    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = IC::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         IC::make_repeated_commitments(NUM_PRECOMPUTED_ENTITIES, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
@@ -339,6 +315,26 @@ class UltraFlavor {
     {
         return IC::final_pcs_msm_size(NUM_UNSHIFTED_ENTITIES, log_n);
     }
+
+    // ================================================================
+    // Interleaved entity type aliases (from ultra_interleaving_entities.hpp)
+    // ================================================================
+
+    template <typename DataType>
+    using InterleavedWitnessCommitments_ = UltraInterleavedWitnessCommitments_<DataType, BATCH_SIZE_>;
+    template <typename DataType> using InterleavedWitnessCommitments = InterleavedWitnessCommitments_<DataType>;
+    using InterleavedCommitments = InterleavedWitnessCommitments<Commitment>;
+
+    template <typename DataType_>
+    using InterleavedPrecomputedCommitments = UltraInterleavedPrecomputedCommitments_<DataType_, BATCH_SIZE_>;
+    using InterleavedPrecomputed = InterleavedPrecomputedCommitments<Commitment>;
+
+    using InterleavedCommitmentLabels = UltraInterleavedCommitmentLabels_<BATCH_SIZE_>;
+    using InterleavedPrecomputedLabels = UltraInterleavedPrecomputedLabels_<BATCH_SIZE_>;
+
+    // ================================================================
+    // AllValues, ProverPolynomials
+    // ================================================================
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
@@ -362,11 +358,14 @@ class UltraFlavor {
 
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
-    /**
-     * @brief The verification key stores commitments to the precomputed (non-witness) polynomials used by the
-     * verifier.
-     */
-    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
+    // ================================================================
+    // Verification Key
+    // ================================================================
+
+    using VKPrecomputedType =
+        typename UltraVKPrecomputedType_<BATCH_SIZE_, Commitment, PrecomputedEntities<Commitment>>::type;
+
+    using VerificationKey = NativeVerificationKey_<VKPrecomputedType, Codec, HashFunction, CommitmentKey, BATCH_SIZE_>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
@@ -405,80 +404,68 @@ class UltraFlavor {
       public:
         CommitmentLabels()
         {
-            w_l = "W_L";
-            w_r = "W_R";
-            w_o = "W_O";
-            w_4 = "W_4";
-            z_perm = "Z_PERM";
-            lookup_inverses = "LOOKUP_INVERSES";
-            lookup_read_counts = "LOOKUP_READ_COUNTS";
-            lookup_read_tags = "LOOKUP_READ_TAGS";
+            this->w_l = "W_L";
+            this->w_r = "W_R";
+            this->w_o = "W_O";
+            this->w_4 = "W_4";
+            this->z_perm = "Z_PERM";
+            this->lookup_inverses = "LOOKUP_INVERSES";
+            this->lookup_read_counts = "LOOKUP_READ_COUNTS";
+            this->lookup_read_tags = "LOOKUP_READ_TAGS";
 
-            q_c = "Q_C";
-            q_l = "Q_L";
-            q_r = "Q_R";
-            q_o = "Q_O";
-            q_4 = "Q_4";
-            q_m = "Q_M";
-            q_lookup = "Q_LOOKUP";
-            q_arith = "Q_ARITH";
-            q_delta_range = "Q_SORT";
-            q_elliptic = "Q_ELLIPTIC";
-            q_memory = "Q_MEMORY";
-            q_nnf = "Q_NNF";
-            q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
-            q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
-            sigma_1 = "SIGMA_1";
-            sigma_2 = "SIGMA_2";
-            sigma_3 = "SIGMA_3";
-            sigma_4 = "SIGMA_4";
-            id_1 = "ID_1";
-            id_2 = "ID_2";
-            id_3 = "ID_3";
-            id_4 = "ID_4";
-            table_1 = "TABLE_1";
-            table_2 = "TABLE_2";
-            table_3 = "TABLE_3";
-            table_4 = "TABLE_4";
-            lagrange_first = "LAGRANGE_FIRST";
-            lagrange_last = "LAGRANGE_LAST";
+            this->q_c = "Q_C";
+            this->q_l = "Q_L";
+            this->q_r = "Q_R";
+            this->q_o = "Q_O";
+            this->q_4 = "Q_4";
+            this->q_m = "Q_M";
+            this->q_lookup = "Q_LOOKUP";
+            this->q_arith = "Q_ARITH";
+            this->q_delta_range = "Q_SORT";
+            this->q_elliptic = "Q_ELLIPTIC";
+            this->q_memory = "Q_MEMORY";
+            this->q_nnf = "Q_NNF";
+            this->q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
+            this->q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            this->sigma_1 = "SIGMA_1";
+            this->sigma_2 = "SIGMA_2";
+            this->sigma_3 = "SIGMA_3";
+            this->sigma_4 = "SIGMA_4";
+            this->id_1 = "ID_1";
+            this->id_2 = "ID_2";
+            this->id_3 = "ID_3";
+            this->id_4 = "ID_4";
+            this->table_1 = "TABLE_1";
+            this->table_2 = "TABLE_2";
+            this->table_3 = "TABLE_3";
+            this->table_4 = "TABLE_4";
+            this->lagrange_first = "LAGRANGE_FIRST";
+            this->lagrange_last = "LAGRANGE_LAST";
         };
     };
 
-    /**
-     * @brief A container encapsulating all the commitments that the verifier receives (to precomputed polynomials and
-     * witness polynomials).
-     *
-     */
-    template <typename Commitment, typename VerificationKey, bool HasZK_ = HasZK>
-    class VerifierCommitments_ : public AllEntities_<Commitment, HasZK_> {
+    // ================================================================
+    // VerifierCommitments_
+    // ================================================================
+
+    template <typename Commitment_, typename VerificationKey_, bool HasZK_ = HasZK>
+    class VerifierCommitments_ : public AllEntities_<Commitment_, HasZK_> {
       public:
-        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
-                             const std::optional<WitnessEntities<Commitment>>& witness_commitments = std::nullopt)
+        VerifierCommitments_(const std::shared_ptr<VerificationKey_>& verification_key,
+                             const std::optional<WitnessEntities<Commitment_>>& witness_commitments = std::nullopt)
         {
-            // Copy the precomputed polynomial commitments into this
-            for (auto [precomputed, precomputed_in] : zip_view(this->get_precomputed(), verification_key->get_all())) {
-                precomputed = precomputed_in;
-            }
-
-            // If provided, copy the witness polynomial commitments into this
-            if (witness_commitments.has_value()) {
-                for (auto [witness, witness_in] :
-                     zip_view(this->get_witness(), witness_commitments.value().get_all())) {
-                    witness = witness_in;
-                }
-
-                // Set shifted commitments
-                this->w_l_shift = witness_commitments->w_l;
-                this->w_r_shift = witness_commitments->w_r;
-                this->w_o_shift = witness_commitments->w_o;
-                this->w_4_shift = witness_commitments->w_4;
-                this->z_perm_shift = witness_commitments->z_perm;
-            }
+            UltraVerifierCommitmentsInit_<BATCH_SIZE_>::init(*this, verification_key, witness_commitments);
         }
     };
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 };
+
+// ============================================================
+// Type aliases
+// ============================================================
+
+using UltraFlavor = UltraFlavor_<1>;
+using DualUltraFlavor = UltraFlavor_<2>;
 
 } // namespace bb

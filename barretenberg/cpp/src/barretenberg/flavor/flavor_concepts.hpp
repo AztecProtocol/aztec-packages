@@ -13,7 +13,7 @@ template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor>;
 #else
 template <typename T>
-concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
+concept IsUltraHonk = IsAnyOf<T, UltraFlavor, DualUltraFlavor, DualUltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
 #endif
 template <typename T>
 concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor,  MegaZKFlavor, MegaAvmFlavor, DualMegaFlavor, DualMegaZKFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
@@ -56,6 +56,10 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                       DualUltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                       DualUltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                       DualUltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                       DualUltraZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,

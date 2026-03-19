@@ -21,8 +21,12 @@ template <class FF> class MegaCircuitBuilder_;
 using MegaCircuitBuilder = MegaCircuitBuilder_<field<Bn254FrParams>>;
 
 class StandardFlavor;
-class UltraFlavor;
-class UltraZKFlavor;
+template <size_t BS> class UltraFlavor_;
+using UltraFlavor = UltraFlavor_<1>;
+using DualUltraFlavor = UltraFlavor_<2>;
+template <size_t BS> class UltraZKFlavor_;
+using UltraZKFlavor = UltraZKFlavor_<1>;
+using DualUltraZKFlavor = UltraZKFlavor_<2>;
 template <size_t BS> class MegaFlavor_;
 using MegaFlavor = MegaFlavor_<1>;
 using DualMegaFlavor = MegaFlavor_<2>;
@@ -49,7 +53,9 @@ template <typename CurveType, bool HasZK_, bool UseShortMonomials_> class Sumche
 using SumcheckTestFlavorGrumpkinZK = SumcheckTestFlavor_<curve::Grumpkin, true, true>;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
+template <typename BuilderType> class DualUltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
+template <typename BuilderType> class DualUltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraKeccakRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;

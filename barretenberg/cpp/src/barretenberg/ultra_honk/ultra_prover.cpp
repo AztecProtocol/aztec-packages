@@ -213,6 +213,8 @@ template class UltraProver_<UltraStarknetFlavor>;
 template class UltraProver_<UltraStarknetZKFlavor>;
 #endif
 template class UltraProver_<UltraKeccakZKFlavor>;
+template class UltraProver_<DualUltraFlavor>;
+template class UltraProver_<DualUltraZKFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
 template class UltraProver_<MegaAvmFlavor>;

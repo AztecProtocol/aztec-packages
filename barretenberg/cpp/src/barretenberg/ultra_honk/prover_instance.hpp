@@ -72,9 +72,8 @@ template <typename Flavor_> class ProverInstance_ {
     {
         std::vector<std::vector<Polynomial const*>> precomputed_groups;
         if constexpr (Flavor::INTERLEAVING_BATCH_SIZE > 1) {
-            constexpr size_t BS = Flavor::INTERLEAVING_BATCH_SIZE;
             constexpr size_t num_precomputed = Flavor::NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS;
-            auto groups = GroupAccessors_<BS>::template get_unshifted_groups<true>(polynomials);
+            auto groups = Flavor::get_unshifted_groups(polynomials);
             precomputed_groups.reserve(num_precomputed);
             for (size_t g = 0; g < num_precomputed; g++) {
                 precomputed_groups.push_back(groups[g]);

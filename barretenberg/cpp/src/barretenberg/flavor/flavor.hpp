@@ -37,8 +37,10 @@
 
 // ===== Flavor forward declarations =====
 namespace bb {
-class UltraFlavor;
-class UltraZKFlavor;
+template <size_t BS> class UltraFlavor_;
+using UltraFlavor = UltraFlavor_<1>;
+template <size_t BS> class UltraZKFlavor_;
+using UltraZKFlavor = UltraZKFlavor_<1>;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 #ifdef STARKNET_GARAGA_FLAVORS

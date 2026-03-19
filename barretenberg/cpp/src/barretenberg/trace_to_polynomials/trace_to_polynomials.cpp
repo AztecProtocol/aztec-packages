@@ -117,6 +117,8 @@ template class TraceToPolynomials<UltraStarknetFlavor>;
 template class TraceToPolynomials<UltraStarknetZKFlavor>;
 #endif
 template class TraceToPolynomials<UltraKeccakZKFlavor>;
+template class TraceToPolynomials<DualUltraFlavor>;
+template class TraceToPolynomials<DualUltraZKFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<MegaAvmFlavor>;

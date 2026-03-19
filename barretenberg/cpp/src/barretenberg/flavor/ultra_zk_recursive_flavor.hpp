@@ -11,9 +11,7 @@
 namespace bb {
 
 /**
- * @brief The recursive counterpart to UltraZKFlavor.
- * @details Adds ZK overrides (HasZK, BATCHED_RELATION_PARTIAL_LENGTH, AllValues with masking entities)
- * on top of UltraRecursiveFlavor_.
+ * @brief The recursive counterpart to UltraZKFlavor (BS=1).
  */
 template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecursiveFlavor_<BuilderType> {
   public:
@@ -44,6 +42,39 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecu
     };
 
     using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+};
+
+/**
+ * @brief Recursive counterpart to DualUltraZKFlavor (BS=2 interleaved + ZK).
+ */
+template <typename BuilderType> class DualUltraZKRecursiveFlavor_ : public DualUltraRecursiveFlavor_<BuilderType> {
+  public:
+    using NativeFlavor = DualUltraZKFlavor;
+    using Commitment = typename DualUltraRecursiveFlavor_<BuilderType>::Commitment;
+    using VerificationKey = typename DualUltraRecursiveFlavor_<BuilderType>::VerificationKey;
+    using FF = typename DualUltraRecursiveFlavor_<BuilderType>::FF;
+
+    static constexpr bool HasZK = true;
+    static constexpr bool HasGeminiMasking = false;
+
+    static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
+
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
+
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
+    }
+
+    class AllValues : public NativeFlavor::template AllEntities<FF> {
+      public:
+        using Base = NativeFlavor::template AllEntities<FF>;
+        using Base::Base;
+    };
+
+    using VerifierCommitments = DualUltraFlavor::VerifierCommitments_<Commitment, VerificationKey, false>;
+    using InterleavedPrecomputed = typename DualUltraRecursiveFlavor_<BuilderType>::InterleavedPrecomputed;
 };
 
 } // namespace bb

@@ -358,6 +358,8 @@ template class ProverInstance_<UltraStarknetFlavor>;
 template class ProverInstance_<UltraStarknetZKFlavor>;
 #endif
 template class ProverInstance_<UltraKeccakZKFlavor>;
+template class ProverInstance_<DualUltraFlavor>;
+template class ProverInstance_<DualUltraZKFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;

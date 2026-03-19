@@ -276,6 +276,8 @@ template class OinkProver<UltraStarknetFlavor>;
 template class OinkProver<UltraStarknetZKFlavor>;
 #endif
 template class OinkProver<UltraKeccakZKFlavor>;
+template class OinkProver<DualUltraFlavor>;
+template class OinkProver<DualUltraZKFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
 template class OinkProver<MegaAvmFlavor>;
