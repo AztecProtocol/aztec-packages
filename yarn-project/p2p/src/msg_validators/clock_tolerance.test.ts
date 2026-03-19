@@ -17,6 +17,8 @@ describe('clock_tolerance', () => {
 
     beforeEach(() => {
       epochCache = mock<EpochCacheInterface>();
+      // Default getTargetSlot to return SlotNumber(100) - tests override as needed
+      epochCache.getTargetSlot.mockReturnValue(SlotNumber(100));
     });
 
     it('returns true for previous slot message within tolerance window (100ms elapsed)', () => {
@@ -181,6 +183,25 @@ describe('clock_tolerance', () => {
       });
 
       expect(isWithinClockTolerance(messageSlot, currentSlot, epochCache)).toBe(true);
+    });
+
+    it('returns false when getTargetSlot() does not match currentSlot argument (sanity check)', () => {
+      const currentSlot = SlotNumber(100);
+      const messageSlot = SlotNumber(99); // previous slot
+
+      // Simulate a race: caller read target slot as 100, but epoch cache now returns 101
+      // (e.g., pipelining was enabled between the two reads)
+      epochCache.getTargetSlot.mockReturnValue(SlotNumber(101));
+
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: currentSlot,
+        ts: 1000n,
+        nowMs: 1000000n, // 0ms elapsed, within tolerance
+      });
+
+      // Even though timing is within tolerance, the sanity check fails
+      expect(isWithinClockTolerance(messageSlot, currentSlot, epochCache)).toBe(false);
     });
   });
 });

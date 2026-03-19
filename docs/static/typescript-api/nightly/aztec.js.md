@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v5.0.0-nightly.20260317
+Version: v5.0.0-nightly.20260318
 
 ## Quick Import Reference
 
@@ -57,7 +57,7 @@ new AccountWithSecretKey(account: Account, secretKey: Fr, salt: Salt)
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
 - `getEncryptionSecret() => Promise<Fq>` - Returns the encryption secret, the secret of the encryption point—the point that others use to encrypt messages to this account note - this ensures that the address secret always corresponds to an address point with y being positive dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
 - `getSecretKey() => Fr` - Returns the encryption private key associated with this account.
-- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
+- `wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### BaseAccount
 
@@ -74,7 +74,7 @@ new BaseAccount(entrypoint: EntrypointInterface, authWitnessProvider: AuthWitnes
 - `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
 - `getAddress() => AztecAddress` - Returns the address for this account.
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
-- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
+- `wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### BatchCall
 
@@ -814,7 +814,7 @@ new SignerlessAccount()
 - `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
 - `getAddress() => AztecAddress` - Returns the address for this account.
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
-- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
+- `wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### SponsoredFeePaymentMethod
 

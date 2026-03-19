@@ -5,7 +5,7 @@
  * rather than mocks to verify the HA coordination works correctly.
  */
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
