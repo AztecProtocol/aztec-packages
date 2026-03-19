@@ -38,7 +38,7 @@ pub mod note;
 pub mod nullifier;
 pub mod oracle;
 pub mod state_vars;
-mod capsules;
+pub mod capsules;
 pub mod event;
 pub mod messages;
 pub use protocol_types as protocol;

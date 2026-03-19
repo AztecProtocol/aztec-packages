@@ -5,11 +5,9 @@ use crate::{
     note::{HintedNote, note_interface::{NoteHash, NoteType}, note_metadata::NoteMetadata},
 };
 
-use crate::protocol::{
-    address::AztecAddress,
-    constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
-    hash::poseidon2_hash_with_separator,
-    traits::{Packable, ToField},
+use crate::{
+    note::utils::{compute_note_hash, compute_note_nullifier},
+    protocol::{address::AztecAddress, traits::{Packable, ToField}},
 };
 
 #[derive(Eq, Packable)]
@@ -26,8 +24,8 @@ impl NoteType for MockNote {
 
 impl NoteHash for MockNote {
     fn compute_note_hash(self, owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
-        let input = self.pack().concat([owner.to_field(), storage_slot, randomness]);
-        poseidon2_hash_with_separator(input, DOM_SEP__NOTE_HASH)
+        let data = self.pack().concat([owner.to_field(), randomness]);
+        compute_note_hash(storage_slot, data)
     }
 
     fn compute_nullifier(
@@ -38,10 +36,7 @@ impl NoteHash for MockNote {
     ) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests more
         // cumbersome
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullification],
-            DOM_SEP__NOTE_NULLIFIER as Field,
-        )
+        compute_note_nullifier(note_hash_for_nullification, [])
     }
 
     unconstrained fn compute_nullifier_unconstrained(
@@ -51,12 +46,7 @@ impl NoteHash for MockNote {
     ) -> Option<Field> {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests more
         // cumbersome
-        Option::some(
-            poseidon2_hash_with_separator(
-                [note_hash_for_nullification],
-                DOM_SEP__NOTE_NULLIFIER as Field,
-            ),
-        )
+        Option::some(compute_note_nullifier(note_hash_for_nullification, []))
     }
 }
 
