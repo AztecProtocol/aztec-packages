@@ -102,7 +102,7 @@ function is_semver {
 
 # Resolve alias (like "nightly") to actual version number
 function resolve_version {
-  local version="$1"
+  local version="${1#v}"
   if is_semver "$version"; then
     echo "$version"
   else
