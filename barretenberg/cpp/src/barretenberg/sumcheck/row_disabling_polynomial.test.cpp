@@ -179,7 +179,7 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
     MaskingTailData<Flavor> masking_tail;
     SumcheckOutput<Flavor> prover_output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
 
-    // Verifier: Verify with padding_indicator_array
+    // Verifier: Verify sumcheck
     auto verifier_transcript = Flavor::Transcript::test_verifier_init_empty(prover_transcript);
 
     // Extract challenges from verifier transcript (must match prover)
@@ -192,11 +192,7 @@ TEST(RowDisablingPolynomial, MasksRandomPaddingRows)
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, virtual_log_n);
 
-    // Construct padding indicator array (all 1s since we're not using padding rounds)
-    std::vector<FF> padding_indicator_array(virtual_log_n, FF(1));
-
-    auto verifier_output =
-        sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+    auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, virtual_log_n);
 
     // Verification: Despite random values in last 4 rows, sumcheck succeeds
     EXPECT_TRUE(verifier_output.verified)
@@ -435,10 +431,7 @@ TEST(RowDisablingPolynomial, FailsWithoutRowDisabling)
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, virtual_log_n);
 
-    std::vector<FF> padding_indicator_array(virtual_log_n, FF(1));
-
-    auto verifier_output =
-        sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+    auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, virtual_log_n);
 
     // Without RowDisablingPolynomial, sumcheck should FAIL with random padding
     EXPECT_FALSE(verifier_output.verified)

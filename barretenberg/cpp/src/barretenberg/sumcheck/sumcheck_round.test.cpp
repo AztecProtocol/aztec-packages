@@ -701,7 +701,7 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = large_val_2;
 
         SumcheckVerifierRound verifier_round(target);
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
 
         EXPECT_TRUE(!verifier_round.round_failed)
             << "check_sum should handle large field elements correctly with wraparound";
@@ -716,7 +716,7 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = zero;
 
         SumcheckVerifierRound verifier_round(zero);
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
         EXPECT_TRUE(result) << "check_sum should handle zero case correctly";
@@ -734,7 +734,7 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = negative;
 
         SumcheckVerifierRound verifier_round(target);
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
         EXPECT_TRUE(result) << "check_sum should handle mixed signs correctly";
@@ -744,20 +744,18 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
 }
 
 /**
- * @brief Test check_sum with padding indicator
- * @details Verifies that padding rounds (indicator=0) bypass the check, while non-padding rounds (indicator=1) perform
- * the check
+ * @brief Test check_sum with correct and incorrect targets
+ * @details Verifies that check_sum passes with correct target and fails with wrong target
  */
-TEST(SumcheckRound, CheckSumPaddingIndicator)
+TEST(SumcheckRound, CheckSumCorrectness)
 {
     using Flavor = SumcheckTestFlavorZK;
     using FF = typename Flavor::FF;
     using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
     constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
-    info("Test: Padding indicator behavior in check_sum");
+    info("Test: check_sum correctness");
 
-    // Create a univariate with mismatched sum (should fail in normal round)
     FF val_0 = FF(10);
     FF val_1 = FF(20);
     FF correct_sum = val_0 + val_1; // 30
@@ -767,54 +765,52 @@ TEST(SumcheckRound, CheckSumPaddingIndicator)
     univariate.value_at(0) = val_0;
     univariate.value_at(1) = val_1;
 
-    // Test 1: Non-padding round (indicator = 1) - should enforce the check
+    // Test 1: Wrong target should fail
     {
-        info("Test 1: Non-padding round (indicator=1) with wrong target - should FAIL");
+        info("Test 1: Wrong target - should FAIL");
 
         SumcheckVerifierRound verifier_round(wrong_target);
-        verifier_round.check_sum(univariate, FF(1)); // indicator = 1
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
-        EXPECT_FALSE(result) << "With indicator=1, check_sum should fail when target is wrong";
+        EXPECT_FALSE(result) << "check_sum should fail when target is wrong";
         EXPECT_TRUE(verifier_round.round_failed) << "round_failed flag should be set";
-        info("Non-padding round: check_sum correctly enforces check and fails with wrong target");
+        info("check_sum correctly fails with wrong target");
     }
 
-    // Test 2: Padding round (indicator = 0) - should bypass check even with wrong target
+    // Test 2: Correct target should pass
     {
-        info("Test 3: Padding round (indicator=0) with wrong target - should PASS (bypassed)");
+        info("Test 2: Correct target - should PASS");
 
-        SumcheckVerifierRound verifier_round(wrong_target);
-        verifier_round.check_sum(univariate, FF(0)); // indicator = 0
+        SumcheckVerifierRound verifier_round(correct_sum);
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
-        EXPECT_TRUE(result) << "With indicator=0, check_sum should pass even when target is wrong (padding round)";
-        EXPECT_FALSE(verifier_round.round_failed) << "round_failed flag should not be set in padding round";
-        info("Padding round: check_sum correctly bypasses verification");
+        EXPECT_TRUE(result) << "check_sum should pass when target matches S(0) + S(1)";
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed flag should not be set";
+        info("check_sum correctly passes with correct target");
     }
 
-    // Test 5: Transition from padding to non-padding
+    // Test 3: Multiple rounds with correct targets
     {
-        info("Test 4: Multiple rounds with mixed padding/non-padding");
+        info("Test 3: Multiple rounds with correct targets");
 
-        SumcheckVerifierRound verifier_round(wrong_target);
+        SumcheckVerifierRound verifier_round(correct_sum);
 
-        // First round: padding (indicator = 0) - should pass
-        verifier_round.check_sum(univariate, FF(0));
+        verifier_round.check_sum(univariate);
         bool result1 = !verifier_round.round_failed;
-        EXPECT_TRUE(result1) << "First padding round should pass";
-        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should still be false after padding round";
+        EXPECT_TRUE(result1) << "First round should pass";
+        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should be false after first pass";
 
-        // Update target to correct value for next check
+        // Update target for second check
         verifier_round.target_total_sum = correct_sum;
 
-        // Second round: non-padding (indicator = 1) with correct target - should pass
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
         bool result2 = !verifier_round.round_failed;
-        EXPECT_TRUE(result2) << "Non-padding round with correct target should pass";
+        EXPECT_TRUE(result2) << "Second round with correct target should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false";
 
-        info("Mixed rounds: check_sum correctly handles transition from padding to non-padding");
+        info("Multiple rounds: check_sum correctly passes with correct targets");
     }
 }
 
@@ -844,7 +840,7 @@ TEST(SumcheckRound, CheckSumRoundFailurePersistence)
 
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should initially be false";
 
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
         EXPECT_FALSE(result) << "check_sum should return false for wrong target";
@@ -867,13 +863,13 @@ TEST(SumcheckRound, CheckSumRoundFailurePersistence)
         univariate2.value_at(0) = FF(5);
         univariate2.value_at(1) = FF(15);
 
-        verifier_round.check_sum(univariate1, FF(1));
+        verifier_round.check_sum(univariate1);
         bool result1 = !verifier_round.round_failed;
         EXPECT_TRUE(result1) << "First check should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should be false after first pass";
 
         verifier_round.target_total_sum = FF(20); // Update target for second check
-        verifier_round.check_sum(univariate2, FF(1));
+        verifier_round.check_sum(univariate2);
         bool result2 = !verifier_round.round_failed;
         EXPECT_TRUE(result2) << "Second check should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false after second pass";
@@ -923,8 +919,7 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
 
         // Call check_sum - this adds constraints to the circuit
         // In recursive flavor, assert_equal is called which adds a constraint
-        FF indicator = FF(1); // Non-padding round
-        verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate);
         bool check_result = !verifier_round.round_failed;
 
         // The check_sum itself should return false (based on witness values)
@@ -961,8 +956,7 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         SumcheckVerifierRound verifier_round(correct_target);
 
         // Call check_sum
-        FF indicator = FF(1);
-        verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate);
         bool check_result = !verifier_round.round_failed;
 
         // Check should pass
@@ -977,13 +971,12 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         info("Satisfiable witness: Builder correctly validates constraint satisfaction");
     }
 
-    // Test 3: Padding round with wrong values - should still pass (bypassed)
+    // Test 3: Wrong target should fail in recursive context
     {
-        info("Test 3: Padding round (indicator=0) with wrong values - should not fail");
+        info("Test 3: Wrong target should fail check_sum in recursive context");
 
         InnerBuilder builder;
 
-        // Create mismatched values
         auto native_val_0 = bb::fr(10);
         auto native_val_1 = bb::fr(20);
         auto native_wrong_target = bb::fr(999); // Wrong
@@ -998,21 +991,16 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
 
         SumcheckVerifierRound verifier_round(wrong_target);
 
-        // Padding round - indicator = 0
-        FF indicator = FF(0);
-        verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate);
         bool check_result = !verifier_round.round_failed;
 
-        // Should pass because check is bypassed
-        EXPECT_TRUE(check_result) << "check_sum should return true for padding round";
+        // Should fail because target doesn't match
+        EXPECT_FALSE(check_result) << "check_sum should fail for wrong target";
 
-        // Builder should NOT fail (no constraint violation in padding round)
-        EXPECT_FALSE(builder.failed()) << "Builder should not fail for padding round (check bypassed)";
+        // Builder should detect constraint violation
+        EXPECT_TRUE(builder.failed()) << "Builder should detect constraint violation (wrong target)";
 
-        // Circuit should be valid
-        EXPECT_TRUE(CircuitChecker::check(builder)) << "Padding round circuit should pass CircuitChecker";
-
-        info("Padding round: Builder correctly bypasses check (no constraint added)");
+        info("Wrong target: Builder correctly detects constraint violation in recursive context");
     }
 
     // Test 4: Multiple rounds with one failure
@@ -1031,9 +1019,8 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         univariate_1.value_at(1) = val_1_round1;
 
         SumcheckVerifierRound verifier_round(target_round1);
-        FF indicator = FF(1);
 
-        verifier_round.check_sum(univariate_1, indicator);
+        verifier_round.check_sum(univariate_1);
         bool result_1 = !verifier_round.round_failed;
         EXPECT_TRUE(result_1);
         EXPECT_FALSE(builder.failed()) << "First round should not fail";
@@ -1047,7 +1034,7 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         univariate_2.value_at(0) = val_0_round2;
         univariate_2.value_at(1) = val_1_round2;
 
-        verifier_round.check_sum(univariate_2, indicator);
+        verifier_round.check_sum(univariate_2);
         bool result_2 = !verifier_round.round_failed;
         EXPECT_FALSE(result_2) << "Second round should fail";
 

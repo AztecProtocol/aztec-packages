@@ -378,9 +378,8 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 
     // Execute Sumcheck Verifier
     SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);
-    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
     SumcheckOutput<ECCVMFlavor> verifier_output =
-        sumcheck_verifier.verify(relation_parameters, gate_challenges, padding_indicator_array);
+        sumcheck_verifier.verify(relation_parameters, gate_challenges, CONST_ECCVM_LOG_N);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
     // computed by the verifier

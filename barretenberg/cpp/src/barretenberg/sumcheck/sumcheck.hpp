@@ -11,6 +11,7 @@
 #include "barretenberg/polynomials/eq_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -110,6 +111,9 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
     std::vector<Polynomial<FF>> get_univariates() { return round_univariates; }
 };
 
+// Helper: does this flavor use padding? Safe for flavors that don't define USE_PADDING.
+template <typename F> constexpr bool flavor_uses_padding_v = requires { F::USE_PADDING; } && F::USE_PADDING;
+
 /**
  * @brief Handler for ZK-related verification adjustments in sumcheck.
  * Default implementation: no ZK adjustments needed.
@@ -123,16 +127,16 @@ template <typename Flavor, bool HasZK = Flavor::HasZK> struct VerifierZKCorrecti
     FF libra_challenge = FF{ 0 };
     FF libra_evaluation = FF{ 0 };
 
-    // Construct a handler which will handle all the evaluations/
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
     {}
 
     void initialize_target_sum(SumcheckRound& /*round*/) {}
 
+    template <typename LogN>
     void apply_zk_corrections(FF& /*full_honk_purported_value*/,
-                              const std::vector<FF>& /*multivariate_challenge*/,
-                              const std::vector<FF>& /*padding_indicator_array*/)
+                              std::vector<FF>& /*multivariate_challenge*/,
+                              const LogN& /*log_circuit_size*/)
     {}
 
     FF get_libra_evaluation() const { return libra_evaluation; }
@@ -151,8 +155,6 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     FF libra_challenge = FF{ 0 };
     FF libra_evaluation = FF{ 0 };
 
-    // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
-    // multivariate over the hypercube
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
         , libra_total_sum(this->transcript->template receive_from_prover<FF>("Libra:Sum"))
@@ -161,16 +163,28 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
 
     void initialize_target_sum(SumcheckRound& round) { round.target_total_sum = libra_total_sum * libra_challenge; }
 
+    /**
+     * @brief Compute the RDP and Libra corrections to the full Honk purported value.
+     * @param log_circuit_size uint64_t for native, FF (circuit witness) for recursive
+     */
+    template <typename LogN>
     void apply_zk_corrections(FF& full_honk_purported_value,
                               std::vector<FF>& multivariate_challenge,
-                              const std::vector<FF>& padding_indicator_array)
+                              const LogN& log_circuit_size)
     {
+        // RDP = 1 - u_2 * ... * u_{d-1}, where d = log_circuit_size.
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-            // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
-            // rows where all sumcheck relations are disabled
-            // i.e. compute the term $1 - \prod_{i=2}^{d-1} u_i$
-            full_honk_purported_value *=
-                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
+            if constexpr (IsRecursiveFlavor<Flavor> && flavor_uses_padding_v<Flavor>) {
+                // Recursive + padding: log_circuit_size is a circuit witness, need in-circuit padding indicator
+                using Curve = typename Flavor::Curve;
+                auto padding = stdlib::compute_padding_indicator_array<Curve, Flavor::VIRTUAL_LOG_N>(log_circuit_size);
+                full_honk_purported_value *=
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding);
+            } else {
+                // Native or recursive-no-padding: log_circuit_size is an integer
+                full_honk_purported_value *=
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, log_circuit_size);
+            }
         }
 
         // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
@@ -628,13 +642,41 @@ template <typename Flavor> class SumcheckProver {
 
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+        // Virtual rounds: the MegaZK polynomials are zero-padded beyond 2^multivariate_d.
+        // We send honest virtual-round univariates via compute_virtual_contribution (evaluating
+        // the relation at the only non-zero edge), scaled by the RDP factor from real rounds.
+        // After each round, polynomial values decay by (1 - u_k).
+        const FF rdp_scalar = [&]() -> FF {
+            if constexpr (UseRowDisablingPolynomial<Flavor>) {
+                return FF(1) - row_disabling_polynomial.eval_at_1;
+            } else {
+                return FF(1);
+            }
+        }();
         for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+            auto virtual_univariate = round.compute_virtual_contribution(
+                partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
+            if constexpr (UseRowDisablingPolynomial<Flavor>) {
+                virtual_univariate *= rdp_scalar;
+            }
+            if constexpr (Flavor::HasZK) {
+                virtual_univariate += round.compute_libra_univariate(zk_sumcheck_data, idx);
+            }
+            handler.process_round_univariate(idx, virtual_univariate);
 
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
+
+            // Decay polynomial values by (1 - u_k) for the next virtual round
+            for (auto& poly : partially_evaluated_polynomials.get_all()) {
+                if (poly.end_index() > 0) {
+                    poly.at(0) *= (FF(1) - round_challenge);
+                }
+            }
+            if constexpr (Flavor::HasZK) {
+                zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, idx);
+            }
+            gate_separators.partially_evaluate(round_challenge);
         }
 
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
@@ -833,15 +875,16 @@ template <typename Flavor> class SumcheckVerifier {
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
      * @param relation_parameters
      * @param gate_challenges
-     * @param padding_indicator Optional padding indicator (only used for non-Grumpkin flavors)
+     * @param log_circuit_size The log of the actual circuit size (uint64_t for native, FF for recursive).
+     *                         Used only for the RDP in ZK flavors with padding.
      * @return SumcheckOutput
      */
+    template <typename LogN>
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
                                   const std::vector<FF>& gate_challenges,
-                                  const std::vector<FF>& padding_indicator_array)
+                                  const LogN& log_circuit_size)
     {
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
-        // Construct a ZKHandler to handle all the libra related information in the transcript
         VerifierZKCorrectionHandler<Flavor> zk_correction_handler(transcript);
 
         // Correct the target sum in the round in the ZK case
@@ -850,16 +893,10 @@ template <typename Flavor> class SumcheckVerifier {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(virtual_log_n);
 
-        // Process univariate consistancy check rounds
-        // For ECCVM we ensure the consistencies by populating an vector of claimed evaluations that will be checked in
-        // the PCS rounds
-        // For other flavors, we perform the sumcheck univariate consistency check
-
         bool verified = true;
         ClaimedEvaluations purported_evaluations;
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
-            round.process_round(
-                transcript, multivariate_challenge, gate_separators, padding_indicator_array[round_idx], round_idx);
+            round.process_round(transcript, multivariate_challenge, gate_separators, round_idx);
             verified = verified && !round.round_failed;
 
             if constexpr (IsTranslatorFlavor<Flavor>) {
@@ -907,8 +944,7 @@ template <typename Flavor> class SumcheckVerifier {
 
         // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
         // libra univariate used to hide the contribution from the actual Honk relation
-        zk_correction_handler.apply_zk_corrections(
-            full_honk_purported_value, multivariate_challenge, padding_indicator_array);
+        zk_correction_handler.apply_zk_corrections(full_honk_purported_value, multivariate_challenge, log_circuit_size);
 
         //! [Final Verification Step]
         verified = round.perform_final_verification(full_honk_purported_value) && verified;

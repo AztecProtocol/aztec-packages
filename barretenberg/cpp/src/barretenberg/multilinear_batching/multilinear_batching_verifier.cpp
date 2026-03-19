@@ -148,8 +148,7 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
 
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
     // MultilinearBatchingFlavor doesn't use gate challenges, and all rounds are non-padding
-    std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, FF(1));
-    const auto sumcheck_result = sumcheck.verify({}, {}, padding_indicator_array);
+    const auto sumcheck_result = sumcheck.verify({}, {}, Flavor::VIRTUAL_LOG_N);
 
     // Construct new claim
     auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
