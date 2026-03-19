@@ -1,12 +1,14 @@
 #pragma once
 
-#include <vector>
+#include <cstdint>
+#include <memory>
+#include <span>
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/calldata_hashing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 
 namespace bb::avm2::simulation {
 
