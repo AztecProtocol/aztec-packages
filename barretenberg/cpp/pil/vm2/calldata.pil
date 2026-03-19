@@ -33,7 +33,7 @@ include "precomputed.pil";
  *      trace (at end rows), checking that (calldata_size, context_id) match
  *      (calldata.index, calldata.context_id). This binds the length of data in this trace
  *      to the length declared in calldata_hashing. Each computation block in this trace
- *      enforces to start at index 1, increment by 1 each row and ends at index `calldata_size`.
+ *      starts at index 1, increments by 1 each row, and ends at index `calldata_size`.
  *
  *   5. tx.pil dispatches calldata_size to the execution trace (tx.pil #[DISPATCH_EXEC_START]),
  *      which passes it to data_copy.pil for CALLDATACOPY operations. data_copy.pil reads
