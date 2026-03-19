@@ -245,10 +245,16 @@ export class ArchiverL1Synchronizer implements Traceable {
       const localFinalizedCheckpointNumber = await this.store.getFinalizedCheckpointNumber();
       if (localFinalizedCheckpointNumber !== finalizedCheckpointNumber) {
         await this.updater.setFinalizedCheckpointNumber(finalizedCheckpointNumber);
-        this.log.info(`Updated finalized chain to checkpoint ${finalizedCheckpointNumber}`, {
-          finalizedCheckpointNumber,
-          finalizedL1BlockNumber,
-        });
+        const finalizedL2BlockNumber = await this.store.getFinalizedL2BlockNumber();
+        this.log.info(
+          `Updated finalized chain to checkpoint ${finalizedCheckpointNumber} (L2 block ${finalizedL2BlockNumber})`,
+          {
+            finalizedCheckpointNumber,
+            previousFinalizedCheckpointNumber: localFinalizedCheckpointNumber,
+            finalizedL2BlockNumber,
+            finalizedL1BlockNumber,
+          },
+        );
       }
     } catch (err) {
       this.log.warn(`Failed to update finalized checkpoint: ${err}`);
