@@ -53,6 +53,7 @@ import type { TxMetaData } from '../../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { ArchiveCache } from './archive_cache.js';
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
+import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
 import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
@@ -167,6 +168,10 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       validator: new DataTxValidator(bindings),
       severity: PeerErrorSeverity.MidToleranceError,
     },
+    contractInstanceValidator: {
+      validator: new ContractInstanceTxValidator(bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
   };
 }
 
@@ -218,6 +223,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
     ),
     new SizeTxValidator(bindings),
     new DataTxValidator(bindings),
+    new ContractInstanceTxValidator(bindings),
     new TxProofValidator(verifier, bindings),
   );
 }
@@ -321,6 +327,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new BlockHeaderTxValidator(new ArchiveCache(db), bindings),
     new DoubleSpendTxValidator(new NullifierCache(db), bindings),
     new DataTxValidator(bindings),
+    new ContractInstanceTxValidator(bindings),
   ];
 
   if (!skipFeeEnforcement) {
