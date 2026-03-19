@@ -46,7 +46,7 @@ include "precomputed.pil";
  *
  * EMPTY CALLDATA:
  * When calldata is empty (calldata_size = 0), the only hashed input is the domain separator.
- * All three Poseidon2 input slots after the separator are padding (PADDING_1 = PADDING_2 = 1).
+ * Both Poseidon2 input slots after the separator are padding (PADDING_1 = PADDING_2 = 1).
  * In this case, sel_end_not_empty evaluates to 0 (since start = 1 and PADDING_1 = 1), so
  * the #[CHECK_FINAL_SIZE] permutation does not fire and no entry is required in calldata.pil.
  * The hash H([separator, 0, 0]) is still verified via #[POSEIDON2_HASH], and the size is
