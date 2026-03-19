@@ -4,7 +4,7 @@ import { FieldReader } from '@aztec/foundation/serialize';
 import { bufferFromFields } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
-  computeContractClassId,
+  type ContractClassPublicWithCommitment,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
@@ -47,30 +47,21 @@ export class ContractClassPublishedEvent {
     );
   }
 
-  async toContractClassPublic(): Promise<ContractClassPublic> {
-    const computedClassId = await computeContractClassId({
-      artifactHash: this.artifactHash,
-      privateFunctionsRoot: this.privateFunctionsRoot,
-      publicBytecodeCommitment: await computePublicBytecodeCommitment(this.packedPublicBytecode),
-    });
-
-    if (!computedClassId.equals(this.contractClassId)) {
-      throw new Error(
-        `Invalid contract class id: computed ${computedClassId.toString()} but event broadcasted ${this.contractClassId.toString()}`,
-      );
-    }
-
-    if (this.version !== 1) {
-      throw new Error(`Unexpected contract class version ${this.version}`);
-    }
-
+  /** Converts the event to a contract class, without computing or validating the bytecode commitment. */
+  toContractClassPublic(): ContractClassPublic {
     return {
       id: this.contractClassId,
       artifactHash: this.artifactHash,
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
-      version: this.version,
+      version: this.version as 1,
     };
+  }
+
+  /** Converts the event to a contract class with its bytecode commitment (expensive). */
+  async toContractClassPublicWithBytecodeCommitment(): Promise<ContractClassPublicWithCommitment> {
+    const publicBytecodeCommitment = await computePublicBytecodeCommitment(this.packedPublicBytecode);
+    return { ...this.toContractClassPublic(), publicBytecodeCommitment };
   }
 
   public static extractContractClassEvents(logs: ContractClassLog[]): ContractClassPublishedEvent[] {
