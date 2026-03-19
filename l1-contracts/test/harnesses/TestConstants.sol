@@ -132,7 +132,6 @@ library TestConstants {
     config.slashAmounts = slashAmounts;
     config.slasherEnabled = false;
     config.localEjectionThreshold = 0;
-    config.earliestRewardsClaimableTimestamp = Timestamp.wrap(0);
     config.inboxLag = AZTEC_INBOX_LAG;
 
     // For the version we derive it based on the config (with a 0 version)
