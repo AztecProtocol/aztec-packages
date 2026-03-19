@@ -1,7 +1,7 @@
 # External Audit Scope: ECC Curves
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD (link)
+Commit hash: `158dd845c99f8f702979c20f1625730d126c4b20`
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
@@ -56,3 +56,5 @@ The ECC curves module defines the elliptic curves used throughout Barretenberg's
 13. `ecc/curves/secp256r1/secp256r1.test.cpp`
 
 ## Security Mechanisms
+
+The file `ecc/curves/multi_field.fuzzer.cpp` implements a multi-field fuzzer for testing field arithmetic operations across different elliptic curve fields. See the file for more details.

@@ -83,12 +83,12 @@ describe('Attestation Pool', () => {
       expect(result2.added).toBe(true);
       expect(result2.count).toBe(2); // This is the first duplicate - triggers slashing
 
-      // Third attestation from same signer (if we want to track more)
+      // Third attestation from same signer should be rejected (cap is 2)
       const archive3 = Fr.random();
       const attestation3 = mockCheckpointAttestation(signer, slotNumber, archive3);
       const result3 = await attestationPool.tryAddCheckpointAttestation(attestation3);
-      expect(result3.added).toBe(true);
-      expect(result3.count).toBe(3); // Attestations from this signer
+      expect(result3.added).toBe(false);
+      expect(result3.count).toBe(2); // At cap, rejected
     });
 
     it('should reject attestations when signer exceeds per-slot cap', async () => {

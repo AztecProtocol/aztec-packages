@@ -1,4 +1,5 @@
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas as foundationSchemas } from '@aztec/foundation/schemas';
 import {
@@ -81,6 +82,21 @@ export class TxScopedL2Log {
     const firstNullifier = reader.readObject(Fr);
 
     return new TxScopedL2Log(txHash, blockNumber, blockTimestamp, logData, noteHashes, firstNullifier);
+  }
+
+  static getBlockNumberFromBuffer(buffer: Buffer) {
+    return BlockNumber(buffer.readUint32BE(Fr.SIZE_IN_BYTES));
+  }
+
+  static random() {
+    return new TxScopedL2Log(
+      TxHash.fromField(Fr.random()),
+      BlockNumber(Math.floor(Math.random() * 100000) + 1),
+      BigInt(Math.floor(Date.now() / 1000)),
+      times(3, Fr.random),
+      times(3, Fr.random),
+      Fr.random(),
+    );
   }
 
   equals(other: TxScopedL2Log) {

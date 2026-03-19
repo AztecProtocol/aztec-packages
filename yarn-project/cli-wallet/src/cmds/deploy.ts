@@ -1,3 +1,4 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { DeployOptions } from '@aztec/aztec.js/contracts';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
@@ -63,7 +64,7 @@ export async function deploy(
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
     fee: { gasSettings, paymentMethod },
-    from: deployer ?? AztecAddress.ZERO,
+    from: deployer ?? NO_FROM,
     contractAddressSalt: salt,
     universalDeploy: !deployer,
     skipClassPublication,

@@ -34,6 +34,7 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { BatchCall, type Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
@@ -72,7 +73,11 @@ import { TestWallet } from './test-wallet/test_wallet.js';
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
-const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
+
+const l1ContractsEnvVars = getL1ContractsConfigEnvVars();
+const ETHEREUM_SLOT_DURATION = l1ContractsEnvVars.ethereumSlotDuration;
+const AZTEC_SLOT_DURATION = l1ContractsEnvVars.aztecSlotDuration;
+
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -153,7 +158,7 @@ class TestVariant {
     await Promise.all(
       managers.map(async m => {
         const deployMethod = await m.getDeployMethod();
-        return deployMethod.send({ from: AztecAddress.ZERO });
+        return deployMethod.send({ from: NO_FROM });
       }),
     );
     return accounts.map(acc => acc.address);
@@ -442,6 +447,7 @@ describe('e2e_synching', () => {
       {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
       },
       {
         blobClient,
