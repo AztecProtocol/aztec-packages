@@ -44,13 +44,23 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   },
   numConcurrentIVCVerifiers: {
     env: 'BB_NUM_IVC_VERIFIERS',
-    description: 'Max number of chonk verifiers to run concurrently',
+    description: 'Max concurrent verifications for the RPC verifier (QueuedIVCVerifier).',
     ...numberConfigHelper(8),
   },
   bbIVCConcurrency: {
     env: 'BB_IVC_CONCURRENCY',
-    description: 'Number of threads to use for IVC verification',
+    description: 'Thread count for the RPC IVC verifier.',
     ...numberConfigHelper(1),
+  },
+  bbChonkVerifyBatchSize: {
+    env: 'BB_CHONK_VERIFY_BATCH_SIZE',
+    description: 'Max proofs per batch for the peer chonk batch verifier.',
+    ...numberConfigHelper(8),
+  },
+  bbChonkVerifyConcurrency: {
+    env: 'BB_CHONK_VERIFY_BATCH_CONCURRENCY',
+    description: 'Thread count for the peer batch verifier parallel reduce. 0 = auto.',
+    ...numberConfigHelper(0),
   },
 };
 
