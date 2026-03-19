@@ -120,14 +120,24 @@ function run_network_tests {
   fi
 }
 
+function slack_notify_scenario_pass {
+  local label="$1"
+  if [[ "${REF_NAME:-}" == v* ]]; then
+    slack_notify "Scenario ${label} tests PASSED on *${REF_NAME}*" "#alerts-next-scenario"
+  fi
+}
+
 function network_tests_1 {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_1[@]}"
+  slack_notify_scenario_pass "set-1"
 }
 function network_tests_2 {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_2[@]}"
+  slack_notify_scenario_pass "set-2"
 }
 function network_tests {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_1[@]}" "${NETWORK_TESTS_2[@]}"
+  slack_notify_scenario_pass "all"
 }
 
 function network_bench_cmds {

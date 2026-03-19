@@ -13,8 +13,10 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
+  pipelineConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -68,6 +70,7 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
+  PipelineConfig &
   Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
@@ -118,9 +121,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description:
       'Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget.',
     ...booleanConfigHelper(DefaultSequencerConfig.redistributeCheckpointBudget),
-  },
-  maxBlocksPerCheckpoint: {
-    description: 'Computed max number of blocks per checkpoint from timetable.',
   },
   coinbase: {
     env: 'COINBASE',
@@ -244,6 +244,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...sequencerTxSenderConfigMappings,
   ...sequencerPublisherConfigMappings,
   ...chainConfigMappings,
+  ...pipelineConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 

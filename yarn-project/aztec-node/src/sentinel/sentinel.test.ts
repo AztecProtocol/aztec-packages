@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -79,7 +79,15 @@ describe('sentinel', () => {
       rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, nowMs: ts * 1000n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch,
+      slot,
+      ts,
+      nowMs: ts * 1000n,
+    });
+    epochCache.getSlotNow.mockReturnValue(slot);
+    epochCache.getEpochNow.mockReturnValue(epoch);
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
@@ -590,6 +598,10 @@ describe('sentinel', () => {
         ts,
         nowMs: ts * 1000n,
       });
+      epochCache.getSlotNow.mockReturnValue(slot);
+      epochCache.getTargetSlot.mockReturnValue(slot);
+      epochCache.getEpochNow.mockReturnValue(epochNumber);
+      epochCache.getTargetEpoch.mockReturnValue(epochNumber);
       archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);

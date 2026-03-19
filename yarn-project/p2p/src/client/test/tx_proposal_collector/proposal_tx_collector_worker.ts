@@ -1,4 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -14,12 +15,13 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
+import { mock } from 'jest-mock-extended';
 
 import type { P2PConfig } from '../../../config.js';
 import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
-import { MissingTxsTracker } from '../../../services/tx_collection/missing_txs_tracker.js';
+import { RequestTracker } from '../../../services/tx_collection/request_tracker.js';
 import {
   AlwaysTrueCircuitVerifier,
   BENCHMARK_CONSTANTS,
@@ -27,7 +29,6 @@ import {
   InMemoryTxPool,
   UNLIMITED_RATE_LIMIT_QUOTA,
   calculateInternalTimeout,
-  createMockEpochCache,
   createMockWorldStateSynchronizer,
 } from '../../../test-helpers/index.js';
 import { createP2PClient } from '../../index.js';
@@ -98,7 +99,7 @@ function sendMessage(message: WorkerResponse): Promise<void> {
 async function startClient(config: P2PConfig, clientIndex: number) {
   txPool = new InMemoryTxPool();
   attestationPool = new InMemoryAttestationPool();
-  const epochCache = createMockEpochCache();
+  const epochCache = mock<EpochCache>();
   const worldState = createMockWorldStateSynchronizer();
   const l2BlockSource = new MockL2BlockSource();
   const proofVerifier = new AlwaysTrueCircuitVerifier();
@@ -213,10 +214,9 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
           collector.collectTxs(
-            MissingTxsTracker.fromArray(parsedTxHashes),
+            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
             parsedProposal,
             pinnedPeer,
-            internalTimeoutMs,
           ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
@@ -231,10 +231,9 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
           collector.collectTxs(
-            MissingTxsTracker.fromArray(parsedTxHashes),
+            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
             parsedProposal,
             pinnedPeer,
-            internalTimeoutMs,
           ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),

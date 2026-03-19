@@ -4,11 +4,11 @@ import { unfreeze } from '@aztec/foundation/types';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type {
+  BlockBuilderOptions,
   FullNodeBlockBuilderConfig,
   ICheckpointBlockBuilder,
   ICheckpointsBuilder,
   MerkleTreeWriteOperations,
-  PublicProcessorLimits,
 } from '@aztec/stdlib/interfaces/server';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
@@ -32,7 +32,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
   public buildBlockCalls: Array<{
     blockNumber: BlockNumber;
     timestamp: bigint;
-    opts: PublicProcessorLimits & { minValidTxs?: number };
+    opts: BlockBuilderOptions;
   }> = [];
   /** Track all consumed transaction hashes across buildBlock calls */
   public consumedTxHashes: Set<string> = new Set();
@@ -74,7 +74,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits & { minValidTxs?: number },
+    opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult> {
     this.buildBlockCalls.push({ blockNumber, timestamp, opts });
 

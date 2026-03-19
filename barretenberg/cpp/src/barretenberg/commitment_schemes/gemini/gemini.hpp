@@ -130,9 +130,19 @@ template <typename Curve> class GeminiProver_ {
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
 
+        // Batched tails: small polynomials covering only the tail region (e.g. last NUM_MASKED_ROWS positions).
+        // Populated during compute_batched if tails are registered.
+        Polynomial batched_unshifted_tail_;
+        Polynomial batched_shifted_tail_;
+
       public:
         RefVector<Polynomial> unshifted;            // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
+
+        // Tails: small polynomials (e.g. masking values) to be batched with the same rho scalar
+        // as their corresponding base polynomial. Pairs of (index in unshifted/shifted list, tail poly).
+        std::vector<std::pair<size_t, Polynomial>> unshifted_tails_;
+        std::vector<std::pair<size_t, Polynomial>> shifted_tails_;
 
         PolynomialBatcher(const size_t full_batched_size, const size_t actual_data_size = 0)
             : full_batched_size(full_batched_size)
@@ -148,6 +158,15 @@ template <typename Curve> class GeminiProver_ {
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
 
+        void add_unshifted_tail(size_t batcher_index, Polynomial&& tail)
+        {
+            unshifted_tails_.emplace_back(batcher_index, std::move(tail));
+        }
+        void add_shifted_tail(size_t batcher_index, Polynomial&& tail)
+        {
+            shifted_tails_.emplace_back(batcher_index, std::move(tail));
+        }
+
         /**
          * @brief Compute batched polynomial A₀ = F + G/X as the linear combination of all polynomials to be opened,
          * where F is the linear combination of the unshifted polynomials and G is the linear combination of the
@@ -158,9 +177,10 @@ template <typename Curve> class GeminiProver_ {
          */
         Polynomial compute_batched(const Fr& challenge)
         {
-            Fr running_scalar(1);
             BB_BENCH_NAME("compute_batched");
-            // lambda for batching polynomials; updates the running scalar in place
+            Fr running_scalar(1);
+
+            // Batch base polynomials; updates running_scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
                 for (auto& poly : polynomials_to_batch) {
                     batched.add_scaled(poly, running_scalar);
@@ -168,18 +188,40 @@ template <typename Curve> class GeminiProver_ {
                 }
             };
 
+            // Batch tails into a small accumulator with the correct rho power per tail.
+            // Tails are small (e.g. 3 elements), kept separate to avoid extending the main batched
+            // poly to full_batched_size. Each tail's scalar is base_scalar * rho^idx.
+            auto batch_tails = [&](Polynomial& batched_tail,
+                                   const std::vector<std::pair<size_t, Polynomial>>& tail_list,
+                                   const Fr& base_scalar) {
+                for (const auto& [idx, tail] : tail_list) {
+                    if (batched_tail.is_empty()) {
+                        batched_tail = Polynomial(tail.size(), tail.virtual_size(), tail.start_index());
+                    }
+                    batched_tail.add_scaled(tail, base_scalar * challenge.pow(idx));
+                }
+            };
+
             Polynomial full_batched(full_batched_size);
 
-            // compute the linear combination F of the unshifted polynomials
+            Fr unshifted_base(1);
             if (has_unshifted()) {
                 batch(batched_unshifted, unshifted);
-                full_batched += batched_unshifted; // A₀ += F
+                full_batched += batched_unshifted;
+            }
+            batch_tails(batched_unshifted_tail_, unshifted_tails_, unshifted_base);
+            if (!batched_unshifted_tail_.is_empty()) {
+                full_batched += batched_unshifted_tail_;
             }
 
-            // compute the linear combination G of the to-be-shifted polynomials
+            Fr shifted_base = running_scalar;
             if (has_to_be_shifted_by_one()) {
                 batch(batched_to_be_shifted_by_one, to_be_shifted_by_one);
-                full_batched += batched_to_be_shifted_by_one.shifted(); // A₀ += G/X
+                full_batched += batched_to_be_shifted_by_one.shifted();
+            }
+            batch_tails(batched_shifted_tail_, shifted_tails_, shifted_base);
+            if (!batched_shifted_tail_.is_empty()) {
+                full_batched += batched_shifted_tail_.shifted();
             }
 
             return full_batched;
@@ -193,21 +235,29 @@ template <typename Curve> class GeminiProver_ {
          */
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
         {
-            // Initialize A₀₊ with only the actual data extent; virtual zeroes cover the rest
-            Polynomial A_0_pos(actual_data_size_, full_batched_size); // A₀₊
+            Polynomial A_0_pos(actual_data_size_, full_batched_size);
 
             if (has_unshifted()) {
-                A_0_pos += batched_unshifted; // A₀₊ += F
+                A_0_pos += batched_unshifted;
+            }
+            if (!batched_unshifted_tail_.is_empty()) {
+                Polynomial A_0_extended(A_0_pos, full_batched_size - A_0_pos.start_index());
+                A_0_extended += batched_unshifted_tail_;
+                A_0_pos = std::move(A_0_extended);
             }
 
             Polynomial A_0_neg = A_0_pos;
 
+            Fr r_inv = r_challenge.invert();
             if (has_to_be_shifted_by_one()) {
-                Fr r_inv = r_challenge.invert();       // r⁻¹
-                batched_to_be_shifted_by_one *= r_inv; // G = G/r
-
-                A_0_pos += batched_to_be_shifted_by_one; // A₀₊ += G/r
-                A_0_neg -= batched_to_be_shifted_by_one; // A₀₋ -= G/r
+                batched_to_be_shifted_by_one *= r_inv;
+                A_0_pos += batched_to_be_shifted_by_one;
+                A_0_neg -= batched_to_be_shifted_by_one;
+            }
+            if (!batched_shifted_tail_.is_empty()) {
+                batched_shifted_tail_ *= r_inv;
+                A_0_pos += batched_shifted_tail_;
+                A_0_neg -= batched_shifted_tail_;
             }
 
             return { A_0_pos, A_0_neg };

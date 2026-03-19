@@ -16,11 +16,25 @@ use aztec::{
 use field_note::FieldNote;
 use std::meta::derive;
 
-#[derive(Packable, Serialize)]
+#[derive(Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     pub strength: u32,
     pub points: u32,
+}
+
+impl Packable for Card {
+    let N: u32 = 1;
+
+    fn pack(self) -> [Field; Self::N] {
+        [(self.strength as Field) * 2.pow_32(32) + (self.points as Field)]
+    }
+
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        let points = packed[0] as u32;
+        let strength = ((packed[0] - points as Field) / 2.pow_32(32)) as u32;
+        Self { strength, points }
+    }
 }
 
 impl FromField for Card {
@@ -38,11 +52,39 @@ impl ToField for Card {
     }
 }
 
-#[test]
-fn test_to_from_field() {
-    let field = 1234567890;
-    let card = Card::from_field(field);
-    assert(card.to_field() == field);
+mod test {
+    use super::{Card, FromField, Packable, ToField};
+
+    #[test]
+    fn test_to_from_field() {
+        let field = 1234567890;
+        let card = Card::from_field(field);
+        assert(card.to_field() == field);
+    }
+
+    #[test]
+    fn test_pack_unpack_card() {
+        let card = Card { strength: 42, points: 100 };
+        let unpacked = Card::unpack(card.pack());
+        assert_eq(unpacked.strength, card.strength);
+        assert_eq(unpacked.points, card.points);
+    }
+
+    #[test]
+    fn test_pack_unpack_card_zeros() {
+        let card = Card { strength: 0, points: 0 };
+        let unpacked = Card::unpack(card.pack());
+        assert_eq(unpacked.strength, 0);
+        assert_eq(unpacked.points, 0);
+    }
+
+    #[test]
+    fn test_pack_unpack_card_max() {
+        let card = Card { strength: 0xffffffff, points: 0xffffffff };
+        let unpacked = Card::unpack(card.pack());
+        assert_eq(unpacked.strength, card.strength);
+        assert_eq(unpacked.points, card.points);
+    }
 }
 
 pub struct CardNote {

@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0-nightly.20260316
-Generated: 2026-03-16T05:02:42.731Z
+Version: v5.0.0-nightly.20260319
+Generated: 2026-03-19T04:48:04.848Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -38,7 +38,7 @@ Exports: 4 classes, 2 interfaces, 1 functions, 5 types
 **@aztec/wallet-sdk** - Wallet SDK for browser and extension integrations
   - Browser wallet integration
   - Key management utilities
-Exports: 6 classes, 31 interfaces, 10 functions, 8 types
+Exports: 6 classes, 31 interfaces, 10 functions, 9 types
 
 **@aztec/wallets** - Embedded wallet for browser and Node.js environments
   - EmbeddedWallet with browser and Node.js flavors
@@ -53,7 +53,7 @@ Exports: 3 classes, 2 functions, 2 types
   - Proof types and verification
   - Kernel circuit types
   - Tree structures (note hash, nullifier, public data)
-Exports: 90 classes, 38 interfaces, 128 functions, 112 types
+Exports: 90 classes, 38 interfaces, 130 functions, 112 types
 Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
 
 **@aztec/foundation** - Low-level utilities and primitives
@@ -61,7 +61,7 @@ Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
   - Serialization utilities
   - Async helpers and collections
   - Logging infrastructure
-Exports: 19 classes, 6 interfaces, 135 functions, 30 types
+Exports: 19 classes, 6 interfaces, 136 functions, 30 types
 Key: EthAddress
 
 **@aztec/constants** - Protocol constants shared between TypeScript and Noir

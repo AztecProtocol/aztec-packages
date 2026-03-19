@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260316
+Version: v5.0.0-nightly.20260319
 
 ## Quick Import Reference
 
@@ -2210,6 +2210,8 @@ new TxScopedL2Log(txHash: TxHash, blockNumber: BlockNumber, blockTimestamp: bigi
 **Methods**
 - `equals(other: TxScopedL2Log) => boolean`
 - `static fromBuffer(buffer: Buffer) => TxScopedL2Log`
+- `static getBlockNumberFromBuffer(buffer: Buffer) => BlockNumber`
+- `static random() => TxScopedL2Log`
 - `toBuffer() => Buffer<ArrayBuffer>`
 
 ### TxSimulationResult
@@ -2817,13 +2819,13 @@ Computes the hash of a public function's calldata.
 ```typescript
 function computeContractAddressFromInstance(instance: ContractInstance | { originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, "publicKeys">) => Promise<AztecAddress>
 ```
-Returns the deployment address for a given contract instance. ``` salted_initialization_hash = pedersen([salt, initialization_hash, deployer], GENERATOR__SALTED_INITIALIZATION_HASH) partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1) address = ((poseidon2Hash([public_keys_hash, partial_address, GENERATOR__CONTRACT_ADDRESS_V1]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
+Returns the deployment address for a given contract instance. ``` salted_initialization_hash = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [salt, initialization_hash, deployer]) partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash]) address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
 
 ### computeContractClassId
 ```typescript
 function computeContractClassId(contractClass: ContractClass | ContractClassIdPreimage) => Promise<Fr>
 ```
-Returns the id of a contract class computed as its hash. ``` version = 1 private_function_leaves = private_functions.map(fn => pedersen([fn.function_selector as Field, fn.vk_hash], GENERATOR__PRIVATE_FUNCTION_LEAF)) private_functions_root = merkleize(private_function_leaves) bytecode_commitment = calculate_commitment(packed_bytecode) contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER) ```
+Returns the id of a contract class computed as its hash. ``` version = 1 private_function_leaves = private_functions.map(fn => poseidon2(DOM_SEP__PRIVATE_FUNCTION_LEAF, [fn.function_selector as Field, fn.vk_hash])) private_functions_root = merkleize(private_function_leaves) bytecode_commitment = calculate_commitment(packed_bytecode) contract_class_id = poseidon2(DOM_SEP__CONTRACT_CLASS_ID, [version, artifact_hash, private_functions_root, bytecode_commitment]) ```
 
 ### computeContractClassIdPreimage
 ```typescript
@@ -2945,10 +2947,22 @@ function computeSecretHash(secret: Fr) => Promise<Fr>
 ```
 Computes a hash of a secret.
 
+### computeSiloedPrivateInitializationNullifier
+```typescript
+function computeSiloedPrivateInitializationNullifier(contract: AztecAddress, initializationHash: Fr) => Promise<Fr>
+```
+Computes the siloed private initialization nullifier for a contract, given its address and initialization hash.
+
 ### computeSiloedPrivateLogFirstField
 ```typescript
 function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr) => Promise<Fr>
 ```
+
+### computeSiloedPublicInitializationNullifier
+```typescript
+function computeSiloedPublicInitializationNullifier(contract: AztecAddress) => Promise<Fr>
+```
+Computes the siloed public initialization nullifier for a contract. Not all contracts emit this nullifier: it is only emitted when the contract has public functions that perform initialization checks (i.e. external public functions that are not `#[noinitcheck]` or `#[only_self]`).
 
 ### computeUniqueNoteHash
 ```typescript
