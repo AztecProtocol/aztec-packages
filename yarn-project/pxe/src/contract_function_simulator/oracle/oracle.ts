@@ -548,15 +548,13 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [messageContextRequestsArrayBaseSlot]: ACVMField[],
     [messageContextResponsesArrayBaseSlot]: ACVMField[],
-    [scopeSome]: ACVMField[],
-    [scopeValue]: ACVMField[],
+    [scope]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const scope = optionalAddressFromAcvmFields(scopeSome, scopeValue);
     await this.handlerAsUtility().utilityResolveMessageContexts(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(messageContextRequestsArrayBaseSlot),
       Fr.fromString(messageContextResponsesArrayBaseSlot),
-      scope,
+      AztecAddress.fromString(scope),
     );
     return [];
   }

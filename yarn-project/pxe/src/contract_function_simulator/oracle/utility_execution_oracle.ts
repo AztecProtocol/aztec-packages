@@ -591,12 +591,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
-    scope?: AztecAddress,
+    scope: AztecAddress,
   ) {
     try {
       if (!this.contractAddress.equals(contractAddress)) {
         throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
       }
+
+      // TODO(@mverzilli): this is a prime example of where using a volatile array would make much more sense, we don't
+      // need scopes here, we just need a bit of shared memory to cross boundaries between Noir and TS.
+      // At the same time, we don't want allow any global scope access other than where backwards compatibility forces
+      // us to, so we need scope to be here artificially.
       const requestCapsules = await this.capsuleStore.readCapsuleArray(
         contractAddress,
         messageContextRequestsArrayBaseSlot,

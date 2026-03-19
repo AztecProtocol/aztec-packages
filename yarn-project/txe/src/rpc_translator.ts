@@ -811,16 +811,12 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
     const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
-    const scope =
-      foreignScopeIsSome && fromSingle(foreignScopeIsSome).toBool()
-        ? AztecAddress.fromField(fromSingle(foreignScopeValue!))
-        : undefined;
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().utilityResolveMessageContexts(
       contractAddress,

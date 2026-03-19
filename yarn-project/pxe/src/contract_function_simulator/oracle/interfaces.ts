@@ -138,7 +138,7 @@ export interface IUtilityExecutionOracle {
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
-    scope?: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void>;
   storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope?: AztecAddress): void;
   loadCapsule(contractAddress: AztecAddress, key: Fr, scope?: AztecAddress): Promise<Fr[] | null>;
