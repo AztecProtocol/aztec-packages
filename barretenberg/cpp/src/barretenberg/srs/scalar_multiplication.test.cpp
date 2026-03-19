@@ -83,16 +83,10 @@ TYPED_TEST(ScalarMultiplicationTests, EndomorphismSplit)
 
     Element expected = Group::one * scalar;
 
-    // we want to test that we can split a scalar into two half-length components, using the same location in memory.
-    Fr* k1_t = &scalar;
-    Fr* k2_t = (Fr*)&scalar.data[2];
+    Fr k1{ 0, 0, 0, 0 };
+    Fr k2{ 0, 0, 0, 0 };
+    Fr::split_into_endomorphism_scalars(scalar, k1, k2);
 
-    Fr::split_into_endomorphism_scalars(scalar, *k1_t, *k2_t);
-    Fr k1{ (*k1_t).data[0], (*k1_t).data[1], 0, 0 };
-    Fr k2{ (*k2_t).data[0], (*k2_t).data[1], 0, 0 };
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
     Element result;
     Element t1 = Group::affine_one * k1;
     AffineElement generator = Group::affine_one;
