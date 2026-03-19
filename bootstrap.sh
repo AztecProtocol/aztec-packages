@@ -817,8 +817,24 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build release
-    release
+    if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
+      echo_header "Private fork release: $REF_NAME"
+      echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
+      release_github
+      echo "Fetching private source from aztec-packages-private..."
+      git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
+      git fetch --depth 1 private "refs/tags/$REF_NAME"
+      git worktree add aztec-private FETCH_HEAD
+      cd aztec-private
+      echo "Initializing submodules in private worktree..."
+      git submodule update --init --recursive
+      echo "Private worktree ready at $(pwd) (HEAD=$(git rev-parse --short HEAD)). Cache uploads disabled."
+      export NO_CACHE_UPLOAD=1
+      # Unset so child bootstrap.sh re-derives these from the worktree.
+      unset COMMIT_HASH root
+    fi
+    ./bootstrap.sh build release
+    ./bootstrap.sh release
     ;;
 
   ##########################
