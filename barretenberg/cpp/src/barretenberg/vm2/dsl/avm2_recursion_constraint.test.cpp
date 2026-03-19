@@ -190,11 +190,11 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
 
         std::vector<std::vector<field_t<Builder>>> public_inputs =
             PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
-        auto [mega_oink_proof, joint_proof, goblin_proof, mega_vk] =
+        auto [mega_oink_proof, joint_proof, eccvm_proof, ipa_proof, mega_vk] =
             TwoLayerAvmRecursiveVerifier::construct_and_prove_inner_recursive_verification_circuit(stdlib_proof,
                                                                                                    public_inputs);
 
-        return { stdlib_proof, public_inputs, { mega_oink_proof, joint_proof, goblin_proof, mega_vk } };
+        return { stdlib_proof, public_inputs, { mega_oink_proof, joint_proof, eccvm_proof, ipa_proof, mega_vk } };
     }
 };
 
@@ -264,7 +264,8 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
                                                                                public_inputs,
                                                                                { mega_proof_tampered,
                                                                                  inner_prover_output.joint_proof,
-                                                                                 inner_prover_output.goblin_proof,
+                                                                                 inner_prover_output.eccvm_proof,
+                                                                                 inner_prover_output.ipa_proof,
                                                                                  inner_prover_output.mega_vk });
 
         EXPECT_TRUE(outer_builder.failed());
@@ -279,10 +280,10 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
         // pre-IPA proof (followed by x_lo_y_hi, x_hi_z_1, y_lo_z_2 evaluations). See also
         // GoblinAvmRecursiveVerifierTests::tamper_with_eccvm_op_eval for reference
         static constexpr size_t evals_after_op = 3; // x_lo_y_hi, x_hi_z_1, y_lo_z_2
-        const size_t op_eval_idx = inner_prover_output.goblin_proof.eccvm_proof.size() - evals_after_op;
+        const size_t op_eval_idx = inner_prover_output.eccvm_proof.size() - evals_after_op;
 
-        auto goblin_proof_tampered = inner_prover_output.goblin_proof;
-        goblin_proof_tampered.eccvm_proof[op_eval_idx] += FF(1);
+        auto eccvm_proof_tampered = inner_prover_output.eccvm_proof;
+        eccvm_proof_tampered[op_eval_idx] += FF(1);
 
         TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
         TwoLayerAvmRecursiveVerifierOutput output =
@@ -290,7 +291,8 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
                                                                                public_inputs,
                                                                                { inner_prover_output.mega_oink_proof,
                                                                                  inner_prover_output.joint_proof,
-                                                                                 goblin_proof_tampered,
+                                                                                 eccvm_proof_tampered,
+                                                                                 inner_prover_output.ipa_proof,
                                                                                  inner_prover_output.mega_vk });
 
         EXPECT_TRUE(outer_builder.failed());
@@ -310,7 +312,8 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
                                                                                public_inputs,
                                                                                { inner_prover_output.mega_oink_proof,
                                                                                  inner_prover_output.joint_proof,
-                                                                                 inner_prover_output.goblin_proof,
+                                                                                 inner_prover_output.eccvm_proof,
+                                                                                 inner_prover_output.ipa_proof,
                                                                                  mega_vk_tampered });
 
         EXPECT_TRUE(outer_builder.failed());

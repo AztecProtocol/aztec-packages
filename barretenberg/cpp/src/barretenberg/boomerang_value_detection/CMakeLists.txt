@@ -2,5 +2,4 @@ barretenberg_module(boomerang_value_detection stdlib_circuit_builders circuit_ch
                     stdlib_primitives numeric stdlib_aes128 stdlib_sha256 stdlib_blake2s
                     stdlib_blake3s stdlib_poseidon2
                     goblin
-                    goblin_avm
                     commitment_schemes)

@@ -12,8 +12,8 @@
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
-#include "barretenberg/goblin_avm/goblin_avm.hpp"
-#include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
+#include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -74,7 +74,8 @@ class TwoLayerAvmRecursiveVerifier {
     struct InnerProverOutput {
         HonkProof mega_oink_proof;
         HonkProof joint_proof;
-        GoblinAvmProof goblin_proof;
+        HonkProof eccvm_proof;
+        HonkProof ipa_proof;
         std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk;
     };
 
@@ -146,7 +147,8 @@ class TwoLayerAvmRecursiveVerifier {
 
         stdlib::Proof<UltraCircuitBuilder> mega_oink_proof(*outer_builder, inner_output.mega_oink_proof);
         stdlib::Proof<UltraCircuitBuilder> joint_proof(*outer_builder, inner_output.joint_proof);
-        GoblinAvmStdlibProof stdlib_goblin_proof(*outer_builder, inner_output.goblin_proof);
+        stdlib::Proof<UltraCircuitBuilder> eccvm_proof(*outer_builder, inner_output.eccvm_proof);
+        stdlib::Proof<UltraCircuitBuilder> ipa_proof(*outer_builder, inner_output.ipa_proof);
 
         // Phase 1: Recursive verification of the Mega Oink proof
         auto oink_result = batched_verifier.verify_mega_oink(mega_oink_proof);
@@ -154,8 +156,7 @@ class TwoLayerAvmRecursiveVerifier {
         io.reconstruct_from_public(oink_result.public_inputs);
 
         // Phase 2: Recursive verification of ECCVM proof
-        typename GoblinAvmRecursiveVerifier::ECCVMVerifier eccvm_verifier{ transcript,
-                                                                           stdlib_goblin_proof.eccvm_proof };
+        typename GoblinRecursiveVerifier::ECCVMVerifier eccvm_verifier{ transcript, eccvm_proof };
         auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
         auto translator_input = eccvm_verifier.get_translator_input_data();
 
@@ -179,7 +180,7 @@ class TwoLayerAvmRecursiveVerifier {
         TwoLayerAvmRecursiveVerifierOutput output;
         output.points_accumulator = std::move(batched_result.pairing_points);
         output.ipa_claim = eccvm_result.ipa_claim;
-        output.ipa_proof = stdlib_goblin_proof.ipa_proof;
+        output.ipa_proof = ipa_proof;
         return output;
     }
 
@@ -200,8 +201,8 @@ class TwoLayerAvmRecursiveVerifier {
         using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
-        MegaCircuitBuilder inner_builder;
-        GoblinAvm goblin(inner_builder);
+        Goblin goblin;
+        MegaCircuitBuilder inner_builder(goblin.op_queue);
 
         // Construct the inner recursive verification circuit
         construct_inner_recursive_verification_circuit(inner_builder, stdlib_proof, public_inputs);
@@ -241,14 +242,11 @@ class TwoLayerAvmRecursiveVerifier {
         // Phase 5: Translator Oink + single joint sumcheck + single joint PCS over both Mega and Translator.
         auto joint_proof = batched_prover.prove(translator_key);
 
-        GoblinAvmProof goblin_proof;
-        goblin_proof.eccvm_proof = goblin.goblin_proof.eccvm_proof;
-        goblin_proof.ipa_proof = goblin.goblin_proof.ipa_proof;
-
         return {
             .mega_oink_proof = mega_oink_proof,
             .joint_proof = joint_proof,
-            .goblin_proof = goblin_proof,
+            .eccvm_proof = goblin.goblin_proof.eccvm_proof,
+            .ipa_proof = goblin.goblin_proof.ipa_proof,
             .mega_vk = mega_vk,
         };
     }
@@ -262,6 +260,22 @@ class TwoLayerAvmRecursiveVerifier {
                                                                const std::vector<std::vector<UltraFF>>& public_inputs)
     {
         using IO = stdlib::recursion::honk::GoblinAvmIO<MegaCircuitBuilder>;
+
+        /**
+         * Add required initial ops to the op queue:
+         * - Add 1 no-op (for shiftability)
+         * - Add 3 random ops (for ZK hiding of accumulation result).
+         * This matches the structure expected by Translator. In Chonk, these ops are added automatically during
+         * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
+         *
+         */
+        inner_builder.queue_ecc_no_op();
+        inner_builder.queue_ecc_random_op();
+        inner_builder.queue_ecc_random_op();
+        inner_builder.queue_ecc_random_op();
+        // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
+        // does not contribute to the actual MSM circuit.
+        inner_builder.queue_ecc_hiding_op(curve::Grumpkin::ScalarField(0), curve::Grumpkin::ScalarField(0));
 
         // Create free witnesses representing the AVM proof and public inputs in the inner circuit.
         // The honest prover sets these values to match the values of the proof and public inputs in the outer circuit.
