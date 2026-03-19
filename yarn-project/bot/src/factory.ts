@@ -226,7 +226,7 @@ export class BotFactory {
       const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
 
       const { estimatedGas } = await deployMethod.simulate({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         fee: { estimateGas: true, paymentMethod },
       });
       const gasSettings = GasSettings.from({ ...estimatedGas!, maxFeesPerGas, maxPriorityFeesPerGas: GasFees.empty() });
