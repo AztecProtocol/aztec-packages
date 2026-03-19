@@ -3,6 +3,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
 
+# Bare aliases ("nightly", "latest") resolve to this major version.
+# To change, update this value and run release_root_installer.
+DEFAULT_MAJOR_VERSION=4
+
 function build {
   # Noop if user doesn't have docker.
   if ! command -v docker &>/dev/null; then
@@ -114,6 +118,22 @@ function test {
 function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
+  # e.g. "nightly", or "latest" for bare releases
+  local tag=$(dist_tag)
+  # e.g. "4" from v4.1.0-nightly.20260319
+  local major=$(semver major $REF_NAME)
+  # The default major version lives on S3 so flipping it is a single upload, no branch changes needed.
+  # TODO: once the default-major-version file is uploaded to S3, change this to fail the release if unreadable
+  # instead of falling back to DEFAULT_MAJOR_VERSION.
+  local install_uri="${INSTALL_URI:-https://install.aztec-labs.com}"
+  local default_major_version
+  if ! default_major_version=$(curl -fsSL --max-time 5 "$install_uri/default-major-version" 2>/dev/null); then
+    echo "WARNING: could not fetch default-major-version from $install_uri; using fallback DEFAULT_MAJOR_VERSION=$DEFAULT_MAJOR_VERSION" >&2
+    default_major_version="$DEFAULT_MAJOR_VERSION"
+  elif ! [[ "$default_major_version" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: default-major-version returned invalid value '$default_major_version'" >&2
+    return 1
+  fi
 
   # Upload each file in bin/0.0.1/, replacing VERSION= lines with the release version.
   for file in bin/0.0.1/*; do
@@ -121,9 +141,13 @@ function release {
       do_or_dryrun aws s3 cp - "s3://install.aztec.network/$version/$(basename $file)"
   done
 
-  # Update alias to point to new version.
-  # This has real impact outside of the version fence. i.e. if it's a nightly dist tag, it affects nightly installs.
-  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
+  # Update versioned alias (e.g. v4-nightly, v5-latest).
+  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/v${major}-${tag}" <<< "$version"
+
+  # Bare alias (e.g. "nightly") should always resolve to the default major.
+  if [ "$major" = "$default_major_version" ]; then
+    do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$tag" <<< "$version"
+  fi
 }
 
 # This is not done by CI.
@@ -134,8 +158,10 @@ function release_root_installer {
       do_or_dryrun aws s3 cp - "s3://install.aztec.network/aztec-install"
     do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
 
-    # Update alias list.
+    # Update alias list and default major version.
     do_or_dryrun aws s3 cp bin/aliases/index "s3://install.aztec.network/aliases/index"
+    # Disable caching so the release function always reads the latest value.
+    do_or_dryrun aws s3 cp --cache-control max-age=0 - "s3://install.aztec.network/default-major-version" <<< "$DEFAULT_MAJOR_VERSION"
 }
 
 function prep_test_mac {
