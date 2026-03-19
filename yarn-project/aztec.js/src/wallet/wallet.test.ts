@@ -39,7 +39,7 @@ import type {
   SimulateOptions,
   Wallet,
 } from './wallet.js';
-import { WalletSchema } from './wallet.js';
+import { ContractInitializationStatus, WalletSchema } from './wallet.js';
 
 describe('WalletSchema', () => {
   let handler: MockWallet;
@@ -107,7 +107,7 @@ describe('WalletSchema', () => {
     const result = await context.client.getContractMetadata(await AztecAddress.random());
     expect(result).toEqual({
       instance: undefined,
-      isContractInitialized: undefined,
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: expect.any(Boolean),
       isContractUpdated: expect.any(Boolean),
       updatedContractClassId: undefined,
@@ -408,7 +408,7 @@ class MockWallet implements Wallet {
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
     return Promise.resolve({
       instance: undefined,
-      isContractInitialized: undefined,
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: false,
       isContractUpdated: false,
       updatedContractClassId: undefined,

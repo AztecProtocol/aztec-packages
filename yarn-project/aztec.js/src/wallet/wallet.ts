@@ -203,17 +203,27 @@ export type PublicEvent<T> = Event<
   }
 >;
 
+/** Whether the contract has been initialized. */
+export enum ContractInitializationStatus {
+  /** The contract has been initialized (initialization nullifier found). */
+  INITIALIZED = 'INITIALIZED',
+  /** The contract has not been initialized (instance is known, but no initialization nullifier found). */
+  UNINITIALIZED = 'UNINITIALIZED',
+  /**
+   * Initialization status cannot be determined. The contract instance is not registered in this wallet, so we have
+   * limited ability to check for initialization. The contract may or may not have been initialized.
+   */
+  UNKNOWN = 'UNKNOWN',
+}
+
 /**
  * Contract metadata including deployment and registration status.
  */
 export type ContractMetadata = {
   /** The contract instance */
   instance?: ContractInstanceWithAddress;
-  /**
-   * Whether the contract has been initialized (initialization nullifier exists).
-   * Undefined when instance is not registered.
-   */
-  isContractInitialized: boolean | undefined;
+  /** Whether the contract has been initialized. */
+  initializationStatus: ContractInitializationStatus;
   /** Whether the contract instance is publicly deployed on-chain */
   isContractPublished: boolean;
   /** Whether the contract has been updated to a different class */
@@ -377,7 +387,7 @@ export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
 
 export const ContractMetadataSchema = z.object({
   instance: optional(ContractInstanceWithAddressSchema),
-  isContractInitialized: optional(z.boolean()),
+  initializationStatus: z.nativeEnum(ContractInitializationStatus),
   isContractPublished: z.boolean(),
   isContractUpdated: z.boolean(),
   updatedContractClassId: optional(schemas.Fr),

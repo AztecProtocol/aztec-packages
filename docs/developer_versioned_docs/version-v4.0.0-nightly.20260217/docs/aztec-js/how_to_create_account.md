@@ -103,7 +103,7 @@ Confirm the account was deployed successfully:
 
 ```typescript title="verify_account_deployment" showLineNumbers 
 const metadata = await wallet.getContractMetadata(newAccount.address);
-console.log("Account deployed:", metadata.isContractInitialized);
+console.log("Account deployed:", metadata.initializationStatus);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260217/docs/examples/ts/aztecjs_connection/index.ts#L86-L89" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L86-L89</a></sub></sup>
 

@@ -5,6 +5,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
+import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
@@ -158,9 +159,9 @@ describe('e2e_block_building', () => {
 
       // Assert all contracts got initialized
       const areInitialized = await Promise.all(
-        addresses.map(async a => (await wallet.getContractMetadata(a)).isContractInitialized),
+        addresses.map(async a => (await wallet.getContractMetadata(a)).initializationStatus),
       );
-      expect(areInitialized).toEqual(times(TX_COUNT, () => true));
+      expect(areInitialized).toEqual(times(TX_COUNT, () => ContractInitializationStatus.INITIALIZED));
     });
 
     it('assembles a block with multiple txs with public fns', async () => {
