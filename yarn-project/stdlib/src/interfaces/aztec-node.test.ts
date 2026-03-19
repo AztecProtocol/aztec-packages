@@ -472,7 +472,7 @@ describe('AztecNodeApiSchema', () => {
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const response = await context.client.getContractClass(Fr.random());
-    expect(response).toEqual(omit(contractClass, 'publicBytecodeCommitment'));
+    expect(response).toEqual(omit(contractClass, 'publicBytecodeCommitment', 'privateFunctions'));
   });
 
   it('getContract', async () => {
