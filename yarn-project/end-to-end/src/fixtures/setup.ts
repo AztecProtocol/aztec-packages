@@ -29,7 +29,7 @@ import {
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
-import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { type Anvil, EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -60,7 +60,6 @@ import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';

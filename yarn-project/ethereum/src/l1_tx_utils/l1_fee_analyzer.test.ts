@@ -3,14 +3,13 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
-import type { Anvil } from '@viem/anvil';
 import { type Hex, parseGwei } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
-import { startAnvil } from '../test/start_anvil.js';
+import { type Anvil, startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { WEI_CONST } from './constants.js';
 import type { PriorityFeeStrategy } from './fee-strategies/types.js';
