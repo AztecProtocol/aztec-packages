@@ -171,14 +171,24 @@ describe('sequencer', () => {
       epoch: EpochNumber(1),
       slot: SlotNumber(1),
       ts: 1000n,
-      now: 1000n,
+      nowSeconds: 1000n,
     }));
+    epochCache.getTargetSlot.mockReturnValue(SlotNumber(1));
+    epochCache.getTargetEpoch.mockReturnValue(EpochNumber(1));
+    epochCache.getTargetEpochAndSlotInNextL1Slot.mockImplementation(() => ({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(1),
+      ts: 1000n,
+      nowSeconds: 1000n,
+    }));
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getCommittee.mockResolvedValue({
       committee,
       seed: 1n,
       epoch: EpochNumber(1),
       isEscapeHatchOpen: false,
     });
+    epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -187,7 +197,7 @@ describe('sequencer', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
-    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+    publisher.canProposeAt.mockResolvedValue({
       slot: SlotNumber(newSlotNumber),
       checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
       timeOfNextL1Slot: 1000n,
@@ -302,6 +312,8 @@ describe('sequencer', () => {
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
     validatorClient.createCheckpointProposal.mockImplementation(() => Promise.resolve(createCheckpointProposal()));
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
+    validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
+    validatorClient.getFeeRecipientForAttestor.mockReturnValue(feeRecipient);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);
@@ -352,21 +364,21 @@ describe('sequencer', () => {
 
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
-      expect(publisher.canProposeAtNextEthBlock).not.toHaveBeenCalled();
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
     });
 
     it('builds a checkpoint when it is their turn', async () => {
       await setupSingleTxBlock();
 
       // Not your turn! canProposeAtNextEthBlock returns undefined
-      publisher.canProposeAtNextEthBlock.mockResolvedValue(undefined);
+      publisher.canProposeAt.mockResolvedValue(undefined);
 
       await sequencer.work();
       // When it's not our turn, we should not build the checkpoint
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
 
       // Now it's our turn!
-      publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      publisher.canProposeAt.mockResolvedValue({
         slot: block.header.globalVariables.slotNumber,
         checkpointNumber: CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber),
         timeOfNextL1Slot: 1000n,
@@ -474,7 +486,7 @@ describe('sequencer', () => {
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
-        pub.canProposeAtNextEthBlock.mockResolvedValue({
+        pub.canProposeAt.mockResolvedValue({
           slot: SlotNumber(newSlotNumber + i),
           checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(newBlockNumber)),
           timeOfNextL1Slot: 1000n,
@@ -491,8 +503,34 @@ describe('sequencer', () => {
       // Configure epoch cache to return different slots
       epochCache.getEpochAndSlotInNextL1Slot
         .mockReset()
-        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(1), ts: 1000n, now: 1000n })
-        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 1000n, now: 1000n });
+        .mockReturnValueOnce({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(1),
+          ts: 1000n,
+          nowSeconds: 1000n,
+        })
+        .mockReturnValueOnce({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(2),
+          ts: 1000n,
+          nowSeconds: 1000n,
+        });
+      epochCache.getTargetSlot.mockReset().mockReturnValueOnce(SlotNumber(1)).mockReturnValueOnce(SlotNumber(2));
+      epochCache.getTargetEpoch.mockReturnValue(EpochNumber(1));
+      epochCache.getTargetEpochAndSlotInNextL1Slot
+        .mockReset()
+        .mockReturnValueOnce({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(1),
+          ts: 1000n,
+          nowSeconds: 1000n,
+        })
+        .mockReturnValueOnce({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(2),
+          ts: 1000n,
+          nowSeconds: 1000n,
+        });
 
       sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
 
@@ -887,6 +925,35 @@ describe('sequencer', () => {
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
   });
+
+  describe('view-based proposer lookup', () => {
+    it('passes target slot to getProposerAttesterAddressInSlot', async () => {
+      const proposer = signer.address;
+      validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+
+      await sequencer.checkCanProposeForTest(SlotNumber(2));
+
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
+    });
+
+    it('when pipelining enabled, checkCanPropose receives target slot with pipeline offset', async () => {
+      const proposer = signer.address;
+      validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(2),
+        ts: 1000n,
+        nowSeconds: 1000n,
+      });
+
+      await sequencer.checkCanProposeForTest(SlotNumber(2));
+
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
+    });
+  });
 });
 
 class TestSequencer extends Sequencer {
@@ -901,5 +968,9 @@ class TestSequencer extends Sequencer {
   public override work() {
     this.setState(SequencerState.IDLE, undefined, { force: true });
     return super.work();
+  }
+
+  public checkCanProposeForTest(slot: SlotNumber) {
+    return this.checkCanPropose(slot);
   }
 }

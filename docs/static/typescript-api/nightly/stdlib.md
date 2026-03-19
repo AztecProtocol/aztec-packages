@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260317
+Version: v5.0.0-nightly.20260318
 
 ## Quick Import Reference
 
@@ -2945,10 +2945,22 @@ function computeSecretHash(secret: Fr) => Promise<Fr>
 ```
 Computes a hash of a secret.
 
+### computeSiloedPrivateInitializationNullifier
+```typescript
+function computeSiloedPrivateInitializationNullifier(contract: AztecAddress, initializationHash: Fr) => Promise<Fr>
+```
+Computes the siloed private initialization nullifier for a contract, given its address and initialization hash.
+
 ### computeSiloedPrivateLogFirstField
 ```typescript
 function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr) => Promise<Fr>
 ```
+
+### computeSiloedPublicInitializationNullifier
+```typescript
+function computeSiloedPublicInitializationNullifier(contract: AztecAddress) => Promise<Fr>
+```
+Computes the siloed public initialization nullifier for a contract. Not all contracts emit this nullifier: it is only emitted when the contract has public functions that perform initialization checks (i.e. external public functions that are not `#[noinitcheck]` or `#[only_self]`).
 
 ### computeUniqueNoteHash
 ```typescript

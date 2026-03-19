@@ -25,7 +25,12 @@ function build_native {
   set -euo pipefail
 
   if ! cache_download noir-$hash.tar.gz; then
-    (cd noir-repo && cargo build --locked --release --target-dir target)
+    # Serialize cargo operations to avoid race conditions with avm-transpiler
+    # which may run in parallel and share the same CARGO_HOME.
+    (
+      flock -x 200
+      cd noir-repo && cargo build --locked --release --target-dir target
+    ) 200>/tmp/rustup.lock
     cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
   fi
 }

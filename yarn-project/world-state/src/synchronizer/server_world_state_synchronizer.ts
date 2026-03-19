@@ -388,6 +388,18 @@ export class ServerWorldStateSynchronizer
 
   private async handleChainFinalized(blockNumber: BlockNumber) {
     this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
+    // If the finalized block number is older than the oldest available block in world state,
+    // skip entirely. The finalized block number can jump backwards (e.g. when the finalization
+    // heuristic changes) and try to read block data that has already been pruned. When this
+    // happens, there is nothing useful to do — the native world state is already finalized
+    // past this point and pruning has already happened.
+    const currentSummary = await this.merkleTreeDb.getStatusSummary();
+    if (blockNumber < currentSummary.oldestHistoricalBlock || blockNumber < 1) {
+      this.log.trace(
+        `Finalized block ${blockNumber} is older than the oldest available block ${currentSummary.oldestHistoricalBlock}. Skipping.`,
+      );
+      return;
+    }
     const summary = await this.merkleTreeDb.setFinalized(blockNumber);
     if (this.historyToKeep === undefined) {
       return;
@@ -421,6 +433,12 @@ export class ServerWorldStateSynchronizer
     }
     // Find the block at the start of the checkpoint and remove blocks up to this one
     const newHistoricBlock = historicCheckpoint.checkpoint.blocks[0];
+    if (newHistoricBlock.number <= currentSummary.oldestHistoricalBlock) {
+      this.log.debug(
+        `Historic block ${newHistoricBlock.number} is not newer than oldest available ${currentSummary.oldestHistoricalBlock}. Skipping prune.`,
+      );
+      return;
+    }
     this.log.verbose(`Pruning historic blocks to ${newHistoricBlock.number}`);
     const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock.number));
     this.log.debug(`World state summary `, status.summary);

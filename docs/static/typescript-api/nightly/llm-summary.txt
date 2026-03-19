@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0-nightly.20260317
-Generated: 2026-03-17T04:44:30.479Z
+Version: v5.0.0-nightly.20260318
+Generated: 2026-03-18T04:48:36.598Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -53,7 +53,7 @@ Exports: 3 classes, 2 functions, 2 types
   - Proof types and verification
   - Kernel circuit types
   - Tree structures (note hash, nullifier, public data)
-Exports: 90 classes, 38 interfaces, 128 functions, 112 types
+Exports: 90 classes, 38 interfaces, 130 functions, 112 types
 Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
 
 **@aztec/foundation** - Low-level utilities and primitives

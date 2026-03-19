@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: v5.0.0-nightly.20260317
+Version: v5.0.0-nightly.20260318
 
 ## Quick Import Reference
 
@@ -54,7 +54,7 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated. `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
@@ -105,7 +105,7 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated. `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
