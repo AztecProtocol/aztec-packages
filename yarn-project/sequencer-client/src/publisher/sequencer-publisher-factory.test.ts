@@ -34,6 +34,7 @@ describe('SequencerPublisherFactory', () => {
   beforeEach(() => {
     mockConfig = {
       ethereumSlotDuration: 12,
+      aztecSlotDuration: 36,
     } as SequencerClientConfig;
     mockPublisherManager = mock<PublisherManager<L1TxUtils>>();
     mockBlobClient = mock<BlobClientInterface>();

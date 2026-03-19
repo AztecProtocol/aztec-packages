@@ -242,6 +242,9 @@ class SumcheckTestFlavor_ {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); }
         auto get_witness() const { return WitnessEntities<DataType>::get_all(); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); }
+        auto get_masked() { return WitnessEntities<DataType>::get_all(); }
+        auto get_masked() const { return WitnessEntities<DataType>::get_all(); }
     };
 
     /**

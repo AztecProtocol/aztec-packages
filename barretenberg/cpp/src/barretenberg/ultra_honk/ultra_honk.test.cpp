@@ -1,6 +1,7 @@
 #include "ultra_honk.test.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 #include <gtest/gtest.h>
 
@@ -478,5 +479,51 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         }
 
         EXPECT_TRUE(found_jump) << "should have found a dyadic size jump within " << baseline_dyadic << " extra gates";
+    }
+}
+
+/**
+ * @brief Verify that masked witness commitments differ from naive poly commits, and unmasked are equal.
+ * @details For ZK flavors, MaskingTailData adds random tail values that shift masked commitments away
+ * from commit(short_poly). Unmasked witness poly commitments should match exactly.
+ */
+TYPED_TEST(UltraHonkTests, MaskingTailCommitments)
+{
+    using Flavor = TypeParam;
+    if constexpr (!Flavor::HasZK) {
+        GTEST_SKIP() << "Masking only applies to ZK flavors";
+    } else {
+        using Builder = typename Flavor::CircuitBuilder;
+        using IO = typename TestFixture::IO;
+        using CommitmentKey = typename Flavor::CommitmentKey;
+
+        auto builder = Builder{};
+        IO::add_default(builder);
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+
+        // Run oink to populate commitments
+        auto transcript = std::make_shared<typename Flavor::Transcript>();
+        OinkProver<Flavor> oink(prover_instance, verification_key, transcript);
+        oink.prove();
+
+        CommitmentKey ck(prover_instance->dyadic_size());
+
+        // Masked polys: commit(poly) should differ from stored commitment (tail was added)
+        auto masked_polys = prover_instance->polynomials.get_masked();
+        auto masked_commitments = prover_instance->commitments.get_masked();
+        for (auto [poly, commitment] : zip_view(masked_polys, masked_commitments)) {
+            EXPECT_NE(ck.commit(poly), commitment) << "Masked commitment should differ from naive commit";
+        }
+
+        // All witness polys: unmasked should have commit(poly) == stored commitment
+        auto witness_polys = prover_instance->polynomials.get_witness();
+        auto witness_commitments = prover_instance->commitments.get_all();
+        auto witness_flags = prover_instance->masking_tail_data.is_masked.get_witness();
+        for (auto [poly, commitment, is_masked] : zip_view(witness_polys, witness_commitments, witness_flags)) {
+            if (!is_masked && !commitment.is_point_at_infinity()) {
+                EXPECT_EQ(ck.commit(poly), commitment) << "Unmasked witness commitment should equal naive commit";
+            }
+        }
     }
 }

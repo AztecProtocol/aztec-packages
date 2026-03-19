@@ -641,6 +641,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_invalidateContractSyncCache(
+    [contractAddress]: ACVMField[],
+    scopes: ACVMField[],
+    [scopeCount]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const scopeAddresses = scopes.slice(0, +scopeCount).map(s => AztecAddress.fromField(Fr.fromString(s)));
+    this.handlerAsUtility().invalidateContractSyncCache(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      scopeAddresses,
+    );
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_emitOffchainEffect(data: ACVMField[]) {
     await this.handlerAsUtility().emitOffchainEffect(data.map(Fr.fromString));
     return [];

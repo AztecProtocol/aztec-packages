@@ -49,7 +49,6 @@ export interface BatchTxRequesterOptions {
   //Injectable for testing purposes
   semaphore?: ISemaphore;
   peerCollection?: IPeerCollection;
-  abortSignal?: AbortSignal;
   /** Optional tx validator for testing - if not provided, one is created from p2pService.txValidatorConfig */
   txValidator?: IBatchRequestTxValidator;
 }

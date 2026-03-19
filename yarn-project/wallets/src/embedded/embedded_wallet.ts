@@ -1,22 +1,26 @@
 import { type Account, SignerlessAccount } from '@aztec/aztec.js/account';
-import type { Aliased } from '@aztec/aztec.js/wallet';
+import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
+import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
+import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
-import type { AccessScopes, PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
+import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import {
   ExecutionPayload,
   SimulationOverrides,
   type TxSimulationResult,
+  collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
-import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { type AccountType, WalletDB } from './wallet_db.js';
@@ -32,7 +36,11 @@ export type EmbeddedWalletOptions = {
   pxeOptions?: PXECreationOptions;
 };
 
+const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
+
 export class EmbeddedWallet extends BaseWallet {
+  protected estimatedGasPadding = DEFAULT_ESTIMATED_GAS_PADDING;
+
   constructor(
     pxe: PXE,
     aztecNode: AztecNode,
@@ -80,18 +88,76 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
+   * Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation
+   * estimates actual gas usage and captures call authorization requests to generate
+   * the necessary authwitnesses.
+   */
+  public override async sendTx<W extends InteractionWaitOptions = undefined>(
+    executionPayload: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>> {
+    const feeOptions = await this.completeFeeOptionsForEstimation(
+      opts.from,
+      executionPayload.feePayer,
+      opts.fee?.gasSettings,
+    );
+
+    // Simulate the transaction first to estimate gas and capture required
+    // private authwitnesses based on offchain effects.
+    const simulationResult = await this.simulateViaEntrypoint(executionPayload, {
+      from: opts.from,
+      feeOptions,
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      skipTxValidation: true,
+    });
+
+    const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
+    const authWitnesses = await Promise.all(
+      offchainEffects.map(async effect => {
+        try {
+          const authRequest = await CallAuthorizationRequest.fromFields(effect.data);
+          return this.createAuthWit(opts.from, {
+            consumer: effect.contractAddress,
+            innerHash: authRequest.innerHash,
+          });
+        } catch {
+          return undefined;
+        }
+      }),
+    );
+    for (const authwit of authWitnesses) {
+      if (authwit) {
+        executionPayload.authWitnesses.push(authwit);
+      }
+    }
+    const estimated = getGasLimits(simulationResult, this.estimatedGasPadding);
+    this.log.verbose(
+      `Estimated gas limits for tx: DA=${estimated.gasLimits.daGas} L2=${estimated.gasLimits.l2Gas} teardownDA=${estimated.teardownGasLimits.daGas} teardownL2=${estimated.teardownGasLimits.l2Gas}`,
+    );
+    const gasSettings = GasSettings.from({
+      ...opts.fee?.gasSettings,
+      maxFeesPerGas: feeOptions.gasSettings.maxFeesPerGas,
+      maxPriorityFeesPerGas: feeOptions.gasSettings.maxPriorityFeesPerGas,
+      gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
+      teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
+    });
+    return super.sendTx(executionPayload, {
+      ...opts,
+      fee: { ...opts.fee, gasSettings },
+    });
+  }
+
+  /**
    * Simulates calls via a stub account entrypoint, bypassing real account authorization.
    * This allows kernelless simulation with contract overrides, skipping expensive
    * private kernel circuit execution.
    */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
+    opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResult> {
+    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+
     let overrides: SimulationOverrides | undefined;
     let fromAccount: Account;
     if (!from.equals(AztecAddress.ZERO)) {
@@ -218,6 +284,10 @@ export class EmbeddedWallet extends BaseWallet {
 
   setMinFeePadding(value?: number) {
     this.minFeePadding = value ?? 0.5;
+  }
+
+  setEstimatedGasPadding(value?: number) {
+    this.estimatedGasPadding = value ?? DEFAULT_ESTIMATED_GAS_PADDING;
   }
 
   stop() {

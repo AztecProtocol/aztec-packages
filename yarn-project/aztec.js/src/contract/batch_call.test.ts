@@ -146,7 +146,7 @@ describe('BatchCall', () => {
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       // Verify wallet.batch was called once with both utility calls AND simulateTx
       expect(wallet.batch).toHaveBeenCalledTimes(1);
@@ -212,7 +212,7 @@ describe('BatchCall', () => {
         { name: 'executeUtility', result: utilityResult2 },
       ] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
@@ -247,7 +247,7 @@ describe('BatchCall', () => {
       const utilityResult = UtilityExecutionResult.random();
       wallet.batch.mockResolvedValue([{ name: 'executeUtility', result: utilityResult }] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(results).toHaveLength(1);
       expect(results[0].offchainEffects).toEqual([]);
@@ -307,7 +307,7 @@ describe('BatchCall', () => {
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
       expect(results).toHaveLength(3);
 
       expect(results[0].offchainMessages).toEqual([
@@ -349,7 +349,7 @@ describe('BatchCall', () => {
 
       wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
@@ -376,7 +376,7 @@ describe('BatchCall', () => {
     it('should handle empty batch', async () => {
       batchCall = new BatchCall(wallet, []);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).not.toHaveBeenCalled();
       expect(results).toEqual([]);
