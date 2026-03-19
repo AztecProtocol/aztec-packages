@@ -120,6 +120,8 @@ template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<MegaAvmFlavor>;
+template class TraceToPolynomials<DualMegaFlavor>;
+template class TraceToPolynomials<DualMegaZKFlavor>;
 template class TraceToPolynomials<MultiMegaFlavor>;
 template class TraceToPolynomials<MultiMegaZKFlavor>;
 

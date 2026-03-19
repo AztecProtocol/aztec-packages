@@ -94,6 +94,7 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
 };
 
 using MegaZKFlavor = MegaZKFlavor_<1>;
+using DualMegaZKFlavor = MegaZKFlavor_<2>;
 using MultiMegaZKFlavor = MegaZKFlavor_<4>;
 
 } // namespace bb

@@ -29,6 +29,8 @@ using FlavorTypes = ::testing::Types<UltraFlavor,
                                      UltraKeccakZKFlavor,
                                      MegaFlavor,
                                      MegaZKFlavor,
+                                     DualMegaFlavor,
+                                     DualMegaZKFlavor,
                                      MultiMegaFlavor,
                                      MultiMegaZKFlavor>;
 #else
@@ -38,6 +40,8 @@ using FlavorTypes = ::testing::Types<UltraFlavor,
                                      UltraKeccakZKFlavor,
                                      MegaFlavor,
                                      MegaZKFlavor,
+                                     DualMegaFlavor,
+                                     DualMegaZKFlavor,
                                      MultiMegaFlavor,
                                      MultiMegaZKFlavor>;
 #endif
@@ -230,22 +234,45 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
         // MegaZK flavors do not send masking in oink (translator provides it in the batched flow)
-        manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA_TAGS", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA", frs_per_G);
+        if constexpr (Flavor::INTERLEAVING_BATCH_SIZE == 2) {
+            manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES_1", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES_2", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA_TAGS", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_SCD_TAGS", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA_TAGS", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA", frs_per_G);
+        } else {
+            manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA_TAGS", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA", frs_per_G);
+        }
         manifest_expected.add_challenge(round, "eta");
 
         round++;
-        manifest_expected.add_entry(round, "INTERLEAVED_W_4", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_LOOKUP", frs_per_G);
+        if constexpr (Flavor::INTERLEAVING_BATCH_SIZE == 2) {
+            manifest_expected.add_entry(round, "INTERLEAVED_LOOKUP", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_W_O", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_W_4", frs_per_G);
+        } else {
+            manifest_expected.add_entry(round, "INTERLEAVED_W_4", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_LOOKUP", frs_per_G);
+        }
         manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
-        manifest_expected.add_entry(round, "INTERLEAVED_INVERSES", frs_per_G);
+        if constexpr (Flavor::INTERLEAVING_BATCH_SIZE == 2) {
+            manifest_expected.add_entry(round, "INTERLEAVED_INVERSES_1", frs_per_G);
+            manifest_expected.add_entry(round, "INTERLEAVED_INVERSES_2", frs_per_G);
+        } else {
+            manifest_expected.add_entry(round, "INTERLEAVED_INVERSES", frs_per_G);
+        }
         manifest_expected.add_entry(round, "INTERLEAVED_Z_PERM", frs_per_G);
         manifest_expected.add_challenge(round, "alpha");
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
@@ -272,8 +299,9 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
         }
 
         // Interleaving challenges are in the evaluations round
-        manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_0");
-        manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_1");
+        for (size_t i = 0; i < Flavor::INTERLEAVING_LOG_K; ++i) {
+            manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_" + std::to_string(i));
+        }
 
         if constexpr (Flavor::HasZK) {
             // SmallSubgroupIPA sends commitments after interleaving challenges → new round

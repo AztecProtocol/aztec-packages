@@ -640,6 +640,7 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
 // ============================================================
 
 using MegaFlavor = MegaFlavor_<1>;
+using DualMegaFlavor = MegaFlavor_<2>;
 using MultiMegaFlavor = MegaFlavor_<4>;
 
 } // namespace bb

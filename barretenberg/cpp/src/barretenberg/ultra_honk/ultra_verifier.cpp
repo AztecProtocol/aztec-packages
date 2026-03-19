@@ -384,6 +384,9 @@ template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
+template class UltraVerifier_<DualMegaFlavor, DefaultIO>;
+template class UltraVerifier_<DualMegaZKFlavor, DefaultIO>;
+template class UltraVerifier_<DualMegaZKFlavor, HidingKernelIO>;
 template class UltraVerifier_<MultiMegaFlavor, DefaultIO>;
 template class UltraVerifier_<MultiMegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MultiMegaZKFlavor, HidingKernelIO>;
@@ -429,6 +432,18 @@ template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
 // MegaRecursiveFlavor with GoblinAvmIO
 template class UltraVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::GoblinAvmIO<UltraCircuitBuilder>>;
+
+// DualMega recursive flavors
+template class UltraVerifier_<DualMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
+template class UltraVerifier_<DualMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
+template class UltraVerifier_<DualMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
+template class UltraVerifier_<DualMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                              stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
+template class UltraVerifier_<DualMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
 // MultiMega recursive flavors
 template class UltraVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,

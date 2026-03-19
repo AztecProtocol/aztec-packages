@@ -216,6 +216,8 @@ template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
 template class UltraProver_<MegaAvmFlavor>;
+template class UltraProver_<DualMegaFlavor>;
+template class UltraProver_<DualMegaZKFlavor>;
 template class UltraProver_<MultiMegaFlavor>;
 template class UltraProver_<MultiMegaZKFlavor>;
 

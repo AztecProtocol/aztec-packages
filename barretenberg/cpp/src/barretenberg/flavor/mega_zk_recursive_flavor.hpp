@@ -73,4 +73,38 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
     using InterleavedPrecomputed = typename MultiMegaRecursiveFlavor_<BuilderType>::InterleavedPrecomputed;
 };
 
+/**
+ * @brief Recursive counterpart to DualMegaZKFlavor (BS=2 interleaved + ZK).
+ */
+template <typename BuilderType> class DualMegaZKRecursiveFlavor_ : public DualMegaRecursiveFlavor_<BuilderType> {
+  public:
+    using NativeFlavor = DualMegaZKFlavor;
+    using Commitment = typename DualMegaRecursiveFlavor_<BuilderType>::Commitment;
+    using VerificationKey = typename DualMegaRecursiveFlavor_<BuilderType>::VerificationKey;
+    using FF = typename DualMegaRecursiveFlavor_<BuilderType>::FF;
+
+    static constexpr bool HasZK = true;
+    static constexpr bool HasGeminiMasking = false;
+
+    static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
+
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
+
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
+    }
+
+    class AllValues : public NativeFlavor::template AllEntities<FF> {
+      public:
+        using Base = NativeFlavor::template AllEntities<FF>;
+        using Base::Base;
+    };
+
+    // Use false for masking parameter — MegaZK has no masking entities (translator provides masking)
+    using VerifierCommitments = DualMegaFlavor::VerifierCommitments_<Commitment, VerificationKey, false>;
+    using InterleavedPrecomputed = typename DualMegaRecursiveFlavor_<BuilderType>::InterleavedPrecomputed;
+};
+
 } // namespace bb

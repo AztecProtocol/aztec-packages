@@ -16,18 +16,24 @@ template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
 #endif
 template <typename T>
-concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor,  MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
+concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor,  MegaZKFlavor, MegaAvmFlavor, DualMegaFlavor, DualMegaZKFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
 
 template <typename T>
 concept IsMultiMegaFlavor = requires { T::INTERLEAVING_BATCH_SIZE; } && (T::INTERLEAVING_BATCH_SIZE > 1);
 
 template <typename T>
-concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, MultiMegaFlavor, MultiMegaZKFlavor,
+concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
+                                    DualMegaFlavor, DualMegaZKFlavor,
+                                    MultiMegaFlavor, MultiMegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                    DualMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                    DualMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                    DualMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                    DualMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
                                     MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
@@ -55,6 +61,10 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                       DualMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                       DualMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                       DualMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                       DualMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
                                        MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,

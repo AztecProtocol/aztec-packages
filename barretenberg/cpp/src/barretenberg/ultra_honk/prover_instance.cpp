@@ -361,6 +361,8 @@ template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;
+template class ProverInstance_<DualMegaFlavor>;
+template class ProverInstance_<DualMegaZKFlavor>;
 template class ProverInstance_<MultiMegaFlavor>;
 template class ProverInstance_<MultiMegaZKFlavor>;
 

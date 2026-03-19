@@ -445,6 +445,7 @@ Polynomial<typename Flavor::Curve::ScalarField> SmallSubgroupIPAProver<Flavor>::
 template class SmallSubgroupIPAProver<ECCVMFlavor>;
 template class SmallSubgroupIPAProver<TranslatorFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
+template class SmallSubgroupIPAProver<DualMegaZKFlavor>;
 template class SmallSubgroupIPAProver<MultiMegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;

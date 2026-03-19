@@ -20,7 +20,8 @@ using namespace bb;
 
 auto& engine = numeric::get_debug_randomness();
 
-using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
+using FlavorTypes =
+    ::testing::Types<MegaFlavor, MegaZKFlavor, DualMegaFlavor, DualMegaZKFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
 
 template <typename Flavor> class MegaHonkTests : public ::testing::Test {
   public:
@@ -166,21 +167,35 @@ TYPED_TEST(MegaHonkTests, InterleavedStorageEntityBufferConsistency)
         auto& polys = prover_instance->polynomials;
         const size_t n = prover_instance->dyadic_size();
 
-        // Check that build_interleaved_polynomial correctly interleaves W1: [w_l, w_r, w_o, nullptr]
-        std::vector<const Poly*> w1_group = { &polys.w_l, &polys.w_r, &polys.w_o, nullptr };
+        // Check that build_interleaved_polynomial correctly interleaves a shiftable wire group
+        std::vector<const Poly*> w1_group;
+        size_t w1_nonzero;
+        if constexpr (BS == 2) {
+            w1_group = { &polys.w_l, &polys.w_r };
+            w1_nonzero = 2;
+        } else {
+            w1_group = { &polys.w_l, &polys.w_r, &polys.w_o, nullptr };
+            w1_nonzero = 3;
+        }
         auto w1_buf = ProverPolynomials::build_interleaved_polynomial(w1_group, n, BS, /*shiftable=*/true);
-        for (size_t j = 0; j < 3; j++) {
+        for (size_t j = 0; j < w1_nonzero; j++) {
             for (size_t i = 0; i < n; i++) {
                 ASSERT_EQ(w1_group[j]->get(i), w1_buf.get(BS * i + j)) << "W1 mismatch at entity=" << j << " row=" << i;
             }
         }
 
-        // Check W2: [ecc_op_wire_1..4]
-        std::vector<const Poly*> w2_group = {
-            &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4
-        };
+        // Check an ecc_op_wire group
+        std::vector<const Poly*> w2_group;
+        size_t w2_nonzero;
+        if constexpr (BS == 2) {
+            w2_group = { &polys.ecc_op_wire_1, &polys.ecc_op_wire_2 };
+            w2_nonzero = 2;
+        } else {
+            w2_group = { &polys.ecc_op_wire_1, &polys.ecc_op_wire_2, &polys.ecc_op_wire_3, &polys.ecc_op_wire_4 };
+            w2_nonzero = 4;
+        }
         auto w2_buf = ProverPolynomials::build_interleaved_polynomial(w2_group, n, BS);
-        for (size_t j = 0; j < 4; j++) {
+        for (size_t j = 0; j < w2_nonzero; j++) {
             for (size_t i = 0; i < n; i++) {
                 ASSERT_EQ(w2_group[j]->get(i), w2_buf.get(BS * i + j)) << "W2 mismatch at entity=" << j << " row=" << i;
             }

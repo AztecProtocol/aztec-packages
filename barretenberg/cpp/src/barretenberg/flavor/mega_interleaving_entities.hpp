@@ -47,6 +47,11 @@ template <typename DataType> struct MegaMaskingEntities_<DataType, 1, true> {
     DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
 };
 
+// BS=2, ZK: 2 masking chunk polynomials
+template <typename DataType> struct MegaMaskingEntities_<DataType, 2, true> {
+    DEFINE_FLAVOR_MEMBERS(DataType, masking_chunk_0, masking_chunk_1)
+};
+
 // BS=4, ZK: 4 masking chunk polynomials
 template <typename DataType> struct MegaMaskingEntities_<DataType, 4, true> {
     DEFINE_FLAVOR_MEMBERS(DataType, masking_chunk_0, masking_chunk_1, masking_chunk_2, masking_chunk_3)
@@ -71,6 +76,61 @@ template <typename DataType, bool HasZK> class MegaInterleavedWitnessCommitments
     static auto get_labels() { return std::vector<std::string>{}; }
     auto get_shiftable() { return RefArray<DataType, 0>{}; }
     auto get_shiftable() const { return RefArray<const DataType, 0>{}; }
+};
+
+// BS=2, non-ZK: 15 interleaved witness commitments
+template <typename DataType> class MegaInterleavedWitnessCommitments_<DataType, 2, false> {
+  public:
+    DEFINE_FLAVOR_MEMBERS(
+        DataType,
+        interleaved_ecc_op_wires_1,     // [ecc_op_wire_1, ecc_op_wire_2] - unshiftable
+        interleaved_ecc_op_wires_2,     // [ecc_op_wire_3, ecc_op_wire_4] - unshiftable
+        interleaved_calldata,           // [calldata, 0] - unshiftable
+        interleaved_secondary_calldata, // [secondary_calldata, 0] - unshiftable
+        interleaved_calldata_tags,      // [calldata_read_counts, calldata_read_tags] - unshiftable
+        interleaved_scd_tags,           // [scd_read_counts, scd_read_tags] - unshiftable
+        interleaved_return_data_tags,   // [return_data_read_tags, return_data_read_counts] - unshiftable
+        interleaved_return_data,        // [return_data, 0] - unshiftable
+        interleaved_lookup,             // [lookup_read_counts, lookup_read_tags] - unshiftable
+        interleaved_inverses_1,         // [lookup_inverses, calldata_inverses] - unshiftable
+        interleaved_inverses_2,         // [scd_inverses, return_data_inverses] - unshiftable
+        interleaved_wires,              // [w_l, w_r] - shiftable
+        interleaved_w_o,                // [w_o, 0] - shiftable
+        interleaved_w_4,                // [w_4, 0] - shiftable
+        interleaved_z_perm)             // [z_perm, 0] - shiftable
+
+    auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_o, interleaved_w_4, interleaved_z_perm }; }
+    auto get_shiftable() const
+    {
+        return RefArray{ interleaved_wires, interleaved_w_o, interleaved_w_4, interleaved_z_perm };
+    }
+    auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires_1, interleaved_ecc_op_wires_2 }; }
+};
+
+// BS=2, ZK: 16 interleaved witness commitments (15 base + masking)
+template <typename DataType> class MegaInterleavedWitnessCommitments_<DataType, 2, true> {
+  public:
+    DEFINE_FLAVOR_MEMBERS(
+        DataType,
+        interleaved_ecc_op_wires_1,     // [ecc_op_wire_1, ecc_op_wire_2] - unshiftable
+        interleaved_ecc_op_wires_2,     // [ecc_op_wire_3, ecc_op_wire_4] - unshiftable
+        interleaved_calldata,           // [calldata, 0] - unshiftable
+        interleaved_secondary_calldata, // [secondary_calldata, 0] - unshiftable
+        interleaved_calldata_tags,      // [calldata_read_counts, calldata_read_tags] - unshiftable
+        interleaved_scd_tags,           // [scd_read_counts, scd_read_tags] - unshiftable
+        interleaved_return_data_tags,   // [return_data_read_tags, return_data_read_counts] - unshiftable
+        interleaved_return_data,        // [return_data, 0] - unshiftable
+        interleaved_lookup,             // [lookup_read_counts, lookup_read_tags] - unshiftable
+        interleaved_inverses_1,         // [lookup_inverses, calldata_inverses] - unshiftable
+        interleaved_inverses_2,         // [scd_inverses, return_data_inverses] - unshiftable
+        masking_commitment,             // masking chunks - unshiftable
+        interleaved_wires,              // [w_l, w_r] - shiftable
+        interleaved_w_o,                // [w_o, 0] - shiftable
+        interleaved_w_4,                // [w_4, 0] - shiftable
+        interleaved_z_perm)             // [z_perm, 0] - shiftable
+
+    auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_o, interleaved_w_4, interleaved_z_perm }; }
+    auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires_1, interleaved_ecc_op_wires_2 }; }
 };
 
 // BS=4, non-ZK: 11 interleaved witness commitments
@@ -135,6 +195,30 @@ template <typename DataType_> class MegaInterleavedPrecomputedCommitments_<DataT
     bool operator==(const MegaInterleavedPrecomputedCommitments_&) const = default;
 };
 
+// BS=2: 16 interleaved precomputed commitments
+template <typename DataType_> class MegaInterleavedPrecomputedCommitments_<DataType_, 2> {
+  public:
+    using DataType = DataType_;
+    DEFINE_FLAVOR_MEMBERS(DataType,
+                          interleaved_precomputed_0,  // P₁:  [q_m, q_c]
+                          interleaved_precomputed_1,  // P₂:  [q_l, q_r]
+                          interleaved_precomputed_2,  // P₃:  [q_o, q_4]
+                          interleaved_precomputed_3,  // P₄:  [q_busread, q_lookup]
+                          interleaved_precomputed_4,  // P₅:  [q_arith, q_delta_range]
+                          interleaved_precomputed_5,  // P₆:  [q_elliptic, q_memory]
+                          interleaved_precomputed_6,  // P₇:  [q_nnf, q_poseidon2_external]
+                          interleaved_precomputed_7,  // P₈:  [q_poseidon2_internal, sigma_1]
+                          interleaved_precomputed_8,  // P₉:  [sigma_2, sigma_3]
+                          interleaved_precomputed_9,  // P₁₀: [sigma_4, id_1]
+                          interleaved_precomputed_10, // P₁₁: [id_2, id_3]
+                          interleaved_precomputed_11, // P₁₂: [id_4, table_1]
+                          interleaved_precomputed_12, // P₁₃: [table_2, table_3]
+                          interleaved_precomputed_13, // P₁₄: [table_4, lagrange_first]
+                          interleaved_precomputed_14, // P₁₅: [lagrange_last, lagrange_ecc_op]
+                          interleaved_precomputed_15) // P₁₆: [databus_id, 0] (1 poly)
+    bool operator==(const MegaInterleavedPrecomputedCommitments_&) const = default;
+};
+
 // BS=4: 8 interleaved precomputed commitments
 template <typename DataType_> class MegaInterleavedPrecomputedCommitments_<DataType_, 4> {
   public:
@@ -162,6 +246,10 @@ template <typename DataType_> class MegaInterleavedPrecomputedCommitments_<DataT
  */
 template <size_t BS, typename Commitment, typename PrecomputedEntitiesCommitment> struct VKPrecomputedType_ {
     using type = PrecomputedEntitiesCommitment; // BS=1 default
+};
+template <typename Commitment, typename PrecomputedEntitiesCommitment>
+struct VKPrecomputedType_<2, Commitment, PrecomputedEntitiesCommitment> {
+    using type = MegaInterleavedPrecomputedCommitments_<Commitment, 2>;
 };
 template <typename Commitment, typename PrecomputedEntitiesCommitment>
 struct VKPrecomputedType_<4, Commitment, PrecomputedEntitiesCommitment> {
@@ -194,6 +282,16 @@ template <> struct VerifierCommitmentsInit_<1> {
                 dest = src;
             }
         }
+    }
+};
+
+template <> struct VerifierCommitmentsInit_<2> {
+    template <typename Self, typename VK, typename WC>
+    static void init(Self&, const std::shared_ptr<VK>&, const std::optional<WC>&)
+    {
+        // For BS > 1: individual precomputed/witness slots are not populated from the VK
+        // because the VK stores interleaved commitments. The verifier uses interleaved
+        // commitments directly for PCS verification.
     }
 };
 
@@ -232,6 +330,30 @@ template <> struct InterleavingConstants_<1> {
     static constexpr size_t final_pcs_msm_size(size_t num_unshifted, size_t log_n) { return num_unshifted + log_n + 2; }
 };
 
+template <> struct InterleavingConstants_<2> {
+    static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS = 16;
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 15;
+    static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
+        NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS + NUM_INTERLEAVED_WITNESS_COMMITMENTS;
+    static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = 4;
+
+    // For BS=2, PCS uses interleaved commitments. Shiftable groups are at the end.
+    static constexpr RepeatedCommitmentsData make_repeated_commitments(size_t /*num_precomputed*/,
+                                                                       size_t /*num_unshifted*/,
+                                                                       size_t /*num_shifted*/)
+    {
+        return RepeatedCommitmentsData(NUM_ALL_INTERLEAVED_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS,
+                                       NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                       NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
+    }
+
+    static constexpr size_t final_pcs_msm_size(size_t /*num_unshifted*/, size_t log_n)
+    {
+        constexpr size_t LOG_K = 1; // log2(2)
+        return NUM_ALL_INTERLEAVED_COMMITMENTS + log_n + LOG_K + 2;
+    }
+};
+
 template <> struct InterleavingConstants_<4> {
     static constexpr size_t NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS = 8;
     static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 11;
@@ -268,6 +390,55 @@ template <size_t BS, bool HasZK>
 class MegaInterleavedCommitmentLabels_ : public MegaInterleavedWitnessCommitments_<std::string, BS, HasZK> {
   public:
     MegaInterleavedCommitmentLabels_() = default;
+};
+
+// BS=2, non-ZK
+template <>
+class MegaInterleavedCommitmentLabels_<2, false> : public MegaInterleavedWitnessCommitments_<std::string, 2, false> {
+  public:
+    MegaInterleavedCommitmentLabels_()
+    {
+        interleaved_wires = "INTERLEAVED_WIRES";
+        interleaved_ecc_op_wires_1 = "INTERLEAVED_ECC_OP_WIRES_1";
+        interleaved_ecc_op_wires_2 = "INTERLEAVED_ECC_OP_WIRES_2";
+        interleaved_calldata = "INTERLEAVED_CALLDATA";
+        interleaved_secondary_calldata = "INTERLEAVED_SECONDARY_CALLDATA";
+        interleaved_calldata_tags = "INTERLEAVED_CALLDATA_TAGS";
+        interleaved_scd_tags = "INTERLEAVED_SCD_TAGS";
+        interleaved_return_data_tags = "INTERLEAVED_RETURN_DATA_TAGS";
+        interleaved_return_data = "INTERLEAVED_RETURN_DATA";
+        interleaved_w_o = "INTERLEAVED_W_O";
+        interleaved_w_4 = "INTERLEAVED_W_4";
+        interleaved_lookup = "INTERLEAVED_LOOKUP";
+        interleaved_inverses_1 = "INTERLEAVED_INVERSES_1";
+        interleaved_inverses_2 = "INTERLEAVED_INVERSES_2";
+        interleaved_z_perm = "INTERLEAVED_Z_PERM";
+    }
+};
+
+// BS=2, ZK (adds masking_commitment)
+template <>
+class MegaInterleavedCommitmentLabels_<2, true> : public MegaInterleavedWitnessCommitments_<std::string, 2, true> {
+  public:
+    MegaInterleavedCommitmentLabels_()
+    {
+        interleaved_wires = "INTERLEAVED_WIRES";
+        interleaved_ecc_op_wires_1 = "INTERLEAVED_ECC_OP_WIRES_1";
+        interleaved_ecc_op_wires_2 = "INTERLEAVED_ECC_OP_WIRES_2";
+        interleaved_calldata = "INTERLEAVED_CALLDATA";
+        interleaved_secondary_calldata = "INTERLEAVED_SECONDARY_CALLDATA";
+        interleaved_calldata_tags = "INTERLEAVED_CALLDATA_TAGS";
+        interleaved_scd_tags = "INTERLEAVED_SCD_TAGS";
+        interleaved_return_data_tags = "INTERLEAVED_RETURN_DATA_TAGS";
+        interleaved_return_data = "INTERLEAVED_RETURN_DATA";
+        interleaved_w_o = "INTERLEAVED_W_O";
+        interleaved_w_4 = "INTERLEAVED_W_4";
+        interleaved_lookup = "INTERLEAVED_LOOKUP";
+        interleaved_inverses_1 = "INTERLEAVED_INVERSES_1";
+        interleaved_inverses_2 = "INTERLEAVED_INVERSES_2";
+        interleaved_z_perm = "INTERLEAVED_Z_PERM";
+        masking_commitment = "Gemini:masking_poly_comm";
+    }
 };
 
 // BS=4, non-ZK
@@ -321,6 +492,30 @@ class MegaInterleavedPrecomputedLabels_ : public MegaInterleavedPrecomputedCommi
     MegaInterleavedPrecomputedLabels_() = default;
 };
 
+// BS=2
+template <> class MegaInterleavedPrecomputedLabels_<2> : public MegaInterleavedPrecomputedCommitments_<std::string, 2> {
+  public:
+    MegaInterleavedPrecomputedLabels_()
+    {
+        interleaved_precomputed_0 = "INTERLEAVED_PRECOMPUTED_0";
+        interleaved_precomputed_1 = "INTERLEAVED_PRECOMPUTED_1";
+        interleaved_precomputed_2 = "INTERLEAVED_PRECOMPUTED_2";
+        interleaved_precomputed_3 = "INTERLEAVED_PRECOMPUTED_3";
+        interleaved_precomputed_4 = "INTERLEAVED_PRECOMPUTED_4";
+        interleaved_precomputed_5 = "INTERLEAVED_PRECOMPUTED_5";
+        interleaved_precomputed_6 = "INTERLEAVED_PRECOMPUTED_6";
+        interleaved_precomputed_7 = "INTERLEAVED_PRECOMPUTED_7";
+        interleaved_precomputed_8 = "INTERLEAVED_PRECOMPUTED_8";
+        interleaved_precomputed_9 = "INTERLEAVED_PRECOMPUTED_9";
+        interleaved_precomputed_10 = "INTERLEAVED_PRECOMPUTED_10";
+        interleaved_precomputed_11 = "INTERLEAVED_PRECOMPUTED_11";
+        interleaved_precomputed_12 = "INTERLEAVED_PRECOMPUTED_12";
+        interleaved_precomputed_13 = "INTERLEAVED_PRECOMPUTED_13";
+        interleaved_precomputed_14 = "INTERLEAVED_PRECOMPUTED_14";
+        interleaved_precomputed_15 = "INTERLEAVED_PRECOMPUTED_15";
+    }
+};
+
 // BS=4
 template <> class MegaInterleavedPrecomputedLabels_<4> : public MegaInterleavedPrecomputedCommitments_<std::string, 4> {
   public:
@@ -351,8 +546,11 @@ static std::array<FF, BS> compute_lagrange_basis_impl([[maybe_unused]] std::span
 {
     if constexpr (BS == 1) {
         return { FF(1) };
+    } else if constexpr (BS == 2) {
+        const auto& u = interleaving_challenges[0];
+        return { FF(1) - u, u };
     } else {
-        static_assert(BS == 4, "Only BS=1 and BS=4 are currently supported");
+        static_assert(BS == 4, "Only BS=1, BS=2, and BS=4 are currently supported");
         const auto& u0 = interleaving_challenges[0];
         const auto& u1 = interleaving_challenges[1];
         auto one_minus_u0 = FF(1) - u0;
@@ -416,6 +614,81 @@ template <> struct GroupAccessors_<1> {
             groups.push_back(Group{ &shifted[i] });
         }
         return groups;
+    }
+};
+
+// BS=2: explicit interleaved groups of 2
+template <> struct GroupAccessors_<2> {
+    /**
+     * @brief Return interleaved groups of pointers into entities for PCS batching.
+     * @details Order: 16 precomputed groups (P₁-P₁₆) + 15 witness groups.
+     *          Shiftable groups (wires, w_o, w_4, z_perm) are placed at the end for REPEATED_COMMITMENTS.
+     */
+    template <bool IsConst, typename Entities> static auto get_unshifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Ptr = std::conditional_t<IsConst, T const*, T*>;
+        using Group = std::vector<Ptr>;
+        return std::vector<Group>{
+            // P₁-P₁₆: precomputed (sequential pairs of PrecomputedEntities)
+            { &e.q_m, &e.q_c },
+            { &e.q_l, &e.q_r },
+            { &e.q_o, &e.q_4 },
+            { &e.q_busread, &e.q_lookup },
+            { &e.q_arith, &e.q_delta_range },
+            { &e.q_elliptic, &e.q_memory },
+            { &e.q_nnf, &e.q_poseidon2_external },
+            { &e.q_poseidon2_internal, &e.sigma_1 },
+            { &e.sigma_2, &e.sigma_3 },
+            { &e.sigma_4, &e.id_1 },
+            { &e.id_2, &e.id_3 },
+            { &e.id_4, &e.table_1 },
+            { &e.table_2, &e.table_3 },
+            { &e.table_4, &e.lagrange_first },
+            { &e.lagrange_last, &e.lagrange_ecc_op },
+            { &e.databus_id, nullptr },
+            // Unshiftable witness groups
+            { &e.ecc_op_wire_1, &e.ecc_op_wire_2 },
+            { &e.ecc_op_wire_3, &e.ecc_op_wire_4 },
+            { &e.calldata, nullptr },
+            { &e.secondary_calldata, nullptr },
+            { &e.calldata_read_counts, &e.calldata_read_tags },
+            { &e.secondary_calldata_read_counts, &e.secondary_calldata_read_tags },
+            { &e.return_data_read_tags, &e.return_data_read_counts },
+            { &e.return_data, nullptr },
+            { &e.lookup_read_counts, &e.lookup_read_tags },
+            { &e.lookup_inverses, &e.calldata_inverses },
+            { &e.secondary_calldata_inverses, &e.return_data_inverses },
+            // Shiftable witness groups at end
+            { &e.w_l, &e.w_r },
+            { &e.w_o, nullptr },
+            { &e.w_4, nullptr },
+            { &e.z_perm, nullptr },
+        };
+    }
+
+    template <typename Entities> static auto get_to_be_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        return std::vector<Group>{
+            { &e.w_l, &e.w_r },
+            { &e.w_o, nullptr },
+            { &e.w_4, nullptr },
+            { &e.z_perm, nullptr },
+        };
+    }
+
+    template <typename Entities> static auto get_shifted_groups(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T const*>;
+        return std::vector<Group>{
+            { &e.w_l_shift, &e.w_r_shift },
+            { &e.w_o_shift, nullptr },
+            { &e.w_4_shift, nullptr },
+            { &e.z_perm_shift, nullptr },
+        };
     }
 };
 
@@ -568,6 +841,112 @@ template <> struct OinkWitnessRounds_<1> {
         using D = OinkGroupDescriptor<Ptr>;
         return std::vector<D>{
             { { &e.z_perm }, "Z_PERM" },
+        };
+    }
+};
+
+template <> struct OinkWitnessRounds_<2> {
+  private:
+    template <typename E>
+    using Ptr = std::conditional_t<std::is_const_v<E>,
+                                   std::decay_t<decltype(std::declval<E&>().get_all()[0])> const*,
+                                   std::decay_t<decltype(std::declval<E&>().get_all()[0])>*>;
+    template <typename E> using D = OinkGroupDescriptor<Ptr<E>>;
+
+  public:
+    // Overloads for entity-level types (ProverPolynomials, MaskingTailData::tails)
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto wires(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.w_l, &e.w_r }, "INTERLEAVED_WIRES" },
+            { { &e.ecc_op_wire_1, &e.ecc_op_wire_2 }, "INTERLEAVED_ECC_OP_WIRES_1" },
+            { { &e.ecc_op_wire_3, &e.ecc_op_wire_4 }, "INTERLEAVED_ECC_OP_WIRES_2" },
+            { { &e.calldata, nullptr }, "INTERLEAVED_CALLDATA" },
+            { { &e.secondary_calldata, nullptr }, "INTERLEAVED_SECONDARY_CALLDATA" },
+            { { &e.calldata_read_counts, &e.calldata_read_tags }, "INTERLEAVED_CALLDATA_TAGS" },
+            { { &e.secondary_calldata_read_counts, &e.secondary_calldata_read_tags }, "INTERLEAVED_SCD_TAGS" },
+            { { &e.return_data_read_tags, &e.return_data_read_counts }, "INTERLEAVED_RETURN_DATA_TAGS" },
+            { { &e.return_data, nullptr }, "INTERLEAVED_RETURN_DATA" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto lookup_and_w4(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.lookup_read_counts, &e.lookup_read_tags }, "INTERLEAVED_LOOKUP" },
+            { { &e.w_o, nullptr }, "INTERLEAVED_W_O" },
+            { { &e.w_4, nullptr }, "INTERLEAVED_W_4" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto inverses(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.lookup_inverses, &e.calldata_inverses }, "INTERLEAVED_INVERSES_1" },
+            { { &e.secondary_calldata_inverses, &e.return_data_inverses }, "INTERLEAVED_INVERSES_2" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto z_perm(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.z_perm, nullptr }, "INTERLEAVED_Z_PERM" },
+        };
+    }
+
+    // Overloads for commitment-level types (InterleavedWitnessCommitments)
+    template <typename E>
+        requires requires(E& e) { e.interleaved_wires; }
+    static auto wires(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_wires }, "INTERLEAVED_WIRES" },
+            { { &e.interleaved_ecc_op_wires_1 }, "INTERLEAVED_ECC_OP_WIRES_1" },
+            { { &e.interleaved_ecc_op_wires_2 }, "INTERLEAVED_ECC_OP_WIRES_2" },
+            { { &e.interleaved_calldata }, "INTERLEAVED_CALLDATA" },
+            { { &e.interleaved_secondary_calldata }, "INTERLEAVED_SECONDARY_CALLDATA" },
+            { { &e.interleaved_calldata_tags }, "INTERLEAVED_CALLDATA_TAGS" },
+            { { &e.interleaved_scd_tags }, "INTERLEAVED_SCD_TAGS" },
+            { { &e.interleaved_return_data_tags }, "INTERLEAVED_RETURN_DATA_TAGS" },
+            { { &e.interleaved_return_data }, "INTERLEAVED_RETURN_DATA" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.interleaved_w_4; }
+    static auto lookup_and_w4(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_lookup }, "INTERLEAVED_LOOKUP" },
+            { { &e.interleaved_w_o }, "INTERLEAVED_W_O" },
+            { { &e.interleaved_w_4 }, "INTERLEAVED_W_4" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.interleaved_inverses_1; }
+    static auto inverses(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_inverses_1 }, "INTERLEAVED_INVERSES_1" },
+            { { &e.interleaved_inverses_2 }, "INTERLEAVED_INVERSES_2" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.interleaved_z_perm; }
+    static auto z_perm(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_z_perm }, "INTERLEAVED_Z_PERM" },
         };
     }
 };

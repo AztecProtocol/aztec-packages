@@ -279,6 +279,8 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
 template class OinkProver<MegaAvmFlavor>;
+template class OinkProver<DualMegaFlavor>;
+template class OinkProver<DualMegaZKFlavor>;
 template class OinkProver<MultiMegaFlavor>;
 template class OinkProver<MultiMegaZKFlavor>;
 
