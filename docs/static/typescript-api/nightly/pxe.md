@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v5.0.0-nightly.20260318
+Version: v5.0.0-nightly.20260319
 
 ## Quick Import Reference
 
@@ -108,7 +108,8 @@ new ContractSyncService(aztecNode: AztecNode, contractStore: ContractStore, note
 - `commit(jobId: string) => Promise<void>` - Commits staged data to main storage. Should be called within a transaction for atomicity.
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
 - `ensureContractSynced(contractAddress: AztecAddress, functionToInvokeAfterSync: FunctionSelector | null, utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<any>, anchorBlockHeader: BlockHeader, jobId: string, scopes: AccessScopes) => Promise<void>` - Ensures a contract's private state is synchronized and that the PXE holds the current class artifact. Uses a cache to avoid redundant sync operations - the cache is wiped when the anchor block changes.
-- `setOverriddenContracts(jobId: string, addresses: Set<string>) => void` - Sets contracts that should be skipped during sync for a specific job.
+- `invalidateContractForScopes(contractAddress: AztecAddress, scopes: AztecAddress[]) => void` - Clears sync cache entries for the given scopes of a contract. Also clears the ALL_SCOPES entry.
+- `setExcludedFromSync(jobId: string, addresses: Set<string>) => void` - Sets contracts that should be skipped during sync for a specific job.
 - `wipe() => void` - Clears sync cache. Called by BlockSynchronizer when anchor block changes.
 
 ### JobCoordinator
@@ -408,7 +409,7 @@ A filter used to fetch notes.
 
 ### ORACLE_VERSION
 ```typescript
-type ORACLE_VERSION = 17
+type ORACLE_VERSION = 18
 ```
 
 ### PXEConfig
