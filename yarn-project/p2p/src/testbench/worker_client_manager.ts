@@ -468,7 +468,11 @@ class WorkerClientManager {
       };
 
       this.processes[i].send(cmd);
-      readyPromises.push(this.waitForBenchReady(i, 30000));
+      // Scale timeout with tx count: generating mock txs is CPU-intensive, and with many
+      // workers competing for CPUs, late-joining workers need more time. 120ms per tx gives
+      // enough headroom on resource-constrained CI (16 CPUs, 30 workers).
+      const readyTimeoutMs = Math.max(30_000, config.txCount * 120);
+      readyPromises.push(this.waitForBenchReady(i, readyTimeoutMs));
     }
 
     await Promise.all(readyPromises);
