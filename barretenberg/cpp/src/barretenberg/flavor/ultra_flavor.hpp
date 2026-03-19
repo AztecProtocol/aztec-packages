@@ -282,6 +282,50 @@ class UltraFlavor {
         return GroupAccessors_<INTERLEAVING_BATCH_SIZE>::get_shifted_groups(e);
     }
 
+    // Oink round group descriptors (Ultra: BS=1 always, no ecc_op/databus)
+    struct OinkRounds {
+        template <typename Entities> static auto wires(Entities& e)
+        {
+            using T = std::decay_t<decltype(e.w_l)>;
+            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+            using D = OinkGroupDescriptor<Ptr>;
+            return std::vector<D>{
+                { { &e.w_l }, "W_L" },
+                { { &e.w_r }, "W_R" },
+                { { &e.w_o }, "W_O" },
+            };
+        }
+        template <typename Entities> static auto lookup_and_w4(Entities& e)
+        {
+            using T = std::decay_t<decltype(e.w_l)>;
+            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+            using D = OinkGroupDescriptor<Ptr>;
+            return std::vector<D>{
+                { { &e.lookup_read_counts }, "LOOKUP_READ_COUNTS" },
+                { { &e.lookup_read_tags }, "LOOKUP_READ_TAGS" },
+                { { &e.w_4 }, "W_4" },
+            };
+        }
+        template <typename Entities> static auto inverses(Entities& e)
+        {
+            using T = std::decay_t<decltype(e.w_l)>;
+            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+            using D = OinkGroupDescriptor<Ptr>;
+            return std::vector<D>{
+                { { &e.lookup_inverses }, "LOOKUP_INVERSES" },
+            };
+        }
+        template <typename Entities> static auto z_perm(Entities& e)
+        {
+            using T = std::decay_t<decltype(e.w_l)>;
+            using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+            using D = OinkGroupDescriptor<Ptr>;
+            return std::vector<D>{
+                { { &e.z_perm }, "Z_PERM" },
+            };
+        }
+    };
+
     // ================================================================
     // PCS constants (via InterleavingConstants_<1>)
     // ================================================================

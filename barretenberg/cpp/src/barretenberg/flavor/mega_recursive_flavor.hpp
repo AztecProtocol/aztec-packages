@@ -68,6 +68,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         return MegaFlavor::FINAL_PCS_MSM_SIZE(log_n);
     };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = MegaFlavor::REPEATED_COMMITMENTS;
+    using OinkRounds = MegaFlavor::OinkRounds;
 
     // Group accessors and Lagrange basis (delegate to generic BS=1 helpers)
     template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> challenges)
@@ -197,6 +198,7 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
+    using OinkRounds = NativeFlavor::OinkRounds;
 
     // Forward compute_lagrange_basis to native flavor
     template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> interleaving_challenges)

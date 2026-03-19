@@ -71,8 +71,6 @@ template <typename Flavor> class OinkProver {
     std::shared_ptr<Transcript> transcript;
     CommitmentKey commitment_key;
 
-    typename Flavor::CommitmentLabels commitment_labels;
-
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
                const std::shared_ptr<Transcript>& transcript)
@@ -100,10 +98,13 @@ template <typename Flavor> class OinkProver {
     void commit_to_masking_poly();
 
     /**
-     * @brief Commit to the group buffer for the given entity and send to verifier.
-     * @details For ZK, also builds and commits the interleaved group tail from entity tails.
+     * @brief Commit a list of witness groups and send to verifier.
+     * @details For each group: builds PolynomialSpans, calls commit_interleaved<BS>,
+     *          adds ZK tail if applicable, sends to transcript, stores in commitment_descs.
+     *          Uniform for all BS (commit_interleaved<1> degenerates to commit).
      */
-    void commit_group(const Polynomial& representative_entity, const std::string& label);
+    template <typename PolyDescs, typename CommDescs>
+    void commit_round_groups(const PolyDescs& poly_groups, const PolyDescs& tail_groups, const CommDescs& comm_groups);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;

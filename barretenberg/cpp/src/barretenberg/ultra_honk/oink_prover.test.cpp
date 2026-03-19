@@ -81,22 +81,28 @@ TEST_F(OinkTests, OinkProverCommitments)
     auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
     auto verifier_instance = std::make_shared<VerifierInstance>(vk_and_hash);
 
-    OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>());
+    // Run oink prover to produce proof, then oink verifier to receive commitments
+    auto prover_transcript = std::make_shared<Transcript>();
+    OinkProver prover(prover_instance, verification_key, prover_transcript);
     prover.prove();
     HonkProof proof = prover.export_proof();
 
-    Flavor::VerifierCommitments prover_commitments(verification_key, prover_instance->commitments);
-
-    auto transcript = std::make_shared<Transcript>();
-    transcript->load_proof(proof);
-    OinkVerifier verifier(verifier_instance, transcript, verification_key->num_public_inputs);
+    auto verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->load_proof(proof);
+    OinkVerifier verifier(verifier_instance, verifier_transcript, verification_key->num_public_inputs);
     verifier.verify();
 
+    // Verify commitments by re-committing prover polynomials and comparing with verifier received
+    typename Flavor::CommitmentKey ck(prover_instance->dyadic_size());
     Flavor::VerifierCommitments verifier_commitments(verifier_instance->get_vk(),
                                                      verifier_instance->received_commitments);
 
-    for (auto [prover_comm, verifier_comm, label] : zip_view(
-             prover_commitments.get_all(), verifier_commitments.get_all(), Flavor::VerifierCommitments::get_labels())) {
-        EXPECT_EQ(prover_comm, verifier_comm) << "Mismatch in commitments " << label;
+    // Check that each non-zero witness commitment matches the direct polynomial commit
+    auto witness_polys = prover_instance->polynomials.get_witness();
+    auto witness_comms = verifier_commitments.get_witness();
+    for (auto [poly, comm] : zip_view(witness_polys, witness_comms)) {
+        if (!poly.is_empty() && !comm.is_point_at_infinity()) {
+            EXPECT_EQ(ck.commit(poly), comm);
+        }
     }
 }

@@ -81,147 +81,47 @@ template <typename Flavor> void OinkProver<Flavor>::send_vk_hash_and_public_inpu
 template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
 {
     BB_BENCH_NAME("OinkProver::commit_to_wires");
-
-    if constexpr (BATCH_SIZE > 1) {
-        auto& polys = prover_instance->polynomials;
-
-        commit_group(polys.w_l, "INTERLEAVED_WIRES");
-        commit_group(polys.ecc_op_wire_1, "INTERLEAVED_ECC_OP_WIRES");
-        commit_group(polys.calldata, "INTERLEAVED_CALLDATA");
-        commit_group(polys.secondary_calldata, "INTERLEAVED_SECONDARY_CALLDATA");
-        commit_group(polys.calldata_read_counts, "INTERLEAVED_DATABUS_TAGS");
-        commit_group(polys.return_data_read_tags, "INTERLEAVED_RETURN_DATA_TAGS");
-        commit_group(polys.return_data, "INTERLEAVED_RETURN_DATA");
-    } else {
-        auto batch = commitment_key.start_batch();
-        auto& tails = prover_instance->masking_tail_data.tails;
-
-        batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l, &tails.w_l);
-        batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r, &tails.w_r);
-        batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o, &tails.w_o);
-
-        if constexpr (IsMegaFlavor<Flavor>) {
-            for (auto [polynomial, tail, label] : zip_view(prover_instance->polynomials.get_ecc_op_wires(),
-                                                           tails.get_ecc_op_wires(),
-                                                           commitment_labels.get_ecc_op_wires())) {
-                batch.add_to_batch(polynomial, label, &tail);
-            }
-            for (auto [polynomial, tail, label] : zip_view(prover_instance->polynomials.get_databus_entities(),
-                                                           tails.get_databus_entities(),
-                                                           commitment_labels.get_databus_entities())) {
-                batch.add_to_batch(polynomial, label, &tail);
-            }
-        }
-
-        auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
-        prover_instance->commitments.w_l = computed_commitments[0];
-        prover_instance->commitments.w_r = computed_commitments[1];
-        prover_instance->commitments.w_o = computed_commitments[2];
-
-        if constexpr (IsMegaFlavor<Flavor>) {
-            size_t commitment_idx = 3;
-            for (auto& commitment : prover_instance->commitments.get_ecc_op_wires()) {
-                commitment = computed_commitments[commitment_idx++];
-            }
-            for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
-                commitment = computed_commitments[commitment_idx++];
-            }
-        }
-    }
+    auto& p = prover_instance->polynomials;
+    auto& t = prover_instance->masking_tail_data.tails;
+    auto& c = prover_instance->commitments;
+    commit_round_groups(Flavor::OinkRounds::wires(p), Flavor::OinkRounds::wires(t), Flavor::OinkRounds::wires(c));
 }
 
-/**
- * @brief Compute sorted witness-table accumulator and commit to the resulting polynomials.
- */
 template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_w4()
 {
     BB_BENCH_NAME("OinkProver::commit_to_lookup_counts_and_w4");
-    // Get eta challenge and compute powers (eta, eta², eta³)
     prover_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
-
     add_ram_rom_memory_records_to_wire_4(*prover_instance);
-
-    if constexpr (BATCH_SIZE > 1) {
-        auto& polys = prover_instance->polynomials;
-
-        commit_group(polys.w_4, "INTERLEAVED_W_4");
-        commit_group(polys.lookup_read_counts, "INTERLEAVED_LOOKUP");
-    } else {
-        auto batch = commitment_key.start_batch();
-        auto& tails = prover_instance->masking_tail_data.tails;
-        batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
-                           commitment_labels.lookup_read_counts,
-                           &tails.lookup_read_counts);
-        batch.add_to_batch(
-            prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, &tails.lookup_read_tags);
-        batch.add_to_batch(prover_instance->polynomials.w_4, commitment_labels.w_4, &tails.w_4);
-        auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
-
-        prover_instance->commitments.lookup_read_counts = computed_commitments[0];
-        prover_instance->commitments.lookup_read_tags = computed_commitments[1];
-        prover_instance->commitments.w_4 = computed_commitments[2];
-    }
+    auto& p = prover_instance->polynomials;
+    auto& t = prover_instance->masking_tail_data.tails;
+    auto& c = prover_instance->commitments;
+    commit_round_groups(Flavor::OinkRounds::lookup_and_w4(p),
+                        Flavor::OinkRounds::lookup_and_w4(t),
+                        Flavor::OinkRounds::lookup_and_w4(c));
 }
 
-/**
- * @brief Compute log derivative inverse polynomial and its commitment, if required
- */
 template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses()
 {
     BB_BENCH_NAME("OinkProver::commit_to_logderiv_inverses");
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     prover_instance->relation_parameters.compute_beta_powers(beta);
     prover_instance->relation_parameters.gamma = gamma;
-
-    // Compute the inverses used in log-derivative lookup relations
     compute_logderivative_inverses(*prover_instance);
-
-    if constexpr (BATCH_SIZE > 1) {
-        commit_group(prover_instance->polynomials.lookup_inverses, "INTERLEAVED_INVERSES");
-    } else {
-        auto batch = commitment_key.start_batch();
-        auto& tails = prover_instance->masking_tail_data.tails;
-        batch.add_to_batch(
-            prover_instance->polynomials.lookup_inverses, commitment_labels.lookup_inverses, &tails.lookup_inverses);
-
-        if constexpr (IsMegaFlavor<Flavor>) {
-            for (auto [polynomial, tail, label] : zip_view(prover_instance->polynomials.get_databus_inverses(),
-                                                           tails.get_databus_inverses(),
-                                                           commitment_labels.get_databus_inverses())) {
-                batch.add_to_batch(polynomial, label, &tail);
-            };
-        }
-        auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
-
-        prover_instance->commitments.lookup_inverses = computed_commitments[0];
-        if constexpr (IsMegaFlavor<Flavor>) {
-            size_t commitment_idx = 1;
-            for (auto& commitment : prover_instance->commitments.get_databus_inverses()) {
-                commitment = computed_commitments[commitment_idx];
-                commitment_idx++;
-            };
-        }
-    }
+    auto& p = prover_instance->polynomials;
+    auto& t = prover_instance->masking_tail_data.tails;
+    auto& c = prover_instance->commitments;
+    commit_round_groups(
+        Flavor::OinkRounds::inverses(p), Flavor::OinkRounds::inverses(t), Flavor::OinkRounds::inverses(c));
 }
 
-/**
- * @brief Compute the permutation grand product polynomial and commit to it.
- */
 template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 {
     BB_BENCH_NAME("OinkProver::commit_to_z_perm");
-
     compute_grand_product_polynomial(*prover_instance);
-
-    if constexpr (BATCH_SIZE > 1) {
-        commit_group(prover_instance->polynomials.z_perm, "INTERLEAVED_Z_PERM");
-    } else {
-        auto& z_perm = prover_instance->polynomials.z_perm;
-        auto batch = commitment_key.start_batch();
-        batch.add_to_batch(z_perm, commitment_labels.z_perm, &prover_instance->masking_tail_data.tails.z_perm);
-        auto commitments = batch.commit_and_send_to_verifier(transcript);
-        prover_instance->commitments.z_perm = commitments[0];
-    }
+    auto& p = prover_instance->polynomials;
+    auto& t = prover_instance->masking_tail_data.tails;
+    auto& c = prover_instance->commitments;
+    commit_round_groups(Flavor::OinkRounds::z_perm(p), Flavor::OinkRounds::z_perm(t), Flavor::OinkRounds::z_perm(c));
 }
 
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
@@ -236,56 +136,52 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 };
 
 /**
- * @brief Build an interleaved group polynomial on-the-fly, commit, and send to verifier.
- * @details Finds the group containing the representative entity via GroupAccessors, builds a
- *          temporary interleaved buffer, commits it, and discards. For ZK, also commits the
- *          interleaved group tail. No persistent group buffers are stored.
+ * @brief Commit a list of witness groups for one oink round and send to verifier.
+ * @details For each group: builds PolynomialSpans from entity pointers, calls commit_interleaved<BS>,
+ *          adds ZK tail if applicable, sends to transcript.
+ *          Uniform for all BS (commit_interleaved<1> degenerates to commit).
  */
 template <typename Flavor>
-void OinkProver<Flavor>::commit_group([[maybe_unused]] const Polynomial& representative_entity,
-                                      [[maybe_unused]] const std::string& label)
+template <typename PolyDescs, typename CommDescs>
+void OinkProver<Flavor>::commit_round_groups(const PolyDescs& poly_groups,
+                                             const PolyDescs& tail_groups,
+                                             const CommDescs& comm_groups)
 {
-    if constexpr (BATCH_SIZE <= 1) {
-        return;
-    } else {
-        using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using FF_ = typename Flavor::FF;
+    const size_t pcs_vsize = prover_instance->dyadic_size() * BATCH_SIZE;
 
-        auto groups = Flavor::get_unshifted_groups(prover_instance->polynomials);
-        const size_t num_groups = groups.size();
-        const size_t shiftable_start = num_groups - Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
-        const size_t vsize = prover_instance->dyadic_size();
+    for (size_t i = 0; i < poly_groups.size(); i++) {
+        const auto& group = poly_groups[i];
 
-        for (size_t g = 0; g < num_groups; g++) {
-            bool found = false;
-            for (size_t j = 0; j < groups[g].size(); j++) {
-                if (groups[g][j] == &representative_entity) {
-                    found = true;
-                    break;
-                }
+        // Build spans from entity pointers (skip nullptrs)
+        std::vector<PolynomialSpan<const FF_>> spans;
+        for (const auto* ptr : group.entities) {
+            if (ptr != nullptr) {
+                spans.push_back(*ptr);
             }
-            if (!found) {
-                continue;
-            }
-
-            auto group_poly =
-                ProverPolynomials::build_interleaved_polynomial(groups[g], vsize, BATCH_SIZE, g >= shiftable_start);
-            Commitment commitment = commitment_key.commit(group_poly);
-
-            if constexpr (Flavor::HasZK) {
-                if (prover_instance->masking_tail_data.is_active()) {
-                    auto tail_groups = Flavor::get_unshifted_groups(prover_instance->masking_tail_data.tails);
-                    auto group_tail = prover_instance->masking_tail_data.interleave_tail_group(
-                        tail_groups[g], group_poly.virtual_size());
-                    if (!group_tail.is_empty()) {
-                        commitment = commitment + commitment_key.commit(group_tail);
-                    }
-                }
-            }
-
-            transcript->send_to_verifier(label, commitment);
-            return;
         }
-        throw_or_abort("Representative entity not found in any group");
+        Commitment commitment = commitment_key.template commit_interleaved<BATCH_SIZE>(spans);
+
+        // ZK: commit the interleaved tail for this group and add to commitment
+        if constexpr (Flavor::HasZK) {
+            if (prover_instance->masking_tail_data.is_active()) {
+                auto tail =
+                    prover_instance->masking_tail_data.interleave_tail_group(tail_groups[i].entities, pcs_vsize);
+                if (!tail.is_empty()) {
+                    commitment = commitment + commitment_key.commit(tail);
+                }
+            }
+        }
+
+        transcript->send_to_verifier(group.label, commitment);
+
+        // Store in prover commitments (first non-null pointer in the commitment group)
+        for (auto* ptr : comm_groups[i].entities) {
+            if (ptr != nullptr) {
+                *ptr = commitment;
+                break;
+            }
+        }
     }
 }
 

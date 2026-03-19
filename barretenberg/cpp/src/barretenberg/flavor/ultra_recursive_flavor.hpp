@@ -59,6 +59,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         return UltraFlavor::FINAL_PCS_MSM_SIZE(log_n);
     };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
+    using OinkRounds = UltraFlavor::OinkRounds;
 
     // Group accessors and Lagrange basis (delegate to generic BS=1 helpers)
     template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> challenges)

@@ -483,4 +483,197 @@ template <> struct GroupAccessors_<4> {
     }
 };
 
+// ============================================================
+// Oink round group descriptors (BS-dependent)
+// ============================================================
+
+/**
+ * @brief Describes a single group to commit in an Oink round.
+ * @details Contains pointers to the entity polynomials (group members) and a transcript label.
+ *          For BS=1, each group has one entity. For BS>1, groups have up to BS entities (with nullptr padding).
+ */
+template <typename Ptr> struct OinkGroupDescriptor {
+    std::vector<Ptr> entities;
+    std::string label;
+};
+
+/**
+ * @brief Per-round witness group descriptors for Oink, specialized per BS.
+ * @details Returns vectors of OinkGroupDescriptor for each oink round:
+ *   - wires: w_l/w_r/w_o + ecc_op wires + databus entities (before eta)
+ *   - lookup_and_w4: lookup counts/tags + w_4 (after eta)
+ *   - inverses: lookup_inverses + databus inverses (after beta/gamma)
+ *   - z_perm: z_perm (after grand product)
+ *
+ * Tail groups for ZK are obtained by calling the same methods on masking_tail_data.tails.
+ */
+template <size_t BS> struct OinkWitnessRounds_;
+
+template <> struct OinkWitnessRounds_<1> {
+    template <typename Entities> static auto wires(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+        using D = OinkGroupDescriptor<Ptr>;
+        std::vector<D> groups = {
+            { { &e.w_l }, "W_L" },
+            { { &e.w_r }, "W_R" },
+            { { &e.w_o }, "W_O" },
+            { { &e.ecc_op_wire_1 }, "ECC_OP_WIRE_1" },
+            { { &e.ecc_op_wire_2 }, "ECC_OP_WIRE_2" },
+            { { &e.ecc_op_wire_3 }, "ECC_OP_WIRE_3" },
+            { { &e.ecc_op_wire_4 }, "ECC_OP_WIRE_4" },
+            { { &e.calldata }, "CALLDATA" },
+            { { &e.calldata_read_counts }, "CALLDATA_READ_COUNTS" },
+            { { &e.calldata_read_tags }, "CALLDATA_READ_TAGS" },
+            { { &e.secondary_calldata }, "SECONDARY_CALLDATA" },
+            { { &e.secondary_calldata_read_counts }, "SECONDARY_CALLDATA_READ_COUNTS" },
+            { { &e.secondary_calldata_read_tags }, "SECONDARY_CALLDATA_READ_TAGS" },
+            { { &e.return_data }, "RETURN_DATA" },
+            { { &e.return_data_read_counts }, "RETURN_DATA_READ_COUNTS" },
+            { { &e.return_data_read_tags }, "RETURN_DATA_READ_TAGS" },
+        };
+        return groups;
+    }
+
+    template <typename Entities> static auto lookup_and_w4(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+        using D = OinkGroupDescriptor<Ptr>;
+        return std::vector<D>{
+            { { &e.lookup_read_counts }, "LOOKUP_READ_COUNTS" },
+            { { &e.lookup_read_tags }, "LOOKUP_READ_TAGS" },
+            { { &e.w_4 }, "W_4" },
+        };
+    }
+
+    template <typename Entities> static auto inverses(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+        using D = OinkGroupDescriptor<Ptr>;
+        return std::vector<D>{
+            { { &e.lookup_inverses }, "LOOKUP_INVERSES" },
+            { { &e.calldata_inverses }, "CALLDATA_INVERSES" },
+            { { &e.secondary_calldata_inverses }, "SECONDARY_CALLDATA_INVERSES" },
+            { { &e.return_data_inverses }, "RETURN_DATA_INVERSES" },
+        };
+    }
+
+    template <typename Entities> static auto z_perm(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Ptr = std::conditional_t<std::is_const_v<Entities>, T const*, T*>;
+        using D = OinkGroupDescriptor<Ptr>;
+        return std::vector<D>{
+            { { &e.z_perm }, "Z_PERM" },
+        };
+    }
+};
+
+template <> struct OinkWitnessRounds_<4> {
+  private:
+    template <typename E>
+    using Ptr = std::conditional_t<std::is_const_v<E>,
+                                   std::decay_t<decltype(std::declval<E&>().get_all()[0])> const*,
+                                   std::decay_t<decltype(std::declval<E&>().get_all()[0])>*>;
+    template <typename E> using D = OinkGroupDescriptor<Ptr<E>>;
+
+  public:
+    // Overloads for entity-level types (ProverPolynomials, MaskingTailData::tails)
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto wires(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.w_l, &e.w_r, &e.w_o, nullptr }, "INTERLEAVED_WIRES" },
+            { { &e.ecc_op_wire_1, &e.ecc_op_wire_2, &e.ecc_op_wire_3, &e.ecc_op_wire_4 }, "INTERLEAVED_ECC_OP_WIRES" },
+            { { &e.calldata, nullptr, nullptr, nullptr }, "INTERLEAVED_CALLDATA" },
+            { { &e.secondary_calldata, nullptr, nullptr, nullptr }, "INTERLEAVED_SECONDARY_CALLDATA" },
+            { { &e.calldata_read_counts,
+                &e.calldata_read_tags,
+                &e.secondary_calldata_read_counts,
+                &e.secondary_calldata_read_tags },
+              "INTERLEAVED_DATABUS_TAGS" },
+            { { &e.return_data_read_tags, &e.return_data_read_counts, nullptr, nullptr },
+              "INTERLEAVED_RETURN_DATA_TAGS" },
+            { { &e.return_data, nullptr, nullptr, nullptr }, "INTERLEAVED_RETURN_DATA" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto lookup_and_w4(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.w_4, nullptr, nullptr, nullptr }, "INTERLEAVED_W_4" },
+            { { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr }, "INTERLEAVED_LOOKUP" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto inverses(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
+              "INTERLEAVED_INVERSES" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.w_l; }
+    static auto z_perm(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.z_perm, nullptr, nullptr, nullptr }, "INTERLEAVED_Z_PERM" },
+        };
+    }
+
+    // Overloads for commitment-level types (InterleavedWitnessCommitments)
+    template <typename E>
+        requires requires(E& e) { e.interleaved_wires; }
+    static auto wires(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_wires }, "INTERLEAVED_WIRES" },
+            { { &e.interleaved_ecc_op_wires }, "INTERLEAVED_ECC_OP_WIRES" },
+            { { &e.interleaved_calldata }, "INTERLEAVED_CALLDATA" },
+            { { &e.interleaved_secondary_calldata }, "INTERLEAVED_SECONDARY_CALLDATA" },
+            { { &e.interleaved_databus_tags }, "INTERLEAVED_DATABUS_TAGS" },
+            { { &e.interleaved_return_data_tags }, "INTERLEAVED_RETURN_DATA_TAGS" },
+            { { &e.interleaved_return_data }, "INTERLEAVED_RETURN_DATA" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.interleaved_w_4; }
+    static auto lookup_and_w4(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_w_4 }, "INTERLEAVED_W_4" },
+            { { &e.interleaved_lookup }, "INTERLEAVED_LOOKUP" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.interleaved_inverses; }
+    static auto inverses(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_inverses }, "INTERLEAVED_INVERSES" },
+        };
+    }
+
+    template <typename E>
+        requires requires(E& e) { e.interleaved_z_perm; }
+    static auto z_perm(E& e)
+    {
+        return std::vector<D<E>>{
+            { { &e.interleaved_z_perm }, "INTERLEAVED_Z_PERM" },
+        };
+    }
+};
+
 } // namespace bb

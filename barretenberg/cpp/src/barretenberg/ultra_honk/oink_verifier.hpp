@@ -41,7 +41,6 @@ template <typename Flavor> class OinkVerifier {
   public:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Instance> verifier_instance;
-    typename Flavor::CommitmentLabels comm_labels;
     size_t num_public_inputs;
 
     OinkVerifier(const std::shared_ptr<Instance>& verifier_instance,
@@ -63,5 +62,14 @@ template <typename Flavor> class OinkVerifier {
     void receive_lookup_counts_and_w4_commitments();
     void receive_logderiv_commitments();
     void complete_grand_product_round();
+
+    /**
+     * @brief Receive commitments for a round's groups from transcript.
+     * @details Group descriptors are obtained by calling OinkRounds on received_commitments,
+     *          so entity pointers point into the commitment storage. The received commitment
+     *          is written through the first non-null pointer in each group (for BS=1, that's
+     *          the single entity; for BS>1, the first field of the interleaved commitment).
+     */
+    template <typename GroupDescs> void receive_round_groups(const GroupDescs& groups);
 };
 } // namespace bb

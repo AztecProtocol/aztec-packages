@@ -85,109 +85,53 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 {
-    if constexpr (BATCH_SIZE > 1) {
-        auto& rc = verifier_instance->received_commitments;
-        rc.interleaved_wires = transcript->template receive_from_prover<Commitment>("INTERLEAVED_WIRES");
-        rc.interleaved_ecc_op_wires = transcript->template receive_from_prover<Commitment>("INTERLEAVED_ECC_OP_WIRES");
-        rc.interleaved_calldata = transcript->template receive_from_prover<Commitment>("INTERLEAVED_CALLDATA");
-        rc.interleaved_secondary_calldata =
-            transcript->template receive_from_prover<Commitment>("INTERLEAVED_SECONDARY_CALLDATA");
-        rc.interleaved_databus_tags = transcript->template receive_from_prover<Commitment>("INTERLEAVED_DATABUS_TAGS");
-        rc.interleaved_return_data_tags =
-            transcript->template receive_from_prover<Commitment>("INTERLEAVED_RETURN_DATA_TAGS");
-        rc.interleaved_return_data = transcript->template receive_from_prover<Commitment>("INTERLEAVED_RETURN_DATA");
-    } else {
-        // Standard individual commitment path
-        verifier_instance->received_commitments.w_l =
-            transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
-        verifier_instance->received_commitments.w_r =
-            transcript->template receive_from_prover<Commitment>(comm_labels.w_r);
-        verifier_instance->received_commitments.w_o =
-            transcript->template receive_from_prover<Commitment>(comm_labels.w_o);
-
-        if constexpr (IsMegaFlavor<Flavor>) {
-            // Receive ECC op wire commitments
-            for (auto [commitment, label] :
-                 zip_view(verifier_instance->received_commitments.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
-                commitment = transcript->template receive_from_prover<Commitment>(label);
-            }
-
-            // Receive DataBus related polynomial commitments
-            for (auto [commitment, label] : zip_view(verifier_instance->received_commitments.get_databus_entities(),
-                                                     comm_labels.get_databus_entities())) {
-                commitment = transcript->template receive_from_prover<Commitment>(label);
-            }
-        }
-    }
+    receive_round_groups(Flavor::OinkRounds::wires(verifier_instance->received_commitments));
 }
 
-/**
- * @brief Get sorted witness-table accumulator and fourth wire commitments
- */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_w4_commitments()
 {
-    // Get eta challenge and compute powers (eta, eta², eta³)
     verifier_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
-
-    if constexpr (BATCH_SIZE > 1) {
-        auto& rc = verifier_instance->received_commitments;
-        rc.interleaved_w_4 = transcript->template receive_from_prover<Commitment>("INTERLEAVED_W_4");
-        rc.interleaved_lookup = transcript->template receive_from_prover<Commitment>("INTERLEAVED_LOOKUP");
-    } else {
-        // Get commitments to lookup argument polynomials and fourth wire
-        verifier_instance->received_commitments.lookup_read_counts =
-            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_counts);
-        verifier_instance->received_commitments.lookup_read_tags =
-            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
-        verifier_instance->received_commitments.w_4 =
-            transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
-    }
+    receive_round_groups(Flavor::OinkRounds::lookup_and_w4(verifier_instance->received_commitments));
 }
 
-/**
- * @brief Receive beta/gamma challenges and log-derivative inverse commitments.
- */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitments()
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     verifier_instance->relation_parameters.compute_beta_powers(beta);
     verifier_instance->relation_parameters.gamma = gamma;
-
-    if constexpr (BATCH_SIZE > 1) {
-        verifier_instance->received_commitments.interleaved_inverses =
-            transcript->template receive_from_prover<Commitment>("INTERLEAVED_INVERSES");
-    } else {
-        verifier_instance->received_commitments.lookup_inverses =
-            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
-
-        if constexpr (IsMegaFlavor<Flavor>) {
-            for (auto [commitment, label] : zip_view(verifier_instance->received_commitments.get_databus_inverses(),
-                                                     comm_labels.get_databus_inverses())) {
-                commitment = transcript->template receive_from_prover<Commitment>(label);
-            }
-        }
-    }
+    receive_round_groups(Flavor::OinkRounds::inverses(verifier_instance->received_commitments));
 }
 
-/**
- * @brief Compute public_input_delta for the permutation argument and receive z_perm commitment.
- */
 template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_round()
 {
     auto vk = verifier_instance->get_vk();
-
     verifier_instance->relation_parameters.public_input_delta =
         compute_public_input_delta<Flavor>(verifier_instance->public_inputs,
                                            verifier_instance->relation_parameters.beta,
                                            verifier_instance->relation_parameters.gamma,
                                            vk->pub_inputs_offset);
+    receive_round_groups(Flavor::OinkRounds::z_perm(verifier_instance->received_commitments));
+}
 
-    if constexpr (BATCH_SIZE > 1) {
-        verifier_instance->received_commitments.interleaved_z_perm =
-            transcript->template receive_from_prover<Commitment>("INTERLEAVED_Z_PERM");
-    } else {
-        verifier_instance->received_commitments.z_perm =
-            transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
+/**
+ * @brief Receive commitments for a round's groups from transcript and store.
+ * @details OinkRounds called on received_commitments produces descriptors whose entity
+ *          pointers point into the commitment storage. The first entity in each group is
+ *          the field where the commitment should be stored.
+ */
+template <typename Flavor>
+template <typename GroupDescs>
+void OinkVerifier<Flavor>::receive_round_groups(const GroupDescs& groups)
+{
+    for (const auto& group : groups) {
+        auto received = transcript->template receive_from_prover<Commitment>(group.label);
+        // Write through the first non-null entity pointer (which points into received_commitments)
+        for (auto* ptr : group.entities) {
+            if (ptr != nullptr) {
+                *ptr = received;
+                break;
+            }
+        }
     }
 }
 

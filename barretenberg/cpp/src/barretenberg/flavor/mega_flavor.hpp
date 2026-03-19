@@ -589,6 +589,9 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
     static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS = IC::NUM_ALL_INTERLEAVED_COMMITMENTS;
     static constexpr size_t NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS = IC::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
 
+    // Oink round group descriptors (BS-dependent)
+    using OinkRounds = OinkWitnessRounds_<BATCH_SIZE_>;
+
     // ================================================================
     // Group accessors (delegate to GroupAccessors_ in mega_interleaving_entities.hpp)
     // ================================================================
