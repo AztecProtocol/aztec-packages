@@ -14,6 +14,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
+import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import {
@@ -73,6 +74,7 @@ describe('Validator factory functions', () => {
         'doubleSpendValidator',
         'gasValidator',
         'dataValidator',
+        'contractInstanceValidator',
       ]);
     });
 
@@ -170,6 +172,7 @@ describe('Validator factory functions', () => {
         MetadataTxValidator.name,
         SizeTxValidator.name,
         DataTxValidator.name,
+        ContractInstanceTxValidator.name,
         TxProofValidator.name,
       ]);
     });
@@ -187,6 +190,7 @@ describe('Validator factory functions', () => {
         MetadataTxValidator.name,
         SizeTxValidator.name,
         DataTxValidator.name,
+        ContractInstanceTxValidator.name,
         TxProofValidator.name,
       ]);
     });
@@ -221,6 +225,7 @@ describe('Validator factory functions', () => {
         BlockHeaderTxValidator.name,
         DoubleSpendTxValidator.name,
         DataTxValidator.name,
+        ContractInstanceTxValidator.name,
         GasTxValidator.name,
         TxProofValidator.name,
       ]);
