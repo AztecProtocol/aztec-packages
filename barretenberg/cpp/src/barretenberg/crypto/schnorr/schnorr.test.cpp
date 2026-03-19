@@ -1,139 +1,173 @@
 #include "schnorr.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 using namespace bb::crypto;
 
-crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> generate_signature()
+using Fr = grumpkin::fr;
+using Fq = grumpkin::fq;
+using G1 = grumpkin::g1;
+
+TEST(schnorr, verify_signature)
 {
-    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
-    account.private_key = grumpkin::fr::random_element();
-    account.public_key = grumpkin::g1::one * account.private_key;
-    return account;
+    schnorr_key_pair<Fr, G1> account;
+    account.private_key = Fr::random_element();
+    account.public_key = G1::one * account.private_key;
+
+    Fq message_field = Fq::random_element();
+
+    auto sig = schnorr_construct_signature<Fr, G1>(message_field, account);
+    bool result = schnorr_verify_signature<Fr, G1>(message_field, account.public_key, sig);
+
+    EXPECT_TRUE(result);
 }
 
-TEST(schnorr, verify_signature_keccak256)
+TEST(schnorr, verify_signature_failure_wrong_message)
 {
-    std::string message = "The quick brown fox jumped over the lazy dog.";
+    schnorr_key_pair<Fr, G1> account;
+    account.private_key = Fr::random_element();
+    account.public_key = G1::one * account.private_key;
 
-    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
-    account.private_key = grumpkin::fr::random_element();
-    account.public_key = grumpkin::g1::one * account.private_key;
+    Fq message_field = Fq::random_element();
+    Fq wrong_message = Fq::random_element();
 
-    crypto::schnorr_signature signature =
-        crypto::schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
+    auto sig = schnorr_construct_signature<Fr, G1>(message_field, account);
+    bool result = schnorr_verify_signature<Fr, G1>(wrong_message, account.public_key, sig);
 
-    bool result = crypto::schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message, account.public_key, signature);
-
-    EXPECT_EQ(result, true);
+    EXPECT_FALSE(result);
 }
 
-TEST(schnorr, verify_signature_sha256)
+TEST(schnorr, verify_signature_failure_wrong_key)
 {
-    std::string message = "The quick brown dog jumped over the lazy fox.";
+    schnorr_key_pair<Fr, G1> account;
+    account.private_key = Fr::random_element();
+    account.public_key = G1::one * account.private_key;
 
-    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
-    account.private_key = grumpkin::fr::random_element();
-    account.public_key = grumpkin::g1::one * account.private_key;
+    Fq message_field = Fq::random_element();
 
-    crypto::schnorr_signature signature =
-        crypto::schnorr_construct_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
+    auto sig = schnorr_construct_signature<Fr, G1>(message_field, account);
 
-    bool result = crypto::schnorr_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message, account.public_key, signature);
+    auto wrong_key = G1::affine_element(G1::one * Fr::random_element());
+    bool result = schnorr_verify_signature<Fr, G1>(message_field, wrong_key, sig);
 
-    EXPECT_EQ(result, true);
+    EXPECT_FALSE(result);
 }
 
-TEST(schnorr, verify_signature_blake2s)
+TEST(schnorr, signatures_not_deterministic)
 {
-    std::string message = "The quick brown dog jumped over the lazy fox.";
+    schnorr_key_pair<Fr, G1> account;
+    account.private_key = Fr::random_element();
+    account.public_key = G1::one * account.private_key;
 
-    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> account;
-    // account.private_key = grumpkin::fr::random_element();
-    account.private_key = { 0x55555555, 0x55555555, 0x55555555, 0x55555555 };
-    account.public_key = grumpkin::g1::one * account.private_key;
+    Fq message_field = Fq::random_element();
 
-    crypto::schnorr_signature signature =
-        crypto::schnorr_construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
+    auto sig_a = schnorr_construct_signature<Fr, G1>(message_field, account);
+    auto sig_b = schnorr_construct_signature<Fr, G1>(message_field, account);
 
-    bool result = crypto::schnorr_verify_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message, account.public_key, signature);
+    // Different nonces should produce different signatures
+    EXPECT_NE(sig_a.e, sig_b.e);
+    EXPECT_NE(sig_a.s, sig_b.s);
 
-    EXPECT_EQ(result, true);
+    // But both should verify
+    bool result_a = schnorr_verify_signature<Fr, G1>(message_field, account.public_key, sig_a);
+    EXPECT_TRUE(result_a);
+    bool result_b = schnorr_verify_signature<Fr, G1>(message_field, account.public_key, sig_b);
+    EXPECT_TRUE(result_b);
 }
 
-TEST(schnorr, hmac_signature_consistency)
+/**
+ * @brief Verify the signature internals independently, without relying on construct + verify using the same code path.
+ *
+ * This test manually recomputes the Poseidon2 challenge and checks the Schnorr equation s = k - priv * e,
+ * catching bugs like the reinterpret_cast issue where both sides had a matching bug that cancelled out.
+ */
+TEST(schnorr, signature_internals_consistency)
 {
-    std::string message_a = "The quick brown fox jumped over the lazy dog.";
-    std::string message_b = "The quick brown dog jumped over the lazy fox.";
+    // Use a fixed private key for reproducibility
+    Fr private_key = Fr(12345);
+    G1::affine_element public_key(G1::one * private_key);
+    schnorr_key_pair<Fr, G1> account = { private_key, public_key };
 
-    auto account_a = generate_signature();
-    auto account_b = generate_signature();
+    Fq message_field = Fq(67890);
 
-    ASSERT_NE(account_a.private_key, account_b.private_key);
-    ASSERT_NE(account_a.public_key, account_b.public_key);
+    auto sig = schnorr_construct_signature<Fr, G1>(message_field, account);
 
-    // k is no longer identical, so signatures should be different.
-    auto signature_a =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_a, account_a);
-    auto signature_b =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_a, account_a);
+    // Deserialize s and e from the signature
+    Fr s = Fr::serialize_from_buffer(&sig.s[0]);
+    Fr e_fr = Fr::serialize_from_buffer(&sig.e[0]);
 
-    ASSERT_NE(signature_a.e, signature_b.e);
-    ASSERT_NE(signature_a.s, signature_b.s);
+    // Reconstruct R = g^s * pub^e (this is what the verifier does)
+    G1::affine_element R(G1::element(public_key) * e_fr + G1::one * s);
 
-    // same message, different accounts should give different sigs!
-    auto signature_c =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_a, account_a);
-    auto signature_d =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_a, account_b);
+    // Independently compute the Poseidon2 challenge from R, pubkey, message
+    Fq expected_e_fq =
+        Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash({ R.x, public_key.x, public_key.y, message_field });
 
-    ASSERT_NE(signature_c.e, signature_d.e);
-    ASSERT_NE(signature_c.s, signature_d.s);
+    // Convert to Fr via proper serialization (the same path the implementation uses)
+    std::array<uint8_t, 32> expected_e_buf;
+    Fq::serialize_to_buffer(expected_e_fq, expected_e_buf.data());
+    Fr expected_e_fr = Fr::serialize_from_buffer(expected_e_buf.data());
 
-    // different message, same accounts should give different sigs!
-    auto signature_e =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_a, account_a);
-    auto signature_f =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_b, account_a);
+    // The challenge in the signature must match the independently computed one
+    EXPECT_EQ(e_fr, expected_e_fr);
 
-    ASSERT_NE(signature_e.e, signature_f.e);
-    ASSERT_NE(signature_e.s, signature_f.s);
+    // Also verify that R is not the point at infinity (would indicate k=0)
+    EXPECT_FALSE(R.is_point_at_infinity());
+}
 
-    // different message, different accounts should give different sigs!!
-    auto signature_g =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_a, account_a);
-    auto signature_h =
-        schnorr_construct_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_b, account_b);
+/**
+ * @brief Verify that the cross-field serialization round-trip is lossless.
+ *
+ * Since Fr (Grumpkin scalar = BN254 Fq) has a larger modulus than Fq (Grumpkin base = BN254 Fr),
+ * every Fq value should survive the Fq -> bytes -> Fr conversion without loss.
+ */
+TEST(schnorr, cross_field_serialization_is_lossless)
+{
+    for (int i = 0; i < 100; i++) {
+        // Generate a random Fq element (BN254 Fr, the Poseidon2 output field)
+        Fq original = Fq::random_element();
 
-    ASSERT_NE(signature_g.e, signature_h.e);
-    ASSERT_NE(signature_g.s, signature_h.s);
+        // Serialize to bytes
+        std::array<uint8_t, 32> buf;
+        Fq::serialize_to_buffer(original, buf.data());
 
-    bool res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_a, account_a.public_key, signature_a);
-    EXPECT_EQ(res, true);
-    res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_a, account_a.public_key, signature_b);
-    EXPECT_EQ(res, true);
-    res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_a, account_a.public_key, signature_c);
-    EXPECT_EQ(res, true);
-    res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_a, account_b.public_key, signature_d);
-    EXPECT_EQ(res, true);
-    res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_a, account_a.public_key, signature_e);
-    EXPECT_EQ(res, true);
-    res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_b, account_a.public_key, signature_f);
-    EXPECT_EQ(res, true);
-    res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_a, account_a.public_key, signature_g);
-    EXPECT_EQ(res, true);
-    res = schnorr_verify_signature<KeccakHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-        message_b, account_b.public_key, signature_h);
-    EXPECT_EQ(res, true);
+        // Deserialize as Fr (BN254 Fq, the Grumpkin scalar field)
+        Fr converted = Fr::serialize_from_buffer(buf.data());
+
+        // Serialize Fr back to bytes
+        std::array<uint8_t, 32> buf2;
+        Fr::serialize_to_buffer(converted, buf2.data());
+
+        // The byte representations must be identical (no information lost in the conversion)
+        EXPECT_EQ(buf, buf2);
+    }
+}
+
+/**
+ * @brief Verify that the bbapi byte interface produces valid signatures.
+ *
+ * Simulates the bbapi path: message comes as 32 bytes (a serialized field element),
+ * gets deserialized to Fq, used for signing, then verified.
+ */
+TEST(schnorr, bbapi_byte_interface_round_trip)
+{
+    Fr private_key = Fr::random_element();
+    G1::affine_element public_key(G1::one * private_key);
+    schnorr_key_pair<Fr, G1> account = { private_key, public_key };
+
+    // Simulate bbapi: start from a field element, serialize to bytes, then deserialize
+    Fq original_message = Fq::random_element();
+    std::array<uint8_t, 32> message_bytes;
+    Fq::serialize_to_buffer(original_message, message_bytes.data());
+
+    // This is what bbapi does
+    Fq deserialized_message = Fq::serialize_from_buffer(message_bytes.data());
+    EXPECT_EQ(original_message, deserialized_message);
+
+    // Sign with deserialized message, verify with original — must agree
+    auto sig = schnorr_construct_signature<Fr, G1>(deserialized_message, account);
+    bool result = schnorr_verify_signature<Fr, G1>(original_message, public_key, sig);
+    EXPECT_TRUE(result);
 }

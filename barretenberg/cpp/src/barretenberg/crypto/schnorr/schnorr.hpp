@@ -2,11 +2,8 @@
 
 #include <array>
 #include <memory.h>
-#include <string>
 
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-
-#include "barretenberg/crypto/hashers/hashers.hpp"
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
@@ -18,29 +15,26 @@ template <typename Fr, typename G1> struct schnorr_key_pair {
     typename G1::affine_element public_key;
 };
 
-// Raw representation of a Schnorr signature (e,s).  We use the short variant of Schnorr
-// where we include the challenge hash `e` instead of the group element R representing
-// the provers initial message.
+// Raw representation of a Schnorr signature (s, e). We use the short variant of Schnorr
+// where we include the challenge `e` instead of the group element R.
 struct schnorr_signature {
 
-    // `s` is a serialized field element (also 32 bytes), representing the prover's response to
-    // to the verifier challenge `e`.
-    // We do not enforce that `s` is canonical since signatures are verified inside a circuit,
-    // and are provided as private inputs. Malleability is not an issue in this case.
+    // `s` is a serialized grumpkin scalar (bb::fq, 32 bytes), the prover's response to the challenge `e`.
     std::array<uint8_t, 32> s;
-    // `e` represents the verifier's challenge in the protocol. It is encoded as the 32-byte
-    // output of a hash function modeling a random oracle in the Fiat-Shamir transform.
+    // `e` is a serialized grumpkin scalar (bb::fq, 32 bytes). The Poseidon2 challenge is computed over
+    // bb::fr (the grumpkin base field), but since bb::fr < bb::fq the value embeds losslessly.
     std::array<uint8_t, 32> e;
     SERIALIZATION_FIELDS(s, e);
 };
 
-template <typename Hash, typename Fq, typename Fr, typename G1>
-bool schnorr_verify_signature(const std::string& message,
+template <typename Fr, typename G1>
+bool schnorr_verify_signature(const typename G1::Fq& message_field,
                               const typename G1::affine_element& public_key,
                               const schnorr_signature& sig);
 
-template <typename Hash, typename Fq, typename Fr, typename G1>
-schnorr_signature schnorr_construct_signature(const std::string& message, const schnorr_key_pair<Fr, G1>& account);
+template <typename Fr, typename G1>
+schnorr_signature schnorr_construct_signature(const typename G1::Fq& message_field,
+                                              const schnorr_key_pair<Fr, G1>& account);
 
 inline bool operator==(schnorr_signature const& lhs, schnorr_signature const& rhs)
 {

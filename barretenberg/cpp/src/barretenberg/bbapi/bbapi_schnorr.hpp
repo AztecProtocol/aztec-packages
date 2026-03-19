@@ -52,7 +52,7 @@ struct SchnorrConstructSignature {
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> message; // Variable length
+    std::vector<uint8_t> message; // 32 bytes, serialized field element
     grumpkin::fr private_key;
     Response execute(BBApiRequest& request) &&;
     SERIALIZATION_FIELDS(message, private_key);
