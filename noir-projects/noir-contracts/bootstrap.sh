@@ -260,7 +260,7 @@ function test {
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     check_port $((txe_base_port + i)) || echo "WARNING: port $((txe_base_port + i)) is in use, TXE $i may fail to start"
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((txe_base_port + i)) yarn start) >/dev/null &
+    (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$((txe_base_port + i)) yarn start) >/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
