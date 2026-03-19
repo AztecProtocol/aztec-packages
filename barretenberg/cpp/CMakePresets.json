@@ -41,8 +41,9 @@
       "environment": {
         "CC": "${sourceDir}/scripts/zig-cc.sh",
         "CXX": "${sourceDir}/scripts/zig-c++.sh",
-        "CFLAGS": "-g0",
-        "CXXFLAGS": "-g0"
+        "CFLAGS": "-g0 -fvisibility=hidden",
+        "CXXFLAGS": "-g0 -fvisibility=hidden",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
@@ -406,8 +407,7 @@
         "WASI_SDK_PREFIX": "/opt/wasi-sdk",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
-        "CXXFLAGS": "-DBB_VERBOSE",
-        "LDFLAGS": "--no-wasm-opt",
+        "CXXFLAGS": "-DBB_VERBOSE -fvisibility=hidden",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
         "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
       },
@@ -467,8 +467,8 @@
       "environment": {
         "CC": "zig cc",
         "CXX": "zig c++",
-        "CFLAGS": "-g0",
-        "CXXFLAGS": "-g0"
+        "CFLAGS": "-g0 -fvisibility=hidden",
+        "CXXFLAGS": "-g0 -fvisibility=hidden"
       },
       "cacheVariables": {
         "ENABLE_PIC": "ON",
@@ -513,7 +513,8 @@
       "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target x86_64-macos -mcpu=baseline",
-        "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
+        "CXX": "zig c++ -target x86_64-macos -mcpu=baseline",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
@@ -529,7 +530,8 @@
       "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
-        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14"
+        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
