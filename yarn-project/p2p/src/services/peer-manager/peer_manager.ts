@@ -939,6 +939,8 @@ export class PeerManager implements PeerManagerInterface {
           `Received auth for validator ${sender.toString()} from peer ${peerIdString}, but this validator is already authenticated to peer ${peerForAddress.toString()}`,
           { ...logData, address: sender.toString() },
         );
+        this.markAuthHandshakeFailed(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
