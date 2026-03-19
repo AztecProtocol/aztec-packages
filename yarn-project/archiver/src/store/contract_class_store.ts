@@ -29,11 +29,15 @@ export class ContractClassStore {
     blockNumber: number,
   ): Promise<void> {
     await this.db.transactionAsync(async () => {
-      await this.#contractClasses.setIfNotExists(
-        contractClass.id.toString(),
+      const key = contractClass.id.toString();
+      if (await this.#contractClasses.hasAsync(key)) {
+        throw new Error(`Contract class ${key} already exists, cannot add again at block ${blockNumber}`);
+      }
+      await this.#contractClasses.set(
+        key,
         serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
       );
-      await this.#bytecodeCommitments.setIfNotExists(contractClass.id.toString(), bytecodeCommitment.toBuffer());
+      await this.#bytecodeCommitments.set(key, bytecodeCommitment.toBuffer());
     });
   }
 
