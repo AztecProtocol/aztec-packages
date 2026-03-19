@@ -19,8 +19,6 @@ import type {
   ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
@@ -192,15 +190,6 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     return this.#contractClassStore.getBytecodeCommitment(contractClassId);
-  }
-
-  /** Adds private functions to a contract class. */
-  addFunctions(
-    contractClassId: Fr,
-    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    utilityFunctions: UtilityFunctionWithMembershipProof[],
-  ): Promise<boolean> {
-    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
   /**

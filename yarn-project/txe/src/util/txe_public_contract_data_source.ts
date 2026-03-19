@@ -26,8 +26,6 @@ export class TXEPublicContractDataSource implements ContractDataSource {
       packedBytecode: contractClass.packedBytecode,
       privateFunctionsRoot: contractClass.privateFunctionsRoot,
       version: contractClass.version,
-      privateFunctions: [],
-      utilityFunctions: [],
     };
   }
 
