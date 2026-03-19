@@ -135,8 +135,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   uint256 internal PROOFS_PER_EPOCH; // given as e2, for simple decimals, e.g., 200 = 2.00
   uint256 internal VOTING_ROUND_SIZE = 500;
 
-  bool internal IS_IGNITION;
-
   Rollup internal rollup;
   Slasher internal slasher;
 
@@ -215,27 +213,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function setUp() public {
-    if (vm.envOr("IGNITION", false)) {
-      full = load("empty_checkpoint_1");
+    full = load("single_tx_checkpoint_1");
 
-      SLOT_DURATION = 16 * 12;
-      EPOCH_DURATION = 48;
-      MANA_TARGET = 0;
-      TARGET_COMMITTEE_SIZE = 24;
-      PROOFS_PER_EPOCH = 200; // 2.00
-
-      IS_IGNITION = true;
-    } else {
-      full = load("single_tx_checkpoint_1");
-
-      SLOT_DURATION = 36;
-      EPOCH_DURATION = 32;
-      MANA_TARGET = 1e8;
-      TARGET_COMMITTEE_SIZE = 48;
-      PROOFS_PER_EPOCH = 200; // 2.00
-
-      IS_IGNITION = false;
-    }
+    SLOT_DURATION = 72;
+    EPOCH_DURATION = 32;
+    MANA_TARGET = 1e8;
+    TARGET_COMMITTEE_SIZE = 48;
+    PROOFS_PER_EPOCH = 200; // 2.00
 
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
@@ -294,11 +278,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     header.coinbase = c;
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaMinFee;
-    if (MANA_TARGET > 0) {
-      header.totalManaUsed = manaSpent;
-    } else {
-      header.totalManaUsed = 0;
-    }
+    header.totalManaUsed = manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
@@ -408,7 +388,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @param _size - The number of validators
    * @return Encoded vote data
    */
-  function createTallyVoteData(uint256 _size) internal returns (bytes memory) {
+  function createTallyVoteData(uint256 _size) internal view returns (bytes memory) {
     require(_size % 4 == 0, "Vote data must have multiple of 4 validators");
 
     bytes32 seed = keccak256(abi.encode(_size, block.timestamp));
@@ -478,7 +458,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Epoch nextEpoch = Epoch.wrap(4);
     bool warmedUp = false;
 
-    uint256 stopAtCheckpoint = IS_IGNITION ? 200 : 150;
+    uint256 stopAtCheckpoint = 150;
 
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
@@ -495,9 +475,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         warmedUp = true;
       }
 
-      // For every "new" slot we encounter, we construct a checkpoint using current L1 Data
-      // and part of the `empty_checkpoint_1.json` file. The checkpoint cannot be proven, but it
-      // will be accepted as a proposal so very useful for testing a long range of checkpoints.
+      // For every "new" slot we encounter, we construct a checkpoint using current L1 data and
+      // the decoded checkpoint fixture. The checkpoint cannot be proven, but it will be accepted
+      // as a proposal so it is useful for testing a long range of checkpoints.
       if (rollup.getCurrentSlot() == nextSlot) {
         rollup.setupEpoch();
 

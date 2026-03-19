@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -214,29 +213,24 @@ library RewardLib {
         }
       }
 
-      bool isTxsEnabled = FeeLib.isTxsEnabled();
-
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        if (isTxsEnabled) {
-          // During ignition there can be no txs, so there can be no fees either
-          // so we can skip the fee calculation
+        CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
-          CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
+        v.manaUsed = feeHeader.getManaUsed();
 
-          v.manaUsed = feeHeader.getManaUsed();
+        uint256 fee = uint256(_args.fees[1 + i * 2]);
+        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
 
-          uint256 fee = uint256(_args.fees[1 + i * 2]);
-          uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
+        t.feesToClaim += fee;
+        t.totalBurn += burn;
 
-          t.feesToClaim += fee;
-          t.totalBurn += burn;
-
-          // Compute the proving fee in the fee asset
-          v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+        // Compute the proving fee in the fee asset
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+        if (v.proverFee > 0) {
           $er.rewards += v.proverFee.toUint128();
-
-          v.sequencerFee = fee - burn - v.proverFee;
         }
+
+        v.sequencerFee = fee - burn - v.proverFee;
 
         {
           v.sequencer = fieldToAddress(_args.fees[i * 2]);
