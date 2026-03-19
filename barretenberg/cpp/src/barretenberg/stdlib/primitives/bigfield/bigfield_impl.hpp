@@ -1886,7 +1886,8 @@ bool_t<Builder> bigfield<Builder, T>::is_less_than(const uint256_t& upper_limit,
     const uint256_t upper_limit_value_0 = upper_limit.slice(0, NUM_LIMB_BITS);
     const uint256_t upper_limit_value_1 = upper_limit.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
     const uint256_t upper_limit_value_2 = upper_limit.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
-    const uint256_t upper_limit_value_3 = upper_limit.slice(NUM_LIMB_BITS * 3, NUM_LAST_LIMB_BITS);
+    const uint256_t upper_limit_value_3 =
+        upper_limit.slice(NUM_LIMB_BITS * 3, (NUM_LIMB_BITS * 3) + NUM_LAST_LIMB_BITS);
 
     bool_t<Builder> third_limb_is_smaller = binary_basis_limbs[3].element.template ranged_less_than<NUM_LAST_LIMB_BITS>(
         field_t<Builder>(upper_limit_value_3));
