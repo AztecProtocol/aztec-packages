@@ -90,14 +90,7 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(mintAmount);
 
-<<<<<<< HEAD
-      const { receipt: tx } = await bobsDeployMethod.send({
-        from: AztecAddress.ZERO,
-        wait: { returnReceipt: true },
-      });
-=======
       const { receipt: tx } = await bobsDeployMethod.send({ from: NO_FROM, wait: { returnReceipt: true } });
->>>>>>> 2257864cba (feat!: no_from (#21716))
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);

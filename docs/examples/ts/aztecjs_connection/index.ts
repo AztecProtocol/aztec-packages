@@ -79,7 +79,7 @@ await deployMethod.send({
 // newAccount is the account created in the previous section
 const deployMethodFeeJuice = await newAccount.getDeployMethod();
 await deployMethodFeeJuice.send({
-  from: AztecAddress.ZERO,
+  from: NO_FROM,
 });
 // docs:end:deploy_account_fee_juice
 
@@ -118,25 +118,3 @@ const { result: balance } = await token.methods
 
 console.log(`Alice's token balance: ${balance}`);
 // docs:end:simulate_function
-<<<<<<< HEAD
-=======
-
-// docs:start:deploy_account_fee_juice
-// Deploy the account using the bridged Fee Juice
-const deployMethodFeeJuice = await feeJuiceAccount.getDeployMethod();
-await deployMethodFeeJuice.send({
-  from: NO_FROM,
-  fee: {
-    paymentMethod: new FeeJuicePaymentMethodWithClaim(
-      feeJuiceAccount.address,
-      claim,
-    ),
-  },
-});
-// docs:end:deploy_account_fee_juice
-
-// docs:start:verify_account_deployment
-const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
-console.log("Account deployed:", metadata.isContractInitialized);
-// docs:end:verify_account_deployment
->>>>>>> 2257864cba (feat!: no_from (#21716))

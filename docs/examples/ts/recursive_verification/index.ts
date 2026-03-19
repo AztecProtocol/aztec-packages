@@ -5,27 +5,13 @@ import { getSponsoredFPCInstance } from "./scripts/sponsored_fpc.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
-<<<<<<< HEAD
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-=======
 import { NO_FROM } from "@aztec/aztec.js/account";
 import { Fr } from "@aztec/aztec.js/fields";
->>>>>>> 2257864cba (feat!: no_from (#21716))
+import fs from "node:fs";
 import assert from "node:assert";
-import { Fr } from "@aztec/aztec.js/fields";
 // docs:end:imports
 
 // docs:start:sample_data
-<<<<<<< HEAD
-// Sample proof data - in production this comes from generate_data.ts
-// These are placeholder values for type-checking purposes
-const data = {
-  vkAsFields: [] as string[],
-  vkHash: "0x0",
-  proofAsFields: [] as string[],
-  publicInputs: ["2"],
-};
-=======
 if (!fs.existsSync("data.json")) {
   console.error(
     "data.json not found. Run 'yarn data' first to generate proof data.",
@@ -33,7 +19,6 @@ if (!fs.existsSync("data.json")) {
   process.exit(1);
 }
 const data = JSON.parse(fs.readFileSync("data.json", "utf-8"));
->>>>>>> 2257864cba (feat!: no_from (#21716))
 // docs:end:sample_data
 
 export const NODE_URL = "http://localhost:8080";
@@ -71,14 +56,8 @@ async function main() {
   const manager = await account.getDeployMethod();
 
   // Deploy the account contract
-<<<<<<< HEAD
   await manager.send({
-    from: AztecAddress.ZERO,
-=======
-  const deployMethod = await manager.getDeployMethod();
-  await deployMethod.send({
     from: NO_FROM,
->>>>>>> 2257864cba (feat!: no_from (#21716))
     fee: { paymentMethod: sponsoredPaymentMethod },
   });
 
