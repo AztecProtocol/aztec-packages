@@ -194,7 +194,7 @@ function update_path_env_var {
   if grep -q '\.aztec' "$shell_profile" 2>/dev/null; then
     # Remove old aztec PATH entries.
     local tmp_file=$(mktemp)
-    grep -Ev 'export PATH=.*/\.aztec/' "$shell_profile" > "$tmp_file" || true
+    grep -Ev 'export PATH="\$(HOME/\.aztec/|PATH:.*\.aztec/)' "$shell_profile" > "$tmp_file" || true
     mv "$tmp_file" "$shell_profile"
   fi
 
