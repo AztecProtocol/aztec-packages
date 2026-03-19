@@ -173,12 +173,18 @@ export async function createArchiver(
   return archiver;
 }
 
-/** Registers protocol contracts in the archiver store. */
+/** Registers protocol contracts in the archiver store. Idempotent — skips contracts that already exist (e.g. on node restart). */
 export async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
     const provider = new BundledProtocolContractsProvider();
     const contract = await provider.getProtocolContractArtifact(name);
+
+    // Skip if already registered (happens on node restart with a persisted store).
+    if (await store.getContractClass(contract.contractClass.id)) {
+      continue;
+    }
+
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
       privateFunctions: [],
