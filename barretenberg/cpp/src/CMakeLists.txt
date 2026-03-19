@@ -197,6 +197,9 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
+# Save the core object list before adding lmdb/world_state (not needed by FFI consumers).
+set(BB_EXTERNAL_TARGET_OBJECTS ${BARRETENBERG_TARGET_OBJECTS})
+
 if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
     # enable merkle trees and lmdb (not for mobile builds)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
@@ -211,14 +214,14 @@ add_library(
     ${BARRETENBERG_TARGET_OBJECTS}
 )
 
-# bb-external: A complete static library for external consumers (e.g. barretenberg-rs).
-# Includes everything from libbarretenberg.a plus env and vm2_stub.
-# This provides a single library file that external bindings can link against.
+# bb-external: static library for external consumers (e.g. barretenberg-rs).
+# Uses the core object list without lmdb/world_state — FFI consumers only need bbapi().
+# Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
 if(NOT WASM)
     add_library(
         bb-external
         STATIC
-        ${BARRETENBERG_TARGET_OBJECTS}
+        ${BB_EXTERNAL_TARGET_OBJECTS}
         $<TARGET_OBJECTS:env_objects>
         $<TARGET_OBJECTS:vm2_stub>
     )
