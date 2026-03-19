@@ -835,7 +835,7 @@ case "$cmd" in
     export NATIVE_PRESET=debug
     export AVM=0
     export AVM_TRANSPILER=0
-    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg")
     export CI=1

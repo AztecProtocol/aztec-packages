@@ -128,7 +128,8 @@ case "$cmd" in
   barretenberg-debug)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
-    export CPUS=16
+    export CPUS=192
+    export AWS_SHUTDOWN_TIME=120
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   avm-inputs-collection|avm-check-circuit)
