@@ -490,13 +490,15 @@ export abstract class BaseWallet implements Wallet {
     const instance = await this.pxe.getContractInstance(address);
     const publiclyRegisteredContractPromise = this.aztecNode.getContract(address);
 
-    let isContractInitialized: ContractInitializationStatus;
+    let initializationStatus: ContractInitializationStatus;
     if (instance) {
       // We have the instance, so we can compute the private initialization nullifier (which includes init_hash and is
-      // emitted by both private and public initializers) and get a definitive YES/NO answer.
+      // emitted by both private and public initializers) and get a definitive INITIALIZED/UNINITIALIZED answer.
       const initNullifier = await computeSiloedPrivateInitializationNullifier(address, instance.initializationHash);
       const witness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
-      isContractInitialized = witness ? ContractInitializationStatus.YES : ContractInitializationStatus.NO;
+      initializationStatus = witness
+        ? ContractInitializationStatus.INITIALIZED
+        : ContractInitializationStatus.UNINITIALIZED;
     } else {
       // Without the instance we lack the init_hash needed for the private nullifier. We fall back to checking the
       // public initialization nullifier (computed from address alone). Not all contracts emit it (only those with
@@ -504,7 +506,7 @@ export abstract class BaseWallet implements Wallet {
       // uninitialized.
       const publicNullifier = await computeSiloedPublicInitializationNullifier(address);
       const witness = await this.aztecNode.getNullifierMembershipWitness('latest', publicNullifier);
-      isContractInitialized = witness ? ContractInitializationStatus.YES : ContractInitializationStatus.UNKNOWN;
+      initializationStatus = witness ? ContractInitializationStatus.INITIALIZED : ContractInitializationStatus.UNKNOWN;
     }
     const publiclyRegisteredContract = await publiclyRegisteredContractPromise;
     const isContractUpdated =
@@ -512,7 +514,7 @@ export abstract class BaseWallet implements Wallet {
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
     return {
       instance: instance ?? undefined,
-      isContractInitialized,
+      initializationStatus,
       isContractPublished: !!publiclyRegisteredContract,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,

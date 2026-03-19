@@ -176,9 +176,9 @@ describe('e2e_block_building', () => {
 
       // Assert all contracts got initialized
       const areInitialized = await Promise.all(
-        addresses.map(async a => (await wallet.getContractMetadata(a)).isContractInitialized),
+        addresses.map(async a => (await wallet.getContractMetadata(a)).initializationStatus),
       );
-      expect(areInitialized).toEqual(times(TX_COUNT, () => ContractInitializationStatus.YES));
+      expect(areInitialized).toEqual(times(TX_COUNT, () => ContractInitializationStatus.INITIALIZED));
     });
 
     it('assembles a block with multiple txs with public fns', async () => {

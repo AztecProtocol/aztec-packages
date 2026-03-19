@@ -368,7 +368,7 @@ const metadata = await wallet.getContractMetadata(contractAddress);
 metadata.instance; // Contract registered in your wallet?
 metadata.isContractClassPubliclyRegistered; // Class registered on the network?
 metadata.isContractPublished; // Instance registered on the network?
-metadata.isContractInitialized; // Constructor has been called?
+metadata.initializationStatus; // Constructor has been called?
 ```
 
 For a complete overview of what these states mean and when functions become callable, see [Contract Readiness States](../aztec-nr/contract_readiness_states.md).

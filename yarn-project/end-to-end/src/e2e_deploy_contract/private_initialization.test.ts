@@ -226,28 +226,28 @@ describe('e2e_deploy_contract private initialization', () => {
   });
 
   describe('initialization status', () => {
-    it('reports YES when contract is registered and initialized', async () => {
+    it('reports INITIALIZED when contract is registered and initialized', async () => {
       const contract = await t.registerContract(wallet, PrivateInitTestContract, {
         initArgs: [42],
         constructorName: 'initialize',
       });
       await contract.methods.initialize(42).send({ from: defaultAccountAddress });
       const metadata = await wallet.getContractMetadata(contract.address);
-      expect(metadata.isContractInitialized).toEqual(ContractInitializationStatus.YES);
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.INITIALIZED);
     });
 
-    it('reports NO when contract is registered but not initialized', async () => {
+    it('reports UNINITIALIZED when contract is registered but not initialized', async () => {
       const contract = await t.registerContract(wallet, PrivateInitTestContract, {
         initArgs: [42],
         constructorName: 'initialize',
       });
       const metadata = await wallet.getContractMetadata(contract.address);
-      expect(metadata.isContractInitialized).toEqual(ContractInitializationStatus.NO);
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.UNINITIALIZED);
     });
 
     it('reports UNKNOWN when contract instance is not registered', async () => {
       const metadata = await wallet.getContractMetadata(await AztecAddress.random());
-      expect(metadata.isContractInitialized).toEqual(ContractInitializationStatus.UNKNOWN);
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.UNKNOWN);
     });
   });
 

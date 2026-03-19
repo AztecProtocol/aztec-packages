@@ -9,12 +9,12 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [aztec.js] `isContractInitialized` is now a tri-state enum
+### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
 
-`ContractMetadata.isContractInitialized` changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `YES`, `NO`, and `UNKNOWN`.
+`ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.
 
-- `YES`: the contract has been initialized (initialization nullifier found)
-- `NO`: the contract instance is registered but has not been initialized
+- `INITIALIZED`: the contract has been initialized (initialization nullifier found)
+- `UNINITIALIZED`: the contract instance is registered but has not been initialized
 - `UNKNOWN`: the instance is not registered and no public initialization nullifier was found
 
 When the instance is not registered, the wallet now attempts to check the public initialization nullifier (computed from address alone) before returning `UNKNOWN`. Previously this case returned `undefined`.
@@ -26,7 +26,7 @@ When the instance is not registered, the wallet now attempts to check the public
 
   const metadata = await wallet.getContractMetadata(address);
 - if (metadata.isContractInitialized) {
-+ if (metadata.isContractInitialized === ContractInitializationStatus.YES) {
++ if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
     // contract is initialized
   }
 ```

@@ -208,7 +208,7 @@ export class BotFactory {
     const signingKey = deriveSigningKey(secret);
     const accountManager = await this.wallet.createSchnorrAccount(secret, salt, signingKey);
     const metadata = await this.wallet.getContractMetadata(accountManager.address);
-    if (metadata.isContractInitialized === ContractInitializationStatus.YES) {
+    if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
       this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
       const timer = new Timer();
       const address = accountManager.address;

@@ -215,7 +215,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const secondWallet = await TestWallet.create(aztecNode);
     const metadata = await secondWallet.getContractMetadata(contract.address);
     expect(metadata.instance).toBeUndefined();
-    expect(metadata.isContractInitialized).toEqual(ContractInitializationStatus.YES);
+    expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.INITIALIZED);
   });
 
   describe('regressions', () => {
