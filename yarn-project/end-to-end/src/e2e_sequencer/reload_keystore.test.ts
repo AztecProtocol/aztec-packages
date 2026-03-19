@@ -17,19 +17,18 @@ import { jest } from '@jest/globals';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { privateKeyToAccount } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const VALIDATOR_KEY_INDICES = [0, 2, 4, 5];
 const PUBLISHER_KEY_INDEX = 3;
 
-// 4 validators staked on L1, committee size 4 → quorum = floor(4*2/3)+1 = 3.
-// Only 3 validators are in the initial keystore (enough for quorum).
-// After reload, the 4th validator is added.
+// 4 validators staked on L1, committee size 4.
+// All 4 are in the initial keystore so the sequencer can always propose regardless of proposer selection.
+// After reload, a 5th non-staked validator is added to test dynamic keystore expansion.
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;
-const INITIAL_KEYSTORE_COUNT = 3;
 
 describe('e2e_reload_keystore', () => {
   jest.setTimeout(540_000);
@@ -46,6 +45,10 @@ describe('e2e_reload_keystore', () => {
   const validatorAddresses: string[] = [];
   let publisherKey: EthPrivateKey;
 
+  // A 5th validator key that is NOT staked on L1 — used to test adding a new validator via reload.
+  let phantomValidatorKey: EthPrivateKey;
+  let phantomValidatorAddress: string;
+
   const initialCoinbase = EthAddress.fromNumber(42);
   const initialFeeRecipient = AztecAddress.fromNumber(42);
 
@@ -60,14 +63,18 @@ describe('e2e_reload_keystore', () => {
     }
     publisherKey = `0x${getPrivateKeyFromIndex(PUBLISHER_KEY_INDEX)!.toString('hex')}` as EthPrivateKey;
 
+    // Generate a phantom validator key (not staked on L1, but will be added to keystore on reload)
+    phantomValidatorKey = generatePrivateKey() as EthPrivateKey;
+    phantomValidatorAddress = privateKeyToAccount(phantomValidatorKey).address;
+
     // Create temp directory for keystore files
     keyStoreDirectory = await mkdtemp(join(tmpdir(), 'reload-keystore-'));
 
-    // Write initial keystore: first 3 validators only (validator 4 is deliberately excluded).
-    // All share the same coinbase X so we can detect a change after reload.
+    // Write initial keystore: ALL 4 staked validators.
+    // All share the same coinbase so we can detect a change after reload.
     const initialKeystore = {
       schemaVersion: 1,
-      validators: validatorKeys.slice(0, INITIAL_KEYSTORE_COUNT).map(key => ({
+      validators: validatorKeys.map(key => ({
         attester: key,
         coinbase: initialCoinbase.toChecksumString(),
         publisher: [publisherKey],
@@ -114,19 +121,18 @@ describe('e2e_reload_keystore', () => {
     const sequencer = (sequencerClient! as TestSequencerClient).getSequencer();
     const validatorClient: ValidatorClient = (sequencer as TestSequencer).validatorClient;
 
-    // Verify initial keystore state and block production
-    // Only the first 3 validators should be loaded
+    // Verify initial keystore state: all 4 staked validators loaded with initial coinbase
     const initialAddrs = validatorClient.getValidatorAddresses();
-    expect(initialAddrs).toHaveLength(INITIAL_KEYSTORE_COUNT);
-    for (let i = 0; i < INITIAL_KEYSTORE_COUNT; i++) {
+    expect(initialAddrs).toHaveLength(VALIDATOR_COUNT);
+    for (let i = 0; i < VALIDATOR_COUNT; i++) {
       const attestor = EthAddress.fromString(validatorAddresses[i]);
       expect(validatorClient.getCoinbaseForAttestor(attestor)).toEqual(initialCoinbase);
       expect(validatorClient.getFeeRecipientForAttestor(attestor)).toEqual(initialFeeRecipient);
     }
 
-    // Validator 4 should NOT be in the keystore yet
-    const addr4Lower = validatorAddresses[3].toLowerCase();
-    expect(initialAddrs.map(a => a.toString().toLowerCase())).not.toContain(addr4Lower);
+    // Phantom validator should NOT be in the keystore yet
+    const phantomAddrLower = phantomValidatorAddress.toLowerCase();
+    expect(initialAddrs.map(a => a.toString().toLowerCase())).not.toContain(phantomAddrLower);
 
     // Send a tx and verify the block uses the initial coinbase
     const deployer = new ContractDeployer(artifact, wallet);
@@ -144,19 +150,30 @@ describe('e2e_reload_keystore', () => {
     );
 
     // Write updated keystore and reload
-    // Each validator gets its own new coinbase so we can verify per-validator updates.
+    // Each staked validator gets its own new coinbase so we can verify per-validator updates.
+    // The phantom validator is added with its own coinbase.
     const newCoinbases = VALIDATOR_KEY_INDICES.map((_, i) => EthAddress.fromNumber(100 + i));
     const newFeeRecipients = VALIDATOR_KEY_INDICES.map((_, i) => AztecAddress.fromNumber(100 + i));
+    const phantomCoinbase = EthAddress.fromNumber(200);
+    const phantomFeeRecipient = AztecAddress.fromNumber(200);
 
-    // Build updated keystore: all 4 validators (including the previously-excluded validator 4)
+    // Build updated keystore: all 4 staked validators + the phantom validator
     const updatedKeystore = {
       schemaVersion: 1,
-      validators: validatorKeys.map((key, i) => ({
-        attester: key,
-        coinbase: newCoinbases[i].toChecksumString(),
-        publisher: [publisherKey],
-        feeRecipient: newFeeRecipients[i].toString(),
-      })),
+      validators: [
+        ...validatorKeys.map((key, i) => ({
+          attester: key,
+          coinbase: newCoinbases[i].toChecksumString(),
+          publisher: [publisherKey],
+          feeRecipient: newFeeRecipients[i].toString(),
+        })),
+        {
+          attester: phantomValidatorKey,
+          coinbase: phantomCoinbase.toChecksumString(),
+          publisher: [publisherKey],
+          feeRecipient: phantomFeeRecipient.toString(),
+        },
+      ],
     };
     await writeFile(join(keyStoreDirectory, 'keystore.json'), JSON.stringify(updatedKeystore, null, 2));
 
@@ -164,9 +181,9 @@ describe('e2e_reload_keystore', () => {
     await aztecNodeAdmin!.reloadKeystore();
 
     // Verify the reload took effect
-    // All 4 validators should now be loaded
+    // All 4 staked validators + the phantom validator should now be loaded
     const updatedAddrs = validatorClient.getValidatorAddresses();
-    expect(updatedAddrs).toHaveLength(VALIDATOR_COUNT);
+    expect(updatedAddrs).toHaveLength(VALIDATOR_COUNT + 1);
 
     for (let i = 0; i < VALIDATOR_COUNT; i++) {
       const attestor = EthAddress.fromString(validatorAddresses[i]);
@@ -174,25 +191,27 @@ describe('e2e_reload_keystore', () => {
       expect(validatorClient.getFeeRecipientForAttestor(attestor)).toEqual(newFeeRecipients[i]);
     }
 
-    // Specifically confirm validator 4 is now present
-    expect(updatedAddrs.map(a => a.toString().toLowerCase())).toContain(addr4Lower);
+    // Specifically confirm the phantom validator is now present with correct config
+    expect(updatedAddrs.map(a => a.toString().toLowerCase())).toContain(phantomAddrLower);
+    const phantomAttestor = EthAddress.fromString(phantomValidatorAddress);
+    expect(validatorClient.getCoinbaseForAttestor(phantomAttestor)).toEqual(phantomCoinbase);
+    expect(validatorClient.getFeeRecipientForAttestor(phantomAttestor)).toEqual(phantomFeeRecipient);
 
-    // Deterministically prove validator 4 CAN publish blocks
-    // Directly ask the publisher factory to create a publisher for validator 4.
+    // Deterministically prove the phantom validator CAN publish blocks.
+    // Directly ask the publisher factory to create a publisher for the phantom validator.
     // This exercises the full chain: keystore lookup → publisher filter → L1 signer match.
     // If the publisher key weren't in the L1TxUtils pool, this would throw.
     const publisherFactory = (sequencer as TestSequencer).publisherFactory;
-    const validator4Attestor = EthAddress.fromString(validatorAddresses[3]);
-    const { attestorAddress: returnedAttestor, publisher: validator4Publisher } =
-      await publisherFactory.create(validator4Attestor);
+    const { attestorAddress: returnedAttestor, publisher: phantomPublisher } =
+      await publisherFactory.create(phantomAttestor);
 
-    expect(returnedAttestor.equals(validator4Attestor)).toBe(true);
-    expect(validator4Publisher).toBeDefined();
-    expect(validator4Publisher.getSenderAddress()).toBeDefined();
+    expect(returnedAttestor.equals(phantomAttestor)).toBe(true);
+    expect(phantomPublisher).toBeDefined();
+    expect(phantomPublisher.getSenderAddress()).toBeDefined();
 
     // Verify block production uses new coinbases (not old)
     // Send a tx and confirm the block uses one of the new per-validator coinbases.
-    // Whichever validator is the proposer, its coinbase must be from the reloaded keystore.
+    // Whichever staked validator is the proposer, its coinbase must be from the reloaded keystore.
     const allNewCoinbasesLower = newCoinbases.map(c => c.toString().toLowerCase());
 
     const { txHash: sentTx2 } = await deployer.deploy(ownerAddress, ownerAddress, 2).send({
