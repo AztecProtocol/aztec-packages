@@ -19,6 +19,7 @@ class KeyNotFoundError extends Error {
   code: string;
   constructor(message: string) {
     super(message);
+    this.name = 'NotFoundError';
     this.code = 'ERR_NOT_FOUND';
   }
 }
