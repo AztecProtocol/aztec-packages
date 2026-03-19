@@ -41,5 +41,9 @@ export const TX_ERROR_SIZE_ABOVE_LIMIT = 'Transaction size above size limit';
 // Block header
 export const TX_ERROR_BLOCK_HEADER = 'Block header not found';
 
+// Contract instance
+export const TX_ERROR_INCORRECT_CONTRACT_ADDRESS = 'Incorrect contract instance deployment address';
+export const TX_ERROR_MALFORMED_CONTRACT_INSTANCE_LOG = 'Failed to parse contract instance deployment log';
+
 // General
 export const TX_ERROR_DURING_VALIDATION = 'Unexpected error during validation';

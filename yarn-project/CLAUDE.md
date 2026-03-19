@@ -54,7 +54,7 @@ Git commands work from any subdirectory of a repo—there is no need to `cd` to 
 - Rebasing on a branch that has changes outside `yarn-project`
 
 ```bash
-(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
+(cd $(git rev-parse --show-toplevel) && ./bootstrap.sh build yarn-project)
 ```
 
 Bootstrap takes several minutes to run. Be patient.

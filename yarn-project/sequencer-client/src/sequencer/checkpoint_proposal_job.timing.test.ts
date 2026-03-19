@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -289,8 +289,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
     return new TimingTestCheckpointProposalJob(
       dateProvider,
       getSecondsIntoSlot,
-      epoch,
       slotNumber,
+      slotNumber,
+      epoch,
+      epoch,
       checkpointNumber,
       BlockNumber.ZERO,
       proposer,

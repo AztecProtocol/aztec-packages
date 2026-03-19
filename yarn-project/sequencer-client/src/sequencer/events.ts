@@ -13,7 +13,7 @@ export type SequencerEvents = {
   ['proposer-rollup-check-failed']: (args: { reason: string; slot: SlotNumber }) => void;
   ['block-tx-count-check-failed']: (args: { minTxs: number; availableTxs: number; slot: SlotNumber }) => void;
   ['block-build-failed']: (args: { reason: string; slot: SlotNumber }) => void;
-  ['block-proposed']: (args: { blockNumber: BlockNumber; slot: SlotNumber }) => void;
+  ['block-proposed']: (args: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }) => void;
   ['checkpoint-empty']: (args: { slot: SlotNumber }) => void;
   ['checkpoint-publish-failed']: (args: {
     slot: SlotNumber;
