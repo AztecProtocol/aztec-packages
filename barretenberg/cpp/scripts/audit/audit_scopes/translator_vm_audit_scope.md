@@ -2,7 +2,7 @@
 
 Repository: https://github.com/AztecProtocol/aztec-packages
 
-Commit hash: TBD (link)
+Commit hash: Most recent commit on branch 'next'
 
 ## Summary of Module
 

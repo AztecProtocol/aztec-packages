@@ -1,7 +1,7 @@
 # External Audit Scope: honk_proving_system
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD (link)
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
