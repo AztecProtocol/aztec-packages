@@ -59,7 +59,8 @@ pub struct OffchainMessageWithContext {
 ///
 /// Note that eventually it would make sense to make this function accept an array of addresses as of scopes, since it
 /// might be useful to integrate all private logs known to a set of accounts. However, this function is currently only
-/// used from `do_sync_state`, which by design works on a single scope at a time, so there is no current need for more.  pub(crate) unconstrained fn get_private_logs(
+/// used from `do_sync_state`, which by design works on a single scope at a time, so there is no current need for more.
+pub(crate) unconstrained fn get_private_logs(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> CapsuleArray<PendingTaggedLog> {
