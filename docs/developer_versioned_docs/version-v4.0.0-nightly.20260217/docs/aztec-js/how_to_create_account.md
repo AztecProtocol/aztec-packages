@@ -102,8 +102,13 @@ The `from: AztecAddress.ZERO` is required because there's no existing account to
 Confirm the account was deployed successfully:
 
 ```typescript title="verify_account_deployment" showLineNumbers 
+<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.0.0-nightly.20260217/docs/aztec-js/how_to_create_account.md
 const metadata = await wallet.getContractMetadata(newAccount.address);
 console.log("Account deployed:", metadata.isContractInitialized);
+=======
+const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
+console.log("Account deployed:", metadata.initializationStatus);
+>>>>>>> 6b1e6d1b45 (feat!: make isContractInitialized a tri-state enum (#21754)):docs/developer_versioned_docs/version-v5.0.0-nightly.20260319/docs/aztec-js/how_to_create_account.md
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260217/docs/examples/ts/aztecjs_connection/index.ts#L86-L89" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L86-L89</a></sub></sup>
 
