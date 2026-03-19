@@ -109,7 +109,7 @@ Confirm the account was deployed successfully:
 
 ```typescript title="verify_account_deployment" showLineNumbers 
 const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
-console.log("Account deployed:", metadata.isContractInitialized);
+console.log("Account deployed:", metadata.initializationStatus);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.0-nightly.20260319/docs/examples/ts/aztecjs_connection/index.ts#L157-L160" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L157-L160</a></sub></sup>
 

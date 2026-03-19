@@ -156,5 +156,5 @@ await deployMethodFeeJuice.send({
 
 // docs:start:verify_account_deployment
 const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
-console.log("Account deployed:", metadata.isContractInitialized);
+console.log("Account deployed:", metadata.initializationStatus);
 // docs:end:verify_account_deployment

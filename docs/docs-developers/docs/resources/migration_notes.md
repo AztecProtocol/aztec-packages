@@ -9,6 +9,28 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
+
+`ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.
+
+- `INITIALIZED`: the contract has been initialized (initialization nullifier found)
+- `UNINITIALIZED`: the contract instance is registered but has not been initialized
+- `UNKNOWN`: the instance is not registered and no public initialization nullifier was found
+
+When the instance is not registered, the wallet now attempts to check the public initialization nullifier (computed from address alone) before returning `UNKNOWN`. Previously this case returned `undefined`.
+
+**Migration:**
+
+```diff
++ import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
+
+  const metadata = await wallet.getContractMetadata(address);
+- if (metadata.isContractInitialized) {
++ if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
+    // contract is initialized
+  }
+```
+
 ### [Aztec.js] Use `NO_FROM` instead of `AztecAddress.ZERO` to bypass account contract entrypoint
 
 When sending transactions that should not be mediated by an account contract (e.g., account contract self-deployments), use the explicit `NO_FROM` sentinel instead of `AztecAddress.ZERO`.
@@ -64,7 +86,6 @@ The `scope` field in `ExecuteUtilityOptions` has been renamed to `scopes` and ch
 ```
 
 **Impact**: Any code that calls `wallet.executeUtility` directly must update the options object. Wallets must update to adapt to the new interface
-
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
