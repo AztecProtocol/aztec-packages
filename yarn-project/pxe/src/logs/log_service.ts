@@ -114,46 +114,38 @@ export class LogService {
     );
   }
 
-  public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scopes: AccessScopes) {
+  public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     // We only load logs from block up to and including the anchor block number
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    // Determine recipients: use scopes if provided, otherwise get all accounts
-    const recipients = scopes !== 'ALL_SCOPES' && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
+    // In this context, scope corresponds to a tagged logs recipient. We fetch secrets, load logs, and store them.
+    // Get all secrets for this recipient (one per sender)
+    const secrets = await this.#getSecretsForSenders(contractAddress, scope);
 
-    // For each recipient, fetch secrets, load logs, and store them.
-    // We run these per-recipient tasks in parallel so that logs are loaded for all recipients concurrently.
-    await Promise.all(
-      recipients.map(async recipient => {
-        // Get all secrets for this recipient (one per sender)
-        const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
-
-        // Load logs for all sender-recipient pairs in parallel
-        const logArrays = await Promise.all(
-          secrets.map(secret =>
-            loadPrivateLogsForSenderRecipientPair(
-              secret,
-              this.aztecNode,
-              this.recipientTaggingStore,
-              anchorBlockNumber,
-              anchorBlockHash,
-              this.jobId,
-            ),
-          ),
-        );
-
-        // Flatten all logs from all secrets
-        const allLogs = logArrays.flat();
-
-        // Store the logs for this recipient
-        if (allLogs.length > 0) {
-          await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
-        }
-      }),
+    // Load logs for all sender-recipient pairs in parallel
+    const logArrays = await Promise.all(
+      secrets.map(secret =>
+        loadPrivateLogsForSenderRecipientPair(
+          secret,
+          this.aztecNode,
+          this.recipientTaggingStore,
+          anchorBlockNumber,
+          anchorBlockHash,
+          this.jobId,
+        ),
+      ),
     );
+
+    // Flatten all logs from all secrets
+    const allLogs = logArrays.flat();
+
+    // Store the logs for the scoped recipient
+    if (allLogs.length > 0) {
+      await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, scope, allLogs);
+    }
   }
 
   async #getSecretsForSenders(
@@ -208,6 +200,12 @@ export class LogService {
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobId);
+    return this.capsuleStore.appendToCapsuleArray(
+      contractAddress,
+      capsuleArrayBaseSlot,
+      pendingTaggedLogs,
+      this.jobId,
+      recipient,
+    );
   }
 }

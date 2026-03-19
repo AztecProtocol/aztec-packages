@@ -91,7 +91,7 @@ unconstrained fn handle_multi_log_message(
                 serialized_event,
                 event_commitment,
                 message_context.tx_hash,
-                message_context.recipient,
+                scope,
             );
         } else {
             capsules::store(contract_address, slot, multi_log, Option::some(scope));

@@ -126,7 +126,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-    let logs = get_private_logs(contract_address);
+    let logs = get_private_logs(contract_address, scope);
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
             aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
@@ -183,7 +183,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
-    validate_and_store_enqueued_notes_and_events(contract_address);
+    validate_and_store_enqueued_notes_and_events(contract_address, scope);
 }
 
 mod test {
@@ -211,7 +211,7 @@ mod test {
         env.utility_context_at(contract_address, |_| {
             let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
 
-            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at_global_scope(contract_address, base_slot);
+            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot, SCOPE);
             logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
             assert_eq(logs.len(), 1);
 

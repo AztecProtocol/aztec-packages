@@ -91,7 +91,8 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // Each of the pending partial notes might get completed by a log containing its public values. For performance
     // reasons, we fetch all of these logs concurrently and then process them one by one, minimizing the amount of time
     // waiting for the node roundtrip.
-    let maybe_completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    let maybe_completion_logs =
+        get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes, scope);
 
     // Each entry in the maybe completion logs array corresponds to the entry in the pending partial notes array at the
     // same index. This means we can use the same index as we iterate through the responses to get both the partial
@@ -169,7 +170,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                     discovered_note.note_hash,
                     discovered_note.inner_nullifier,
                     log.tx_hash,
-                    pending_partial_note.recipient,
+                    scope,
                 );
             });
 

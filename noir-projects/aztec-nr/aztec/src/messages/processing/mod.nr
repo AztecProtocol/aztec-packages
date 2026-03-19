@@ -56,12 +56,18 @@ pub struct OffchainMessageWithContext {
 
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
 /// and stores them in a `CapsuleArray` which is then returned.
-pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> CapsuleArray<PendingTaggedLog> {
+///
+/// Note that eventually it would make sense to make this function accept an array of addresses as of scopes, since it
+/// might be useful to integrate all private logs known to a set of accounts. However, this function is currently only
+/// used from `do_sync_state`, which by design works on a single scope at a time, so there is no current need for more.  pub(crate) unconstrained fn get_private_logs(
+    contract_address: AztecAddress,
+    scope: AztecAddress,
+) -> CapsuleArray<PendingTaggedLog> {
     // We will eventually perform log discovery via tagging here, but for now we simply call the `fetchTaggedLogs`
     // oracle. This makes PXE synchronize tags, download logs and store the pending tagged logs in a capsule array.
-    oracle::message_processing::fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
+    oracle::message_processing::fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT, scope);
 
-    CapsuleArray::at_global_scope(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT)
+    CapsuleArray::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT, scope)
 }
 
 /// Enqueues a note for validation and storage by PXE.
@@ -81,11 +87,6 @@ pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> 
 ///
 /// `owner` is the address used in note hash and nullifier computation, often requiring knowledge of their nullifier
 /// secret key.
-///
-/// `recipient` is the account to which the note message was delivered (i.e. the address the message was encrypted to).
-/// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
-/// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In
-/// most cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
 pub unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
     owner: AztecAddress,
@@ -96,24 +97,28 @@ pub unconstrained fn enqueue_note_for_validation(
     note_hash: Field,
     nullifier: Field,
     tx_hash: Field,
-    recipient: AztecAddress,
+    scope: AztecAddress,
 ) {
     // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
     // Noir `NoteValidationRequest`
-    CapsuleArray::at_global_scope(contract_address, NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        NoteValidationRequest {
-            contract_address,
-            owner,
-            storage_slot,
-            randomness,
-            note_nonce,
-            packed_note,
-            note_hash,
-            nullifier,
-            tx_hash,
-            recipient,
-        },
+    CapsuleArray::at(
+        contract_address,
+        NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+        scope,
     )
+        .push(
+            NoteValidationRequest {
+                contract_address,
+                owner,
+                storage_slot,
+                randomness,
+                note_nonce,
+                packed_note,
+                note_hash,
+                nullifier,
+                tx_hash,
+            },
+        )
 }
 
 /// Enqueues an event for validation and storage by PXE.
@@ -135,21 +140,25 @@ pub unconstrained fn enqueue_event_for_validation(
     serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
     event_commitment: Field,
     tx_hash: Field,
-    recipient: AztecAddress,
+    scope: AztecAddress,
 ) {
     // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
     // Noir `EventValidationRequest`
-    CapsuleArray::at_global_scope(contract_address, EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        EventValidationRequest {
-            contract_address,
-            event_type_id,
-            randomness,
-            serialized_event,
-            event_commitment,
-            tx_hash,
-            recipient,
-        },
+    CapsuleArray::at(
+        contract_address,
+        EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+        scope,
     )
+        .push(
+            EventValidationRequest {
+                contract_address,
+                event_type_id,
+                randomness,
+                serialized_event,
+                event_commitment,
+                tx_hash,
+            },
+        )
 }
 
 /// Validates and stores all enqueued notes and events.
@@ -159,13 +168,14 @@ pub unconstrained fn enqueue_event_for_validation(
 /// API (PXE::getPrivateEvents).
 ///
 /// This automatically clears both validation request queues, so no further work needs to be done by the caller.
-pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
+pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress, scope: AztecAddress) {
     oracle::message_processing::validate_and_store_enqueued_notes_and_events(
         contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         MAX_NOTE_PACKED_LEN as Field,
         MAX_EVENT_SERIALIZED_LEN as Field,
+        scope,
     );
 }
 
@@ -198,9 +208,13 @@ pub unconstrained fn resolve_message_contexts(
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
+    scope: AztecAddress,
 ) -> CapsuleArray<Option<LogRetrievalResponse>> {
-    let log_retrieval_requests =
-        CapsuleArray::at_global_scope(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
+    let log_retrieval_requests = CapsuleArray::at(
+        contract_address,
+        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
+        scope,
+    );
 
     // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
     // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
@@ -220,7 +234,12 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
         contract_address,
         LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
         LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
+        scope,
     );
 
-    CapsuleArray::at_global_scope(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT)
+    CapsuleArray::at(
+        contract_address,
+        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
+        scope,
+    )
 }

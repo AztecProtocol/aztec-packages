@@ -119,18 +119,20 @@ export interface IUtilityExecutionOracle {
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;
+  fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress): Promise<void>;
   validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
+    scope: AztecAddress,
   ): Promise<void>;
   bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ): Promise<void>;
   utilityResolveMessageContexts(
     contractAddress: AztecAddress,

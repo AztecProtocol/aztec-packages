@@ -10,10 +10,10 @@ use crate::protocol::{address::AztecAddress, traits::ToField};
 
 pub(crate) unconstrained fn process_private_event_msg(
     contract_address: AztecAddress,
-    recipient: AztecAddress,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
+    scope: AztecAddress,
 ) {
     let decoded = decode_private_event_message(msg_metadata, msg_content);
 
@@ -30,7 +30,7 @@ pub(crate) unconstrained fn process_private_event_msg(
             serialized_event,
             event_commitment,
             tx_hash,
-            recipient,
+            scope,
         );
     } else {
         aztecnr_warn_log_format!(

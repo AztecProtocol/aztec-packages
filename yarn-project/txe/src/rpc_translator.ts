@@ -744,10 +744,14 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_fetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async aztec_utl_fetchTaggedLogs(
+    foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
     const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().fetchTaggedLogs(pendingTaggedLogArrayBaseSlot);
+    await this.handlerAsUtility().fetchTaggedLogs(pendingTaggedLogArrayBaseSlot, scope);
 
     return toForeignCallResult([]);
   }
@@ -759,12 +763,14 @@ export class RPCTranslator {
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMaxNotePackedLen: ForeignCallSingle,
     foreignMaxEventSerializedLen: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
     const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
     const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
@@ -772,6 +778,7 @@ export class RPCTranslator {
       eventValidationRequestsArrayBaseSlot,
       maxNotePackedLen,
       maxEventSerializedLen,
+      scope,
     );
 
     return toForeignCallResult([]);
@@ -782,15 +789,18 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
     foreignLogRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
     const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().bulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
+      scope,
     );
 
     return toForeignCallResult([]);

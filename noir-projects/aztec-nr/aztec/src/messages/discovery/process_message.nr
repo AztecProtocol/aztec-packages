@@ -78,11 +78,11 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 message_context.tx_hash,
                 message_context.unique_note_hashes_in_tx,
                 message_context.first_nullifier_in_tx,
-                message_context.recipient,
                 compute_note_hash,
                 compute_note_nullifier,
                 msg_metadata,
                 msg_content,
+                scope,
             );
         } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
             aztecnr_debug_log!("Processing partial note private msg");
@@ -100,10 +100,10 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
 
             process_private_event_msg(
                 contract_address,
-                message_context.recipient,
                 msg_metadata,
                 msg_content,
                 message_context.tx_hash,
+                scope,
             );
         } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
             // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.

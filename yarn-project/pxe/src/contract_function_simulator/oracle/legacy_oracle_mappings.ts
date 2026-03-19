@@ -98,7 +98,8 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       ephPKField2: ACVMField[],
     ): Promise<ACVMField[]> => oracle.aztec_utl_getSharedSecret(address, ephPKField0, ephPKField1, ephPKField2),
     utilityFetchTaggedLogs: (pendingTaggedLogArrayBaseSlot: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_utl_fetchTaggedLogs(pendingTaggedLogArrayBaseSlot),
+      // TODO: either remove mapping or restrict usage to protocol contracts
+      oracle.aztec_utl_fetchTaggedLogs(pendingTaggedLogArrayBaseSlot, [toACVMField(AztecAddress.ZERO)]),
     utilityBulkRetrieveLogs: (
       contractAddress: ACVMField[],
       logRetrievalRequestsArrayBaseSlot: ACVMField[],
@@ -108,6 +109,8 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
         contractAddress,
         logRetrievalRequestsArrayBaseSlot,
         logRetrievalResponsesArrayBaseSlot,
+        // TODO: either remove mapping or restrict usage to protocol contracts
+        [toACVMField(AztecAddress.ZERO)],
       ),
     utilityGetL1ToL2MembershipWitness: (
       contractAddress: ACVMField[],
@@ -129,6 +132,8 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
         eventValidationRequestsArrayBaseSlot,
         [new Fr(8).toString()],
         [new Fr(10).toString()],
+        // TODO: either remove mapping or restrict usage to protocol contracts
+        [toACVMField(AztecAddress.ZERO)],
       ),
     // Renames (same signature, different oracle name)
     privateNotifySetMinRevertibleSideEffectCounter: (counter: ACVMField[]): Promise<ACVMField[]> =>

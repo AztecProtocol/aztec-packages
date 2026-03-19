@@ -965,7 +965,9 @@ impl TestEnvironment {
                 message_context.recipient,
             );
 
-            validate_and_store_enqueued_notes_and_events(context.this_address());
+            // TODO(@mverzilli): we should revisit how we treat scope in test env, it seems we're treating it too
+            // implicitly.
+            validate_and_store_enqueued_notes_and_events(context.this_address(), message_context.recipient);
         });
     }
 }

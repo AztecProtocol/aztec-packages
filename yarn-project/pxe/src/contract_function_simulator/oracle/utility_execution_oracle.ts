@@ -446,7 +446,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     logContractMessage(logger, LogLevels[level], message, fields);
   }
 
-  public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
     const logService = new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
@@ -459,7 +459,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.logger.getBindings(),
     );
 
-    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
+    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, scope);
   }
 
   /**
@@ -478,6 +478,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     eventValidationRequestsArrayBaseSlot: Fr,
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
+    scope: AztecAddress,
   ) {
     // TODO(#10727): allow other contracts to store notes
     if (!this.contractAddress.equals(contractAddress)) {
@@ -487,11 +488,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all note and event validation requests and process them all concurrently. This makes the process much
     // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
+      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId, scope)
     ).map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
 
     const eventValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
+      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId, scope)
     ).map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
@@ -506,7 +507,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         request.noteHash,
         request.nullifier,
         request.txHash,
-        request.recipient,
+        scope,
       ),
     );
 
@@ -519,21 +520,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         request.serializedEvent,
         request.eventCommitment,
         request.txHash,
-        request.recipient,
+        scope,
       ),
     );
 
     await Promise.all([...noteStorePromises, ...eventStorePromises]);
 
     // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, [], this.jobId);
-    await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
+    await this.capsuleStore.setCapsuleArray(
+      contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      [],
+      this.jobId,
+      scope,
+    );
+    await this.capsuleStore.setCapsuleArray(
+      contractAddress,
+      eventValidationRequestsArrayBaseSlot,
+      [],
+      this.jobId,
+      scope,
+    );
   }
 
   public async bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ) {
     // TODO(#10727): allow other contracts to process partial notes
     if (!this.contractAddress.equals(contractAddress)) {
@@ -543,7 +557,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId)
+      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId, scope)
     ).map(LogRetrievalRequest.fromFields);
 
     const logService = new LogService(
@@ -561,7 +575,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
 
     // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId);
+    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId, scope);
 
     // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
     await this.capsuleStore.setCapsuleArray(
@@ -569,6 +583,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       logRetrievalResponsesArrayBaseSlot,
       maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
       this.jobId,
+      scope,
     );
   }
 
