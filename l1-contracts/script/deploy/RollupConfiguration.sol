@@ -11,7 +11,6 @@ import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
@@ -20,7 +19,6 @@ interface IRollupConfiguration {
   function loadConfig() external;
   function useRealVerifier() external view returns (bool);
   function getFeeJuicePortalInitialBalance() external view returns (uint256);
-  function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
   function getGenesisState() external view returns (GenesisState memory);
   function getRewardConfiguration(IRewardDistributor rewardDistributor) external view returns (RewardConfig memory);
   function getRewardBoostConfiguration() external pure returns (RewardBoostConfig memory);
@@ -47,16 +45,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
 
   function getFeeJuicePortalInitialBalance() external view returns (uint256) {
     return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
-  }
-
-  function getEarliestRewardsClaimableTimestamp() public view returns (Timestamp) {
-    // We only set a delay on mainnet.
-    // Since we don't plan to redeploy on mainnet (knock on wood), this is mostly documentation in code form.
-    if (block.chainid == 1) {
-      return Timestamp.wrap(block.timestamp + 90 days);
-    } else {
-      return Timestamp.wrap(0);
-    }
   }
 
   function getGenesisState() external view returns (GenesisState memory) {
@@ -106,7 +94,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.rewardConfig = this.getRewardConfiguration(_rewardDistributor);
     config.rewardBoostConfig = this.getRewardBoostConfiguration();
     config.stakingQueueConfig = this.getStakingQueueConfiguration();
-    config.earliestRewardsClaimableTimestamp = getEarliestRewardsClaimableTimestamp();
 
     // Compute version as first 4 bytes of hash(abi.encode(config, genesisState))
     config.version = _computeConfigVersion(config, this.getGenesisState());
