@@ -253,6 +253,7 @@ dependencies = [
  "powdr-parser-util",
  "powdr-pil-analyzer",
  "rand",
+ "serde",
  "serde_json",
 ]
 
@@ -372,6 +373,7 @@ dependencies = [
  "powdr-number",
  "powdr-pil-analyzer",
  "rand",
+ "serde_json",
 ]
 
 [[package]]

@@ -12,7 +12,8 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "^4.3", features = ["derive"] }
 num-bigint = "0.4.3"
-bb-pil-backend ={ path = "../bb-pil-backend", default-features = false }
+bb-pil-backend = { path = "../bb-pil-backend", default-features = false }
+serde_json = "1.0.120"
 
 powdr-pil-analyzer ={ path = "../powdr/pil-analyzer" }
 powdr-number = { path = "../powdr/number" }

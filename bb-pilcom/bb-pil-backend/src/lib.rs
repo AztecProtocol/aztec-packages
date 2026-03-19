@@ -1,3 +1,4 @@
+pub mod audit_metadata;
 mod expression_evaluation;
 mod file_writer;
 mod flavor_builder;
