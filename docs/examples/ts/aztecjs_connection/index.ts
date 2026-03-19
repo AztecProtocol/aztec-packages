@@ -85,7 +85,7 @@ await deployMethodFeeJuice.send({
 
 // docs:start:verify_account_deployment
 const metadata = await wallet.getContractMetadata(newAccount.address);
-console.log("Account deployed:", metadata.isContractInitialized);
+console.log("Account deployed:", metadata.initializationStatus);
 // docs:end:verify_account_deployment
 
 // docs:start:deploy_contract
@@ -118,25 +118,3 @@ const { result: balance } = await token.methods
 
 console.log(`Alice's token balance: ${balance}`);
 // docs:end:simulate_function
-<<<<<<< HEAD
-=======
-
-// docs:start:deploy_account_fee_juice
-// Deploy the account using the bridged Fee Juice
-const deployMethodFeeJuice = await feeJuiceAccount.getDeployMethod();
-await deployMethodFeeJuice.send({
-  from: NO_FROM,
-  fee: {
-    paymentMethod: new FeeJuicePaymentMethodWithClaim(
-      feeJuiceAccount.address,
-      claim,
-    ),
-  },
-});
-// docs:end:deploy_account_fee_juice
-
-// docs:start:verify_account_deployment
-const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
-console.log("Account deployed:", metadata.initializationStatus);
-// docs:end:verify_account_deployment
->>>>>>> 6b1e6d1b45 (feat!: make isContractInitialized a tri-state enum (#21754))
