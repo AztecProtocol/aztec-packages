@@ -10,7 +10,7 @@ namespace bb {
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
-concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor>;
+concept IsUltraHonk = IsAnyOf<T, UltraFlavor, DualUltraFlavor, DualUltraZKFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor>;
 #else
 template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, DualUltraFlavor, DualUltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;

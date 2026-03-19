@@ -1,5 +1,6 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "failure_test_utils.hpp"
 #include "ultra_honk.test.hpp"
 
@@ -13,7 +14,8 @@ using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor>;
 #else
-using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
+using FlavorTypes = testing::
+    Types<UltraFlavor, UltraZKFlavor, DualUltraFlavor, DualUltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 #endif
 
 template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {

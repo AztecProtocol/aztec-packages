@@ -42,7 +42,7 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
     // For BS>1: masking chunks flow through interleaved groups, not the individual witness list
     static constexpr size_t NUM_WITNESS_ENTITIES = Base::NUM_WITNESS_ENTITIES;
 
-    // Override AllEntities to use ZK version (includes masking entities via MegaMaskingEntities_)
+    // Override AllEntities with no masking entities (translator provides masking in the batched flow)
     template <typename DataType> using AllEntities = typename Base::template AllEntities_<DataType, false>;
 
     using AllValues = typename Base::template AllValues_<false>;

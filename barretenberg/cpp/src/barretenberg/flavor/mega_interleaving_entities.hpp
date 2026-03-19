@@ -130,6 +130,10 @@ template <typename DataType> class MegaInterleavedWitnessCommitments_<DataType, 
         interleaved_z_perm)             // [z_perm, 0] - shiftable
 
     auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_o, interleaved_w_4, interleaved_z_perm }; }
+    auto get_shiftable() const
+    {
+        return RefArray{ interleaved_wires, interleaved_w_o, interleaved_w_4, interleaved_z_perm };
+    }
     auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires_1, interleaved_ecc_op_wires_2 }; }
 };
 
@@ -174,6 +178,7 @@ template <typename DataType> class MegaInterleavedWitnessCommitments_<DataType, 
         interleaved_z_perm)             // W₁₁: [z_perm, 0, 0, 0] - shiftable
 
     auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
+    auto get_shiftable() const { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
     auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires }; }
 };
 

@@ -231,7 +231,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, sumcheck_padding_indicator_array);
 
-    info("UltraVerifier: sumcheck verified = ", sumcheck_output.verified);
+    vinfo("UltraVerifier: sumcheck verified = ", sumcheck_output.verified);
 
     constexpr size_t LOG_K = Flavor::INTERLEAVING_LOG_K;
 

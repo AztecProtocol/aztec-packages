@@ -281,9 +281,12 @@ template <typename Curve> class GeminiProver_ {
 
             Polynomial A_0_neg = A_0_pos;
 
+            const Fr r_inv_shift = (has_to_be_shifted() || !batched_shifted_tail_.is_empty())
+                                       ? r_challenge.pow(shift_exponent).invert()
+                                       : Fr(0); // unused, but avoids uninitialized read
+
             if (has_to_be_shifted()) {
-                Fr r_inv_shift = r_challenge.pow(shift_exponent).invert(); // r^(-k)
-                batched_to_be_shifted *= r_inv_shift;                      // G = G/r^k
+                batched_to_be_shifted *= r_inv_shift; // G = G/r^k
 
                 A_0_pos += batched_to_be_shifted; // A₀₊ += G/r^k
                 // A₀₋(X) = F(X) + (-1)^k · G(X)/r^k so that A₀₋(-r) = A₀(-r)
@@ -295,7 +298,6 @@ template <typename Curve> class GeminiProver_ {
                 }
             }
             if (!batched_shifted_tail_.is_empty()) {
-                Fr r_inv_shift = r_challenge.pow(shift_exponent).invert();
                 batched_shifted_tail_ *= r_inv_shift;
                 A_0_pos += batched_shifted_tail_;
                 if (shift_exponent % 2 == 0) {

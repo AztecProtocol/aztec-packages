@@ -90,6 +90,7 @@ template <size_t BATCH_SIZE_ = 1> class UltraFlavor_ {
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     using SubrelationSeparator = FF;

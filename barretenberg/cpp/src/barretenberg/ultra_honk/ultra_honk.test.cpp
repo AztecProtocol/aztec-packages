@@ -1,4 +1,5 @@
 #include "ultra_honk.test.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -17,7 +18,8 @@ using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor>;
 #else
-using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
+using FlavorTypes = testing::
+    Types<UltraFlavor, UltraZKFlavor, DualUltraFlavor, DualUltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 #endif
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 /**
@@ -58,6 +60,9 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
  */
 TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 {
+    if constexpr (TypeParam::INTERLEAVING_BATCH_SIZE > 1) {
+        GTEST_SKIP() << "Strided entity views don't support coeffs() iteration";
+    }
     auto circuit_builder = UltraCircuitBuilder();
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 

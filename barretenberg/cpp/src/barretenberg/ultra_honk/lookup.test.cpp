@@ -1,9 +1,11 @@
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "ultra_honk.test.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor>;
+using FlavorTypes = testing::
+    Types<UltraFlavor, UltraZKFlavor, DualUltraFlavor, DualUltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
 /**

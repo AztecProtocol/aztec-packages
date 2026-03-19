@@ -50,7 +50,7 @@ template <typename Curve> struct ClaimBatcher_ {
      * - s_0 = \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right) \f],
      * - s_1 = \frac{1}{r^k} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
      * \f]
-     * where k is the shift_exponent member (1 for standard shifts, 4 for interleaved polynomials with batch_size=4),
+     * where k is the shift_exponent member (1 for standard shifts, BS for interleaved polynomials),
      * and the scalars used to batch the claims are given by
      * \f[
      * \left(

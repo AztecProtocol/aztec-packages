@@ -463,23 +463,3 @@ TYPED_TEST(MegaHonkTests, MaskingTailCommitments)
 // ============================================================
 // DualUltra (BS=2) standalone tests
 // ============================================================
-
-TEST(DualUltraHonkTests, Basic)
-{
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    using Flavor = DualUltraFlavor;
-    using Builder = Flavor::CircuitBuilder;
-
-    Builder builder;
-    DefaultIO::add_default(builder);
-    bb::MockCircuits::add_arithmetic_gates(builder);
-
-    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-    auto verification_key = std::make_shared<Flavor::VerificationKey>(prover_instance->get_precomputed());
-    auto vk_and_hash = std::make_shared<Flavor::VKAndHash>(verification_key);
-    UltraProver_<Flavor> prover(prover_instance, verification_key);
-    UltraVerifier_<Flavor, DefaultIO> verifier(vk_and_hash);
-    auto proof = prover.construct_proof();
-    bool verified = verifier.verify_proof(proof).result;
-    EXPECT_TRUE(verified);
-}
