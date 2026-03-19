@@ -122,6 +122,27 @@ TEST(KeccakF1600ConstrainingTest, DstAddressOutOfBounds)
     check_relation<keccak_memory_relation>(trace);
 }
 
+// Negative test: when sel_slice_write is active, round must equal AVM_KECCAKF1600_NUM_ROUNDS (24).
+TEST(KeccakF1600ConstrainingTest, NegativeRoundCountAtWrite)
+{
+    TestTraceContainer trace = TestTraceContainer({ {
+                                                        { C::precomputed_first_row, 1 },
+                                                    },
+                                                    {
+                                                        { C::keccakf1600_sel, 1 },
+                                                        { C::keccakf1600_sel_slice_write, 1 },
+                                                        { C::keccakf1600_round, 23 },
+                                                    } });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_ROUND_COUNT_AT_WRITE),
+        "ROUND_COUNT_AT_WRITE");
+
+    // Setting round to 24 should satisfy the constraint.
+    trace.set(C::keccakf1600_round, 1, 24);
+    check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_ROUND_COUNT_AT_WRITE);
+}
+
 // Negative test: sel cannot drop from 1 to 0 mid-block (i.e., without end == 1).
 // Row 0: first_row=1, sel=1, start=1 (LATCH_CONDITION=1 via first_row)
 // Row 1: sel=1, end=0 (mid-block row, sel must not drop to 0 here)
