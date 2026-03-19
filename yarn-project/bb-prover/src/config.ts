@@ -5,6 +5,10 @@ export interface BBConfig {
   bbSkipCleanup: boolean;
   numConcurrentIVCVerifiers: number;
   bbIVCConcurrency: number;
+  /** Batch size for RPC proof verification (QueuedIVCVerifier concurrency). */
+  bbRpcVerifyBatchSize: number;
+  /** Batch size for P2P peer proof verification (BatchChonkVerifier batch). */
+  bbPeerVerifyBatchSize: number;
 }
 
 export interface ACVMConfig {

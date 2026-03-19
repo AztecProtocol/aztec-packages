@@ -178,9 +178,12 @@ export function createFirstStageTxValidationsForGossipedTransactions(
  * (e.g., duplicates, insufficient balance, pool full).
  */
 export function createSecondStageTxValidationsForGossipedTransactions(
-  proofVerifier: ClientProtocolCircuitVerifier,
+  proofVerifier: ClientProtocolCircuitVerifier | undefined,
   bindings?: LoggerBindings,
 ): Record<string, TransactionValidator> {
+  if (!proofVerifier) {
+    return {};
+  }
   return {
     proofValidator: {
       validator: new TxProofValidator(proofVerifier, bindings),
@@ -196,7 +199,7 @@ export function createSecondStageTxValidationsForGossipedTransactions(
  * caught later by the block building validator.
  */
 function createTxValidatorForMinimumTxIntegrityChecks(
-  verifier: ClientProtocolCircuitVerifier,
+  verifier: ClientProtocolCircuitVerifier | undefined,
   {
     l1ChainId,
     rollupVersion,
@@ -206,7 +209,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
   },
   bindings?: LoggerBindings,
 ): TxValidator {
-  return new AggregateTxValidator(
+  const validators: TxValidator[] = [
     new MetadataTxValidator(
       {
         l1ChainId: new Fr(l1ChainId),
@@ -218,8 +221,11 @@ function createTxValidatorForMinimumTxIntegrityChecks(
     ),
     new SizeTxValidator(bindings),
     new DataTxValidator(bindings),
-    new TxProofValidator(verifier, bindings),
-  );
+  ];
+  if (verifier) {
+    validators.push(new TxProofValidator(verifier, bindings));
+  }
+  return new AggregateTxValidator(...validators);
 }
 
 /**
@@ -229,7 +235,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
  * enters the pending pool or during block building.
  */
 export function createTxValidatorForReqResponseReceivedTxs(
-  verifier: ClientProtocolCircuitVerifier,
+  verifier: ClientProtocolCircuitVerifier | undefined,
   {
     l1ChainId,
     rollupVersion,
@@ -248,7 +254,7 @@ export function createTxValidatorForReqResponseReceivedTxs(
  * re-execution; their validity against state is checked during block building.
  */
 export function createTxValidatorForBlockProposalReceivedTxs(
-  verifier: ClientProtocolCircuitVerifier,
+  verifier: ClientProtocolCircuitVerifier | undefined,
   {
     l1ChainId,
     rollupVersion,

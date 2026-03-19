@@ -1,5 +1,5 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
@@ -150,7 +150,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
-    private proofVerifier: ClientProtocolCircuitVerifier,
+    private peerChonkVerifier: ClientProtocolCircuitVerifier | undefined,
+    private rpcChonkVerifier: ClientProtocolCircuitVerifier | undefined,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
     private blobClient?: BlobClientInterface,
@@ -306,10 +307,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const circuitVerifier =
-      config.realProofs || config.debugForceTxProofVerification
-        ? await BBCircuitVerifier.new(config)
-        : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
+    let peerChonkVerifier: ClientProtocolCircuitVerifier | undefined;
+    let rpcChonkVerifier: ClientProtocolCircuitVerifier | undefined;
+    if (useRealVerifiers) {
+      peerChonkVerifier = await BatchChonkVerifier.new(config, telemetry, config.bbPeerVerifyBatchSize, 'peer');
+      const rpcBatchVerifier = await BatchChonkVerifier.new(config, telemetry, 1, 'rpc');
+      rpcChonkVerifier = new QueuedIVCVerifier(rpcBatchVerifier, config.bbRpcVerifyBatchSize, telemetry);
+    }
 
     let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
@@ -323,8 +328,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       debugLogStore = new NullDebugLogStore();
     }
 
-    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
-
     const proverOnly = config.enableProverNode && config.disableValidator;
     if (proverOnly) {
       log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
@@ -334,7 +337,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const p2pClient = await createP2PClient(
       config,
       archiver,
-      proofVerifier,
+      peerChonkVerifier,
       worldStateSynchronizer,
       epochCache,
       packageVersion,
@@ -575,7 +578,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       globalVariableBuilder,
       epochCache,
       packageVersion,
-      proofVerifier,
+      peerChonkVerifier,
+      rpcChonkVerifier,
       telemetry,
       log,
       blobClient,
@@ -914,7 +918,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
     await tryStop(this.slasherClient);
-    await tryStop(this.proofVerifier);
+    await Promise.all([tryStop(this.peerChonkVerifier), tryStop(this.rpcChonkVerifier)]);
     await tryStop(this.sequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
@@ -1327,7 +1331,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
   ): Promise<TxValidationResult> {
     const db = this.worldStateSynchronizer.getCommitted();
-    const verifier = isSimulation ? undefined : this.proofVerifier;
+    const verifier = isSimulation ? undefined : this.rpcChonkVerifier;
 
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
@@ -1376,7 +1380,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver.updateConfig(config);
     }
     if (newConfig.realProofs !== this.config.realProofs) {
-      this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
+      // TODO: handle dynamic config change for split verifiers
+      if (config.realProofs) {
+        this.peerChonkVerifier = await BatchChonkVerifier.new(
+          newConfig,
+          this.telemetry,
+          newConfig.bbPeerVerifyBatchSize,
+          'peer',
+        );
+        const rpcBatch = await BatchChonkVerifier.new(newConfig, this.telemetry, 1, 'rpc');
+        this.rpcChonkVerifier = new QueuedIVCVerifier(rpcBatch, newConfig.bbRpcVerifyBatchSize, this.telemetry);
+      } else {
+        this.peerChonkVerifier = undefined;
+        this.rpcChonkVerifier = undefined;
+      }
     }
 
     this.config = newConfig;

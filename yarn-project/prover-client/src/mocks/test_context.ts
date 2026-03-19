@@ -106,6 +106,8 @@ export class TestContext {
         bbSkipCleanup: config.bbSkipCleanup,
         numConcurrentIVCVerifiers: 2,
         bbIVCConcurrency: 1,
+        bbRpcVerifyBatchSize: 8,
+        bbPeerVerifyBatchSize: 8,
       };
       localProver = await createProver(bbConfig);
     }

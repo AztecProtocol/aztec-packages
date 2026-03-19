@@ -15,6 +15,8 @@ const {
   BB_WORKING_DIRECTORY = '',
   BB_NUM_IVC_VERIFIERS = '1',
   BB_IVC_CONCURRENCY = '1',
+  BB_RPC_VERIFY_BATCH_SIZE,
+  BB_PEER_VERIFY_BATCH_SIZE,
 } = process.env;
 
 export const getBBConfig = async (
@@ -51,6 +53,8 @@ export const getBBConfig = async (
       cleanup,
       numConcurrentIVCVerifiers: numIvcVerifiers,
       bbIVCConcurrency: ivcConcurrency,
+      bbRpcVerifyBatchSize: BB_RPC_VERIFY_BATCH_SIZE ? Number(BB_RPC_VERIFY_BATCH_SIZE) : numIvcVerifiers,
+      bbPeerVerifyBatchSize: BB_PEER_VERIFY_BATCH_SIZE ? Number(BB_PEER_VERIFY_BATCH_SIZE) : numIvcVerifiers,
     };
   } catch (err) {
     logger.error(`Native BB not available, error: ${err}`);
