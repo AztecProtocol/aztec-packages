@@ -1,6 +1,6 @@
 # Goblin AVM recursive verifier
 
-The AVM has a trace with a large number of columns. This means that verifying a proof of the AVM requires an MSM of large size. Such an MSM, when computed in-circuit, is extremely costly. To amortize the the cost of recursively verifying the AVM we construct a 2 step verification mechanism.
+The AVM has a trace with a large number of columns. This means that verifying a proof of the AVM requires an MSM of large size. Such an MSM, when computed in-circuit, is extremely costly. To amortize the cost of recursively verifying the AVM we construct a 2-step verification mechanism.
 
 ## The inner circuit
 
@@ -12,23 +12,33 @@ The circuit takes two witnesses: $\iota^{inner}$ and $\pi^{inner}_{avm}$, one pu
 1. $\pi^{inner}_{avm}$ is a valid proof of the AVM for the public inputs $\iota^{inner}_{avm}$
 2. $\mathsf{h}$ is the challenge obtained by hashing the transcript $\mathsf{tr}_{\mathsf{V}_{avm}}$ of the AVM verifier $\mathsf{V}_{avm}$. We write this as $\mathsf{h} = \mathsf{Hash}(\mathsf{tr}_{\mathsf{V}_{avm}(\iota^{inner}, \pi^{inner})})$
 
-Note that $\mathsf{V}_{avm}$ is hard-coded in $\mathsf{C}^{inner}$. In particular, then vk of the AVM is hard-coded in $\mathsf{C}^{inner}$. The vk of the AVM is a witness in $\mathsf{C}^{inner}$ that is recorded in the selectors.
+Note that $\mathsf{V}_{avm}$ is hard-coded in $\mathsf{C}^{inner}$. In particular, the vk of the AVM is hard-coded in $\mathsf{C}^{inner}$. The vk of the AVM is a witness in $\mathsf{C}^{inner}$ that is recorded in the selectors.
 
-A proof $\pi_{\mathsf{C}^{inner}}$ for public input $\mathsf{h}$ attests to the knowledge of a witness $(\iota^{inner}, \pi_{avm}^{inner})$  such that $\pi^{inner}_{avm}$ is a valid proof of the AVM for the public inputs $\iota^{inner}_{avm}$, and $\mathsf{h} = \mathsf{Hash}(\mathsf{tr}_{\mathsf{V}_{avm}(\iota^{inner}, \pi^{inner})})$
+A proof $\pi_{\mathsf{C}^{inner}}$ for public input $\mathsf{h}$ attests to the knowledge of a witness $(\iota^{inner}, \pi_{avm}^{inner})$ such that $\pi^{inner}_{avm}$ is a valid proof of the AVM for the public inputs $\iota^{inner}_{avm}$, and $\mathsf{h} = \mathsf{Hash}(\mathsf{tr}_{\mathsf{V}_{avm}(\iota^{inner}, \pi^{inner})})$
+
+### Proof structure
+
+$\mathsf{C}^{inner}$ is arithmetized using `MegaBuilder`, which defers EC operations to Goblin. The proof of $\mathsf{C}^{inner}$ consists of three components produced on a single shared transcript:
+
+1. **Mega Oink proof** ($\pi_{oink}$): witness and permutation commitments for the Mega circuit.
+2. **ECCVM proof** ($\pi_{ECCVM}$): proves correctness of the deferred EC operations, accompanied by an IPA proof.
+3. **Joint proof** ($\pi_{joint}$): covers the Translator Oink phase followed by a **single batched sumcheck and a single PCS reduction** over both the Mega circuit and the Translator circuit polynomials.
+
+The batched prover runs one joint sumcheck of $\text{JOINT\_LOG\_N}$ rounds where the round univariate is $U_{joint}(x) = U_{Mega}(x) + \alpha^{K_H} \cdot U_{Translator}(x)$, followed by a single Shplemini/KZG opening proof. This replaces what would otherwise be two separate sumcheck + PCS invocations, reducing both prover and verifier costs.
 
 ## The outer circuit
 
-Write $\mathsf{V}_{\mathsf{C}^{inner}}$ for the verifier of $\mathsf{C}^{inner}$. We now construct a circuit that verifies a proof $\pi_{\mathsf{C}^{inner}}$ of $\mathsf{C}^{inner}$ and that ensures the proof of validity of $\mathsf{C}^{inner}$ is tied to a specific AVM proof. We call this circuit $\mathsf{C}^{outer}$:
+Write $\mathsf{V}_{\mathsf{C}^{inner}}$ for the verifier of $\mathsf{C}^{inner}$. We now construct a circuit that verifies the proof of $\mathsf{C}^{inner}$ and ensures it is tied to a specific AVM proof. We call this circuit $\mathsf{C}^{outer}$:
 
-![Inner Circuit Diagram](./images/c_outer.svg)
+![Outer Circuit Diagram](./images/c_outer.svg)
 
-The circuit takes two witnesses: a hash $\mathsf{h}$ and a proof $\pi_{\mathsf{C}^{inner}}$, two public inputs: $\iota^{outer}$, $\pi_{avm}^{outer}$, and verifies that:
-1. $\pi_{\mathsf{C}^{inner}}$ is a valid proof of $\mathsf{C}^{inner}$ for public input $\mathsf{h}$
+The circuit takes two witnesses: a hash $\mathsf{h}$ and the proof components $(\pi_{oink}, \pi_{ECCVM}, \pi_{joint})$, and two public inputs: $\iota^{outer}$, $\pi_{avm}^{outer}$. It verifies that:
+1. The batched proof $(\pi_{oink}, \pi_{ECCVM}, \pi_{joint})$ is valid — this includes verifying the Mega Oink, the ECCVM proof, and the joint Translator Oink + sumcheck + PCS over both the Mega and Translator polynomials.
 2. $\mathsf{h}$ is the challenge obtained by hashing the transcript of an AVM verifier that verified the proof $\pi_{avm}^{outer}$ for the public inputs $\iota^{outer}$
 
 Note that $\mathsf{V}_{\mathsf{C}^{inner}}$ is hard-coded in $\mathsf{C}^{outer}$. Hence, the vk of $\mathsf{C}^{inner}$ is hard-coded in $\mathsf{C}^{outer}$.
 
-A proof $\pi_{\mathsf{C}^{outer}}$ for public input $(\iota^{outer}$, $\pi_{avm}^{outer})$ attests to the knoweldge of witness $(\mathsf{h}, \pi_{\mathsf{C}^{inner}})$ such that:
+A proof $\pi_{\mathsf{C}^{outer}}$ for public input $(\iota^{outer}$, $\pi_{avm}^{outer})$ attests to the knowledge of witness $(\mathsf{h}, \pi_{\mathsf{C}^{inner}})$ such that:
 1. $\mathsf{h} = \mathsf{Hash}(\mathsf{tr}_{\mathsf{V}_{avm}(\iota^{outer}, \pi^{outer})})$
 2. $\pi_{\mathsf{C}^{inner}}$ is a valid proof of $\mathsf{C}^{inner}$ for public input $\mathsf{h}$
 
@@ -43,6 +53,6 @@ $$ that by the property of $\mathsf{Hash}$ implies $(\iota^{outer}, \pi_{avm}^{o
 
 ## Why is this useful?
 
-The circuit whose proof will be verified in-circuit (in the public base rollup) is $\mathsf{C}^{outer}$, and in $\mathsf{C}^{outer}$ we have the verifier for $\mathsf{C}^{inner}$, not the one of the AVM. Hence, if the cost of verifying $\mathsf{C}^{inner}$ in-circuit plus the cost of generating a proof for $\mathsf{C}^{inner}$ is smaller than the cost of generating a proof for a circuit that recursively verifying the AVM, then the 2-step recursive verification is more efficient than a single recursive verification.
+The circuit whose proof will be verified in-circuit (in the public base rollup) is $\mathsf{C}^{outer}$, and in $\mathsf{C}^{outer}$ we have the verifier for $\mathsf{C}^{inner}$, not the one of the AVM. Hence, if the cost of verifying $\mathsf{C}^{inner}$ in-circuit plus the cost of generating a proof for $\mathsf{C}^{inner}$ is smaller than the cost of generating a proof for a circuit that recursively verifies the AVM, then the 2-step recursive verification is more efficient than a single recursive verification.
 
-We arithmetize $\mathsf{C}^{inner}$ using `MegaBuilder`. In this way the large MSM required by $\mathsf{V}_{avm}$ is performed using `Goblin`, which means it doesn't have a direct impact on $\mathsf{C}^{inner}$, but rather its impact is split over different components, making it more manageable.
+We arithmetize $\mathsf{C}^{inner}$ using `MegaBuilder`. In this way the large MSM required by $\mathsf{V}_{avm}$ is performed using `Goblin`, which means it doesn't have a direct impact on $\mathsf{C}^{inner}$, but rather its impact is split over different components, making it more manageable. Furthermore, the Mega circuit and the Translator circuit are proven together using a single batched sumcheck and PCS, avoiding the overhead of two separate proving/verification rounds.

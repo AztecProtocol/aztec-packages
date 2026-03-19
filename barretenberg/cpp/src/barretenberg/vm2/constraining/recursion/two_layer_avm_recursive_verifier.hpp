@@ -31,25 +31,29 @@ namespace bb::avm2 {
  * circuit C_U. This results in a protocol that overall is more efficient than direct recursive verification of the AVM2
  * proof in an Ultra circuit.
  *
- * The proof of the Mega-arithmetized AVM2 recursive verifier circuit C_M is of the form {\pi_M, \pi_G}, where \pi_M is
- * a MegaHonk proof and \pi_G is a GoblinAvm proof consisting of an ECCVM proof, an IPA proof, and a Translator proof.
- * \pi_M establishes proper verification of the AVM2 proof up to the deferred EC operations, whose correctness is in
- * turn established by \pi_G. Recursive verification of this component will stop short of full verification, resulting
- * in an IPA claim that must be accumulated with other such claims before final verification later on (e.g. at the
- * root). This is analogous to the aggregation of pairing point inputs for proving systems that use KZG, such as
- * Ultra/MegaHonk.
+ * The proof of the Mega-arithmetized AVM2 recursive verifier circuit C_M consists of three components:
+ *   - \pi_oink: the Mega Oink proof (witness and permutation commitments),
+ *   - \pi_ECCVM: an ECCVM proof establishing correctness of the deferred EC operations (with an IPA proof),
+ *   - \pi_joint: a joint proof covering Translator Oink + a single batched sumcheck + a single PCS reduction
+ *     over both the Mega circuit and the Translator circuit polynomials.
  *
- * The Ultra-arithmetized circuit C_U is responsible for recursive verification of {\pi_M, \pi_G}, i.e. it contains both
- * a Mega and a GoblinAvm recursive verifier. The output of this recursive verification is a pairing check accumulator
- * and an IPA claim accumulator. To ensure proper transfer of the AVM2 verifier inputs {\pi, pub_inputs}_{AVM2}
- * between the Mega and Ultra circuits, we utilize a hash consistency check. The transcript of the AVM recursive
- * verifier is used to generate a challenge h_M after the end of the verification algorithm. This challenge records the
- * final state of the transcript, which hashed the proof and public inputs {\pi, pub_inputs}_{AVM2} used in C_M. The
- * challenge h_M is propagated via the public inputs.  Then, C_U computes the same challenge h_U independently and
- * performs the check h_U = \pi_M.pub_inputs.h_M.
+ * The batched prover uses a single shared transcript and runs one joint sumcheck of JOINT_LOG_N rounds over the
+ * combined Mega and Translator relations, followed by a single Shplemini/KZG opening proof. This replaces what would
+ * otherwise be two separate sumcheck + PCS invocations. The ECCVM proof establishes correctness of the Goblin EC
+ * operations deferred by C_M; its recursive verification yields an IPA claim that must be accumulated with other such
+ * claims before final verification (e.g. at the root).
  *
- * @note The Mega circuit must be constrained to be a genuine AVM2 verifier circuit. This is done by fixing the VK(s)
- * corresponding to proofs {\pi_M, \pi_G} to be circuit constants in C_U.
+ * The Ultra-arithmetized circuit C_U is responsible for recursive verification of {\pi_oink, \pi_ECCVM, \pi_joint},
+ * i.e. it contains both a batched Mega/Translator recursive verifier and a GoblinAvm ECCVM recursive verifier.
+ * The output of this recursive verification is a pairing check accumulator and an IPA claim accumulator. To ensure
+ * proper transfer of the AVM2 verifier inputs {\pi, pub_inputs}_{AVM2} between the Mega and Ultra circuits, we
+ * utilize a hash consistency check. The transcript of the AVM recursive verifier is used to generate a challenge h_M
+ * after the end of the verification algorithm. This challenge records the final state of the transcript, which hashed
+ * the proof and public inputs {\pi, pub_inputs}_{AVM2} used in C_M. The challenge h_M is propagated via the public
+ * inputs. Then, C_U computes the same challenge h_U independently and performs the check h_U = \pi_M.pub_inputs.h_M.
+ *
+ * @note The Mega circuit must be constrained to be a genuine AVM2 verifier circuit. This is done by fixing the VK
+ * corresponding to the inner circuit to be a circuit constant in C_U.
  *
  */
 class TwoLayerAvmRecursiveVerifier {
@@ -63,12 +67,15 @@ class TwoLayerAvmRecursiveVerifier {
     using TwoLayerAvmRecursiveVerifierOutput =
         stdlib::recursion::honk::UltraRecursiveVerifierOutput<UltraCircuitBuilder>;
 
-    // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
+    // Output of the inner prover: three proof components plus the Mega VK.
+    //   - mega_oink_proof: Mega circuit Oink phase (witness + permutation commitments)
+    //   - joint_proof: Translator Oink + joint sumcheck + joint PCS over Mega and Translator
+    //   - goblin_proof: ECCVM proof + IPA proof (Translator is handled by the batched joint proof)
     struct InnerProverOutput {
         HonkProof mega_oink_proof;
         HonkProof joint_proof;
-        GoblinAvmProof goblin_proof;                             // \pi_G
-        std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk; // VK_M
+        GoblinAvmProof goblin_proof;
+        std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk;
     };
 
   private:
@@ -79,8 +86,10 @@ class TwoLayerAvmRecursiveVerifier {
         : outer_builder(&builder) {};
     /**
      * @brief Recursively verify an AVM proof using Goblin and two layers of recursive verification.
-     * @details First, construct an inner Mega-arithmetized AVM recursive verifier circuit and a corresponding proof
-     * {\pi_M, \pi_G}. Then, construct an outer Ultra-arithmetized Mega/Goblin recursive verifier circuit.
+     * @details First, construct an inner Mega-arithmetized AVM recursive verifier circuit and produce a batched proof
+     * {\pi_oink, \pi_ECCVM, \pi_joint} where \pi_joint covers Translator Oink + a single joint sumcheck + PCS over
+     * both the Mega and Translator polynomials. Then, construct an outer Ultra-arithmetized circuit that recursively
+     * verifies these proof components.
      *
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
@@ -90,11 +99,12 @@ class TwoLayerAvmRecursiveVerifier {
         const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
-        // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
+        // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof components are
+        // {\pi_oink, \pi_ECCVM, \pi_joint} where \pi_joint is a batched Mega+Translator sumcheck+PCS proof
         InnerProverOutput inner_output =
             construct_and_prove_inner_recursive_verification_circuit(stdlib_proof, public_inputs);
 
-        // Construct the outer Ultra-arithmetized Mega/Goblin recursive verifier circuit
+        // Construct the outer Ultra-arithmetized recursive verifier circuit for the batched proof
         TwoLayerAvmRecursiveVerifierOutput result =
             construct_outer_recursive_verification_circuit(stdlib_proof, public_inputs, inner_output);
 
@@ -103,11 +113,14 @@ class TwoLayerAvmRecursiveVerifier {
     }
 
     /**
-     * @brief Construct the outer circuit which recursively verifies a Mega proof and a Goblin proof.
+     * @brief Construct the outer circuit which recursively verifies the batched Mega+Translator proof and the ECCVM
+     * proof.
+     * @details The batched verifier handles Mega Oink, Translator Oink, a single joint sumcheck, and a single joint
+     * PCS over both the Mega and Translator circuit polynomials. The ECCVM verifier handles the deferred EC operations.
      *
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
-     * @param inner_output Output of the prover of the inner circuit {\pi_M, \pi_G, VK_M}
+     * @param inner_output Output of the inner prover {\pi_oink, \pi_ECCVM, \pi_joint, VK_M}
      * @return Output
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] TwoLayerAvmRecursiveVerifierOutput
@@ -128,14 +141,14 @@ class TwoLayerAvmRecursiveVerifier {
         mega_vk_and_hash->vk->fix_witness();
         mega_vk_and_hash->hash.fix_witness();
 
-        // Recursive verification of the batched Mega and Goblin proof
+        // Recursive verification of the batched Mega+Translator proof (single joint sumcheck + PCS)
         BatchedAvmRecursiveVerifier batched_verifier(mega_vk_and_hash, transcript);
 
         stdlib::Proof<UltraCircuitBuilder> mega_oink_proof(*outer_builder, inner_output.mega_oink_proof);
         stdlib::Proof<UltraCircuitBuilder> joint_proof(*outer_builder, inner_output.joint_proof);
         GoblinAvmStdlibProof stdlib_goblin_proof(*outer_builder, inner_output.goblin_proof);
 
-        // Phase 1: Recursive verificationof the Mega Oink proof
+        // Phase 1: Recursive verification of the Mega Oink proof
         auto oink_result = batched_verifier.verify_mega_oink(mega_oink_proof);
         IO io;
         io.reconstruct_from_public(oink_result.public_inputs);
@@ -146,7 +159,7 @@ class TwoLayerAvmRecursiveVerifier {
         auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
         auto translator_input = eccvm_verifier.get_translator_input_data();
 
-        // Phase 3: Translator Oink + Joint sumcheck + Joint PCS
+        // Phase 3: Translator Oink + single joint sumcheck + single joint PCS over Mega and Translator
         auto batched_result = batched_verifier.verify(joint_proof,
                                                       translator_input.evaluation_challenge_x,
                                                       translator_input.batching_challenge_v,
@@ -159,11 +172,10 @@ class TwoLayerAvmRecursiveVerifier {
             AvmRecursiveFlavor::UltraTranscript::hash_avm_transcript(*outer_builder, stdlib_proof, public_inputs);
         io.transcript_hash.assert_equal(computed_transcript_hash);
 
-        // Phase 5: Accumulate the pairing points from verifying the Mega and Goblin proofs
+        // Phase 5: Accumulate the pairing points from verifying the batched Mega+Translator proof
         batched_result.pairing_points.aggregate(io.pairing_inputs);
 
-        // Return ipa proof, ipa claim and output aggregation object produced from verifying the batched Mega and Goblin
-        // proof
+        // Return ipa proof, ipa claim and output aggregation object produced from verifying the batched proof
         TwoLayerAvmRecursiveVerifierOutput output;
         output.points_accumulator = std::move(batched_result.pairing_points);
         output.ipa_claim = eccvm_result.ipa_claim;
@@ -173,10 +185,13 @@ class TwoLayerAvmRecursiveVerifier {
 
     /**
      * @brief Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit.
+     * @details Uses the batched prover to produce a single joint sumcheck + PCS over both the Mega circuit and the
+     * Translator circuit. The proof consists of: Mega Oink, ECCVM proof (with IPA), and the joint proof covering
+     * Translator Oink + batched sumcheck + batched PCS.
      *
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
-     * @return InnerCircuitOutput proof and verification key for Mega + Goblin proof; {\pi_M, \pi_G, VK_M}
+     * @return InnerProverOutput {\pi_oink, \pi_ECCVM, \pi_joint, VK_M}
      */
     static InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
         const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs)
@@ -191,10 +206,12 @@ class TwoLayerAvmRecursiveVerifier {
         // Construct the inner recursive verification circuit
         construct_inner_recursive_verification_circuit(inner_builder, stdlib_proof, public_inputs);
 
-        auto transcript = std::make_shared<NativeTranscript>(); // Single shared transcript
+        // Single shared transcript used by the batched prover across all phases:
+        // Mega Oink → ECCVM → Translator Oink → joint sumcheck → joint PCS
+        auto transcript = std::make_shared<NativeTranscript>();
         goblin.transcript = transcript;
 
-        // Construct the Mega proof \pi_M of the AVM recursive verifier circuit
+        // Construct the Mega proving key and VK for the AVM recursive verifier circuit
         auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(inner_builder);
 
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
@@ -204,7 +221,7 @@ class TwoLayerAvmRecursiveVerifier {
             "AVMRecursiveVerifier: circuit size exceeded current upper bound. If expected, bump MEGA_AVM_LOG_N");
         auto mega_vk = std::make_shared<MegaAvmVerificationKey>(mega_proving_key->get_precomputed());
 
-        // Batch proof of Mega and Goblin
+        // Batched prover: proves Mega and Translator with a single joint sumcheck + PCS
         BatchedAvmProver batched_prover(mega_proving_key, mega_vk, transcript);
 
         // Phase 1: Oink proof for the Mega circuit
@@ -218,10 +235,10 @@ class TwoLayerAvmRecursiveVerifier {
 
         // Phase 4: Build translator proving key from ECCVM-derived challenges.
         TranslatorCircuitBuilder translator_builder(
-            goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue, true);
+            goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue, /*avm_mode=*/true);
         auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
 
-        // Phase 5: Translator Oink + Joint Sumcheck + Joint PCS on the shared transcript.
+        // Phase 5: Translator Oink + single joint sumcheck + single joint PCS over both Mega and Translator.
         auto joint_proof = batched_prover.prove(translator_key);
 
         GoblinAvmProof goblin_proof;
