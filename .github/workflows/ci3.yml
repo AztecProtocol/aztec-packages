@@ -140,7 +140,7 @@ jobs:
             curl -X POST https://slack.com/api/chat.postMessage \
               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
               -H "Content-type: application/json" \
-              --data "$(jq -n --arg c "#team-alpha" --arg t "$TEXT" '{channel:$c, text:$t}')"
+              --data "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
           fi
 
       - name: Upload benchmarks
