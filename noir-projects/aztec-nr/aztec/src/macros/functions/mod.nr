@@ -232,7 +232,14 @@ pub comptime fn only_self(f: FunctionDefinition) {
         );
     }
 
-    f.add_attribute("noinitcheck");
+    noinitcheck(f);
+    EXTRA_NOINITCHECK_FNS = EXTRA_NOINITCHECK_FNS.push_back(f);
+}
+
+comptime mut global EXTRA_NOINITCHECK_FNS: [FunctionDefinition] = @[];
+
+pub(crate) comptime fn function_in_extra_noinitcheck_fns_list(f: FunctionDefinition) -> bool {
+    EXTRA_NOINITCHECK_FNS.any(|f2| f == f2)
 }
 
 /// View functions cannot modify state in any way, including performing contract calls that would in turn modify state.
