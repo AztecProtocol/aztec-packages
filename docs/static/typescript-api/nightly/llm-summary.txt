@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0-nightly.20260318
-Generated: 2026-03-18T04:48:36.598Z
+Version: v5.0.0-nightly.20260319
+Generated: 2026-03-19T04:48:04.848Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -38,7 +38,7 @@ Exports: 4 classes, 2 interfaces, 1 functions, 5 types
 **@aztec/wallet-sdk** - Wallet SDK for browser and extension integrations
   - Browser wallet integration
   - Key management utilities
-Exports: 6 classes, 31 interfaces, 10 functions, 8 types
+Exports: 6 classes, 31 interfaces, 10 functions, 9 types
 
 **@aztec/wallets** - Embedded wallet for browser and Node.js environments
   - EmbeddedWallet with browser and Node.js flavors

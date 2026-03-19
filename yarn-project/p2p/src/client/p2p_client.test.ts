@@ -49,6 +49,7 @@ describe('P2P Client', () => {
 
     epochCache = mock<EpochCacheInterface>();
     epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
+    epochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
 
     attestationPool = await createTestAttestationPool();
 

@@ -31,7 +31,7 @@ import {
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
 import { type Checkpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
-import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
   type BlockBuilderOptions,
@@ -77,8 +77,10 @@ export class CheckpointProposalJob implements Traceable {
   protected readonly log: Logger;
 
   constructor(
-    private readonly epoch: EpochNumber,
-    private readonly slot: SlotNumber,
+    private readonly slotNow: SlotNumber,
+    private readonly targetSlot: SlotNumber,
+    private readonly epochNow: EpochNumber,
+    private readonly targetEpoch: EpochNumber,
     private readonly checkpointNumber: CheckpointNumber,
     private readonly syncedToBlockNumber: BlockNumber,
     // TODO(palla/mbps): Can we remove the proposer in favor of attestorAddress? Need to check fisherman-node flows.
@@ -106,7 +108,20 @@ export class CheckpointProposalJob implements Traceable {
     public readonly tracer: Tracer,
     bindings?: LoggerBindings,
   ) {
-    this.log = createLogger('sequencer:checkpoint-proposal', { ...bindings, instanceId: `slot-${slot}` });
+    this.log = createLogger('sequencer:checkpoint-proposal', {
+      ...bindings,
+      instanceId: `slot-${this.slotNow}`,
+    });
+  }
+
+  /** The wall-clock slot during which the proposer builds. */
+  private get slot(): SlotNumber {
+    return this.slotNow;
+  }
+
+  /** The wall-clock epoch. */
+  private get epoch(): EpochNumber {
+    return this.epochNow;
   }
 
   /**
@@ -119,7 +134,7 @@ export class CheckpointProposalJob implements Traceable {
     // In fisherman mode, we simulate slashing but don't actually publish to L1
     // These are constant for the whole slot, so we only enqueue them once
     const votesPromises = new CheckpointVoter(
-      this.slot,
+      this.targetSlot,
       this.publisher,
       this.attestorAddress,
       this.validatorClient,
@@ -146,6 +161,29 @@ export class CheckpointProposalJob implements Traceable {
       return;
     }
 
+    // If pipelining, wait until the submission slot so L1 recognizes the pipelined proposer
+    if (this.epochCache.isProposerPipeliningEnabled()) {
+      const submissionSlotTimestamp =
+        getTimestampForSlot(this.targetSlot, this.l1Constants) - BigInt(this.l1Constants.ethereumSlotDuration);
+      this.log.info(`Waiting until submission slot ${this.targetSlot} for L1 submission`, {
+        slot: this.slot,
+        submissionSlot: this.targetSlot,
+        submissionSlotTimestamp,
+      });
+      await sleepUntil(new Date(Number(submissionSlotTimestamp) * 1000), this.dateProvider.nowAsDate());
+
+      // After waking, verify the parent checkpoint wasn't pruned during the sleep.
+      // We check L1's pending tip directly instead of canProposeAt, which also validates the proposer
+      // identity and would fail because the timestamp resolves to a different slot's proposer.
+      const l1Tips = await this.publisher.rollupContract.getTips();
+      if (l1Tips.pending < this.checkpointNumber - 1) {
+        this.log.warn(
+          `Parent checkpoint was pruned during pipelining sleep (L1 pending=${l1Tips.pending}, expected>=${this.checkpointNumber - 1}), skipping L1 submission for checkpoint ${this.checkpointNumber}`,
+        );
+        return undefined;
+      }
+    }
+
     // Then send everything to L1
     const l1Response = await this.publisher.sendRequests();
     const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
@@ -164,7 +202,7 @@ export class CheckpointProposalJob implements Traceable {
     return {
       // nullish operator needed for tests
       [Attributes.COINBASE]: this.validatorClient.getCoinbaseForAttestor(this.attestorAddress)?.toString(),
-      [Attributes.SLOT_NUMBER]: this.slot,
+      [Attributes.SLOT_NUMBER]: this.targetSlot,
     };
   })
   private async proposeCheckpoint(): Promise<Checkpoint | undefined> {
@@ -174,8 +212,15 @@ export class CheckpointProposalJob implements Traceable {
       const feeRecipient = this.validatorClient.getFeeRecipientForAttestor(this.attestorAddress);
 
       // Start the checkpoint
-      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.slot);
-      this.metrics.incOpenSlot(this.slot, this.proposer?.toString() ?? 'unknown');
+      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.targetSlot);
+      this.log.info(`Starting checkpoint proposal`, {
+        buildSlot: this.slot,
+        submissionSlot: this.targetSlot,
+        pipelining: this.epochCache.isProposerPipeliningEnabled(),
+        proposer: this.proposer?.toString(),
+        coinbase: coinbase.toString(),
+      });
+      this.metrics.incOpenSlot(this.targetSlot, this.proposer?.toString() ?? 'unknown');
 
       // Enqueues checkpoint invalidation (constant for the whole slot)
       if (this.invalidateCheckpoint && !this.config.skipInvalidateBlockAsProposer) {
@@ -186,7 +231,7 @@ export class CheckpointProposalJob implements Traceable {
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
         feeRecipient,
-        this.slot,
+        this.targetSlot,
       );
 
       // Collect L1 to L2 messages for the checkpoint and compute their hash
@@ -194,7 +239,7 @@ export class CheckpointProposalJob implements Traceable {
       const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
       // Collect the out hashes of all the checkpoints before this one in the same epoch
-      const previousCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsDataForEpoch(this.epoch))
+      const previousCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsDataForEpoch(this.targetEpoch))
         .filter(c => c.checkpointNumber < this.checkpointNumber)
         .map(c => c.checkpointOutHash);
 
@@ -251,8 +296,8 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       if (blocksInCheckpoint.length === 0) {
-        this.log.warn(`No blocks were built for slot ${this.slot}`, { slot: this.slot });
-        this.eventEmitter.emit('checkpoint-empty', { slot: this.slot });
+        this.log.warn(`No blocks were built for slot ${this.targetSlot}`, { slot: this.targetSlot });
+        this.eventEmitter.emit('checkpoint-empty', { slot: this.targetSlot });
         return undefined;
       }
 
@@ -260,14 +305,14 @@ export class CheckpointProposalJob implements Traceable {
       if (minBlocksForCheckpoint !== undefined && blocksInCheckpoint.length < minBlocksForCheckpoint) {
         this.log.warn(
           `Checkpoint has fewer blocks than minimum (${blocksInCheckpoint.length} < ${minBlocksForCheckpoint}), skipping proposal`,
-          { slot: this.slot, blocksBuilt: blocksInCheckpoint.length, minBlocksForCheckpoint },
+          { slot: this.targetSlot, blocksBuilt: blocksInCheckpoint.length, minBlocksForCheckpoint },
         );
         return undefined;
       }
 
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
-      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
+      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.targetSlot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
       // Final validation: per-block limits are only checked if the operator set them explicitly.
@@ -298,10 +343,10 @@ export class CheckpointProposalJob implements Traceable {
       // Do not collect attestations nor publish to L1 in fisherman mode
       if (this.config.fishermanMode) {
         this.log.info(
-          `Built checkpoint for slot ${this.slot} with ${blocksInCheckpoint.length} blocks. ` +
+          `Built checkpoint for slot ${this.targetSlot} with ${blocksInCheckpoint.length} blocks. ` +
             `Skipping proposal in fisherman mode.`,
           {
-            slot: this.slot,
+            slot: this.targetSlot,
             checkpoint: checkpoint.header.toInspect(),
             blocksBuilt: blocksInCheckpoint.length,
           },
@@ -330,7 +375,7 @@ export class CheckpointProposalJob implements Traceable {
       const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastCheckpointProposal(proposal);
 
-      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.slot);
+      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
       const attestations = await this.waitForAttestations(proposal);
       const blockAttestedAt = this.dateProvider.now();
 
@@ -343,7 +388,7 @@ export class CheckpointProposalJob implements Traceable {
         attestationsSignature = await this.validatorClient.signAttestationsAndSigners(
           attestations,
           signer,
-          this.slot,
+          this.targetSlot,
           this.checkpointNumber,
         );
       } catch (err) {
@@ -356,10 +401,10 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Enqueue publishing the checkpoint to L1
-      this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slot);
+      this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.targetSlot);
       const aztecSlotDuration = this.l1Constants.slotDuration;
-      const slotStartBuildTimestamp = this.getSlotStartBuildTimestamp();
-      const txTimeoutAt = new Date((slotStartBuildTimestamp + aztecSlotDuration) * 1000);
+      const submissionSlotStart = Number(getTimestampForSlot(this.targetSlot, this.l1Constants));
+      const txTimeoutAt = new Date((submissionSlotStart + aztecSlotDuration) * 1000);
 
       // If we have been configured to potentially skip publishing checkpoint then roll the dice here
       if (
@@ -408,7 +453,6 @@ export class CheckpointProposalJob implements Traceable {
     const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
-    const slot = this.slot;
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
@@ -422,7 +466,11 @@ export class CheckpointProposalJob implements Traceable {
       const timingInfo = this.timetable.canStartNextBlock(secondsIntoSlot);
 
       if (!timingInfo.canStart) {
-        this.log.debug(`Not enough time left in slot to start another block`, { slot, blocksBuilt, secondsIntoSlot });
+        this.log.debug(`Not enough time left in slot to start another block`, {
+          slot: this.targetSlot,
+          blocksBuilt,
+          secondsIntoSlot,
+        });
         break;
       }
 
@@ -454,7 +502,11 @@ export class CheckpointProposalJob implements Traceable {
       } else if ('error' in buildResult) {
         // If there was an error building the block, just exit the loop and give up the rest of the slot
         if (!(buildResult.error instanceof SequencerInterruptedError)) {
-          this.log.warn(`Halting block building for slot ${slot}`, { slot, blocksBuilt, error: buildResult.error });
+          this.log.warn(`Halting block building for slot ${this.targetSlot}`, {
+            slot: this.targetSlot,
+            blocksBuilt,
+            error: buildResult.error,
+          });
         }
         break;
       }
@@ -463,11 +515,15 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
-      // If this is the last block, send the proposed block to the archiver,
-      // and exit the loop now so we can build the checkpoint and start collecting attestations.
+      // If this is the last block, sync it to the archiver and exit the loop
+      // so we can build the checkpoint and start collecting attestations.
       if (timingInfo.isLastBlock) {
         await this.syncProposedBlockToArchiver(block);
-        this.log.verbose(`Completed final block ${blockNumber} for slot ${slot}`, { slot, blockNumber, blocksBuilt });
+        this.log.verbose(`Completed final block ${blockNumber} for slot ${this.targetSlot}`, {
+          slot: this.targetSlot,
+          blockNumber,
+          blocksBuilt,
+        });
         blockPendingBroadcast = { block, txs: usedTxs };
         break;
       }
@@ -490,8 +546,8 @@ export class CheckpointProposalJob implements Traceable {
       await this.waitUntilNextSubslot(timingInfo.deadline);
     }
 
-    this.log.verbose(`Block building loop completed for slot ${this.slot}`, {
-      slot: this.slot,
+    this.log.verbose(`Block building loop completed for slot ${this.targetSlot}`, {
+      slot: this.targetSlot,
       blocksBuilt: blocksInCheckpoint.length,
     });
 
@@ -523,8 +579,10 @@ export class CheckpointProposalJob implements Traceable {
   /** Sleeps until it is time to produce the next block in the slot */
   @trackSpan('CheckpointProposalJob.waitUntilNextSubslot')
   private async waitUntilNextSubslot(nextSubslotStart: number) {
-    this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slot);
-    this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, { slot: this.slot });
+    this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.targetSlot);
+    this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, {
+      slot: this.targetSlot,
+    });
     await this.waitUntilTimeInSlot(nextSubslotStart);
   }
 
@@ -545,7 +603,7 @@ export class CheckpointProposalJob implements Traceable {
       opts;
 
     this.log.verbose(
-      `Preparing block ${blockNumber} index ${indexWithinCheckpoint} at checkpoint ${this.checkpointNumber} for slot ${this.slot}`,
+      `Preparing block ${blockNumber} index ${indexWithinCheckpoint} at checkpoint ${this.checkpointNumber} for slot ${this.targetSlot}`,
       { ...checkpointBuilder.getConstantData(), ...opts },
     );
 
@@ -554,10 +612,10 @@ export class CheckpointProposalJob implements Traceable {
       const { availableTxs, canStartBuilding, minTxs } = await this.waitForMinTxs(opts);
       if (!canStartBuilding) {
         this.log.warn(
-          `Not enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.slot} (got ${availableTxs} txs but needs ${minTxs})`,
-          { blockNumber, slot: this.slot, indexWithinCheckpoint },
+          `Not enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (got ${availableTxs} txs but needs ${minTxs})`,
+          { blockNumber, slot: this.targetSlot, indexWithinCheckpoint },
         );
-        this.eventEmitter.emit('block-tx-count-check-failed', { minTxs, availableTxs, slot: this.slot });
+        this.eventEmitter.emit('block-tx-count-check-failed', { minTxs, availableTxs, slot: this.targetSlot });
         this.metrics.recordBlockProposalFailed('insufficient_txs');
         return undefined;
       }
@@ -570,10 +628,10 @@ export class CheckpointProposalJob implements Traceable {
       );
 
       this.log.debug(
-        `Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.slot} with ${availableTxs} available txs`,
-        { slot: this.slot, blockNumber, indexWithinCheckpoint },
+        `Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.targetSlot} with ${availableTxs} available txs`,
+        { slot: this.targetSlot, blockNumber, indexWithinCheckpoint },
       );
-      this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
+      this.setStateFn(SequencerState.CREATING_BLOCK, this.targetSlot);
 
       // Per-block limits are operator overrides (from SEQ_MAX_L2_BLOCK_GAS etc.) further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
@@ -608,16 +666,19 @@ export class CheckpointProposalJob implements Traceable {
 
       if (buildResult.status === 'insufficient-valid-txs') {
         this.log.warn(
-          `Block ${blockNumber} at index ${indexWithinCheckpoint} on slot ${this.slot} has too few valid txs to be proposed`,
+          `Block ${blockNumber} at index ${indexWithinCheckpoint} on slot ${this.targetSlot} has too few valid txs to be proposed`,
           {
-            slot: this.slot,
+            slot: this.targetSlot,
             blockNumber,
             numTxs: buildResult.processedCount,
             indexWithinCheckpoint,
             minValidTxs,
           },
         );
-        this.eventEmitter.emit('block-build-failed', { reason: `Insufficient valid txs`, slot: this.slot });
+        this.eventEmitter.emit('block-build-failed', {
+          reason: `Insufficient valid txs`,
+          slot: this.targetSlot,
+        });
         this.metrics.recordBlockProposalFailed('insufficient_valid_txs');
         return undefined;
       }
@@ -637,17 +698,24 @@ export class CheckpointProposalJob implements Traceable {
       const manaPerSec = block.header.totalManaUsed.toNumberUnsafe() / (blockBuildDuration / 1000);
 
       this.log.info(
-        `Built block ${block.number} at checkpoint ${this.checkpointNumber} for slot ${this.slot} with ${numTxs} txs`,
+        `Built block ${block.number} at checkpoint ${this.checkpointNumber} for slot ${this.targetSlot} with ${numTxs} txs`,
         { blockHash, txHashes, manaPerSec, ...blockStats },
       );
 
-      this.eventEmitter.emit('block-proposed', { blockNumber: block.number, slot: this.slot });
+      this.eventEmitter.emit('block-proposed', {
+        blockNumber: block.number,
+        slot: this.targetSlot,
+        buildSlot: this.slotNow,
+      });
       this.metrics.recordBuiltBlock(blockBuildDuration, block.header.totalManaUsed.toNumberUnsafe());
 
       return { block, usedTxs };
     } catch (err: any) {
-      this.eventEmitter.emit('block-build-failed', { reason: err.message, slot: this.slot });
-      this.log.error(`Error building block`, err, { blockNumber, slot: this.slot });
+      this.eventEmitter.emit('block-build-failed', {
+        reason: err.message,
+        slot: this.targetSlot,
+      });
+      this.log.error(`Error building block`, err, { blockNumber, slot: this.targetSlot });
       this.metrics.recordBlockProposalFailed(err.name || 'unknown_error');
       this.metrics.recordFailedBlock();
       return { error: err };
@@ -707,10 +775,10 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Wait a bit before checking again
-      this.setStateFn(SequencerState.WAITING_FOR_TXS, this.slot);
+      this.setStateFn(SequencerState.WAITING_FOR_TXS, this.targetSlot);
       this.log.verbose(
-        `Waiting for enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.slot} (have ${availableTxs} but need ${minTxs})`,
-        { blockNumber, slot: this.slot, indexWithinCheckpoint },
+        `Waiting for enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (have ${availableTxs} but need ${minTxs})`,
+        { blockNumber, slot: this.targetSlot, indexWithinCheckpoint },
       );
       await this.waitForTxsPollingInterval();
       availableTxs = await this.p2pClient.getPendingTxCount();
@@ -910,19 +978,19 @@ export class CheckpointProposalJob implements Traceable {
   private async handleCheckpointEndAsFisherman(checkpoint: Checkpoint | undefined) {
     // Perform L1 fee analysis before clearing requests
     // The callback is invoked asynchronously after the next block is mined
-    const feeAnalysis = await this.publisher.analyzeL1Fees(this.slot, analysis =>
+    const feeAnalysis = await this.publisher.analyzeL1Fees(this.targetSlot, analysis =>
       this.metrics.recordFishermanFeeAnalysis(analysis),
     );
 
     if (checkpoint) {
-      this.log.info(`Validation checkpoint building SUCCEEDED for slot ${this.slot}`, {
+      this.log.info(`Validation checkpoint building SUCCEEDED for slot ${this.targetSlot}`, {
         ...checkpoint.toCheckpointInfo(),
         ...checkpoint.getStats(),
         feeAnalysisId: feeAnalysis?.id,
       });
     } else {
-      this.log.warn(`Validation block building FAILED for slot ${this.slot}`, {
-        slot: this.slot,
+      this.log.warn(`Validation block building FAILED for slot ${this.targetSlot}`, {
+        slot: this.targetSlot,
         feeAnalysisId: feeAnalysis?.id,
       });
       this.metrics.recordCheckpointProposalFailed('block_build_failed');
@@ -936,15 +1004,15 @@ export class CheckpointProposalJob implements Traceable {
    */
   private handleHASigningError(err: any, errorContext: string): boolean {
     if (err instanceof DutyAlreadySignedError) {
-      this.log.info(`${errorContext} for slot ${this.slot} already signed by another HA node, yielding`, {
-        slot: this.slot,
+      this.log.info(`${errorContext} for slot ${this.targetSlot} already signed by another HA node, yielding`, {
+        slot: this.targetSlot,
         signedByNode: err.signedByNode,
       });
       return true;
     }
     if (err instanceof SlashingProtectionError) {
-      this.log.info(`${errorContext} for slot ${this.slot} blocked by slashing protection, yielding`, {
-        slot: this.slot,
+      this.log.info(`${errorContext} for slot ${this.targetSlot} blocked by slashing protection, yielding`, {
+        slot: this.targetSlot,
         existingMessageHash: err.existingMessageHash,
         attemptedMessageHash: err.attemptedMessageHash,
       });
