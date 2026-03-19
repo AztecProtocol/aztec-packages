@@ -1,7 +1,7 @@
 # External Audit Scope: bool and byte_array
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `940351a2d7cb027bc9ce6844dfc1158fbc684333` ([link](https://github.com/AztecProtocol/aztec-packages/commit/940351a2d7cb027bc9ce6844dfc1158fbc684333))
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
