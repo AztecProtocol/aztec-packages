@@ -5,6 +5,8 @@
 // =====================
 #pragma once
 
+#include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
+#include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
@@ -63,7 +65,8 @@ class TwoLayerAvmRecursiveVerifier {
 
     // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
     struct InnerProverOutput {
-        HonkProof mega_proof;                                    // \pi_M
+        HonkProof mega_oink_proof;
+        HonkProof joint_proof;
         GoblinAvmProof goblin_proof;                             // \pi_G
         std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk; // VK_M
     };
@@ -116,10 +119,8 @@ class TwoLayerAvmRecursiveVerifier {
         using MegaAvmRecursiveFlavor = MegaAvmRecursiveFlavor_<UltraCircuitBuilder>;
         using MegaRecursiveVKAndHash = MegaAvmRecursiveFlavor::VKAndHash;
         using IO = stdlib::recursion::honk::GoblinAvmIO<UltraCircuitBuilder>;
-        using MegaAvmRecursiveVerifier = UltraVerifier_<MegaAvmRecursiveFlavor, IO>;
 
-        // Step 1: Recursively verify the Mega proof \pi_M
-        auto transcript = std::make_shared<MegaAvmRecursiveFlavor::Transcript>(); // Single shared transcript
+        auto transcript = std::make_shared<MegaAvmRecursiveFlavor::Transcript>();
         auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(*outer_builder, inner_output.mega_vk);
 
         // The vk of the inner Mega arithmetized AVM recursive verifier circuit must be fixed to ensure that the outer
@@ -127,30 +128,46 @@ class TwoLayerAvmRecursiveVerifier {
         mega_vk_and_hash->vk->fix_witness();
         mega_vk_and_hash->hash.fix_witness();
 
-        MegaAvmRecursiveVerifier mega_verifier(mega_vk_and_hash, transcript);
-        stdlib::Proof<UltraCircuitBuilder> mega_proof(*outer_builder, inner_output.mega_proof);
-        auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
+        // Recursive verification of the batched Mega and Goblin proof
+        BatchedAvmRecursiveVerifier batched_verifier(mega_vk_and_hash, transcript);
 
-        // Step 2: Recursively verify the goblin proof \pi_G
+        stdlib::Proof<UltraCircuitBuilder> mega_oink_proof(*outer_builder, inner_output.mega_oink_proof);
+        stdlib::Proof<UltraCircuitBuilder> joint_proof(*outer_builder, inner_output.joint_proof);
         GoblinAvmStdlibProof stdlib_goblin_proof(*outer_builder, inner_output.goblin_proof);
-        GoblinAvmRecursiveVerifier goblin_verifier{ transcript, stdlib_goblin_proof, mega_verifier.get_ecc_op_wires() };
-        auto goblin_verifier_output = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
 
-        // Step 3: Aggregate pairing points coming from Mega verification and Goblin verification
-        mega_verifier_output.points_accumulator.aggregate(goblin_verifier_output.translator_pairing_points);
+        // Phase 1: Recursive verificationof the Mega Oink proof
+        auto oink_result = batched_verifier.verify_mega_oink(mega_oink_proof);
+        IO io;
+        io.reconstruct_from_public(oink_result.public_inputs);
 
-        // Step 4: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs}_{AVM2} between the inner
+        // Phase 2: Recursive verification of ECCVM proof
+        typename GoblinAvmRecursiveVerifier::ECCVMVerifier eccvm_verifier{ transcript,
+                                                                           stdlib_goblin_proof.eccvm_proof };
+        auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
+        auto translator_input = eccvm_verifier.get_translator_input_data();
+
+        // Phase 3: Translator Oink + Joint sumcheck + Joint PCS
+        auto batched_result = batched_verifier.verify(joint_proof,
+                                                      translator_input.evaluation_challenge_x,
+                                                      translator_input.batching_challenge_v,
+                                                      translator_input.accumulated_result,
+                                                      oink_result.ecc_op_wires);
+
+        // Phase 4: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs}_{AVM2} between the inner
         // (Mega) circuit and the outer (Ultra) by asserting equality on the independently computed hashes
         const UltraFF computed_transcript_hash =
             AvmRecursiveFlavor::UltraTranscript::hash_avm_transcript(*outer_builder, stdlib_proof, public_inputs);
-        mega_verifier_output.transcript_hash.assert_equal(computed_transcript_hash);
+        io.transcript_hash.assert_equal(computed_transcript_hash);
 
-        // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin
-        // proofs
+        // Phase 5: Accumulate the pairing points from verifying the Mega and Goblin proofs
+        batched_result.pairing_points.aggregate(io.pairing_inputs);
+
+        // Return ipa proof, ipa claim and output aggregation object produced from verifying the batched Mega and Goblin
+        // proof
         TwoLayerAvmRecursiveVerifierOutput output;
-        output.points_accumulator = std::move(mega_verifier_output.points_accumulator);
-        output.ipa_claim = goblin_verifier_output.ipa_claim;
-        output.ipa_proof = goblin_verifier_output.ipa_proof;
+        output.points_accumulator = std::move(batched_result.pairing_points);
+        output.ipa_claim = eccvm_result.ipa_claim;
+        output.ipa_proof = stdlib_goblin_proof.ipa_proof;
         return output;
     }
 
@@ -166,7 +183,6 @@ class TwoLayerAvmRecursiveVerifier {
     {
         using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
         using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
-        using MegaAvmProver = UltraProver_<MegaAvmFlavor>;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         MegaCircuitBuilder inner_builder;
@@ -175,24 +191,46 @@ class TwoLayerAvmRecursiveVerifier {
         // Construct the inner recursive verification circuit
         construct_inner_recursive_verification_circuit(inner_builder, stdlib_proof, public_inputs);
 
-        // Construct the Mega proof \pi_M of the AVM recursive verifier circuit
         auto transcript = std::make_shared<NativeTranscript>(); // Single shared transcript
+        goblin.transcript = transcript;
+
+        // Construct the Mega proof \pi_M of the AVM recursive verifier circuit
         auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(inner_builder);
+
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
             mega_proving_key->log_dyadic_size(),
             MEGA_AVM_LOG_N,
             "AVMRecursiveVerifier: circuit size exceeded current upper bound. If expected, bump MEGA_AVM_LOG_N");
         auto mega_vk = std::make_shared<MegaAvmVerificationKey>(mega_proving_key->get_precomputed());
-        MegaAvmProver mega_prover(mega_proving_key, mega_vk, transcript);
-        HonkProof mega_proof = mega_prover.construct_proof();
 
-        // Construct the GoblinAvm proof \pi_G (includes ECCVM, IPA, and Translator proofs)
-        goblin.transcript = transcript;
-        GoblinAvmProof goblin_proof = goblin.prove();
+        // Batch proof of Mega and Goblin
+        BatchedAvmProver batched_prover(mega_proving_key, mega_vk, transcript);
+
+        // Phase 1: Oink proof for the Mega circuit
+        auto mega_oink_proof = batched_prover.prove_mega_oink();
+
+        // Phase 2: Merge table operations
+        goblin.op_queue->merge();
+
+        // Phase 3: ECCVM proof on the shared transcript.
+        goblin.prove_eccvm();
+
+        // Phase 4: Build translator proving key from ECCVM-derived challenges.
+        TranslatorCircuitBuilder translator_builder(
+            goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue, true);
+        auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
+
+        // Phase 5: Translator Oink + Joint Sumcheck + Joint PCS on the shared transcript.
+        auto joint_proof = batched_prover.prove(translator_key);
+
+        GoblinAvmProof goblin_proof;
+        goblin_proof.eccvm_proof = goblin.goblin_proof.eccvm_proof;
+        goblin_proof.ipa_proof = goblin.goblin_proof.ipa_proof;
 
         return {
-            .mega_proof = mega_proof,
+            .mega_oink_proof = mega_oink_proof,
+            .joint_proof = joint_proof,
             .goblin_proof = goblin_proof,
             .mega_vk = mega_vk,
         };
