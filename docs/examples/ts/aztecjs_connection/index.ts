@@ -49,7 +49,7 @@ console.log("New account address:", newAccount.address.toString());
 
 // docs:start:deploy_account_sponsored_fpc
 // Additional imports needed for account deployment examples
-import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { NO_FROM } from "@aztec/aztec.js/account";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
@@ -70,7 +70,7 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 // newAccount is the account created in the previous section
 const deployMethod = await newAccount.getDeployMethod();
 await deployMethod.send({
-  from: AztecAddress.ZERO,
+  from: NO_FROM,
   fee: { paymentMethod: sponsoredPaymentMethod },
 });
 // docs:end:deploy_account_sponsored_fpc
@@ -79,7 +79,7 @@ await deployMethod.send({
 // newAccount is the account created in the previous section
 const deployMethodFeeJuice = await newAccount.getDeployMethod();
 await deployMethodFeeJuice.send({
-  from: AztecAddress.ZERO,
+  from: NO_FROM,
 });
 // docs:end:deploy_account_fee_juice
 

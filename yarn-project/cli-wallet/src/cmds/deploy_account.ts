@@ -1,3 +1,4 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -52,7 +53,7 @@ export async function deployAccount(
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
   const delegatedDeployment = deployer && !account.address.equals(deployer);
-  const from = delegatedDeployment ? deployer : AztecAddress.ZERO;
+  const from = delegatedDeployment ? deployer : NO_FROM;
 
   const deployAccountOpts: DeployAccountOptions = {
     skipClassPublication: !registerClass,
