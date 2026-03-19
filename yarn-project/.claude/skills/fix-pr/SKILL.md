@@ -69,7 +69,7 @@ git diff origin/<base-branch>...HEAD --name-only | grep -v '^yarn-project/'
 
 If yes, run bootstrap:
 ```bash
-(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
+(cd $(git rev-parse --show-toplevel) && ./bootstrap.sh build yarn-project)
 ```
 
 ### Phase 4: Fix Based on Failure Type

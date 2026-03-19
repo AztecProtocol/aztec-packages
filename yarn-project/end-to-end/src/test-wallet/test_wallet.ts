@@ -1,7 +1,7 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
-import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import {
   type CallIntent,
   type ContractFunctionInteractionCallIntent,
@@ -14,9 +14,10 @@ import {
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
-import type { AccessScopes, NotesFilter } from '@aztec/pxe/client/lazy';
+import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -24,9 +25,16 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
-import type { BlockHeader, TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
+import type {
+  BlockHeader,
+  SimulationOverrides,
+  TxExecutionRequest,
+  TxHash,
+  TxReceipt,
+  TxSimulationResult,
+} from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import { AztecNodeProxy, ProvenTx } from './utils.js';
 
@@ -104,10 +112,7 @@ export class TestWallet extends BaseWallet {
 
   async getFakeAccountDataFor(address: AztecAddress) {
     const originalAccount = await this.getAccountFromAddress(address);
-    if (originalAccount instanceof SignerlessAccount) {
-      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
-    }
-    const originalAddress = (originalAccount as Account).getCompleteAddress();
+    const originalAddress = originalAccount.getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
@@ -125,21 +130,15 @@ export class TestWallet extends BaseWallet {
   protected accounts: Map<string, Account> = new Map();
 
   /**
-   * Toggle for running "simulated simulations" when calling simulateTx.
-   *
-   * When this flag is true, simulateViaEntrypoint constructs a request using a fake account
-   * (and accepts contract overrides on the input) and the PXE emulates kernel effects without
-   * generating kernel witnesses. When false, simulateViaEntrypoint defers to the standard
-   * simulation path via the real account entrypoint.
+   * Controls how the test wallet simulates transactions:
+   * - `kernelless`: Skips kernel circuits but uses the real account contract. Default.
+   * - `kernelless-override`: Skips kernels and replaces the account with a stub that doesn't do authwit validation.
+   * - `full`: Uses real kernel circuits and real account contracts. Slow!
    */
-  private simulatedSimulations = false;
+  private simulationMode: 'kernelless' | 'kernelless-override' | 'full' = 'kernelless';
 
-  enableSimulatedSimulations() {
-    this.simulatedSimulations = true;
-  }
-
-  disableSimulatedSimulations() {
-    this.simulatedSimulations = false;
+  setSimulationMode(mode: 'kernelless' | 'kernelless-override' | 'full') {
+    this.simulationMode = mode;
   }
 
   setMinFeePadding(value?: number) {
@@ -147,12 +146,7 @@ export class TestWallet extends BaseWallet {
   }
 
   protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
-    let account: Account | undefined;
-    if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
-    } else {
-      account = this.accounts.get(address?.toString() ?? '');
-    }
+    const account = this.accounts.get(address?.toString() ?? '');
 
     if (!account) {
       throw new Error(`Account not found in wallet for address: ${address}`);
@@ -220,54 +214,55 @@ export class TestWallet extends BaseWallet {
     return account.createAuthWit(intentInnerHash, chainInfo);
   }
 
-  /**
-   * Override simulateViaEntrypoint to use fake accounts for kernelless simulation
-   * when simulatedSimulations is enabled. Otherwise falls through to the real entrypoint path.
-   */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
+    opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResult> {
-    if (!this.simulatedSimulations) {
-      return super.simulateViaEntrypoint(
-        executionPayload,
-        from,
-        feeOptions,
-        scopes,
-        skipTxValidation,
-        skipFeeEnforcement,
-      );
-    }
-
+    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const skipKernels = this.simulationMode !== 'full';
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    const executionOptions: DefaultAccountEntrypointOptions = {
-      txNonce: Fr.random(),
-      cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
-    };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
-    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
     const chainInfo = await this.getChainInfo();
-    const txRequest = await fromAccount.createTxExecutionRequest(
-      finalExecutionPayload,
-      feeOptions.gasSettings,
-      chainInfo,
-      executionOptions,
-    );
-    const contractOverrides = {
-      [from.toString()]: { instance, artifact },
-    };
+
+    let overrides: SimulationOverrides | undefined;
+    let txRequest: TxExecutionRequest;
+    if (from === NO_FROM) {
+      const entrypoint = new DefaultEntrypoint();
+      txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+    } else {
+      const useOverride = this.simulationMode === 'kernelless-override';
+      let fromAccount: Account;
+      if (useOverride) {
+        const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
+        fromAccount = account;
+        overrides = {
+          contracts: { [from.toString()]: { instance, artifact } },
+        };
+      } else {
+        fromAccount = await this.getAccountFromAddress(from);
+      }
+      const executionOptions: DefaultAccountEntrypointOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        // If from is an address, feeOptions include the way the account contract should handle the fee payment
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
+      };
+      txRequest = await fromAccount.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        chainInfo,
+        executionOptions,
+      );
+    }
+
     return this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
-      skipFeeEnforcement: true,
-      skipTxValidation: true,
-      overrides: { contracts: contractOverrides },
+      skipKernels,
+      skipFeeEnforcement,
+      skipTxValidation,
+      overrides,
       scopes,
     });
   }

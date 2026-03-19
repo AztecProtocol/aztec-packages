@@ -1,4 +1,5 @@
-import type { Account } from '@aztec/aztec.js/account';
+import type { Account, NoFrom } from '@aztec/aztec.js/account';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
 import {
   type InteractionWaitOptions,
@@ -29,6 +30,7 @@ import {
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
 } from '@aztec/constants';
 import { AccountFeePaymentMethodOptions, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -50,7 +52,7 @@ import {
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computeSiloedPrivateInitializationNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   BlockHeader,
@@ -75,11 +77,21 @@ export type FeeOptions = {
    */
   walletFeePaymentMethod?: FeePaymentMethod;
   /** Configuration options for the account to properly handle the selected fee payment method */
-  accountFeePaymentMethodOptions: AccountFeePaymentMethodOptions;
+  accountFeePaymentMethodOptions?: AccountFeePaymentMethodOptions;
   /** The gas settings to use for the transaction */
   gasSettings: GasSettings;
 };
 
+/** Options for `simulateViaEntrypoint`. */
+export type SimulateViaEntrypointOptions = Pick<
+  SimulateOptions,
+  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement'
+> & {
+  /** Fee options for the entrypoint */
+  feeOptions: FeeOptions;
+  /** Scopes to use for the simulation */
+  scopes: AccessScopes;
+};
 /**
  * A base class for Wallet implementations
  */
@@ -94,8 +106,8 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
-    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+  protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
     return [...scopeSet].map(AztecAddress.fromString);
   }
@@ -123,26 +135,33 @@ export abstract class BaseWallet implements Wallet {
 
   protected async createTxExecutionRequestFromPayloadAndFee(
     executionPayload: ExecutionPayload,
-    from: AztecAddress,
+    from: AztecAddress | NoFrom,
     feeOptions: FeeOptions,
   ): Promise<TxExecutionRequest> {
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    const executionOptions: DefaultAccountEntrypointOptions = {
-      txNonce: Fr.random(),
-      cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
-    };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
-    const fromAccount = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();
-    return fromAccount.createTxExecutionRequest(
-      finalExecutionPayload,
-      feeOptions.gasSettings,
-      chainInfo,
-      executionOptions,
-    );
+
+    if (from === NO_FROM) {
+      const entrypoint = new DefaultEntrypoint();
+      return entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+    } else {
+      const fromAccount = await this.getAccountFromAddress(from);
+      const executionOptions: DefaultAccountEntrypointOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        // If from is an address, feeOptions include the way the account contract should handle the fee payment
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
+      };
+      return fromAccount.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        chainInfo,
+        executionOptions,
+      );
+    }
   }
 
   public async createAuthWit(
@@ -197,23 +216,27 @@ export abstract class BaseWallet implements Wallet {
    * @returns - Complete fee options that can be used to create a transaction execution request
    */
   protected async completeFeeOptions(
-    from: AztecAddress,
+    from: AztecAddress | NoFrom,
     feePayer?: AztecAddress,
     gasSettings?: Partial<FieldsOf<GasSettings>>,
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
       gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
-    // The transaction does not include a fee payment method, so we set the flag
-    // for the account to use its fee juice balance
-    if (!feePayer) {
-      accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
-    } else {
-      // The transaction includes fee payment method, so we check if we are the fee payer for it
-      // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
-      accountFeePaymentMethodOptions = from.equals(feePayer)
-        ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
-        : AccountFeePaymentMethodOptions.EXTERNAL;
+    // If from is an address, we need to determine the appropriate fee payment method options for the
+    // account contract entrypoint to use
+    if (from !== NO_FROM) {
+      if (!feePayer) {
+        // The transaction does not include a fee payment method, so we set the flag
+        // for the account to use its fee juice balance
+        accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
+      } else {
+        // The transaction includes fee payment method, so we check if we are the fee payer for it
+        // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
+        accountFeePaymentMethodOptions = from.equals(feePayer)
+          ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
+          : AccountFeePaymentMethodOptions.EXTERNAL;
+      }
     }
     const fullGasSettings: GasSettings = GasSettings.default({ ...gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, fullGasSettings);
@@ -233,7 +256,7 @@ export abstract class BaseWallet implements Wallet {
    * @param gasSettings - User-provided partial gas settings
    */
   protected async completeFeeOptionsForEstimation(
-    from: AztecAddress,
+    from: AztecAddress | NoFrom,
     feePayer?: AztecAddress,
     gasSettings?: Partial<FieldsOf<GasSettings>>,
   ) {
@@ -300,22 +323,20 @@ export abstract class BaseWallet implements Wallet {
   /**
    * Simulates calls through the standard PXE path (account entrypoint).
    * @param executionPayload - The execution payload to simulate.
-   * @param from - The sender address.
-   * @param feeOptions - Fee options for the transaction.
-   * @param skipTxValidation - Whether to skip tx validation.
-   * @param skipFeeEnforcement - Whether to skip fee enforcement.
-   * @param scopes - The scopes to use for the simulation.
+   * @param opts - Simulation options.
    */
-  protected async simulateViaEntrypoint(
-    executionPayload: ExecutionPayload,
-    from: AztecAddress,
-    feeOptions: FeeOptions,
-    scopes: AccessScopes,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
-  ) {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
-    return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement, scopes });
+  protected async simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(
+      executionPayload,
+      opts.from,
+      opts.feeOptions,
+    );
+    return this.pxe.simulateTx(txRequest, {
+      simulatePublic: true,
+      skipTxValidation: opts.skipTxValidation,
+      skipFeeEnforcement: opts.skipFeeEnforcement,
+      scopes: opts.scopes,
+    });
   }
 
   /**
@@ -343,12 +364,13 @@ export abstract class BaseWallet implements Wallet {
       blockHeader = (await this.aztecNode.getBlockHeader())!;
     }
 
+    const simulationOrigin = opts.from === NO_FROM ? AztecAddress.ZERO : opts.from;
     const [optimizedResults, normalResult] = await Promise.all([
       optimizableCalls.length > 0
         ? simulateViaNode(
             this.aztecNode,
             optimizableCalls,
-            opts.from,
+            simulationOrigin,
             chainInfo,
             feeOptions.gasSettings,
             blockHeader,
@@ -357,14 +379,13 @@ export abstract class BaseWallet implements Wallet {
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
-        ? this.simulateViaEntrypoint(
-            remainingPayload,
-            opts.from,
+        ? this.simulateViaEntrypoint(remainingPayload, {
+            from: opts.from,
             feeOptions,
-            this.scopesFrom(opts.from, opts.additionalScopes),
-            opts.skipTxValidation,
-            opts.skipFeeEnforcement ?? true,
-          )
+            scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+            skipTxValidation: opts.skipTxValidation,
+            skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
+          })
         : Promise.resolve(null),
     ]);
 
@@ -448,7 +469,7 @@ export abstract class BaseWallet implements Wallet {
   }
 
   executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
-    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
+    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: opts.scopes });
   }
 
   async getPrivateEvents<T>(
@@ -471,17 +492,36 @@ export abstract class BaseWallet implements Wallet {
     return decodedEvents;
   }
 
+  /**
+   * Returns metadata about a contract, including whether it has been initialized, published, and updated.
+   *
+   * `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the
+   * instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
+   * @param address - The contract address to query.
+   */
   async getContractMetadata(address: AztecAddress) {
     const instance = await this.pxe.getContractInstance(address);
-    const initNullifier = await siloNullifier(address, address.toField());
-    const publiclyRegisteredContract = await this.aztecNode.getContract(address);
-    const initNullifierMembershipWitness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
+    const publiclyRegisteredContractPromise = this.aztecNode.getContract(address);
+    // We check only the private initialization nullifier. It is emitted by both private and public initializers and
+    // includes init_hash, preventing observers from determining initialization status from the address alone. Without
+    // the instance (and thus init_hash), we can't compute it, so we return undefined.
+    //
+    // We skip the public initialization nullifier because it's not always emitted (contracts without public external
+    // functions that require initialization checks won't emit it). If the private one exists, the public one was
+    // created in the same tx and will also be present.
+    let isContractInitialized: boolean | undefined = undefined;
+    if (instance) {
+      const initNullifier = await computeSiloedPrivateInitializationNullifier(address, instance.initializationHash);
+      const witness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
+      isContractInitialized = !!witness;
+    }
+    const publiclyRegisteredContract = await publiclyRegisteredContractPromise;
     const isContractUpdated =
       publiclyRegisteredContract &&
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
     return {
       instance: instance ?? undefined,
-      isContractInitialized: !!initNullifierMembershipWitness,
+      isContractInitialized,
       isContractPublished: !!publiclyRegisteredContract,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,

@@ -732,7 +732,7 @@ case "$cmd" in
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1
-    ./bootstrap.sh
+    ./bootstrap.sh build yarn-project
     docs/bootstrap.sh ci
     ;;
   "ci-barretenberg")

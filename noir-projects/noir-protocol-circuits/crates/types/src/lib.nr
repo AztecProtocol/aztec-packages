@@ -1,3 +1,5 @@
+//! Types and constants related to the Aztec protocol.
+
 // Traits need to be first for the #[derive(...)] macro to work.
 pub mod traits;
 

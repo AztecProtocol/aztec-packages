@@ -1,11 +1,8 @@
 use aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
-    note::note_interface::NoteHash,
-    protocol::{
-        address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator,
-        traits::Packable,
-    },
+    note::{note_interface::NoteHash, utils::compute_note_hash},
+    protocol::{address::AztecAddress, traits::Packable},
 };
 
 /// A note used only for testing purposes.
@@ -24,8 +21,8 @@ impl NoteHash for TestNote {
     ) -> Field {
         // The note is inserted into the state in the Test contract so we provide a real compute_note_hash
         // implementation.
-        let inputs = self.pack().concat([storage_slot, randomness]);
-        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
+        let data = self.pack().concat([randomness]);
+        compute_note_hash(storage_slot, data)
     }
 
     fn compute_nullifier(

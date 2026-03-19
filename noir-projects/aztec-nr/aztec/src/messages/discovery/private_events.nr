@@ -7,7 +7,7 @@ use crate::{
 };
 use crate::protocol::{address::AztecAddress, logging::debug_log_format, traits::ToField};
 
-pub unconstrained fn process_private_event_msg(
+pub(crate) unconstrained fn process_private_event_msg(
     contract_address: AztecAddress,
     recipient: AztecAddress,
     msg_metadata: u64,

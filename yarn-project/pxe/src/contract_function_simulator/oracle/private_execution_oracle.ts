@@ -26,7 +26,6 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -49,7 +48,6 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
   senderTaggingStore: SenderTaggingStore;
-  contractSyncService: ContractSyncService;
   totalPublicCalldataCount?: number;
   sideEffectCounter?: number;
   senderForTags?: AztecAddress;
@@ -83,7 +81,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
   private readonly senderTaggingStore: SenderTaggingStore;
-  private readonly contractSyncService: ContractSyncService;
   private totalPublicCalldataCount: number;
   protected sideEffectCounter: number;
   private senderForTags?: AztecAddress;
@@ -103,7 +100,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
     this.senderTaggingStore = args.senderTaggingStore;
-    this.contractSyncService = args.contractSyncService;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
     this.sideEffectCounter = args.sideEffectCounter ?? 0;
     this.senderForTags = args.senderForTags;

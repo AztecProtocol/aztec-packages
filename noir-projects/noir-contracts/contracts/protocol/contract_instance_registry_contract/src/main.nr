@@ -139,6 +139,7 @@ pub contract ContractInstanceRegistry {
         let address = AztecAddress::compute(public_keys, partial_address);
 
         // Emit address as nullifier: prevents duplicate deployment and proves publication.
+        // We use no domain separators because these are the only nullifiers this contract uses.
         context.push_nullifier(address.to_field());
 
         // Broadcast deployment event. Uses non-standard serialization (2 fields per point,
@@ -210,7 +211,7 @@ pub contract ContractInstanceRegistry {
         let scheduled_value_update = storage
             .updated_class_ids
             .at(address)
-            .schedule_and_return_value_change(new_contract_class_id);
+            .schedule_and_get_value_change(new_contract_class_id);
         let (prev_contract_class_id, timestamp_of_change) = scheduled_value_update.get_previous();
 
         let event = ContractInstanceUpdated {

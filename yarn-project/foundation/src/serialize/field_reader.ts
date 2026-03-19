@@ -169,12 +169,30 @@ export class FieldReader {
    * @param itemDeserializer - An object with a 'fromFields' method to deserialize individual elements of type T.
    * @returns An array of instances of type T.
    */
-  public readArray<T, N extends number>(
+  /**
+   * Read an array from the field array using lazy allocation (new Array + loop).
+   * Safe for use with untrusted sizes.
+   */
+  public readArray<T>(
+    size: number,
+    itemDeserializer: {
+      fromFields: (reader: FieldReader) => T;
+    },
+  ): T[] {
+    const result = new Array<T>(size);
+    for (let i = 0; i < size; i++) {
+      result[i] = itemDeserializer.fromFields(this);
+    }
+    return result;
+  }
+
+  /**
+   * Read a fixed-size tuple from the field array using dense allocation (Array.from).
+   * Only use with compile-time constant sizes — the size parameter MUST NOT come from untrusted input.
+   */
+  public readTuple<T, N extends number>(
     size: N,
     itemDeserializer: {
-      /**
-       * A function for deserializing data from a FieldReader instance.
-       */
       fromFields: (reader: FieldReader) => T;
     },
   ): Tuple<T, N> {

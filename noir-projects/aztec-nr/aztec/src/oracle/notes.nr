@@ -168,9 +168,7 @@ where
     // both a preprocessor and a filter.
     let mut notes_array = [Option::none(); MaxNotes];
     for i in 0..notes.len() {
-        if i < notes.len() {
-            notes_array[i] = Option::some(notes.get_unchecked(i));
-        }
+        notes_array[i] = Option::some(notes.get_unchecked(i));
     }
 
     notes_array

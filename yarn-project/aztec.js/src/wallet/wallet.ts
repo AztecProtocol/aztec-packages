@@ -33,6 +33,7 @@ import {
   type FeeEstimationOptions,
   type GasSettingsOption,
   type InteractionWaitOptions,
+  NO_FROM,
   NO_WAIT,
   type ProfileInteractionOptions,
   type SendInteractionOptionsWithoutWait,
@@ -208,8 +209,11 @@ export type PublicEvent<T> = Event<
 export type ContractMetadata = {
   /** The contract instance */
   instance?: ContractInstanceWithAddress;
-  /** Whether the contract has been initialized (init nullifier exists) */
-  isContractInitialized: boolean;
+  /**
+   * Whether the contract has been initialized (initialization nullifier exists).
+   * Undefined when instance is not registered.
+   */
+  isContractInitialized: boolean | undefined;
   /** Whether the contract instance is publicly deployed on-chain */
   isContractPublished: boolean;
   /** Whether the contract has been updated to a different class */
@@ -232,8 +236,8 @@ export type ContractClassMetadata = {
  * Options for executing a utility function call.
  */
 export type ExecuteUtilityOptions = {
-  /** The scope for the utility execution (determines which notes and keys are visible). */
-  scope: AztecAddress;
+  /** The scopes for the utility execution (determines which notes and keys are visible). */
+  scopes: AztecAddress[];
   /** Optional auth witnesses to use during execution. */
   authWitnesses?: AuthWitness[];
 };
@@ -300,8 +304,10 @@ export const WaitOptsSchema = z.object({
   dontThrowOnRevert: optional(z.boolean()),
 });
 
+const FromSchema = z.union([schemas.AztecAddress, z.literal(NO_FROM)]);
+
 export const SendOptionsSchema = z.object({
-  from: schemas.AztecAddress,
+  from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
@@ -310,7 +316,7 @@ export const SendOptionsSchema = z.object({
 });
 
 export const SimulateOptionsSchema = z.object({
-  from: schemas.AztecAddress,
+  from: FromSchema,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(WalletSimulationFeeOptionSchema),
@@ -371,7 +377,7 @@ export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
 
 export const ContractMetadataSchema = z.object({
   instance: optional(ContractInstanceWithAddressSchema),
-  isContractInitialized: z.boolean(),
+  isContractInitialized: optional(z.boolean()),
   isContractPublished: z.boolean(),
   isContractUpdated: z.boolean(),
   updatedContractClassId: optional(schemas.Fr),
@@ -546,7 +552,7 @@ const WalletMethodSchemas = {
     .args(
       FunctionCall.schema,
       z.object({
-        scope: schemas.AztecAddress,
+        scopes: z.array(schemas.AztecAddress),
         authWitnesses: optional(z.array(AuthWitness.schema)),
       }),
     )

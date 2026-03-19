@@ -24,6 +24,7 @@ import { INFO_TEXT } from '../../constants';
 import { Box, DialogContent } from '@mui/material';
 import { DialogActions } from '@mui/material';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { NO_FROM } from '@aztec/aztec.js/account';
 
 export function CreateAccountDialog({
   wallet,
@@ -77,7 +78,7 @@ export function CreateAccountDialog({
       if (publiclyDeploy) {
         deployMethod = await accountManager.getDeployMethod();
         opts = {
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           fee: {
             paymentMethod: feePaymentMethod,
           },

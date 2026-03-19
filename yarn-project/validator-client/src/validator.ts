@@ -46,8 +46,8 @@ import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
-import { createHASigner } from '@aztec/validator-ha-signer/factory';
-import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
+import { createHASigner, createSignerFromSharedDb } from '@aztec/validator-ha-signer/factory';
+import { DutyType, type SigningContext, type SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
 
 import { EventEmitter } from 'events';
@@ -197,6 +197,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     blobClient: BlobClientInterface,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
+    slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
@@ -220,7 +221,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
     let validatorKeyStore: ExtendedValidatorKeyStore = nodeKeystoreAdapter;
     let haSigner: ValidatorHASigner | undefined;
-    if (config.haSigningEnabled) {
+    if (slashingProtectionDb) {
+      // Shared database mode: use a pre-existing database (e.g. for testing HA setups).
+      const { signer } = createSignerFromSharedDb(slashingProtectionDb, config);
+      haSigner = signer;
+      validatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, signer);
+    } else if (config.haSigningEnabled) {
       // If maxStuckDutiesAgeMs is not explicitly set, compute it from Aztec slot duration
       const haConfig = {
         ...config,
@@ -385,13 +391,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return false;
     }
 
-    // Ignore proposals from ourselves (may happen in HA setups)
+    // Log self-proposals from HA peers (same validator key on different nodes)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.debug(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.verbose(`Processing block proposal from HA peer for slot ${slotNumber}`, {
         proposer: proposer.toString(),
         slotNumber,
       });
-      return false;
     }
 
     // Check if we're in the committee (for metrics purposes)

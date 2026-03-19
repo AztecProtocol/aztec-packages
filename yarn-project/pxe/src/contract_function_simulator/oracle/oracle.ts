@@ -604,9 +604,8 @@ export class Oracle {
     return [];
   }
 
-  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash PXE.
   // eslint-disable-next-line camelcase
-  async aztec_utl_aes128Decrypt(
+  async aztec_utl_tryAes128Decrypt(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],
     iv: ACVMField[],
@@ -616,8 +615,15 @@ export class Oracle {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    const plaintext = await this.handlerAsUtility().aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
-    return bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
+    // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
+    try {
+      const plaintext = await this.handlerAsUtility().aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+      const [storage, length] = bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
+      return [toACVMField(1), storage, length];
+    } catch {
+      const zeroStorage = Array(ciphertextBVecStorage.length).fill(toACVMField(0));
+      return [toACVMField(0), zeroStorage, toACVMField(0)];
+    }
   }
 
   // eslint-disable-next-line camelcase
@@ -632,6 +638,20 @@ export class Oracle {
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
     );
     return secret.toFields().map(toACVMField);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_invalidateContractSyncCache(
+    [contractAddress]: ACVMField[],
+    scopes: ACVMField[],
+    [scopeCount]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const scopeAddresses = scopes.slice(0, +scopeCount).map(s => AztecAddress.fromField(Fr.fromString(s)));
+    this.handlerAsUtility().invalidateContractSyncCache(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      scopeAddresses,
+    );
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase

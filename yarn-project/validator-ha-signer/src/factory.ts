@@ -4,6 +4,7 @@
 import { Pool } from 'pg';
 
 import type { ValidatorHASignerConfig } from './config.js';
+import { InMemorySlashingProtectionDatabase } from './db/in_memory.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import type { CreateHASignerDeps, SlashingProtectionDatabase } from './types.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
@@ -78,5 +79,36 @@ export async function createHASigner(
   // Create signer
   const signer = new ValidatorHASigner(db, { ...signerConfig, databaseUrl });
 
+  return { signer, db };
+}
+
+/**
+ * Create an in-memory SlashingProtectionDatabase that can be shared across
+ * multiple validator nodes in the same process. Used for testing HA setups.
+ */
+export function createSharedSlashingProtectionDb(): SlashingProtectionDatabase {
+  return new InMemorySlashingProtectionDatabase();
+}
+
+/**
+ * Create a ValidatorHASigner backed by a pre-existing SlashingProtectionDatabase.
+ * Used for testing HA setups where multiple nodes share the same protection database.
+ */
+export function createSignerFromSharedDb(
+  db: SlashingProtectionDatabase,
+  config: Pick<
+    ValidatorHASignerConfig,
+    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'l1Contracts'
+  >,
+): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {
+  const signerConfig: ValidatorHASignerConfig = {
+    haSigningEnabled: true,
+    l1Contracts: config.l1Contracts,
+    nodeId: config.nodeId || `shared-${Date.now()}`,
+    pollingIntervalMs: config.pollingIntervalMs ?? 100,
+    signingTimeoutMs: config.signingTimeoutMs ?? 3000,
+    maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs,
+  };
+  const signer = new ValidatorHASigner(db, signerConfig);
   return { signer, db };
 }

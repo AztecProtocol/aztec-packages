@@ -34,13 +34,18 @@ import { type Checkpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
+  type BlockBuilderOptions,
   InsufficientValidTxsError,
-  type PublicProcessorLimits,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import type { BlockProposalOptions, CheckpointProposal, CheckpointProposalOptions } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  BlockProposalOptions,
+  CheckpointProposal,
+  CheckpointProposalOptions,
+} from '@aztec/stdlib/p2p';
 import { orderAttestations, trimAttestations } from '@aztec/stdlib/p2p';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { type FailedTx, Tx } from '@aztec/stdlib/tx';
@@ -265,7 +270,8 @@ export class CheckpointProposalJob implements Traceable {
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
-      // Final validation round for the checkpoint before we propose it, just for safety
+      // Final validation: per-block limits are only checked if the operator set them explicitly.
+      // Otherwise, checkpoint-level budgets were already enforced by the redistribution logic.
       try {
         validateCheckpoint(checkpoint, {
           rollupManaLimit: this.l1Constants.rollupManaLimit,
@@ -402,6 +408,7 @@ export class CheckpointProposalJob implements Traceable {
     const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
+    const slot = this.slot;
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
@@ -415,11 +422,7 @@ export class CheckpointProposalJob implements Traceable {
       const timingInfo = this.timetable.canStartNextBlock(secondsIntoSlot);
 
       if (!timingInfo.canStart) {
-        this.log.debug(`Not enough time left in slot to start another block`, {
-          slot: this.slot,
-          blocksBuilt,
-          secondsIntoSlot,
-        });
+        this.log.debug(`Not enough time left in slot to start another block`, { slot, blocksBuilt, secondsIntoSlot });
         break;
       }
 
@@ -451,50 +454,37 @@ export class CheckpointProposalJob implements Traceable {
       } else if ('error' in buildResult) {
         // If there was an error building the block, just exit the loop and give up the rest of the slot
         if (!(buildResult.error instanceof SequencerInterruptedError)) {
-          this.log.warn(`Halting block building for slot ${this.slot}`, {
-            slot: this.slot,
-            blocksBuilt,
-            error: buildResult.error,
-          });
+          this.log.warn(`Halting block building for slot ${slot}`, { slot, blocksBuilt, error: buildResult.error });
         }
         break;
       }
 
       const { block, usedTxs } = buildResult;
       blocksInCheckpoint.push(block);
-
-      // Sync the proposed block to the archiver to make it available
-      // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building
-      // If this throws, we abort the entire checkpoint
-      await this.syncProposedBlockToArchiver(block);
-
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
-      // If this is the last block, exit the loop now so we start collecting attestations
+      // If this is the last block, send the proposed block to the archiver,
+      // and exit the loop now so we can build the checkpoint and start collecting attestations.
       if (timingInfo.isLastBlock) {
-        this.log.verbose(`Completed final block ${blockNumber} for slot ${this.slot}`, {
-          slot: this.slot,
-          blockNumber,
-          blocksBuilt,
-        });
+        await this.syncProposedBlockToArchiver(block);
+        this.log.verbose(`Completed final block ${blockNumber} for slot ${slot}`, { slot, blockNumber, blocksBuilt });
         blockPendingBroadcast = { block, txs: usedTxs };
         break;
       }
 
-      // For non-last blocks, broadcast the block proposal (unless we're in fisherman mode)
-      // If the block is the last one, we'll broadcast it along with the checkpoint at the end of the loop
-      if (!this.config.fishermanMode) {
-        const proposal = await this.validatorClient.createBlockProposal(
-          block.header,
-          block.indexWithinCheckpoint,
-          inHash,
-          block.archive.root,
-          usedTxs,
-          this.proposer,
-          blockProposalOptions,
-        );
-        await this.p2pClient.broadcastProposal(proposal);
-      }
+      // Broadcast the block proposal (unless we're in fisherman mode) unless the block is the last one,
+      // in which case we'll broadcast it along with the checkpoint at the end of the loop.
+      // Note that we only send the block to the archiver if we manage to create the proposal, so if there's
+      // a HA error we don't pollute our archiver with a block that won't make it to the chain.
+      const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
+
+      // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal.
+      // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building.
+      // If this throws, we abort the entire checkpoint.
+      await this.syncProposedBlockToArchiver(block);
+
+      // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
+      proposal && (await this.p2pClient.broadcastProposal(proposal));
 
       // Wait until the next block's start time
       await this.waitUntilNextSubslot(timingInfo.deadline);
@@ -506,6 +496,28 @@ export class CheckpointProposalJob implements Traceable {
     });
 
     return { blocksInCheckpoint, blockPendingBroadcast };
+  }
+
+  /** Creates a block proposal for a given block via the validator client (unless in fisherman mode) */
+  private createBlockProposal(
+    block: L2Block,
+    inHash: Fr,
+    usedTxs: Tx[],
+    blockProposalOptions: BlockProposalOptions,
+  ): Promise<BlockProposal | undefined> {
+    if (this.config.fishermanMode) {
+      this.log.info(`Skipping block proposal for block ${block.number} in fisherman mode`);
+      return Promise.resolve(undefined);
+    }
+    return this.validatorClient.createBlockProposal(
+      block.header,
+      block.indexWithinCheckpoint,
+      inHash,
+      block.archive.root,
+      usedTxs,
+      this.proposer,
+      blockProposalOptions,
+    );
   }
 
   /** Sleeps until it is time to produce the next block in the slot */
@@ -563,11 +575,11 @@ export class CheckpointProposalJob implements Traceable {
       );
       this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
 
-      // Per-block limits derived at startup by computeBlockLimits(), further capped
+      // Per-block limits are operator overrides (from SEQ_MAX_L2_BLOCK_GAS etc.) further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       // minValidTxs is passed into the builder so it can reject the block *before* updating state.
       const minValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
-      const blockBuilderOptions: PublicProcessorLimits & { minValidTxs?: number } = {
+      const blockBuilderOptions: BlockBuilderOptions = {
         maxTransactions: this.config.maxTxsPerBlock,
         maxBlockGas:
           this.config.maxL2BlockGas !== undefined || this.config.maxDABlockGas !== undefined
@@ -576,6 +588,8 @@ export class CheckpointProposalJob implements Traceable {
         deadline: buildDeadline,
         isBuildingProposal: true,
         minValidTxs,
+        maxBlocksPerCheckpoint: this.timetable.maxNumberOfBlocks,
+        perBlockAllocationMultiplier: this.config.perBlockAllocationMultiplier,
       };
 
       // Actually build the block by executing txs. The builder throws InsufficientValidTxsError
@@ -646,7 +660,7 @@ export class CheckpointProposalJob implements Traceable {
     pendingTxs: AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     blockTimestamp: bigint,
-    blockBuilderOptions: PublicProcessorLimits & { minValidTxs?: number },
+    blockBuilderOptions: BlockBuilderOptions,
   ) {
     try {
       const workTimer = new Timer();

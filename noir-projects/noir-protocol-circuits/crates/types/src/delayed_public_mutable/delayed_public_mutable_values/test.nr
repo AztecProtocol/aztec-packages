@@ -74,7 +74,7 @@ unconstrained fn packed_delayed_public_mutable_values_match_typescript() {
     let pre_value = MockStruct { a: 1, b: 2 };
     let post_value = MockStruct { a: 3, b: 4 };
 
-    let sdc = ScheduledDelayChange::<0>::new(Option::some(1), Option::some(50), 2);
+    let sdc = ScheduledDelayChange::<0_u64>::new(Option::some(1), Option::some(50), 2);
     let svc = ScheduledValueChange::new(pre_value, post_value, 50);
     let dpmv = DelayedPublicMutableValues::new(svc, sdc);
 
