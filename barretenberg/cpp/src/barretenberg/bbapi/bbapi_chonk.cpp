@@ -234,7 +234,9 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
 
     info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
 
-    return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
+    return { .bytes = to_buffer(*verification_key),
+             .fields = verification_key->to_field_elements(),
+             .hash = to_buffer(verification_key->hash()) };
 }
 
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&

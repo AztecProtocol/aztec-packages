@@ -40,12 +40,14 @@ void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& 
     if (is_stdout) {
         write_bytes_to_stdout(response.bytes);
     } else if (flags.output_format == "json") {
-        // Note: Chonk VK doesn't have a hash, so we pass an empty string
-        std::string json_content = VkJson::build(response.fields, "", flags.scheme);
+        std::string json_content = VkJson::build(response.fields, bytes_to_hex_string(response.hash), flags.scheme);
         write_file(output_path / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
         info("VK (JSON) saved to ", output_path / "vk.json");
     } else {
         write_file(output_path / "vk", response.bytes);
+        info("VK saved to ", output_path / "vk");
+        write_file(output_path / "vk_hash", response.hash);
+        info("VK Hash saved to ", output_path / "vk_hash");
     }
 }
 } // anonymous namespace

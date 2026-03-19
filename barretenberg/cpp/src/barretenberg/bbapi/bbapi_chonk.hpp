@@ -179,7 +179,9 @@ struct ChonkComputeVk {
         std::vector<uint8_t> bytes;
         /** @brief Verification key as array of field elements */
         std::vector<bb::fr> fields;
-        SERIALIZATION_FIELDS(bytes, fields);
+        /** @brief The VK hash */
+        std::vector<uint8_t> hash;
+        SERIALIZATION_FIELDS(bytes, fields, hash);
         bool operator==(const Response&) const = default;
     };
 
