@@ -1,11 +1,26 @@
 use aztec::macros::aztec;
 
-mod invalid_event;
-
 #[aztec]
 pub contract InvalidEventContract {
-    use crate::invalid_event::InvalidEvent;
-    use aztec::{event::event_interface::EventInterface, macros::functions::external};
+    use aztec::{
+        event::event_interface::EventInterface,
+        macros::{events::event, functions::external},
+        messages::logs::event::MAX_EVENT_SERIALIZED_LEN,
+        protocol::{traits::Serialize, utils::writer::Writer},
+    };
+
+    #[event]
+    pub struct InvalidEvent {}
+
+    impl Serialize for InvalidEvent {
+        let N: u32 = MAX_EVENT_SERIALIZED_LEN + 1;
+
+        fn serialize(self) -> [Field; Self::N] {
+            std::mem::zeroed()
+        }
+
+        fn stream_serialize<let K: u32>(self, _writer: &mut Writer<K>) {}
+    }
 
     // We have here this function in order for the static_assert in `get_event_type_id` to get triggered.
     #[external("private")]
