@@ -75,7 +75,10 @@ num_jobs=0
 
 # We'll handle errors explicitly.
 set +e
-run_tests | tee $output
+# Use process substitution instead of a pipe so that run_tests executes in the
+# current shell.  A pipe would put it in a subshell, making background jobs
+# invisible to the parent's `wait -n` and silently swallowing failures.
+run_tests > >(tee "$output")
 
 # Loop to monitor jobs until one fails or all finish.
 while (( $(jobs -p | wc -l) > 0 )); do
