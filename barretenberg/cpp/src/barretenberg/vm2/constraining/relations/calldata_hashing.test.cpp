@@ -115,7 +115,7 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
                         { C::calldata_hashing_sel_not_padding_2, (num_rounds == 1) && (padding_amount > 0) ? 0 : 1 },
                         { C::calldata_hashing_end, (num_rounds == 1) ? 1 : 0 },
                         { C::calldata_hashing_sel_end_not_empty,
-                          (num_rounds == 1) && calldata_fields.size() > 1 ? 1 : 0 },
+                          (num_rounds == 1) && !calldata_fields.empty() ? 1 : 0 },
                     } });
                 row++;
                 num_rounds--;
@@ -835,15 +835,21 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
     check_all_interactions<CalldataTraceBuilder>(trace);
 
     // ... but input_len is not consistent with calldata_size + 1:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace), "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
+        "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
 
-    // ...adjusting calldata_size to match input_len...
+    // If we adjust calldata_size to match input_len...
     for (uint32_t j = 1; j <= 4; j++) {
         trace.set(Column::calldata_hashing_calldata_size, j, 11);
     }
 
-    // ... sub-relation with padding consistency fails:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace), "CHECK_FINAL_INDEX");
+    // ... this will pass...
+    check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS);
+
+    // ... but the sub-relation with padding consistency fails:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_CHECK_FINAL_INDEX),
+                              "CHECK_FINAL_INDEX");
 }
 
 } // namespace

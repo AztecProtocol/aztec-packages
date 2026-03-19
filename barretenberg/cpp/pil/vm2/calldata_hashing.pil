@@ -106,9 +106,7 @@ include "precomputed.pil";
  *
  * @column sel Selector for active rows.
  * @column end Designates the final row for a given context_id's hashing.
- * @column sel_end_not_empty Committed selector: 1 on end rows of non-empty calldata. Used as the
- *         source selector for #[CHECK_FINAL_SIZE]. Equals end * (1 - start * PADDING_1): for empty
- *         calldata (start = 1, PADDING_1 = 1) this is 0, skipping the permutation into calldata.pil.
+ * @column sel_end_not_empty Committed selector: 1 on end rows of non-empty calldata.
  * @column context_id Identifies which enqueued call this calldata hash belongs to.
  * @column calldata_size The number of calldata fields for this context_id.
  * @column start Marks the first row of a new context_id hashing run.
@@ -253,10 +251,6 @@ namespace calldata_hashing;
     #[PADDED_BY_ZERO_2]
     PADDING_2 * input[2] = 0;
 
-    // Note: we could defer much of the below calculation to the poseidon trace with an additional
-    // lookup with poseidon2_hash.start == 1, poseidon2_hash.padding = sel_padding_1 + sel_padding_2
-    // (would need new col.s). We could probably include the rounds_rem check in this as well.
-
     // If input[1] is a padding value, input[2] must also be a padding value:
     // padding_1 == 1 ==> padding_2 == 1
     #[PADDING_CONSISTENCY]
@@ -303,10 +297,10 @@ namespace calldata_hashing;
 
     // ==== HASH OUTPUT ====
 
-    // Checked against the public inputs/tx trace at the last round:
+    // Checked against the public inputs/tx trace at the last round.
     pol commit output_hash;
 
-    // Output hash does not change until end
+    // Output hash does not change until end.
     #[HASH_CONSISTENCY]
     (1 - LATCH_CONDITION) * (output_hash' - output_hash) = 0;
 
@@ -315,7 +309,7 @@ namespace calldata_hashing;
     // We cannot just rely on rounds_rem since the padding could be 1 or 2 off.
     pol commit input_len;
 
-    // input_len = calldata_size + 1 (the +1 is for the prepended domain separator)
+    // input_len = calldata_size + 1 (the +1 is for the prepended domain separator).
     #[CALLDATA_HASH_INPUT_LENGTH_FIELDS]
     sel * (input_len - (calldata_size + 1)) = 0;
 

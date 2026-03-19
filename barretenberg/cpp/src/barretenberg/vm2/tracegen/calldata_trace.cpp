@@ -73,8 +73,9 @@ void CalldataTraceBuilder::process_hashing(
         const auto padding_amount = (2 * input_len) % 3;
         const auto padded_len = input_len + padding_amount;
 
-        calldata_with_sep.reserve(padded_len); // We add zero padding values to simplify code below.
+        calldata_with_sep.reserve(padded_len);
         calldata_with_sep.insert(calldata_with_sep.end(), event.calldata.begin(), event.calldata.end());
+        // We add padding values (FF(0)) to ensure each array access in loop below is within bounds.
         calldata_with_sep.insert(calldata_with_sep.end(), padding_amount, FF(0));
 
         auto num_rounds_rem = padded_len / 3;

@@ -12,11 +12,11 @@ include "precomputed.pil";
  *
  * The calldata pipeline works as follows (see diagram in calldata_hashing.pil):
  *
- *   1. tx.pil reads the calldata_hash from the transaction's public inputs
+ *   1. tx.pil reads `calldata_hash` from the transaction's public inputs
  *      (tx.pil #[READ_PUBLIC_CALL_REQUEST_PHASE]).
  *
  *   2. tx.pil performs a permutation into calldata_hashing.pil at end rows
- *      (tx.pil #[READ_CALLDATA_HASH]), matching (output_hash, calldata_size, context_id).
+ *      (tx.pil #[READ_CALLDATA_HASH]), matching (`output_hash`, `calldata_size`, `context_id`).
  *      This ensures that calldata_hashing produces exactly the hash declared by the
  *      transaction for each enqueued call. The `calldata_size` is "returned back" from
  *      calldata_hashing.pil.
@@ -24,18 +24,18 @@ include "precomputed.pil";
  *   3. calldata_hashing.pil rebuilds the hash from scratch: it prepends a domain separator,
  *      then looks up every calldata field from this trace via #[GET_CALLDATA_FIELD_0/1/2],
  *      feeds them into a Poseidon2 hash (via #[POSEIDON2_HASH]), and checks that the
- *      resulting hash equals output_hash. This guarantees that the values stored here are
+ *      resulting hash equals `output_hash`. This guarantees that the values stored here are
  *      exactly the preimage of the hash committed in the public inputs.
  *
  *   4. calldata_hashing.pil also enforces the size: #[CHECK_FINAL_INDEX] constrains that
- *      calldata_size equals the last non-padding index, and #[CHECK_FINAL_SIZE] is a
+ *      `calldata_size` equals the last non-padding index, and #[CHECK_FINAL_SIZE] is a
  *      permutation between calldata_hashing (at end rows for non-empty calldata) and this
- *      trace (at end rows), checking that (calldata_size, context_id) match
- *      (calldata.index, calldata.context_id). This binds the length of data in this trace
+ *      trace (at end rows), checking that (`calldata_size`, `context_id`) match
+ *      (`calldata.index`, `calldata.context_id`). This binds the length of data in this trace
  *      to the length declared in calldata_hashing. Each computation block in this trace
  *      starts at index 1, increments by 1 each row, and ends at index `calldata_size`.
  *
- *   5. tx.pil dispatches calldata_size to the execution trace (tx.pil #[DISPATCH_EXEC_START]),
+ *   5. tx.pil dispatches `calldata_size` to the execution trace (tx.pil #[DISPATCH_EXEC_START]),
  *      which passes it to data_copy.pil for CALLDATACOPY operations. data_copy.pil reads
  *      individual field values from this trace (data_copy.pil #[COL_READ]).
  *
@@ -55,16 +55,18 @@ include "precomputed.pil";
  * trace is required for empty calldata — no rows are generated and no permutation fires.
  *
  * CONTEXT_ID UNIQUENESS:
- * Each computation block has a unique context_id, but this is NOT enforced locally by this
+ * Each computation block has a unique `context_id`, but this is NOT enforced locally by this
  * trace. Instead, it follows from the permutation chain:
- *   - tx.pil assigns a unique context_id per enqueued call.
- *   - #[READ_CALLDATA_HASH] (tx.pil) is a permutation into calldata_hashing.end, so
- *     calldata_hashing has unique context_ids at end rows.
- *   - #[CHECK_FINAL_SIZE] is a permutation between calldata_hashing end rows and
- *     calldata.end rows, enforcing a 1-to-1 correspondence.
- * Therefore, each calldata.end row must correspond to a distinct context_id. A prover
- * cannot add extra computation blocks (the permutation count would not match) or duplicate
- * a context_id (it would require a duplicate in calldata_hashing, which is impossible).
+ *   - tx.pil assigns a unique `context_id` per enqueued call.
+ *   - #[READ_CALLDATA_HASH] (tx.pil) is a permutation into `calldata_hashing.end`, so
+ *     `calldata_hashing` has unique `context_ids` at "end" rows.
+ *   - #[CHECK_FINAL_SIZE] is a permutation between calldata_hashing `end` rows and
+ *     calldata `end` rows, restricted to non-empty calldata, enforcing a 1-to-1 correspondence
+ *     between the non-empty calldata instances.
+ * Therefore, each `calldata.end` row must correspond to a distinct `context_id`. Namely, the list
+ * of the `context_ids` with non-empty calldata in calldata_hashing.pil must be all distinct.
+ * A prover cannot add extra computation blocks (the permutation count would not match) or duplicate
+ * a `context_id` (it would require a duplicate in calldata_hashing, which is impossible).
  *
  * USAGE:
  *
