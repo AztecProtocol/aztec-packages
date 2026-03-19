@@ -405,7 +405,7 @@ describe('Utility Execution test suite', () => {
           requestSlot,
           [],
           'test-job-id',
-          undefined,
+          scope,
         );
       });
 
@@ -419,7 +419,7 @@ describe('Utility Execution test suite', () => {
           requestSlot,
           [],
           'test-job-id',
-          undefined,
+          scope,
         );
       });
     });
