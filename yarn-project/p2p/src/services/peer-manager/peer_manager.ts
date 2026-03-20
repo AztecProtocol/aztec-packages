@@ -3,6 +3,7 @@ import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/s
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -35,6 +36,8 @@ const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const AUTH_HANDSHAKE_RETRY_DELAY_MS = 500;
+const AUTH_HANDSHAKE_MAX_RETRIES = 1;
 
 type CachedPeer = {
   peerId: PeerId;
@@ -883,7 +886,7 @@ export class PeerManager implements PeerManagerInterface {
    * A superset of the status handshake. Also includes a challenge that needs to be signed by the peer's validator key.
    * @param: peerId The Id of the peer to request the Status from.
    * */
-  private async exchangeAuthHandshake(peerId: PeerId) {
+  private async exchangeAuthHandshake(peerId: PeerId, retryCount = 0): Promise<void> {
     const peerIdString = peerId.toString();
 
     try {
@@ -897,15 +900,25 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        // Don't disconnect on FAILURE — transport errors (StreamResetError, timeout, etc.)
-        // return FAILURE and disconnecting here causes a reconnect→handshake→fail churn loop
-        // that prevents gossipsub mesh formation. Bad peers are caught by data validation below
-        // and by peer scoring.
-        this.logger.verbose(`Auth handshake returned non-success for peer ${peerId}, keeping connection`, {
+        this.markAuthHandshakeFailed(peerId);
+
+        // Transport errors (StreamResetError, timeout) return FAILURE and are transient —
+        // retry once after a short delay to distinguish from genuine auth failures.
+        // If the retry also fails, the failure is persistent (non-validator) → disconnect.
+        if (retryCount < AUTH_HANDSHAKE_MAX_RETRIES) {
+          this.logger.verbose(
+            `Auth handshake returned non-success for peer ${peerId}, retrying (${retryCount + 1}/${AUTH_HANDSHAKE_MAX_RETRIES})`,
+            { peerId, status: ReqRespStatus[status] },
+          );
+          await sleep(AUTH_HANDSHAKE_RETRY_DELAY_MS);
+          return this.exchangeAuthHandshake(peerId, retryCount + 1);
+        }
+
+        this.logger.verbose(`Auth handshake failed after retries for peer ${peerId}, disconnecting`, {
           peerId,
           status: ReqRespStatus[status],
         });
-        this.markAuthHandshakeFailed(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
