@@ -1995,4 +1995,100 @@ describe('NativeWorldState', () => {
       await fork.close();
     });
   });
+
+  describe('commitFork', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    it('makes getCommitted() return the fork state', async () => {
+      const fork = await ws.fork();
+      await mockBlock(BlockNumber(1), 1, fork);
+
+      await ws.commitFork(fork, BlockNumber(0));
+
+      await assertSameState(ws.getCommitted(), fork);
+    });
+
+    it('fails if tip has moved', async () => {
+      // Build and sync block 1 via handleL2BlockAndMessages
+      const setupFork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, setupFork);
+      await ws.handleL2BlockAndMessages(block, messages);
+      await setupFork.close();
+
+      // Create a fork at block 0 (now stale)
+      const staleFork = await ws.fork(BlockNumber(0));
+      await mockBlock(BlockNumber(1), 1, staleFork);
+
+      // commitFork should fail because tip moved from 0 to 1
+      await expect(ws.commitFork(staleFork, BlockNumber(0))).rejects.toThrow();
+    });
+
+    it('handleL2BlockAndMessages clears the committed fork', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      await ws.commitFork(fork, BlockNumber(0));
+
+      // getCommitted() should return the fork's state
+      await assertSameState(ws.getCommitted(), fork);
+
+      // Now sync the same block via handleL2BlockAndMessages
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      // getCommitted() should now return LMDB state (which should match since same block was synced)
+      const committed = ws.getCommitted();
+      await assertSameState(committed, fork);
+
+      // Verify the committed fork was cleared by mutating the fork and checking getCommitted() doesn't change
+      const committedInfoBefore = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+      await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [Fr.random()]);
+      const committedInfoAfter = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+      expect(committedInfoAfter).toEqual(committedInfoBefore);
+    });
+
+    it('unwindBlocks clears the committed fork', async () => {
+      // Sync blocks 1..3
+      const setupFork = await ws.fork();
+      for (let i = 1; i <= 3; i++) {
+        const { block, messages } = await mockBlock(BlockNumber(i), 1, setupFork);
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+      await setupFork.close();
+
+      // Create fork at block 3, build block 4, commitFork
+      const fork = await ws.fork();
+      await mockBlock(BlockNumber(4), 1, fork);
+      await ws.commitFork(fork, BlockNumber(3));
+
+      // Reorg back to block 2
+      await ws.unwindBlocks(BlockNumber(2));
+
+      // getCommitted() should return LMDB state at block 2, not the fork
+      const snapshot2 = ws.getSnapshot(BlockNumber(2));
+      await assertSameState(ws.getCommitted(), snapshot2);
+    });
+
+    it('replaces a previous committed fork', async () => {
+      // Build fork1 with block 1
+      const fork1 = await ws.fork();
+      await mockBlock(BlockNumber(1), 1, fork1);
+      await ws.commitFork(fork1, BlockNumber(0));
+
+      // Build fork2 with different state for block 1
+      const fork2 = await ws.fork();
+      await mockBlock(BlockNumber(1), 1, fork2);
+      await ws.commitFork(fork2, BlockNumber(0));
+
+      // getCommitted() should match fork2, not fork1
+      await assertSameState(ws.getCommitted(), fork2);
+    });
+  });
 });

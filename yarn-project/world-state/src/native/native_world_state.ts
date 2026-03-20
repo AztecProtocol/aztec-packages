@@ -192,6 +192,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
+  public async commitFork(_fork: MerkleTreeWriteOperations, _blockNumber: BlockNumber): Promise<void> {
+    // TODO: implement
+  }
+
   public getInitialHeader(): BlockHeader {
     return this.initialHeader!;
   }

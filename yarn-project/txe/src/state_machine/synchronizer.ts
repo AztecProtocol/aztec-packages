@@ -47,6 +47,11 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     return this.nativeWorldStateService.getCommitted();
   }
 
+  /** Commits a fork as the current "committed" view of the world state. */
+  public commitFork(fork: MerkleTreeWriteOperations, blockNumber: BlockNumber): Promise<void> {
+    return this.nativeWorldStateService.commitFork(fork, blockNumber);
+  }
+
   /** Forks the world state at the given block number, defaulting to the latest one. */
   public fork(block?: number): Promise<MerkleTreeWriteOperations> {
     return this.nativeWorldStateService.fork(block ? BlockNumber(block) : undefined);
