@@ -1,4 +1,6 @@
 #include "chain_check.hpp"
+#include "chain_commitment.hpp"
+#include "checksum_check.hpp"
 #include "hash_check.hpp"
 #include "participant_list.hpp"
 #include "report.hpp"
@@ -10,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
 
 using namespace bb::ignition;
@@ -22,7 +25,8 @@ void print_usage(const char* argv0)
               << "Commands:\n"
               << "  verify-structure <transcript_dir>   Verify power-of-tau structure of sealed transcripts\n"
               << "  verify-chain                        Verify 176-participant chain linkage (downloads from S3)\n"
-              << "  verify-all <transcript_dir>         Run all verification checks\n\n"
+              << "  verify-all <transcript_dir>         Run all verification checks\n"
+              << "  compute-chain-commitment            Download chain data and print SHA-256 commitment\n\n"
               << "Arguments:\n"
               << "  transcript_dir  Directory containing sealed transcript00.dat through transcript19.dat\n\n"
               << "The transcript files can be downloaded from:\n"
@@ -46,7 +50,12 @@ std::vector<std::filesystem::path> get_transcript_paths(const std::filesystem::p
     return paths;
 }
 
-VerificationReport run_structure_check(const std::filesystem::path& transcript_dir)
+struct StructureResult {
+    VerificationReport report;
+    G2 sealed_g2; // Pass to chain check for cross-validation
+};
+
+StructureResult run_structure_check(const std::filesystem::path& transcript_dir)
 {
     VerificationReport report;
     auto paths = get_transcript_paths(transcript_dir);
@@ -63,6 +72,23 @@ VerificationReport run_structure_check(const std::filesystem::path& transcript_d
                        "the ceremony output and barretenberg's hardcoded G2 are inconsistent");
     }
     info("  Sealed G2 matches CDN G2 (bn254_crs_data.hpp)");
+
+    // Verify BLAKE2B checksums (catches corrupted downloads before expensive pairing work)
+    info("Verifying BLAKE2B transcript checksums...");
+    for (size_t i = 0; i < NUM_TRANSCRIPTS; ++i) {
+        bool ok = verify_transcript_checksum(paths[i]);
+        if (ok) {
+            report.blake2b_checksums_verified++;
+        } else {
+            report.blake2b_checksums_failed++;
+            info("  BLAKE2B checksum FAILED for transcript ", i);
+        }
+    }
+    if (report.blake2b_checksums_failed == 0) {
+        info("  All ", report.blake2b_checksums_verified, " BLAKE2B checksums valid");
+    } else {
+        info("  ", report.blake2b_checksums_failed, " checksum failures — transcript files may be corrupted");
+    }
 
     // Validate manifests
     info("Validating manifests...");
@@ -116,16 +142,28 @@ VerificationReport run_structure_check(const std::filesystem::path& transcript_d
         info("CDN hash cross-check: FAIL (", hash_mismatches, " chunk mismatches)");
     }
 
-    return report;
+    return { report, g2_cumulative };
 }
 
-VerificationReport run_chain_check(VerificationReport report, const std::filesystem::path& transcript_dir = {})
+VerificationReport run_chain_check(VerificationReport report,
+                                   const std::filesystem::path& transcript_dir = {},
+                                   const std::optional<G2>& structure_g2 = std::nullopt)
 {
     info("\nVerifying chain linkage (176 participants + sealed)...");
     info("  Downloading participant data from S3 via Range requests (~55KB)...");
 
     auto chain_data = download_chain_data(std::string(S3_BASE_URL));
     report.on_curve_g2_checked += chain_data.size() * 2; // cumulative + individual per participant
+
+    // Verify chain data against hardcoded commitment (anti-tampering)
+    info("  Verifying chain data commitment...");
+    report.chain_commitment_checked = true;
+    report.chain_commitment_passed = verify_chain_commitment(chain_data);
+    if (report.chain_commitment_passed) {
+        info("  Chain commitment: PASS");
+    } else {
+        info("  Chain commitment: FAIL (chain data does not match hardcoded hash)");
+    }
 
     // Cross-check: if we have local transcripts, verify the sealed first G1 point
     // from the Range request matches the first point in the local sealed transcript.
@@ -144,6 +182,16 @@ VerificationReport run_chain_check(VerificationReport report, const std::filesys
                            "S3 served inconsistent data between full download and Range request");
         }
         info("  Sealed G1 cross-check: Range request matches local transcript");
+    }
+
+    // Cross-check: sealed cumulative G2 from chain must match the G2 used in structure check
+    if (structure_g2.has_value()) {
+        const auto& sealed = chain_data.back();
+        if (sealed.cumulative_g2 != structure_g2.value()) {
+            throw_or_abort("Chain sealed.cumulative_g2 (from Range request) != G2 from local sealed transcript — "
+                           "the chain and structure checks used different G2 points");
+        }
+        info("  Sealed G2 cross-check: chain G2 matches structure check G2");
     }
 
     info("  Verifying chain...");
@@ -181,10 +229,10 @@ int main(int argc, char* argv[])
             }
 
             std::filesystem::path transcript_dir = argv[2];
-            auto report = run_structure_check(transcript_dir);
+            auto [report, sealed_g2] = run_structure_check(transcript_dir);
 
             if (command == "verify-all") {
-                report = run_chain_check(report, transcript_dir);
+                report = run_chain_check(report, transcript_dir, sealed_g2);
             } else {
                 // Structure-only mode: mark chain as not run (but don't fail overall)
                 report.chain_check_passed = true;
@@ -206,6 +254,26 @@ int main(int argc, char* argv[])
 
             std::cout << "\n" << report.to_human_readable() << std::endl;
             return report.chain_check_passed ? 0 : 1;
+
+        } else if (command == "compute-chain-commitment") {
+            info("Downloading chain data from S3...");
+            auto chain_data = download_chain_data(std::string(S3_BASE_URL));
+            auto hash = compute_chain_commitment(chain_data);
+
+            std::cout << "Chain commitment (SHA-256 over " << chain_data.size() << " entries, "
+                      << chain_data.size() * 320 << " bytes):\n";
+            std::cout << "{ ";
+            for (size_t i = 0; i < hash.size(); ++i) {
+                char buf[8];
+                snprintf(buf, sizeof(buf), "0x%02x", hash[i]);
+                std::cout << buf;
+                if (i + 1 < hash.size()) {
+                    std::cout << ", ";
+                }
+            }
+            std::cout << " }\n";
+            return 0;
+
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             print_usage(argv[0]);

@@ -29,11 +29,15 @@ std::string VerificationReport::to_json() const
     ss << "    \"chain_linkage\": {\n";
     ss << "      \"status\": \"" << (chain_check_passed ? "PASS" : "FAIL") << "\",\n";
     ss << "      \"participants\": " << participants_verified << ",\n";
-    ss << "      \"pairings_verified\": " << chain_links_verified << "\n";
+    ss << "      \"pairings_verified\": " << chain_links_verified << ",\n";
+    ss << "      \"commitment_check\": \""
+       << (chain_commitment_checked ? (chain_commitment_passed ? "PASS" : "FAIL") : "SKIPPED") << "\"\n";
     ss << "    },\n";
 
     ss << "    \"transcript_integrity\": {\n";
     ss << "      \"manifests_valid\": " << manifests_validated << ",\n";
+    ss << "      \"blake2b_checksums_verified\": " << blake2b_checksums_verified << ",\n";
+    ss << "      \"blake2b_checksums_failed\": " << blake2b_checksums_failed << ",\n";
     ss << "      \"on_curve_g1_checked\": " << on_curve_g1_checked << ",\n";
     ss << "      \"on_curve_g2_checked\": " << on_curve_g2_checked << "\n";
     ss << "    }\n";
@@ -60,10 +64,17 @@ std::string VerificationReport::to_human_readable() const
 
     ss << "Chain linkage:         " << (chain_check_passed ? "PASS" : "FAIL") << "\n";
     ss << "  " << participants_verified << " participants verified\n";
-    ss << "  " << chain_links_verified << " chain links checked\n\n";
+    ss << "  " << chain_links_verified << " chain links checked\n";
+    ss << "  Commitment check: " << (chain_commitment_checked ? (chain_commitment_passed ? "PASS" : "FAIL") : "SKIPPED")
+       << "\n\n";
 
     ss << "Transcript integrity:\n";
     ss << "  " << manifests_validated << " manifests validated\n";
+    ss << "  " << blake2b_checksums_verified << " BLAKE2B checksums verified";
+    if (blake2b_checksums_failed > 0) {
+        ss << " (" << blake2b_checksums_failed << " FAILED)";
+    }
+    ss << "\n";
     ss << "  " << on_curve_g1_checked << " G1 on-curve checks\n";
     ss << "  " << on_curve_g2_checked << " G2 on-curve checks\n\n";
 

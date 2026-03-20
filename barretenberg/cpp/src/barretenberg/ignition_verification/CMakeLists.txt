@@ -1,10 +1,13 @@
 if(NOT FUZZING)
     # Library sources (shared between executable and tests)
     set(LIB_SOURCES
+        blake2b.cpp
         transcript_loader.cpp
         structure_check.cpp
         hash_check.cpp
         chain_check.cpp
+        chain_commitment.cpp
+        checksum_check.cpp
         report.cpp
     )
 
@@ -39,6 +42,7 @@ if(NOT FUZZING)
     # Tests
     add_executable(
         ignition_verification_tests
+        blake2b.test.cpp
         transcript_loader.test.cpp
         structure_check.test.cpp
         ${LIB_SOURCES}
