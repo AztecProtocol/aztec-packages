@@ -470,7 +470,7 @@ describe('e2e_synching', () => {
     for (const checkpoint of checkpoints) {
       const lastBlock = checkpoint.blocks.at(-1)!;
       const targetTime = Number(lastBlock.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
-      while ((await cheatCodes.eth.timestamp()) < targetTime) {
+      while ((await cheatCodes.eth.lastBlockTimestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
