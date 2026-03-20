@@ -380,7 +380,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Fetches a message from the executionStore, given its key.
+   * Returns the membership witness of an un-nullified L1 to L2 message.
    * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
    * @param secret - Secret used to compute a nullifier.
@@ -393,6 +393,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       contractAddress,
       messageHash,
       secret,
+      await this.anchorBlockHeader.hash(),
     );
 
     return new MessageLoadOracleInputs(messageIndex, siblingPath);
