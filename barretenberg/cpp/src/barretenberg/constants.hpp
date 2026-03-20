@@ -17,12 +17,12 @@ static constexpr uint32_t CONST_OP_QUEUE_LOG_SIZE = CONST_TRANSLATOR_MINI_CIRCUI
 
 // The log of the max circuit size assumed in order to achieve constant sized Honk proofs
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1046): Remove the need for const sized proofs
-static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
+static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 25;
 
 // The log of the max circuit size of circuits being folded. This size is assumed by the HN prover and verifier in order
 // to ensure a constant HN proof size and a HN recursive verifier circuit that is independent of the size of the
 // circuits being folded.
-static constexpr uint32_t CONST_FOLDING_LOG_N = 21;
+static constexpr uint32_t CONST_FOLDING_LOG_N = 24;
 // Hiding kernel is a constant circuit that is being proven with MegaZKFlavor as a part Chonk
 static constexpr uint32_t HIDING_KERNEL_LOG_N = 16;
 // The size of the AVMRecursiveVerifier circuit arithmetized with Mega.
