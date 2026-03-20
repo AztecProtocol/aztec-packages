@@ -931,6 +931,7 @@ __metadata:
     commander: "npm:^12.1.0"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
+    msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"

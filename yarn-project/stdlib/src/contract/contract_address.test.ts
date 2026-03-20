@@ -1,4 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
+import { elapsed } from '@aztec/foundation/timer';
 
 import { type FunctionAbi, FunctionType } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -64,17 +66,21 @@ describe('ContractAddress', () => {
     const initializationHash = new Fr(5n);
     const deployer = AztecAddress.fromField(new Fr(7));
     const publicKeys = (await deriveKeys(secretKey)).publicKeys;
-    const address = (
-      await computeContractAddressFromInstance({
-        publicKeys,
-        salt,
-        originalContractClassId: contractClassId,
-        currentContractClassId: contractClassId,
-        initializationHash,
-        deployer,
-        version: 1,
-      })
-    ).toString();
-    expect(address).toMatchInlineSnapshot(`"0x2cea4bfccb4a185354cbbd9eb5a39ace117abf1f9381c5b6167b1a6f94a0672c"`);
+    const instance = {
+      publicKeys,
+      salt,
+      originalContractClassId: contractClassId,
+      currentContractClassId: contractClassId,
+      initializationHash,
+      deployer,
+      version: 1 as const,
+    };
+
+    const [ms, address] = await elapsed(computeContractAddressFromInstance(instance));
+    const logger = createLogger('stdlib:contract_address:test');
+    logger.info(`Computed contract address from instance in ${ms}ms`);
+    expect(address.toString()).toMatchInlineSnapshot(
+      `"0x2cea4bfccb4a185354cbbd9eb5a39ace117abf1f9381c5b6167b1a6f94a0672c"`,
+    );
   });
 });
