@@ -190,8 +190,9 @@ void Sha256::compression(MemoryInterface& memory,
 
         // Extend the input data into the remaining 48 words
         for (size_t i = 16; i < 64; ++i) {
-            MemoryValue s0 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 15], 7), ror(w[i - 15], 18)), shr(w[i - 15], 3));
-            MemoryValue s1 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 2], 17), ror(w[i - 2], 19)), shr(w[i - 2], 10));
+            MemoryValue s0 =
+                bitwise.xor_op(bitwise.xor_op(ror(w[i - 15], 7U), ror(w[i - 15], 18U)), shr(w[i - 15], 3U));
+            MemoryValue s1 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 2], 17U), ror(w[i - 2], 19U)), shr(w[i - 2], 10U));
             // Could be explicit with an std::initializer_list<uint32_t> here, the array overload is more readable imo.
             // std::spans are annoying to construct from literals
             // (https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2447r2.html)
