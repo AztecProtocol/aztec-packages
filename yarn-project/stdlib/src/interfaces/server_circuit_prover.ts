@@ -195,10 +195,14 @@ export interface ServerCircuitProver {
 export type IVCProofVerificationResult = {
   // The result of verification
   valid: boolean;
-  // The duration of the verification in milliseconds
+  // The duration of the verification in milliseconds (reduce + IPA)
   durationMs: number;
   // The total duration, including proof serialisation and file-system cleanup
   totalDurationMs: number;
+  // Phase 1: reduce_to_ipa_claim time for this proof (ms)
+  reduceMs?: number;
+  // Phase 2: batch_check (IPA MSM) wall time for this batch (ms)
+  ipaMs?: number;
 };
 
 /**

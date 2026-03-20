@@ -25,6 +25,8 @@ interface FifoVerifyResult {
   status: number;
   error_message: string;
   time_in_verify_ms: number;
+  reduce_ms: number;
+  ipa_ms: number;
 }
 
 /** Maps client protocol artifacts used for chonk verification to VK indices. */
@@ -236,7 +238,13 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     const durationMs = result.time_in_verify_ms;
     const totalDurationMs = pending.totalTimer.ms();
 
-    const ivcResult: IVCProofVerificationResult = { valid, durationMs, totalDurationMs };
+    const ivcResult: IVCProofVerificationResult = {
+      valid,
+      durationMs,
+      totalDurationMs,
+      reduceMs: result.reduce_ms,
+      ipaMs: result.ipa_ms,
+    };
 
     if (!valid) {
       this.logger.warn(`Proof verification failed for request_id=${result.request_id}: ${result.error_message}`);
@@ -244,6 +252,8 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
       this.logger.debug(`Proof verified`, {
         requestId: result.request_id,
         durationMs: Math.ceil(durationMs),
+        reduceMs: Math.ceil(result.reduce_ms),
+        ipaMs: Math.ceil(result.ipa_ms),
         totalDurationMs: Math.ceil(totalDurationMs),
       });
     }

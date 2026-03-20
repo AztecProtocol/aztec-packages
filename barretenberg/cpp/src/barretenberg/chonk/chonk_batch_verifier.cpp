@@ -290,6 +290,8 @@ void ChonkBatchVerifier::emit_ok(const std::vector<ReduceResult>& results,
             .status = static_cast<uint8_t>(VerifyStatus::OK),
             .time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start),
             .time_in_verify_ms = rr.reduce_ms + ipa_ms,
+            .reduce_ms = rr.reduce_ms,
+            .ipa_ms = ipa_ms,
             .batch_failure_count = depth,
         });
     }

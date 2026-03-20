@@ -115,17 +115,23 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
         expect(results.every(r => r.valid)).toBe(true);
 
         const avgVerifyMs = results.reduce((sum, r) => sum + r.durationMs, 0) / results.length;
+        const avgReduceMs = results.reduce((sum, r) => sum + (r.reduceMs ?? 0), 0) / results.length;
+        const ipaMs = results[0]?.ipaMs ?? 0;
         const throughput = (numProofs / wallMs) * 1000;
 
         benchResults.push(
           { name: `BatchVerify/16_real_proofs/${numCores}_cores/wall_time`, value: wallMs, unit: 'ms' },
           { name: `BatchVerify/16_real_proofs/${numCores}_cores/avg_verify`, value: avgVerifyMs, unit: 'ms' },
+          { name: `BatchVerify/16_real_proofs/${numCores}_cores/avg_reduce`, value: avgReduceMs, unit: 'ms' },
+          { name: `BatchVerify/16_real_proofs/${numCores}_cores/ipa_ms`, value: ipaMs, unit: 'ms' },
           { name: `BatchVerify/16_real_proofs/${numCores}_cores/throughput`, value: throughput, unit: 'proofs/sec' },
         );
 
         logger.info(`16 proofs, ${numCores} cores`, {
           wallMs: Math.ceil(wallMs),
           avgVerifyMs: Math.ceil(avgVerifyMs),
+          avgReduceMs: Math.ceil(avgReduceMs),
+          ipaMs: Math.ceil(ipaMs),
           throughput: throughput.toFixed(2),
         });
       } finally {
