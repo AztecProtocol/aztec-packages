@@ -12,7 +12,7 @@ namespace bb::avm2::simulation {
 namespace {
 
 // constants come from barretenberg/cpp/src/barretenberg/crypto/sha256/sha256.cpp
-constexpr std::array<uint32_t, 64> round_constants{
+constexpr std::array<uint32_t, 64> ROUND_CONSTANTS{
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -222,12 +222,12 @@ void Sha256::compression(MemoryInterface& memory,
             g = f;
             f = e;
             // e = d + temp1;
-            e = modulo_sum({ { d, prev_h, S1, ch, MemoryValue::from<uint32_t>(round_constants[i]), w[i] } });
+            e = modulo_sum({ { d, prev_h, S1, ch, MemoryValue::from<uint32_t>(ROUND_CONSTANTS[i]), w[i] } });
             d = c;
             c = b;
             b = a;
             // a = temp1 + temp2;
-            a = modulo_sum({ { prev_h, S1, ch, MemoryValue::from<uint32_t>(round_constants[i]), w[i], S0, maj } });
+            a = modulo_sum({ { prev_h, S1, ch, MemoryValue::from<uint32_t>(ROUND_CONSTANTS[i]), w[i], S0, maj } });
         }
 
         // Add into previous block output and return

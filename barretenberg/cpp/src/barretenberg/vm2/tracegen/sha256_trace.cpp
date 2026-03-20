@@ -15,31 +15,31 @@ namespace bb::avm2::tracegen {
 namespace {
 
 // These are some useful groupings of columns for the SHA256 trace that we will iterate over.
-constexpr std::array<Column, 8> state_cols = {
+constexpr std::array<Column, 8> STATE_COLS = {
     Column::sha256_a, Column::sha256_b, Column::sha256_c, Column::sha256_d,
     Column::sha256_e, Column::sha256_f, Column::sha256_g, Column::sha256_h,
 };
 
-constexpr std::array<Column, 8> init_state_cols = {
+constexpr std::array<Column, 8> INIT_STATE_COLS = {
     Column::sha256_init_a, Column::sha256_init_b, Column::sha256_init_c, Column::sha256_init_d,
     Column::sha256_init_e, Column::sha256_init_f, Column::sha256_init_g, Column::sha256_init_h,
 };
 
-constexpr std::array<Column, 16> w_cols = {
+constexpr std::array<Column, 16> W_COLS = {
     Column::sha256_helper_w0,  Column::sha256_helper_w1,  Column::sha256_helper_w2,  Column::sha256_helper_w3,
     Column::sha256_helper_w4,  Column::sha256_helper_w5,  Column::sha256_helper_w6,  Column::sha256_helper_w7,
     Column::sha256_helper_w8,  Column::sha256_helper_w9,  Column::sha256_helper_w10, Column::sha256_helper_w11,
     Column::sha256_helper_w12, Column::sha256_helper_w13, Column::sha256_helper_w14, Column::sha256_helper_w15,
 };
 
-constexpr std::array<Column, 16> output_cols = {
+constexpr std::array<Column, 16> OUTPUT_COLS = {
     Column::sha256_output_a_lhs, Column::sha256_output_a_rhs, Column::sha256_output_b_lhs, Column::sha256_output_b_rhs,
     Column::sha256_output_c_lhs, Column::sha256_output_c_rhs, Column::sha256_output_d_lhs, Column::sha256_output_d_rhs,
     Column::sha256_output_e_lhs, Column::sha256_output_e_rhs, Column::sha256_output_f_lhs, Column::sha256_output_f_rhs,
     Column::sha256_output_g_lhs, Column::sha256_output_g_rhs, Column::sha256_output_h_lhs, Column::sha256_output_h_rhs,
 };
 
-constexpr std::array<uint32_t, 64> round_constants = {
+constexpr std::array<uint32_t, 64> ROUND_CONSTANTS = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -60,7 +60,7 @@ constexpr std::array<uint32_t, 64> round_constants = {
 void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace)
 {
     for (size_t i = 0; i < 16; i++) {
-        trace.set(row, { { { w_cols[i], prev_w_helpers[i] } } });
+        trace.set(row, { { { W_COLS[i], prev_w_helpers[i] } } });
     }
 }
 
@@ -72,7 +72,7 @@ void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_
 void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, TraceContainer& trace)
 {
     for (size_t i = 0; i < 8; i++) {
-        trace.set(row, { { { state_cols[i], state[i] } } });
+        trace.set(row, { { { STATE_COLS[i], state[i] } } });
     }
 }
 
@@ -84,7 +84,7 @@ void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, Tr
 void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init_state, TraceContainer& trace)
 {
     for (size_t i = 0; i < 8; i++) {
-        trace.set(row, { { { init_state_cols[i], init_state[i] } } });
+        trace.set(row, { { { INIT_STATE_COLS[i], init_state[i] } } });
     }
 }
 
@@ -348,7 +348,7 @@ void Sha256TraceBuilder::compute_sha256_output(const std::array<uint32_t, 8>& ou
     uint32_t counter = 0;
     for (const auto& [init, state] : zip_view(init_state, out_state)) {
         uint64_t output = static_cast<uint64_t>(init) + static_cast<uint64_t>(state);
-        into_limbs_with_witness(output, 32, output_cols[counter], output_cols[counter + 1], trace);
+        into_limbs_with_witness(output, 32, OUTPUT_COLS[counter], OUTPUT_COLS[counter + 1], trace);
         counter += 2;
     }
 }
@@ -638,7 +638,7 @@ void Sha256TraceBuilder::process(
             set_helper_cols(prev_w_helpers, trace);
 
             // Apply SHA-256 compression function to the message schedule and update the state
-            round_state = compute_compression_with_witness(round_state, round_w, round_constants[i], row, trace);
+            round_state = compute_compression_with_witness(round_state, round_w, ROUND_CONSTANTS[i], row, trace);
 
             // Update the prev_w_helpers, we shift all the values to the left and add the new round_w to
             // the end
