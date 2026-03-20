@@ -126,8 +126,8 @@ describe('e2e_publisher_funding_multi', () => {
 
     const funderBalanceBefore = await ethCheatCodes.getBalance(funderAddress);
 
-    // The sequencer periodically calls getAvailablePublisher(), which triggers funding
-    // when it sees publisher balances are below threshold. Both should be funded in a single multicall.
+    // The RunningPromise checks funding every 2 minutes, so we need to wait long enough
+    // for the next cycle to detect the low balances and fund both publishers.
     await retryUntil(
       async () => {
         const balance1 = await ethCheatCodes.getBalance(publisher1Address);
@@ -135,7 +135,7 @@ describe('e2e_publisher_funding_multi', () => {
         return balance1 > LOW_BALANCE && balance2 > LOW_BALANCE ? true : undefined;
       },
       'waiting for both publishers to be funded',
-      60,
+      180,
       1,
     );
 
@@ -168,7 +168,7 @@ describe('e2e_publisher_funding_multi', () => {
         return spent >= FUNDING_AMOUNT ? true : undefined;
       },
       'waiting for second funding round',
-      120,
+      180,
       1,
     );
 
