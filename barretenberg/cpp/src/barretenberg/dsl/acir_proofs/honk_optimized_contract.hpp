@@ -523,10 +523,6 @@ contract HonkVerifier is IVerifier {
     uint256 internal constant P_SUB_1 = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
     uint256 internal constant P_SUB_2 = 21888242871839275222246405745257275088548364400416034343698204186575808495615;
     uint256 internal constant P_SUB_3 = 21888242871839275222246405745257275088548364400416034343698204186575808495614;
-    uint256 internal constant P_SUB_4 = 21888242871839275222246405745257275088548364400416034343698204186575808495613;
-    uint256 internal constant P_SUB_5 = 21888242871839275222246405745257275088548364400416034343698204186575808495612;
-    uint256 internal constant P_SUB_6 = 21888242871839275222246405745257275088548364400416034343698204186575808495611;
-    uint256 internal constant P_SUB_7 = 21888242871839275222246405745257275088548364400416034343698204186575808495610;
 
     // Barycentric evaluation constants
     uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATOR_0 =
@@ -1315,8 +1311,7 @@ contract HonkVerifier is IVerifier {
 
                     // --- Phase 2: Shplemini forward pass ---
                     // Compute shplemini denominators and accumulate into the running product.
-                    // Pre-inversion values stored in staging area (0x6800+), NOT in
-                    // designated addresses, to avoid corrupting barycentric storage.
+                    // Pre-inversion values stored in shplemini runtime memory
                     {
                         // Compute powers of evaluation challenge: gemini_r^{2^i}
                         let cache := mload(GEMINI_R_CHALLENGE)
@@ -1358,7 +1353,6 @@ contract HonkVerifier is IVerifier {
 
                         // --- Shplemini backward pass ---
                         // Extract shplemini inverses in strict reverse order.
-                        // Write inverses back to staging (not designated addrs).
                         /// {{ UNROLL_SECTION_START COLLECT_INVERSES }}
                             /// {{ UNROLL_SECTION_END COLLECT_INVERSES }}
 
@@ -2556,7 +2550,6 @@ contract HonkVerifier is IVerifier {
 
             // ============= SHPLEMINI INVERSES ==============
             // Inverses were computed in the unified batch inversion above.
-            // Copy from staging area to designated addresses.
             let unshifted_scalar := 0
             let shifted_scalar := 0
             {
@@ -3610,7 +3603,6 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
     set_template_param("REAL_NUM_PUBLIC_INPUTS",
                        std::to_string(verification_key->num_public_inputs - bb::PAIRING_POINTS_SIZE));
     set_template_param("LOG_N_MINUS_ONE", std::to_string(verification_key->log_circuit_size - 1));
-    set_template_param("NUMBER_OF_BARYCENTRIC_INVERSES", std::to_string(verification_key->log_circuit_size * 8));
 
     uint32_t gemini_fold_univariate_length = static_cast<uint32_t>((verification_key->log_circuit_size - 1) * 0x40);
     uint32_t gemini_fold_univariate_hash_length = static_cast<uint32_t>(gemini_fold_univariate_length + 0x20);

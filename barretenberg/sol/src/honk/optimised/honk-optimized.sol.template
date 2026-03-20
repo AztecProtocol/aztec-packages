@@ -1107,10 +1107,6 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant P_SUB_1 = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
     uint256 internal constant P_SUB_2 = 21888242871839275222246405745257275088548364400416034343698204186575808495615;
     uint256 internal constant P_SUB_3 = 21888242871839275222246405745257275088548364400416034343698204186575808495614;
-    uint256 internal constant P_SUB_4 = 21888242871839275222246405745257275088548364400416034343698204186575808495613;
-    uint256 internal constant P_SUB_5 = 21888242871839275222246405745257275088548364400416034343698204186575808495612;
-    uint256 internal constant P_SUB_6 = 21888242871839275222246405745257275088548364400416034343698204186575808495611;
-    uint256 internal constant P_SUB_7 = 21888242871839275222246405745257275088548364400416034343698204186575808495610;
 
     // Barycentric evaluation constants
     uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATOR_0 =
@@ -1899,8 +1895,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     // --- Phase 2: Shplemini forward pass ---
                     // Compute shplemini denominators and accumulate into the running product.
-                    // Pre-inversion values stored in staging area (0x6800+), NOT in
-                    // designated addresses, to avoid corrupting barycentric storage.
+                    // Pre-inversion values stored in shplemini runtime memory
                     {
                         // Compute powers of evaluation challenge: gemini_r^{2^i}
                         let cache := mload(GEMINI_R_CHALLENGE)
@@ -2321,7 +2316,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         // --- Shplemini backward pass ---
                         // Extract shplemini inverses in strict reverse order.
-                        // Write inverses back to staging (not designated addrs).
                         /// {{ UNROLL_SECTION_START COLLECT_INVERSES }}
                         {
                             // NEG_INVERTED_DENOM (LOG_N elements, reverse) -- last group appended
@@ -3795,7 +3789,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
             // ============= SHPLEMINI INVERSES ==============
             // Inverses were computed in the unified batch inversion above.
-            // Copy from staging area to designated addresses.
             let unshifted_scalar := 0
             let shifted_scalar := 0
             {
