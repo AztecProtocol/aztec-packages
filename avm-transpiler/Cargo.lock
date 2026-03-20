@@ -28,7 +28,6 @@ version = "1.0.0-beta.19"
 dependencies = [
  "ark-bn254",
  "ark-ff",
- "ark-std",
  "cfg-if",
  "hex",
  "num-bigint",
@@ -59,7 +58,6 @@ dependencies = [
  "blake2",
  "blake3",
  "cbc",
- "itertools 0.14.0",
  "k256",
  "keccak",
  "log",
