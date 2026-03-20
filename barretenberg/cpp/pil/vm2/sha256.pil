@@ -1,5 +1,5 @@
 include "precomputed.pil";
-include "gt.pil";
+include "range_check.pil";
 include "constants_gen.pil";
 include "sha256_mem.pil";
 
@@ -84,8 +84,8 @@ namespace sha256;
     // latch == 1 when the rounds_remaining == 0
     SEL_NO_ERR * (rounds_remaining * (latch * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + latch) = 0;
 
-    pol commit two_pow_32; // todo: while we no support for constants
-    SEL_NO_ERR * (two_pow_32 - 2**32) = 0;
+    pol commit rng_chk_32; // todo: while we no support for constants
+    SEL_NO_ERR * (rng_chk_32 - 32) = 0;
 
     // Hash Values, at start must match the initial hash values
     pol commit a;
@@ -173,13 +173,13 @@ namespace sha256;
     sel_compute_w * (w - computed_w_rhs) = 0;
     // Check Modulo Add Operation
     #[RANGE_COMP_W_LHS]
-    sel_compute_w { two_pow_32, computed_w_lhs, /*result = 1*/ sel_compute_w }
+    sel_compute_w { computed_w_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_W_RHS]
-    sel_compute_w { two_pow_32, computed_w_rhs, /*result = 1*/ sel_compute_w }
+    sel_compute_w { computed_w_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
 
     // ========== Compute w_s0 ===================
     // w[i-15] `rotr` 7
@@ -189,12 +189,12 @@ namespace sha256;
     sel_compute_w * (helper_w1 - (lhs_w_7 * 2**7 + rhs_w_7)) = 0;
     sel_compute_w * (w_15_rotr_7 - (rhs_w_7 * 2**25 + lhs_w_7)) = 0;
     ///// Check rhs_w_7 < 2**7 (we don't have to check lhs_w_7 < 2**25 (32 - 7), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_7; // todo: while no constants in lookup
-    sel_compute_w * (two_pow_7 - 2**7) = 0;
+    pol commit rng_chk_7; // todo: while no constants in lookup
+    sel_compute_w * (rng_chk_7 - 7) = 0;
     #[RANGE_RHS_W_7]
-    sel_compute_w { two_pow_7, rhs_w_7, /*result = 1*/ sel_compute_w }
+    sel_compute_w { rhs_w_7, rng_chk_7 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_w_7
     // w[i-15] `rotr` 18
     pol commit w_15_rotr_18;
@@ -203,12 +203,12 @@ namespace sha256;
     sel_compute_w * (helper_w1 - (lhs_w_18 * 2**18 + rhs_w_18)) = 0;
     sel_compute_w * (w_15_rotr_18 - (rhs_w_18 * 2**14 + lhs_w_18)) = 0;
     ///// Check rhs_w_18 < 2**18 (we don't have to check lhs_w_18 < 2**14 (32 - 18), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_18; // todo: while no constants in lookup
-    sel_compute_w * (two_pow_18 - 2**18) = 0;
+    pol commit rng_chk_18; // todo: while no constants in lookup
+    sel_compute_w * (rng_chk_18 - 18) = 0;
     #[RANGE_RHS_W_18]
-    sel_compute_w { two_pow_18, rhs_w_18, /*result = 1*/ sel_compute_w }
+    sel_compute_w { rhs_w_18, rng_chk_18 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_w_18
     // w[i-15] `rightshift`  3
     pol commit w_15_rshift_3;
@@ -217,12 +217,12 @@ namespace sha256;
     sel_compute_w * (helper_w1 - (lhs_w_3 * 2**3 + rhs_w_3)) = 0;
     sel_compute_w * (w_15_rshift_3 - lhs_w_3) = 0;
     ///// Check rhs_w_3 < 2**3 (we don't have to check lhs_w_3 < 2**32 (aka w_15_rshift_3) since it's used in the lookup #[W_S_0_XOR_0])
-    pol commit two_pow_3; // todo: while no constants in lookup
-    sel_compute_w * (two_pow_3 - 2**3) = 0;
+    pol commit rng_chk_3; // todo: while no constants in lookup
+    sel_compute_w * (rng_chk_3 - 3) = 0;
     #[RANGE_RHS_W_3]
-    sel_compute_w { two_pow_3, rhs_w_3, /*result = 1*/sel_compute_w }
+    sel_compute_w { rhs_w_3, rng_chk_3 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_w_3
     // s0 := (w[i-15] `rotr` 7) `xor` (w[i-15] `rotr` 18) `xor` (w[i-15] `rightshift`  3)
     pol commit w_15_rotr_7_xor_w_15_rotr_18;
@@ -245,12 +245,12 @@ namespace sha256;
     sel_compute_w * (helper_w14 - (lhs_w_17 * 2**17 + rhs_w_17)) = 0;
     sel_compute_w * (w_2_rotr_17 - (rhs_w_17 * 2**15 + lhs_w_17)) = 0;
     ///// Check rhs_w_17 < 2**17 (we don't have to check lhs_w_17 < 2**15 (32 - 17), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_17; // todo: while no constants in lookup
-    sel_compute_w * (two_pow_17 - 2**17) = 0;
+    pol commit rng_chk_17; // todo: while no constants in lookup
+    sel_compute_w * (rng_chk_17 - 17) = 0;
     #[RANGE_RHS_W_17]
-    sel_compute_w { two_pow_17, rhs_w_17, /*result = 1*/ sel_compute_w }
+    sel_compute_w { rhs_w_17, rng_chk_17 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_w_17
     // w[i-2] `rotr` 19
     pol commit w_2_rotr_19;
@@ -259,12 +259,12 @@ namespace sha256;
     sel_compute_w * (helper_w14 - (lhs_w_19 * 2**19 + rhs_w_19)) = 0;
     sel_compute_w * (w_2_rotr_19 - (rhs_w_19 * 2**13 + lhs_w_19)) = 0;
     ///// Check rhs_w_19 < 2**19 (we don't have to check lhs_w_19 < 2**13 (32 - 19), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_19; // todo: while no constants in lookup
-    sel_compute_w * (two_pow_19 - 2**19) = 0;
+    pol commit rng_chk_19; // todo: while no constants in lookup
+    sel_compute_w * (rng_chk_19 - 19) = 0;
     #[RANGE_RHS_W_19]
-    sel_compute_w { two_pow_19, rhs_w_19, /*result = 1*/ sel_compute_w }
+    sel_compute_w { rhs_w_19, rng_chk_19 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_w_19
     // w[i-2] `rightshift` 10
     pol commit w_2_rshift_10;
@@ -273,12 +273,12 @@ namespace sha256;
     sel_compute_w * (helper_w14 - (lhs_w_10 * 2**10 + rhs_w_10)) = 0;
     sel_compute_w * (w_2_rshift_10 - lhs_w_10) = 0;
     ///// Check rhs_w_10 < 2**10 (we don't have to check lhs_w_10 < 2**32 (aka w_2_rshift_10) since it's used in the lookup #[W_S_1_XOR_0])
-    pol commit two_pow_10; // todo: while no constants in lookup
-    sel_compute_w * (two_pow_10 - 2**10) = 0;
+    pol commit rng_chk_10; // todo: while no constants in lookup
+    sel_compute_w * (rng_chk_10 - 10) = 0;
     #[RANGE_RHS_W_10]
-    sel_compute_w { two_pow_10, rhs_w_10, /*result = 1*/ sel_compute_w }
+    sel_compute_w { rhs_w_10, rng_chk_10 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_w_10
     // s1 := (w[i-2] `rotr` 17) `xor` (w[i-2] `rotr` 19) `xor` (w[i-2] `rightshift` 10)
     pol commit w_2_rotr_17_xor_w_2_rotr_19;
@@ -303,12 +303,12 @@ namespace sha256;
     perform_round * (e - (lhs_e_6 * 2**6 + rhs_e_6)) = 0;
     perform_round * (e_rotr_6 - (rhs_e_6 * 2**26 + lhs_e_6)) = 0;
     ///// Check rhs_e_6 < 2**6 (we don't have to check lhs_e_6 < 2**26 (32 - 6), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_6; // todo: while no constants in lookup
-    perform_round * (two_pow_6 - 2**6) = 0;
+    pol commit rng_chk_6; // todo: while no constants in lookup
+    perform_round * (rng_chk_6 - 6) = 0;
     #[RANGE_RHS_E_6]
-    perform_round { two_pow_6, rhs_e_6, /*result = 1*/ perform_round }
+    perform_round { rhs_e_6, rng_chk_6 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_e_6
     // e `rotr` 11
     pol commit e_rotr_11;
@@ -317,12 +317,12 @@ namespace sha256;
     perform_round * (e - (lhs_e_11 * 2**11 + rhs_e_11)) = 0;
     perform_round * (e_rotr_11 - (rhs_e_11 * 2**21 + lhs_e_11)) = 0;
     ///// Check rhs_e_11 < 2**11 (we don't have to check lhs_e_11 < 2**21 (32 - 11), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_11; // todo: while no constants in lookup
-    perform_round * (two_pow_11 - 2**11) = 0;
+    pol commit rng_chk_11; // todo: while no constants in lookup
+    perform_round * (rng_chk_11 - 11) = 0;
     #[RANGE_RHS_E_11]
-    perform_round { two_pow_11, rhs_e_11, /*result = 1*/ perform_round }
+    perform_round { rhs_e_11, rng_chk_11 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_e_11
     // e `rotr` 25
     pol commit e_rotr_25;
@@ -331,12 +331,12 @@ namespace sha256;
     perform_round * (e - (lhs_e_25 * 2**25 + rhs_e_25)) = 0;
     perform_round * (e_rotr_25 - (rhs_e_25 * 2**7 + lhs_e_25)) = 0;
     ///// Check rhs_e_25 < 2**25 (we don't have to check lhs_e_25 < 2**7 (32 - 25), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_25; // todo: while no constants in lookup
-    perform_round * (two_pow_25 - 2**25) = 0;
+    pol commit rng_chk_25; // todo: while no constants in lookup
+    perform_round * (rng_chk_25 - 25) = 0;
     #[RANGE_RHS_E_25]
-    perform_round { two_pow_25, rhs_e_25, /*result = 1*/ perform_round }
+    perform_round { rhs_e_25, rng_chk_25 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_e_25
     // pol S_1 = (E_0 `rotr` 6) `xor` (E_0 `rotr` 11) `xor` (E_0 `rotr` 25);
 
@@ -395,12 +395,12 @@ namespace sha256;
     perform_round * (a - (lhs_a_2 * 2**2 + rhs_a_2)) = 0;
     perform_round * (a_rotr_2 - (rhs_a_2 * 2**30 + lhs_a_2)) = 0;
     ///// Check rhs_a_2 < 2**2 (we don't have to check lhs_a_2 < 2**30 (32 - 2), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_2; // todo: while no constants in lookup
-    perform_round * (two_pow_2 - 2**2) = 0;
+    pol commit rng_chk_2; // todo: while no constants in lookup
+    perform_round * (rng_chk_2 - 2) = 0;
     #[RANGE_RHS_A_2]
-    perform_round { two_pow_2, rhs_a_2, /*result = 1*/ perform_round }
+    perform_round { rhs_a_2, rng_chk_2 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_a_2
     // a `rotr` 13
     pol commit a_rotr_13;
@@ -409,12 +409,12 @@ namespace sha256;
     perform_round * (a - (lhs_a_13 * 2**13 + rhs_a_13)) = 0;
     perform_round * (a_rotr_13 - (rhs_a_13 * 2**19 + lhs_a_13)) = 0;
     ///// Check rhs_a_13 < 2**13 (we don't have to check lhs_a_13 < 2**19 (32 - 13), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_13; // todo: while no constants in lookup
-    perform_round * (two_pow_13 - 2**13) = 0;
+    pol commit rng_chk_13; // todo: while no constants in lookup
+    perform_round * (rng_chk_13 - 13) = 0;
     #[RANGE_RHS_A_13]
-    perform_round { two_pow_13, rhs_a_13, /*result = 1*/ perform_round }
+    perform_round { rhs_a_13, rng_chk_13 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_a_13
     // a `rotr` 22
     pol commit a_rotr_22;
@@ -423,12 +423,12 @@ namespace sha256;
     perform_round * (a - (lhs_a_22 * 2**22 + rhs_a_22)) = 0;
     perform_round * (a_rotr_22 - (rhs_a_22 * 2**10 + lhs_a_22)) = 0;
     ///// Check rhs_a_22 < 2**22 (we don't have to check lhs_a_22 < 2**10 (32 - 10), see NOTE_ON_ROTATIONS at the top of this file
-    pol commit two_pow_22; // todo: while no constants in lookup
-    perform_round * (two_pow_22 - 2**22) = 0;
+    pol commit rng_chk_22; // todo: while no constants in lookup
+    perform_round * (rng_chk_22 - 22) = 0;
     #[RANGE_RHS_A_22]
-    perform_round { two_pow_22, rhs_a_22, /*result = 1*/ perform_round }
+    perform_round { rhs_a_22, rng_chk_22 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     ///// End Check rhs_a_22
     // (A_0 `rotr` 2) `xor` (A_0 `rotr` 13)
     pol commit a_rotr_2_xor_a_rotr_13;
@@ -483,13 +483,13 @@ namespace sha256;
     perform_round * ((next_a_lhs * 2**32 + next_a_rhs) - NEXT_A) = 0;
     // Check Modulo Add Operation
     #[RANGE_COMP_NEXT_A_LHS]
-    perform_round { two_pow_32, next_a_lhs, /*result = 1*/ perform_round }
+    perform_round { next_a_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_NEXT_A_RHS]
-    perform_round { two_pow_32, next_a_rhs, /*result = 1*/ perform_round }
+    perform_round { next_a_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
 
     pol NEXT_E = d + TMP_1;
 
@@ -498,13 +498,13 @@ namespace sha256;
     perform_round * ((next_e_lhs * 2**32 + next_e_rhs) - NEXT_E) = 0;
     // Check Modulo Add Operation
     #[RANGE_COMP_NEXT_E_LHS]
-    perform_round { two_pow_32, next_e_lhs, /*result = 1*/ perform_round }
+    perform_round { next_e_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_NEXT_E_RHS]
-    perform_round { two_pow_32, next_e_rhs, /*result = 1*/ perform_round }
+    perform_round { next_e_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
 
     perform_round * (a' - next_a_rhs) = 0;
     perform_round * (b' - a) = 0;
@@ -535,66 +535,66 @@ namespace sha256;
 
     // Check Modulo Add Operation for final outputs
     #[RANGE_COMP_A_LHS]
-    last { two_pow_32, output_a_lhs, /*result = 1*/ last }
+    last { output_a_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_A_RHS]
-    last { two_pow_32, output_a_rhs, /*result = 1*/ last }
+    last { output_a_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_B_LHS]
-    last { two_pow_32, output_b_lhs, /*result = 1*/ last }
+    last { output_b_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_B_RHS]
-    last { two_pow_32, output_b_rhs, /*result = 1*/ last }
+    last { output_b_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_C_LHS]
-    last { two_pow_32, output_c_lhs, /*result = 1*/ last }
+    last { output_c_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_C_RHS]
-    last { two_pow_32, output_c_rhs, /*result = 1*/ last }
+    last { output_c_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_D_LHS]
-    last { two_pow_32, output_d_lhs, /*result = 1*/ last }
+    last { output_d_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_D_RHS]
-    last { two_pow_32, output_d_rhs, /*result = 1*/ last }
+    last { output_d_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_E_LHS]
-    last { two_pow_32, output_e_lhs, /*result = 1*/ last }
+    last { output_e_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_E_RHS]
-    last { two_pow_32, output_e_rhs, /*result = 1*/ last }
+    last { output_e_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_F_LHS]
-    last { two_pow_32, output_f_lhs, /*result = 1*/ last }
+    last { output_f_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_F_RHS]
-    last { two_pow_32, output_f_rhs, /*result = 1*/ last }
+    last { output_f_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_G_LHS]
-    last { two_pow_32, output_g_lhs, /*result = 1*/ last }
+    last { output_g_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_G_RHS]
-    last { two_pow_32, output_g_rhs, /*result = 1*/ last }
+    last { output_g_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_H_LHS]
-    last { two_pow_32, output_h_lhs, /*result = 1*/ last }
+    last { output_h_lhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_H_RHS]
-    last { two_pow_32, output_h_rhs, /*result = 1*/ last }
+    last { output_h_rhs, rng_chk_32 }
     in
-    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
+    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };

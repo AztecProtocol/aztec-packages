@@ -1008,7 +1008,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     Bitwise bitwise_sim(bitwise_event_emitter);
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise_sim, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise_sim, gt, range_check, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
