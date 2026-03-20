@@ -295,9 +295,6 @@ template <typename Flavor> struct ZKSumcheckData {
                 this->libra_univariates[round_idx].evaluate(round_challenge) / this->libra_scaling_factor;
             // place the evalution into the vector of Libra evaluations
             this->libra_evaluations.emplace_back(libra_evaluation);
-            for (auto univariate : this->libra_univariates) {
-                univariate *= FF(1) / this->libra_challenge;
-            }
         };
     }
 };
