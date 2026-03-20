@@ -9,6 +9,39 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [L1 Contracts] Empire slasher removed, slasher config simplified
+
+The empire slashing model has been removed. Only the tally-based slashing model remains, and it has been renamed from `TallySlashingProposer` to `SlashingProposer`.
+
+**L1 contract changes:**
+- `SlasherFlavor` enum removed from `ISlasher.sol`
+- `RollupConfigInput.slasherFlavor` (enum) replaced with `slasherEnabled` (bool)
+- `TallySlashingProposer` contract renamed to `SlashingProposer`
+- `TallySlasherDeploymentExtLib` library renamed to `SlasherDeploymentExtLib`
+- `SlashFactory` periphery contract removed
+- `SLASHING_PROPOSER_TYPE` constant removed from `SlashingProposer`
+- All `TallySlashingProposer__` error prefixes renamed to `SlashingProposer__`
+
+**Environment variable changes:**
+```diff
+- AZTEC_SLASHER_FLAVOR=tally    # was: "tally" | "empire" | "none"
++ AZTEC_SLASHER_ENABLED=true    # now a boolean
+```
+
+**Removed environment variables:** `SLASH_MIN_PENALTY_PERCENTAGE`, `SLASH_MAX_PENALTY_PERCENTAGE`
+
+**Removed from deploy outputs:** `slashFactoryAddress`
+
+**Node admin API:** `getSlashPayloads()` method removed.
+
+**TypeScript config changes:**
+```diff
+- slasherFlavor: 'tally' | 'none'
++ slasherEnabled: boolean
+```
+
+`slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
+
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
