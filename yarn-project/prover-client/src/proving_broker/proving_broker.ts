@@ -321,6 +321,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   private cleanUpProvingJobState(ids: ProvingJobId[]) {
     for (const id of ids) {
       this.jobsCache.delete(id);
+      this.promises.get(id)?.reject(new Error('Proving job cleaned up'));
       this.promises.delete(id);
       this.resultsCache.delete(id);
       this.inProgress.delete(id);
@@ -632,8 +633,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       const now = this.msTimeSource();
       const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
+        const retries = this.retries.get(id) ?? 0;
         this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
         this.inProgress.delete(id);
+        this.retries.set(id, retries + 1);
         this.enqueueJobInternal(item);
         this.instrumentation.incTimedOutJobs(item.type);
       }
