@@ -29,7 +29,7 @@ library TestConstants {
   uint256 internal constant AZTEC_INBOX_LAG = 2;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
-  uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
+  uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 32;
   uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
   uint256 internal constant AZTEC_SLASHING_OFFSET_IN_ROUNDS = 2;
@@ -125,7 +125,7 @@ library TestConstants {
       rewardBoostConfig: getRewardBoostConfig(),
       stakingQueueConfig: getStakingQueueConfig(),
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
-      slasherFlavor: SlasherFlavor.TALLY,
+      slasherFlavor: SlasherFlavor.NONE,
       localEjectionThreshold: 0, // The same as it being off, and only using the global.
       earliestRewardsClaimableTimestamp: Timestamp.wrap(0), // Default to 0 (no restriction)
       inboxLag: AZTEC_INBOX_LAG

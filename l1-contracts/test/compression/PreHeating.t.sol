@@ -158,8 +158,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
       .setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize)
-      .setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
-      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+      .setStakingQueueConfig(stakingQueueConfig);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;

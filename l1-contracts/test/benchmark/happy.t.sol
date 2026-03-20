@@ -175,8 +175,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
       .setValidators(initialValidators).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE)
-      .setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
-      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+      .setStakingQueueConfig(stakingQueueConfig);
 
     if (_slashing == TestSlash.TALLY) {
       // For tally slashing, we need a round size that's a multiple of epoch duration
