@@ -211,14 +211,6 @@ spec:
           value: "{{ .Values.node.proverRealProofs }}"
         - name: SENTINEL_ENABLED
           value: "{{ .Values.node.sentinel.enabled }}"
-        {{- if .Values.node.slash.minPenaltyPercentage }}
-        - name: SLASH_MIN_PENALTY_PERCENTAGE
-          value: {{ .Values.node.slash.minPenaltyPercentage | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.maxPenaltyPercentage }}
-        - name: SLASH_MAX_PENALTY_PERCENTAGE
-          value: {{ .Values.node.slash.maxPenaltyPercentage | quote }}
-        {{- end }}
         {{- if .Values.node.slash.validatorsAlways }}
         - name: SLASH_VALIDATORS_ALWAYS
           value: {{ join "," .Values.node.slash.validatorsAlways | quote }}

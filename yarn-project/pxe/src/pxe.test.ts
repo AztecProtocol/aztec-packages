@@ -61,7 +61,6 @@ describe('PXE', () => {
       coinIssuerAddress: EthAddress.random(),
       rewardDistributorAddress: EthAddress.random(),
       governanceProposerAddress: EthAddress.random(),
-      slashFactoryAddress: EthAddress.random(),
     };
     node.getNodeInfo.mockResolvedValue({
       nodeVersion: '1.0.0',

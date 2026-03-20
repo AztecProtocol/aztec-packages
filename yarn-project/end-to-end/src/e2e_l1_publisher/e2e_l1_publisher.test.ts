@@ -58,7 +58,6 @@ import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -283,7 +282,6 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
-        slashFactoryContract: undefined as unknown as SlashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},

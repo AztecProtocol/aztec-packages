@@ -144,7 +144,7 @@ export async function retrievedToPublishedCheckpoint({
  * @param blobClient - The blob client client for fetching blob data.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
+ * @param contractAddresses - The contract addresses (governanceProposerAddress, slashingProposerAddress).
  * @param instrumentation - The archiver instrumentation instance.
  * @param logger - The logger instance.
  * @param isHistoricalSync - Whether this is a historical sync.

@@ -145,9 +145,6 @@ node:
   sentinel:
     enabled: true
   slash:
-    # Penalty percentages for slashing offenses
-    minPenaltyPercentage: ""
-    maxPenaltyPercentage: ""
     # Validator allowlists/denylists
     validatorsAlways: []
     validatorsNever: []

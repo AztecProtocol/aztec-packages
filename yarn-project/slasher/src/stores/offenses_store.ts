@@ -14,7 +14,7 @@ export class SlasherOffensesStore {
   /** Map from offense key to offense data */
   private offenses: AztecAsyncMap<string, Buffer>;
 
-  /** Map from offense key to whether the offense has been executed (only used for empire based slashing) */
+  /** Map from offense key to whether the offense has been executed */
   private offensesSlashed: AztecAsyncSet<string>;
 
   /** Multimap from round to offense keys (only used for consensus based slashing) */

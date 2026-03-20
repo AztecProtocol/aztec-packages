@@ -227,7 +227,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   }
 
   function _parseSlasherFlavor(string memory flavor) private pure returns (SlasherFlavor) {
-    if (keccak256(bytes(flavor)) == keccak256("empire")) return SlasherFlavor.EMPIRE;
     if (keccak256(bytes(flavor)) == keccak256("tally")) return SlasherFlavor.TALLY;
     return SlasherFlavor.NONE;
   }

@@ -3,10 +3,10 @@ import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-l
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
-  type EmpireSlashingProposerContract,
   type GovernanceProposerContract,
   Multicall3,
   type RollupContract,
+  type TallySlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
   type GasPrice,
@@ -23,7 +23,6 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
@@ -45,11 +44,10 @@ import { type Action, SequencerPublisher, compareActions } from './sequencer-pub
 // Ensures proposal actions are sorted before slashing votes/signals
 
 describe('compareActions sorting', () => {
-  it('places propose before empire-slashing-signal and vote-offenses', () => {
-    const actions: Action[] = ['empire-slashing-signal', 'propose', 'vote-offenses'];
+  it('places propose before vote-offenses', () => {
+    const actions: Action[] = ['propose', 'vote-offenses'];
     const sorted = [...actions].sort(compareActions);
 
-    expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('empire-slashing-signal'));
     expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('vote-offenses'));
   });
 });
@@ -60,9 +58,8 @@ const mockForwarderAddress = EthAddress.random().toString();
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
-  let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
+  let slashingProposerContract: MockProxy<TallySlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
-  let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
@@ -131,11 +128,10 @@ describe('SequencerPublisher', () => {
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
-    slashingProposerContract = mock<EmpireSlashingProposerContract>();
+    slashingProposerContract = mock<TallySlashingProposerContract>();
     l1Metrics = mock<SequencerPublisherMetrics>();
 
     governanceProposerContract = mock<GovernanceProposerContract>();
-    slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -159,7 +155,6 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
-      slashFactoryContract,
       dateProvider: new TestDateProvider(),
       metrics: l1Metrics,
       lastActions: {},
@@ -343,7 +338,6 @@ describe('SequencerPublisher', () => {
           epochCache,
           slashingProposerContract,
           governanceProposerContract,
-          slashFactoryContract,
           dateProvider: new TestDateProvider(),
           metrics: l1Metrics,
           lastActions: {},

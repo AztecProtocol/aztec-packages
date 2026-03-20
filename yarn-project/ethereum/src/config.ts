@@ -61,7 +61,7 @@ export type L1ContractsConfig = {
   /** How long slashing can be disabled for in seconds when vetoer disables it */
   slashingDisableDuration: number;
   /** Type of slasher proposer */
-  slasherFlavor: 'empire' | 'tally' | 'none';
+  slasherFlavor: 'tally' | 'none';
   /** Minimum amount that can be slashed in tally slashing */
   slashAmountSmall: bigint;
   /** Medium amount to slash in tally slashing */
@@ -154,11 +154,8 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   slasherFlavor: {
     env: 'AZTEC_SLASHER_FLAVOR',
-    description: 'Type of slasher proposer (empire, tally, or none)',
-    ...enumConfigHelper(
-      ['empire', 'tally', 'none'] as const,
-      l1ContractsDefaultEnv.AZTEC_SLASHER_FLAVOR as 'empire' | 'tally' | 'none',
-    ),
+    description: 'Type of slasher proposer (tally or none)',
+    ...enumConfigHelper(['tally', 'none'] as const, l1ContractsDefaultEnv.AZTEC_SLASHER_FLAVOR as 'tally' | 'none'),
   },
   slashAmountSmall: {
     env: 'AZTEC_SLASH_AMOUNT_SMALL',

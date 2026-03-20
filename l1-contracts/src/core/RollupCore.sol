@@ -21,7 +21,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
 import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
-import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -242,7 +241,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
     if (_config.targetCommitteeSize == 0 || _config.slasherFlavor == SlasherFlavor.NONE) {
       slasher = ISlasher(address(0));
-    } else if (_config.slasherFlavor == SlasherFlavor.TALLY) {
+    } else {
       slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
         address(this),
         _config.slashingVetoer,
@@ -255,17 +254,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
         _config.slashingOffsetInRounds,
-        _config.slashingDisableDuration
-      );
-    } else {
-      slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
-        address(this),
-        _config.slashingVetoer,
-        _governance,
-        _config.slashingQuorum,
-        _config.slashingRoundSize,
-        _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds,
         _config.slashingDisableDuration
       );
     }

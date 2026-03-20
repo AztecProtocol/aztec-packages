@@ -113,10 +113,6 @@ l1-contracts: &l1-contracts-defaults
 # Used by yarn-project/slasher for penalty calculation and offense tracking.
 
 slasher: &slasher
-  # Minimum penalty percentage multiplier.
-  SLASH_MIN_PENALTY_PERCENTAGE: 0.5
-  # Maximum penalty percentage multiplier.
-  SLASH_MAX_PENALTY_PERCENTAGE: 2.0
   # Rounds after which an offense expires.
   SLASH_OFFENSE_EXPIRATION_ROUNDS: 4
   # Maximum size of slashing payload.

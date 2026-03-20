@@ -13,7 +13,6 @@ import {
   OffenseType,
   type ProposerSlashAction,
   type ProposerSlashActionProvider,
-  type SlashPayloadRound,
   getEpochsForRound,
   getSlashConsensusVotesFromOffenses,
 } from '@aztec/stdlib/slashing';
@@ -403,14 +402,6 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     return Promise.all(
       epochsToSlash.map(epoch => this.epochCache.getCommitteeForEpoch(epoch).then(c => c.committee ?? emptyCommittee)),
     );
-  }
-
-  /**
-   * Get slash payloads is NOT SUPPORTED in tally model
-   * @throws Error indicating this operation is not supported
-   */
-  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    return Promise.reject(new Error('Tally slashing model does not support slash payloads'));
   }
 
   /**

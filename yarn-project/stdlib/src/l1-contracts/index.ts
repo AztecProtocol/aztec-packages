@@ -1,1 +1,1 @@
-export * from './slash_factory.js';
+// No exports - SlashFactory was removed along with the empire slasher.

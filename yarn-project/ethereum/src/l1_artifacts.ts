@@ -3,10 +3,6 @@ import {
   CoinIssuerBytecode,
   DateGatedRelayerAbi,
   DateGatedRelayerBytecode,
-  EmpireSlasherDeploymentExtLibAbi,
-  EmpireSlasherDeploymentExtLibBytecode,
-  EmpireSlashingProposerAbi,
-  EmpireSlashingProposerBytecode,
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
@@ -42,8 +38,6 @@ import {
   RollupLinkReferences,
   RollupOperationsExtLibAbi,
   RollupOperationsExtLibBytecode,
-  SlashFactoryAbi,
-  SlashFactoryBytecode,
   SlasherAbi,
   SlasherBytecode,
   StakingAssetHandlerAbi,
@@ -112,11 +106,6 @@ export const RollupArtifact = {
         contractAbi: TallySlasherDeploymentExtLibAbi,
         contractBytecode: TallySlasherDeploymentExtLibBytecode as Hex,
       },
-      EmpireSlasherDeploymentExtLib: {
-        name: 'EmpireSlasherDeploymentExtLib',
-        contractAbi: EmpireSlasherDeploymentExtLibAbi,
-        contractBytecode: EmpireSlasherDeploymentExtLibBytecode as Hex,
-      },
     },
   },
 };
@@ -175,22 +164,10 @@ export const SlasherArtifact = {
   contractBytecode: SlasherBytecode as Hex,
 };
 
-export const EmpireSlashingProposerArtifact = {
-  name: 'EmpireSlashingProposer',
-  contractAbi: EmpireSlashingProposerAbi,
-  contractBytecode: EmpireSlashingProposerBytecode as Hex,
-};
-
 export const TallySlashingProposerArtifact = {
   name: 'TallySlashingProposer',
   contractAbi: TallySlashingProposerAbi,
   contractBytecode: TallySlashingProposerBytecode as Hex,
-};
-
-export const SlashFactoryArtifact = {
-  name: 'SlashFactory',
-  contractAbi: SlashFactoryAbi,
-  contractBytecode: SlashFactoryBytecode as Hex,
 };
 
 export const RegisterNewRollupVersionPayloadArtifact = {

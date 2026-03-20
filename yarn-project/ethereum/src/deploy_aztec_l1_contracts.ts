@@ -230,7 +230,6 @@ export function computeValidatorData(operator: Operator): ValidatorJson {
 export interface RollupUpgradeAddresses {
   rollupAddress: string;
   verifierAddress: string;
-  slashFactoryAddress: string;
   inboxAddress: string;
   outboxAddress: string;
   feeJuicePortalAddress: string;
@@ -243,7 +242,6 @@ export interface RollupUpgradeAddresses {
 export interface ForgeRollupUpgradeResult {
   rollupAddress: Hex;
   verifierAddress: Hex;
-  slashFactoryAddress: Hex;
   inboxAddress: Hex;
   outboxAddress: Hex;
   feeJuicePortalAddress: Hex;
@@ -403,7 +401,6 @@ export async function deployAztecL1Contracts(
       governanceProposerAddress: EthAddress.fromString(result.governanceProposerAddress),
       governanceAddress: EthAddress.fromString(result.governanceAddress),
       stakingAssetAddress: EthAddress.fromString(result.stakingAssetAddress),
-      slashFactoryAddress: result.slashFactoryAddress ? EthAddress.fromString(result.slashFactoryAddress) : undefined,
       feeAssetHandlerAddress: result.feeAssetHandlerAddress
         ? EthAddress.fromString(result.feeAssetHandlerAddress)
         : undefined,
@@ -645,6 +642,5 @@ export const deployRollupForUpgrade = async (
 
   return {
     rollup,
-    slashFactoryAddress: result.slashFactoryAddress,
   };
 };

@@ -616,12 +616,6 @@ describe('TallySlasherClient', () => {
     });
   });
 
-  describe('getSlashPayloads', () => {
-    it('should throw error as consensus client does not support slash payloads', async () => {
-      await expect(tallySlasherClient.getSlashPayloads()).rejects.toThrow(/not support/);
-    });
-  });
-
   describe('handleWantToSlash', () => {
     it('should store offenses as pending', async () => {
       const validator = EthAddress.random();

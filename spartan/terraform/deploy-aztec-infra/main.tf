@@ -189,8 +189,6 @@ locals {
     "validator.publisherMnemonicStartIndex"                    = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.replicaCount"                                   = var.VALIDATOR_REPLICAS
     "validator.sentinel.enabled"                               = var.SENTINEL_ENABLED
-    "validator.slash.minPenaltyPercentage"                     = var.SLASH_MIN_PENALTY_PERCENTAGE
-    "validator.slash.maxPenaltyPercentage"                     = var.SLASH_MAX_PENALTY_PERCENTAGE
     "validator.slash.inactivityTargetPercentage"               = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                        = var.SLASH_INACTIVITY_PENALTY
     "validator.slash.prunePenalty"                             = var.SLASH_PRUNE_PENALTY

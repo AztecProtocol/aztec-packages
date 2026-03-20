@@ -401,18 +401,6 @@ variable "SENTINEL_ENABLED" {
   default     = true
 }
 
-variable "SLASH_MIN_PENALTY_PERCENTAGE" {
-  description = "The slash min penalty percentage"
-  type        = string
-  nullable    = true
-}
-
-variable "SLASH_MAX_PENALTY_PERCENTAGE" {
-  description = "The slash max penalty percentage"
-  type        = string
-  nullable    = true
-}
-
 variable "SLASH_INACTIVITY_TARGET_PERCENTAGE" {
   description = "The slash inactivity target percentage"
   type        = string

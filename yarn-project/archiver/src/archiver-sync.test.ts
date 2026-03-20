@@ -39,7 +39,6 @@ describe('Archiver Sync', () => {
   const inboxAddress = EthAddress.random();
   const registryAddress = EthAddress.random();
   const governanceProposerAddress = EthAddress.random();
-  const slashFactoryAddress = EthAddress.random();
   const slashingProposerAddress = EthAddress.random();
 
   let fake: FakeL1State;
@@ -101,7 +100,6 @@ describe('Archiver Sync', () => {
     const contractAddresses = {
       registryAddress,
       governanceProposerAddress,
-      slashFactoryAddress,
       slashingProposerAddress,
     };
 
