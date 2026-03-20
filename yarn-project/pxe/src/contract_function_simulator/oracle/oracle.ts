@@ -519,12 +519,10 @@ export class Oracle {
   async aztec_utl_bulkRetrieveLogs(
     [contractAddress]: ACVMField[],
     [logRetrievalRequestsArrayBaseSlot]: ACVMField[],
-    [logRetrievalResponsesArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().bulkRetrieveLogs(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(logRetrievalRequestsArrayBaseSlot),
-      Fr.fromString(logRetrievalResponsesArrayBaseSlot),
     );
     return [];
   }

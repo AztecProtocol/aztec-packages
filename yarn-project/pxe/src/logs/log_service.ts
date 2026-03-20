@@ -13,7 +13,6 @@ import {
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../access_scopes.js';
-import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
@@ -42,26 +41,32 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
-  public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
+  public async bulkRetrieveLogs(
+    logRetrievalRequests: { tag: Tag; contractAddress: AztecAddress }[],
+  ): Promise<LogRetrievalResponse[][]> {
     return await Promise.all(
       logRetrievalRequests.map(async request => {
-        const [publicLog, privateLog] = await Promise.all([
-          this.#getPublicLogByTag(request.tag, request.contractAddress),
-          this.#getPrivateLogByTag(await SiloedTag.computeFromTagAndApp(request.tag, request.contractAddress)),
+        const [publicLogs, privateLogs] = await Promise.all([
+          this.#getPublicScopedLogsByTag(request.tag, request.contractAddress),
+          this.#getPrivateScopedLogsByTag(await SiloedTag.computeFromTagAndApp(request.tag, request.contractAddress)),
         ]);
 
-        if (publicLog !== null && privateLog !== null) {
-          throw new Error(
-            `Found both a public and private log when searching for tag ${request.tag} from contract ${request.contractAddress}`,
+        return [...publicLogs, ...privateLogs]
+          .sort((a, b) => a.blockNumber - b.blockNumber)
+          .map(
+            scopedLog =>
+              new LogRetrievalResponse(
+                scopedLog.logData.slice(1), // Skip the tag
+                scopedLog.txHash,
+                scopedLog.noteHashes,
+                scopedLog.firstNullifier,
+              ),
           );
-        }
-
-        return publicLog ?? privateLog;
       }),
     );
   }
 
-  async #getPublicLogByTag(tag: Tag, contractAddress: AztecAddress): Promise<LogRetrievalResponse | null> {
+  async #getPublicScopedLogsByTag(tag: Tag, contractAddress: AztecAddress): Promise<TxScopedL2Log[]> {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
     const allLogsPerTag = await getAllPublicLogsByTagsFromContract(
       this.aztecNode,
@@ -69,49 +74,13 @@ export class LogService {
       [tag],
       anchorBlockHash,
     );
-    const logsForTag = allLogsPerTag[0];
-
-    if (logsForTag.length === 0) {
-      return null;
-    } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
-      );
-    }
-
-    const scopedLog = logsForTag[0];
-
-    return new LogRetrievalResponse(
-      scopedLog.logData.slice(1), // Skip the tag
-      scopedLog.txHash,
-      scopedLog.noteHashes,
-      scopedLog.firstNullifier,
-    );
+    return allLogsPerTag[0];
   }
 
-  async #getPrivateLogByTag(siloedTag: SiloedTag): Promise<LogRetrievalResponse | null> {
+  async #getPrivateScopedLogsByTag(siloedTag: SiloedTag): Promise<TxScopedL2Log[]> {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
     const allLogsPerTag = await getAllPrivateLogsByTags(this.aztecNode, [siloedTag], anchorBlockHash);
-    const logsForTag = allLogsPerTag[0];
-
-    if (logsForTag.length === 0) {
-      return null;
-    } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${siloedTag}. getPrivateLogByTag currently only supports a single log per tag`,
-      );
-    }
-
-    const scopedLog = logsForTag[0];
-
-    return new LogRetrievalResponse(
-      scopedLog.logData.slice(1), // Skip the tag
-      scopedLog.txHash,
-      scopedLog.noteHashes,
-      scopedLog.firstNullifier,
-    );
+    return allLogsPerTag[0];
   }
 
   public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scopes: AccessScopes) {

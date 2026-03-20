@@ -127,11 +127,7 @@ export interface IUtilityExecutionOracle {
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
   ): Promise<void>;
-  bulkRetrieveLogs(
-    contractAddress: AztecAddress,
-    logRetrievalRequestsArrayBaseSlot: Fr,
-    logRetrievalResponsesArrayBaseSlot: Fr,
-  ): Promise<void>;
+  bulkRetrieveLogs(contractAddress: AztecAddress, logRetrievalRequestsArrayBaseSlot: Fr): Promise<void>;
   utilityResolveMessageContexts(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,

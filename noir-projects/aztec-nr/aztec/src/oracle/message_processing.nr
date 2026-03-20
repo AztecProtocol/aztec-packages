@@ -39,20 +39,14 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
 pub(crate) unconstrained fn bulk_retrieve_logs(
     contract_address: AztecAddress,
     log_retrieval_requests_array_base_slot: Field,
-    log_retrieval_responses_array_base_slot: Field,
 ) {
-    bulk_retrieve_logs_oracle(
-        contract_address,
-        log_retrieval_requests_array_base_slot,
-        log_retrieval_responses_array_base_slot,
-    );
+    bulk_retrieve_logs_oracle(contract_address, log_retrieval_requests_array_base_slot);
 }
 
 #[oracle(aztec_utl_bulkRetrieveLogs)]
 unconstrained fn bulk_retrieve_logs_oracle(
     contract_address: AztecAddress,
     log_retrieval_requests_array_base_slot: Field,
-    log_retrieval_responses_array_base_slot: Field,
 ) {}
 
 pub(crate) unconstrained fn resolve_message_contexts(

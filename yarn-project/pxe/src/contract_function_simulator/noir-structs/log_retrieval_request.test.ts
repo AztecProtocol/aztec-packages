@@ -9,11 +9,13 @@ describe('LogRetrievalRequest', () => {
     const serialized = [
       '0x0000000000000000000000000000000000000000000000000000000000000001',
       '0x0000000000000000000000000000000000000000000000000000000000000002',
+      '0x0000000000000000000000000000000000000000000000000000000000000003',
     ].map(Fr.fromHexString);
 
     const request = LogRetrievalRequest.fromFields(serialized);
 
     expect(request.contractAddress).toEqual(AztecAddress.fromBigInt(1n));
     expect(request.tag).toEqual(new Tag(new Fr(2)));
+    expect(request.responseSlot).toEqual(new Fr(3));
   });
 });

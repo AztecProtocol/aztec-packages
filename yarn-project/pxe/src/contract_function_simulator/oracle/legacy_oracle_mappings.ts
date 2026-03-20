@@ -82,16 +82,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     ): Promise<ACVMField[]> => oracle.aztec_utl_getSharedSecret(address, ephPKField0, ephPKField1, ephPKField2),
     utilityFetchTaggedLogs: (pendingTaggedLogArrayBaseSlot: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_fetchTaggedLogs(pendingTaggedLogArrayBaseSlot),
-    utilityBulkRetrieveLogs: (
-      contractAddress: ACVMField[],
-      logRetrievalRequestsArrayBaseSlot: ACVMField[],
-      logRetrievalResponsesArrayBaseSlot: ACVMField[],
-    ): Promise<ACVMField[]> =>
-      oracle.aztec_utl_bulkRetrieveLogs(
-        contractAddress,
-        logRetrievalRequestsArrayBaseSlot,
-        logRetrievalResponsesArrayBaseSlot,
-      ),
     utilityGetL1ToL2MembershipWitness: (
       contractAddress: ACVMField[],
       messageHash: ACVMField[],

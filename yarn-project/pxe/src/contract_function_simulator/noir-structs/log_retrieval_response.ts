@@ -1,13 +1,12 @@
 import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
-import { range } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 const MAX_LOG_CONTENT_LEN = PRIVATE_LOG_CIPHERTEXT_LEN;
 
 /**
- * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of this
- * type in a `CapsuleArray`.
+ * Intermediate struct used to perform batch log retrieval by PXE. The `bulkRetrieveLogs` oracle stores values of
+ * this type in per-request CapsuleArrays.
  */
 export class LogRetrievalResponse {
   constructor(
@@ -26,25 +25,6 @@ export class LogRetrievalResponse {
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
     ];
-  }
-
-  static toEmptyFields(): Fr[] {
-    const serializationLen =
-      MAX_LOG_CONTENT_LEN +
-      1 /* logPayload BVec */ +
-      1 /* txHash */ +
-      MAX_NOTE_HASHES_PER_TX +
-      1 /* uniqueNoteHashesInTx BVec */ +
-      1; /* firstNullifierInTx */
-    return range(serializationLen).map(_ => Fr.zero());
-  }
-
-  static toSerializedOption(response: LogRetrievalResponse | null): Fr[] {
-    if (response) {
-      return [new Fr(1), ...response.toFields()];
-    } else {
-      return [new Fr(0), ...LogRetrievalResponse.toEmptyFields()];
-    }
   }
 }
 

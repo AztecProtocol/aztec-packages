@@ -38,7 +38,6 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
@@ -534,18 +533,21 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
   }
 
-  public async bulkRetrieveLogs(
-    contractAddress: AztecAddress,
-    logRetrievalRequestsArrayBaseSlot: Fr,
-    logRetrievalResponsesArrayBaseSlot: Fr,
-  ) {
+  /**
+   * Fetches logs matching a set of retrieval requests. Each request searches for logs by tag, and a single tag may
+   * match 0, 1, or N logs. Results are written into per-request capsule arrays so that each request gets its own
+   * variable-length response list.
+   *
+   * @param logRetrievalRequestsArrayBaseSlot - Base slot of a `CapsuleArray<LogRetrievalRequest>`. Each request
+   * contains the tag to search for and a `responseSlot` field specifying where PXE should write the matching
+   * `LogRetrievalResponse` values as a `CapsuleArray`.
+   */
+  public async bulkRetrieveLogs(contractAddress: AztecAddress, logRetrievalRequestsArrayBaseSlot: Fr) {
     // TODO(#10727): allow other contracts to process partial notes
     if (!this.contractAddress.equals(contractAddress)) {
-      throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
+      throw new Error(`Got a log retrieval request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
-    // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId)
     ).map(LogRetrievalRequest.fromFields);
@@ -562,18 +564,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.logger.getBindings(),
     );
 
-    const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
+    const logRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
 
-    // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId);
-
-    // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
-    await this.capsuleStore.setCapsuleArray(
-      contractAddress,
-      logRetrievalResponsesArrayBaseSlot,
-      maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
-      this.jobId,
+    // Write each request's responses into the capsule array at the slot specified in the request.
+    await Promise.all(
+      logRetrievalResponses.map((responses, i) =>
+        this.capsuleStore.setCapsuleArray(
+          contractAddress,
+          logRetrievalRequests[i].responseSlot,
+          responses.map(r => r.toFields()),
+          this.jobId,
+        ),
+      ),
     );
+
+    // Clear the input array.
+    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId);
   }
 
   public async utilityResolveMessageContexts(

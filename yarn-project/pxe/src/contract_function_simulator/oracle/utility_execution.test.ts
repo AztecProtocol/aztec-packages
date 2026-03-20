@@ -11,7 +11,7 @@ import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { makeL2Tips } from '@aztec/stdlib/testing';
+import { makeL2Tips, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -261,6 +261,55 @@ describe('Utility Execution test suite', () => {
         const scopeB = await AztecAddress.random();
         utilityExecutionOracle.invalidateContractSyncCache(contractAddress, [scopeA, scopeB]);
         expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
+      });
+    });
+
+    describe('bulkRetrieveLogs', () => {
+      const requestSlot = Fr.random();
+
+      it('throws when contractAddress does not match', async () => {
+        const wrongAddress = await AztecAddress.random();
+        await expect(utilityExecutionOracle.bulkRetrieveLogs(wrongAddress, requestSlot)).rejects.toThrow(
+          `Got a log retrieval request from ${wrongAddress}, expected ${contractAddress}`,
+        );
+      });
+
+      it('writes responses to per-request slots embedded in each request', async () => {
+        const tag1 = Fr.random();
+        const tag2 = Fr.random();
+        const responseSlot1 = Fr.random();
+        const responseSlot2 = Fr.random();
+        // tag1: 1 public log. tag2: 1 public + 1 private log (merged).
+        const publicLog1 = randomTxScopedPrivateL2Log({ tag: tag1 });
+        const publicLog2 = randomTxScopedPrivateL2Log({ tag: tag2 });
+        const privateLog2 = randomTxScopedPrivateL2Log({ tag: tag2 });
+
+        capsuleStore.readCapsuleArray.mockResolvedValueOnce([
+          [contractAddress.toField(), tag1, responseSlot1],
+          [contractAddress.toField(), tag2, responseSlot2],
+        ]);
+
+        aztecNode.getPublicLogsByTagsFromContract
+          .mockResolvedValueOnce([[publicLog1]])
+          .mockResolvedValueOnce([[publicLog2]]);
+        aztecNode.getPrivateLogsByTags.mockResolvedValueOnce([[]]).mockResolvedValueOnce([[privateLog2]]);
+
+        await utilityExecutionOracle.bulkRetrieveLogs(contractAddress, requestSlot);
+
+        const writtenToSlot1 = capsuleStore.setCapsuleArray.mock.calls.find(
+          call => call[0].equals(contractAddress) && call[1].equals(responseSlot1),
+        );
+        const writtenToSlot2 = capsuleStore.setCapsuleArray.mock.calls.find(
+          call => call[0].equals(contractAddress) && call[1].equals(responseSlot2),
+        );
+
+        expect(writtenToSlot1).toBeDefined();
+        expect(writtenToSlot1![2]).toHaveLength(1);
+        expect(writtenToSlot2).toBeDefined();
+        expect(writtenToSlot2![2]).toHaveLength(2);
+
+        // Verify the request array was cleared after processing.
+        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(contractAddress, requestSlot, [], 'test-job-id');
       });
     });
 

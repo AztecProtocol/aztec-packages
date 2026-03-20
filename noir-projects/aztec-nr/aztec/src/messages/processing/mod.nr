@@ -24,7 +24,7 @@ use crate::{
     },
     oracle,
 };
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
+use crate::protocol::{address::AztecAddress, hash::{poseidon2_hash, sha256_to_field}, traits::{Deserialize, Serialize}};
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
@@ -43,9 +43,11 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
 
-global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
-    "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
-);
+/// Hashed with a request index to derive the CapsuleArray slot where PXE writes `LogRetrievalResponse` values for
+/// that request. See
+/// [`compute_per_request_response_slot`](crate::messages::processing::compute_per_request_response_slot).
+global LOG_RETRIEVAL_RESPONSE_SLOTS_BASE: Field = sha256_to_field("AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT"
+    .as_bytes());
 
 /// An offchain-delivered message with resolved context, ready for processing during sync.
 #[derive(Serialize, Deserialize)]
@@ -186,38 +188,51 @@ pub unconstrained fn resolve_message_contexts(
     );
 }
 
-/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options
-/// for the responses that correspond to the pending partial notes at the same index.
-///
-/// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding
-/// completion logs but `p2` does not, the returned `CapsuleArray` will have contents `[some(p1_log), none(),
-/// some(p3_log)]`.
+/// Fetches logs that may complete pending partial notes. Each pending note's tag is searched for matching public and
+/// private logs. Results are accessible via the returned handle's `.get(i)` method, which returns a CapsuleArray
+/// with 0, 1, or N matching logs for the i-th pending note.
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
-) -> CapsuleArray<Option<LogRetrievalResponse>> {
+) -> BulkLogRetrievalResult {
     let log_retrieval_requests = CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
     // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
     // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
     // function has arbitrary iteration order. Instead, we manually iterate the array from the beginning and push into
     // the requests array, which we expect to be empty.
-    let mut i = 0;
+    // Each request embeds its response_slot so PXE knows where to write matching logs.
     let pending_partial_notes_count = pending_partial_notes.len();
-    while i < pending_partial_notes_count {
+
+    for i in 0..pending_partial_notes_count {
         let pending_partial_note = pending_partial_notes.get(i);
         log_retrieval_requests.push(
-            LogRetrievalRequest { contract_address, unsiloed_tag: pending_partial_note.note_completion_log_tag },
+            LogRetrievalRequest {
+                contract_address,
+                unsiloed_tag: pending_partial_note.note_completion_log_tag,
+                response_slot: compute_per_request_response_slot(i as Field),
+            },
         );
-        i += 1;
     }
 
-    oracle::message_processing::bulk_retrieve_logs(
-        contract_address,
-        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
-        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
-    );
+    oracle::message_processing::bulk_retrieve_logs(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
-    CapsuleArray::at(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT)
+    BulkLogRetrievalResult { contract_address }
+}
+
+/// Indexed access to per-request response CapsuleArrays from a bulk log retrieval.
+pub(crate) struct BulkLogRetrievalResult {
+    contract_address: AztecAddress,
+}
+
+impl BulkLogRetrievalResult {
+    /// Returns the CapsuleArray containing the matching logs for request at `index`.
+    pub(crate) unconstrained fn get(self, index: u32) -> CapsuleArray<LogRetrievalResponse> {
+        let slot = compute_per_request_response_slot(index as Field);
+        CapsuleArray::at(self.contract_address, slot)
+    }
+}
+
+pub(crate) fn compute_per_request_response_slot(request_index: Field) -> Field {
+    poseidon2_hash([LOG_RETRIEVAL_RESPONSE_SLOTS_BASE, request_index])
 }

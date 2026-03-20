@@ -1,12 +1,17 @@
 use crate::protocol::{address::AztecAddress, traits::Serialize};
 
-/// A request for the `bulk_retrieve_logs` oracle to fetch either:
-/// - a public log emitted by `contract_address` with `unsiloed_tag`
-/// - a private log with tag equal to `compute_siloed_private_log_first_field(contract_address, unsiloed_tag)`.
+/// A request for the `bulk_retrieve_logs` oracle to fetch logs matching a tag and write them to a response slot.
+///
+/// PXE searches for:
+/// - public logs emitted by `contract_address` with `unsiloed_tag`
+/// - private logs with tag equal to `compute_siloed_private_log_first_field(contract_address, unsiloed_tag)`
+///
+/// Matching logs are written as a `CapsuleArray<LogRetrievalResponse>` at `response_slot`.
 #[derive(Serialize)]
 pub(crate) struct LogRetrievalRequest {
     pub contract_address: AztecAddress,
     pub unsiloed_tag: Field,
+    pub response_slot: Field,
     // TODO(#15052): choose source: public, private or either (current behavior)
 }
 
@@ -16,7 +21,8 @@ mod test {
 
     #[test]
     fn serialization_matches_typescript() {
-        let request = LogRetrievalRequest { contract_address: AztecAddress::from_field(1), unsiloed_tag: 2 };
+        let request =
+            LogRetrievalRequest { contract_address: AztecAddress::from_field(1), unsiloed_tag: 2, response_slot: 3 };
 
         // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
         // snapshot value below, then log_retrieval_request.test.ts must be updated with the same value. Ideally we'd
@@ -25,6 +31,7 @@ mod test {
         let expected_serialization = [
             0x0000000000000000000000000000000000000000000000000000000000000001,
             0x0000000000000000000000000000000000000000000000000000000000000002,
+            0x0000000000000000000000000000000000000000000000000000000000000003,
         ];
 
         assert_eq(request.serialize(), expected_serialization);

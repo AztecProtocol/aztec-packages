@@ -11,7 +11,6 @@ import { makeBlockHeader, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testi
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -61,41 +60,30 @@ describe('LogService', () => {
       );
     });
 
-    it('returns no logs if none are found', async () => {
+    it('returns empty array when no logs match', async () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[]]);
-      const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.bulkRetrieveLogs([request]);
-      expect(responses.length).toEqual(1);
-      expect(responses[0]).toBeNull();
+
+      const responses = await logService.bulkRetrieveLogs([{ tag, contractAddress }]);
+
+      expect(responses).toEqual([[]]);
     });
 
-    it('returns a public log if one is found', async () => {
-      const scopedLog = randomTxScopedPrivateL2Log();
+    it('merges and sorts public and private logs by block number', async () => {
+      const sharedTag = new Tag(Fr.random());
+      const publicLog = randomTxScopedPrivateL2Log({ tag: sharedTag.value, blockNumber: 10 });
+      const privateLog1 = randomTxScopedPrivateL2Log({ tag: sharedTag.value, blockNumber: 5 });
+      const privateLog2 = randomTxScopedPrivateL2Log({ tag: sharedTag.value, blockNumber: 20 });
 
-      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[scopedLog]]);
-      aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
+      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[publicLog]]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog1, privateLog2]]);
 
-      const request = new LogRetrievalRequest(contractAddress, new Tag(scopedLog.logData[0]));
+      const responses = await logService.bulkRetrieveLogs([{ tag: sharedTag, contractAddress }]);
 
-      const responses = await logService.bulkRetrieveLogs([request]);
-
-      expect(responses.length).toEqual(1);
-      expect(responses[0]).not.toBeNull();
-    });
-
-    it('returns a private log if one is found', async () => {
-      const scopedLog = randomTxScopedPrivateL2Log();
-
-      aztecNode.getPrivateLogsByTags.mockResolvedValue([[scopedLog]]);
-      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[]]);
-
-      const request = new LogRetrievalRequest(contractAddress, new Tag(scopedLog.logData[0]));
-
-      const responses = await logService.bulkRetrieveLogs([request]);
-
-      expect(responses.length).toEqual(1);
-      expect(responses[0]).not.toBeNull();
+      expect(responses[0]).toHaveLength(3);
+      expect(responses[0][0].txHash).toEqual(privateLog1.txHash);
+      expect(responses[0][1].txHash).toEqual(publicLog.txHash);
+      expect(responses[0][2].txHash).toEqual(privateLog2.txHash);
     });
   });
 });

@@ -775,17 +775,11 @@ export class RPCTranslator {
   public async aztec_utl_bulkRetrieveLogs(
     foreignContractAddress: ForeignCallSingle,
     foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignLogRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
-    const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
 
-    await this.handlerAsUtility().bulkRetrieveLogs(
-      contractAddress,
-      logRetrievalRequestsArrayBaseSlot,
-      logRetrievalResponsesArrayBaseSlot,
-    );
+    await this.handlerAsUtility().bulkRetrieveLogs(contractAddress, logRetrievalRequestsArrayBaseSlot);
 
     return toForeignCallResult([]);
   }

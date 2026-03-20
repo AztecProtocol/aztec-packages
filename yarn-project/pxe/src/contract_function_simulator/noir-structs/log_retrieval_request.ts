@@ -4,17 +4,18 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Tag } from '@aztec/stdlib/logs';
 
 /**
- * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle expects values of this
- * type to be stored in a `CapsuleArray`.
+ * A request for the `bulkRetrieveLogs` oracle. Contains the tag to search for and the capsule slot where PXE should
+ * write matching `LogRetrievalResponse` values.
  */
 export class LogRetrievalRequest {
   constructor(
     public contractAddress: AztecAddress,
     public tag: Tag,
+    public responseSlot: Fr,
   ) {}
 
   toFields(): Fr[] {
-    return [this.contractAddress.toField(), this.tag.value];
+    return [this.contractAddress.toField(), this.tag.value, this.responseSlot];
   }
 
   static fromFields(fields: Fr[] | FieldReader): LogRetrievalRequest {
@@ -22,7 +23,8 @@ export class LogRetrievalRequest {
 
     const contractAddress = AztecAddress.fromField(reader.readField());
     const tag = new Tag(reader.readField());
+    const responseSlot = reader.readField();
 
-    return new LogRetrievalRequest(contractAddress, tag);
+    return new LogRetrievalRequest(contractAddress, tag, responseSlot);
   }
 }

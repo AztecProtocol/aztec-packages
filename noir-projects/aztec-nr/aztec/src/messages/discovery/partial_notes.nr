@@ -5,9 +5,8 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
-            enqueue_note_for_validation,
-            get_pending_partial_notes_completion_logs,
-            log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN},
+            enqueue_note_for_validation, get_pending_partial_notes_completion_logs,
+            log_retrieval_response::MAX_LOG_CONTENT_LEN,
         },
     },
     utils::array,
@@ -84,24 +83,20 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
-    // Each of the pending partial notes might get completed by a log containing its public values. For performance
-    // reasons, we fetch all of these logs concurrently and then process them one by one, minimizing the amount of time
-    // waiting for the node roundtrip.
-    let maybe_completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    // Each of the pending partial notes might get completed by one or more logs containing its public
+    // values. For performance reasons, we fetch all of these logs concurrently and then process them one
+    // by one, minimizing the amount of time waiting for the node roundtrip.
+    let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
 
-    // Each entry in the maybe completion logs array corresponds to the entry in the pending partial notes array at the
+    // Each entry in the completion logs array corresponds to the entry in the pending partial notes array at the
     // same index. This means we can use the same index as we iterate through the responses to get both the partial
-    // note and the log that might complete it.
-    assert_eq(maybe_completion_logs.len(), pending_partial_notes.len());
+    // note and the logs that might complete it.
 
-    maybe_completion_logs.for_each(|i, maybe_log: Option<LogRetrievalResponse>| {
-        // We clear the completion logs as we read them so that the array is empty by the time we next query it.
-        // TODO(#14943): use volatile arrays to avoid having to manually clear this.
-        maybe_completion_logs.remove(i);
+    pending_partial_notes.for_each(|i, pending_partial_note| {
+        let logs_for_note = completion_logs.get(i);
+        let completion_log_count = logs_for_note.len();
 
-        let pending_partial_note = pending_partial_notes.get(i);
-
-        if maybe_log.is_none() {
+        if completion_log_count == 0 {
             aztecnr_debug_log_format!("Found no completion logs for partial note with tag {}")(
                 [pending_partial_note.note_completion_log_tag],
             );
@@ -110,10 +105,15 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
             // searching for this tagged log when performing message discovery in the future until we either find it or
             // the entry is somehow removed from the array.
         } else {
+            assert(completion_log_count == 1, "Multiple completion logs per partial note tag are not yet supported");
+
             aztecnr_debug_log_format!("Completion log found for partial note with tag {}")([
                 pending_partial_note.note_completion_log_tag,
             ]);
-            let log = maybe_log.unwrap();
+
+            // We clear the completion logs as we read them so that the array is empty by the time we next query it.
+            let log = logs_for_note.get(0);
+            logs_for_note.remove(0);
 
             // The first field in the completion log payload is the storage slot, followed by the public note
             // content fields.
@@ -169,9 +169,103 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                 );
             });
 
-            // Because there is only a single log for a given tag, once we've processed the tagged log then we simply
+            // Because we expect only a single log for a given tag, once we've processed the tagged log then we simply
             // delete the pending work entry, regardless of whether it was actually completed or not.
             pending_partial_notes.remove(i);
         }
     });
+}
+
+mod test {
+    use crate::{
+        capsules::CapsuleArray,
+        messages::{
+            discovery::partial_notes::{
+                DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT, DeliveredPendingPartialNote,
+                fetch_and_process_partial_note_completion_logs,
+            },
+            processing::{compute_per_request_response_slot, log_retrieval_response::LogRetrievalResponse},
+        },
+        test::helpers::test_environment::TestEnvironment,
+    };
+    use crate::protocol::{address::AztecAddress, traits::FromField};
+
+    #[test(should_fail_with = "Multiple completion logs per partial note tag are not yet supported")]
+    unconstrained fn panics_on_multiple_completion_logs() {
+        let env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let _ = setup_pending_note_with_responses(contract_address, 2);
+            let compute_note_hash = |_a, _b, _c, _d, _e, _f| -> Option<Field> { Option::none() };
+            let compute_note_nullifier = |_a, _b, _c, _d, _e, _f, _g| -> Option<Field> { Option::none() };
+
+            fetch_and_process_partial_note_completion_logs(
+                contract_address,
+                compute_note_hash,
+                compute_note_nullifier,
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn keeps_pending_note_when_no_completion_logs() {
+        let env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let pending_notes = setup_pending_note_with_responses(contract_address, 0);
+            let compute_note_hash = |_a, _b, _c, _d, _e, _f| -> Option<Field> { Option::none() };
+            let compute_note_nullifier = |_a, _b, _c, _d, _e, _f, _g| -> Option<Field> { Option::none() };
+
+            fetch_and_process_partial_note_completion_logs(
+                contract_address,
+                compute_note_hash,
+                compute_note_nullifier,
+            );
+
+            // The pending note should not be removed since there was no completion log to process it.
+            assert_eq(pending_notes.len(), 1);
+        });
+    }
+
+    /// Creates one pending partial note with `response_count` completion logs and mocks the oracle.
+    unconstrained fn setup_pending_note_with_responses(
+        contract_address: AztecAddress,
+        response_count: u32,
+    ) -> CapsuleArray<DeliveredPendingPartialNote> {
+        let pending_notes: CapsuleArray<DeliveredPendingPartialNote> = CapsuleArray::at(
+            contract_address,
+            DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+        );
+        pending_notes.push(make_dummy_pending_note());
+
+        let response_slot = compute_per_request_response_slot(0);
+        let responses: CapsuleArray<LogRetrievalResponse> = CapsuleArray::at(contract_address, response_slot);
+        for _ in 0..response_count {
+            responses.push(make_dummy_response());
+        }
+
+        let _ = std::test::OracleMock::mock("aztec_utl_bulkRetrieveLogs");
+
+        pending_notes
+    }
+
+    unconstrained fn make_dummy_pending_note() -> DeliveredPendingPartialNote {
+        DeliveredPendingPartialNote {
+            owner: AztecAddress::from_field(1),
+            randomness: 42,
+            note_completion_log_tag: 123,
+            note_type_id: 456,
+            packed_private_note_content: BoundedVec::new(),
+            recipient: AztecAddress::from_field(2),
+        }
+    }
+
+    unconstrained fn make_dummy_response() -> LogRetrievalResponse {
+        LogRetrievalResponse {
+            log_payload: BoundedVec::new(),
+            tx_hash: 0,
+            unique_note_hashes_in_tx: BoundedVec::new(),
+            first_nullifier_in_tx: 0,
+        }
+    }
 }
