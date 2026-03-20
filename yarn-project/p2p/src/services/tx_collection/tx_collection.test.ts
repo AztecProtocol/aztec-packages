@@ -6,7 +6,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -450,7 +449,8 @@ describe('TxCollection', () => {
       setReqRespTxs([txs[1]]);
 
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
-      expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline);
+      // Allow 5ms tolerance: setTimeout in RequestTracker can fire slightly before dateProvider.now() catches up
+      expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
       expectReqRespToHaveBeenCalledWith([txHashes[1], txHashes[2]]);
@@ -508,6 +508,223 @@ describe('TxCollection', () => {
       expect(collected).toEqual([]);
       expect(nodes[0].getTxsByHash).not.toHaveBeenCalled();
       expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+    });
+
+    describe('cancellation signals', () => {
+      /** Captures the FastCollectionRequest during collectFast, before it's removed in finally. */
+      const captureRequest = () => {
+        let captured: FastCollectionRequest | undefined;
+        const origCollectFast = txCollection.fastCollection.collectFast.bind(txCollection.fastCollection);
+        jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation((request, opts) => {
+          captured = request;
+          return origCollectFast(request, opts);
+        });
+        return () => captured!;
+      };
+
+      // Step 1: notFinished() respects requestTracker.checkCancelled()
+      it('stops node collection loop when tracker is externally cancelled', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        const reqRespPromise = promiseWithResolvers<TxArray[]>();
+        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+
+        const getRequest = captureRequest();
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(200);
+        const request = getRequest();
+        expect(request).toBeDefined();
+
+        request.requestTracker.cancel();
+        reqRespPromise.resolve([]);
+
+        const collected = await collectionPromise;
+        expect(dateProvider.now()).toBeLessThan(+deadline);
+        expect(collected).toEqual([]);
+      });
+
+      // Step 18: skips reqresp when all txs found during initial wait
+      it('skips reqresp when all txs are found during initial node wait', async () => {
+        config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        setNodeTxs(nodes[0], txs);
+        const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(collected).toEqual(txs);
+      });
+
+      // Step 18: skips reqresp when deadline expires during initial wait
+      it('skips reqresp when deadline expires during initial node wait', async () => {
+        deadline = new Date(dateProvider.now() + 200);
+        config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
+        expect(collected).toEqual([]);
+      });
+
+      // Node loop sleep between retries is interruptible by cancellation
+      it('cancellation wakes node loop sleep immediately', async () => {
+        deadline = new Date(dateProvider.now() + 30_000);
+        config = {
+          ...config,
+          txCollectionFastNodesTimeoutBeforeReqRespMs: 30_000,
+          txCollectionFastNodeIntervalMs: 30_000,
+        };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        // Nodes return nothing, so node loops will sleep for 30s between retries
+        const getRequest = captureRequest();
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        // Wait for first node RPC call to complete, then node loop enters 30s sleep
+        await sleep(200);
+        expect(nodes[0].getTxsByHash).toHaveBeenCalled();
+
+        const startTime = dateProvider.now();
+        getRequest().requestTracker.cancel();
+        await collectionPromise;
+
+        // Should return almost immediately, not after 30s
+        expect(dateProvider.now() - startTime).toBeLessThan(1000);
+      });
+
+      // Step 2: cancellationToken in initial wait race (L124)
+      it('exits initial wait when tracker is cancelled before reqresp starts', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        config = {
+          ...config,
+          txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000,
+          txCollectionFastNodeIntervalMs: 5_000,
+        };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        const getRequest = captureRequest();
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(50);
+        const request = getRequest();
+        expect(request).toBeDefined();
+        // Reqresp should not have started yet — we're still in the initial wait
+        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+
+        request.requestTracker.cancel();
+        await collectionPromise;
+
+        // Should have exited without ever starting reqresp
+        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(dateProvider.now()).toBeLessThan(+deadline);
+      });
+
+      // Step 3: cancellationToken in main wait race (L135)
+      it('exits main wait when tracker is cancelled during reqresp', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 1 };
+        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+
+        const reqRespPromise = promiseWithResolvers<TxArray[]>();
+        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+
+        const getRequest = captureRequest();
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(200);
+        expect(reqResp.sendBatchRequest).toHaveBeenCalled();
+
+        getRequest().requestTracker.cancel();
+        reqRespPromise.resolve([]);
+
+        await collectionPromise;
+        expect(dateProvider.now()).toBeLessThan(+deadline);
+      });
+
+      // Step 4: requestTracker.cancel() in finally block
+      it('tracker is cancelled after collectFast exits normally', async () => {
+        setNodeTxs(nodes[0], txs);
+        const getRequest = captureRequest();
+
+        await txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        expect(getRequest().requestTracker.checkCancelled()).toBe(true);
+      });
+
+      // Step 5: requestTracker.cancel() in stop()
+      it('stop() cancels all request trackers', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        const reqRespPromise = promiseWithResolvers<TxArray[]>();
+        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+
+        const getRequest = captureRequest();
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(100);
+        const request = getRequest();
+        expect(request).toBeDefined();
+        expect(request.requestTracker.checkCancelled()).toBe(false);
+
+        await txCollection.stop();
+
+        expect(request.requestTracker.checkCancelled()).toBe(true);
+        reqRespPromise.resolve([]);
+        await collectionPromise;
+      });
+
+      // Step 8: stopCollectingForBlocksUpTo cancels in-flight fast collection
+      it('stopCollectingForBlocksUpTo cancels in-flight fast collection', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        const reqRespPromise = promiseWithResolvers<TxArray[]>();
+        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(100);
+        txCollection.stopCollectingForBlocksUpTo(block.number);
+        reqRespPromise.resolve([]);
+
+        const collected = await collectionPromise;
+        expect(dateProvider.now()).toBeLessThan(+deadline);
+        expect(collected).toEqual([]);
+      });
+
+      // Step 9: stopCollectingForBlocksAfter cancels in-flight fast collection
+      it('stopCollectingForBlocksAfter cancels in-flight fast collection', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        const reqRespPromise = promiseWithResolvers<TxArray[]>();
+        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(100);
+        txCollection.stopCollectingForBlocksAfter(BlockNumber(block.number - 1));
+        reqRespPromise.resolve([]);
+
+        const collected = await collectionPromise;
+        expect(dateProvider.now()).toBeLessThan(+deadline);
+        expect(collected).toEqual([]);
+      });
+
+      // Step 17: request is cleaned up by finally block (not by stopCollectingForBlocks)
+      it('request is cleaned up by finally block after stopCollectingForBlocksUpTo', async () => {
+        deadline = new Date(dateProvider.now() + 10_000);
+        const reqRespPromise = promiseWithResolvers<TxArray[]>();
+        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+
+        const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+        await sleep(100);
+        expect(txCollection.fastCollection.requests.size).toBe(1);
+
+        txCollection.stopCollectingForBlocksUpTo(block.number);
+        reqRespPromise.resolve([]);
+        await collectionPromise;
+
+        expect(txCollection.fastCollection.requests.size).toBe(0);
+      });
     });
   });
 
@@ -577,10 +794,7 @@ describe('TxCollection', () => {
 class TestFastTxCollection extends FastTxCollection {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   declare requests: Set<FastCollectionRequest>;
-  declare collectFast: (
-    request: FastCollectionRequest,
-    opts: { proposal?: BlockProposal; deadline: Date; pinnedPeer?: PeerId },
-  ) => Promise<void>;
+  declare collectFast: (request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) => Promise<void>;
 }
 
 class TestTxCollection extends TxCollection {

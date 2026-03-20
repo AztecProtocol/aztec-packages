@@ -42,5 +42,5 @@ variable "MEMORY_LIMIT" {
 
 variable "STORAGE_SIZE" {
   type        = string
-  default     = "1Gi"
+  default     = "10Gi"
 }

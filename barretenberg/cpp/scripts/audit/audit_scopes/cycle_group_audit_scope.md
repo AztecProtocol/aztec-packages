@@ -1,7 +1,7 @@
 # External Audit Scope: cycle_group
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `a48c205d6dcd4338f5b83b4fda18bff6015be07b` ([link](https://github.com/AztecProtocol/aztec-packages/tree/a48c205d6dcd4338f5b83b4fda18bff6015be07b))
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`

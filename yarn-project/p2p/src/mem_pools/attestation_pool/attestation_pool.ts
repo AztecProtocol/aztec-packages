@@ -26,10 +26,10 @@ export type TryAddResult = {
   count: number;
 };
 
-export const MAX_CHECKPOINT_PROPOSALS_PER_SLOT = 5;
-export const MAX_BLOCK_PROPOSALS_PER_POSITION = 3;
+export const MAX_CHECKPOINT_PROPOSALS_PER_SLOT = 2;
+export const MAX_BLOCK_PROPOSALS_PER_POSITION = 2;
 /** Maximum attestations a single signer can make per slot before being rejected. */
-export const MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER = 3;
+export const MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER = 2;
 
 /** Public API interface for attestation pools. Used for typing mocks and test implementations. */
 export type AttestationPoolApi = Pick<

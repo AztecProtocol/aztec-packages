@@ -9,6 +9,14 @@ import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
 import xxhashFactory from 'xxhash-wasm';
 
+/** Thrown when a Snappy-compressed response exceeds the allowed decompressed size. */
+export class OversizedSnappyResponseError extends Error {
+  constructor(decompressedSize: number, maxSizeKb: number) {
+    super(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
+    this.name = 'OversizedSnappyResponseError';
+  }
+}
+
 // Load WASM
 const xxhash = await xxhashFactory();
 
@@ -86,7 +94,7 @@ export class SnappyTransform implements DataTransform {
     const { decompressedSize } = readSnappyPreamble(data);
     if (decompressedSize > maxSizeKb * 1024) {
       this.logger.warn(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
-      throw new Error(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
+      throw new OversizedSnappyResponseError(decompressedSize, maxSizeKb);
     }
 
     return Buffer.from(uncompressSync(data, { asBuffer: true }));

@@ -160,10 +160,10 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   handleMinedBlock(block: L2Block): Promise<void>;
 
   /**
-   * Prepares the pool for a new slot.
-   * Unprotects transactions from earlier slots and validates them before
-   * returning to pending state.
-   * @param slotNumber - The slot number to prepare for
+   * Prepares the pool for a new slot by unprotecting transactions from earlier
+   * slots and re-validating them before returning to pending state.
+   * @param slotNumber - The pipeline slot we are building for (i.e. the slot
+   *   the resulting blocks will target on L1).
    */
   prepareForSlot(slotNumber: SlotNumber): Promise<void>;
 

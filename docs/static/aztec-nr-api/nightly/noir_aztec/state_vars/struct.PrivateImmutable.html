@@ -104,9 +104,7 @@ offchain queries, view functions, or testing.</p>
 <p>Unlike the constrained <code>get_note()</code>, this function does not push read requests or perform validation. It simply
 reads the note from the PXE's database.</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
-
-<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
@@ -137,7 +135,9 @@ and the transaction will not be provable.</p>
 <p>Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
 after initialization.</p>
 </div>
-</div></div><h2>Trait implementations</h2>
+</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h2>Trait implementations</h2>
 <h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateImmutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>

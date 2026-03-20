@@ -1,9 +1,7 @@
 # External Audit Scope: Sumcheck + PCS + Chonk Verifier
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 762f1ee2634c8a7b115669ea5d7fb0eeafaa0dbd
-
-> **Note for auditors:** This commit hash reflects the latest commit on the `next` branch at the time of writing. Please review against the latest commit on `next`.
+Commit hash: Most recent commit on branch 'next'
 
 This scope combines Sumcheck, Polynomial Commitment Schemes, and Chonk verifier components since they are tightly coupled and benefit from being audited together.
 
