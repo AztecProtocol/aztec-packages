@@ -61,13 +61,9 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
@@ -122,7 +118,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   enum TestSlash {
     NONE,
-    EMPIRE,
     TALLY
   }
 
@@ -153,7 +148,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   Multicall3 internal multicall = new Multicall3();
 
   address internal slashingProposer;
-  IPayload internal slashPayload;
 
   modifier prepare(uint256 _validatorCount, bool _noValidators, TestSlash _slashing) {
     // We deploy a the rollup and sets the time and all to
@@ -199,12 +193,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     rollup = builder.getConfig().rollup;
     slasher = Slasher(rollup.getSlasher());
     slashingProposer = address(slasher) == address(0) ? address(0) : slasher.PROPOSER();
-
-    SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
-    address[] memory toSlash = new address[](0);
-    uint96[] memory amounts = new uint96[](0);
-    uint128[][] memory offenses = new uint128[][](0);
-    slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
 
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
@@ -384,26 +372,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   /**
-   * @notice Creates an EIP-712 signature for signalWithSig
-   * @param _signer The address that should sign (must match a proposer)
-   * @param _payload The payload to signal
-   * @return The EIP-712 signature
-   */
-  function createEmpireSignalSignature(address _signer, IPayload _payload, Slot _slot)
-    internal
-    view
-    returns (Signature memory)
-  {
-    uint256 privateKey = attesterPrivateKeys[_signer];
-    require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = EmpireSlashingProposer(slashingProposer).getSignalSignatureDigest(_payload, _slot);
-
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-
-    return Signature({v: v, r: r, s: s});
-  }
-
-  /**
    * @notice Creates vote data for tally slashing
    * @param _size - The number of validators
    * @return Encoded vote data
@@ -476,8 +444,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     // Do nothing for the first epoch
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
     Epoch nextEpoch = Epoch.wrap(4);
-    bool warmedUp = false;
-
     uint256 stopAtCheckpoint = IS_IGNITION ? 200 : 150;
 
     // Loop through all of the L1 metadata
@@ -487,13 +453,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
 
       _loadL1Metadata(i);
-
-      if (_slashing == TestSlash.EMPIRE && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
-        address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createEmpireSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
-        EmpireSlashingProposer(slashingProposer).signalWithSig(slashPayload, sig);
-        warmedUp = true;
-      }
 
       // For every "new" slot we encounter, we construct a checkpoint using current L1 Data
       // and part of the `empty_checkpoint_1.json` file. The checkpoint cannot be proven, but it
@@ -510,30 +469,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         uint256 currentCheckpointNumber = rollup.getPendingCheckpointNumber() + 1;
         checkpointAttestations[currentCheckpointNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
-        if (_slashing == TestSlash.EMPIRE) {
-          Signature memory sig = createEmpireSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
-          Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
-          calls[0] = Multicall3.Call3({
-            target: address(rollup),
-            callData: abi.encodeCall(
-              rollup.propose,
-              (
-                b.proposeArgs,
-                AttestationLibHelper.packAttestations(b.attestations),
-                b.signers,
-                b.attestationsAndSignersSignature,
-                b.blobInputs
-              )
-            ),
-            allowFailure: false
-          });
-          calls[1] = Multicall3.Call3({
-            target: address(slashingProposer),
-            callData: abi.encodeCall(EmpireSlashingProposer(slashingProposer).signalWithSig, (slashPayload, sig)),
-            allowFailure: false
-          });
-          multicall.aggregate3(calls);
-        } else if (_slashing == TestSlash.TALLY) {
+        if (_slashing == TestSlash.TALLY) {
           SlashRound slashRound = TallySlashingProposer(slashingProposer).getCurrentRound();
           // We are offset + 1, because the first round after the offset is used entirely on warming the storage up, so
           // we don't get a off-balance update

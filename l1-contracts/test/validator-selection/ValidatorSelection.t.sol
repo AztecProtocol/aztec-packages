@@ -29,6 +29,8 @@ import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {GSE} from "@aztec/governance/GSE.sol";
+import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -306,7 +308,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     address[] memory attesters = getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
-    uint128[][] memory offenses = new uint128[][](attesters.length);
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
@@ -315,11 +316,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
       amounts[i] = slashAmount;
-      offenses[i] = new uint128[](0); // Empty array of offenses for each validator
       assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 
-    IPayload slashPayload = slashFactory.createSlashPayload(attesters, amounts, offenses);
+    IPayload slashPayload = IPayload(address(new SlashPayload(attesters, amounts, IValidatorSelection(address(rollup)))));
     vm.prank(address(slasher.PROPOSER()));
     slasher.slash(slashPayload);
 

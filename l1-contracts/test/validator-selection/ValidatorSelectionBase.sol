@@ -18,9 +18,7 @@ import {TestConstants} from "../harnesses/TestConstants.sol";
 
 import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {ProposePayload, ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
@@ -57,7 +55,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
     uint256 invalidSignatureIndex;
   }
 
-  SlashFactory internal slashFactory;
   Slasher internal slasher;
   Inbox internal inbox;
   Outbox internal outbox;
@@ -109,7 +106,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
     rewardDistributor = builder.getConfig().rewardDistributor;
     testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
-    slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));

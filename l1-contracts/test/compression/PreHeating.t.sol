@@ -60,11 +60,6 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
@@ -137,8 +132,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   // Track attestations by checkpoint number for proof submission
   mapping(uint256 => CommitteeAttestations) internal checkpointAttestations;
 
-  EmpireSlashingProposer internal slashingProposer;
-  IPayload internal slashPayload;
 
   modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
@@ -172,14 +165,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = EmpireSlashingProposer(Slasher(rollup.getSlasher()).PROPOSER());
-
-    SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
-    address[] memory toSlash = new address[](0);
-    uint96[] memory amounts = new uint96[](0);
-    uint128[][] memory offenses = new uint128[][](0);
-    slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
-
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");

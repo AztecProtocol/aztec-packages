@@ -3,23 +3,19 @@
 pragma solidity >=0.8.27;
 
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {TestBase} from "@test/base/Base.sol";
 
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
 
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
@@ -42,7 +38,6 @@ contract SlashingTest is TestBase {
   RewardDistributor internal rewardDistributor;
   Rollup internal rollup;
   Slasher internal slasher;
-  SlashFactory internal slashFactory;
   TallySlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
@@ -185,7 +180,6 @@ contract SlashingTest is TestBase {
 
     slasher = Slasher(rollup.getSlasher());
     slashingProposer = TallySlashingProposer(slasher.PROPOSER());
-    slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     timeCheater = new TimeCheater(
       address(rollup),

@@ -125,7 +125,7 @@ library TestConstants {
       rewardBoostConfig: getRewardBoostConfig(),
       stakingQueueConfig: getStakingQueueConfig(),
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
-      slasherFlavor: SlasherFlavor.EMPIRE,
+      slasherFlavor: SlasherFlavor.TALLY,
       localEjectionThreshold: 0, // The same as it being off, and only using the global.
       earliestRewardsClaimableTimestamp: Timestamp.wrap(0), // Default to 0 (no restriction)
       inboxLag: AZTEC_INBOX_LAG
