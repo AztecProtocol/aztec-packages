@@ -1,7 +1,8 @@
 /**
  * Batch chonk verifier benchmarks using real protocol proofs.
  *
- * Downloads pinned IVC inputs from S3, proves a representative transaction,
+ * Uses pre-generated IVC inputs from example-app-ivc-inputs-out (built by
+ * end-to-end/bootstrap.sh build_bench), proves a representative transaction,
  * then benchmarks batch verification throughput at various configurations.
  */
 import { BatchChonkVerifier } from '@aztec/bb-prover';
@@ -20,8 +21,7 @@ import { corruptProofFields } from './batch_verifier_test_helpers.js';
 const execFileAsync = promisify(execFile);
 const logger = createLogger('ivc-integration:bench:batch-verifier');
 
-const PINNED_HASH = 'b99f5b94';
-const PINNED_URL = `https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${PINNED_HASH}.tar.gz`;
+const INPUTS_DIR = resolve('../end-to-end/example-app-ivc-inputs-out');
 const BB_PATH = process.env.BB_BINARY_PATH ?? resolve('../../barretenberg/cpp/build/bin/bb');
 
 jest.setTimeout(1_200_000); // 20 min — proving is slow
@@ -41,26 +41,22 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
   let validProofFields: Uint8Array[];
   let invalidProofFields: Uint8Array[];
   let vk: Uint8Array;
-  let inputsDir: string;
+  let proofDir: string;
   const benchResults: BenchEntry[] = [];
 
   beforeAll(async () => {
-    // Download pinned IVC inputs
-    inputsDir = resolve(tmpdir(), `bb-bench-inputs-${Date.now()}`);
-    await mkdir(inputsDir, { recursive: true });
-    logger.info(`Downloading pinned IVC inputs from ${PINNED_URL}...`);
-    await execFileAsync('curl', ['-sf', PINNED_URL, '-o', `${inputsDir}/inputs.tar.gz`]);
-    await execFileAsync('tar', ['-xzf', `${inputsDir}/inputs.tar.gz`, '-C', inputsDir]);
+    // Use pre-generated IVC inputs from example-app-ivc-inputs-out
+    logger.info(`Using local IVC inputs from ${INPUTS_DIR}...`);
 
     // Pick the largest flow for a realistic proof
-    const flows = await readdir(inputsDir, { withFileTypes: true });
+    const flows = await readdir(INPUTS_DIR, { withFileTypes: true });
     const flowDirs = flows.filter(f => f.isDirectory()).map(f => f.name);
     logger.info(`Available flows: ${flowDirs.join(', ')}`);
 
     // Use a transfer flow (representative of typical txs)
     const flow = flowDirs.find(f => f.includes('transfer_0_recursions+sponsored')) ?? flowDirs[0];
-    const ivcInputsPath = resolve(inputsDir, flow, 'ivc-inputs.msgpack');
-    const proofDir = resolve(inputsDir, 'proof-out');
+    const ivcInputsPath = resolve(INPUTS_DIR, flow, 'ivc-inputs.msgpack');
+    proofDir = resolve(tmpdir(), `bb-bench-proof-${Date.now()}`);
     await mkdir(proofDir, { recursive: true });
 
     // Prove the flow
@@ -93,7 +89,7 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
         logger.info(`  ${r.name}: ${r.value.toFixed(1)} ${r.unit}`);
       }
     }
-    await rm(inputsDir, { recursive: true, force: true }).catch(() => {});
+    await rm(proofDir, { recursive: true, force: true }).catch(() => {});
   });
 
   // -- Core count sweep --
