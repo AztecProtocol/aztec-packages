@@ -66,10 +66,6 @@ sed -i -E 's/(uint256 constant CIRCUIT_SIZE = )[0-9]+;/\1{{ CIRCUIT_SIZE }};/' "
 sed -i -E 's/(uint256 constant LOG_N = )[0-9]+;/\1{{ LOG_CIRCUIT_SIZE }};/' "$TEMP_SOL"
 sed -i -E 's/(uint256 constant NUMBER_PUBLIC_INPUTS = )[0-9]+;/\1{{ NUM_PUBLIC_INPUTS }};/' "$TEMP_SOL"
 sed -i -E 's/(uint256 constant REAL_NUMBER_PUBLIC_INPUTS = )[0-9]+ - [0-9]+;/\1{{ REAL_NUM_PUBLIC_INPUTS }};/' "$TEMP_SOL"
-sed -i -E 's/(uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = )[0-9]+;/\1{{ NUMBER_OF_BARYCENTRIC_INVERSES }};/' "$TEMP_SOL"
-
-# Replace the for-loop comparison to use a template placeholder for CIRCUIT_SIZE
-sed -i -E 's/for \{\} gt\(bary_centric_inverses_off, SUM_U_CHALLENGE_14\) \{/for {} gt(bary_centric_inverses_off, SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}) \{/' "$TEMP_SOL"
 
 # Replace the contract name
 sed -i 's/contract BlakeOptHonkVerifier/contract HonkVerifier/' "$TEMP_SOL"
@@ -86,7 +82,7 @@ awk '
         gsub(/POWERS_OF_EVALUATION_CHALLENGE_14_LOC/, "POWERS_OF_EVALUATION_CHALLENGE_{{ LOG_N_MINUS_ONE }}_LOC")
         gsub(/SUM_U_CHALLENGE_14/, "SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}")
         gsub(/GEMINI_A_EVAL_14/, "GEMINI_A_EVAL_{{ LOG_N_MINUS_ONE }}")
-        gsub(/INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC/, "INVERTED_CHALLENEGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC")
+        gsub(/INVERTED_CHALLENGE_POW_MINUS_U_14_LOC/, "INVERTED_CHALLENGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC")
         gsub(/FOLD_POS_EVALUATIONS_14_LOC/, "FOLD_POS_EVALUATIONS_{{ LOG_N_MINUS_ONE }}_LOC")
         gsub(/mcopy\(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, 0x380\)/, "mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, {{ GEMINI_FOLD_UNIVARIATE_LENGTH }})")
         gsub(/prev_challenge := mod\(keccak256\(0x00, 0x3a0\), p\)/, "prev_challenge := mod(keccak256(0x00, {{ GEMINI_FOLD_UNIVARIATE_HASH_LENGTH }}), p)")
