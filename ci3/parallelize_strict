@@ -39,7 +39,7 @@ function wait_for_job {
   wait -n
   ret=$?
   if [ $ret -ne 0 ]; then
-    exit 1
+    failed=1
   fi
 }
 
@@ -72,14 +72,19 @@ function run_tests {
 }
 
 num_jobs=0
+failed=0
 
 # We'll handle errors explicitly.
 set +e
-run_tests | tee $output
+run_tests > >(tee $output) 2>&1
 
 # Loop to monitor jobs until one fails or all finish.
 while (( $(jobs -p | wc -l) > 0 )); do
-  wait_for_job
+  wait -n
+  ret=$?
+  if [ $ret -ne 0 ]; then
+    failed=1
+  fi
 done
 
 function filter_long_times {
@@ -97,3 +102,8 @@ if [ -n "$slow_jobs" ]; then
 fi
 
 echo "Completed run of $num_jobs tests in $SECONDS seconds."
+
+if [ "$failed" -ne 0 ]; then
+  echo -e "${red}WARNING: Some jobs failed during this run.${reset}"
+  exit 1
+fi

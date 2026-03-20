@@ -55,8 +55,9 @@ isolate_bench_cpus
 # Clean up old benchmark outputs to avoid confusion with new results.
 find . -type d -iname bench-out | xargs rm -rf
 
-# Run parallelizable benchmarks.
-cat $bench_cmds_file | grep -v ':PARALLEL=0' | STRICT_SCHEDULING=1 parallelize
+# Run parallelizable benchmarks (continue on failure to collect partial results).
+bench_failed=0
+cat $bench_cmds_file | grep -v ':PARALLEL=0' | STRICT_SCHEDULING=1 parallelize || bench_failed=1
 
 # Run serial benchmarks one at a time (for memory bandwidth / cache isolation).
 serial_cmds=$(cat $bench_cmds_file | grep ':PARALLEL=0' || true)
@@ -64,8 +65,12 @@ if [ -n "$serial_cmds" ]; then
   echo "Running serial benchmarks..."
   while IFS= read -r cmd; do
     [ -z "$cmd" ] && continue
-    run_test_cmd "$cmd"
+    run_test_cmd "$cmd" || bench_failed=1
   done <<< "$serial_cmds"
 fi
 
 unisolate_bench_cpus
+
+if [ "$bench_failed" -ne 0 ]; then
+  echo "WARNING: Some benchmarks failed. Partial results may be collected."
+fi
