@@ -9,7 +9,7 @@ import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/confi
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { IBatchRequestTxValidator } from '../reqresp/batch-tx-requester/tx_validator.js';
 import { type BlockTxsSource, ReqRespSubProtocol, chunkTxHashesRequest } from '../reqresp/index.js';
-import type { IMissingTxsTracker } from './missing_txs_tracker.js';
+import type { IRequestTracker } from './request_tracker.js';
 
 /**
  * Strategy interface for collecting missing transactions for a block or proposal.
@@ -18,17 +18,15 @@ import type { IMissingTxsTracker } from './missing_txs_tracker.js';
 export interface MissingTxsCollector {
   /**
    * Collect missing transactions for a block or proposal.
-   * @param missingTxsTracker - The missing transactions tracker
+   * @param requestTracker - The missing transactions tracker
    * @param blockTxsSource - The block or proposal containing the transactions
    * @param pinnedPeer - Optional peer expected to have the transactions
-   * @param timeoutMs - Timeout in milliseconds
    * @returns The collected transactions
    */
   collectTxs(
-    missingTxsTracker: IMissingTxsTracker,
+    requestTracker: IRequestTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    timeoutMs: number,
   ): Promise<Tx[]>;
 }
 
@@ -46,10 +44,9 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
   ) {}
 
   async collectTxs(
-    missingTxsTracker: IMissingTxsTracker,
+    requestTracker: IRequestTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    timeoutMs: number,
   ): Promise<Tx[]> {
     const {
       batchTxRequesterSmartParallelWorkerCount: smartParallelWorkerCount,
@@ -59,10 +56,9 @@ export class BatchTxRequesterCollector implements MissingTxsCollector {
     } = this.batchTxRequesterConfig ?? {};
 
     const batchRequester = new BatchTxRequester(
-      missingTxsTracker,
+      requestTracker,
       blockTxsSource,
       pinnedPeer,
-      timeoutMs,
       this.p2pService,
       this.log,
       this.dateProvider,
@@ -94,16 +90,15 @@ export class SendBatchRequestCollector implements MissingTxsCollector {
   ) {}
 
   async collectTxs(
-    missingTxsTracker: IMissingTxsTracker,
+    requestTracker: IRequestTracker,
     _blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
-    timeoutMs: number,
   ): Promise<Tx[]> {
     const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
       ReqRespSubProtocol.TX,
-      chunkTxHashesRequest(Array.from(missingTxsTracker.missingTxHashes).map(TxHash.fromString)),
+      chunkTxHashesRequest(Array.from(requestTracker.missingTxHashes).map(TxHash.fromString)),
       pinnedPeer,
-      timeoutMs,
+      requestTracker.timeoutMs,
       this.maxPeers,
       this.maxRetryAttempts,
     );

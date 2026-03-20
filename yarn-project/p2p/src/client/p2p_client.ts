@@ -669,32 +669,41 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   /**
-   * Returns true if the prune crossed a checkpoint boundary.
-   * If the old and new checkpoint numbers are the same, the prune is within a single checkpoint.
-   * If they differ, the prune spans across checkpoints (epoch prune).
+   * Returns true if the prune is an epoch prune (new checkpoint number is less than old).
+   * If the checkpoint number stays the same or increases, the prune is within a checkpoint.
    */
   private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
     const tips = await this.l2Tips.getL2Tips();
     const oldCheckpointNumber = tips.checkpointed.checkpoint.number;
-    if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
+    if (oldCheckpointNumber <= CheckpointNumber.INITIAL) {
       return false;
     }
     const newCheckpointNumber = newCheckpoint.number;
-    const isEpochPrune = oldCheckpointNumber !== newCheckpointNumber;
+    // We check that the new checkpoint number is less than the old checkpoint number in order to consider it an epoch prune.
+    // To be more certain that it is an epoch prune, we will check that at least 2 checkpoints were removed.
+    // This means we should avoid thinking checkpoints removed by L1 re-orgs are epoch prunes
+    const thresholdForEpochPrune = CheckpointNumber(oldCheckpointNumber - 2);
+    const isEpochPrune = newCheckpointNumber <= thresholdForEpochPrune;
     if (isEpochPrune) {
-      this.log.info(`Detected epoch prune to ${newCheckpointNumber}`, { oldCheckpointNumber, newCheckpointNumber });
+      this.log.info(`Detected epoch prune to ${newCheckpointNumber}`, {
+        oldCheckpointNumber,
+        newCheckpointNumber,
+        thresholdForEpochPrune,
+      });
     }
     return isEpochPrune;
   }
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */
   private async maybeCallPrepareForSlot(): Promise<void> {
-    const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
-    if (currentSlot <= this.lastSlotProcessed) {
+    // If we have a pending checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
+    // Knowledege of pending checkpoints is in the PR above
+    const { targetSlot } = this.epochCache.getTargetAndNextSlot();
+    if (targetSlot <= this.lastSlotProcessed) {
       return;
     }
-    this.lastSlotProcessed = currentSlot;
-    await this.txPool.prepareForSlot(currentSlot);
+    this.lastSlotProcessed = targetSlot;
+    await this.txPool.prepareForSlot(targetSlot);
   }
 
   private async startServiceIfSynched() {

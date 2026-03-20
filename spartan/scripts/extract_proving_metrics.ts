@@ -79,6 +79,7 @@ const config = parseArgs(process.argv);
 
 interface LogEntry {
   timestamp: string;
+  trace?: string;
   jsonPayload?: {
     message?: string;
     [key: string]: any;
@@ -88,7 +89,7 @@ interface LogEntry {
 
 function buildFilter(
   textFilter: string,
-  opts?: { module?: string; pod?: string },
+  opts?: { module?: string; pod?: string; trace?: string },
 ): string {
   const pod = opts?.pod ?? config.pod;
   let filter =
@@ -101,13 +102,16 @@ function buildFilter(
   if (opts?.module) {
     filter += ` AND jsonPayload.module="${opts.module}"`;
   }
+  if (opts?.trace) {
+    filter += ` AND trace="${opts.trace}"`;
+  }
   return filter;
 }
 
 async function queryLogs(
   name: string,
   textFilter: string,
-  opts?: { module?: string; pod?: string },
+  opts?: { module?: string; pod?: string; trace?: string },
 ): Promise<LogEntry[]> {
   const filter = buildFilter(textFilter, opts);
   const cmd = [
@@ -134,7 +138,7 @@ async function queryLogs(
 
 // ── Epoch auto-detection ─────────────────────────────────────────────────────
 
-async function scanForEpoch(): Promise<{ start: string; end: string }> {
+async function scanForEpoch(): Promise<{ start: string; end: string; trace?: string }> {
   process.stderr.write(
     `Scanning for epoch in ${config.start} to ${config.end}...\n\n`,
   );
@@ -151,6 +155,7 @@ async function scanForEpoch(): Promise<{ start: string; end: string }> {
     epoch: number;
     txCount: number;
     timestamp: string;
+    trace?: string;
   }[] = [];
   for (const entry of epochStarts) {
     const m = msg(entry);
@@ -163,6 +168,7 @@ async function scanForEpoch(): Promise<{ start: string; end: string }> {
         epoch: parseInt(epochMatch[1]),
         txCount: p.epochSizeTxs ?? 0,
         timestamp: entry.timestamp,
+        trace: entry.trace,
       });
     }
   }
@@ -178,7 +184,7 @@ async function scanForEpoch(): Promise<{ start: string; end: string }> {
       process.stderr.write(
         `Warning: epoch ${config.epoch} not found in scan window. Using full window.\n`,
       );
-      return { start: config.start, end: config.end };
+      return { start: config.start, end: config.end, trace: undefined };
     }
   } else {
     target = starts.find((s) => s.txCount >= 1);
@@ -186,12 +192,12 @@ async function scanForEpoch(): Promise<{ start: string; end: string }> {
       process.stderr.write(
         `Warning: no epoch with >=1 tx found in scan window. Using full window.\n`,
       );
-      return { start: config.start, end: config.end };
+      return { start: config.start, end: config.end, trace: undefined };
     }
   }
 
   process.stderr.write(
-    `Found epoch ${target.epoch} (${target.txCount} txs) at ${target.timestamp}\n`,
+    `Found epoch ${target.epoch} (${target.txCount} txs) at ${target.timestamp}${target.trace ? ` trace=${target.trace}` : ""}\n`,
   );
 
   // Find matching finalized entry
@@ -226,7 +232,7 @@ async function scanForEpoch(): Promise<{ start: string; end: string }> {
     `Narrowed window: ${narrowedStart} to ${narrowedEnd}\n\n`,
   );
 
-  return { start: narrowedStart, end: narrowedEnd };
+  return { start: narrowedStart, end: narrowedEnd, trace: target.trace };
 }
 
 // ── Pipeline order for proving job types ─────────────────────────────────────
@@ -249,11 +255,15 @@ const PIPELINE_ORDER = [
 
 // ── Query definitions ────────────────────────────────────────────────────────
 
-async function fetchAllData() {
+async function fetchAllData(trace?: string) {
   process.stderr.write(
     `Fetching logs for ${config.pod} in ${config.namespace}\n`,
   );
-  process.stderr.write(`Time range: ${config.start} to ${config.end}\n\n`);
+  process.stderr.write(`Time range: ${config.start} to ${config.end}\n`);
+  if (trace) {
+    process.stderr.write(`Trace filter: ${trace}\n`);
+  }
+  process.stderr.write("\n");
 
   const brokerPod = `${config.namespace}-prover-broker-0`;
 
@@ -268,15 +278,16 @@ async function fetchAllData() {
     brokerNewJobs,
     brokerCompleteJobs,
   ] = await Promise.all([
-    queryLogs("epoch-start", "Starting epoch.*proving job"),
-    queryLogs("blob-fields", "Blob fields per checkpoint"),
-    queryLogs("blob-batching", "Final blob batching"),
+    queryLogs("epoch-start", "Starting epoch.*proving job", { trace }),
+    queryLogs("blob-fields", "Blob fields per checkpoint", { trace }),
+    queryLogs("blob-batching", "Final blob batching", { trace }),
     queryLogs("starting-block", "Starting block", {
       module: "prover-client:orchestrator",
+      trace,
     }),
-    queryLogs("processed-txs", "Processed.*successful txs"),
-    queryLogs("adding-txs", "Adding.*transactions to block"),
-    queryLogs("epoch-finalized", "Finalized proof for epoch"),
+    queryLogs("processed-txs", "Processed.*successful txs", { trace }),
+    queryLogs("adding-txs", "Adding.*transactions to block", { trace }),
+    queryLogs("epoch-finalized", "Finalized proof for epoch", { trace }),
     queryLogs("broker-new-jobs", "New proving job", { pod: brokerPod }),
     queryLogs("broker-complete-jobs", "Proving job complete", {
       pod: brokerPod,
@@ -841,7 +852,7 @@ async function main() {
   config.start = scanResult.start;
   config.end = scanResult.end;
 
-  const data = await fetchAllData();
+  const data = await fetchAllData(scanResult.trace);
   const output = formatOutput(data);
   console.log(output);
 }

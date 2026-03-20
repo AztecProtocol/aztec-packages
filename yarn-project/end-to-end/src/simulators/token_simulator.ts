@@ -110,7 +110,7 @@ export class TokenSimulator {
         chunk(calls, 5).map(batch => new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress })),
       )
     )
-      .flat()
+      .flatMap(r => r.result)
       .map(r => r.result);
     expect(results[0]).toEqual(this.totalSupply);
 

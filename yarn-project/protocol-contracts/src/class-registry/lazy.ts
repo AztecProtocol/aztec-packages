@@ -4,8 +4,6 @@ import { makeProtocolContract } from '../make_protocol_contract.js';
 import type { ProtocolContract } from '../protocol_contract.js';
 
 export * from './contract_class_published_event.js';
-export * from './private_function_broadcasted_event.js';
-export * from './utility_function_broadcasted_event.js';
 
 let protocolContract: ProtocolContract;
 let protocolContractArtifact: ContractArtifact;

@@ -621,6 +621,8 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_TRANSFERS_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
+        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -645,6 +647,8 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
+        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -669,6 +673,8 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
+        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""

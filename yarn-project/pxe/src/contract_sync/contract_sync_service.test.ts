@@ -37,17 +37,19 @@ describe('ContractSyncService', () => {
       .mockResolvedValue(undefined);
 
     contractStore = mock<ContractStore>();
-    contractStore.getFunctionCall.mockResolvedValue(
-      FunctionCall.from({
-        name: 'sync_state',
-        to: contractAddress,
-        selector: FunctionSelector.empty(),
-        type: FunctionType.UTILITY,
-        hideMsgSender: false,
-        isStatic: false,
-        args: [],
-        returnTypes: [],
-      }),
+    contractStore.getFunctionCall.mockImplementation((_name, _args, address) =>
+      Promise.resolve(
+        FunctionCall.from({
+          name: 'sync_state',
+          to: address,
+          selector: FunctionSelector.empty(),
+          type: FunctionType.UTILITY,
+          hideMsgSender: false,
+          isStatic: false,
+          args: [],
+          returnTypes: [],
+        }),
+      ),
     );
     contractStore.getContractInstance.mockResolvedValue({
       currentContractClassId: classId,
@@ -123,14 +125,14 @@ describe('ContractSyncService', () => {
       expectSyncedScopes([scopeA], [scopeB]);
     });
 
-    it('skips sync for overridden contract in the same job', async () => {
-      service.setOverriddenContracts(jobId, new Set([contractAddress.toString()]));
+    it('skips sync for excluded contract in the same job', async () => {
+      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       expectNoSync();
     });
 
-    it('does not skip sync for overridden contract in a different job', async () => {
-      service.setOverriddenContracts('other-job', new Set([contractAddress.toString()]));
+    it('does not skip sync for excluded contract in a different job', async () => {
+      service.setExcludedFromSync('other-job', new Set([contractAddress.toString()]));
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       expectSyncedScopes([scopeA]);
     });
@@ -178,12 +180,12 @@ describe('ContractSyncService', () => {
   });
 
   describe('commit', () => {
-    it('clears overrides for the given job', async () => {
-      service.setOverriddenContracts(jobId, new Set([contractAddress.toString()]));
+    it('clears exclusions for the given job', async () => {
+      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
       await service.commit(jobId);
 
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      // When overrides are set, contract sync is skipped. We verify the overrides were cleared by confirming that sync
+      // When exclusions are set, contract sync is skipped. We verify the exclusions were cleared by confirming that sync
       // was actually triggered.
       expectSyncedScopes([scopeA]);
     });
@@ -206,30 +208,140 @@ describe('ContractSyncService', () => {
       expectSyncedScopes([scopeA], [scopeA]);
     });
 
-    it('clears overrides for the given job', async () => {
-      service.setOverriddenContracts(jobId, new Set([contractAddress.toString()]));
+    it('clears exclusions for the given job', async () => {
+      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
       await service.discardStaged(jobId);
 
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      // When overrides are set, contract sync is skipped. We verify the overrides were cleared by confirming that sync
+      // When exclusions are set, contract sync is skipped. We verify the exclusions were cleared by confirming that sync
       // was actually triggered.
       expectSyncedScopes([scopeA]);
     });
 
-    it('preserves overrides for other jobs', async () => {
-      service.setOverriddenContracts(jobId, new Set([contractAddress.toString()]));
-      service.setOverriddenContracts('other-job', new Set([contractAddress.toString()]));
+    it('preserves exclusions for other jobs', async () => {
+      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
+      service.setExcludedFromSync('other-job', new Set([contractAddress.toString()]));
       await service.discardStaged(jobId);
 
-      // jobId override cleared, sync proceeds
+      // jobId exclusion cleared, sync proceeds
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       expectSyncedScopes([scopeA]);
 
-      // other-job override still active, sync skipped
+      // other-job exclusion still active, sync skipped
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, 'other-job', [
         scopeA,
       ]);
       expectSyncedScopes([scopeA]);
+    });
+  });
+
+  describe('invalidateContractForScopes', () => {
+    const contract2 = AztecAddress.fromBigInt(300n);
+
+    it('only invalidates the targeted scope', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      expectSyncedScopes([scopeA, scopeB]);
+
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
+
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      // Only scopeA should be re-synced, scopeB is still cached.
+      expectSyncedScopes([scopeA, scopeB], [scopeA]);
+    });
+
+    it('invalidates multiple scopes at once', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      expectSyncedScopes([scopeA, scopeB]);
+
+      service.invalidateContractForScopes(contractAddress, [scopeA, scopeB]);
+
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      // Both scopes should be re-synced.
+      expectSyncedScopes([scopeA, scopeB], [scopeA, scopeB]);
+    });
+
+    it('also invalidates the ALL_SCOPES entry', async () => {
+      // Sync ALL_SCOPES -- covers every account.
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES');
+
+      // Syncing scopeA is a no-op because ALL_SCOPES already covers it.
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectSyncedScopes('ALL_SCOPES');
+
+      // Invalidate scopeA -- this should also clear the ALL_SCOPES entry.
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
+
+      // Now syncing scopeA triggers a re-sync.
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectSyncedScopes('ALL_SCOPES', [scopeA]);
+
+      // And syncing ALL_SCOPES also triggers a re-sync since it was invalidated too.
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES', [scopeA], 'ALL_SCOPES');
+    });
+
+    it('empty scopes is a no-op', async () => {
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES');
+
+      service.invalidateContractForScopes(contractAddress, []);
+
+      // ALL_SCOPES should still be cached since no scopes were invalidated.
+      await service.ensureContractSynced(
+        contractAddress,
+        null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId,
+        'ALL_SCOPES',
+      );
+      expectSyncedScopes('ALL_SCOPES');
+    });
+
+    it('does not affect other contracts', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectSyncedContracts([contractAddress, [scopeA]], [contract2, [scopeA]]);
+
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
+
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectSyncedContracts([contractAddress, [scopeA]], [contract2, [scopeA]], [contractAddress, [scopeA]]);
     });
   });
 
@@ -239,6 +351,16 @@ describe('ContractSyncService', () => {
     for (let i = 0; i < expectedScopes.length; i++) {
       const [, actualScopes] = utilityExecutor.mock.calls[i];
       expect(actualScopes).toEqual(expectedScopes[i]);
+    }
+  };
+
+  /** Asserts the utility executor was called exactly with the given sequence of [contractAddress, scopes] pairs. */
+  const expectSyncedContracts = (...expected: [AztecAddress, AccessScopes][]) => {
+    expect(utilityExecutor).toHaveBeenCalledTimes(expected.length);
+    for (let i = 0; i < expected.length; i++) {
+      const [call, actualScopes] = utilityExecutor.mock.calls[i];
+      expect(call.to).toEqual(expected[i][0]);
+      expect(actualScopes).toEqual(expected[i][1]);
     }
   };
 

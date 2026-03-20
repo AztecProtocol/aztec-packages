@@ -137,3 +137,35 @@ export async function createLocalSignerWithProtection(
 
   return { signer, db };
 }
+
+/**
+ * Create an in-memory LMDB-backed SlashingProtectionDatabase that can be shared across
+ * multiple validator nodes in the same process. Used for testing HA setups.
+ */
+export async function createSharedSlashingProtectionDb(
+  dateProvider: DateProvider = new DateProvider(),
+): Promise<SlashingProtectionDatabase> {
+  const kvStore = await createStore('shared-signing-protection', LmdbSlashingProtectionDatabase.SCHEMA_VERSION, {
+    dataStoreMapSizeKb: 1024 * 1024,
+  });
+  return new LmdbSlashingProtectionDatabase(kvStore, dateProvider);
+}
+
+/**
+ * Create a ValidatorHASigner backed by a pre-existing SlashingProtectionDatabase.
+ * Used for testing HA setups where multiple nodes share the same protection database.
+ */
+export function createSignerFromSharedDb(
+  db: SlashingProtectionDatabase,
+  config: Pick<
+    ValidatorHASignerConfig,
+    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'l1Contracts'
+  >,
+  deps?: CreateLocalSignerWithProtectionDeps,
+): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {
+  const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
+  const dateProvider = deps?.dateProvider ?? new DateProvider();
+  const metrics = new HASignerMetrics(telemetryClient, config.nodeId, 'SharedSigningProtectionMetrics');
+  const signer = new ValidatorHASigner(db, config, { metrics, dateProvider });
+  return { signer, db };
+}

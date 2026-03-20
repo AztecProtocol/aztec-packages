@@ -439,17 +439,6 @@ function bench_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
 
-function build_bench {
-  # TODO bench for arm64.
-  if [ $(arch) == arm64 ]; then
-    return
-  fi
-  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
-    barretenberg/cpp \
-    yarn-project/end-to-end
-}
-export -f build_bench
-
 function bench_merge {
   find . -path "*/bench-out/*.bench.json" -type f -print0 | \
   xargs -0 -I{} bash -c '
@@ -467,8 +456,6 @@ function bench {
     return
   fi
   echo_header "bench all"
-  build_bench
-
   bench_cmds > $bench_cmds_file
   denoise "bench_engine $bench_cmds_file"
 
@@ -830,8 +817,24 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build release
-    release
+    if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
+      echo_header "Private fork release: $REF_NAME"
+      echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
+      release_github
+      echo "Fetching private source from aztec-packages-private..."
+      git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
+      git fetch --depth 1 private "refs/tags/$REF_NAME"
+      git worktree add aztec-private FETCH_HEAD
+      cd aztec-private
+      echo "Initializing submodules in private worktree..."
+      git submodule update --init --recursive
+      echo "Private worktree ready at $(pwd) (HEAD=$(git rev-parse --short HEAD)). Cache uploads disabled."
+      export NO_CACHE_UPLOAD=1
+      # Unset so child bootstrap.sh re-derives these from the worktree.
+      unset COMMIT_HASH root
+    fi
+    ./bootstrap.sh build release
+    ./bootstrap.sh release
     ;;
 
   ##########################
@@ -840,7 +843,7 @@ case "$cmd" in
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1
-    BOOTSTRAP_TO=yarn-project ./bootstrap.sh
+    ./bootstrap.sh build yarn-project
     docs/bootstrap.sh ci
     ;;
   "ci-barretenberg-debug")
@@ -848,7 +851,7 @@ case "$cmd" in
     export NATIVE_PRESET=debug
     export AVM=0
     export AVM_TRANSPILER=0
-    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg")
     export CI=1
@@ -859,13 +862,13 @@ case "$cmd" in
     ;;
   "ci-barretenberg-full")
     export CI=1
+    export CI_FULL=1
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
-    barretenberg/cpp/bootstrap.sh build_bench
     ;;
 
   #######################

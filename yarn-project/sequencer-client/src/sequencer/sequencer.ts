@@ -192,10 +192,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
-    const { slot, ts, now, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
-    const checkpointProposalJob = await this.prepareCheckpointProposal(epoch, slot, ts, now);
+    const checkpointProposalJob = await this.prepareCheckpointProposal(
+      slot,
+      targetSlot,
+      epoch,
+      targetEpoch,
+      ts,
+      nowSeconds,
+    );
     if (!checkpointProposalJob) {
       return;
     }
@@ -208,13 +216,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.lastCheckpointProposed = checkpoint;
     }
 
-    // Log fee strategy comparison if on fisherman
+    // Log fee strategy comparison if on fisherman (uses target epoch since we mirror the proposer's perspective)
     if (
       this.config.fishermanMode &&
-      (this.lastEpochForStrategyComparison === undefined || epoch > this.lastEpochForStrategyComparison)
+      (this.lastEpochForStrategyComparison === undefined || targetEpoch > this.lastEpochForStrategyComparison)
     ) {
-      this.logStrategyComparison(epoch, checkpointProposalJob.getPublisher());
-      this.lastEpochForStrategyComparison = epoch;
+      this.logStrategyComparison(targetEpoch, checkpointProposalJob.getPublisher());
+      this.lastEpochForStrategyComparison = targetEpoch;
     }
 
     return checkpoint;
@@ -227,43 +235,48 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   @trackSpan('Sequencer.prepareCheckpointProposal')
   private async prepareCheckpointProposal(
-    epoch: EpochNumber,
     slot: SlotNumber,
+    targetSlot: SlotNumber,
+    epoch: EpochNumber,
+    targetEpoch: EpochNumber,
     ts: bigint,
-    now: bigint,
+    nowSeconds: bigint,
   ): Promise<CheckpointProposalJob | undefined> {
-    // Check we have not already processed this slot (cheapest check)
+    // Check we have not already processed this target slot (cheapest check)
     // We only check this if enforce timetable is set, since we want to keep processing the same slot if we are not
     // running against actual time (eg when we use sandbox-style automining)
     if (
       this.lastSlotForCheckpointProposalJob &&
-      this.lastSlotForCheckpointProposalJob >= slot &&
+      this.lastSlotForCheckpointProposalJob >= targetSlot &&
       this.config.enforceTimeTable
     ) {
-      this.log.trace(`Slot ${slot} has already been processed`);
+      this.log.trace(`Target slot ${targetSlot} has already been processed`);
       return undefined;
     }
 
-    // But if we have already proposed for this slot, the we definitely have to skip it, automining or not
-    if (this.lastCheckpointProposed && this.lastCheckpointProposed.header.slotNumber >= slot) {
-      this.log.trace(`Slot ${slot} has already been published as checkpoint ${this.lastCheckpointProposed.number}`);
+    // But if we have already proposed for this slot, then we definitely have to skip it, automining or not
+    if (this.lastCheckpointProposed && this.lastCheckpointProposed.header.slotNumber >= targetSlot) {
+      this.log.trace(
+        `Slot ${targetSlot} has already been published as checkpoint ${this.lastCheckpointProposed.number}`,
+      );
       return undefined;
     }
 
     // Check all components are synced to latest as seen by the archiver (queries all subsystems)
     const syncedTo = await this.checkSync({ ts, slot });
     if (!syncedTo) {
-      await this.tryVoteWhenSyncFails({ slot, ts });
+      await this.tryVoteWhenSyncFails({ slot, targetSlot, ts });
       return undefined;
     }
 
-    // If escape hatch is open for this epoch, do not start checkpoint proposal work and do not attempt invalidations.
+    // If escape hatch is open for the target epoch, do not start checkpoint proposal work and do not attempt invalidations.
     // Still perform governance/slashing voting (as proposer) once per slot.
-    const isEscapeHatchOpen = await this.epochCache.isEscapeHatchOpen(epoch);
+    // When pipelining, we check the target epoch (slot+1's epoch) since that's the epoch we're building for.
+    const isEscapeHatchOpen = await this.epochCache.isEscapeHatchOpen(targetEpoch);
 
     if (isEscapeHatchOpen) {
       this.setState(SequencerState.PROPOSER_CHECK, slot);
-      const [canPropose, proposer] = await this.checkCanPropose(slot);
+      const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
       if (canPropose) {
         await this.tryVoteWhenEscapeHatchOpen({ slot, proposer });
       } else {
@@ -280,17 +293,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 
     const logCtx = {
-      now,
+      nowSeconds,
       syncedToL2Slot: syncedTo.syncedL2Slot,
       slot,
+      targetSlot,
       slotTs: ts,
       checkpointNumber,
       isPendingChainValid: pick(syncedTo.pendingChainValidationStatus, 'valid', 'reason', 'invalidIndex'),
     };
 
-    // Check that we are a proposer for the next slot
+    // Check that we are a proposer for the target slot.
     this.setState(SequencerState.PROPOSER_CHECK, slot);
-    const [canPropose, proposer] = await this.checkCanPropose(slot);
+    const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
 
     // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
     if (!canPropose) {
@@ -298,10 +312,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // Check that the slot is not taken by a block already (should never happen, since only us can propose for this slot)
-    if (syncedTo.blockData && syncedTo.blockData.header.getSlot() >= slot) {
+    // Check that the target slot is not taken by a block already (should never happen, since only us can propose for this slot)
+    if (syncedTo.blockData && syncedTo.blockData.header.getSlot() >= targetSlot) {
       this.log.warn(
-        `Cannot propose block at next L2 slot ${slot} since that slot was taken by block ${syncedTo.blockNumber}`,
+        `Cannot propose block at target slot ${targetSlot} since that slot was taken by block ${syncedTo.blockNumber}`,
         { ...logCtx, block: syncedTo.blockData.header.toInspect() },
       );
       this.metrics.recordCheckpointPrecheckFailed('slot_already_taken');
@@ -325,13 +339,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
     const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
-    // Check with the rollup contract if we can indeed propose at the next L2 slot. This check should not fail
+    // Check with the rollup contract if we can indeed propose at the target slot. This check should not fail
     // if all the previous checks are good, but we do it just in case.
-    const canProposeCheck = await publisher.canProposeAtNextEthBlock(
-      syncedTo.archive,
-      proposer ?? EthAddress.ZERO,
-      invalidateCheckpoint,
-    );
+    const canProposeCheck = await publisher.canProposeAt(syncedTo.archive, proposer ?? EthAddress.ZERO, {
+      ...invalidateCheckpoint,
+    });
 
     if (canProposeCheck === undefined) {
       this.log.warn(
@@ -343,10 +355,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    if (canProposeCheck.slot !== slot) {
+    if (canProposeCheck.slot !== targetSlot) {
       this.log.warn(
-        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${canProposeCheck.slot}.`,
-        { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
+        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${targetSlot} but got ${canProposeCheck.slot}.`,
+        { ...logCtx, rollup: canProposeCheck, expectedSlot: targetSlot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch', slot });
       this.metrics.recordCheckpointPrecheckFailed('slot_mismatch');
@@ -363,14 +375,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    this.lastSlotForCheckpointProposalJob = slot;
-    await this.p2pClient.prepareForSlot(slot);
-    this.log.info(`Preparing checkpoint proposal ${checkpointNumber} at slot ${slot}`, { ...logCtx, proposer });
+    this.lastSlotForCheckpointProposalJob = targetSlot;
+
+    await this.p2pClient.prepareForSlot(targetSlot);
+    this.log.info(
+      `Preparing checkpoint proposal ${checkpointNumber} for target slot ${targetSlot} during wall-clock slot ${slot}`,
+      {
+        ...logCtx,
+        proposer,
+        pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
+      },
+    );
 
     // Create and return the checkpoint proposal job
     return this.createCheckpointProposalJob(
-      epoch,
       slot,
+      targetSlot,
+      epoch,
+      targetEpoch,
       checkpointNumber,
       syncedTo.blockNumber,
       proposer,
@@ -381,8 +403,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   protected createCheckpointProposalJob(
-    epoch: EpochNumber,
     slot: SlotNumber,
+    targetSlot: SlotNumber,
+    epoch: EpochNumber,
+    targetEpoch: EpochNumber,
     checkpointNumber: CheckpointNumber,
     syncedToBlockNumber: BlockNumber,
     proposer: EthAddress | undefined,
@@ -391,8 +415,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
-      epoch,
       slot,
+      targetSlot,
+      epoch,
+      targetEpoch,
       checkpointNumber,
       syncedToBlockNumber,
       proposer,
@@ -475,8 +501,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<SequencerSyncCheckResult | undefined> {
     // Check that the archiver has fully synced the L2 slot before the one we want to propose in.
-    // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
-    // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
+    // The archiver reports sync progress via L1 block timestamps and synced checkpoint slots.
+    // See getSyncedL2SlotNumber for how missed L1 blocks are handled.
     const syncedL2Slot = await this.l2BlockSource.getSyncedL2SlotNumber();
     const { slot } = args;
     if (syncedL2Slot === undefined || syncedL2Slot + 1 < slot) {
@@ -548,20 +574,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Checks if we are the proposer for the next slot.
    * @returns True if we can propose, and the proposer address (undefined if anyone can propose)
    */
-  protected async checkCanPropose(slot: SlotNumber): Promise<[boolean, EthAddress | undefined]> {
+  protected async checkCanPropose(targetSlot: SlotNumber): Promise<[boolean, EthAddress | undefined]> {
     let proposer: EthAddress | undefined;
 
     try {
-      proposer = await this.epochCache.getProposerAttesterAddressInSlot(slot);
+      proposer = await this.epochCache.getProposerAttesterAddressInSlot(targetSlot);
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        if (this.lastSlotForNoCommitteeWarning !== slot) {
-          this.lastSlotForNoCommitteeWarning = slot;
-          this.log.warn(`Cannot propose at next L2 slot ${slot} since the committee does not exist on L1`);
+        if (this.lastSlotForNoCommitteeWarning !== targetSlot) {
+          this.lastSlotForNoCommitteeWarning = targetSlot;
+          this.log.warn(`Cannot propose at target slot ${targetSlot} since the committee does not exist on L1`);
         }
         return [false, undefined];
       }
-      this.log.error(`Error getting proposer for slot ${slot}`, e);
+      this.log.error(`Error getting proposer for target slot ${targetSlot}`, e);
       return [false, undefined];
     }
 
@@ -578,10 +604,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const weAreProposer = validatorAddresses.some(addr => addr.equals(proposer));
 
     if (!weAreProposer) {
-      this.log.debug(`Cannot propose at slot ${slot} since we are not a proposer`, { validatorAddresses, proposer });
+      this.log.debug(`Cannot propose at target slot ${targetSlot} since we are not a proposer`, {
+        targetSlot,
+        validatorAddresses,
+        proposer,
+      });
       return [false, proposer];
     }
 
+    this.log.debug(`We are the proposer for target slot ${targetSlot}`, { targetSlot, proposer });
     return [true, proposer];
   }
 
@@ -590,8 +621,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
    */
   @trackSpan('Seqeuencer.tryVoteWhenSyncFails', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
-  protected async tryVoteWhenSyncFails(args: { slot: SlotNumber; ts: bigint }): Promise<void> {
-    const { slot } = args;
+  protected async tryVoteWhenSyncFails(args: { slot: SlotNumber; targetSlot: SlotNumber; ts: bigint }): Promise<void> {
+    const { slot, targetSlot } = args;
 
     // Prevent duplicate attempts in the same slot
     if (this.lastSlotForFallbackVote === slot) {
@@ -619,7 +650,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     // Check if we're a proposer or proposal is open
-    const [canPropose, proposer] = await this.checkCanPropose(slot);
+    const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
     if (!canPropose) {
       this.log.trace(`Cannot vote in slot ${slot} since we are not a proposer`, { slot, proposer });
       return;
@@ -636,9 +667,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     });
 
-    // Enqueue governance and slashing votes
+    // Enqueue governance and slashing votes (voter uses the target slot for L1 submission)
     const voter = new CheckpointVoter(
-      slot,
+      targetSlot,
       publisher,
       attestorAddress,
       this.validatorClient,

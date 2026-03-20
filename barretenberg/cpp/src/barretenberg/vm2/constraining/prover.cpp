@@ -101,7 +101,7 @@ void AvmProver::execute_wire_commitments_round()
     // logderivative phase)
     auto batch = commitment_key.start_batch();
     for (const auto& [poly, label] : zip_view(prover_polynomials.get_wires(), prover_polynomials.get_wires_labels())) {
-        batch.add_to_batch(poly, label, /*mask=*/false);
+        batch.add_to_batch(poly, label);
     }
     batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
@@ -145,7 +145,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
     for (auto [derived_poly, label] :
          zip_view(prover_polynomials.get_derived(), prover_polynomials.get_derived_labels())) {
 
-        batch.add_to_batch(derived_poly, label, /*mask=*/false);
+        batch.add_to_batch(derived_poly, label);
     }
     batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }

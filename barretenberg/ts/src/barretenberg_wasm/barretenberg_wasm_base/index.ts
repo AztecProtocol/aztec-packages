@@ -5,7 +5,7 @@ import { randomBytes } from '../../random/index.js';
  * Contains code that is common to the "main thread" implementation and the "child thread" implementation.
  */
 export class BarretenbergWasmBase {
-  protected memStore: { [key: string]: Uint8Array } = {};
+
   protected memory!: WebAssembly.Memory;
   protected instance!: WebAssembly.Instance;
   protected logger: (msg: string) => void = () => {};
@@ -53,26 +53,6 @@ export class BarretenbergWasmBase {
         throw_or_abort_impl: (addr: number) => {
           const str = this.stringFromAddress(addr);
           throw new Error(str);
-        },
-
-        get_data: (keyAddr: number, outBufAddr: number) => {
-          const key = this.stringFromAddress(keyAddr);
-          outBufAddr = outBufAddr >>> 0;
-          const data = this.memStore[key];
-          if (!data) {
-            this.logger(`get_data miss ${key}`);
-            return;
-          }
-          // this.logger(`get_data hit ${key} size: ${data.length} dest: ${outBufAddr}`);
-          // this.logger(Buffer.from(data.slice(0, 64)).toString('hex'));
-          this.writeMemory(outBufAddr, data);
-        },
-
-        set_data: (keyAddr: number, dataAddr: number, dataLength: number) => {
-          const key = this.stringFromAddress(keyAddr);
-          dataAddr = dataAddr >>> 0;
-          this.memStore[key] = this.getMemorySlice(dataAddr, dataAddr + dataLength);
-          // this.logger(`set_data: ${key} length: ${dataLength}`);
         },
 
         memory,

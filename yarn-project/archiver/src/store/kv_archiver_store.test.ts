@@ -7,7 +7,6 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
@@ -25,6 +24,7 @@ import {
 import { Checkpoint, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublic,
+  type ContractClassPublicWithCommitment,
   type ContractInstanceWithAddress,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
@@ -32,11 +32,7 @@ import {
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import { ContractClassLog, LogId } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import {
-  makeContractClassPublic,
-  makeExecutablePrivateFunctionWithMembershipProof,
-  makeUtilityFunctionWithMembershipProof,
-} from '@aztec/stdlib/testing';
+import { makeContractClassPublic } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -78,6 +74,13 @@ async function addProposedBlocks(
     result = (await store.addProposedBlock(block, opts)) && result;
   }
   return result;
+}
+
+async function withCommitment(contractClass: ContractClassPublic): Promise<ContractClassPublicWithCommitment> {
+  return {
+    ...contractClass,
+    publicBytecodeCommitment: await computePublicBytecodeCommitment(contractClass.packedBytecode),
+  };
 }
 
 describe('KVArchiverDataStore', () => {
@@ -1787,19 +1790,146 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
-  it('deleteLogs', async () => {
-    const block = publishedCheckpoints[0].checkpoint.blocks[0];
-    await store.addProposedBlock(block);
-    await expect(store.addLogs([block])).resolves.toEqual(true);
+  describe('deleteLogs', () => {
+    it('deletes public logs for a block', async () => {
+      const block = publishedCheckpoints[0].checkpoint.blocks[0];
+      await store.addProposedBlock(block);
+      await expect(store.addLogs([block])).resolves.toEqual(true);
 
-    expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
-      block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
-    );
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
+        block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
+      );
 
-    // This one is a pain for memory as we would never want to just delete memory in the middle.
-    await store.deleteLogs([block]);
+      await store.deleteLogs([block]);
 
-    expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+    });
+
+    it('deletes contract class logs for a block', async () => {
+      // Create a block that explicitly has contract class logs
+      const block = await L2Block.random(BlockNumber(1), {
+        txsPerBlock: 2,
+        txOptions: { numContractClassLogs: 1 },
+        state: makeStateForBlock(1, 2),
+      });
+      await store.addProposedBlock(block);
+      await store.addLogs([block]);
+
+      const logsBefore = await store.getContractClassLogs({ fromBlock: BlockNumber(1) });
+      expect(logsBefore.logs.length).toBeGreaterThan(0);
+
+      await store.deleteLogs([block]);
+
+      const logsAfter = await store.getContractClassLogs({ fromBlock: BlockNumber(1) });
+      expect(logsAfter.logs.length).toEqual(0);
+    });
+
+    it('retains private logs from non-reorged block when same tag appears in reorged block', async () => {
+      const sharedTag = makePrivateLogTag(1, 0, 0);
+
+      // Block 1 with a private log using sharedTag
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 1 },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      // Block 2 with a private log using the SAME tag
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 1 },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+      // Override block2's private log tag to match block1's
+      block2.body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Both blocks' logs should be present
+      const logsBefore = await store.getPrivateLogsByTags([sharedTag]);
+      expect(logsBefore[0]).toHaveLength(2);
+
+      // Reorg: delete block 2
+      await store.deleteLogs([block2]);
+
+      // Block 1's log should still be present
+      const logsAfter = await store.getPrivateLogsByTags([sharedTag]);
+      expect(logsAfter[0]).toHaveLength(1);
+      expect(logsAfter[0][0].blockNumber).toEqual(1);
+    });
+
+    it('retains public logs from non-reorged block when same tag appears in reorged block', async () => {
+      const contractAddress = AztecAddress.fromNumber(543254);
+      const sharedTag = makePublicLogTag(1, 0, 0);
+
+      // Block 1 with a public log using sharedTag
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      // Block 2 with a public log using the SAME tag from the same contract
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+      // Override block2's public log tag to match block1's
+      block2.body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Both blocks' logs should be present
+      const logsBefore = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(logsBefore[0]).toHaveLength(2);
+
+      // Reorg: delete block 2
+      await store.deleteLogs([block2]);
+
+      // Block 1's log should still be present
+      const logsAfter = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(logsAfter[0]).toHaveLength(1);
+      expect(logsAfter[0][0].blockNumber).toEqual(1);
+    });
+
+    it('deletes multiple blocks at once', async () => {
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx: 1 },
+        publicLogs: { numLogsPerTx: 1 },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx: 1 },
+        publicLogs: { numLogsPerTx: 1 },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Verify logs exist
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toBeGreaterThan(0);
+
+      // Delete both blocks at once
+      await store.deleteLogs([block1, block2]);
+
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+    });
+
+    it('is a no-op when deleting blocks with no logs', async () => {
+      const block = publishedCheckpoints[0].checkpoint.blocks[0];
+      // Don't add logs, just try to delete
+      await expect(store.deleteLogs([block])).resolves.toEqual(true);
+    });
   });
 
   describe('getTxEffect', () => {
@@ -2224,11 +2354,7 @@ describe('KVArchiverDataStore', () => {
 
     beforeEach(async () => {
       contractClass = await makeContractClassPublic();
-      await store.addContractClasses(
-        [contractClass],
-        [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
-        BlockNumber(blockNum),
-      );
+      await store.addContractClasses([await withCommitment(contractClass)], BlockNumber(blockNum));
     });
 
     it('returns previously stored contract class', async () => {
@@ -2240,48 +2366,19 @@ describe('KVArchiverDataStore', () => {
       await expect(store.getContractClass(contractClass.id)).resolves.toBeUndefined();
     });
 
-    it('returns contract class if later "deployment" class was deleted', async () => {
-      await store.addContractClasses(
-        [contractClass],
-        [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
-        BlockNumber(blockNum + 1),
-      );
+    it('throws if the same contract class is added again', async () => {
+      await expect(
+        store.addContractClasses([await withCommitment(contractClass)], BlockNumber(blockNum + 1)),
+      ).rejects.toThrow(/already exists/);
+    });
+
+    it('returns contract class if deleted at a later block number', async () => {
       await store.deleteContractClasses([contractClass], BlockNumber(blockNum + 1));
       await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
     });
 
     it('returns undefined if contract class is not found', async () => {
       await expect(store.getContractClass(Fr.random())).resolves.toBeUndefined();
-    });
-
-    it('adds new private functions', async () => {
-      const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, fns, []);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.privateFunctions).toEqual(fns);
-    });
-
-    it('does not duplicate private functions', async () => {
-      const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, fns.slice(0, 1), []);
-      await store.addFunctions(contractClass.id, fns, []);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.privateFunctions).toEqual(fns);
-    });
-
-    it('adds new utility functions', async () => {
-      const fns = times(3, makeUtilityFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, [], fns);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.utilityFunctions).toEqual(fns);
-    });
-
-    it('does not duplicate utility functions', async () => {
-      const fns = times(3, makeUtilityFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
-      await store.addFunctions(contractClass.id, [], fns);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.utilityFunctions).toEqual(fns);
     });
   });
 
@@ -2997,6 +3094,24 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
+    it('"tag" filter param is respected', async () => {
+      // Get a random tag from the logs
+      const targetBlockIndex = randomInt(numBlocksForPublicLogs);
+      const targetBlock = publishedCheckpoints[targetBlockIndex].checkpoint.blocks[0];
+      const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
+      const targetLogIndex = randomInt(getPublicLogsPerTx(targetBlock, targetTxIndex));
+      const targetTag = targetBlock.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].fields[0];
+
+      const response = await store.getPublicLogs({ tag: targetTag });
+
+      expect(response.maxLogsHit).toBeFalsy();
+      expect(response.logs.length).toBeGreaterThan(0);
+
+      for (const extendedLog of response.logs) {
+        expect(extendedLog.log.fields[0].equals(targetTag)).toBeTruthy();
+      }
+    });
+
     it('"afterLog" filter param is respected', async () => {
       // Get a random log as reference
       const targetBlockIndex = randomInt(numBlocksForPublicLogs);
@@ -3032,13 +3147,13 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
-    it('"txHash" filter param is ignored when "afterLog" is set', async () => {
-      // Get random txHash
+    it('"txHash" filter param is respected when "afterLog" is set', async () => {
+      // A random txHash should match nothing, even with afterLog set
       const txHash = TxHash.random();
       const afterLog = new LogId(BlockNumber(1), BlockHash.random(), TxHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
-      expect(response.logs.length).toBeGreaterThan(1);
+      expect(response.logs.length).toBe(0);
     });
 
     it('intersecting works', async () => {
@@ -3286,28 +3401,19 @@ describe('KVArchiverDataStore', () => {
       expect(storedBlock?.archive.root.equals(provisionalBlock.archive.root)).toBe(true);
     });
 
-    it('does not throw when adding the same contract class twice', async () => {
+    it('throws when adding the same contract class twice', async () => {
       const contractClass = await makeContractClassPublic();
-      const commitment = await computePublicBytecodeCommitment(contractClass.packedBytecode);
+      const contractClassWithCommitment = await withCommitment(contractClass);
 
-      // Add contract class first time
-      await store.addContractClasses([contractClass], [commitment], BlockNumber(1));
-
-      // Add same contract class again - should not throw (uses setIfNotExists)
-      await store.addContractClasses([contractClass], [commitment], BlockNumber(2));
-
-      // Verify contract class exists
-      const retrieved = await store.getContractClass(contractClass.id);
-      expect(retrieved).toBeDefined();
+      await store.addContractClasses([contractClassWithCommitment], BlockNumber(1));
+      await expect(store.addContractClasses([contractClassWithCommitment], BlockNumber(2))).rejects.toThrow(
+        /already exists/,
+      );
     });
 
-    it('does not throw when adding the same contract instance twice', async () => {
+    it('throws when adding the same contract instance twice', async () => {
       const contractClass = await makeContractClassPublic();
-      await store.addContractClasses(
-        [contractClass],
-        [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
-        BlockNumber(1),
-      );
+      await store.addContractClasses([await withCommitment(contractClass)], BlockNumber(1));
 
       const instance = {
         ...(await SerializableContractInstance.random({
@@ -3317,16 +3423,8 @@ describe('KVArchiverDataStore', () => {
         address: await AztecAddress.random(),
       };
 
-      // Add contract instance first time
       await store.addContractInstances([instance], BlockNumber(1));
-
-      // Add same contract instance again - should not throw (uses set)
-      await store.addContractInstances([instance], BlockNumber(2));
-
-      // Verify instance exists
-      const retrieved = await store.getContractInstance(instance.address, 1000n);
-      expect(retrieved).toBeDefined();
-      expect(retrieved?.address.equals(instance.address)).toBe(true);
+      await expect(store.addContractInstances([instance], BlockNumber(2))).rejects.toThrow(/already exists/);
     });
 
     it('does not duplicate logs when addLogs is called twice with same block', async () => {

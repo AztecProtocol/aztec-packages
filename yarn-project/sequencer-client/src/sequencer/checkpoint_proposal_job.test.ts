@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -22,9 +22,8 @@ import { Checkpoint, type CheckpointData, L1PublishedData } from '@aztec/stdlib/
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockInCheckpointResult,
+  InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
-  NoValidTxsError,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -439,6 +438,42 @@ describe('CheckpointProposalJob', () => {
       expect(call.previousCheckpointOutHashes).toHaveLength(1);
       expect(call.previousCheckpointOutHashes[0]).toEqual(previousCheckpoint.getCheckpointOutHash());
     });
+
+    it('uses targetEpoch for previousCheckpointOutHashes when pipelining crosses epoch boundary', async () => {
+      // Pipelining scenario: wall-clock is in epoch 0, but target slot is in epoch 1.
+      // The key fix: getCheckpointsDataForEpoch must be called with targetEpoch, not epochNow.
+      const epochNow = EpochNumber(0);
+      const targetEpoch = EpochNumber(1);
+      // Target slot is first slot of epoch 1 (epochDuration = 16)
+      const targetSlot = SlotNumber(l1Constants.epochDuration);
+      // Wall-clock slot is the last slot of epoch 0
+      const slotNow = SlotNumber(l1Constants.epochDuration - 1);
+
+      checkpointNumber = CheckpointNumber(2);
+      const previousCheckpoint = await Checkpoint.random(CheckpointNumber(1));
+
+      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
+
+      job = createCheckpointProposalJob({ slotNow, targetSlot, epochNow, targetEpoch });
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      // Build block successfully
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.execute();
+
+      // Verify getCheckpointsDataForEpoch was called with targetEpoch (1), not epochNow (0)
+      expect(l2BlockSource.getCheckpointsDataForEpoch).toHaveBeenCalledWith(targetEpoch);
+    });
   });
 
   /**
@@ -513,13 +548,20 @@ describe('CheckpointProposalJob', () => {
    * Called in beforeEach to create the job, and tests can use job.updateConfig()
    * to modify config after creation.
    */
-  function createCheckpointProposalJob(): TestCheckpointProposalJob {
+  function createCheckpointProposalJob(overrides?: {
+    slotNow?: SlotNumber;
+    targetSlot?: SlotNumber;
+    epochNow?: EpochNumber;
+    targetEpoch?: EpochNumber;
+  }): TestCheckpointProposalJob {
     const setStateFn = jest.fn();
     const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
 
     return new TestCheckpointProposalJob(
-      epoch,
-      SlotNumber(newSlotNumber),
+      overrides?.slotNow ?? SlotNumber(newSlotNumber),
+      overrides?.targetSlot ?? SlotNumber(newSlotNumber),
+      overrides?.epochNow ?? epoch,
+      overrides?.targetEpoch ?? epoch,
       checkpointNumber,
       lastBlockNumber,
       proposer,
@@ -774,7 +816,7 @@ describe('CheckpointProposalJob', () => {
 
       const checkpointBuilder = mock<CheckpointBuilder>();
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
-      checkpointBuilder.buildBlock.mockResolvedValue({ failedTxs, numTxs: 1 } as BuildBlockInCheckpointResult);
+      checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(1, 2, failedTxs));
 
       const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,
@@ -795,7 +837,7 @@ describe('CheckpointProposalJob', () => {
 
       const checkpointBuilder = mock<CheckpointBuilder>();
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
-      checkpointBuilder.buildBlock.mockRejectedValue(new NoValidTxsError(failedTxs));
+      checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(0, 3, failedTxs));
 
       const checkpoint = await job.buildSingleBlock(checkpointBuilder, {
         blockNumber: newBlockNumber,

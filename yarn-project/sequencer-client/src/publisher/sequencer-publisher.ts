@@ -42,6 +42,7 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
@@ -133,6 +134,8 @@ export class SequencerPublisher {
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
+  protected aztecSlotDuration: bigint;
+  private dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -166,7 +169,7 @@ export class SequencerPublisher {
 
   constructor(
     private config: Pick<SequencerPublisherConfig, 'fishermanMode' | 'l1TxFailedStore'> &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> & { l1ChainId: number },
+      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
@@ -185,6 +188,8 @@ export class SequencerPublisher {
   ) {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
+    this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
+    this.dateProvider = deps.dateProvider;
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
@@ -286,7 +291,7 @@ export class SequencerPublisher {
   }
 
   public getCurrentL2Slot(): SlotNumber {
-    return this.epochCache.getEpochAndSlotNow().slot;
+    return this.epochCache.getSlotNow();
   }
 
   /**
@@ -399,8 +404,8 @@ export class SequencerPublisher {
     // @note - we can only have one blob config per bundle
     // find requests with gas and blob configs
     // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const gasConfigs = requestsToProcess.filter(request => request.gasConfig).map(request => request.gasConfig);
-    const blobConfigs = requestsToProcess.filter(request => request.blobConfig).map(request => request.blobConfig);
+    const gasConfigs = validRequests.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const blobConfigs = validRequests.filter(request => request.blobConfig).map(request => request.blobConfig);
 
     if (blobConfigs.length > 1) {
       throw new Error('Multiple blob configs found');
@@ -596,20 +601,24 @@ export class SequencerPublisher {
   }
 
   /**
-   * @notice  Will call `canProposeAtNextEthBlock` to make sure that it is possible to propose
+   * @notice  Will call `canProposeAt` to make sure that it is possible to propose
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(
+  public async canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
+    const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
+    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+    const nextL1SlotTs = (await this.getNextL1SlotTimestampWithL1Floor()) + slotOffset;
+
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
+      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       })
       .catch(err => {
@@ -623,6 +632,7 @@ export class SequencerPublisher {
         return undefined;
       });
   }
+
   /**
    * @notice  Will simulate `validateHeader` to make sure that the block header is valid
    * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
@@ -646,7 +656,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    const ts = await this.getNextL1SlotTimestampWithL1Floor();
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -811,7 +821,9 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    // Anchor the simulation timestamp to the checkpoint's own slot start time
+    // rather than the current L1 block timestamp, which may overshoot into the next slot if the build ran late.
+    const ts = checkpoint.header.timestamp;
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -1576,5 +1588,22 @@ export class SequencerPublisher {
         }
       },
     });
+  }
+
+  /**
+   * Returns the timestamp to use when simulating L1 proposal calls.
+   * Uses the wall-clock-based next L1 slot boundary, but floors it with the latest L1 block timestamp
+   * plus one slot duration. This prevents the sequencer from targeting a future L2 slot when the L1
+   * chain hasn't caught up to the wall clock yet (e.g., the dateProvider is one L1 slot ahead of the
+   * latest mined block), which would cause the propose tx to land in an L1 block with block.timestamp
+   * still in the previous L2 slot.
+   * TODO(palla): Properly fix by keeping dateProvider synced with anvil's chain time on every block.
+   */
+  private async getNextL1SlotTimestampWithL1Floor(): Promise<bigint> {
+    const l1Constants = this.epochCache.getL1Constants();
+    const fromWallClock = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
+    const latestBlock = await this.l1TxUtils.client.getBlock();
+    const fromL1Block = latestBlock.timestamp + BigInt(l1Constants.ethereumSlotDuration);
+    return fromWallClock > fromL1Block ? fromWallClock : fromL1Block;
   }
 }

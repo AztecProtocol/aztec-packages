@@ -107,7 +107,9 @@ export type SimulateTxOpts = {
   skipTxValidation?: boolean;
   /** If false, fees are enforced. */
   skipFeeEnforcement?: boolean;
-  /** State overrides for the simulation, such as contract instances and artifacts. */
+  /** If true, kernel logic is emulated in TS for simulation */
+  skipKernels?: boolean;
+  /** State overrides for the simulation, such as contract instances and artifacts. Requires skipKernels: true */
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AccessScopes;
@@ -567,6 +569,9 @@ export class PXE {
 
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
+      // Wipe the entire sync cache: the new sender's tagged logs could contain notes/events for any contract, so
+      // all contracts must re-sync to discover them.
+      this.contractSyncService.wipe();
     } else {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
     }
@@ -896,7 +901,14 @@ export class PXE {
    */
   public simulateTx(
     txRequest: TxExecutionRequest,
-    { simulatePublic, skipTxValidation = false, skipFeeEnforcement = false, overrides, scopes }: SimulateTxOpts,
+    {
+      simulatePublic,
+      skipTxValidation = false,
+      skipFeeEnforcement = false,
+      skipKernels = true,
+      overrides,
+      scopes,
+    }: SimulateTxOpts,
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
@@ -920,17 +932,20 @@ export class PXE {
         await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
 
-        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-        // Temporary: in case there are overrides, we have to skip the kernels or validations
-        // will fail. Consider handing control to the user/wallet on whether they want to run them
-        // or not.
         const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
         const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-        const skipKernels = hasOverriddenContracts;
 
-        // Set overridden contracts on the sync service so it knows to skip syncing them
+        if (hasOverriddenContracts && !skipKernels) {
+          throw new Error(
+            'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
+          );
+        }
+        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
+
         if (hasOverriddenContracts) {
-          this.contractSyncService.setOverriddenContracts(jobId, overriddenContracts);
+          // Overridden contracts don't have a sync function, so calling sync on them would fail.
+          // We exclude them so the sync service skips them entirely.
+          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
         }
 
         // Execution of private functions only; no proving, and no kernel logic.
