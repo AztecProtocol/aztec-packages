@@ -14,11 +14,10 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 159> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 130> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3, 3
     };
 
@@ -48,126 +47,97 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr size_t SR_END_ON_ERROR = 8;
     static constexpr size_t SR_KECCAK_ROUND_INCREMENT = 9;
     static constexpr size_t SR_THETA_XOR_ROW_MSB_0_BOOLEAN = 13;
-    static constexpr size_t SR_THETA_XOR_ROW_0_DECOMPOSITION = 14;
-    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_0 = 15;
-    static constexpr size_t SR_THETA_XOR_ROW_MSB_1_BOOLEAN = 16;
-    static constexpr size_t SR_THETA_XOR_ROW_1_DECOMPOSITION = 17;
-    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_1 = 18;
-    static constexpr size_t SR_THETA_XOR_ROW_MSB_2_BOOLEAN = 19;
-    static constexpr size_t SR_THETA_XOR_ROW_2_DECOMPOSITION = 20;
-    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_2 = 21;
-    static constexpr size_t SR_THETA_XOR_ROW_MSB_3_BOOLEAN = 22;
-    static constexpr size_t SR_THETA_XOR_ROW_3_DECOMPOSITION = 23;
-    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_3 = 24;
-    static constexpr size_t SR_THETA_XOR_ROW_MSB_4_BOOLEAN = 25;
-    static constexpr size_t SR_THETA_XOR_ROW_4_DECOMPOSITION = 26;
-    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_4 = 27;
-    static constexpr size_t SR_STATE_THETA_01_DECOMPOSE = 28;
-    static constexpr size_t SR_STATE_RHO_01 = 29;
-    static constexpr size_t SR_STATE_THETA_02_DECOMPOSE = 30;
-    static constexpr size_t SR_STATE_RHO_02 = 31;
-    static constexpr size_t SR_STATE_THETA_03_DECOMPOSE = 32;
-    static constexpr size_t SR_STATE_RHO_03 = 33;
-    static constexpr size_t SR_STATE_THETA_04_DECOMPOSE = 34;
-    static constexpr size_t SR_STATE_RHO_04 = 35;
-    static constexpr size_t SR_STATE_THETA_10_DECOMPOSE = 36;
-    static constexpr size_t SR_STATE_RHO_10 = 37;
-    static constexpr size_t SR_STATE_THETA_11_DECOMPOSE = 38;
-    static constexpr size_t SR_STATE_RHO_11 = 39;
-    static constexpr size_t SR_STATE_THETA_12_DECOMPOSE = 40;
-    static constexpr size_t SR_STATE_RHO_12 = 41;
-    static constexpr size_t SR_STATE_THETA_13_DECOMPOSE = 42;
-    static constexpr size_t SR_STATE_RHO_13 = 43;
-    static constexpr size_t SR_STATE_THETA_14_DECOMPOSE = 44;
-    static constexpr size_t SR_STATE_RHO_14 = 45;
-    static constexpr size_t SR_STATE_THETA_20_DECOMPOSE = 46;
-    static constexpr size_t SR_STATE_RHO_20 = 47;
-    static constexpr size_t SR_STATE_THETA_21_DECOMPOSE = 48;
-    static constexpr size_t SR_STATE_RHO_21 = 49;
-    static constexpr size_t SR_STATE_THETA_22_DECOMPOSE = 50;
-    static constexpr size_t SR_STATE_RHO_22 = 51;
-    static constexpr size_t SR_STATE_THETA_23_DECOMPOSE = 52;
-    static constexpr size_t SR_STATE_RHO_23 = 53;
-    static constexpr size_t SR_STATE_THETA_24_DECOMPOSE = 54;
-    static constexpr size_t SR_STATE_RHO_24 = 55;
-    static constexpr size_t SR_STATE_THETA_30_DECOMPOSE = 56;
-    static constexpr size_t SR_STATE_RHO_30 = 57;
-    static constexpr size_t SR_STATE_THETA_31_DECOMPOSE = 58;
-    static constexpr size_t SR_STATE_RHO_31 = 59;
-    static constexpr size_t SR_STATE_THETA_32_DECOMPOSE = 60;
-    static constexpr size_t SR_STATE_RHO_32 = 61;
-    static constexpr size_t SR_STATE_THETA_33_DECOMPOSE = 62;
-    static constexpr size_t SR_STATE_RHO_33 = 63;
-    static constexpr size_t SR_STATE_THETA_34_DECOMPOSE = 64;
-    static constexpr size_t SR_STATE_RHO_34 = 65;
-    static constexpr size_t SR_STATE_THETA_40_DECOMPOSE = 66;
-    static constexpr size_t SR_STATE_RHO_40 = 67;
-    static constexpr size_t SR_STATE_THETA_41_DECOMPOSE = 68;
-    static constexpr size_t SR_STATE_RHO_41 = 69;
-    static constexpr size_t SR_STATE_THETA_42_DECOMPOSE = 70;
-    static constexpr size_t SR_STATE_RHO_42 = 71;
-    static constexpr size_t SR_STATE_THETA_43_DECOMPOSE = 72;
-    static constexpr size_t SR_STATE_RHO_43 = 73;
-    static constexpr size_t SR_STATE_THETA_44_DECOMPOSE = 74;
-    static constexpr size_t SR_STATE_RHO_44 = 75;
-    static constexpr size_t SR_STATE_PI_NOT_00 = 100;
-    static constexpr size_t SR_STATE_PI_NOT_01 = 101;
-    static constexpr size_t SR_STATE_PI_NOT_02 = 102;
-    static constexpr size_t SR_STATE_PI_NOT_03 = 103;
-    static constexpr size_t SR_STATE_PI_NOT_04 = 104;
-    static constexpr size_t SR_STATE_PI_NOT_10 = 105;
-    static constexpr size_t SR_STATE_PI_NOT_11 = 106;
-    static constexpr size_t SR_STATE_PI_NOT_12 = 107;
-    static constexpr size_t SR_STATE_PI_NOT_13 = 108;
-    static constexpr size_t SR_STATE_PI_NOT_14 = 109;
-    static constexpr size_t SR_STATE_PI_NOT_20 = 110;
-    static constexpr size_t SR_STATE_PI_NOT_21 = 111;
-    static constexpr size_t SR_STATE_PI_NOT_22 = 112;
-    static constexpr size_t SR_STATE_PI_NOT_23 = 113;
-    static constexpr size_t SR_STATE_PI_NOT_24 = 114;
-    static constexpr size_t SR_STATE_PI_NOT_30 = 115;
-    static constexpr size_t SR_STATE_PI_NOT_31 = 116;
-    static constexpr size_t SR_STATE_PI_NOT_32 = 117;
-    static constexpr size_t SR_STATE_PI_NOT_33 = 118;
-    static constexpr size_t SR_STATE_PI_NOT_34 = 119;
-    static constexpr size_t SR_STATE_PI_NOT_40 = 120;
-    static constexpr size_t SR_STATE_PI_NOT_41 = 121;
-    static constexpr size_t SR_STATE_PI_NOT_42 = 122;
-    static constexpr size_t SR_STATE_PI_NOT_43 = 123;
-    static constexpr size_t SR_STATE_PI_NOT_44 = 124;
-    static constexpr size_t SR_NEXT_STATE_IN_00 = 125;
-    static constexpr size_t SR_NEXT_STATE_IN_01 = 126;
-    static constexpr size_t SR_NEXT_STATE_IN_02 = 127;
-    static constexpr size_t SR_NEXT_STATE_IN_03 = 128;
-    static constexpr size_t SR_NEXT_STATE_IN_04 = 129;
-    static constexpr size_t SR_NEXT_STATE_IN_10 = 130;
-    static constexpr size_t SR_NEXT_STATE_IN_11 = 131;
-    static constexpr size_t SR_NEXT_STATE_IN_12 = 132;
-    static constexpr size_t SR_NEXT_STATE_IN_13 = 133;
-    static constexpr size_t SR_NEXT_STATE_IN_14 = 134;
-    static constexpr size_t SR_NEXT_STATE_IN_20 = 135;
-    static constexpr size_t SR_NEXT_STATE_IN_21 = 136;
-    static constexpr size_t SR_NEXT_STATE_IN_22 = 137;
-    static constexpr size_t SR_NEXT_STATE_IN_23 = 138;
-    static constexpr size_t SR_NEXT_STATE_IN_24 = 139;
-    static constexpr size_t SR_NEXT_STATE_IN_30 = 140;
-    static constexpr size_t SR_NEXT_STATE_IN_31 = 141;
-    static constexpr size_t SR_NEXT_STATE_IN_32 = 142;
-    static constexpr size_t SR_NEXT_STATE_IN_33 = 143;
-    static constexpr size_t SR_NEXT_STATE_IN_34 = 144;
-    static constexpr size_t SR_NEXT_STATE_IN_40 = 145;
-    static constexpr size_t SR_NEXT_STATE_IN_41 = 146;
-    static constexpr size_t SR_NEXT_STATE_IN_42 = 147;
-    static constexpr size_t SR_NEXT_STATE_IN_43 = 148;
-    static constexpr size_t SR_NEXT_STATE_IN_44 = 149;
-    static constexpr size_t SR_ERROR = 151;
-    static constexpr size_t SR_DST_ADDR_PROPAGATION = 152;
-    static constexpr size_t SR_CLK_PROPAGATION = 153;
-    static constexpr size_t SR_SPACE_ID_PROPAGATION = 154;
-    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 155;
-    static constexpr size_t SR_SEL_SLICE_READ = 156;
-    static constexpr size_t SR_SEL_SLICE_WRITE = 157;
-    static constexpr size_t SR_ROUND_COUNT_AT_WRITE = 158;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_0 = 14;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_1_BOOLEAN = 15;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_1 = 16;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_2_BOOLEAN = 17;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_2 = 18;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_3_BOOLEAN = 19;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_3 = 20;
+    static constexpr size_t SR_THETA_XOR_ROW_MSB_4_BOOLEAN = 21;
+    static constexpr size_t SR_THETA_XOR_ROW_ROTL1_4 = 22;
+    static constexpr size_t SR_STATE_RHO_01 = 23;
+    static constexpr size_t SR_STATE_RHO_02 = 24;
+    static constexpr size_t SR_STATE_RHO_03 = 25;
+    static constexpr size_t SR_STATE_RHO_04 = 26;
+    static constexpr size_t SR_STATE_RHO_10 = 27;
+    static constexpr size_t SR_STATE_RHO_11 = 28;
+    static constexpr size_t SR_STATE_RHO_12 = 29;
+    static constexpr size_t SR_STATE_RHO_13 = 30;
+    static constexpr size_t SR_STATE_RHO_14 = 31;
+    static constexpr size_t SR_STATE_RHO_20 = 32;
+    static constexpr size_t SR_STATE_RHO_21 = 33;
+    static constexpr size_t SR_STATE_RHO_22 = 34;
+    static constexpr size_t SR_STATE_RHO_23 = 35;
+    static constexpr size_t SR_STATE_RHO_24 = 36;
+    static constexpr size_t SR_STATE_RHO_30 = 37;
+    static constexpr size_t SR_STATE_RHO_31 = 38;
+    static constexpr size_t SR_STATE_RHO_32 = 39;
+    static constexpr size_t SR_STATE_RHO_33 = 40;
+    static constexpr size_t SR_STATE_RHO_34 = 41;
+    static constexpr size_t SR_STATE_RHO_40 = 42;
+    static constexpr size_t SR_STATE_RHO_41 = 43;
+    static constexpr size_t SR_STATE_RHO_42 = 44;
+    static constexpr size_t SR_STATE_RHO_43 = 45;
+    static constexpr size_t SR_STATE_RHO_44 = 46;
+    static constexpr size_t SR_STATE_PI_NOT_00 = 71;
+    static constexpr size_t SR_STATE_PI_NOT_01 = 72;
+    static constexpr size_t SR_STATE_PI_NOT_02 = 73;
+    static constexpr size_t SR_STATE_PI_NOT_03 = 74;
+    static constexpr size_t SR_STATE_PI_NOT_04 = 75;
+    static constexpr size_t SR_STATE_PI_NOT_10 = 76;
+    static constexpr size_t SR_STATE_PI_NOT_11 = 77;
+    static constexpr size_t SR_STATE_PI_NOT_12 = 78;
+    static constexpr size_t SR_STATE_PI_NOT_13 = 79;
+    static constexpr size_t SR_STATE_PI_NOT_14 = 80;
+    static constexpr size_t SR_STATE_PI_NOT_20 = 81;
+    static constexpr size_t SR_STATE_PI_NOT_21 = 82;
+    static constexpr size_t SR_STATE_PI_NOT_22 = 83;
+    static constexpr size_t SR_STATE_PI_NOT_23 = 84;
+    static constexpr size_t SR_STATE_PI_NOT_24 = 85;
+    static constexpr size_t SR_STATE_PI_NOT_30 = 86;
+    static constexpr size_t SR_STATE_PI_NOT_31 = 87;
+    static constexpr size_t SR_STATE_PI_NOT_32 = 88;
+    static constexpr size_t SR_STATE_PI_NOT_33 = 89;
+    static constexpr size_t SR_STATE_PI_NOT_34 = 90;
+    static constexpr size_t SR_STATE_PI_NOT_40 = 91;
+    static constexpr size_t SR_STATE_PI_NOT_41 = 92;
+    static constexpr size_t SR_STATE_PI_NOT_42 = 93;
+    static constexpr size_t SR_STATE_PI_NOT_43 = 94;
+    static constexpr size_t SR_STATE_PI_NOT_44 = 95;
+    static constexpr size_t SR_NEXT_STATE_IN_00 = 96;
+    static constexpr size_t SR_NEXT_STATE_IN_01 = 97;
+    static constexpr size_t SR_NEXT_STATE_IN_02 = 98;
+    static constexpr size_t SR_NEXT_STATE_IN_03 = 99;
+    static constexpr size_t SR_NEXT_STATE_IN_04 = 100;
+    static constexpr size_t SR_NEXT_STATE_IN_10 = 101;
+    static constexpr size_t SR_NEXT_STATE_IN_11 = 102;
+    static constexpr size_t SR_NEXT_STATE_IN_12 = 103;
+    static constexpr size_t SR_NEXT_STATE_IN_13 = 104;
+    static constexpr size_t SR_NEXT_STATE_IN_14 = 105;
+    static constexpr size_t SR_NEXT_STATE_IN_20 = 106;
+    static constexpr size_t SR_NEXT_STATE_IN_21 = 107;
+    static constexpr size_t SR_NEXT_STATE_IN_22 = 108;
+    static constexpr size_t SR_NEXT_STATE_IN_23 = 109;
+    static constexpr size_t SR_NEXT_STATE_IN_24 = 110;
+    static constexpr size_t SR_NEXT_STATE_IN_30 = 111;
+    static constexpr size_t SR_NEXT_STATE_IN_31 = 112;
+    static constexpr size_t SR_NEXT_STATE_IN_32 = 113;
+    static constexpr size_t SR_NEXT_STATE_IN_33 = 114;
+    static constexpr size_t SR_NEXT_STATE_IN_34 = 115;
+    static constexpr size_t SR_NEXT_STATE_IN_40 = 116;
+    static constexpr size_t SR_NEXT_STATE_IN_41 = 117;
+    static constexpr size_t SR_NEXT_STATE_IN_42 = 118;
+    static constexpr size_t SR_NEXT_STATE_IN_43 = 119;
+    static constexpr size_t SR_NEXT_STATE_IN_44 = 120;
+    static constexpr size_t SR_ERROR = 122;
+    static constexpr size_t SR_DST_ADDR_PROPAGATION = 123;
+    static constexpr size_t SR_CLK_PROPAGATION = 124;
+    static constexpr size_t SR_SPACE_ID_PROPAGATION = 125;
+    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 126;
+    static constexpr size_t SR_SEL_SLICE_READ = 127;
+    static constexpr size_t SR_SEL_SLICE_WRITE = 128;
+    static constexpr size_t SR_ROUND_COUNT_AT_WRITE = 129;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -186,128 +156,70 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
             return "KECCAK_ROUND_INCREMENT";
         case SR_THETA_XOR_ROW_MSB_0_BOOLEAN:
             return "THETA_XOR_ROW_MSB_0_BOOLEAN";
-        case SR_THETA_XOR_ROW_0_DECOMPOSITION:
-            return "THETA_XOR_ROW_0_DECOMPOSITION";
         case SR_THETA_XOR_ROW_ROTL1_0:
             return "THETA_XOR_ROW_ROTL1_0";
         case SR_THETA_XOR_ROW_MSB_1_BOOLEAN:
             return "THETA_XOR_ROW_MSB_1_BOOLEAN";
-        case SR_THETA_XOR_ROW_1_DECOMPOSITION:
-            return "THETA_XOR_ROW_1_DECOMPOSITION";
         case SR_THETA_XOR_ROW_ROTL1_1:
             return "THETA_XOR_ROW_ROTL1_1";
         case SR_THETA_XOR_ROW_MSB_2_BOOLEAN:
             return "THETA_XOR_ROW_MSB_2_BOOLEAN";
-        case SR_THETA_XOR_ROW_2_DECOMPOSITION:
-            return "THETA_XOR_ROW_2_DECOMPOSITION";
         case SR_THETA_XOR_ROW_ROTL1_2:
             return "THETA_XOR_ROW_ROTL1_2";
         case SR_THETA_XOR_ROW_MSB_3_BOOLEAN:
             return "THETA_XOR_ROW_MSB_3_BOOLEAN";
-        case SR_THETA_XOR_ROW_3_DECOMPOSITION:
-            return "THETA_XOR_ROW_3_DECOMPOSITION";
         case SR_THETA_XOR_ROW_ROTL1_3:
             return "THETA_XOR_ROW_ROTL1_3";
         case SR_THETA_XOR_ROW_MSB_4_BOOLEAN:
             return "THETA_XOR_ROW_MSB_4_BOOLEAN";
-        case SR_THETA_XOR_ROW_4_DECOMPOSITION:
-            return "THETA_XOR_ROW_4_DECOMPOSITION";
         case SR_THETA_XOR_ROW_ROTL1_4:
             return "THETA_XOR_ROW_ROTL1_4";
-        case SR_STATE_THETA_01_DECOMPOSE:
-            return "STATE_THETA_01_DECOMPOSE";
         case SR_STATE_RHO_01:
             return "STATE_RHO_01";
-        case SR_STATE_THETA_02_DECOMPOSE:
-            return "STATE_THETA_02_DECOMPOSE";
         case SR_STATE_RHO_02:
             return "STATE_RHO_02";
-        case SR_STATE_THETA_03_DECOMPOSE:
-            return "STATE_THETA_03_DECOMPOSE";
         case SR_STATE_RHO_03:
             return "STATE_RHO_03";
-        case SR_STATE_THETA_04_DECOMPOSE:
-            return "STATE_THETA_04_DECOMPOSE";
         case SR_STATE_RHO_04:
             return "STATE_RHO_04";
-        case SR_STATE_THETA_10_DECOMPOSE:
-            return "STATE_THETA_10_DECOMPOSE";
         case SR_STATE_RHO_10:
             return "STATE_RHO_10";
-        case SR_STATE_THETA_11_DECOMPOSE:
-            return "STATE_THETA_11_DECOMPOSE";
         case SR_STATE_RHO_11:
             return "STATE_RHO_11";
-        case SR_STATE_THETA_12_DECOMPOSE:
-            return "STATE_THETA_12_DECOMPOSE";
         case SR_STATE_RHO_12:
             return "STATE_RHO_12";
-        case SR_STATE_THETA_13_DECOMPOSE:
-            return "STATE_THETA_13_DECOMPOSE";
         case SR_STATE_RHO_13:
             return "STATE_RHO_13";
-        case SR_STATE_THETA_14_DECOMPOSE:
-            return "STATE_THETA_14_DECOMPOSE";
         case SR_STATE_RHO_14:
             return "STATE_RHO_14";
-        case SR_STATE_THETA_20_DECOMPOSE:
-            return "STATE_THETA_20_DECOMPOSE";
         case SR_STATE_RHO_20:
             return "STATE_RHO_20";
-        case SR_STATE_THETA_21_DECOMPOSE:
-            return "STATE_THETA_21_DECOMPOSE";
         case SR_STATE_RHO_21:
             return "STATE_RHO_21";
-        case SR_STATE_THETA_22_DECOMPOSE:
-            return "STATE_THETA_22_DECOMPOSE";
         case SR_STATE_RHO_22:
             return "STATE_RHO_22";
-        case SR_STATE_THETA_23_DECOMPOSE:
-            return "STATE_THETA_23_DECOMPOSE";
         case SR_STATE_RHO_23:
             return "STATE_RHO_23";
-        case SR_STATE_THETA_24_DECOMPOSE:
-            return "STATE_THETA_24_DECOMPOSE";
         case SR_STATE_RHO_24:
             return "STATE_RHO_24";
-        case SR_STATE_THETA_30_DECOMPOSE:
-            return "STATE_THETA_30_DECOMPOSE";
         case SR_STATE_RHO_30:
             return "STATE_RHO_30";
-        case SR_STATE_THETA_31_DECOMPOSE:
-            return "STATE_THETA_31_DECOMPOSE";
         case SR_STATE_RHO_31:
             return "STATE_RHO_31";
-        case SR_STATE_THETA_32_DECOMPOSE:
-            return "STATE_THETA_32_DECOMPOSE";
         case SR_STATE_RHO_32:
             return "STATE_RHO_32";
-        case SR_STATE_THETA_33_DECOMPOSE:
-            return "STATE_THETA_33_DECOMPOSE";
         case SR_STATE_RHO_33:
             return "STATE_RHO_33";
-        case SR_STATE_THETA_34_DECOMPOSE:
-            return "STATE_THETA_34_DECOMPOSE";
         case SR_STATE_RHO_34:
             return "STATE_RHO_34";
-        case SR_STATE_THETA_40_DECOMPOSE:
-            return "STATE_THETA_40_DECOMPOSE";
         case SR_STATE_RHO_40:
             return "STATE_RHO_40";
-        case SR_STATE_THETA_41_DECOMPOSE:
-            return "STATE_THETA_41_DECOMPOSE";
         case SR_STATE_RHO_41:
             return "STATE_RHO_41";
-        case SR_STATE_THETA_42_DECOMPOSE:
-            return "STATE_THETA_42_DECOMPOSE";
         case SR_STATE_RHO_42:
             return "STATE_RHO_42";
-        case SR_STATE_THETA_43_DECOMPOSE:
-            return "STATE_THETA_43_DECOMPOSE";
         case SR_STATE_RHO_43:
             return "STATE_RHO_43";
-        case SR_STATE_THETA_44_DECOMPOSE:
-            return "STATE_THETA_44_DECOMPOSE";
         case SR_STATE_RHO_44:
             return "STATE_RHO_44";
         case SR_STATE_PI_NOT_00:
