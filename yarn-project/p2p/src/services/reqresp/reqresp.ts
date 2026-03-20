@@ -806,7 +806,9 @@ export class ReqResp implements ReqRespInterface {
       return undefined;
     }
 
-    // Do not punish if we are the ones closing the connection
+    // Do not punish if we are the ones closing the connection, or if the stream was reset
+    // at the transport layer. StreamResetError occurs in yamux when both sides open streams
+    // simultaneously during connection establishment — this is a transport race, not peer misbehavior.
     // Check both .code (v1) and .name (v2) for libp2p errors
     if (
       e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
@@ -815,12 +817,14 @@ export class ReqResp implements ReqRespInterface {
       e?.name === 'ConnectionClosedError' ||
       e?.code === 'ERR_TRANSIENT_CONNECTION' ||
       e?.name === 'LimitedConnectionError' ||
+      e?.name === 'StreamResetError' ||
+      e?.message?.includes('stream reset') ||
       e?.message?.includes('Muxer already closed') ||
       e?.message?.includes('muxer closed') ||
       e?.message?.includes('ended pushable')
     ) {
       this.logger.debug(
-        `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
+        `Connection/stream closed to peer: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
         logTags,
       );
       return undefined;

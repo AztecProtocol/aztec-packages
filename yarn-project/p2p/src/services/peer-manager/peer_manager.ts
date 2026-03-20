@@ -844,14 +844,17 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.STATUS, ourStatus.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
+        // Don't disconnect on FAILURE — transport errors (StreamResetError, timeout, etc.)
+        // return FAILURE and disconnecting here causes a reconnect→handshake→fail churn loop
+        // that prevents gossipsub mesh formation. Bad peers are caught by data validation below
+        // and by peer scoring.
         //TODO: maybe hard ban these peers in the future.
         //We could allow this to happen up to N times, and then hard ban?
         //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond status handshake`, {
+        this.logger.debug(`Status handshake returned non-success for peer ${peerId}, keeping connection`, {
           peerId,
           status: ReqRespStatus[status],
         });
-        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -865,6 +868,8 @@ export class PeerManager implements PeerManagerInterface {
       }
       this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
     } catch (err: any) {
+      // This catch handles errors from parsing a successful response (e.g., invalid StatusMessage buffer).
+      // These are protocol violations — the peer sent garbage data — so disconnect.
       //TODO: maybe hard ban these peers in the future
       this.logger.debug(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
         peerId,
@@ -892,12 +897,15 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        this.logger.verbose(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
+        // Don't disconnect on FAILURE — transport errors (StreamResetError, timeout, etc.)
+        // return FAILURE and disconnecting here causes a reconnect→handshake→fail churn loop
+        // that prevents gossipsub mesh formation. Bad peers are caught by data validation below
+        // and by peer scoring.
+        this.logger.verbose(`Auth handshake returned non-success for peer ${peerId}, keeping connection`, {
           peerId,
           status: ReqRespStatus[status],
         });
         this.markAuthHandshakeFailed(peerId);
-        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -954,6 +962,8 @@ export class PeerManager implements PeerManagerInterface {
         { ...logData, address: sender.toString() },
       );
     } catch (err: any) {
+      // This catch handles errors from parsing a successful response (e.g., invalid AuthResponse buffer).
+      // These are protocol violations — the peer sent garbage data — so disconnect.
       //TODO: maybe hard ban these peers in the future
       this.logger.verbose(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message}`, {
         peerId,
