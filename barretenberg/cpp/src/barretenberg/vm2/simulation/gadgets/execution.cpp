@@ -561,22 +561,22 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
  * @param l2_gas_offset The resolved address of the allocated L2 gas value.
  * @param da_gas_offset The resolved address of the allocated DA gas value.
  * @param addr The resolved address of the contract address.
- * @param cd_size_offset The resolved address of the calldata size value.
- * @param cd_offset The resolved address of the calldata offset value.
+ * @param args_size_offset The resolved address of the args size value.
+ * @param args_offset The resolved address of the args offset value.
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - l2_gas_offset memory value tag: U32
  *        - da_gas_offset memory value tag: U32
  *        - addr memory value tag: FF
- *        - cd_size_offset memory value tag: U32
+ *        - args_size_offset memory value tag: U32
  * @throws OutOfGasException if the gas limit is exceeded.
  */
 void Execution::call(ContextInterface& context,
                      MemoryAddress l2_gas_offset,
                      MemoryAddress da_gas_offset,
                      MemoryAddress addr,
-                     MemoryAddress cd_size_offset,
-                     MemoryAddress cd_offset)
+                     MemoryAddress args_size_offset,
+                     MemoryAddress args_offset)
 {
     BB_BENCH_NAME("Execution::call");
     constexpr auto opcode = ExecutionOpCode::CALL;
@@ -586,22 +586,22 @@ void Execution::call(ContextInterface& context,
     const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
-    // Cd offset loads are deferred to calldatacopy
-    const auto& cd_size = memory.get(cd_size_offset);
+    // Args offset load is deferred to calldatacopy
+    const auto& args_size = memory.get(args_size_offset);
 
-    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
+    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, args_size });
 
     get_gas_tracker().consume_gas(); // Base gas.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ .l2_gas = allocated_l2_gas_read.as<uint32_t>(), .da_gas = allocated_da_gas_read.as<uint32_t>() });
 
-    // Tag check contract address + cd_size
+    // Tag check contract address + args_size
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
                                                                /*transaction_fee=*/context.get_transaction_fee(),
                                                                /*parent_context=*/context,
-                                                               /*cd_offset_address=*/cd_offset,
-                                                               /*cd_size=*/cd_size.as<uint32_t>(),
+                                                               /*cd_offset_address=*/args_offset,
+                                                               /*cd_size=*/args_size.as<uint32_t>(),
                                                                /*is_static=*/context.get_is_static(),
                                                                /*gas_limit=*/gas_limit,
                                                                /*phase=*/context.get_phase());
@@ -621,22 +621,22 @@ void Execution::call(ContextInterface& context,
  * @param l2_gas_offset The resolved address of the allocated L2 gas value.
  * @param da_gas_offset The resolved address of the allocated DA gas value.
  * @param addr The resolved address of the contract address.
- * @param cd_size_offset The resolved address of the calldata size value.
- * @param cd_offset The resolved address of the calldata offset value.
+ * @param args_size_offset The resolved address of the args size value.
+ * @param args_offset The resolved address of the args offset value.
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - l2_gas_offset memory value tag: U32
  *        - da_gas_offset memory value tag: U32
  *        - addr memory value tag: FF
- *        - cd_size_offset memory value tag: U32
+ *        - args_size_offset memory value tag: U32
  * @throws OutOfGasException if the gas limit is exceeded.
  */
 void Execution::static_call(ContextInterface& context,
                             MemoryAddress l2_gas_offset,
                             MemoryAddress da_gas_offset,
                             MemoryAddress addr,
-                            MemoryAddress cd_size_offset,
-                            MemoryAddress cd_offset)
+                            MemoryAddress args_size_offset,
+                            MemoryAddress args_offset)
 {
     BB_BENCH_NAME("Execution::static_call");
     constexpr auto opcode = ExecutionOpCode::STATICCALL;
@@ -646,22 +646,22 @@ void Execution::static_call(ContextInterface& context,
     const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
-    // Cd offset loads are deferred to calldatacopy
-    const auto& cd_size = memory.get(cd_size_offset);
+    // Args offset load is deferred to calldatacopy
+    const auto& args_size = memory.get(args_size_offset);
 
-    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
+    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, args_size });
 
     get_gas_tracker().consume_gas(); // Base gas.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ .l2_gas = allocated_l2_gas_read.as<uint32_t>(), .da_gas = allocated_da_gas_read.as<uint32_t>() });
 
-    // Tag check contract address + cd_size
+    // Tag check contract address + args_size
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
                                                                /*transaction_fee=*/context.get_transaction_fee(),
                                                                /*parent_context=*/context,
-                                                               /*cd_offset_address=*/cd_offset,
-                                                               /*cd_size=*/cd_size.as<uint32_t>(),
+                                                               /*cd_offset_address=*/args_offset,
+                                                               /*cd_size=*/args_size.as<uint32_t>(),
                                                                /*is_static=*/true,
                                                                /*gas_limit=*/gas_limit,
                                                                /*phase=*/context.get_phase());
