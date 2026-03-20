@@ -716,4 +716,3 @@ TEST(AcirFormalProofs, SignedNot)
         save_buggy_witness(TESTNAME, circuit);
     }
 }
-
