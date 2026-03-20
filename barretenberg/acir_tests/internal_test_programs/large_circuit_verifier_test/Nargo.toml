@@ -1,0 +1,6 @@
+[package]
+name = "large_circuit_verifier_test"
+type = "bin"
+authors = [""]
+
+[dependencies]
