@@ -499,9 +499,9 @@ template <typename Flavor> class SumcheckProver {
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
 
+        vinfo("finished sumcheck");
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = multivariate_evaluations };
-        vinfo("finished sumcheck");
     };
 
     /**
@@ -671,12 +671,12 @@ template <typename Flavor> class SumcheckProver {
 
         // The sum of the Libra constant term and the evaluations of Libra univariates at corresponding sumcheck
         // challenges is included in the Sumcheck Output
+        vinfo("finished sumcheck");
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = multivariate_evaluations,
                                        .claimed_libra_evaluation = libra_evaluation,
                                        .round_univariates = handler.get_univariates(),
                                        .round_univariate_evaluations = handler.get_evaluations() };
-        vinfo("finished sumcheck");
     };
 
     /**
