@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260319
+Version: v5.0.0-nightly.20260320
 
 ## Quick Import Reference
 
@@ -3612,7 +3612,7 @@ type DataInBlock = { data: T } & InBlock
 
 ### DebugFileMap
 ```typescript
-type DebugFileMap = Record<FileId, { path: string; source: string }>
+type DebugFileMap = Record<FileId, { function_locations: FunctionLocation[]; path: string; source: string }>
 ```
 Maps a file ID to its metadata for debugging purposes.
 
@@ -3645,6 +3645,12 @@ Represents a tx that failed to be processed by the sequencer public processor.
 type FieldLayout = unknown
 ```
 Type representing a field layout in the storage of a contract.
+
+### FunctionLocation
+```typescript
+type FunctionLocation = unknown
+```
+The range a function occupies in a file.
 
 ### GENESIS_CHECKPOINT_HEADER_HASH
 ```typescript
