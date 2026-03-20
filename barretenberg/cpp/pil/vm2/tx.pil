@@ -285,12 +285,14 @@ namespace tx;
         public_inputs.cols[3]
     };
 
+    // This binds the `calldata hash` with the `context id` of the enqueued call.
+    // In addition, `calldata_size` is "returned back" from calldata_hashing.pil.
     #[READ_CALLDATA_HASH]
     should_process_call_request {
         calldata_hash,
         calldata_size,
         next_context_id
-    } is calldata_hashing.latch {
+    } is calldata_hashing.end {
         calldata_hashing.output_hash,
         calldata_hashing.calldata_size,
         calldata_hashing.context_id
