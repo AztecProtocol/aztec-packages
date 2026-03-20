@@ -460,13 +460,12 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
                 { C::keccak_memory_sel, 1 },
                 { C::keccak_memory_clk, event.execution_clk },
                 { C::keccak_memory_ctr, i + 1 },
-                { C::keccak_memory_ctr_inv, get_precomputed_inverse(i + 1) },
                 { C::keccak_memory_state_size_min_ctr_inv,
                   get_precomputed_inverse(AVM_KECCAKF1600_STATE_SIZE - i - 1) },
                 { C::keccak_memory_start_read, (i == 0 && !write) ? 1 : 0 },
                 { C::keccak_memory_start_write, (i == 0 && write) ? 1 : 0 },
                 { C::keccak_memory_ctr_end, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
-                { C::keccak_memory_last, (i == AVM_KECCAKF1600_STATE_SIZE - 1) || single_tag_errors.at(i) ? 1 : 0 },
+                { C::keccak_memory_end, (i == AVM_KECCAKF1600_STATE_SIZE - 1) || single_tag_errors.at(i) ? 1 : 0 },
                 { C::keccak_memory_rw, write ? 1 : 0 },
                 { C::keccak_memory_addr, addr + i },
                 { C::keccak_memory_space_id, event.space_id },
@@ -477,7 +476,6 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
                       : 0 },
                 { C::keccak_memory_single_tag_error, single_tag_errors.at(i) ? 1 : 0 },
                 { C::keccak_memory_tag_error, tag_errors.at(i) ? 1 : 0 },
-                { C::keccak_memory_num_rounds, AVM_KECCAKF1600_NUM_ROUNDS },
             } });
 
         // We get a "triangle" when shifting values to their columns from val_0_ bottom-up.
@@ -537,25 +535,25 @@ void KeccakF1600TraceBuilder::process_permutation(
             // Selectors start and last.
             // src_address required on first row
             if (round_idx == 0) {
-                trace.set(row,
-                          { {
-                              { C::keccakf1600_start, 1 },
-                              { C::keccakf1600_highest_slice_address, HIGHEST_SLICE_ADDRESS },
-                              { C::keccakf1600_src_addr, event.src_addr },
-                              { C::keccakf1600_src_out_of_range_error, event.src_out_of_range ? 1 : 0 },
-                              { C::keccakf1600_dst_out_of_range_error, event.dst_out_of_range ? 1 : 0 },
-                              { C::keccakf1600_tag_error, event.tag_error ? 1 : 0 },
-                              { C::keccakf1600_sel_slice_read, out_of_range ? 0 : 1 },
-                              { C::keccakf1600_error, error ? 1 : 0 },
-                              { C::keccakf1600_last,
-                                error ? 1 : 0 }, // We set last at the initial row when there is an error.
-                                                 // Note that the loop will stop after the initial round.
-                          } });
+                trace.set(
+                    row,
+                    { {
+                        { C::keccakf1600_start, 1 },
+                        { C::keccakf1600_highest_slice_address, HIGHEST_SLICE_ADDRESS },
+                        { C::keccakf1600_src_addr, event.src_addr },
+                        { C::keccakf1600_src_out_of_range_error, event.src_out_of_range ? 1 : 0 },
+                        { C::keccakf1600_dst_out_of_range_error, event.dst_out_of_range ? 1 : 0 },
+                        { C::keccakf1600_tag_error, event.tag_error ? 1 : 0 },
+                        { C::keccakf1600_sel_slice_read, out_of_range ? 0 : 1 },
+                        { C::keccakf1600_error, error ? 1 : 0 },
+                        { C::keccakf1600_end, error ? 1 : 0 }, // We set end at the initial row when there is an error.
+                                                               // Note that the loop will stop after the initial round.
+                    } });
 
             } else if (round_idx == AVM_KECCAKF1600_NUM_ROUNDS - 1) {
                 trace.set(row,
                           { {
-                              { C::keccakf1600_last, 1 },
+                              { C::keccakf1600_end, 1 },
                               { C::keccakf1600_sel_slice_write, error ? 0 : 1 },
                           } });
             };
@@ -567,7 +565,6 @@ void KeccakF1600TraceBuilder::process_permutation(
                           { C::keccakf1600_dst_addr, event.dst_addr },
                           { C::keccakf1600_sel_no_error, error ? 0 : 1 },
                           { C::keccakf1600_space_id, event.space_id },
-                          { C::keccakf1600_round_inv, get_precomputed_inverse(round_idx + 1) },
                       } });
 
             // When no out-of-range value occured but a tag value error, we
