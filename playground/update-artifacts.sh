@@ -1,4 +1,4 @@
-VERSION=$(cat ../.release-please-manifest.json | jq -r '."."')
+VERSION=$(cat ../VERSION | tr -d '[:space:]')
 
 echo "Adding latest artifact for version $VERSION"
 

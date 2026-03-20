@@ -29,7 +29,7 @@ jobs:
       - name: Read version from manifest
         id: manifest
         run: |
-          VERSION=$(jq -r '."."' .release-please-manifest.json)
+          VERSION=$(cat VERSION | tr -d '[:space:]')
           echo "version=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 

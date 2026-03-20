@@ -1,6 +1,8 @@
-import releasePleaseManifest from '../../../.release-please-manifest.json';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-export const VERSION = releasePleaseManifest['.'];
+export const VERSION = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../VERSION'), 'utf-8').trim();
 
 export const ContractDescriptions = {
   PrivateVoting:

@@ -20,13 +20,13 @@ jobs:
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      # Extract the current release version from the manifest.
+      # Extract the current release version from the VERSION file.
       # Then, create a nightly tag using the current version and the current UTC date.
       - name: Create Nightly Tag
         run: |
           git config --global user.email "tech@aztecprotocol.com"
           git config --global user.name "AztecBot"
-          current_version=$(jq -r '."."' .release-please-manifest.json)
+          current_version=$(cat VERSION | tr -d '[:space:]')
           echo "Current version: $current_version"
           nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
           echo "Nightly tag: $nightly_tag"

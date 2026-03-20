@@ -69,11 +69,6 @@ The nightly docs workflow can be manually triggered via GitHub Actions with a sp
 
 ## Integration with Existing Systems
 
-### Release Please Integration
-
-- Configuration: `.github/release-please-next.json`
-- Release PRs for `next` branch will also trigger documentation updates
-
 ### CI Integration
 
 - The existing CI system already handles nightly tags appropriately
@@ -85,7 +80,7 @@ The nightly docs workflow can be manually triggered via GitHub Actions with a sp
 ### Nightly Versions
 
 - Format: `v{major}.{minor}.{patch}-nightly.{YYYYMMDD}`
-- Based on the current version in `.release-please-manifest.json`
+- Based on the current version in the `VERSION` file
 - Automatically incremented daily
 
 ### Version Display

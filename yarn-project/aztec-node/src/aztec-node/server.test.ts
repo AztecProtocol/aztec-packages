@@ -314,13 +314,13 @@ describe('aztec node', () => {
 
     describe('node info', () => {
       it('returns the correct node version', async () => {
-        const releasePleaseVersionFile = readFileSync(
-          resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
-        ).toString();
-        const releasePleaseVersion = JSON.parse(releasePleaseVersionFile)['.'];
+        const expectedVersion = readFileSync(
+          resolve(dirname(fileURLToPath(import.meta.url)), '../../../../VERSION'),
+          'utf-8',
+        ).trim();
 
         const nodeInfo = await node.getNodeInfo();
-        expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
+        expect(nodeInfo.nodeVersion).toBe(expectedVersion);
       });
     });
 

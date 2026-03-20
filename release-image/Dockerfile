@@ -17,6 +17,6 @@ WORKDIR "/usr/src/yarn-project"
 
 # Ensure the correct version shows in aztec --version
 ARG VERSION
-RUN echo '{".": "'$VERSION'"}' > /usr/src/.release-please-manifest.json
+RUN echo "$VERSION" > /usr/src/VERSION
 
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]

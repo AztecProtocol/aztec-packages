@@ -41,7 +41,7 @@ jobs:
             echo "Using manual tag: $NIGHTLY_TAG"
           else
             # Get today's nightly tag
-            current_version=$(jq -r '."."' .release-please-manifest.json)
+            current_version=$(cat VERSION | tr -d '[:space:]')
             NIGHTLY_TAG="v${current_version}-nightly.$(date -u +%Y%m%d)"
             echo "Expected nightly tag: $NIGHTLY_TAG"
 

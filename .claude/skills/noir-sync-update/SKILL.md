@@ -22,7 +22,7 @@ Run `./bootstrap.sh` in `noir` to ensure that the new submodule commit has been 
 ### 2. Update `Cargo.lock` in `avm-transpiler`
 
 **Before updating**, determine the expected noir version:
-1. Read `noir/noir-repo/.release-please-manifest.json` to find the expected version (e.g., `1.0.0-beta.18`)
+1. Check the noir submodule tag to find the expected version (e.g., `1.0.0-beta.18`)
 2. Check the current version in `avm-transpiler/Cargo.lock` by searching for `acir` or similar noir packages
 
 **To update the lock file**, run `cargo update` in `avm-transpiler` with **only noir-repo packages**:
@@ -37,7 +37,7 @@ cargo update -p acir -p acir_field -p acvm -p acvm_blackbox_solver -p bn254_blac
 **After updating**, verify:
 1. Run `git status avm-transpiler/` to confirm `Cargo.lock` was modified
 2. Run `cargo check` to ensure it still builds
-3. Grep `Cargo.lock` for `acir` to verify the version matches the expected version from `.release-please-manifest.json`
+3. Grep `Cargo.lock` for `acir` to verify the version matches the expected noir version
 
 It's possible that changes in dependencies result in `avm-transpiler` no longer building.
   - If transient dependency mismatches mean changes to the dependency tree are necessary, then the `Cargo.lock` file in `avm-transpiler` should be modified. **DO NOT MODIFY `noir/noir-repo`**.
