@@ -41,5 +41,16 @@ export const TX_ERROR_SIZE_ABOVE_LIMIT = 'Transaction size above size limit';
 // Block header
 export const TX_ERROR_BLOCK_HEADER = 'Block header not found';
 
+<<<<<<< HEAD
+=======
+// Contract instance
+export const TX_ERROR_INCORRECT_CONTRACT_ADDRESS = 'Incorrect contract instance deployment address';
+export const TX_ERROR_MALFORMED_CONTRACT_INSTANCE_LOG = 'Failed to parse contract instance deployment log';
+
+// Contract class
+export const TX_ERROR_INCORRECT_CONTRACT_CLASS_ID = 'Incorrect contract class id';
+export const TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG = 'Failed to parse contract class registration log';
+
+>>>>>>> c3c62308d8 (feat(p2p): add tx validator for contract class id verification (#21788))
 // General
 export const TX_ERROR_DURING_VALIDATION = 'Unexpected error during validation';

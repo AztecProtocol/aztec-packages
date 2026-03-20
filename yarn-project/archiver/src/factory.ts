@@ -14,8 +14,13 @@ import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
+<<<<<<< HEAD
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+=======
+import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+>>>>>>> c3c62308d8 (feat(p2p): add tx validator for contract class id verification (#21788))
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -187,10 +192,15 @@ export async function registerProtocolContracts(store: KVArchiverDataStore) {
       continue;
     }
 
-    const contractClassPublic: ContractClassPublic = {
+    const publicBytecodeCommitment = await computePublicBytecodeCommitment(contract.contractClass.packedBytecode);
+    const contractClassPublic: ContractClassPublicWithCommitment = {
       ...contract.contractClass,
+<<<<<<< HEAD
       privateFunctions: [],
       utilityFunctions: [],
+=======
+      publicBytecodeCommitment,
+>>>>>>> c3c62308d8 (feat(p2p): add tx validator for contract class id verification (#21788))
     };
 
     const publicFunctionSignatures = contract.artifact.functions
@@ -198,8 +208,7 @@ export async function registerProtocolContracts(store: KVArchiverDataStore) {
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
     await store.registerContractFunctionSignatures(publicFunctionSignatures);
-    const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
-    await store.addContractClasses([contractClassPublic], [bytecodeCommitment], BlockNumber(blockNumber));
+    await store.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
     await store.addContractInstances([contract.instance], BlockNumber(blockNumber));
   }
 }
