@@ -31,15 +31,7 @@ As part of this, it runs `bootstrap.sh release`, which creates releases to npm/d
 
 ## release branches
 
-When we are ready to make a branch to be released, we run the [Create Release Branch](https://github.com/AztecProtocol/aztec-packages/actions/workflows/create-release-branch.yml) workflow.
-
-It requires a commit SHA which SHOULD be one from a particular nightly run.
-
-This creates a new branch for whatever the current version in `next` is, then bumps the version on `next`.
-
-For example, if this were run now, it would create a branch `v3`, and then tag `next` with `v4.0.0` so nightly tags pick up the new version.
-
-Every push to a release branch causes a new tag to be created via the nightly tag workflow. So as soon as `v3` is created, there will be a tag that is `v3.0.0-rc.1`.
+When we are ready to make a branch to be released, we create a release branch manually from a commit on `next` (preferably from a particular nightly run). For example, creating branch `v3` and tagging `next` with `v4.0.0` so nightly tags pick up the new version.
 
 Each `rc` tag causes ci3.yml to run, and creates releases because it runs `bootstrap.sh ci-nightly`.
 
