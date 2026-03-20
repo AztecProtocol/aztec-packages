@@ -40,7 +40,8 @@ jobs:
             SEMVER=$(echo "$TAG" | sed 's/-amd64$//' | sed 's/-nightly\.[0-9]\{8\}//')
           else
             # Scheduled nightly run - get latest nightly tag
-            current_version=$(cat VERSION | tr -d '[:space:]')
+            git fetch --tags --quiet
+            current_version=$(git describe --tags --match 'v[0-9]*' --abbrev=0 | sed 's/^v//; s/-.*//')
             echo "Current version: $current_version"
 
             # Format the tag as: <current_version>-nightly.<YYYYMMDD>-amd64

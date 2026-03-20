@@ -7,7 +7,7 @@
  *
  * The script:
  * 1. Validates the nightly tag format (vX.Y.Z-nightly.YYYYMMDD)
- * 2. Reads the major version from VERSION file
+ * 2. Derives the major version from git tags
  * 3. Finds the next devnet iteration number
  * 4. Creates a branch with a .devnet-version file
  * 5. Pushes the branch
@@ -16,7 +16,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import {
   parseArgs,
   configureGitIdentityInCI,
@@ -43,8 +43,12 @@ if (!/^v\d+\.\d+\.\d+-nightly\.\d{8}$/.test(nightlyTag)) {
 // 2. Configure git identity in CI
 configureGitIdentityInCI();
 
-// 3. Read major version from VERSION file
-const version: string = readFileSync("VERSION", "utf-8").trim();
+// 3. Derive major version from git tags
+const latestTag = execSync(
+  "git describe --tags --match 'v[0-9]*' --abbrev=0",
+  { encoding: "utf-8" },
+).trim();
+const version: string = latestTag.replace(/^v/, "").replace(/-.*/, "");
 const majorVersion = version.split(".")[0];
 console.log(`Major version: ${majorVersion}`);
 

@@ -1,8 +1,18 @@
 import { defineConfig, loadEnv, searchForWorkspaceRoot, Plugin, ResolvedConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+
+function getAztecVersion(): string {
+  try {
+    const tag = execSync("git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null", { encoding: 'utf-8' }).trim();
+    return tag.replace(/^v/, '').replace(/-.*/, '');
+  } catch {
+    return '0.0.0';
+  }
+}
 
 // Only required for alternative bb wasm file, left as reference
 //import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -157,6 +167,7 @@ export default defineConfig(({ mode }) => {
       ]),
     ],
     define: {
+      __AZTEC_VERSION__: JSON.stringify(getAztecVersion()),
       'process.env': JSON.stringify({
         LOG_LEVEL: env.LOG_LEVEL,
         // The path to a custom WASM file for bb.js.

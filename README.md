@@ -27,7 +27,7 @@ Logging goes through the [Logger](yarn-project/foundation/src/log/) module in Ty
 
 ## Releases
 
-Releases are driven by tagging a version from the `VERSION` file at the repo root. The version is bumped via the create-release-branch workflow. Nightly tags are created automatically and trigger `./bootstrap.sh release` to build and deploy the version at that tag.
+Releases are driven by git tags. The version is derived from the latest reachable version tag (e.g. `v5.0.0`). The create-release-branch workflow creates release branches and tags the next major version. Nightly tags are created automatically and trigger `./bootstrap.sh release` to build and deploy.
 
 ## Contribute
 

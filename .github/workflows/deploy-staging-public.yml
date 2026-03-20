@@ -26,10 +26,11 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Read version from manifest
+      - name: Read version from git tags
         id: manifest
         run: |
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          git fetch --tags --quiet
+          VERSION=$(git describe --tags --match 'v[0-9]*' --abbrev=0 | sed 's/^v//; s/-.*//')
           echo "version=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 

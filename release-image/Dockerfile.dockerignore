@@ -1,6 +1,5 @@
 # We include just what's needed to run the aztec cli (none of the aztec.sh extensions).
 *
-!/VERSION
 !/barretenberg/cpp/build/bin/bb-avm
 !/barretenberg/ts/dest/
 !/barretenberg/ts/build/

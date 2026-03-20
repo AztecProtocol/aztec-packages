@@ -9,7 +9,7 @@ description: Updates changelog documentation for contract developers and node op
 
 ### 1. Determine Target Files
 
-Read the `VERSION` file to get the version (e.g., `4.0.0` → edit `v4.md`).
+Derive the version from git tags (e.g., `git describe --tags --match "v[0-9]*" --abbrev=0` → `v4.0.0` → edit `v4.md`).
 
 **Target files:**
 

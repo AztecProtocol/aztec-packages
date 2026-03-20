@@ -3,14 +3,14 @@
 
 set -ex
 
-VERSION_FILE="/usr/src/VERSION"
-
 declare -A attrs_map
 
-attrs_map["service.version"]="0.0.0";
-if [[ -f "$VERSION_FILE" ]]; then
-  # there's a single version of the whole monocontainer
-  attrs_map["service.version"]=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+# Read version from VERSION file if present (written by Dockerfile at build time),
+# otherwise fall back to AZTEC_VERSION env var or default
+if [[ -f "/usr/src/VERSION" ]]; then
+  attrs_map["service.version"]=$(cat "/usr/src/VERSION" | tr -d '[:space:]')
+else
+  attrs_map["service.version"]="${AZTEC_VERSION:-0.0.0}"
 fi
 
 export OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME:-unknown_service}"

@@ -1,7 +1,7 @@
 name: Create Release Branch
 
-# Take the current version from the VERSION file on `next`,
-# and create a release branch for it. Then update the VERSION file on `next` to the next version.
+# Derive the current version from git tags on `next`,
+# create a release branch for it, then tag `next` with the next major version.
 
 on:
   workflow_dispatch:
@@ -34,8 +34,10 @@ jobs:
 
       - name: Create release branch
         run: |
-          # Get the version from the VERSION file
-          CURRENT_VERSION=$(cat VERSION | tr -d '[:space:]')
+          # Derive the current version from the latest reachable version tag
+          git fetch --tags --quiet
+          CURRENT_VERSION=$(git describe --tags --match 'v[0-9]*' --abbrev=0 | sed 's/^v//; s/-.*//')
+          echo "Current version: $CURRENT_VERSION"
 
           # grab major version
           CURRENT_MAJOR_VERSION="${CURRENT_VERSION%%.*}"
@@ -53,14 +55,11 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git push origin "$BRANCH_NAME"
 
-          # increment major version
+          # Tag next with the next major version so nightly tags pick it up
           NEXT_MAJOR_VERSION=$((CURRENT_MAJOR_VERSION + 1))
           NEXT_VERSION="${NEXT_MAJOR_VERSION}.0.0"
 
-          # update VERSION file on `next` branch
           git fetch origin next
           git checkout -B next origin/next
-          echo "$NEXT_VERSION" > VERSION
-          git add VERSION
-          git commit -m "chore(release): update VERSION to $NEXT_VERSION"
-          git push origin next
+          git tag -a "v${NEXT_VERSION}" -m "chore(release): bump next to v${NEXT_VERSION}"
+          git push origin "v${NEXT_VERSION}"

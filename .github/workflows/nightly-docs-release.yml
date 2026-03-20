@@ -41,7 +41,8 @@ jobs:
             echo "Using manual tag: $NIGHTLY_TAG"
           else
             # Get today's nightly tag
-            current_version=$(cat VERSION | tr -d '[:space:]')
+            git fetch --tags --quiet
+            current_version=$(git describe --tags --match 'v[0-9]*' --abbrev=0 | sed 's/^v//; s/-.*//')
             NIGHTLY_TAG="v${current_version}-nightly.$(date -u +%Y%m%d)"
             echo "Expected nightly tag: $NIGHTLY_TAG"
 

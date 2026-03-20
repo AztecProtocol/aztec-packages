@@ -80,7 +80,7 @@ The nightly docs workflow can be manually triggered via GitHub Actions with a sp
 ### Nightly Versions
 
 - Format: `v{major}.{minor}.{patch}-nightly.{YYYYMMDD}`
-- Based on the current version in the `VERSION` file
+- Based on the current version derived from git tags
 - Automatically incremented daily
 
 ### Version Display

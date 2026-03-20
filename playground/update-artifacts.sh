@@ -1,4 +1,4 @@
-VERSION=$(cat ../VERSION | tr -d '[:space:]')
+VERSION=$(git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//; s/-.*//' || echo "0.0.0")
 
 echo "Adding latest artifact for version $VERSION"
 

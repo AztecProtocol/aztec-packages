@@ -16,7 +16,7 @@
 
 `next` is the primary development branch. All new work should go into `next` by default.
 
-The current version of a branch can be found in the `VERSION` file at the repo root.
+The current version of a branch is derived from git tags (e.g. `git describe --tags --match 'v[0-9]*' --abbrev=0`).
 
 Each day at 02:00 UTC, `.github/workflows/nightly-release-tag.yml` runs, which creates a tag like `v3.0.0-nightly.20250919`.
 
@@ -37,7 +37,7 @@ It requires a commit SHA which SHOULD be one from a particular nightly run.
 
 This creates a new branch for whatever the current version in `next` is, then bumps the version on `next`.
 
-For example, if this were run now, it would create a branch `v3`, and then bump the version in the `VERSION` file on `next` to be `4.0.0`.
+For example, if this were run now, it would create a branch `v3`, and then tag `next` with `v4.0.0` so nightly tags pick up the new version.
 
 Every push to a release branch causes a new tag to be created via the nightly tag workflow. So as soon as `v3` is created, there will be a tag that is `v3.0.0-rc.1`.
 
@@ -72,7 +72,7 @@ If you are fixing a bug in production, send it into `v2` first.
 
 If you are doing something in `next` we would like in production, you can use the `backport-to-v2` label.
 
-If your change produces new rollup contract addresses or VKs (and so would require a governance upgrade on testnet/mainnet), manually bump the minor version in the `VERSION` file; e.g., we would presently go to `2.1.0`. We're investigating ways to automate this.
+If your change produces new rollup contract addresses or VKs (and so would require a governance upgrade on testnet/mainnet), create a new version tag (e.g., `v2.1.0`) to bump the minor version. We're investigating ways to automate this.
 
 ### v3 (planned)
 
@@ -80,7 +80,7 @@ Will be cut when we are ready to start testing release candidates for the alpha 
 
 ## manual releases
 
-One can manually release by updating the version number in the root `VERSION` file, committing, tagging the repository with e.g. `v1.2.3`, checking out the tag, and running:
+One can manually release by tagging the repository with e.g. `v1.2.3`, checking out the tag, and running:
 
 ```
 ./bootstrap.sh release

@@ -51,5 +51,6 @@ if [ -z "${COMMIT_AUTHOR:-}" ]; then
 fi
 
 if [ -z "${CURRENT_VERSION:-}" ]; then
-  export CURRENT_VERSION=$(cat $root/VERSION | tr -d '[:space:]')
+  # Derive version from the latest reachable version tag (e.g. v5.0.0-nightly.20260320 → 5.0.0)
+  export CURRENT_VERSION=$(git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//; s/-.*//' || echo "0.0.0")
 fi
