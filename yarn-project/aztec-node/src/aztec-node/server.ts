@@ -458,6 +458,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       })
       .catch(err => log.error('Failed to start p2p services after archiver sync', err));
 
+    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, {
+      l1Contracts: config.l1Contracts,
+      ethereumSlotDuration: config.ethereumSlotDuration,
+      rollupVersion: BigInt(config.rollupVersion),
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+    });
+
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
@@ -520,6 +528,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         blobClient,
         nodeKeyStore: keyStoreManager!,
+        globalVariableBuilder,
       });
     }
 
@@ -552,13 +561,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         log.info(`Prover node subsystem created but not started`);
       }
     }
-
-    const globalVariableBuilder = new GlobalVariableBuilder({
-      ...config,
-      rollupVersion: BigInt(config.rollupVersion),
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-    });
 
     const node = new AztecNodeService(
       config,
