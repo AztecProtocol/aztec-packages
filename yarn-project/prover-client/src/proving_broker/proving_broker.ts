@@ -67,6 +67,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
     [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+
+    [ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
+    [ProvingRequestType.TOP_TREE_COMPLETE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // holds a copy of the database in memory in order to quickly fulfill requests
@@ -716,6 +721,8 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * is to get picked up by agents
  */
 export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+  ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE,
+  ProvingRequestType.TOP_TREE_COMPLETE,
   ProvingRequestType.ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,

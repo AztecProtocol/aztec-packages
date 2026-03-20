@@ -12,6 +12,7 @@ import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from 
 import { truncate } from '@aztec/foundation/string';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
+  type CircuitProvingRequestType,
   type ProofUri,
   type ProvingJobId,
   type ProvingJobInputsMap,
@@ -89,7 +90,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
    *
    * This could be called in a SerialQueue if it needs to become async.
    */
-  private getOrCreateProvingJob<T extends ProvingRequestType>(
+  private getOrCreateProvingJob<T extends CircuitProvingRequestType>(
     id: ProvingJobId,
     type: T,
     signal?: AbortSignal,
@@ -131,7 +132,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     return { job, isEnqueued: false };
   }
 
-  private async enqueueJob<T extends ProvingRequestType>(
+  private async enqueueJob<T extends CircuitProvingRequestType>(
     id: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
@@ -271,7 +272,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   }
 
   private async retrieveJobsThatShouldBeReady() {
-    const convertJobResult = async <T extends ProvingRequestType>(
+    const convertJobResult = async <T extends CircuitProvingRequestType>(
       result: ProvingJobStatus,
       jobType: ProvingRequestType,
     ): Promise<{

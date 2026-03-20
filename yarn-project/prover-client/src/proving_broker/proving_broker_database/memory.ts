@@ -1,9 +1,11 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import {
+  type Claim,
   type ProofUri,
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobSettledResult,
+  type WorkItemId,
   getEpochFromProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
 
@@ -12,6 +14,7 @@ import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
   private jobs = new Map<ProvingJobId, ProvingJob>();
   private results = new Map<ProvingJobId, ProvingJobSettledResult>();
+  private claims = new Map<WorkItemId, Claim>();
 
   getProvingJob(id: ProvingJobId): ProvingJob | undefined {
     return this.jobs.get(id);
@@ -60,5 +63,43 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
 
   close(): Promise<void> {
     return Promise.resolve();
+  }
+
+  addClaim(claim: Claim): Promise<void> {
+    this.claims.set(claim.workItemId, claim);
+    return Promise.resolve();
+  }
+
+  updateClaimActivity(workItemId: WorkItemId, lastActivity: number): Promise<boolean> {
+    const claim = this.claims.get(workItemId);
+    if (!claim) {
+      return Promise.resolve(false);
+    }
+    claim.lastActivity = lastActivity;
+    return Promise.resolve(true);
+  }
+
+  getClaim(workItemId: WorkItemId): Promise<Claim | undefined> {
+    return Promise.resolve(this.claims.get(workItemId));
+  }
+
+  deleteClaim(workItemId: WorkItemId): Promise<void> {
+    this.claims.delete(workItemId);
+    return Promise.resolve();
+  }
+
+  deleteClaimsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
+    for (const [id, claim] of this.claims) {
+      if (claim.epochNumber < epochNumber) {
+        this.claims.delete(id);
+      }
+    }
+    return Promise.resolve();
+  }
+
+  async *allClaims(): AsyncIterableIterator<Claim> {
+    for (const claim of this.claims.values()) {
+      yield claim;
+    }
   }
 }

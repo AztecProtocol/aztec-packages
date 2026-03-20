@@ -1,5 +1,6 @@
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import {
+  type CircuitProvingRequestType,
   type ProofUri,
   type ProvingJobId,
   ProvingJobInputs,
@@ -7,7 +8,6 @@ import {
   ProvingJobResult,
   type ProvingJobResultsMap,
 } from '@aztec/stdlib/interfaces/server';
-import type { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type { ZodFor } from '@aztec/stdlib/schemas';
 
 import type { ProofStore } from './proof_store.js';
@@ -21,7 +21,7 @@ const SEPARATOR = ',';
  * An implementation of a proof input/output database that stores data inline in the URI.
  */
 export class InlineProofStore implements ProofStore {
-  saveProofInput<T extends ProvingRequestType>(
+  saveProofInput<T extends CircuitProvingRequestType>(
     _id: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
@@ -30,7 +30,7 @@ export class InlineProofStore implements ProofStore {
     return Promise.resolve(this.encode(jobInputs));
   }
 
-  saveProofOutput<T extends ProvingRequestType>(
+  saveProofOutput<T extends CircuitProvingRequestType>(
     _id: ProvingJobId,
     type: T,
     result: ProvingJobResultsMap[T],

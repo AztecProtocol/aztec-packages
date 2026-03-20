@@ -21,6 +21,8 @@ export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: 40_000,
   [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: 0,
   [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: 2_500, // Guess based on public
+  [ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE]: 0,
+  [ProvingRequestType.TOP_TREE_COMPLETE]: 0,
 };
 
 export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
@@ -44,4 +46,6 @@ export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: 35_000,
   [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: 0,
   [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: 22_000,
+  [ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE]: 0,
+  [ProvingRequestType.TOP_TREE_COMPLETE]: 0,
 };

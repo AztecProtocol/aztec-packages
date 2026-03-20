@@ -1,6 +1,7 @@
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 
 import type { ProvingRequestType } from '../proofs/proving_request_type.js';
+import type { ClaimStatus, ClaimToken, WorkItemId } from './prover-claims.js';
 import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus } from './proving-job.js';
 
 /**
@@ -109,4 +110,22 @@ export interface ProvingJobBrokerDebug {
     epochNumber: EpochNumber,
     inputsUri: ProofUri,
   ): Promise<ProvingJobStatus>;
+}
+
+/** Interface for claiming work items across competing prover nodes. */
+export interface ProvingJobClaimManager {
+  /** Attempt to claim a work item. Returns a claim token if granted, undefined if already claimed. */
+  claimWork(workItemId: WorkItemId, nodeId: string): Promise<ClaimToken | undefined>;
+
+  /** Reset the inactivity timeout for a claim. Returns false if token doesn't match. */
+  heartbeatClaim(workItemId: WorkItemId, claimToken: ClaimToken): Promise<boolean>;
+
+  /** Get the current status of a work item claim. */
+  getClaimStatus(workItemId: WorkItemId): Promise<ClaimStatus>;
+
+  /** Batch query: get claim statuses for multiple work items. Returns statuses in same order as input. */
+  getClaimStatuses(workItemIds: WorkItemId[]): Promise<ClaimStatus[]>;
+
+  /** Release a claim (e.g., on graceful shutdown). */
+  releaseClaim(workItemId: WorkItemId, claimToken: ClaimToken): Promise<void>;
 }

@@ -9,6 +9,8 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
  * Lower index = higher priority (gets picked first)
  */
 const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+  ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE,
+  ProvingRequestType.TOP_TREE_COMPLETE,
   ProvingRequestType.ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
@@ -409,6 +411,12 @@ function enqueueDependentJobs(job: Job, state: SimState, queues: Queues, checkpo
 
     case ProvingRequestType.ROOT_ROLLUP: {
       state.rootRollupComplete = true;
+      break;
+    }
+
+    case ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE:
+    case ProvingRequestType.TOP_TREE_COMPLETE: {
+      // Completion markers are auto-completed by the broker and never enqueued as agent work
       break;
     }
   }

@@ -5,10 +5,13 @@ import { BatchQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { openVersionedStoreAt } from '@aztec/kv-store/lmdb-v2';
 import {
+  type Claim,
+  ClaimSchema,
   type ProofUri,
   ProvingJob,
   type ProvingJobId,
   ProvingJobSettledResult,
+  type WorkItemId,
   getEpochFromProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
 import {
@@ -31,10 +34,12 @@ class SingleEpochDatabase {
 
   private jobs: AztecAsyncMap<ProvingJobId, string>;
   private jobResults: AztecAsyncMap<ProvingJobId, string>;
+  private claims: AztecAsyncMap<WorkItemId, string>;
 
   constructor(public readonly store: AztecAsyncKVStore) {
     this.jobs = store.openMap('proving_jobs');
     this.jobResults = store.openMap('proving_job_results');
+    this.claims = store.openMap('proving_job_claims');
   }
 
   estimateSize() {
@@ -69,6 +74,39 @@ class SingleEpochDatabase {
   async setProvingJobResult(id: ProvingJobId, value: ProofUri): Promise<void> {
     const result: ProvingJobSettledResult = { status: 'fulfilled', value };
     await this.jobResults.set(id, jsonStringify(result));
+  }
+
+  async addClaim(claim: Claim): Promise<void> {
+    await this.claims.set(claim.workItemId, jsonStringify(claim));
+  }
+
+  async updateClaimActivity(workItemId: WorkItemId, lastActivity: number): Promise<boolean> {
+    const claimStr = await this.claims.getAsync(workItemId);
+    if (!claimStr) {
+      return false;
+    }
+    const claim = jsonParseWithSchema(claimStr, ClaimSchema);
+    claim.lastActivity = lastActivity;
+    await this.claims.set(workItemId, jsonStringify(claim));
+    return true;
+  }
+
+  async getClaim(workItemId: WorkItemId): Promise<Claim | undefined> {
+    const claimStr = await this.claims.getAsync(workItemId);
+    if (!claimStr) {
+      return undefined;
+    }
+    return jsonParseWithSchema(claimStr, ClaimSchema);
+  }
+
+  async deleteClaim(workItemId: WorkItemId): Promise<void> {
+    await this.claims.delete(workItemId);
+  }
+
+  async *allClaims(): AsyncIterableIterator<Claim> {
+    for await (const claimStr of this.claims.valuesAsync()) {
+      yield jsonParseWithSchema(claimStr, ClaimSchema);
+    }
   }
 
   delete() {
@@ -209,6 +247,49 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   setProvingJobResult(id: ProvingJobId, value: ProofUri): Promise<void> {
     return this.batchQueue.put([id, { status: 'fulfilled', value }], getEpochFromProvingJobId(id));
+  }
+
+  async addClaim(claim: Claim): Promise<void> {
+    const db = await this.getEpochDatabase(claim.epochNumber);
+    await db.addClaim(claim);
+  }
+
+  async updateClaimActivity(workItemId: WorkItemId, lastActivity: number): Promise<boolean> {
+    for (const db of this.epochs.values()) {
+      const found = await db.updateClaimActivity(workItemId, lastActivity);
+      if (found) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async getClaim(workItemId: WorkItemId): Promise<Claim | undefined> {
+    for (const db of this.epochs.values()) {
+      const claim = await db.getClaim(workItemId);
+      if (claim) {
+        return claim;
+      }
+    }
+    return undefined;
+  }
+
+  async deleteClaim(workItemId: WorkItemId): Promise<void> {
+    for (const db of this.epochs.values()) {
+      await db.deleteClaim(workItemId);
+    }
+  }
+
+  async deleteClaimsOlderThanEpoch(_epochNumber: EpochNumber): Promise<void> {
+    // Claims are stored in epoch-keyed databases, so they are cleaned up
+    // automatically when deleteAllProvingJobsOlderThanEpoch removes old epoch DBs.
+    // This method is a no-op for the persisted implementation.
+  }
+
+  async *allClaims(): AsyncIterableIterator<Claim> {
+    for (const db of this.epochs.values()) {
+      yield* db.allClaims();
+    }
   }
 
   private async getEpochDatabase(epochNumber: EpochNumber): Promise<SingleEpochDatabase> {

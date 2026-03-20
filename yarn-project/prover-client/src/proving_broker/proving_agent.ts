@@ -4,6 +4,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';
 import { ProvingError } from '@aztec/stdlib/errors';
 import type {
+  CircuitProvingRequestType,
   GetProvingJobResponse,
   ProverAgentStatus,
   ProvingJobConsumer,
@@ -181,10 +182,10 @@ export class ProvingAgent {
     this.currentJobController.start();
   }
 
-  private async reportResult<T extends ProvingRequestType>(
+  private async reportResult(
     jobId: ProvingJobId,
-    type: T,
-    result: ProvingJobResultsMap[T] | Error,
+    type: ProvingRequestType,
+    result: ProvingJobResultsMap[CircuitProvingRequestType] | Error,
   ): Promise<GetProvingJobResponse | undefined> {
     let maybeJob: GetProvingJobResponse | undefined;
     if (result instanceof AbortError) {
@@ -200,7 +201,7 @@ export class ProvingAgent {
         allowList: this.proofAllowList,
       });
     } else {
-      const outputUri = await this.proofStore.saveProofOutput(jobId, type, result);
+      const outputUri = await this.proofStore.saveProofOutput(jobId, type as CircuitProvingRequestType, result);
       this.log.info(`Job id=${jobId} type=${ProvingRequestType[type]} completed outputUri=${truncate(outputUri)}`);
       maybeJob = await this.broker.reportProvingJobSuccess(jobId, outputUri, { allowList: this.proofAllowList });
     }
