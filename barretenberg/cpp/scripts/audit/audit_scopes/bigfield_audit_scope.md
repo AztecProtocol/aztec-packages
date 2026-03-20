@@ -2,7 +2,7 @@
 
 Repository: https://github.com/AztecProtocol/aztec-packages
 
-Commit hash: [d0ee94134b6cf290cf93cccf30354278d2bdff59](https://github.com/AztecProtocol/aztec-packages/tree/d0ee94134b6cf290cf93cccf30354278d2bdff59)
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 

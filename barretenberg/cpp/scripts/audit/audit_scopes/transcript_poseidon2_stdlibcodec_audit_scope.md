@@ -1,7 +1,7 @@
 # External Audit Scope: Transcript + Stdlib Poseidon2 + StdlibCodec
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 777717f6af324188ecd6bb68c3c86ee7befef94d
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 

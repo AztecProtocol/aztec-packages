@@ -82,7 +82,7 @@ std::optional<std::vector<uint8_t>> invoke_ts_callback_with_promise(
     const Napi::ThreadSafeFunction& callback,
     const std::string& operation_name,
     std::function<void(Napi::Env, Napi::Function, std::shared_ptr<CallbackResults>)> call_js_function,
-    std::chrono::seconds timeout = std::chrono::seconds(30));
+    std::chrono::seconds timeout = std::chrono::seconds(60));
 
 /**
  * @brief Helper for callbacks that take a single string argument and return Buffer | undefined
