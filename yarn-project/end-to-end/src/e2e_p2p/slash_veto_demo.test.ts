@@ -2,9 +2,9 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import { L1Deployer } from '@aztec/ethereum/deploy-l1-contract';
-import { SlasherArtifact, TallySlashingProposerArtifact } from '@aztec/ethereum/l1-artifacts';
+import { SlasherArtifact, SlashingProposerArtifact } from '@aztec/ethereum/l1-artifacts';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
@@ -172,7 +172,7 @@ describe('veto slash', () => {
       BigInt(SLASH_OFFSET_IN_ROUNDS),
     ] as const;
     debugLogger.info(`\n\ndeploying tally slasher proposer with args: ${tryJsonStringify(proposerArgs)}\n\n`);
-    const proposer = (await deployer.deploy(TallySlashingProposerArtifact, proposerArgs)).address;
+    const proposer = (await deployer.deploy(SlashingProposerArtifact, proposerArgs)).address;
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
     const txUtils = createL1TxUtils(deployerClient, {
@@ -193,7 +193,7 @@ describe('veto slash', () => {
 
   /** Waits for a round to be executable */
   async function waitForSubmittableRound(
-    proposer: TallySlashingProposerContract,
+    proposer: SlashingProposerContract,
     rollup: RollupContract,
     debugLogger: Logger,
   ): Promise<{ round: bigint; payload: `0x${string}` }> {

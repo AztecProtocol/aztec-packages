@@ -7,7 +7,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { TxHash } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import type { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import type { RollupContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -94,7 +94,7 @@ export async function prepareTransactions(
 }
 
 export function awaitProposalExecution(
-  slashingProposer: TallySlashingProposerContract,
+  slashingProposer: SlashingProposerContract,
   timeoutSeconds: number,
   logger: Logger,
 ): Promise<bigint> {
@@ -238,7 +238,7 @@ export async function awaitCommitteeKicked({
   rollup: RollupContract;
   cheatCodes: RollupCheatCodes;
   committee: readonly `0x${string}`[];
-  slashingProposer: TallySlashingProposerContract | undefined;
+  slashingProposer: SlashingProposerContract | undefined;
   slashingRoundSize: number;
   aztecSlotDuration: number;
   aztecEpochDuration: number;

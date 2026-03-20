@@ -32,7 +32,7 @@ import { formatViemError } from '../utils.js';
 import { GSEContract } from './gse.js';
 import type { L1EventLog } from './log.js';
 import { SlasherContract } from './slasher_contract.js';
-import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
+import { SlashingProposerContract } from './slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
 export type ViemCommitteeAttestation = {
@@ -259,7 +259,7 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer(): Promise<TallySlashingProposerContract | undefined> {
+  public async getSlashingProposer(): Promise<SlashingProposerContract | undefined> {
     const slasher = await this.getSlasherContract();
     if (!slasher) {
       return undefined;
@@ -270,7 +270,7 @@ export class RollupContract {
       return undefined;
     }
 
-    return new TallySlashingProposerContract(this.client, proposerAddress);
+    return new SlashingProposerContract(this.client, proposerAddress);
   }
 
   @memoize

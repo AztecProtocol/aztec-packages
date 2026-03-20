@@ -7,7 +7,7 @@ import {EscapeHatch} from "@aztec/core/EscapeHatch.sol";
 import {IEscapeHatch, Hatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {RollupBuilder} from "@test/builder/RollupBuilder.sol";
@@ -20,7 +20,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
-contract TallySlashingProposerEscapeHatchTest is TestBase {
+contract SlashingProposerEscapeHatchTest is TestBase {
   using stdStorage for StdStorage;
 
   // Mirror the base slashing test constants for comparability
@@ -45,7 +45,7 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
 
   Rollup internal rollup;
   Slasher internal slasher;
-  TallySlashingProposer internal slashingProposer;
+  SlashingProposer internal slashingProposer;
   EscapeHatch internal escapeHatch;
   TestERC20 internal bondToken;
   TimeCheater internal timeCheater;
@@ -94,7 +94,7 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
     rollup = builder.getConfig().rollup;
     bondToken = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
+    slashingProposer = SlashingProposer(slasher.PROPOSER());
 
     timeCheater = new TimeCheater(
       address(rollup),
@@ -180,7 +180,7 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
 
     // Tally results
     address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
 
     assertEq(actions.length, open ? 4 : 8);
     for (uint256 i; i < actions.length; ++i) {

@@ -6,7 +6,7 @@ import {
   type GovernanceProposerContract,
   Multicall3,
   type RollupContract,
-  type TallySlashingProposerContract,
+  type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
   type GasPrice,
@@ -59,7 +59,7 @@ const mockForwarderAddress = EthAddress.random().toString();
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
-  let slashingProposerContract: MockProxy<TallySlashingProposerContract>;
+  let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
@@ -129,7 +129,7 @@ describe('SequencerPublisher', () => {
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
-    slashingProposerContract = mock<TallySlashingProposerContract>();
+    slashingProposerContract = mock<SlashingProposerContract>();
     l1Metrics = mock<SequencerPublisherMetrics>();
 
     governanceProposerContract = mock<GovernanceProposerContract>();

@@ -126,13 +126,13 @@ export type ValidatorSlash = {
   offenses: ValidatorSlashOffense[];
 };
 
-/** Votes for a validator slash in the tally slash proposer */
+/** Votes for a validator slash in the slashing proposer */
 export type ValidatorSlashVote = number;
 
 export type ProposerSlashAction =
-  /** Vote for offenses on the tally slashing proposer */
+  /** Vote for offenses on the slashing proposer */
   | { type: 'vote-offenses'; votes: ValidatorSlashVote[]; committees: EthAddress[][]; round: bigint }
-  /** Execute a slashing round on the tally slashing proposer */
+  /** Execute a slashing round on the slashing proposer */
   | { type: 'execute-slash'; committees: EthAddress[][]; round: bigint };
 
 export type ProposerSlashActionType = ProposerSlashAction['type'];

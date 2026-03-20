@@ -3,7 +3,7 @@ import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import { GSEContract, RollupContract, type TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { GSEContract, RollupContract, type SlashingProposerContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
@@ -462,7 +462,7 @@ export class P2PNetworkTest {
   async getContracts(): Promise<{
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
-    slashingProposer: TallySlashingProposerContract | undefined;
+    slashingProposer: SlashingProposerContract | undefined;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
       throw new Error('DeployAztecL1ContractsValues not set');

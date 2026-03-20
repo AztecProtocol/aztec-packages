@@ -40,12 +40,12 @@ import {
   RollupOperationsExtLibBytecode,
   SlasherAbi,
   SlasherBytecode,
+  SlasherDeploymentExtLibAbi,
+  SlasherDeploymentExtLibBytecode,
+  SlashingProposerAbi,
+  SlashingProposerBytecode,
   StakingAssetHandlerAbi,
   StakingAssetHandlerBytecode,
-  TallySlasherDeploymentExtLibAbi,
-  TallySlasherDeploymentExtLibBytecode,
-  TallySlashingProposerAbi,
-  TallySlashingProposerBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   ValidatorOperationsExtLibAbi,
@@ -101,10 +101,10 @@ export const RollupArtifact = {
         contractAbi: RewardExtLibAbi,
         contractBytecode: RewardExtLibBytecode as Hex,
       },
-      TallySlasherDeploymentExtLib: {
-        name: 'TallySlasherDeploymentExtLib',
-        contractAbi: TallySlasherDeploymentExtLibAbi,
-        contractBytecode: TallySlasherDeploymentExtLibBytecode as Hex,
+      SlasherDeploymentExtLib: {
+        name: 'SlasherDeploymentExtLib',
+        contractAbi: SlasherDeploymentExtLibAbi,
+        contractBytecode: SlasherDeploymentExtLibBytecode as Hex,
       },
     },
   },
@@ -164,10 +164,10 @@ export const SlasherArtifact = {
   contractBytecode: SlasherBytecode as Hex,
 };
 
-export const TallySlashingProposerArtifact = {
-  name: 'TallySlashingProposer',
-  contractAbi: TallySlashingProposerAbi,
-  contractBytecode: TallySlashingProposerBytecode as Hex,
+export const SlashingProposerArtifact = {
+  name: 'SlashingProposer',
+  contractAbi: SlashingProposerAbi,
+  contractBytecode: SlashingProposerBytecode as Hex,
 };
 
 export const RegisterNewRollupVersionPayloadArtifact = {

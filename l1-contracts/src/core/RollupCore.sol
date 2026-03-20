@@ -20,7 +20,7 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
-import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
+import {SlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/SlasherDeploymentExtLib.sol";
 import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
@@ -239,7 +239,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     if (_config.targetCommitteeSize == 0 || !_config.slasherEnabled) {
       slasher = ISlasher(address(0));
     } else {
-      slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
+      slasher = SlasherDeploymentExtLib.deploySlasher(
         address(this),
         _config.slashingVetoer,
         _governance,

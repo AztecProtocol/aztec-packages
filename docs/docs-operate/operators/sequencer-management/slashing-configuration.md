@@ -333,16 +333,16 @@ grep "Slashing round.*has been executed" /path/to/node/logs
 
 ### Query L1 Contract State
 
-You can query the TallySlashingProposer contract to see voting activity:
+You can query the SlashingProposer contract to see voting activity:
 
 ```bash
 # Get current round information
-cast call [TALLY_SLASHING_PROPOSER_ADDRESS] \
+cast call [SLASHING_PROPOSER_ADDRESS] \
   "getCurrentRound()" \
   --rpc-url [YOUR_RPC_URL]
 
 # Check a specific round's vote count
-cast call [TALLY_SLASHING_PROPOSER_ADDRESS] \
+cast call [SLASHING_PROPOSER_ADDRESS] \
   "getRound(uint256)" [ROUND_NUMBER] \
   --rpc-url [YOUR_RPC_URL]
 ```

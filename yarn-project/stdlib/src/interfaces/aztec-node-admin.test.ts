@@ -124,7 +124,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashUnknownPenalty: 1000n,
       slashGracePeriodL2Slots: 0,
       slashExecuteRoundsLookBack: 4,
-      slasherClientType: 'tally' as const,
+
       disableValidator: false,
       disabledValidators: [],
       attestationPollingIntervalMs: 1000,

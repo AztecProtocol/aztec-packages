@@ -1,5 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,10 +9,10 @@ import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { NullSlasherClient } from '../null_slasher_client.js';
+import { SlasherClient } from '../slasher_client.js';
 import { SlasherOffensesStore } from '../stores/offenses_store.js';
-import { TallySlasherClient } from '../tally_slasher_client.js';
 import type { Watcher } from '../watcher.js';
-import { getTallySlasherSettings } from './get_settings.js';
+import { getSlasherSettings } from './get_settings.js';
 
 /** Creates a slasher client implementation based on the slasher proposer type in the rollup */
 export async function createSlasherImplementation(
@@ -30,7 +30,7 @@ export async function createSlasherImplementation(
   if (!proposer) {
     return new NullSlasherClient(config);
   } else {
-    return createTallySlasher(
+    return createSlasher(
       config,
       rollup,
       proposer,
@@ -44,22 +44,18 @@ export async function createSlasherImplementation(
   }
 }
 
-async function createTallySlasher(
+async function createSlasher(
   config: SlasherConfig & DataStoreConfig,
   rollup: RollupContract,
-  slashingProposer: TallySlashingProposerContract,
+  slashingProposer: SlashingProposerContract,
   watchers: Watcher[],
   dateProvider: DateProvider,
   epochCache: EpochCache,
   kvStore: AztecLMDBStoreV2,
   rollupRegisteredAtL2Slot: SlotNumber,
   logger = createLogger('slasher'),
-): Promise<TallySlasherClient> {
-  if (slashingProposer.type !== 'tally') {
-    throw new Error('Slashing proposer contract is not of type tally');
-  }
-
-  const settings = { ...(await getTallySlasherSettings(rollup, slashingProposer)), rollupRegisteredAtL2Slot };
+): Promise<SlasherClient> {
+  const settings = { ...(await getSlasherSettings(rollup, slashingProposer)), rollupRegisteredAtL2Slot };
   const slasher = await rollup.getSlasherContract();
 
   const offensesStore = new SlasherOffensesStore(kvStore, {
@@ -67,7 +63,7 @@ async function createTallySlasher(
     slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
   });
 
-  return new TallySlasherClient(
+  return new SlasherClient(
     config,
     settings,
     slashingProposer,

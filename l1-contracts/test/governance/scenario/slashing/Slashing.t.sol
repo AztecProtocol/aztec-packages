@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -19,7 +19,7 @@ import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
@@ -37,7 +37,7 @@ contract SlashingTest is TestBase {
   RewardDistributor internal rewardDistributor;
   Rollup internal rollup;
   Slasher internal slasher;
-  TallySlashingProposer internal slashingProposer;
+  SlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
   // Test validator keys for signing
@@ -178,7 +178,7 @@ contract SlashingTest is TestBase {
     testERC20 = builder.getConfig().testERC20;
 
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
+    slashingProposer = SlashingProposer(slasher.PROPOSER());
 
     timeCheater = new TimeCheater(
       address(rollup),
@@ -284,7 +284,7 @@ contract SlashingTest is TestBase {
     // For tally slashing, we need to predict the payload address and veto it
     // Get the actual slash actions that will be created by calling getTally
     address[][] memory slashCommittees = slashingProposer.getSlashTargetCommittees(firstSlashingRound);
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound, slashCommittees);
+    SlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound, slashCommittees);
     address payloadAddress = slashingProposer.getPayloadAddress(firstSlashingRound, actions);
 
     // Veto the predicted payload

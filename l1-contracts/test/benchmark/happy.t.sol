@@ -62,7 +62,7 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
@@ -406,7 +406,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = TallySlashingProposer(slashingProposer).getVoteSignatureDigest(votes, slot);
+    bytes32 digest = SlashingProposer(slashingProposer).getVoteSignatureDigest(votes, slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
@@ -432,7 +432,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     });
     calls[1] = Multicall3.Call3({
       target: address(slashingProposer),
-      callData: abi.encodeCall(TallySlashingProposer(slashingProposer).vote, (voteData, sig)),
+      callData: abi.encodeCall(SlashingProposer(slashingProposer).vote, (voteData, sig)),
       allowFailure: false
     });
     multicall.aggregate3(calls);
@@ -468,7 +468,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         checkpointAttestations[currentCheckpointNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
         if (_slashing == TestSlash.TALLY) {
-          SlashRound slashRound = TallySlashingProposer(slashingProposer).getCurrentRound();
+          SlashRound slashRound = SlashingProposer(slashingProposer).getCurrentRound();
           // We are offset + 1, because the first round after the offset is used entirely on warming the storage up, so
           // we don't get a off-balance update
           if (SlashRound.unwrap(slashRound) >= 3) {

@@ -9,7 +9,7 @@ import {
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
-  type TallySlashingProposerContract,
+  type SlashingProposerContract,
   type ViemCommitteeAttestations,
   type ViemHeader,
 } from '@aztec/ethereum/contracts';
@@ -38,7 +38,6 @@ import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
-// EmpireBaseAbi is still used for the governance proposer's signal casting (GovernanceProposer extends EmpireBase)
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -156,7 +155,7 @@ export class SequencerPublisher {
   public l1TxUtils: L1TxUtils;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
-  public slashingProposerContract: TallySlashingProposerContract | undefined;
+  public slashingProposerContract: SlashingProposerContract | undefined;
 
   public readonly tracer: Tracer;
 
@@ -170,7 +169,7 @@ export class SequencerPublisher {
       blobClient: BlobClientInterface;
       l1TxUtils: L1TxUtils;
       rollupContract: RollupContract;
-      slashingProposerContract: TallySlashingProposerContract | undefined;
+      slashingProposerContract: SlashingProposerContract | undefined;
       governanceProposerContract: GovernanceProposerContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
@@ -1031,17 +1030,16 @@ export class SequencerPublisher {
             votesCount: action.votes.length,
             signerAddress,
           });
-          if (this.slashingProposerContract?.type !== 'tally') {
-            this.log.error('Cannot vote for slashing offenses on non-tally slashing contract');
+          if (!this.slashingProposerContract) {
+            this.log.error('No slashing proposer contract available');
             return false;
           }
-          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
           const votes = bufferToHex(encodeSlashConsensusVotes(action.votes));
-          const request = await tallySlashingProposer.buildVoteRequestFromSigner(votes, slotNumber, signer);
+          const request = await this.slashingProposerContract.buildVoteRequestFromSigner(votes, slotNumber, signer);
           await this.simulateAndEnqueueRequest(
             'vote-offenses',
             request,
-            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractVoteCastEvent(receipt.logs),
+            (receipt: TransactionReceipt) => !!this.slashingProposerContract!.tryExtractVoteCastEvent(receipt.logs),
             slotNumber,
             timestamp,
           );
@@ -1054,16 +1052,19 @@ export class SequencerPublisher {
             round: action.round,
             signerAddress,
           });
-          if (this.slashingProposerContract?.type !== 'tally') {
-            this.log.error('Cannot execute slashing offenses on non-tally slashing contract');
+          if (!this.slashingProposerContract) {
+            this.log.error('No slashing proposer contract available');
             return false;
           }
-          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
-          const request = tallySlashingProposer.buildExecuteRoundRequest(action.round, action.committees);
+          const executeRequest = this.slashingProposerContract.buildExecuteRoundRequest(
+            action.round,
+            action.committees,
+          );
           await this.simulateAndEnqueueRequest(
             'execute-slash',
-            request,
-            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractRoundExecutedEvent(receipt.logs),
+            executeRequest,
+            (receipt: TransactionReceipt) =>
+              !!this.slashingProposerContract!.tryExtractRoundExecutedEvent(receipt.logs),
             slotNumber,
             timestamp,
           );

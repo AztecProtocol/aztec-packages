@@ -8,11 +8,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import type {
-  GovernanceProposerContract,
-  RollupContract,
-  TallySlashingProposerContract,
-} from '@aztec/ethereum/contracts';
+import type { GovernanceProposerContract, RollupContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import { Multicall3 } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -51,7 +47,7 @@ describe('CheckpointVoter HA Integration', () => {
   // Mock dependencies
   let rollupContract: MockProxy<RollupContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
-  let slashingProposerContract: MockProxy<TallySlashingProposerContract>;
+  let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let l1TxUtils: MockProxy<L1TxUtils>;
   let dateProvider: TestDateProvider;
   let sequencerMetrics: MockProxy<SequencerMetrics>;
@@ -109,14 +105,13 @@ describe('CheckpointVoter HA Integration', () => {
   /**
    * Helper to create mock slashing contract with proper signer invocation
    */
-  function createMockSlashingContract(): MockProxy<TallySlashingProposerContract> {
-    const contract = mock<TallySlashingProposerContract>();
-    Object.defineProperty(contract, 'type', { value: 'tally', writable: false });
+  function createMockSlashingContract(): MockProxy<SlashingProposerContract> {
+    const contract = mock<SlashingProposerContract>();
     Object.defineProperty(contract, 'address', { value: EthAddress.random(), writable: false });
     // Mock must actually call the signer function to trigger HA protection
     contract.buildVoteRequestFromSigner.mockImplementation(async (_votes, _slot, signer) => {
       const mockTypedData = {
-        domain: { name: 'TallySlashingProposer', version: '1', chainId: 1 },
+        domain: { name: 'SlashingProposer', version: '1', chainId: 1 },
         types: {
           Vote: [
             { name: 'votes', type: 'bytes' },

@@ -61,11 +61,11 @@ export type L1ContractsConfig = {
   slashingDisableDuration: number;
   /** Whether to deploy a slasher proposer */
   slasherEnabled: boolean;
-  /** Minimum amount that can be slashed in tally slashing */
+  /** Minimum amount that can be slashed */
   slashAmountSmall: bigint;
-  /** Medium amount to slash in tally slashing */
+  /** Medium amount to slash */
   slashAmountMedium: bigint;
-  /** Largest amount that can be slashed per round in tally slashing */
+  /** Largest amount that can be slashed per round */
   slashAmountLarge: bigint;
   /** Governance proposing quorum (defaults to roundSize/2 + 1) */
   governanceProposerQuorum?: number;

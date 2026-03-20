@@ -18,7 +18,7 @@ No manual intervention is required for normal operation. The slasher client hand
 
 ## Slashing Model
 
-The tally model uses consensus-based voting where proposers vote on individual validator offenses. Time is divided into rounds, and during each round, proposers submit votes indicating which validators from a given past round should be slashed (eg round N votes to slash the validators from round N-2). Votes are encoded as bytes where each validator's vote is represented by 2 bits indicating the slash amount (0-3 slash units) for each validator. The L1 contract tallies votes and slashes validators that reach quorum.
+The slashing model uses consensus-based voting where proposers vote on individual validator offenses. Time is divided into rounds, and during each round, proposers submit votes indicating which validators from a given past round should be slashed (eg round N votes to slash the validators from round N-2). Votes are encoded as bytes where each validator's vote is represented by 2 bits indicating the slash amount (0-3 slash units) for each validator. The L1 contract tallies votes and slashes validators that reach quorum.
 
 Key characteristics:
 - Proposers vote directly on validator offenses
@@ -33,7 +33,7 @@ Key characteristics:
 ### Core Components
 
 #### SlasherClientInterface
-Interface implemented by the tally slasher client. Provides methods for:
+Interface implemented by the slasher client. Provides methods for:
 - `getProposerActions()`: Returns actions for the current proposer
 - `gatherOffensesForRound()`: Collects offenses for a specific round
 
