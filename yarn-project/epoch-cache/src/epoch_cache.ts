@@ -156,7 +156,7 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = this.nowInSeconds();
+    const now = BigInt(this.dateProvider.nowInSeconds());
     const nextSlotTs = getNextL1SlotTimestamp(Number(now), this.l1constants);
     return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
   }
