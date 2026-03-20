@@ -20,6 +20,7 @@ import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   NO_WAIT,
   type NoWait,
   type OffchainOutput,
@@ -222,10 +223,14 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   }
 
   convertDeployOptionsToRequestOptions(options: DeployOptionsWithoutWait): RequestDeployOptions {
-    return {
-      ...options,
-      deployer: !options?.universalDeploy ? options.from : undefined,
-    };
+    const { from } = options;
+    let deployer: AztecAddress | undefined;
+    if (options?.universalDeploy) {
+      deployer = undefined;
+    } else {
+      deployer = from === NO_FROM ? AztecAddress.ZERO : from;
+    }
+    return { ...options, deployer };
   }
 
   /**
