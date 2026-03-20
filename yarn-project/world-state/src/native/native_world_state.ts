@@ -48,6 +48,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
+  private committedFork: MerkleTreeWriteOperations | undefined;
 
   protected constructor(
     protected instance: NativeWorldState,
@@ -153,6 +154,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async clear() {
+    await this.closeCommittedFork();
     await this.instance.close();
     this.cachedStatusSummary = undefined;
     await tryRmDir(this.instance.getDataDir(), this.log);
@@ -160,6 +162,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public getCommitted(): MerkleTreeReadOperations {
+    if (this.committedFork) {
+      return this.committedFork;
+    }
     return new MerkleTreesFacade(this.instance, this.initialHeader!, WorldStateRevision.empty());
   }
 
@@ -192,8 +197,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async commitFork(_fork: MerkleTreeWriteOperations, _blockNumber: BlockNumber): Promise<void> {
-    // TODO: implement
+  public async commitFork(fork: MerkleTreeWriteOperations, blockNumber: BlockNumber): Promise<void> {
+    const status = await this.getStatusSummary();
+    if (status.unfinalizedBlockNumber !== blockNumber) {
+      throw new Error(
+        `Can't commit fork: expected tip at block ${blockNumber}, but canonical tip is at ${status.unfinalizedBlockNumber}`,
+      );
+    }
+    await this.closeCommittedFork();
+    this.committedFork = fork;
   }
 
   public getInitialHeader(): BlockHeader {
@@ -232,7 +244,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     });
 
     try {
-      return await this.instance.call(
+      const result = await this.instance.call(
         WorldStateMessageType.SYNC_BLOCK,
         {
           blockNumber: l2Block.number,
@@ -247,6 +259,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         this.sanitizeAndCacheSummaryFromFull.bind(this),
         this.deleteCachedSummary.bind(this),
       );
+      await this.closeCommittedFork();
+      return result;
     } catch (err) {
       this.worldStateInstrumentation.incCriticalErrors('synch_pending_block');
       throw err;
@@ -277,6 +291,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   private deleteCachedSummary(_: string) {
     this.cachedStatusSummary = undefined;
+  }
+
+  private async closeCommittedFork(): Promise<void> {
+    const fork = this.committedFork;
+    if (fork) {
+      this.committedFork = undefined;
+      await fork.close();
+    }
   }
 
   /**
@@ -331,7 +353,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    */
   public async unwindBlocks(toBlockNumber: BlockNumber) {
     try {
-      return await this.instance.call(
+      const result = await this.instance.call(
         WorldStateMessageType.UNWIND_BLOCKS,
         {
           toBlockNumber,
@@ -340,6 +362,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         this.sanitizeAndCacheSummaryFromFull.bind(this),
         this.deleteCachedSummary.bind(this),
       );
+      // Just null the reference — native UNWIND_BLOCKS already deletes forks past the unwind point.
+      this.committedFork = undefined;
+      return result;
     } catch (err) {
       this.worldStateInstrumentation.incCriticalErrors('prune_pending_block');
       throw err;

@@ -2035,23 +2035,30 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork();
       const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
 
+      // Snapshot the fork's state before committing (fork will be closed by handleL2BlockAndMessages)
+      const forkStateRef = await fork.getStateReference();
+
       await ws.commitFork(fork, BlockNumber(0));
 
       // getCommitted() should return the fork's state
-      await assertSameState(ws.getCommitted(), fork);
+      const committedStateRef = await ws.getCommitted().getStateReference();
+      expect(committedStateRef).toEqual(forkStateRef);
 
-      // Now sync the same block via handleL2BlockAndMessages
+      // Now sync the same block via handleL2BlockAndMessages (this closes the committed fork)
       await ws.handleL2BlockAndMessages(block, messages);
 
       // getCommitted() should now return LMDB state (which should match since same block was synced)
-      const committed = ws.getCommitted();
-      await assertSameState(committed, fork);
+      const lmdbStateRef = await ws.getCommitted().getStateReference();
+      expect(lmdbStateRef).toEqual(forkStateRef);
 
-      // Verify the committed fork was cleared by mutating the fork and checking getCommitted() doesn't change
+      // Verify getCommitted() is now a fresh LMDB facade, not the fork, by creating a new fork
+      // and confirming getCommitted() doesn't track new fork mutations
+      const newFork = await ws.fork();
       const committedInfoBefore = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-      await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [Fr.random()]);
+      await newFork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [Fr.random()]);
       const committedInfoAfter = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
       expect(committedInfoAfter).toEqual(committedInfoBefore);
+      await newFork.close();
     });
 
     it('unwindBlocks clears the committed fork', async () => {
@@ -2063,17 +2070,20 @@ describe('NativeWorldState', () => {
       }
       await setupFork.close();
 
+      // Snapshot state at block 2 before the reorg
+      const snapshot2StateRef = await ws.getSnapshot(BlockNumber(2)).getStateReference();
+
       // Create fork at block 3, build block 4, commitFork
       const fork = await ws.fork();
       await mockBlock(BlockNumber(4), 1, fork);
       await ws.commitFork(fork, BlockNumber(3));
 
-      // Reorg back to block 2
+      // Reorg back to block 2 (this closes the committed fork)
       await ws.unwindBlocks(BlockNumber(2));
 
-      // getCommitted() should return LMDB state at block 2, not the fork
-      const snapshot2 = ws.getSnapshot(BlockNumber(2));
-      await assertSameState(ws.getCommitted(), snapshot2);
+      // getCommitted() should return LMDB state at block 2, not the fork's state
+      const committedStateRef = await ws.getCommitted().getStateReference();
+      expect(committedStateRef).toEqual(snapshot2StateRef);
     });
 
     it('replaces a previous committed fork', async () => {
