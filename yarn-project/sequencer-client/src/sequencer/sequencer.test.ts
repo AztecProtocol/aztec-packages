@@ -1049,6 +1049,9 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
+      l2BlockSource.getPendingCheckpoint.mockResolvedValue({
+        checkpointNumber: CheckpointNumber(1),
+      } as any);
 
       await sequencer.work();
 
@@ -1060,6 +1063,66 @@ describe('sequencer', () => {
           forceArchive: expect.objectContaining({ checkpointNumber: CheckpointNumber(1) }),
         }),
       );
+    });
+
+    it('skips proposal when checkpoint exceeds pipeline depth', async () => {
+      await setupSingleTxBlock();
+
+      // Simulate the bug scenario: proposed tip has advanced through 2 pipelined checkpoints.
+      // Confirmed checkpoint is 1, pending is 2, proposed tip is in checkpoint 3.
+      // So sequencer would try to build checkpoint 4, which exceeds the 1-deep pipeline limit.
+      const nonGenesisHash = Fr.random().toString();
+      const pendingCheckpointHash = Fr.random().toString();
+      const checkpointedHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: BlockNumber(3),
+          latestBlockHash: nonGenesisHash,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus);
+      const tips = {
+        proposed: { number: BlockNumber(3), hash: nonGenesisHash },
+        pendingCheckpoint: {
+          block: { number: BlockNumber(2), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber(2), hash: pendingCheckpointHash },
+        },
+        checkpointed: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber(1), hash: checkpointedHash },
+        },
+        proven: {
+          block: { number: BlockNumber.ZERO, hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        finalized: {
+          block: { number: BlockNumber.ZERO, hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+      };
+      l2BlockSource.getL2Tips.mockResolvedValue(tips);
+      l1ToL2MessageSource.getL2Tips.mockResolvedValue(tips);
+      p2p.getStatus.mockResolvedValue({
+        syncedToL2Block: { number: BlockNumber(3), hash: nonGenesisHash },
+      } as any);
+      l2BlockSource.getBlockData.mockResolvedValue({
+        header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }) }),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: Fr.ZERO,
+        checkpointNumber: CheckpointNumber(3),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } satisfies BlockData);
+      l2BlockSource.getPendingCheckpoint.mockResolvedValue({
+        checkpointNumber: CheckpointNumber(2),
+      } as any);
+
+      await sequencer.work();
+
+      // Should have bailed before reaching the L1 check: checkpoint 4 > min(1+2, 2+1) = 3
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
     });
 
     it('calls L1 check without archive override when no pending checkpoint', async () => {

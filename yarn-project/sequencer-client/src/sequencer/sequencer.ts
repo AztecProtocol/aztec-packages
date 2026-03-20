@@ -299,6 +299,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Next checkpoint follows from the last synced one
     const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 
+    // Guard: don't exceed 1-deep pipeline. Without a pending checkpoint, we can only build
+    // confirmed + 1. With a pending checkpoint, we can build confirmed + 2 and pending + 1.
+    const confirmedCkpt = syncedTo.checkpointedCheckpointNumber;
+    const pendingCkpt = syncedTo.pendingCheckpointData?.checkpointNumber;
+    const maxAllowedCheckpoint =
+      pendingCkpt !== undefined
+        ? CheckpointNumber(Math.min(confirmedCkpt + 2, pendingCkpt + 1))
+        : CheckpointNumber(confirmedCkpt + 1);
+    if (checkpointNumber > maxAllowedCheckpoint) {
+      this.log.warn(
+        `Skipping slot ${targetSlot}: checkpoint ${checkpointNumber} exceeds max pipeline depth (confirmed=${confirmedCkpt}, pending=${pendingCkpt})`,
+      );
+      return undefined;
+    }
+
     const logCtx = {
       nowSeconds,
       syncedToL2Slot: syncedTo.syncedL2Slot,
@@ -592,6 +607,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
       return {
         checkpointNumber: CheckpointNumber.ZERO,
+        checkpointedCheckpointNumber: CheckpointNumber.ZERO,
         blockNumber: BlockNumber.ZERO,
         archive,
         hasPendingCheckpoint: false,
@@ -611,6 +627,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       blockData,
       blockNumber: blockData.header.getBlockNumber(),
       checkpointNumber: blockData.checkpointNumber,
+      checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
       archive: blockData.archive.root,
       hasPendingCheckpoint: l2Tips.pendingCheckpoint !== undefined,
       pendingCheckpointData,
@@ -961,6 +978,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 type SequencerSyncCheckResult = {
   blockData?: BlockData;
   checkpointNumber: CheckpointNumber;
+  checkpointedCheckpointNumber: CheckpointNumber;
   blockNumber: BlockNumber;
   archive: Fr;
   hasPendingCheckpoint: boolean;
