@@ -777,21 +777,13 @@ export class RollupContract {
    * timestamp of the next L1 block
    * @throws otherwise
    */
-  public async canProposeAtNextEthBlock(
+  public async canProposeAt(
     archive: Buffer,
     account: `0x${string}` | Account,
-<<<<<<< HEAD
-    slotDuration: number,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
-  ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
-    const latestBlock = await this.client.getBlock();
-    const timeOfNextL1Slot = latestBlock.timestamp + BigInt(slotDuration);
-=======
     timestamp: bigint,
     opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
   ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
     const timeOfNextL1Slot = timestamp;
->>>>>>> fef6517f55 (fix(sequencer): use wall-clock time instead of L1 block timestamp for slot estimation (#21769))
     const who = typeof account === 'string' ? account : account.address;
 
     try {

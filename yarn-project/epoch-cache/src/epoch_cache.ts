@@ -155,28 +155,10 @@ export class EpochCache implements EpochCacheInterface {
     return { epoch, ts, slot };
   }
 
-<<<<<<< HEAD
   public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
     const now = this.nowInSeconds();
-    const nextSlotTs = now + BigInt(this.l1constants.ethereumSlotDuration);
+    const nextSlotTs = getNextL1SlotTimestamp(Number(now), this.l1constants);
     return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
-=======
-  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
-    const nowSeconds = this.dateProvider.nowInSeconds();
-    const nextSlotTs = getNextL1SlotTimestamp(nowSeconds, this.l1constants);
-    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), nowSeconds: BigInt(nowSeconds) };
-  }
-
-  public getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
-    if (!this.isProposerPipeliningEnabled()) {
-      return this.getEpochAndSlotInNextL1Slot();
-    }
-
-    const result = this.getEpochAndSlotInNextL1Slot();
-    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
-    const targetSlot = SlotNumber(result.slot + offset);
-    return { ...result, slot: targetSlot, epoch: getEpochAtSlot(targetSlot, this.l1constants) };
->>>>>>> fef6517f55 (fix(sequencer): use wall-clock time instead of L1 block timestamp for slot estimation (#21769))
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {

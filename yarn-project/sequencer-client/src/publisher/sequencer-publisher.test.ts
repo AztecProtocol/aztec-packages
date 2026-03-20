@@ -139,11 +139,7 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
-<<<<<<< HEAD
-=======
     epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
-    epochCache.getSlotNow.mockReturnValue(SlotNumber(2));
->>>>>>> fef6517f55 (fix(sequencer): use wall-clock time instead of L1 block timestamp for slot estimation (#21769))
     epochCache.getCommittee.mockResolvedValue({
       committee: [],
       seed: 1n,
@@ -305,8 +301,6 @@ describe('SequencerPublisher', () => {
     expect(result).toEqual(undefined);
   });
 
-<<<<<<< HEAD
-=======
   describe('publisher rotation on send failure', () => {
     let secondL1TxUtils: MockProxy<L1TxUtils>;
     let getNextPublisher: jest.MockedFunction<(excludeAddresses: EthAddress[]) => Promise<L1TxUtils | undefined>>;

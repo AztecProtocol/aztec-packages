@@ -327,7 +327,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Check with the rollup contract if we can indeed propose at the next L2 slot. This check should not fail
     // if all the previous checks are good, but we do it just in case.
-    const canProposeCheck = await publisher.canProposeAtNextEthBlock(
+    const canProposeCheck = await publisher.canProposeAt(
       syncedTo.archive,
       proposer ?? EthAddress.ZERO,
       invalidateCheckpoint,

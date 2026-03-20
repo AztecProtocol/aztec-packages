@@ -122,11 +122,7 @@ export class SequencerPublisher {
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
-<<<<<<< HEAD
-=======
-  protected aztecSlotDuration: bigint;
   private dateProvider: DateProvider;
->>>>>>> fef6517f55 (fix(sequencer): use wall-clock time instead of L1 block timestamp for slot estimation (#21769))
 
   private blobClient: BlobClientInterface;
 
@@ -175,11 +171,7 @@ export class SequencerPublisher {
   ) {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
-<<<<<<< HEAD
-=======
-    this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
     this.dateProvider = deps.dateProvider;
->>>>>>> fef6517f55 (fix(sequencer): use wall-clock time instead of L1 block timestamp for slot estimation (#21769))
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
@@ -461,15 +453,11 @@ export class SequencerPublisher {
   }
 
   /**
-   * @notice  Will call `canProposeAtNextEthBlock` to make sure that it is possible to propose
+   * @notice  Will call `canProposeAt` to make sure that it is possible to propose
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-<<<<<<< HEAD
-  public canProposeAtNextEthBlock(
-=======
   public async canProposeAt(
->>>>>>> fef6517f55 (fix(sequencer): use wall-clock time instead of L1 block timestamp for slot estimation (#21769))
     tipArchive: Fr,
     msgSender: EthAddress,
     opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
@@ -477,17 +465,10 @@ export class SequencerPublisher {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-<<<<<<< HEAD
-    return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
-=======
-    const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
-    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
-    const nextL1SlotTs = (await this.getNextL1SlotTimestampWithL1Floor()) + slotOffset;
+    const nextL1SlotTs = await this.getNextL1SlotTimestampWithL1Floor();
 
     return this.rollupContract
       .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
->>>>>>> fef6517f55 (fix(sequencer): use wall-clock time instead of L1 block timestamp for slot estimation (#21769))
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       })
       .catch(err => {
