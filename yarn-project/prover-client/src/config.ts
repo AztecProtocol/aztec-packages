@@ -61,7 +61,7 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   bbChonkVerifyConcurrency: {
     env: 'BB_CHONK_VERIFY_BATCH_CONCURRENCY',
     description: 'Thread count for the peer batch verifier parallel reduce. 0 = auto.',
-    ...numberConfigHelper(0),
+    ...numberConfigHelper(6),
   },
 };
 

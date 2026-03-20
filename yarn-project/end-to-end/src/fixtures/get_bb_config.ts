@@ -16,7 +16,7 @@ const {
   BB_NUM_IVC_VERIFIERS = '8',
   BB_IVC_CONCURRENCY = '1',
   BB_CHONK_VERIFY_MAX_BATCH = '16',
-  BB_CHONK_VERIFY_BATCH_CONCURRENCY = '0',
+  BB_CHONK_VERIFY_BATCH_CONCURRENCY = '6',
 } = process.env;
 
 export const getBBConfig = async (

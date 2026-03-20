@@ -14,7 +14,7 @@ export interface BBConfig {
    * Default 16: at 4 cores, a full batch of 16 verifies in ~245ms wall time.
    */
   bbChonkVerifyMaxBatch: number;
-  /** Thread count for the peer batch verifier parallel reduce. 0 = auto. */
+  /** Thread count for the peer batch verifier parallel reduce. Default 6 to leave cores for the rest of the node. */
   bbChonkVerifyConcurrency: number;
 }
 

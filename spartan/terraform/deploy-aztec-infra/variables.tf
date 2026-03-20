@@ -81,6 +81,18 @@ variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
   default     = 10
 }
 
+variable "BB_CHONK_VERIFY_MAX_BATCH" {
+  description = "Upper bound on proofs per batch for the peer chonk batch verifier"
+  type        = number
+  default     = 16
+}
+
+variable "BB_CHONK_VERIFY_BATCH_CONCURRENCY" {
+  description = "Thread count for the peer batch verifier parallel reduce (0 = auto)"
+  type        = number
+  default     = 6
+}
+
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string

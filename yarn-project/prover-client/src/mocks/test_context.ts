@@ -107,7 +107,7 @@ export class TestContext {
         numConcurrentIVCVerifiers: 8,
         bbIVCConcurrency: 1,
         bbChonkVerifyMaxBatch: 16,
-        bbChonkVerifyConcurrency: 0,
+        bbChonkVerifyConcurrency: 6,
       };
       localProver = await createProver(bbConfig);
     }
