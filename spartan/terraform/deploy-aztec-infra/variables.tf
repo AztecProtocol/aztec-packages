@@ -163,11 +163,6 @@ variable "REGISTRY_CONTRACT_ADDRESS" {
   type        = string
 }
 
-variable "SLASH_FACTORY_CONTRACT_ADDRESS" {
-  description = "The slash factory contract address"
-  type        = string
-}
-
 variable "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" {
   description = "The fee asset handler contract address"
   type        = string

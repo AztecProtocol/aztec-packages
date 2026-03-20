@@ -19,7 +19,6 @@ global:
   customAztecNetwork:
     l1ChainId:
     registryContractAddress:
-    slashFactoryContractAddress:
     feeAssetHandlerContractAddress:
 
   # -- Ethereum configuration

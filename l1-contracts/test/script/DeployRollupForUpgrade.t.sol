@@ -14,7 +14,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
  * @title DeployRollupForUpgradeTest
  * @notice Tests for the DeployRollupForUpgrade.s.sol script
  * @dev This test validates:
- *      1. The script deploys only Rollup, Verifier, and SlashFactory
+ *      1. The script deploys only Rollup and Verifier
  *      2. It uses existing infrastructure contracts correctly
  *      3. The new rollup is properly registered (if deployer is owner)
  */
