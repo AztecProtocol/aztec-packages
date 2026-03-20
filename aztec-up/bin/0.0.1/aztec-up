@@ -328,6 +328,71 @@ function cmd_uninstall {
   echo_green "Uninstalled version $version"
 }
 
+<<<<<<< HEAD
+=======
+# Remove all versions except the current one
+function cmd_prune {
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Remove all installed versions except the currently active one"
+    echo
+    echo "Usage: aztec-up prune"
+    echo
+    echo "Options:"
+    echo "  -h, --help  Print help"
+    echo
+    echo "Examples:"
+    echo "  aztec-up prune    # Remove all versions except current"
+    return 0
+  fi
+
+  local current_version
+  current_version=$(get_current_version)
+
+  if [ -z "$current_version" ]; then
+    echo "Error: No version is currently active. Use 'aztec-up use <version>' first."
+    exit 1
+  fi
+
+  # Collect versions to remove
+  local to_remove=()
+  for dir in "$AZTEC_HOME/versions"/*/; do
+    [ -d "$dir" ] || continue
+    local version
+    version=$(basename "$dir")
+    if [ "$version" != "$current_version" ]; then
+      to_remove+=("$version")
+    fi
+  done
+
+  if [ ${#to_remove[@]} -eq 0 ]; then
+    echo "Nothing to prune. Only the current version ($current_version) is installed."
+    return 0
+  fi
+
+  echo "Current version: $current_version"
+  echo
+  echo "The following versions will be removed:"
+  for version in "${to_remove[@]}"; do
+    echo "  $version"
+  done
+  echo
+
+  read -p "Continue? (y/N) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    return 0
+  fi
+
+  for version in "${to_remove[@]}"; do
+    rm -rf "$AZTEC_HOME/versions/$version"
+    echo "Removed $version"
+  done
+
+  echo_green "Pruned all versions except $current_version"
+}
+
+>>>>>>> c2683859d3 (fix(aztec-up): add sensible defaults to installer y/n prompts (#21824))
 # Update aztec-up itself
 function cmd_self-update {
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
