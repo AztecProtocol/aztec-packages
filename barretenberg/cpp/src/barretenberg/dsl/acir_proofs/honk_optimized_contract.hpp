@@ -18,7 +18,6 @@ inline std::string generate_memory_offsets(int log_n)
     const int NUMBER_OF_SUBRELATIONS = 28;
     const int NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
     const int START_POINTER = 0x1000;
-    const int SCRATCH_SPACE_POINTER = 0x100;
     const int BARYCENTRIC_DOMAIN_SIZE = 8;
 
     std::ostringstream out;
@@ -46,10 +45,6 @@ inline std::string generate_memory_offsets(int log_n)
     };
 
     // Data arrays from Python script
-    const std::vector<std::string> vk_fr = { "VK_CIRCUIT_SIZE_LOC",
-                                             "VK_NUM_PUBLIC_INPUTS_LOC",
-                                             "VK_PUB_INPUTS_OFFSET_LOC" };
-
     const std::vector<std::string> vk_g1 = { "Q_M",
                                              "Q_C",
                                              "Q_L",
@@ -158,10 +153,6 @@ inline std::string generate_memory_offsets(int log_n)
 
     // VK INDICIES
     print_header_centered("VK INDICIES");
-    for (const auto& item : vk_fr) {
-        print_fr(pointer, item);
-        pointer += 32;
-    }
     for (const auto& item : vk_g1) {
         print_g1(pointer, item);
         pointer += 64;
@@ -240,11 +231,10 @@ inline std::string generate_memory_offsets(int log_n)
     print_header_centered("SUMCHECK - RUNTIME MEMORY");
     print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC");
 
-    // Barycentric domain (uses scratch space)
-    int bary_pointer = SCRATCH_SPACE_POINTER;
+    // Barycentric domain
     for (int i = 0; i < BARYCENTRIC_DOMAIN_SIZE; ++i) {
-        print_fr(bary_pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + std::to_string(i) + "_LOC");
-        bary_pointer += 32;
+        print_fr(pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + std::to_string(i) + "_LOC");
+        pointer += 32;
     }
     for (int i = 0; i < log_n; ++i) {
         for (int j = 0; j < BARYCENTRIC_DOMAIN_SIZE; ++j) {
@@ -289,7 +279,7 @@ inline std::string generate_memory_offsets(int log_n)
     // BATCH SCALARS
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS");
     const int BATCH_SIZE = 69;
-    for (int i = 0; i < BATCH_SIZE; ++i) {
+    for (int i = 1; i < BATCH_SIZE; ++i) {
         print_fr(pointer, "BATCH_SCALAR_" + std::to_string(i) + "_LOC");
         pointer += 32;
     }
@@ -298,11 +288,8 @@ inline std::string generate_memory_offsets(int log_n)
     // INVERSIONS
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS");
 
-    // Inverted gemini denominators
-    for (int i = 0; i < log_n + 1; ++i) {
-        print_fr(pointer, "INVERTED_GEMINI_DENOMINATOR_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
+    print_fr(pointer, "GEMINI_R_INV_LOC");
+    pointer += 32;
 
     // Batched evaluation accumulator inversions
     for (int i = 0; i < log_n; ++i) {
@@ -311,8 +298,6 @@ inline std::string generate_memory_offsets(int log_n)
     }
 
     out << "\n";
-    print_fr(pointer, "BATCHED_EVALUATION_LOC");
-    pointer += 32;
     print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC");
     pointer += 32;
 
@@ -325,7 +310,7 @@ inline std::string generate_memory_offsets(int log_n)
     out << "\n";
     out << "// LOG_N challenge pow minus u\n";
     for (int i = 0; i < log_n; ++i) {
-        print_fr(pointer, "INVERTED_CHALLENEGE_POW_MINUS_U_" + std::to_string(i) + "_LOC");
+        print_fr(pointer, "INVERTED_CHALLENGE_POW_MINUS_U_" + std::to_string(i) + "_LOC");
         pointer += 32;
     }
 
@@ -353,7 +338,16 @@ inline std::string generate_memory_offsets(int log_n)
     print_header_centered("SHPLEMINI RUNTIME MEMORY - COMPLETE");
 
     out << "\n";
-    print_fr(pointer, "LATER_SCRATCH_SPACE");
+    for (int i = 0; i < 8 * log_n; ++i) {
+        print_fr(pointer, "BARYCENTRIC_TEMP_" + std::to_string(i) + "_LOC");
+        pointer += 32;
+    }
+
+    print_fr(pointer, "PUBLIC_INPUTS_DENOM_TEMP_LOC");
+    pointer += 32;
+    print_fr(pointer, "GEMINI_R_INV_TEMP_LOC");
+    pointer += 32;
+    print_fr(pointer, "BATCH_PRODUCT_TEMP_LOC");
     pointer += 32;
 
     // Temporary space
@@ -362,11 +356,18 @@ inline std::string generate_memory_offsets(int log_n)
         print_fr(pointer, "TEMP_" + std::to_string(i) + "_LOC");
         pointer += 32;
     }
+    print_fr(pointer, "LATER_SCRATCH_SPACE");
+    pointer += 32;
     print_header_centered("Temporary space - COMPLETE");
 
     // Scratch space aliases
     out << "\n";
     out << "// Aliases for scratch space\n";
+    out << "// Scratch space aliases at 0x00-0x40\n";
+    out << "// Phase 1 (sumcheck rounds): CHALL_POW_LOC, SUMCHECK_U_LOC, GEMINI_A_LOC\n";
+    out << "// Phase 2 (shplemini batch scalars): SS_POS_INV_DENOM_LOC, SS_NEG_INV_DENOM_LOC, SS_GEMINI_EVALS_LOC\n";
+    out << "// These phases do not overlap in execution time.\n";
+
     print_fr(0x00, "CHALL_POW_LOC");
     print_fr(0x20, "SUMCHECK_U_LOC");
     print_fr(0x40, "GEMINI_A_LOC");
@@ -377,8 +378,6 @@ inline std::string generate_memory_offsets(int log_n)
 
     // EC aliases
     out << "\n\n";
-    out << "// Aliases\n";
-    out << "// Aliases for wire values (Elliptic curve gadget)\n";
     print_header_centered("SUMCHECK - MEMORY ALIASES");
 
     return out.str();
@@ -412,19 +411,49 @@ uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ REAL_NUM_PUBLIC_INPUTS }};
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
-// LOG_N * 8
-uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = {{ NUMBER_OF_BARYCENTRIC_INVERSES }};
 
 contract HonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    SLAB ALLOCATION                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
     /**
-     * We manually manage memory within this optimised implementation
-     * Memory is loaded into a large slab that is ordered in the following way
+     * We manually manage memory within this optimised implementation.
+     * Memory is loaded into a large slab with the following layout:
      *
-     * // TODO: ranges
-     * **
+     * HIGH MEMORY (persistent, non-overlapping regions from 0x1000 upward):
+     *
+     *                    VK Data (circuit size, num PIs, offset, 28 G1 commitment points)
+     *                    Proof: Pairing point limbs (8 field elements)
+     *                    Proof: Witness commitments (W_L..Z_PERM, 8 G1 points)
+     *                    Proof: Sumcheck univariates (LOG_N rounds x 8 coefficients)
+     *                    Proof: Sumcheck evaluations (41 entity evaluations)
+     *                    Proof: Gemini fold commitments (LOG_N-1 G1 points)
+     *                    Proof: Gemini A evaluations (LOG_N field elements)
+     *                    Proof: Shplonk Q + KZG quotient (2 G1 points)
+     *                    Challenges (eta..sum_u, alpha[0..26], gate + sum_u challenges)
+     *                    Subrelation evaluations (28 slots, used during sumcheck)
+     *                    Subrelation intermediates (7 slots: round target, pow, AUX)
+     *                    Powers of evaluation challenge (LOG_N slots)
+     *                    Batch scalars (69 slots, for MSM)
+     *                    Gemini R inverse (1 slot)
+     *                    Inverted Gemini denominators (LOG_N+1 = 16 slots)
+     *                    Batch evaluation accumulator inversions (LOG_N slots)
+     *                    Batched eval, constant term accumulator, pos/neg inv denom
+     *                    Inverted challenge^pow - u (LOG_N slots)
+     *                    Pos inverted denominators (LOG_N slots)
+     *                    Neg inverted denominators (LOG_N slots)
+     *                    Fold pos evaluations (LOG_N slots)
+     *                    LATER_SCRATCH_SPACE (batch inversion products marker)
+     *                    Temporary space (45 slots, ephemeral computation)
+     *
+     * LOW MEMORY / SCRATCH SPACE (barycentric evaluation during sumcheck):
+     *                    Barycentric Lagrange denominators (8 domain points)
+     *                    Barycentric denominator inverses (LOG_N x 8 slots)
+     *                     [Slots at 0x1000-0x10E0 overlap VK data; VK is re-loaded later]
+     *
+     *   Scratch aliases (0x00-0x40): CHALL_POW/SUMCHECK_U/GEMINI_A during sumcheck;
+     *   SS_POS_INV_DENOM/SS_NEG_INV_DENOM/SS_GEMINI_EVALS during shplemini.
+     *   MSM stage reuses 0x00-0xA0 for ACCUMULATOR, G1_LOCATION, SCALAR.
      */
 
     // {{ SECTION_START MEMORY_LAYOUT }}
@@ -451,12 +480,12 @@ contract HonkVerifier is IVerifier {
 
     // Auxiliary relation constants
     // In the Non Native Field Arithmetic Relation, large field elements are broken up into 4 LIMBs of 68 `LIMB_SIZE` bits each.
-    uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 2<<68
+    uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 1<<68
 
     // In the Delta Range Check Relation, there is a range checking relation that can validate 14-bit range checks with only 1
     // extra relation in the execution trace.
     // For large range checks, we decompose them into a collection of 14-bit range checks.
-    uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 2<<14
+    uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 1<<14
 
     // Poseidon2 internal constants
     // https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage - derivation code
@@ -471,7 +500,7 @@ contract HonkVerifier is IVerifier {
 
     // Constants inspecting proof components
     uint256 internal constant NUMBER_OF_UNSHIFTED_ENTITIES = 36;
-    // Shifted columns are columes that are duplicates of existing columns but right-shifted by 1
+    // Shifted columns are columns that are duplicates of existing columns but right-shifted by 1
     uint256 internal constant NUMBER_OF_SHIFTED_ENTITIES = 5;
     uint256 internal constant TOTAL_NUMBER_OF_ENTITIES = 41;
 
@@ -494,10 +523,6 @@ contract HonkVerifier is IVerifier {
     uint256 internal constant P_SUB_1 = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
     uint256 internal constant P_SUB_2 = 21888242871839275222246405745257275088548364400416034343698204186575808495615;
     uint256 internal constant P_SUB_3 = 21888242871839275222246405745257275088548364400416034343698204186575808495614;
-    uint256 internal constant P_SUB_4 = 21888242871839275222246405745257275088548364400416034343698204186575808495613;
-    uint256 internal constant P_SUB_5 = 21888242871839275222246405745257275088548364400416034343698204186575808495612;
-    uint256 internal constant P_SUB_6 = 21888242871839275222246405745257275088548364400416034343698204186575808495611;
-    uint256 internal constant P_SUB_7 = 21888242871839275222246405745257275088548364400416034343698204186575808495610;
 
     // Barycentric evaluation constants
     uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATOR_0 =
@@ -805,10 +830,10 @@ contract HonkVerifier is IVerifier {
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-                /*             GENERATE BETA and GAMMAA  CHALLENGE            */
+                /*             GENERATE BETA and GAMMA  CHALLENGE            */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-                // Generate Beta and Gamma Chalenges
+                // Generate Beta and Gamma Challenges
                 // - prevChallenge
                 // - LOOKUP_READ_COUNTS
                 // - LOOKUP_READ_TAGS
@@ -828,8 +853,8 @@ contract HonkVerifier is IVerifier {
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // Generate Alpha challenges - non-linearise the gate contributions
                 //
-                // There are 26 total subrelations in this honk relation, we do not need to non linearise the first sub relation.
-                // There are 25 total gate contributions, a gate contribution is analogous to
+                // There are 28 total subrelations in this honk relation, we do not need to non linearise the first sub relation.
+                // There are 27 total gate contributions, a gate contribution is analogous to
                 // a custom gate, it is an expression which must evaluate to zero for each
                 // row in the constraint matrix
                 //
@@ -1006,7 +1031,7 @@ contract HonkVerifier is IVerifier {
             /*                     PUBLIC INPUT DELTA                     */
             /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
             /**
-             * Generate public inputa delta
+             * Generate public inputs delta
              *
              * The public inputs delta leverages plonk's copy constraints in order to
              * evaluate public inputs.
@@ -1047,7 +1072,7 @@ contract HonkVerifier is IVerifier {
                 // numerator_acc = gamma + (beta * (PERMUTATION_ARGUMENT_VALUE_SEPARATOR + offset))
                 let numerator_acc :=
                     addmod(gamma, mulmod(beta, add(PERMUTATION_ARGUMENT_VALUE_SEPARATOR, pub_off), p_clone), p_clone)
-                // demonimator_acc = gamma - (beta * (offset + 1))
+                // denominator_acc = gamma - (beta * (offset + 1))
                 let beta_x_off := mulmod(beta, add(pub_off, 1), p_clone)
                 let denominator_acc := addmod(gamma, sub(p_clone, beta_x_off), p_clone)
 
@@ -1095,24 +1120,8 @@ contract HonkVerifier is IVerifier {
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE, numerator_value)
                 mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE, denominator_value)
 
-                // TODO: batch with barycentric inverses
-                let dom_inverse := 0
-                {
-                    mstore(0, 0x20)
-                    mstore(0x20, 0x20)
-                    mstore(0x40, 0x20)
-                    mstore(0x60, denominator_value)
-                    mstore(0x80, P_SUB_2)
-                    mstore(0xa0, p)
-                    if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        mstore(0x00, MODEXP_FAILED_SELECTOR)
-                        revert(0x00, 0x04)
-                    }
-                    // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
-                    dom_inverse := mload(0x00)
-                }
-                // Calculate the public inputs delta
-                mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE, mulmod(numerator_value, dom_inverse, p))
+                // PI delta denominator inversion is deferred to the barycentric
+                // batch inversion below.
             }
             /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
             /*             PUBLIC INPUT DELTA - complete                  */
@@ -1179,7 +1188,7 @@ contract HonkVerifier is IVerifier {
                     // This requires the barycentric inverses to be computed for each round
                     // Write all of the non inverted barycentric denominators into memory
                     let accumulator := 1
-                    let temp := LATER_SCRATCH_SPACE
+                    let temp := FOLD_POS_EVALUATIONS_{{ LOG_N_MINUS_ONE }}_LOC // we use fold pos evaluations as we add 0x20 immediately to get to `BARYCENTRIC_TEMP_0_LOC`
                     let bary_centric_inverses_off := BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC
                     {
                         let round_challenge_off := SUM_U_CHALLENGE_0
@@ -1187,7 +1196,7 @@ contract HonkVerifier is IVerifier {
                             let round_challenge := mload(round_challenge_off)
                             let bary_lagrange_denominator_off := BARYCENTRIC_LAGRANGE_DENOMINATOR_0_LOC
 
-                            // Unrolled as this loop as it only has 8 iterations
+                            // Unrolled as this loop as it only has 8 iterations - somehow this saves >10k gas
                             {
                                 let bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
                                 let pre_inv :=
@@ -1207,7 +1216,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 1
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_1, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 1), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1219,7 +1228,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 2
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_2, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 2), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1231,7 +1240,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 3
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_3, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 3), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1243,7 +1252,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 4
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_4, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 4), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1255,7 +1264,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 5
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_5, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 5), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1267,7 +1276,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 6
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_6, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 6), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1279,7 +1288,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 7
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_7, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 7), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1293,7 +1302,35 @@ contract HonkVerifier is IVerifier {
                         }
                     }
 
-                    // Invert all of the barycentric denominators as a single batch
+                    // Append PI delta denominator to the batch inversion
+                    {
+                        let pi_denom := mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE)
+                        mstore(PUBLIC_INPUTS_DENOM_TEMP_LOC, accumulator)
+                        accumulator := mulmod(accumulator, pi_denom, p)
+                    }
+
+                    // --- Phase 2: Shplemini forward pass ---
+                    // Compute shplemini denominators and accumulate into the running product.
+                    // Pre-inversion values stored in shplemini runtime memory
+                    {
+                        // Compute powers of evaluation challenge: gemini_r^{2^i}
+                        let cache := mload(GEMINI_R_CHALLENGE)
+                        mstore(POWERS_OF_EVALUATION_CHALLENGE_0_LOC, cache)
+                        /// {{ UNROLL_SECTION_START POWERS_OF_EVALUATION_COMPUTATION }}
+                        /// {{ UNROLL_SECTION_END POWERS_OF_EVALUATION_COMPUTATION }}
+
+                        // Element 0: gemini_r (seed)
+                        {
+                            let val := mload(GEMINI_R_CHALLENGE)
+                            mstore(GEMINI_R_INV_TEMP_LOC, accumulator)
+                            accumulator := mulmod(accumulator, val, p)
+                        }
+
+                        // Elements 1..LOG_N: INVERTED_CHALLENGE_POW_MINUS_U
+                        /// {{ UNROLL_SECTION_START ACCUMULATE_INVERSES }}
+                    /// {{ UNROLL_SECTION_END ACCUMULATE_INVERSES }}
+
+                    // Invert all elements (barycentric + PI delta + shplemini) as a single batch
                     {
                         {
                             mstore(0, 0x20)
@@ -1308,11 +1345,40 @@ contract HonkVerifier is IVerifier {
                             }
 
                             accumulator := mload(0x00)
+                            if iszero(accumulator) {
+                                mstore(0x00, MODEXP_FAILED_SELECTOR)
+                                revert(0x00, 0x04)
+                            }
+                        }
+
+                        // --- Shplemini backward pass ---
+                        // Extract shplemini inverses in strict reverse order.
+                        /// {{ UNROLL_SECTION_START COLLECT_INVERSES }}
+                            /// {{ UNROLL_SECTION_END COLLECT_INVERSES }}
+
+                            // gemini_r inverse (staging[0])
+                            {
+                                let tmp := mulmod(accumulator, mload(GEMINI_R_INV_TEMP_LOC), p)
+                                accumulator := mulmod(accumulator, mload(GEMINI_R_CHALLENGE), p)
+                                mstore(GEMINI_R_INV_LOC, tmp) // 1/gemini_r at staging[0]
+                            }
+                        }
+
+                        // Extract PI delta denominator inverse from the batch
+                        {
+                            let pi_delta_inv := mulmod(accumulator, mload(PUBLIC_INPUTS_DENOM_TEMP_LOC), p)
+                            accumulator := mulmod(accumulator, mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE), p)
+
+                            // Finalize: public_inputs_delta = numerator * (1/denominator)
+                            mstore(
+                                PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE,
+                                mulmod(mload(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE), pi_delta_inv, p)
+                            )
                         }
 
                         // Normalise as last loop will have incremented the offset
                         bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
-                        for {} gt(bary_centric_inverses_off, SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}) {
+                        for {} gt(bary_centric_inverses_off, BARYCENTRIC_LAGRANGE_DENOMINATOR_7_LOC) {
                             bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
                         } {
                             let tmp := mulmod(accumulator, mload(temp), p)
@@ -1342,13 +1408,13 @@ contract HonkVerifier is IVerifier {
 
                     // Compute next target sum
                     let numerator_value := round_challenge
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_1, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_2, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_3, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_4, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_5, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_6, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_7, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 1), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 2), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 3), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 4), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 5), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 6), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 7), p), p)
 
                     // // Compute the next round target
                     round_target := 0
@@ -1366,7 +1432,7 @@ contract HonkVerifier is IVerifier {
 
                     // Partially evaluate POW
                     let gate_challenge := mload(gate_challenge_off)
-                    let gate_challenge_minus_one := sub(gate_challenge, 1)
+                    let gate_challenge_minus_one := addmod(gate_challenge, sub(p, 1), p)
 
                     let univariate_evaluation := addmod(1, mulmod(round_challenge, gate_challenge_minus_one, p), p)
 
@@ -1388,7 +1454,7 @@ contract HonkVerifier is IVerifier {
                 mstore(FINAL_ROUND_TARGET_LOC, round_target)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-                /*                        LOGUP RELATION                      */
+                /*                    ARITHMETIC RELATION                     */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 {
                     /**
@@ -1437,7 +1503,7 @@ contract HonkVerifier is IVerifier {
                         mulmod(
                             mulmod(
                                 mulmod(mulmod(mload(W1_EVAL_LOC), mload(W2_EVAL_LOC), p), mload(QM_EVAL_LOC), p),
-                                addmod(q_arith, P_SUB_3, p),
+                                addmod(q_arith, sub(p, 3), p),
                                 p
                             ),
                             NEG_HALF_MODULO_P,
@@ -1458,7 +1524,7 @@ contract HonkVerifier is IVerifier {
                     // α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m)
                     let extra_small_addition_gate_identity :=
                         mulmod(
-                            addmod(q_arith, P_SUB_2, p),
+                            addmod(q_arith, sub(p, 2), p),
                             addmod(
                                 mload(QM_EVAL_LOC),
                                 addmod(
@@ -1473,11 +1539,11 @@ contract HonkVerifier is IVerifier {
 
                     // Split up the two relations
                     let contribution_0 :=
-                        addmod(identity, mulmod(addmod(q_arith, P_SUB_1, p), mload(W4_SHIFT_EVAL_LOC), p), p)
+                        addmod(identity, mulmod(addmod(q_arith, sub(p, 1), p), mload(W4_SHIFT_EVAL_LOC), p), p)
                     contribution_0 := mulmod(mulmod(contribution_0, q_arith, p), mload(POW_PARTIAL_EVALUATION_LOC), p)
                     mstore(SUBRELATION_EVAL_0_LOC, contribution_0)
 
-                    let contribution_1 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, P_SUB_1, p), p)
+                    let contribution_1 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, sub(p, 1), p), p)
                     contribution_1 := mulmod(contribution_1, q_arith, p)
                     contribution_1 := mulmod(contribution_1, mload(POW_PARTIAL_EVALUATION_LOC), p)
                     mstore(SUBRELATION_EVAL_1_LOC, contribution_1)
@@ -1495,7 +1561,7 @@ contract HonkVerifier is IVerifier {
                      * t2 = (W3 + gamma + beta * ID3) * (W4 + gamma + beta * ID4)
                      * gp_numerator = t1 * t2
                      * t1 = (W1 + gamma + beta * sigma_1_eval) * (W2 + gamma + beta * sigma_2_eval)
-                     * t2 = (W2 + gamma + beta * sigma_3_eval) * (W3 + gamma + beta * sigma_4_eval)
+                     * t2 = (W3 + gamma + beta * sigma_3_eval) * (W4 + gamma + beta * sigma_4_eval)
                      * gp_denominator = t1 * t2
                      */
                     let t1 :=
@@ -1618,7 +1684,7 @@ contract HonkVerifier is IVerifier {
                     )
 
                     let read_tag := mload(LOOKUP_READ_TAGS_EVAL_LOC)
-                    let read_tag_boolean_relation := mulmod(read_tag, addmod(read_tag, P_SUB_1, p), p)
+                    let read_tag_boolean_relation := mulmod(read_tag, addmod(read_tag, sub(p, 1), p), p)
                     read_tag_boolean_relation := mulmod(read_tag_boolean_relation, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
                     mstore(SUBRELATION_EVAL_4_LOC, accumulator_none)
@@ -1630,7 +1696,6 @@ contract HonkVerifier is IVerifier {
                 /*                   DELTA RANGE RELATION                     */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 {
-                    // TODO(md): optimise the calculations
                     let minus_one := P_SUB_1
                     let minus_two := P_SUB_2
                     let minus_three := P_SUB_3
@@ -1824,7 +1889,6 @@ contract HonkVerifier is IVerifier {
                          *
                          * memory_record_check -= w_4;
                          */
-                        // TODO(md): update these - formula has changed with lower degree
                         let memory_record_check := mulmod(mload(W3_EVAL_LOC), mload(ETA_THREE_CHALLENGE), p)
                         memory_record_check := addmod(
                             memory_record_check,
@@ -2074,7 +2138,7 @@ contract HonkVerifier is IVerifier {
                      *            \_                                                                               _/
                      *
                      * limb_subproduct = w_1 . w_2_shift + w_1_shift . w_2
-                     * non_native_field_gate_2 = w_1 * w_4 + w_4 * w_3 - w_3_shift
+                     * non_native_field_gate_2 = w_1 * w_4 + w_2 * w_3 - w_3_shift
                      * non_native_field_gate_2 = non_native_field_gate_2 * limb_size
                      * non_native_field_gate_2 -= w_4_shift
                      * non_native_field_gate_2 += limb_subproduct
@@ -2484,119 +2548,29 @@ contract HonkVerifier is IVerifier {
             /*                       SHPLEMINI                            */
             /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-            // Compute powers of evaluation challenge
-            let cache := mload(GEMINI_R_CHALLENGE)
-            let off := POWERS_OF_EVALUATION_CHALLENGE_0_LOC
-            mstore(off, cache)
-
-            for { let i := 1 } lt(i, LOG_N) { i := add(i, 1) } {
-                off := add(off, 0x20)
-                cache := mulmod(cache, cache, p)
-                mstore(off, cache)
-            }
-
-            // Compute Inverted Gemini Denominators
-            let eval_challenge := mload(SHPLONK_Z_CHALLENGE)
-
-            // TO be inverted in the batch invert below
-            // TODO: maybe not needed to go in memory
-            mstore(
-                INVERTED_GEMINI_DENOMINATOR_0_LOC,
-                addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p)
-            )
-
-            mstore(
-                POS_INVERTED_DENOM_0_LOC,
-                addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p)
-            )
-            mstore(NEG_INVERTED_DENOM_0_LOC, addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC), p))
-
-            // Compute Fold Pos Evaluatios
-
-            // In order to compute fold pos evaluations we need
-            let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC
-            let pow_off := POWERS_OF_EVALUATION_CHALLENGE_{{ LOG_N_MINUS_ONE }}_LOC
-            let sumcheck_u_off := SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}
-
-            // TODO: challengePower * (ONE - u) can be cached - measure performance
-            for { let i := LOG_N } gt(i, 0) { i := sub(i, 1) } {
-                let u := mload(sumcheck_u_off)
-
-                let challPowerMulMinusU := mulmod(mload(pow_off), addmod(1, sub(p, u), p), p)
-
-                mstore(store_off, addmod(challPowerMulMinusU, u, p))
-
-                store_off := sub(store_off, 0x20)
-                pow_off := sub(pow_off, 0x20)
-                sumcheck_u_off := sub(sumcheck_u_off, 0x20)
-            }
-
-            // Compute
-            {
-                let pos_inverted_off := POS_INVERTED_DENOM_1_LOC
-                let neg_inverted_off := NEG_INVERTED_DENOM_1_LOC
-                pow_off := POWERS_OF_EVALUATION_CHALLENGE_1_LOC
-
-                let shplonk_z := mload(SHPLONK_Z_CHALLENGE)
-                for { let i := 0 } lt(i, sub(LOG_N, 1)) { i := add(i, 1) } {
-                    let pow := mload(pow_off)
-
-                    let pos_inv := addmod(shplonk_z, sub(p, pow), p)
-                    mstore(pos_inverted_off, pos_inv)
-
-                    let neg_inv := addmod(shplonk_z, pow, p)
-                    mstore(neg_inverted_off, neg_inv)
-
-                    pow_off := add(pow_off, 0x20)
-                    pos_inverted_off := add(pos_inverted_off, 0x20)
-                    neg_inverted_off := add(neg_inverted_off, 0x20)
-                }
-            }
-
-            // To be inverted
-            // From: computeFoldPosEvaluations
-            // Series of challengePower * (ONE - u)
-            // gemini r challenge
-            // Inverted denominators
-            // (shplonkZ - powers of evaluaion challenge[i + 1])
-            // (shplonkZ + powers of evaluation challenge[i + 1])
-
-            // Use scratch space for temps
-
-            let accumulator := mload(GEMINI_R_CHALLENGE)
-
-            /// {{ UNROLL_SECTION_START ACCUMULATE_INVERSES }}
-            /// {{UNROLL_SECTION_END ACCUMULATE_INVERSES }}
-
-            {
-                mstore(0, 0x20)
-                mstore(0x20, 0x20)
-                mstore(0x40, 0x20)
-                mstore(0x60, accumulator)
-                mstore(0x80, P_SUB_2)
-                mstore(0xa0, p)
-                if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                    mstore(0x00, MODEXP_FAILED_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                accumulator := mload(0x00)
-            }
-
-            /// {{ UNROLL_SECTION_START COLLECT_INVERSES }}
-            /// {{ UNROLL_SECTION_END COLLECT_INVERSES }}
-
+            // ============= SHPLEMINI INVERSES ==============
+            // Inverses were computed in the unified batch inversion above.
             let unshifted_scalar := 0
             let shifted_scalar := 0
             {
+                // staging[0] = 1/gemini_r -- needed for shifted_scalar computation
+                let gemini_r_inv := mload(GEMINI_R_INV_LOC)
+
+                // staging[1..3*LOG_N] maps contiguously to:
+                //   INVERTED_CHALLENGE_POW_MINUS_U_0..14
+                //   POS_INVERTED_DENOM_0..14
+                //   NEG_INVERTED_DENOM_0..14
+                // Total: 3*LOG_N
+
+                // Compute unshifted_scalar and shifted_scalar using the copied inverses
                 let pos_inverted_denominator := mload(POS_INVERTED_DENOM_0_LOC)
                 let neg_inverted_denominator := mload(NEG_INVERTED_DENOM_0_LOC)
                 let shplonk_nu := mload(SHPLONK_NU_CHALLENGE)
 
                 unshifted_scalar := addmod(pos_inverted_denominator, mulmod(shplonk_nu, neg_inverted_denominator, p), p)
 
-                // accumulator takes the value of `INVERTED_GEMINI_DENOMINATOR_0` here
                 shifted_scalar := mulmod(
-                    accumulator, // (1 / gemini_r_challenge)
+                    gemini_r_inv, // (1 / gemini_r_challenge) from staging[0]
                     // (inverse_vanishing_evals[0]) - (shplonk_nu * inverse_vanishing_evals[1])
                     addmod(
                         pos_inverted_denominator,
@@ -2608,8 +2582,13 @@ contract HonkVerifier is IVerifier {
                 )
             }
 
-            // TODO: Write a comment that describes the process of accumulating commitments and scalars
-            // into one large value that will be used on the rhs of the pairing check
+            // Commitment Accumulation (MSM via sequential ecAdd/ecMul):
+            // For each commitment C_i with batch scalar s_i, we compute:
+            //   accumulator += s_i * C_i
+            // The commitments include: shplonk_Q, VK points, wire commitments,
+            // lookup commitments, Z_PERM, gemini fold univariates.
+            // The KZG quotient is handled separately.
+            // The final accumulator is the LHS of the pairing equation.
 
             // Accumulators
             let batching_challenge := 1
@@ -2618,7 +2597,6 @@ contract HonkVerifier is IVerifier {
             let neg_unshifted_scalar := sub(p, unshifted_scalar)
             let neg_shifted_scalar := sub(p, shifted_scalar)
 
-            mstore(BATCH_SCALAR_0_LOC, 1)
             let rho := mload(RHO_CHALLENGE)
 
             // Unrolled for the loop below - where NUMBER_UNSHIFTED = 36
@@ -2892,16 +2870,13 @@ contract HonkVerifier is IVerifier {
             )
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            mstore(BATCHED_EVALUATION_LOC, batched_evaluation)
-
             // Compute fold pos evaluations
             {
-                // TODO: work out the stack here
                 mstore(CHALL_POW_LOC, POWERS_OF_EVALUATION_CHALLENGE_{{ LOG_N_MINUS_ONE }}_LOC)
                 mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }})
                 mstore(GEMINI_A_LOC, GEMINI_A_EVAL_{{ LOG_N_MINUS_ONE }})
                 // Inversion of this value was included in batch inversion above
-                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC
+                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC
                 let fold_pos_off := FOLD_POS_EVALUATIONS_{{ LOG_N_MINUS_ONE }}_LOC
 
                 let batchedEvalAcc := batched_evaluation
@@ -2945,7 +2920,7 @@ contract HonkVerifier is IVerifier {
                 let shplonk_nu := mload(SHPLONK_NU_CHALLENGE)
 
                 constant_term_acc := addmod(
-                    constant_term_acc,
+                   constant_term_acc,
                     mulmod(mload(GEMINI_A_EVAL_0), mulmod(shplonk_nu, mload(NEG_INVERTED_DENOM_0_LOC), p), p),
                     p
                 )
@@ -2953,7 +2928,6 @@ contract HonkVerifier is IVerifier {
                 let shplonk_nu_sqr := mulmod(shplonk_nu, shplonk_nu, p)
                 batching_challenge := shplonk_nu_sqr
 
-                // TODO: improve scheduling
                 mstore(SS_POS_INV_DENOM_LOC, POS_INVERTED_DENOM_1_LOC)
                 mstore(SS_NEG_INV_DENOM_LOC, NEG_INVERTED_DENOM_1_LOC)
 
@@ -2992,17 +2966,13 @@ contract HonkVerifier is IVerifier {
             let q := Q // EC group order
             {
                 // The initial accumulator = 1 * shplonk_q
-                // WORKTODO(md): we can ignore this accumulation as we are multiplying by 1,
-                // Just set the accumulator instead.
-                mstore(SCALAR_LOCATION, 0x1)
-                mcopy(G1_LOCATION, SHPLONK_Q_X_LOC, 0x40)
-                precomp_success_flag := staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR, 0x40)
+                mcopy(ACCUMULATOR, SHPLONK_Q_X_LOC, 0x40)
             }
 
             // Accumulate vk points
             loadVk()
             {
-                // Acumulator = acumulator + scalar[1] * vk[0]
+                // Accumulator = accumulator + scalar[1] * vk[0]
                 mcopy(G1_LOCATION, Q_M_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_1_LOC))
                 precomp_success_flag := and(
@@ -3315,8 +3285,11 @@ contract HonkVerifier is IVerifier {
                 )
 
                 // Accumulator = accumulator + scalar[27] * vk[26]
+                // optimization - Lagrange first is always G - (1,2)
+                //                later on we are expected to multiply constant_term_accumulator by G - (1,2)
+                //                here we can add scalars together and skip a ecMul + ecAdd for each
                 mcopy(G1_LOCATION, LAGRANGE_FIRST_X_LOC, 0x40)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_27_LOC))
+                mstore(SCALAR_LOCATION, addmod(constant_term_acc, mload(BATCH_SCALAR_27_LOC), p))
                 precomp_success_flag := and(
                     precomp_success_flag,
                     staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
@@ -3444,21 +3417,7 @@ contract HonkVerifier is IVerifier {
                 }
 
                 {
-                    // Accumulate the constant term accumulator
-                    // Accumulator = accumulator + 1 * costant term accumulator
-                    mstore(G1_LOCATION, 0x01)
-                    mstore(G1_Y_LOCATION, 0x02)
-                    mstore(SCALAR_LOCATION, constant_term_acc)
-                    precomp_success_flag := and(
-                        precomp_success_flag,
-                        staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
-                    )
-                    precomp_success_flag := and(
-                        precomp_success_flag,
-                        staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
-                    )
-
-                    // Accumlate final quotient commitment into shplonk check
+                    // Accumulate final quotient commitment into shplonk check
                     // Accumulator = accumulator + shplonkZ * quotient commitment
                     mcopy(G1_LOCATION, KZG_QUOTIENT_X_LOC, 0x40)
 
@@ -3644,7 +3603,6 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
     set_template_param("REAL_NUM_PUBLIC_INPUTS",
                        std::to_string(verification_key->num_public_inputs - bb::PAIRING_POINTS_SIZE));
     set_template_param("LOG_N_MINUS_ONE", std::to_string(verification_key->log_circuit_size - 1));
-    set_template_param("NUMBER_OF_BARYCENTRIC_INVERSES", std::to_string(verification_key->log_circuit_size * 8));
 
     uint32_t gemini_fold_univariate_length = static_cast<uint32_t>((verification_key->log_circuit_size - 1) * 0x40);
     uint32_t gemini_fold_univariate_hash_length = static_cast<uint32_t>(gemini_fold_univariate_length + 0x20);
@@ -3718,45 +3676,74 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
     auto generate_unroll_section = [](const std::string& section_name, auto log_n) {
         std::ostringstream code;
 
-        if (section_name == "ACCUMULATE_INVERSES") {
-            // Generate INVERTED_CHALLENEGE_POW_MINUS_U accumulations
-            for (int i = 0; i < log_n; ++i) {
-                code << "            // i = " << i << "\n";
-                code << "            mstore(TEMP_" << i << "_LOC, accumulator)\n";
-                code << "            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_" << i
-                     << "_LOC), p)\n";
+        if (section_name == "POWERS_OF_EVALUATION_COMPUTATION") {
+            for (int i = 1; i < log_n; ++i) {
+                code << "                   cache := mulmod(cache, cache, p)\n";
+                code << "                   mstore(POWERS_OF_EVALUATION_CHALLENGE_" << i << "_LOC, cache)\n";
             }
-
-            code << "\n            // Accumulate pos inverted denom\n";
-            int temp_idx = log_n;
+        } else if (section_name == "ACCUMULATE_INVERSES") {
+            // Generate INVERTED_CHALLENGE_POW_MINUS_U accumulations
+            int temp_idx = 0;
             for (int i = 0; i < log_n; ++i) {
-                code << "            // i = " << i << "\n";
-                code << "            mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
-                code << "            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_" << i
-                     << "_LOC), p)\n";
+                code << "                       // INVERTED_CHALLENGE_POW_MINUS_U_" << i << "\n";
+                code << "                       {\n";
+                code << "                           let u := mload(SUM_U_CHALLENGE_" << i << ")\n";
+                code << "                           let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_" << i
+                     << "_LOC)\n";
+                code << "                           let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, "
+                        "p)\n";
+                code << "                           mstore(INVERTED_CHALLENGE_POW_MINUS_U_" << i << "_LOC, val)\n";
+                code << "                           mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
+                code << "                           accumulator := mulmod(accumulator, val, p)\n";
+                code << "                       }\n";
                 temp_idx++;
             }
 
-            code << "\n            // Accumulate neg inverted denom\n";
+            code << "\n                     // Accumulate pos inverted denom\n";
+            code << "                       // Elements LOG_N+1..2*LOG_N: POS_INVERTED_DENOM\n";
+            code << "                       let eval_challenge := mload(SHPLONK_Z_CHALLENGE)\n";
+
+            // TODO: will bring this back into usage
             for (int i = 0; i < log_n; ++i) {
-                code << "            // i = " << i << "\n";
-                code << "            mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
-                code << "            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_" << i
-                     << "_LOC), p)\n";
+                code << "                    // POS_INVERTED_DENOM_" << i << "\n";
+                code << "                    {\n";
+                code << "                        let val := addmod(eval_challenge, sub(p, "
+                        "mload(POWERS_OF_EVALUATION_CHALLENGE_"
+                     << i << "_LOC))        , p)\n";
+                code << "                        mstore(POS_INVERTED_DENOM_" << i << "_LOC, val)\n";
+                code << "                        mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
+                code << "                        accumulator := mulmod(accumulator, val, p)\n";
+                code << "                    }\n";
+                temp_idx++;
+            }
+
+            code << "\n                     // Accumulate neg inverted denom\n";
+            code << "                       // Elements 2*LOG_N+1..3*LOG_N: NEG_INVERTED_DENOM\n";
+            for (int i = 0; i < log_n; ++i) {
+                code << "                       {\n";
+                code << "                           let val := addmod(eval_challenge, "
+                        "mload(POWERS_OF_EVALUATION_CHALLENGE_"
+                     << i << "_LOC), p)\n";
+                code << "                           mstore(NEG_INVERTED_DENOM_" << i << "_LOC, val)\n";
+                code << "                           mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
+                code << "                           accumulator := mulmod(accumulator, val, p)\n";
+                code << "                       }\n";
                 temp_idx++;
             }
         } else if (section_name == "COLLECT_INVERSES") {
             int temp_idx = 3 * log_n - 1;
 
             // Process NEG_INVERTED_DENOM in reverse order
-            code << "            // i = " << log_n << "\n";
+            code << "                       // i = " << log_n << "\n";
+            code << "                       // NEG_INVERTED_DENOM (LOG_N elements, reverse) -- last group appended\n";
             for (int i = log_n - 1; i >= 0; --i) {
-                code << "            {\n";
-                code << "                let tmp := mulmod(accumulator, mload(TEMP_" << temp_idx << "_LOC), p)\n";
-                code << "                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_" << i
+                code << "                       {\n";
+                code << "                           let tmp := mulmod(accumulator, mload(TEMP_" << temp_idx
                      << "_LOC), p)\n";
-                code << "                mstore(NEG_INVERTED_DENOM_" << i << "_LOC, tmp)\n";
-                code << "            }\n";
+                code << "                           accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_" << i
+                     << "_LOC), p)\n";
+                code << "                           mstore(NEG_INVERTED_DENOM_" << i << "_LOC, tmp)\n";
+                code << "                   }\n";
                 if (i > 0) {
                     code << "            // i = " << i << "\n";
                 }
@@ -3782,13 +3769,13 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
 
             code << "\n            // i = " << log_n << "\n";
 
-            // Process INVERTED_CHALLENEGE_POW_MINUS_U in reverse order
+            // Process INVERTED_CHALLENGE_POW_MINUS_U in reverse order
             for (int i = log_n - 1; i >= 0; --i) {
                 code << "            {\n";
                 code << "                let tmp := mulmod(accumulator, mload(TEMP_" << temp_idx << "_LOC), p)\n";
-                code << "                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_" << i
+                code << "                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_" << i
                      << "_LOC), p)\n";
-                code << "                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_" << i << "_LOC, tmp)\n";
+                code << "                mstore(INVERTED_CHALLENGE_POW_MINUS_U_" << i << "_LOC, tmp)\n";
                 code << "            }\n";
                 if (i > 0) {
                     code << "            // i = " << i << "\n";
@@ -3800,14 +3787,6 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
             // We need log_n - 1 folding commitments
             for (int i = 0; i < log_n - 1; ++i) {
                 // Validate on curve then accumulate
-                code << "                        {\n";
-                code << "                            let x := mload(GEMINI_FOLD_UNIVARIATE_" << i << "_X_LOC)\n";
-                code << "                            let y := mload(GEMINI_FOLD_UNIVARIATE_" << i << "_Y_LOC)\n";
-                code << "                            let xx := mulmod(x, x, q)\n";
-                code << "                            // validate on curve\n";
-                code << "                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, "
-                        "xx, q), 3, q)), precomp_success_flag)\n";
-                code << "                        }\n";
                 code << "                        mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_" << i << "_X_LOC, 0x40)\n";
                 code << "                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_" << (37 + i) << "_LOC))\n";
                 code << "                        precomp_success_flag :=\n";
@@ -3836,10 +3815,23 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
     // Replace UNROLL_SECTION blocks
     int log_n = static_cast<int>(verification_key->log_circuit_size);
 
+    // Replace POWERS_OF_EVALUATION_CHALLENGE_COMPUTATION
+    {
+        std::string::size_type start_pos =
+            template_str.find("/// {{ UNROLL_SECTION_START POWERS_OF_EVALUATION_COMPUTATION }}");
+        std::string::size_type end_pos =
+            template_str.find("/// {{ UNROLL_SECTION_END POWERS_OF_EVALUATION_COMPUTATION }}");
+        if (start_pos != std::string::npos && end_pos != std::string::npos) {
+            std::string::size_type start_line_end = template_str.find("\n", start_pos);
+            std::string generated_code = generate_unroll_section("POWERS_OF_EVALUATION_COMPUTATION", log_n);
+            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
+        }
+    }
+
     // Replace ACCUMULATE_INVERSES section
     {
         std::string::size_type start_pos = template_str.find("/// {{ UNROLL_SECTION_START ACCUMULATE_INVERSES }}");
-        std::string::size_type end_pos = template_str.find("/// {{UNROLL_SECTION_END ACCUMULATE_INVERSES }}");
+        std::string::size_type end_pos = template_str.find("/// {{ UNROLL_SECTION_END ACCUMULATE_INVERSES }}");
         if (start_pos != std::string::npos && end_pos != std::string::npos) {
             std::string::size_type start_line_end = template_str.find("\n", start_pos);
             std::string generated_code = generate_unroll_section("ACCUMULATE_INVERSES", log_n);
@@ -3849,8 +3841,8 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
 
     // Replace COLLECT_INVERSES section
     {
-        std::string::size_type start_pos = template_str.find("// {{ UNROLL_SECTION_START COLLECT_INVERSES }}");
-        std::string::size_type end_pos = template_str.find("// {{ UNROLL_SECTION_END COLLECT_INVERSES }}");
+        std::string::size_type start_pos = template_str.find("/// {{ UNROLL_SECTION_START COLLECT_INVERSES }}");
+        std::string::size_type end_pos = template_str.find("/// {{ UNROLL_SECTION_END COLLECT_INVERSES }}");
         if (start_pos != std::string::npos && end_pos != std::string::npos) {
             std::string::size_type start_line_end = template_str.find("\n", start_pos);
             std::string generated_code = generate_unroll_section("COLLECT_INVERSES", log_n);
