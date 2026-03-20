@@ -177,6 +177,9 @@ export class LibP2PService extends WithTracer implements P2PService {
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
   private ipChangedHandler?: (ip: string) => void;
 
+  /** Discovered public IP address (set when queryForIp is enabled and no static IP was configured). */
+  private discoveredP2pIp?: string;
+
   private instrumentation: P2PInstrumentation;
 
   private telemetry: TelemetryClient;
@@ -572,14 +575,16 @@ export class LibP2PService extends WithTracer implements P2PService {
         const addressManager = this.node.services.components.addressManager;
         const newAddr = multiaddr(convertToMultiaddr(ip, this.config.p2pPort, 'tcp'));
 
-        if (this.config.p2pIp) {
-          const oldAddr = multiaddr(convertToMultiaddr(this.config.p2pIp, this.config.p2pPort, 'tcp'));
+        // Remove old discovered IP if one exists
+        if (this.discoveredP2pIp) {
+          const oldAddr = multiaddr(convertToMultiaddr(this.discoveredP2pIp, this.config.p2pPort, 'tcp'));
           addressManager.removeObservedAddr(oldAddr);
         }
 
         addressManager.addObservedAddr(newAddr);
         addressManager.confirmObservedAddr(newAddr);
-        this.config.p2pIp = ip;
+        // Store discovered IP
+        this.discoveredP2pIp = ip;
         this.logger.info('Public IP discovered via discv5', { ip });
       };
       this.peerDiscoveryService.on('ip:changed', this.ipChangedHandler);
