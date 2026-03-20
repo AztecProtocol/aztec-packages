@@ -68,7 +68,7 @@ describe('TallySlashingProposer', () => {
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
-      slasherFlavor: 'tally' as const,
+      slasherEnabled: true,
       slashingQuorum: testSlashingRoundSize / 2 + 1,
       slashingRoundSizeInEpochs: testSlashingRoundSize / DefaultL1ContractsConfig.aztecEpochDuration,
       aztecTargetCommitteeSize: 4,

@@ -2,7 +2,6 @@ import {
   type ConfigMappingsType,
   bigintConfigHelper,
   booleanConfigHelper,
-  enumConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -60,8 +59,8 @@ export type L1ContractsConfig = {
   slashingOffsetInRounds: number;
   /** How long slashing can be disabled for in seconds when vetoer disables it */
   slashingDisableDuration: number;
-  /** Type of slasher proposer */
-  slasherFlavor: 'tally' | 'none';
+  /** Whether to deploy a slasher proposer */
+  slasherEnabled: boolean;
   /** Minimum amount that can be slashed in tally slashing */
   slashAmountSmall: bigint;
   /** Medium amount to slash in tally slashing */
@@ -152,10 +151,10 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
       'How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset)',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_OFFSET_IN_ROUNDS),
   },
-  slasherFlavor: {
-    env: 'AZTEC_SLASHER_FLAVOR',
-    description: 'Type of slasher proposer (tally or none)',
-    ...enumConfigHelper(['tally', 'none'] as const, l1ContractsDefaultEnv.AZTEC_SLASHER_FLAVOR as 'tally' | 'none'),
+  slasherEnabled: {
+    env: 'AZTEC_SLASHER_ENABLED',
+    description: 'Whether to deploy a slasher proposer',
+    ...booleanConfigHelper(true),
   },
   slashAmountSmall: {
     env: 'AZTEC_SLASH_AMOUNT_SMALL',

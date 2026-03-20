@@ -118,7 +118,7 @@ export class P2PNetworkTest {
         initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
       aztecTargetCommitteeSize: numberOfValidators,
       metricsPort: metricsPort,
       numberOfInitialFundedAccounts: 2,
@@ -131,7 +131,7 @@ export class P2PNetworkTest {
       aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
 
       ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
       aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
@@ -354,7 +354,7 @@ export class P2PNetworkTest {
         ...this.setupOptions,
         fundSponsoredFPC: true,
         skipAccountDeployment: true,
-        slasherFlavor: this.setupOptions.slasherFlavor ?? this.deployL1ContractsArgs.slasherFlavor ?? 'none',
+        slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,
       },

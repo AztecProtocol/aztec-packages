@@ -114,7 +114,7 @@ export async function getL1ContractsConfig(
     rollupVersion: Number(rollupVersion),
     genesisArchiveTreeRoot: genesisArchiveTreeRoot.toString(),
     exitDelaySeconds: Number(exitDelay),
-    slasherFlavor: slasherProposer?.type ?? 'tally',
+    slasherEnabled: !!slasherProposer,
     slashingOffsetInRounds: Number(slashingOffsetInRounds),
     slashAmountSmall: slashingAmounts[0],
     slashAmountMedium: slashingAmounts[1],

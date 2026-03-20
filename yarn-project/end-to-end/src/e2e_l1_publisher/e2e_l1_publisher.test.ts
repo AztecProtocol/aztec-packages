@@ -163,7 +163,7 @@ describe('L1Publisher integration', () => {
       protocolContractsHash,
       genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       aztecTargetCommitteeSize: 0,
-      slasherFlavor: 'none',
+      slasherEnabled: false,
       ...deployL1ContractsArgs,
     }));
 

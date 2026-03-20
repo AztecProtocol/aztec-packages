@@ -28,7 +28,6 @@ import {RollupBuilder} from "../../../builder/RollupBuilder.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -170,7 +169,7 @@ contract SlashingTest is TestBase {
     uint256 roundSize = ROUND_SIZE_IN_EPOCHS * EPOCH_DURATION;
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators)
       .setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingLifetimeInRounds(_slashingLifetimeInRounds)
-      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds).setSlasherFlavor(SlasherFlavor.TALLY)
+      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds).setSlasherEnabled(true)
       .setSlashingRoundSize(roundSize).setSlashingQuorum(roundSize / 2 + 1).setSlashingOffsetInRounds(2)
       .setEpochDuration(EPOCH_DURATION).setEntryQueueFlushSizeMin(VALIDATOR_COUNT);
     builder.deploy();

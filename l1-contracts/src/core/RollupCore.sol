@@ -21,7 +21,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
 import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
@@ -233,13 +232,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
 
-    // Deploy slasher based on flavor
+    // Deploy slasher if enabled and committees are configured
     ISlasher slasher;
 
-    // We call one external library or another based on the slasher flavor
-    // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
     // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
-    if (_config.targetCommitteeSize == 0 || _config.slasherFlavor == SlasherFlavor.NONE) {
+    if (_config.targetCommitteeSize == 0 || !_config.slasherEnabled) {
       slasher = ISlasher(address(0));
     } else {
       slasher = TallySlasherDeploymentExtLib.deployTallySlasher(

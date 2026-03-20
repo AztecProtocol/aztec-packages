@@ -10,7 +10,6 @@ import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {RollupBuilder} from "@test/builder/RollupBuilder.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -88,7 +87,7 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
       .setSlashingRoundSize(ROUND_SIZE).setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
       .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setSlashAmountSmall(SLASHING_UNIT)
       .setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3)
-      .setSlasherFlavor(SlasherFlavor.TALLY).setValidators(initialValidators);
+      .setSlasherEnabled(true).setValidators(initialValidators);
 
     builder.deploy();
 

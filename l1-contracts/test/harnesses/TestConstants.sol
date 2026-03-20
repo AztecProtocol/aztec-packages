@@ -17,7 +17,6 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Configuration, ProposeWithLockConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -125,7 +124,7 @@ library TestConstants {
       rewardBoostConfig: getRewardBoostConfig(),
       stakingQueueConfig: getStakingQueueConfig(),
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
-      slasherFlavor: SlasherFlavor.NONE,
+      slasherEnabled: false,
       localEjectionThreshold: 0, // The same as it being off, and only using the global.
       earliestRewardsClaimableTimestamp: Timestamp.wrap(0), // Default to 0 (no restriction)
       inboxLag: AZTEC_INBOX_LAG

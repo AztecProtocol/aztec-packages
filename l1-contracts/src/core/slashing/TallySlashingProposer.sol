@@ -4,7 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
-import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
+import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlashPayloadLib} from "@aztec/core/libraries/SlashPayloadLib.sol";
@@ -154,11 +154,6 @@ contract TallySlashingProposer is EIP712 {
    * @dev Defines the structure: Vote(bytes votes,uint256 slot) for EIP-712 signing
    */
   bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(bytes votes,uint256 slot)");
-
-  /**
-   * @notice Type of slashing proposer (either Tally or Empire)
-   */
-  SlasherFlavor public constant SLASHING_PROPOSER_TYPE = SlasherFlavor.TALLY;
 
   /**
    * @notice Size of the circular storage buffer for round data

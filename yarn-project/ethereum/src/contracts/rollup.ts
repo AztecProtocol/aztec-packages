@@ -83,11 +83,6 @@ export type ViemGasFees = {
   feePerL2Gas: bigint;
 };
 
-export enum SlashingProposerType {
-  None = 0,
-  Tally = 1,
-}
-
 /**
  * Status of a validator/attester in the staking system.
  * Matches the Status enum in StakingLib.sol
@@ -271,23 +266,11 @@ export class RollupContract {
     }
 
     const proposerAddress = await slasher.getProposer();
-    const proposerAbi = [
-      {
-        type: 'function',
-        name: 'SLASHING_PROPOSER_TYPE',
-        inputs: [],
-        outputs: [{ name: '', type: 'uint8', internalType: 'enum SlasherFlavor' }],
-        stateMutability: 'view',
-      },
-    ] as const;
-
-    const proposer = getContract({ address: proposerAddress.toString(), abi: proposerAbi, client: this.client });
-    const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
-    if (proposerType === SlashingProposerType.Tally.valueOf()) {
-      return new TallySlashingProposerContract(this.client, proposerAddress);
-    } else {
-      throw new Error(`Unknown slashing proposer type: ${proposerType}`);
+    if (proposerAddress.isZero()) {
+      return undefined;
     }
+
+    return new TallySlashingProposerContract(this.client, proposerAddress);
   }
 
   @memoize

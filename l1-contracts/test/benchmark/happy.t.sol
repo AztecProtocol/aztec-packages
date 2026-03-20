@@ -62,7 +62,6 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -181,7 +180,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // For tally slashing, we need a round size that's a multiple of epoch duration
       uint256 tallyRoundSize = EPOCH_DURATION * 2; // 64; // 2 * EPOCH_DURATION (32) = 64
       uint256 tallyQuorum = tallyRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
-      builder.setSlasherFlavor(SlasherFlavor.TALLY).setSlashingQuorum(tallyQuorum).setSlashingRoundSize(tallyRoundSize)
+      builder.setSlasherEnabled(true).setSlashingQuorum(tallyQuorum).setSlashingRoundSize(tallyRoundSize)
         .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashAmountSmall(1e18)
         .setSlashAmountMedium(2e18).setSlashAmountLarge(3e18);
     }
