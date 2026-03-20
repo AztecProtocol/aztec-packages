@@ -568,7 +568,7 @@ describe('LibP2PService', () => {
     let blockReceivedCallback: jest.Mock;
     let duplicateProposalCallback: jest.Mock;
 
-    const currentSlot = SlotNumber(100);
+    const targetSlot = SlotNumber(100);
     const nextSlot = SlotNumber(101);
 
     beforeEach(() => {
@@ -578,14 +578,9 @@ describe('LibP2PService', () => {
       mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
-      mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
       mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
-      mockEpochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
-        ts: 1000n,
-        nowMs: 1000100n, // 100ms elapsed, within tolerance
-      });
+      mockEpochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot: targetSlot, nextSlot });
+      mockEpochCache.getTargetSlot.mockReturnValue(targetSlot);
 
       mockPeerManager = mock<PeerManagerInterface>();
       reportMessageValidationResultSpy = jest.fn();
@@ -605,7 +600,7 @@ describe('LibP2PService', () => {
     });
 
     it('processes valid block: invokes callback and marks txs non-evictable', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const proposal = await makeBlockProposal({ signer, blockHeader: header });
 
       await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
@@ -626,7 +621,7 @@ describe('LibP2PService', () => {
     });
 
     it('equivocated block: re-broadcasts but does NOT process', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
       // First proposal - should be processed normally
@@ -660,14 +655,14 @@ describe('LibP2PService', () => {
 
       // Verify duplicate callback was invoked
       expect(duplicateProposalCallback).toHaveBeenCalledWith({
-        slot: currentSlot,
+        slot: targetSlot,
         proposer: signer.address,
         type: 'block',
       });
     });
 
     it('duplicate exact block: returns Ignore, no processing', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const proposal = await makeBlockProposal({ signer, blockHeader: header });
 
       // First submission
@@ -693,7 +688,7 @@ describe('LibP2PService', () => {
     });
 
     it('cap exceeded: penalizes peer and rejects', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
       // Add MAX_BLOCK_PROPOSALS_PER_POSITION proposals
@@ -741,7 +736,7 @@ describe('LibP2PService', () => {
     });
 
     it('duplicateProposalCallback invoked exactly once per equivocation event', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
       // First proposal - callback NOT invoked
@@ -764,7 +759,7 @@ describe('LibP2PService', () => {
       await service.processBlockFromPeer(proposal2.toBuffer(), 'msg-2', mockPeerId);
       expect(duplicateProposalCallback).toHaveBeenCalledTimes(1);
       expect(duplicateProposalCallback).toHaveBeenCalledWith({
-        slot: currentSlot,
+        slot: targetSlot,
         proposer: signer.address,
         type: 'block',
       });
@@ -783,7 +778,7 @@ describe('LibP2PService', () => {
     });
 
     it('validation failure penalizes peer with correct severity', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       // Create block signed by wrong signer
       const wrongSigner = Secp256k1Signer.random();
       const proposal = await makeBlockProposal({ signer: wrongSigner, blockHeader: header });
@@ -807,7 +802,7 @@ describe('LibP2PService', () => {
     let checkpointReceivedCallback: jest.Mock;
     let duplicateProposalCallback: jest.Mock;
 
-    const currentSlot = SlotNumber(100);
+    const targetSlot = SlotNumber(100);
     const nextSlot = SlotNumber(101);
 
     beforeEach(() => {
@@ -817,14 +812,9 @@ describe('LibP2PService', () => {
       mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
-      mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
       mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
-      mockEpochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
-        ts: 1000n,
-        nowMs: 1000100n,
-      });
+      mockEpochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot, nextSlot });
+      mockEpochCache.getTargetSlot.mockReturnValue(targetSlot);
 
       mockPeerManager = mock<PeerManagerInterface>();
       reportMessageValidationResultSpy = jest.fn();
@@ -846,7 +836,7 @@ describe('LibP2PService', () => {
     });
 
     it('processes valid checkpoint: invokes callback and propagates attestations', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       const proposal = await makeCheckpointProposal({ signer, checkpointHeader });
 
       await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
@@ -864,7 +854,7 @@ describe('LibP2PService', () => {
     });
 
     it('equivocated checkpoint: re-broadcasts but does NOT process', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
 
       // First checkpoint
       const checkpoint1 = await makeCheckpointProposal({
@@ -882,7 +872,7 @@ describe('LibP2PService', () => {
       // Second checkpoint at same slot (equivocation)
       const checkpoint2 = await makeCheckpointProposal({
         signer,
-        checkpointHeader: makeCheckpointHeader(1, { slotNumber: currentSlot }),
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
         archiveRoot: Fr.random(),
       });
       await service.handleGossipedCheckpointProposal(checkpoint2.toBuffer(), 'msg-2', mockPeerId);
@@ -895,15 +885,15 @@ describe('LibP2PService', () => {
 
       // Verify duplicate callback was invoked
       expect(duplicateProposalCallback).toHaveBeenCalledWith({
-        slot: currentSlot,
+        slot: targetSlot,
         proposer: signer.address,
         type: 'checkpoint',
       });
     });
 
     it('checkpoint with lastBlock: processes both when valid', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
-      const blockHeader = makeBlockHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
       const proposal = await makeCheckpointProposal({
         signer,
         checkpointHeader,
@@ -928,8 +918,8 @@ describe('LibP2PService', () => {
     });
 
     it('lastBlock processed even when checkpoint cap exceeded', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
-      const blockHeader = makeBlockHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
 
       // Fill checkpoint slot to MAX_CHECKPOINT_PROPOSALS_PER_SLOT
       for (let i = 0; i < MAX_CHECKPOINT_PROPOSALS_PER_SLOT; i++) {
@@ -937,7 +927,7 @@ describe('LibP2PService', () => {
         mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(individualSigner.address);
         const proposal = await makeCheckpointProposal({
           signer: individualSigner,
-          checkpointHeader: makeCheckpointHeader(1, { slotNumber: currentSlot }),
+          checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
           archiveRoot: Fr.random(),
         });
         await service.handleGossipedCheckpointProposal(proposal.toBuffer(), `msg-${i}`, mockPeerId);
@@ -986,8 +976,8 @@ describe('LibP2PService', () => {
     });
 
     it('checkpoint rejected when lastBlock is equivocated', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
-      const blockHeader = makeBlockHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(4);
 
       // Pre-add a block at same position
@@ -1023,7 +1013,7 @@ describe('LibP2PService', () => {
     });
 
     it('validation failure penalizes peer with correct severity', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       // Create checkpoint signed by wrong signer
       const wrongSigner = Secp256k1Signer.random();
       const proposal = await makeCheckpointProposal({ signer: wrongSigner, checkpointHeader });

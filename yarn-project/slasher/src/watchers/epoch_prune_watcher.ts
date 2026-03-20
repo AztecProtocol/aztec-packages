@@ -211,7 +211,10 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
 
     const gv = blockFromL1.header.globalVariables;
-    const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {});
+    const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {
+      isBuildingProposal: false,
+      minValidTxs: 0,
+    });
 
     if (numTxs !== txs.length) {
       // This should be detected by state mismatch, but this makes it easier to debug.

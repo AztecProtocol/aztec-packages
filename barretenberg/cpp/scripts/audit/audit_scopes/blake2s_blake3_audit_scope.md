@@ -1,7 +1,7 @@
 # BLAKE2s + BLAKE3 Audit Scope
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 66052c96cc754339ac3f2761f341f150130555b3
+Commit hash: Most recent commit on branch 'next'
 
 ### Files to audit
 

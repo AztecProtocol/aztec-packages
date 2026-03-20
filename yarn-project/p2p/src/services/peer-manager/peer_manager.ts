@@ -32,7 +32,7 @@ import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
 const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
-const FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
+const DEFAULT_FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
@@ -776,7 +776,8 @@ export class PeerManager implements PeerManagerInterface {
         // Add to timed out peers
         this.timedOutPeers.set(id, {
           peerId: id,
-          timeoutUntilMs: this.dateProvider.now() + FAILED_PEER_BAN_TIME_MS,
+          timeoutUntilMs:
+            this.dateProvider.now() + (this.config.peerFailedBanTimeMs ?? DEFAULT_FAILED_PEER_BAN_TIME_MS),
         });
       }
     }
@@ -938,6 +939,8 @@ export class PeerManager implements PeerManagerInterface {
           `Received auth for validator ${sender.toString()} from peer ${peerIdString}, but this validator is already authenticated to peer ${peerForAddress.toString()}`,
           { ...logData, address: sender.toString() },
         );
+        this.markAuthHandshakeFailed(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 

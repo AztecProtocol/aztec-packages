@@ -1,7 +1,7 @@
 # ECDSA Audit Scope: Module
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 05a381f8b31ae4648e480f1369e911b148216e8b
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 **Note:** all paths are relative to `aztec-packages/barretenberg/cpp/src/barretenberg`

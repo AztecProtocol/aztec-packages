@@ -827,7 +827,7 @@ case "$cmd" in
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1
-    BOOTSTRAP_TO=yarn-project ./bootstrap.sh
+    ./bootstrap.sh build yarn-project
     docs/bootstrap.sh ci
     ;;
   "ci-barretenberg-debug")
@@ -835,7 +835,7 @@ case "$cmd" in
     export NATIVE_PRESET=debug
     export AVM=0
     export AVM_TRANSPILER=0
-    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg")
     export CI=1

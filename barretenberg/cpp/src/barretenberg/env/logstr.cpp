@@ -65,7 +65,9 @@ std::size_t peak_rss_bytes()
 //     interleave if multiple threads call concurrently (as with any
 //     stderr logging).
 //---------------------------------------------------------------------
-extern "C" void logstr(char const* msg)
+// WASM_EXPORT ensures this symbol stays visible when compiling with -fvisibility=hidden.
+#include <barretenberg/common/wasm_export.hpp>
+WASM_EXPORT void logstr(char const* msg)
 {
 #ifndef NO_MULTITHREADING
     static std::mutex log_mutex;

@@ -7,6 +7,7 @@ import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { TelemetryClient } from '@aztec/telemetry-client';
+import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import { BlockProposalHandler } from './block_proposal_handler.js';
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
@@ -29,7 +30,7 @@ export function createBlockProposalHandler(
   const metrics = new ValidatorMetrics(deps.telemetry);
   const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
     txsPermitted: !config.disableTransactions,
-    maxTxsPerBlock: config.validateMaxTxsPerBlock,
+    maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
   });
   return new BlockProposalHandler(
     deps.checkpointsBuilder,
@@ -59,6 +60,7 @@ export function createValidatorClient(
     epochCache: EpochCache;
     keyStoreManager: KeystoreManager | undefined;
     blobClient: BlobClientInterface;
+    slashingProtectionDb?: SlashingProtectionDatabase;
   },
 ) {
   if (config.disableValidator || !deps.keyStoreManager) {
@@ -79,5 +81,6 @@ export function createValidatorClient(
     deps.blobClient,
     deps.dateProvider,
     deps.telemetry,
+    deps.slashingProtectionDb,
   );
 }
