@@ -518,7 +518,7 @@ describe('e2e_p2p_add_rollup', () => {
     const futureEpoch = EpochNumber.fromBigInt(500n + BigInt(await newRollup.getCurrentEpochNumber()));
     const futureSlot = SlotNumber.fromBigInt(BigInt(futureEpoch) * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
     const time = await newRollup.getTimestampForSlot(futureSlot);
-    if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
+    if (time > BigInt(await t.ctx.cheatCodes.eth.lastBlockTimestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));
       await waitL1Block();
     }

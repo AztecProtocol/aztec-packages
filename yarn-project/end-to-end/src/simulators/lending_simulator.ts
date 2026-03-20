@@ -94,7 +94,9 @@ export class LendingSimulator {
 
   async prepare() {
     this.accumulator = BASE;
-    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()) + BigInt(this.ethereumSlotDuration));
+    const slot = await this.rollup.getSlotAt(
+      BigInt(await this.cc.eth.lastBlockTimestamp()) + BigInt(this.ethereumSlotDuration),
+    );
     this.time = Number(await this.rollup.getTimestampForSlot(slot));
   }
 
@@ -103,7 +105,7 @@ export class LendingSimulator {
       return;
     }
 
-    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()));
+    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.lastBlockTimestamp()));
     const targetSlot = SlotNumber(slot + diff);
     const ts = Number(await this.rollup.getTimestampForSlot(targetSlot));
     const timeDiff = ts - this.time;
