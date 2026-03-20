@@ -9,19 +9,20 @@ import {
 } from '@aztec/aztec.js/contracts';
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import { waitForTx } from '@aztec/aztec.js/node';
-import type {
-  Aliased,
-  AppCapabilities,
-  BatchResults,
-  BatchedMethod,
-  ExecuteUtilityOptions,
-  PrivateEvent,
-  PrivateEventFilter,
-  ProfileOptions,
-  SendOptions,
-  SimulateOptions,
-  Wallet,
-  WalletCapabilities,
+import {
+  type Aliased,
+  type AppCapabilities,
+  type BatchResults,
+  type BatchedMethod,
+  ContractInitializationStatus,
+  type ExecuteUtilityOptions,
+  type PrivateEvent,
+  type PrivateEventFilter,
+  type ProfileOptions,
+  type SendOptions,
+  type SimulateOptions,
+  type Wallet,
+  type WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
@@ -52,7 +53,10 @@ import {
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { computeSiloedPrivateInitializationNullifier } from '@aztec/stdlib/hash';
+import {
+  computeSiloedPrivateInitializationNullifier,
+  computeSiloedPublicInitializationNullifier,
+} from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   BlockHeader,
@@ -494,26 +498,29 @@ export abstract class BaseWallet implements Wallet {
 
   /**
    * Returns metadata about a contract, including whether it has been initialized, published, and updated.
-   *
-   * `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the
-   * instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
    * @param address - The contract address to query.
    */
   async getContractMetadata(address: AztecAddress) {
     const instance = await this.pxe.getContractInstance(address);
     const publiclyRegisteredContractPromise = this.aztecNode.getContract(address);
-    // We check only the private initialization nullifier. It is emitted by both private and public initializers and
-    // includes init_hash, preventing observers from determining initialization status from the address alone. Without
-    // the instance (and thus init_hash), we can't compute it, so we return undefined.
-    //
-    // We skip the public initialization nullifier because it's not always emitted (contracts without public external
-    // functions that require initialization checks won't emit it). If the private one exists, the public one was
-    // created in the same tx and will also be present.
-    let isContractInitialized: boolean | undefined = undefined;
+
+    let initializationStatus: ContractInitializationStatus;
     if (instance) {
+      // We have the instance, so we can compute the private initialization nullifier (which includes init_hash and is
+      // emitted by both private and public initializers) and get a definitive INITIALIZED/UNINITIALIZED answer.
       const initNullifier = await computeSiloedPrivateInitializationNullifier(address, instance.initializationHash);
       const witness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
-      isContractInitialized = !!witness;
+      initializationStatus = witness
+        ? ContractInitializationStatus.INITIALIZED
+        : ContractInitializationStatus.UNINITIALIZED;
+    } else {
+      // Without the instance we lack the init_hash needed for the private nullifier. We fall back to checking the
+      // public initialization nullifier (computed from address alone). Not all contracts emit it (only those with
+      // public functions that require initialization checks), so its absence doesn't mean the contract is
+      // uninitialized.
+      const publicNullifier = await computeSiloedPublicInitializationNullifier(address);
+      const witness = await this.aztecNode.getNullifierMembershipWitness('latest', publicNullifier);
+      initializationStatus = witness ? ContractInitializationStatus.INITIALIZED : ContractInitializationStatus.UNKNOWN;
     }
     const publiclyRegisteredContract = await publiclyRegisteredContractPromise;
     const isContractUpdated =
@@ -521,7 +528,7 @@ export abstract class BaseWallet implements Wallet {
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
     return {
       instance: instance ?? undefined,
-      isContractInitialized,
+      initializationStatus,
       isContractPublished: !!publiclyRegisteredContract,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,
