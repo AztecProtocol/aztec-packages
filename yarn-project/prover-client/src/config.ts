@@ -56,7 +56,7 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     env: 'BB_CHONK_VERIFY_MAX_BATCH',
     description:
       'Upper bound on proofs per batch for the peer chonk batch verifier. Proofs are verified immediately as they arrive; this only caps how many can accumulate while a batch is already being processed.',
-    ...numberConfigHelper(16),
+    ...numberConfigHelper(18),
   },
   bbChonkVerifyConcurrency: {
     env: 'BB_CHONK_VERIFY_BATCH_CONCURRENCY',
