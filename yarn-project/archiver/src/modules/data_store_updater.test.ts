@@ -42,7 +42,7 @@ describe('ArchiverDataStoreUpdater', () => {
   let instanceAddress: AztecAddress;
 
   beforeEach(async () => {
-    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test'), 1000, { epochDuration: 32 });
+    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test'), 1000);
     updater = new ArchiverDataStoreUpdater(store);
 
     // Create contract class log from sample fixture data

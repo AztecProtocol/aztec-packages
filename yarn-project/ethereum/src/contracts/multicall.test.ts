@@ -5,7 +5,6 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 
-import type { Anvil } from '@viem/anvil';
 import { type GetContractReturnType, type PrivateKeyAccount, encodeFunctionData, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -15,7 +14,7 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { deployL1Contract } from '../deploy_l1_contract.js';
 import { L1TxUtils, createL1TxUtils } from '../l1_tx_utils/index.js';
-import { startAnvil } from '../test/start_anvil.js';
+import { type Anvil, startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { MULTI_CALL_3_ADDRESS, Multicall3, deployMulticall3 } from './multicall.js';
