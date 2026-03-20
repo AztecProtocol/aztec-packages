@@ -57,7 +57,7 @@ constexpr std::array<uint32_t, 64> ROUND_CONSTANTS = {
  * @param prev_w_helpers The 16 previous w helper values for this round.
  * @param trace The trace container to populate.
  */
-void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace)
+void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace) const
 {
     for (size_t i = 0; i < 16; i++) {
         trace.set(row, { { { W_COLS[i], prev_w_helpers[i] } } });
@@ -69,7 +69,7 @@ void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_
  * @param state The 8 state values for this round.
  * @param trace The trace container to populate.
  */
-void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, TraceContainer& trace)
+void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, TraceContainer& trace) const
 {
     for (size_t i = 0; i < 8; i++) {
         trace.set(row, { { { STATE_COLS[i], state[i] } } });
@@ -81,7 +81,7 @@ void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, Tr
  * @param init_state The 8 initial hash state values (propagated unchanged across all rows).
  * @param trace The trace container to populate.
  */
-void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init_state, TraceContainer& trace)
+void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init_state, TraceContainer& trace) const
 {
     for (size_t i = 0; i < 8; i++) {
         trace.set(row, { { { INIT_STATE_COLS[i], init_state[i] } } });
@@ -101,7 +101,7 @@ void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init
  *      or the literal 32 for modular reduction, so this precondition is always satisfied.
  */
 void Sha256TraceBuilder::into_limbs_with_witness(
-    uint64_t a, const uint8_t b, Column c_lhs, Column c_rhs, TraceContainer& trace)
+    uint64_t a, const uint8_t b, Column c_lhs, Column c_rhs, TraceContainer& trace) const
 {
     uint32_t a_lhs = static_cast<uint32_t>(a >> b);
     uint32_t a_rhs = static_cast<uint32_t>(a) & static_cast<uint32_t>((static_cast<uint64_t>(1) << b) - 1);
@@ -124,7 +124,7 @@ void Sha256TraceBuilder::into_limbs_with_witness(
  *      22, 25), so this precondition is always satisfied.
  */
 uint32_t Sha256TraceBuilder::ror_with_witness(
-    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace)
+    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace) const
 {
     auto result = (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
     into_limbs_with_witness(val, shift, c_lhs, c_rhs, trace);
@@ -146,7 +146,7 @@ uint32_t Sha256TraceBuilder::ror_with_witness(
  *      SHA-256 shift amounts (3, 10), so this precondition is always satisfied.
  */
 uint32_t Sha256TraceBuilder::shr_with_witness(
-    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace)
+    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace) const
 {
     auto result = val >> shift;
     into_limbs_with_witness(val, shift, c_lhs, c_rhs, trace);
@@ -165,7 +165,7 @@ uint32_t Sha256TraceBuilder::shr_with_witness(
  * @return The computed w value for this round (reduced modulo 2^32).
  */
 uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 16>& prev_w_helpers,
-                                                    TraceContainer& trace)
+                                                    TraceContainer& trace) const
 {
     using C = Column;
 
@@ -237,7 +237,7 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
                                                                              uint32_t round_w,
                                                                              uint32_t round_constant,
                                                                              uint32_t row,
-                                                                             TraceContainer& trace)
+                                                                             TraceContainer& trace) const
 {
     using C = Column;
 
@@ -343,7 +343,7 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
  */
 void Sha256TraceBuilder::compute_sha256_output(const std::array<uint32_t, 8>& out_state,
                                                const std::array<uint32_t, 8>& init_state,
-                                               TraceContainer& trace)
+                                               TraceContainer& trace) const
 {
     uint32_t counter = 0;
     for (const auto& [init, state] : zip_view(init_state, out_state)) {
