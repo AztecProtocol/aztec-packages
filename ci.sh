@@ -271,6 +271,7 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
     export CPUS=192
     export INSTANCE_POSTFIX="n-kind"
+    export JOB_ID="x-network-kind"
     bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
     ;;
   deploy-rollup-upgrade)
