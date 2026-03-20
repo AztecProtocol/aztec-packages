@@ -145,6 +145,9 @@ async function deployAccountWithDiagnostics(
     logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
   }
 
+  // Track the tx hash across retries so we don't re-send when the previous tx is still pending.
+  let sentTxHash: { txHash: any } | undefined;
+
   await retry(
     async () => {
       // Check if already deployed (handles case where previous attempt succeeded but waitForTx timed out)
@@ -154,17 +157,31 @@ async function deployAccountWithDiagnostics(
         return;
       }
 
-      const deployResult = await deployMethod.send({
-        from: AztecAddress.ZERO,
-        fee: { paymentMethod, gasSettings },
-        wait: NO_WAIT,
-      });
-      const txHash = deployResult.txHash;
-      logger.info(`${accountLabel} tx sent`, { txHash: txHash.toString() });
+      // If we already sent a tx, check if it was dropped before deciding to re-send.
+      if (sentTxHash) {
+        const prevReceipt = await aztecNode.getTxReceipt(sentTxHash.txHash);
+        if (prevReceipt.isDropped()) {
+          logger.info(`${accountLabel} previous tx ${sentTxHash.txHash} was dropped, re-sending`);
+          sentTxHash = undefined;
+        } else {
+          logger.info(`${accountLabel} previous tx ${sentTxHash.txHash} still pending, waiting again...`);
+        }
+      }
 
-      const receipt = await waitForTx(aztecNode, txHash, { timeout: 600 });
+      if (!sentTxHash) {
+        const deployResult = await deployMethod.send({
+          from: AztecAddress.ZERO,
+          fee: { paymentMethod, gasSettings },
+          wait: NO_WAIT,
+        });
+        sentTxHash = { txHash: deployResult.txHash };
+        logger.info(`${accountLabel} tx sent`, { txHash: sentTxHash.txHash.toString() });
+      }
+
+      const receipt = await waitForTx(aztecNode, sentTxHash.txHash, { timeout: 600 });
       if (receipt.isDropped()) {
-        throw new Error(`${accountLabel} tx ${txHash} was dropped, retrying...`);
+        sentTxHash = undefined;
+        throw new Error(`${accountLabel} tx was dropped, retrying...`);
       }
       logger.info(`${accountLabel} deployed at ${account.address}`);
     },
