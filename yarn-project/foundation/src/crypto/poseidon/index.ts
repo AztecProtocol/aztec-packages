@@ -3,7 +3,7 @@ import { Barretenberg, BarretenbergSync } from '@aztec/bb.js';
 import { Fr } from '../../curves/bn254/field.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
 
-const IS_BROWSER = typeof window !== 'undefined';
+const IS_BROWSER = typeof self !== 'undefined';
 
 async function poseidon2HashFields(inputFields: Fr[]): Promise<Fr> {
   if (IS_BROWSER) {
