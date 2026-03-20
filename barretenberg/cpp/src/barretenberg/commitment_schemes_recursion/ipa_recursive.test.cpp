@@ -328,7 +328,7 @@ TEST_F(IPARecursiveTests, AccumulateSmallRandom)
  */
 TEST_F(IPARecursiveTests, AccumulateMediumRandom)
 {
-    static constexpr size_t log_poly_length = 10;
+    static constexpr size_t log_poly_length = 15;
     auto [poly1, x1] = generate_poly_and_challenge<log_poly_length>();
     auto [poly2, x2] = generate_poly_and_challenge<log_poly_length>();
     test_accumulation<log_poly_length>(poly1, poly2, x1, x2);
