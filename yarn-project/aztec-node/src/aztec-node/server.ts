@@ -1054,6 +1054,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
     const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
     if (referenceBlockNumber === BlockNumber.ZERO) {
+      // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
       return undefined;
     }
     const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
