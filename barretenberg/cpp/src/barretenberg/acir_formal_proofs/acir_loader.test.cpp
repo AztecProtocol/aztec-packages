@@ -627,7 +627,7 @@ TEST(AcirFormalProofs, SignedOr)
     std::string TESTNAME = "Binary::Or_Signed_64_Signed_64";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_or(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
@@ -716,3 +716,4 @@ TEST(AcirFormalProofs, SignedNot)
         save_buggy_witness(TESTNAME, circuit);
     }
 }
+
