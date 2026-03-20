@@ -2,7 +2,7 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { TimeoutError } from '@aztec/foundation/error';
 import type { Logger } from '@aztec/foundation/log';
 
-import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
+import { type Address, type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
 
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
@@ -10,6 +10,39 @@ import { FormattedViemError, formatViemError } from '../utils.js';
 import { RollupContract } from './rollup.js';
 
 export const MULTI_CALL_3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
+
+/** ABI fragment for aggregate3Value — not included in viem's multicall3Abi. */
+export const aggregate3ValueAbi = [
+  {
+    inputs: [
+      {
+        components: [
+          { internalType: 'address', name: 'target', type: 'address' },
+          { internalType: 'bool', name: 'allowFailure', type: 'bool' },
+          { internalType: 'uint256', name: 'value', type: 'uint256' },
+          { internalType: 'bytes', name: 'callData', type: 'bytes' },
+        ],
+        internalType: 'struct Multicall3.Call3Value[]',
+        name: 'calls',
+        type: 'tuple[]',
+      },
+    ],
+    name: 'aggregate3Value',
+    outputs: [
+      {
+        components: [
+          { internalType: 'bool', name: 'success', type: 'bool' },
+          { internalType: 'bytes', name: 'returnData', type: 'bytes' },
+        ],
+        internalType: 'struct Multicall3.Result[]',
+        name: 'returnData',
+        type: 'tuple[]',
+      },
+    ],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+] as const;
 
 export class Multicall3 {
   static async forward(
@@ -121,6 +154,37 @@ export class Multicall3 {
       logger.warn('Failed to get error from reverted tx', { err });
       throw err;
     }
+  }
+
+  /** Batch multiple value transfers into a single aggregate3Value call on Multicall3. */
+  static async forwardValue(calls: { to: Address; value: bigint }[], l1TxUtils: L1TxUtils, logger: Logger) {
+    const args = calls.map(c => ({
+      target: c.to,
+      allowFailure: false,
+      value: c.value,
+      callData: '0x' as Hex,
+    }));
+
+    const data = encodeFunctionData({
+      abi: aggregate3ValueAbi,
+      functionName: 'aggregate3Value',
+      args: [args],
+    });
+
+    const totalValue = calls.reduce((sum, c) => sum + c.value, 0n);
+
+    logger.info(`Sending aggregate3Value with ${calls.length} calls`, { totalValue });
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+      to: MULTI_CALL_3_ADDRESS,
+      data,
+      value: totalValue,
+    });
+
+    if (receipt.status !== 'success') {
+      throw new Error(`aggregate3Value transaction reverted: ${receipt.transactionHash}`);
+    }
+
+    return { receipt };
   }
 }
 
