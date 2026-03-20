@@ -268,6 +268,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async close(): Promise<void> {
+    await this.closeCommittedFork();
     await this.instance.close();
     await this.cleanup();
   }

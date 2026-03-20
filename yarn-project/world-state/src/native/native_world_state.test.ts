@@ -2100,5 +2100,62 @@ describe('NativeWorldState', () => {
       // getCommitted() should match fork2, not fork1
       await assertSameState(ws.getCommitted(), fork2);
     });
+
+    const expectForkClosed = async (fork: MerkleTreeWriteOperations) => {
+      await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow('Fork not found');
+    };
+
+    it('closes the previous fork when replacing', async () => {
+      const fork1 = await ws.fork();
+      await mockBlock(BlockNumber(1), 1, fork1);
+      await ws.commitFork(fork1, BlockNumber(0));
+
+      const fork2 = await ws.fork();
+      await mockBlock(BlockNumber(1), 1, fork2);
+      await ws.commitFork(fork2, BlockNumber(0));
+
+      await expectForkClosed(fork1);
+      // fork2 is still the committed fork and should be usable
+      await expect(fork2.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).resolves.toBeDefined();
+    });
+
+    it('handleL2BlockAndMessages closes the committed fork', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+      await ws.commitFork(fork, BlockNumber(0));
+
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      await expectForkClosed(fork);
+    });
+
+    it('unwindBlocks disposes the committed fork', async () => {
+      const setupFork = await ws.fork();
+      for (let i = 1; i <= 3; i++) {
+        const { block, messages } = await mockBlock(BlockNumber(i), 1, setupFork);
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+      await setupFork.close();
+
+      const fork = await ws.fork();
+      await mockBlock(BlockNumber(4), 1, fork);
+      await ws.commitFork(fork, BlockNumber(3));
+
+      await ws.unwindBlocks(BlockNumber(2));
+
+      await expectForkClosed(fork);
+    });
+
+    it('close() closes the committed fork', async () => {
+      const fork = await ws.fork();
+      await mockBlock(BlockNumber(1), 1, fork);
+      await ws.commitFork(fork, BlockNumber(0));
+
+      await ws.close();
+
+      await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow();
+      // Recreate ws so afterEach doesn't double-close
+      ws = await NativeWorldStateService.tmp();
+    });
   });
 });
