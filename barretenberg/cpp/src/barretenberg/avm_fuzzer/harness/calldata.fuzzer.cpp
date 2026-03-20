@@ -23,9 +23,11 @@
 #include "barretenberg/vm2/simulation/gadgets/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
@@ -405,11 +407,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     check_relation<calldata_rel>(trace);
     check_relation<calldata_hashing_rel>(trace);
     // Individual for easily switching on/off hashing:
-    check_interaction<CalldataTraceBuilder, bb::avm2::lookup_calldata_range_check_context_id_diff_settings>(trace);
     check_interaction<CalldataTraceBuilder, bb::avm2::lookup_calldata_hashing_get_calldata_field_0_settings>(trace);
     check_interaction<CalldataTraceBuilder, bb::avm2::lookup_calldata_hashing_get_calldata_field_1_settings>(trace);
     check_interaction<CalldataTraceBuilder, bb::avm2::lookup_calldata_hashing_get_calldata_field_2_settings>(trace);
-    check_interaction<CalldataTraceBuilder, bb::avm2::lookup_calldata_hashing_check_final_size_settings>(trace);
+    check_interaction<CalldataTraceBuilder, bb::avm2::perm_calldata_hashing_check_final_size_settings>(trace);
     check_interaction<CalldataTraceBuilder, bb::avm2::lookup_calldata_hashing_poseidon2_hash_settings>(trace);
     // check_all_interactions<CalldataTraceBuilder>(trace);
 
@@ -421,8 +422,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
                       { Column::calldata_context_id, 0 },
                       { Column::calldata_value, 0 },
                       { Column::calldata_index, 0 },
-                      { Column::calldata_latch, 0 },
-                      { Column::calldata_diff_context_id, 0 },
+                      { Column::calldata_end, 0 },
                   } });
     }
 
@@ -445,7 +445,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
                       { Column::calldata_hashing_output_hash, 0 },
                       { Column::calldata_hashing_sel_not_padding_1, 0 },
                       { Column::calldata_hashing_sel_not_padding_2, 0 },
-                      { Column::calldata_hashing_latch, 0 },
+                      { Column::calldata_hashing_end, 0 },
+                      { Column::calldata_hashing_sel_end_not_empty, 0 },
                   } });
     }
 
