@@ -32,6 +32,7 @@ import {
   type WorldStateStatusFull,
   type WorldStateStatusSummary,
   blockStateReference,
+  buildEmptyWorldStateStatusFull,
   sanitizeFullStatus,
   sanitizeSummary,
   treeStateReferenceToSnapshot,
@@ -48,7 +49,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
-  private committedFork: MerkleTreeWriteOperations | undefined;
+  private committedForkStatus: WorldStateStatusFull | undefined;
 
   protected constructor(
     protected instance: NativeWorldState,
@@ -154,7 +155,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async clear() {
-    await this.closeCommittedFork();
     await this.instance.close();
     this.cachedStatusSummary = undefined;
     await tryRmDir(this.instance.getDataDir(), this.log);
@@ -162,9 +162,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public getCommitted(): MerkleTreeReadOperations {
-    if (this.committedFork) {
-      return this.committedFork;
-    }
     return new MerkleTreesFacade(this.instance, this.initialHeader!, WorldStateRevision.empty());
   }
 
@@ -204,9 +201,17 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         `Can't commit fork: expected tip at block ${blockNumber}, but canonical tip is at ${status.unfinalizedBlockNumber}`,
       );
     }
-    await this.closeCommittedFork();
     fork.detach();
-    this.committedFork = fork;
+
+    // Promote fork's tree caches to canonical LMDB.
+    // After this call, the fork is consumed by the native layer and canonical LMDB has the fork's state.
+    const forkFacade = fork as MerkleTreesForkFacade;
+    this.committedForkStatus = await this.instance.call(
+      WorldStateMessageType.COMMIT_FORK,
+      { forkId: forkFacade.forkId },
+      this.sanitizeAndCacheSummaryFromFull.bind(this),
+      this.deleteCachedSummary.bind(this),
+    );
   }
 
   public getInitialHeader(): BlockHeader {
@@ -214,6 +219,18 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+    // Skip if this block is already persisted (e.g. via COMMIT_FORK)
+    const currentStatus = await this.getStatusSummary();
+    if (l2Block.number <= currentStatus.unfinalizedBlockNumber) {
+      this.log.debug(
+        `Skipping SYNC_BLOCK for block ${l2Block.number} — already at tip ${currentStatus.unfinalizedBlockNumber}`,
+      );
+      if (this.committedForkStatus) {
+        return this.committedForkStatus;
+      }
+      return buildEmptyWorldStateStatusFull();
+    }
+
     const isFirstBlock = l2Block.indexWithinCheckpoint === 0;
     if (!isFirstBlock && l1ToL2Messages.length > 0) {
       throw new Error(
@@ -260,7 +277,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         this.sanitizeAndCacheSummaryFromFull.bind(this),
         this.deleteCachedSummary.bind(this),
       );
-      await this.closeCommittedFork();
       return result;
     } catch (err) {
       this.worldStateInstrumentation.incCriticalErrors('synch_pending_block');
@@ -269,7 +285,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async close(): Promise<void> {
-    await this.closeCommittedFork();
     await this.instance.close();
     await this.cleanup();
   }
@@ -293,14 +308,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   private deleteCachedSummary(_: string) {
     this.cachedStatusSummary = undefined;
-  }
-
-  private async closeCommittedFork(): Promise<void> {
-    const fork = this.committedFork;
-    if (fork) {
-      this.committedFork = undefined;
-      await fork.close();
-    }
   }
 
   /**
@@ -364,8 +371,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         this.sanitizeAndCacheSummaryFromFull.bind(this),
         this.deleteCachedSummary.bind(this),
       );
-      // Just null the reference — native UNWIND_BLOCKS already deletes forks past the unwind point.
-      this.committedFork = undefined;
       return result;
     } catch (err) {
       this.worldStateInstrumentation.incCriticalErrors('prune_pending_block');

@@ -34,6 +34,7 @@ export enum WorldStateMessageType {
 
   CREATE_FORK,
   DELETE_FORK,
+  COMMIT_FORK,
 
   FINALIZE_BLOCKS,
   UNWIND_BLOCKS,
@@ -441,6 +442,8 @@ interface CreateForkResponse {
 
 interface DeleteForkRequest extends WithForkId {}
 
+interface CommitForkRequest extends WithForkId {}
+
 interface CopyStoresRequest extends WithCanonicalForkId {
   dstPath: string;
   compact: boolean;
@@ -487,6 +490,7 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
   [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
+  [WorldStateMessageType.COMMIT_FORK]: CommitForkRequest;
 
   [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: BlockShiftRequest;
   [WorldStateMessageType.UNWIND_BLOCKS]: BlockShiftRequest;
@@ -532,6 +536,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
   [WorldStateMessageType.DELETE_FORK]: void;
+  [WorldStateMessageType.COMMIT_FORK]: WorldStateStatusFull;
 
   [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatusFull;
   [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatusFull;

@@ -198,8 +198,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
       committedOnly,
     );
 
-    // If the request was to delete the fork then we clean it up here
-    if (messageType === WorldStateMessageType.DELETE_FORK) {
+    // If the request was to delete or commit the fork then we clean it up here
+    if (messageType === WorldStateMessageType.DELETE_FORK || messageType === WorldStateMessageType.COMMIT_FORK) {
       await requestQueue.stop();
       this.queues.delete(forkId);
     }

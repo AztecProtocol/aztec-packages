@@ -37,6 +37,7 @@ import { Gas } from '@aztec/stdlib/gas';
 import {
   type BlockBuilderOptions,
   InsufficientValidTxsError,
+  type MerkleTreeWriteOperations,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -354,6 +355,7 @@ export class CheckpointProposalJob implements Traceable {
           checkpointGlobalVariables.timestamp,
           inHash,
           blockProposalOptions,
+          fork,
         );
         blocksInCheckpoint = result.blocksInCheckpoint;
         blockPendingBroadcast = result.blockPendingBroadcast;
@@ -498,6 +500,7 @@ export class CheckpointProposalJob implements Traceable {
     timestamp: bigint,
     inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
+    fork: MerkleTreeWriteOperations,
   ): Promise<{
     blocksInCheckpoint: L2Block[];
     blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined;
@@ -505,6 +508,7 @@ export class CheckpointProposalJob implements Traceable {
     const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
+    let forkCommitted = false;
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
@@ -570,6 +574,10 @@ export class CheckpointProposalJob implements Traceable {
       // If this is the last block, sync it to the archiver and exit the loop
       // so we can build the checkpoint and start collecting attestations.
       if (timingInfo.isLastBlock) {
+        if (!forkCommitted) {
+          forkCommitted = true;
+          await this.tryCommitFork(fork);
+        }
         await this.syncProposedBlockToArchiver(block);
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.targetSlot}`, {
           slot: this.targetSlot,
@@ -589,6 +597,10 @@ export class CheckpointProposalJob implements Traceable {
       // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal.
       // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building.
       // If this throws, we abort the entire checkpoint.
+      if (!forkCommitted) {
+        forkCommitted = true;
+        await this.tryCommitFork(fork);
+      }
       await this.syncProposedBlockToArchiver(block);
 
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
@@ -1006,6 +1018,15 @@ export class CheckpointProposalJob implements Traceable {
     const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
     this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
     await this.p2pClient.handleFailedExecution(failedTxHashes);
+  }
+
+  /** Commits the fork so getCommitted() immediately reflects the built blocks. */
+  private async tryCommitFork(fork: MerkleTreeWriteOperations): Promise<void> {
+    try {
+      await this.worldState.commitFork(fork, this.syncedToBlockNumber);
+    } catch (err) {
+      this.log.debug(`Could not commit fork (block stream may have synced first)`, { err });
+    }
   }
 
   /**

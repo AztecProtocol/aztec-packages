@@ -224,6 +224,11 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   detach(): void {
     this.detached = true;
   }
+
+  /** Returns the native fork ID. */
+  get forkId(): number {
+    return this.revision.forkId;
+  }
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
