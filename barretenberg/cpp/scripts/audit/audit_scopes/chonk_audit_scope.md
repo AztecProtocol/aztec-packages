@@ -80,6 +80,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `relations/multilinear_batching/multilinear_batching_relation.hpp` | Relation for batched polynomial claim verification |
 | `special_public_inputs/special_public_inputs.hpp` | `KernelIO`/`HidingKernelIO` - binds accumulators, ECC op tables, databus across circuits |
 | `chonk/chonk.*` | Chonk state machine, `complete_kernel_circuit_logic()` |
+| `chonk/private_execution_steps.cpp` | Main entry point, `accumulate()` orchestration |
 | `chonk/chonk_proof.*` | Proof serialization/deserialization (field elements, msgpack) |
 
 ---
