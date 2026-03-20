@@ -166,6 +166,8 @@ function install_aztec_up {
     curl -fsSL "$INSTALL_URI/aztec-up" -o "$shared_bin_path/aztec-up"
   fi
   chmod +x "$shared_bin_path/aztec-up"
+  # Seed the auto-update staleness clock (see auto_update() in aztec-up).
+  date +%s > "$AZTEC_HOME/.last_update_check"
 }
 
 # Updates appropriate shell script to ensure the paths are in PATH.
