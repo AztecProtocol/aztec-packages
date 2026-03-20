@@ -272,6 +272,14 @@ namespace contract_instance_retrieval;
         address_derivation.tagging_key_y
     };
 
+    // ==== Constrain "current" Class ID (Protocol Contracts) ====
+
+    // Protocol contracts are not upgradeable; enforce current == original.
+    // This is critical because current_class_id is an output of this gadget,
+    // but only original is used in address derivation.
+    #[PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL]
+    is_protocol_contract * (current_class_id - original_class_id) = 0;
+
     // ==== Constrain That "current" Class ID Truly Is Current (Non-protocol Contracts That Exist) ====
 
     // Enforce that the class id provided is the _current_/active one. Only check when nullifier exists.
