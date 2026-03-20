@@ -1,6 +1,5 @@
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { ManualDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import { type Hex, encodeFunctionData } from 'viem';
@@ -28,18 +27,20 @@ function expectedFundingData(addresses: EthAddress[], fundingAmount: bigint): He
 describe('PublisherManager', () => {
   let mockPublishers: (TestL1TxUtils & L1TxUtils)[];
   let publisherManager: PublisherManager<L1TxUtils>;
-  let dateProvider: ManualDateProvider;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    dateProvider = new ManualDateProvider();
+  });
+
+  afterEach(async () => {
+    await publisherManager?.stop();
   });
 
   describe('constructor', () => {
     it('should initialize with publishers', () => {
       mockPublishers = createMockPublishers(3);
 
-      expect(() => new PublisherManager(mockPublishers, {}, dateProvider)).not.toThrow();
+      expect(() => new PublisherManager(mockPublishers, {})).not.toThrow();
     });
   });
 
@@ -48,7 +49,7 @@ describe('PublisherManager', () => {
     beforeEach(() => {
       addresses = Array.from({ length: 3 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(3, addresses);
-      publisherManager = new PublisherManager(mockPublishers, {}, dateProvider);
+      publisherManager = new PublisherManager(mockPublishers, {});
     });
 
     it('should throw error when no valid publishers found', async () => {
@@ -73,7 +74,7 @@ describe('PublisherManager', () => {
       mockPublishers[1].state = TxUtilsState.CANCELLED;
       mockPublishers[2].state = TxUtilsState.NOT_MINED;
 
-      publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true }, dateProvider);
+      publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true });
       await expect(publisherManager.getAvailablePublisher(p => p.state === TxUtilsState.CANCELLED)).resolves.toBe(
         mockPublishers[1],
       );
@@ -150,7 +151,7 @@ describe('PublisherManager', () => {
     it('should prioritise same state publishers based on balance and then least recently used', async () => {
       const ethAddresses = Array.from({ length: 5 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(5, ethAddresses);
-      publisherManager = new PublisherManager(mockPublishers, {}, dateProvider);
+      publisherManager = new PublisherManager(mockPublishers, {});
 
       const filter = (utils: L1TxUtils) => utils.getSenderAddress() !== mockPublishers[2].getSenderAddress(); // Filter out publisher in index 2
 
@@ -206,13 +207,17 @@ describe('PublisherManager', () => {
       return new PublisherManager(
         publishers,
         { publisherFundingThreshold: threshold, publisherFundingAmount: fundingAmount, ...config },
-        dateProvider,
         { funder: funderInstance },
       );
     };
 
-    /** Wait for the background funding promise to settle. */
-    const waitForFunding = () => new Promise(resolve => setTimeout(resolve, 10));
+    /** Start the manager and trigger one funding cycle via the RunningPromise. */
+    const triggerFunding = async (manager: PublisherManager<L1TxUtils>) => {
+      await manager.start();
+      // RunningPromise calls the fn immediately on start, so we just need to wait for it to settle
+      await new Promise(resolve => setTimeout(resolve, 10));
+      await manager.stop();
+    };
 
     beforeEach(() => {
       funder = new TestL1TxUtils(EthAddress.random()) as TestL1TxUtils & L1TxUtils;
@@ -224,8 +229,7 @@ describe('PublisherManager', () => {
       mockPublishers[0].balance = 50n; // below threshold
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
@@ -240,8 +244,7 @@ describe('PublisherManager', () => {
       mockPublishers[0].balance = 200n; // above threshold
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
     });
@@ -253,8 +256,7 @@ describe('PublisherManager', () => {
       mockPublishers[2].balance = 30n; // below
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       // Single multicall for both underfunded publishers
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
@@ -273,8 +275,7 @@ describe('PublisherManager', () => {
       mockPublishers[0].balance = 50n;
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
         to: MULTI_CALL_3_ADDRESS,
@@ -291,52 +292,21 @@ describe('PublisherManager', () => {
 
       funder.sendAndMonitorTransaction.mockRejectedValueOnce(new Error('tx failed'));
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
-      // Single multicall attempted and failed — error caught by triggerFundingIfNeeded
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
-    });
-
-    it('concurrent guard prevents overlapping funding runs', async () => {
-      mockPublishers = createMockPublishers(1);
-      mockPublishers[0].balance = 50n;
-      publisherManager = createFundedManager(mockPublishers, funder);
-
-      // Block the first funding call on a deferred promise we control
-      let resolveFunding!: () => void;
-      const fundingBlocked = new Promise<void>(r => (resolveFunding = r));
-      funder.sendAndMonitorTransaction.mockImplementation(async () => {
-        await fundingBlocked;
-        return { receipt: { transactionHash: '0x1', status: 'success' }, state: {} };
-      });
-
-      // First call triggers funding (sets isFunding = true)
-      await publisherManager.getAvailablePublisher();
-      // Second call while funding is still in progress — should skip
-      await publisherManager.getAvailablePublisher();
-
-      // Release the blocked funding and let it complete
-      resolveFunding();
-      await waitForFunding();
-
+      // Single multicall attempted and failed — error caught by RunningPromise
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
     });
 
     it('no funding triggered when no funder configured', async () => {
       mockPublishers = createMockPublishers(1);
       mockPublishers[0].balance = 50n;
-      publisherManager = new PublisherManager(
-        mockPublishers,
-        {
-          publisherFundingThreshold: threshold,
-          publisherFundingAmount: fundingAmount,
-        },
-        dateProvider,
-      );
+      publisherManager = new PublisherManager(mockPublishers, {
+        publisherFundingThreshold: threshold,
+        publisherFundingAmount: fundingAmount,
+      });
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
     });
@@ -349,8 +319,7 @@ describe('PublisherManager', () => {
         publisherFundingAmount: undefined,
       });
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
     });
@@ -361,8 +330,7 @@ describe('PublisherManager', () => {
       funder.balance = 30n; // less than fundingAmount (50n)
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
     });
@@ -375,8 +343,7 @@ describe('PublisherManager', () => {
       funder.balance = 2n * fundingAmount; // enough for 2, not 3
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledWith({
@@ -398,34 +365,10 @@ describe('PublisherManager', () => {
       funder.balance = 5000n;
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       // Funding is fully disabled because funder overlaps with a publisher
       expect(funder.sendAndMonitorTransaction).not.toHaveBeenCalled();
-    });
-
-    it('skips funding within cooldown and resumes after cooldown expires', async () => {
-      mockPublishers = createMockPublishers(1);
-      mockPublishers[0].balance = 50n;
-      publisherManager = createFundedManager(mockPublishers, funder);
-
-      // First call triggers funding
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
-
-      // Second call within cooldown — funding should be skipped
-      dateProvider.advanceTime(60); // 1 minute, less than 2 min cooldown
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
-
-      // Third call after cooldown expires — funding should trigger again
-      dateProvider.advanceTime(2 * 60); // another 2 minutes
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
-      expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(2);
     });
 
     it('funds publishers in busy states', async () => {
@@ -436,8 +379,7 @@ describe('PublisherManager', () => {
       mockPublishers[1].state = TxUtilsState.SENT; // busy
       publisherManager = createFundedManager(mockPublishers, funder);
 
-      await publisherManager.getAvailablePublisher();
-      await waitForFunding();
+      await triggerFunding(publisherManager);
 
       // Single multicall funds both, even the busy one
       expect(funder.sendAndMonitorTransaction).toHaveBeenCalledTimes(1);
@@ -479,4 +421,8 @@ class TestL1TxUtils {
   public getSenderAddress() {
     return this.senderAddress;
   }
+
+  public async loadStateAndResumeMonitoring() {}
+
+  public interrupt() {}
 }

@@ -93,15 +93,10 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(
-      l1TxUtils,
-      getPublisherConfigFromSequencerConfig(config),
-      deps.dateProvider,
-      {
-        bindings: log.getBindings(),
-        funder: deps.funderL1TxUtils,
-      },
-    );
+    const publisherManager = new PublisherManager(l1TxUtils, getPublisherConfigFromSequencerConfig(config), {
+      bindings: log.getBindings(),
+      funder: deps.funderL1TxUtils,
+    });
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
@@ -216,7 +211,7 @@ export class SequencerClient {
     await this.validatorClient?.start();
     this.sequencer.start();
     this.l1Metrics?.start();
-    await this.publisherManager.loadState();
+    await this.publisherManager.start();
   }
 
   /**
@@ -225,7 +220,7 @@ export class SequencerClient {
   public async stop() {
     await this.sequencer.stop();
     await this.validatorClient?.stop();
-    this.publisherManager.interrupt();
+    await this.publisherManager.stop();
     this.l1Metrics?.stop();
   }
 
