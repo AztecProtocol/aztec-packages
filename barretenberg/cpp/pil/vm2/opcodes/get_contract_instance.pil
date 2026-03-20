@@ -228,8 +228,7 @@ namespace get_contract_instance;
         memory.tag,
         memory.rw
     };
-    // TODO(dbanks12): consider reusing a single memory permutation for both writes,
-    // or do the first write in execution (after returning `exists` to execution).
+
     #[MEM_WRITE_CONTRACT_INSTANCE_MEMBER]
     is_valid_member_enum {
         clk,
