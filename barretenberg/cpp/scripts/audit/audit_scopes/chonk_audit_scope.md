@@ -40,39 +40,29 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 21. `chonk/chonk_proof.cpp`
 22. `chonk/chonk_proof.hpp`
 
-### Batched Honk + Translator (Joint MegaZK + Translator Sumcheck/PCS)
-24a. `chonk/batched_honk_translator/batched_honk_translator_prover.hpp`
-24b. `chonk/batched_honk_translator/batched_honk_translator_prover.cpp`
-24c. `chonk/batched_honk_translator/batched_honk_translator_verifier.hpp`
-24d. `chonk/batched_honk_translator/batched_honk_translator_verifier.cpp`
-
-### Chonk Verifier
-24e. `chonk/chonk_verifier.hpp`
-24f. `chonk/chonk_verifier.cpp`
-
 ### Relations
-24. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+23. `relations/multilinear_batching/multilinear_batching_relation.hpp`
 
 ### Special Public Inputs
-25. `special_public_inputs/special_public_inputs.hpp`
-26. `stdlib/primitives/public_input_component/public_input_component.hpp`
+24. `special_public_inputs/special_public_inputs.hpp`
+25. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-27. `flavor/multilinear_batching_flavor.hpp`
-28. `flavor/multilinear_batching_flavor.cpp`
-29. `flavor/multilinear_batching_recursive_flavor.hpp`
+26. `flavor/multilinear_batching_flavor.hpp`
+27. `flavor/multilinear_batching_flavor.cpp`
+28. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ### Databus
-30. `stdlib/primitives/databus/databus.hpp`
-31. `stdlib/primitives/databus/databus.cpp`
-32. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
+29. `stdlib/primitives/databus/databus.hpp`
+30. `stdlib/primitives/databus/databus.cpp`
+31. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
 
 ### ACIR Integration
-33. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-34. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-35. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
-36. `dsl/acir_format/chonk_recursion_constraints.hpp`
-37. `dsl/acir_format/chonk_recursion_constraints.cpp`
+32. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+33. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+34. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+35. `dsl/acir_format/chonk_recursion_constraints.hpp`
+36. `dsl/acir_format/chonk_recursion_constraints.cpp`
 ---
 
 ## Critical Files
@@ -90,8 +80,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `relations/multilinear_batching/multilinear_batching_relation.hpp` | Relation for batched polynomial claim verification |
 | `special_public_inputs/special_public_inputs.hpp` | `KernelIO`/`HidingKernelIO` - binds accumulators, ECC op tables, databus across circuits |
 | `chonk/chonk.*` | Chonk state machine, `complete_kernel_circuit_logic()` |
-| `chonk/chonk_verifier.*` | Chonk verification: MegaZK Oink + Merge + ECCVM + joint sumcheck/PCS |
-| `chonk/batched_honk_translator/*` | Joint MegaZK + Translator sumcheck and PCS (prover + verifier) |
 | `chonk/chonk_proof.*` | Proof serialization/deserialization (field elements, msgpack) |
 
 ---
@@ -101,9 +89,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | File | Focus |
 |------|-------|
 | `chonk/chonk.test.cpp` | Chonk orchestration, QUEUE_TYPE state machine, accumulation flow |
-| `chonk/chonk_verifier.test.cpp` | Chonk verifier tests (native and recursive) |
-| `chonk/chonk_batch_verifier.test.cpp` | Batch Chonk verification with IPA batching |
-| `chonk/batched_honk_translator/batched_honk_translator.test.cpp` | Joint MegaZK+Translator: ProveAndVerify, ProofSizeComparison, ManifestConsistency |
 | `hypernova/hypernova_prover.test.cpp` | HyperNova folding prover tests |
 | `chonk/chonk_transcript_invariants.test.cpp` | Transcript consistency, tampering detection, M_tail propagation |
 | `hypernova/hypernova_verifier.test.cpp` | Folding proof verification, accumulator batching |
@@ -127,6 +112,5 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | Component | Documentation | Key Topics |
 |-----------|--------------|------------|
 | **Chonk** | [chonk/README.md](../../../src/barretenberg/chonk/README.md) | HyperNova folding, multilinear batching, databus, proof structure, batched verification architecture, soundness mechanisms |
-| **Batched Honk + Translator** | [batched_honk_translator/README.md](../../../src/barretenberg/chonk/batched_honk_translator/README.md) | Joint MegaZK + Translator sumcheck/PCS, extension-by-zero, repeated commitments optimization |
 | **Merge Protocol** | [MERGE_PROTOCOL.md](../goblin/MERGE_PROTOCOL.md) | Concatenation identities, degree bounds, PREPEND/APPEND modes, Chonk integration |
 | **Transcripts** | [transcript/README.md](../transcript/README.md) | Manifest structure, transcript isolation, origin tags, VK binding |
