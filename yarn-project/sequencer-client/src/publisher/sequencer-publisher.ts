@@ -454,11 +454,7 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-<<<<<<< HEAD
   public canProposeAtNextEthBlock(
-=======
-  public canProposeAt(
->>>>>>> 4c4e5b376b (fix(sequencer): remove l1 block timestamp check)
     tipArchive: Fr,
     msgSender: EthAddress,
     opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
@@ -466,13 +462,6 @@ export class SequencerPublisher {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-<<<<<<< HEAD
-=======
-    const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
-    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
-    const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
-
->>>>>>> 4c4e5b376b (fix(sequencer): remove l1 block timestamp check)
     return this.rollupContract
       .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
@@ -511,11 +500,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-<<<<<<< HEAD
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-=======
     const ts = this.getNextL1SlotTimestamp();
->>>>>>> 4c4e5b376b (fix(sequencer): remove l1 block timestamp check)
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -1370,13 +1355,10 @@ export class SequencerPublisher {
       },
     });
   }
-<<<<<<< HEAD
-=======
 
   /** Returns the timestamp to use when simulating L1 proposal calls */
   private getNextL1SlotTimestamp(): bigint {
     const l1Constants = this.epochCache.getL1Constants();
     return getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
   }
->>>>>>> 4c4e5b376b (fix(sequencer): remove l1 block timestamp check)
 }
