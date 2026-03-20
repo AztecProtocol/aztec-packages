@@ -18,7 +18,7 @@ struct perm_tx_read_calldata_hash_settings_ {
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t COLUMNS_PER_SET = 3;
     static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
-    static constexpr Column DST_SELECTOR = Column::calldata_hashing_latch;
+    static constexpr Column DST_SELECTOR = Column::calldata_hashing_end;
     static constexpr Column INVERSES = Column::perm_tx_read_calldata_hash_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = { ColumnAndShifts::tx_calldata_hash,
                                                                                   ColumnAndShifts::tx_calldata_size,
