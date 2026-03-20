@@ -250,7 +250,14 @@ class U256Codec {
         BB_ASSERT_EQ(vec.size(), calc_num_fields<T>());
         if constexpr (IsAnyOf<T, bool>) {
             return static_cast<bool>(vec[0]);
-        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
+        } else if constexpr (IsAnyOf<T, bb::fr>) {
+            BB_ASSERT_LT(
+                vec[0], uint256_t(bb::fr::modulus), "Non-canonical scalar field element: value >= fr::modulus");
+            return static_cast<T>(vec[0]);
+        } else if constexpr (IsAnyOf<T, fq>) {
+            BB_ASSERT_LT(vec[0], uint256_t(fq::modulus), "Non-canonical base field element: value >= fq::modulus");
+            return static_cast<T>(vec[0]);
+        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t>) {
             return static_cast<T>(vec[0]);
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;

@@ -274,6 +274,7 @@ describe('L1Publisher integration', () => {
       {
         l1ChainId: chainId,
         ethereumSlotDuration: config.ethereumSlotDuration,
+        aztecSlotDuration: config.aztecSlotDuration,
       },
       {
         blobClient,
@@ -606,7 +607,7 @@ describe('L1Publisher integration', () => {
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -630,7 +631,7 @@ describe('L1Publisher integration', () => {
       const attestations = orderAttestations(checkpointAttestations, committee!).reverse();
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -645,7 +646,7 @@ describe('L1Publisher integration', () => {
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -670,7 +671,7 @@ describe('L1Publisher integration', () => {
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
@@ -742,8 +743,8 @@ describe('L1Publisher integration', () => {
       // We cannot propose directly, we need to assume the previous checkpoint is invalidated
       const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
       logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
-      expect(await publisher.canProposeAtNextEthBlock(genesis, proposer!)).toBeUndefined();
-      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingCheckpointNumber });
+      expect(await publisher.canProposeAt(genesis, proposer!)).toBeUndefined();
+      const canPropose = await publisher.canProposeAt(genesis, proposer!, { forcePendingCheckpointNumber });
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation

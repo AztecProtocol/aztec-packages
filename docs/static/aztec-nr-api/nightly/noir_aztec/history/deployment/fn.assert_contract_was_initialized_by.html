@@ -31,8 +31,13 @@
 <pre><code>pub fn assert_contract_was_initialized_by(
     block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
     contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    init_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code></pre>
 
+<div class="comments">
+<p>Asserts that a contract was initialized by the given block.</p>
+<p><code>init_hash</code> is the contract's initialization hash, obtainable via
+<a href="../../../noir_aztec/oracle/get_contract_instance/fn.get_contract_instance.html"><code>get_contract_instance</code></a>.</p></div>
 </main>
 </span>
 </body>

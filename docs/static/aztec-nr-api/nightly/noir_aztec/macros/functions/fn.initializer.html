@@ -70,17 +70,21 @@ any time. Contracts that do have initializers can also make some of their functi
 initialization by marking them with the <code>#[noinitcheck]</code> attribute - though any contract state initialization will
 of course not have taken place.</p>
 <h2>How It Works</h2>
-<p>Initializers emit nullifiers to mark the contract as initialized. Two separate nullifiers are used (a private init
-nullifier and a public init nullifier) because private nullifiers are committed before public execution
-begins: if a single nullifier were used, public functions enqueued by the initializer would see it as
-existing <em>before</em> the public initialization code had a chance to run.</p>
+<p>Initializers emit nullifiers to mark the contract as initialized. Two separate nullifiers are used (a private
+initialization nullifier and a public initialization nullifier) because private nullifiers are committed before
+public execution begins: if a single nullifier were used, public functions enqueued by the initializer would see
+it as existing <em>before</em> the public initialization code had a chance to run.</p>
+<p>The private initialization nullifier is computed from the contract address and the contract's <code>init_hash</code>. This
+means that address knowledge alone is insufficient to check whether a contract has been initialized, preventing
+a privacy leak for fully private contracts.</p>
 <ul>
-<li><strong>Private initializers</strong> emit the private init nullifier. For contracts that also have external public functions,
-they auto-enqueue a call to an auto-generated public function that emits the public init nullifier during public
-execution. This function name is reserved and cannot be used by contract developers.</li>
+<li><strong>Private initializers</strong> emit the private initialization nullifier. For contracts that also have external
+public functions, they auto-enqueue a call to an auto-generated public function that emits the public
+initialization nullifier during public execution. This function name is reserved and cannot be used by
+contract developers.</li>
 <li><strong>Public initializers</strong> emit both nullifiers directly.</li>
-<li><strong>Private external functions</strong> check the private init nullifier.</li>
-<li><strong>Public external functions</strong> check the public init nullifier.</li>
+<li><strong>Private external functions</strong> check the private initialization nullifier.</li>
+<li><strong>Public external functions</strong> check the public initialization nullifier.</li>
 </ul>
 <p>For private non-initializer functions, the cost of this check is equivalent to a call to
 <a href="../../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists"><code>PrivateContext::assert_nullifier_exists</code></a>. For public

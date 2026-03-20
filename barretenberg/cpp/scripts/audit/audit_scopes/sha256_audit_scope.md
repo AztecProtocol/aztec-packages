@@ -1,7 +1,7 @@
 # External Audit Scope: SHA256
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD
+Commit hash: Most recent commit on branch 'next'
 
 ---
 

@@ -143,6 +143,9 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
         broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
         dontStartSequencer: true,
+        // Prevent HA peer proposals from being added to the archiver, so both
+        // malicious nodes build their own blocks instead of one yielding to the other.
+        skipPushProposedBlocksToArchiver: true,
       },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 1,
@@ -162,6 +165,9 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
         broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
         dontStartSequencer: true,
+        // Prevent HA peer proposals from being added to the archiver, so both
+        // malicious nodes build their own blocks instead of one yielding to the other.
+        skipPushProposedBlocksToArchiver: true,
       },
       t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 2,
