@@ -80,6 +80,7 @@
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "commander": "^12.1.0",
+    "msgpackr": "^1.11.2",
     "pako": "^2.1.0",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0"
