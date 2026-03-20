@@ -74,7 +74,7 @@ App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → T
 
 ### Proof Structure
 
-A Chonk proof (`ChonkProof_<IsRecursive>`) contains five segments produced by the batched MegaZK + Translator protocol on a shared Fiat-Shamir transcript:
+A Chonk proof (`ChonkProof_<IsRecursive>`) contains five segments produced on a shared Fiat-Shamir transcript:
 
 ```cpp
 template <bool IsRecursive>
