@@ -81,6 +81,18 @@ variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
   default     = 10
 }
 
+variable "BB_CHONK_VERIFY_MAX_BATCH" {
+  description = "Upper bound on proofs per batch for the peer chonk batch verifier"
+  type        = number
+  default     = 16
+}
+
+variable "BB_CHONK_VERIFY_BATCH_CONCURRENCY" {
+  description = "Thread count for the peer batch verifier parallel reduce (0 = auto)"
+  type        = number
+  default     = 6
+}
+
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -647,6 +659,18 @@ variable "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP" {
   description = "Cross-chain bot PXE sync chain tip mode (e.g., checkpointed)"
   type        = string
   default     = "checkpointed"
+}
+
+variable "BOT_DA_GAS_LIMIT" {
+  description = "DA gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_L2_GAS_LIMIT" {
+  description = "L2 gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
 }
 
 # RPC ingress configuration (GKE-specific)

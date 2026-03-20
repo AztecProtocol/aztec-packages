@@ -341,19 +341,33 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     return Promise.resolve(this.synchronizer.getL1Timestamp());
   }
 
-  public getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+  public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    // The synced L2 slot is the latest slot for which we have all L1 data,
+    // either because we have seen all L1 blocks for that slot, or because
+    // we have seen the corresponding checkpoint.
+
+    let slotFromL1Sync: SlotNumber | undefined;
     const l1Timestamp = this.synchronizer.getL1Timestamp();
-    if (l1Timestamp === undefined) {
-      return Promise.resolve(undefined);
+    if (l1Timestamp !== undefined) {
+      const nextL1BlockSlot = getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
+      if (Number(nextL1BlockSlot) > 0) {
+        slotFromL1Sync = SlotNumber.add(nextL1BlockSlot, -1);
+      }
     }
-    // The synced slot is the last L2 slot whose all L1 blocks have been processed.
-    // If the next L1 block (at l1Timestamp + ethereumSlotDuration) falls in slot N,
-    // then we've fully synced slot N-1.
-    const nextL1BlockSlot = getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
-    if (Number(nextL1BlockSlot) === 0) {
-      return Promise.resolve(undefined);
+
+    let slotFromCheckpoint: SlotNumber | undefined;
+    const latestCheckpointNumber = await this.store.getSynchedCheckpointNumber();
+    if (latestCheckpointNumber > 0) {
+      const checkpointData = await this.store.getCheckpointData(latestCheckpointNumber);
+      if (checkpointData) {
+        slotFromCheckpoint = checkpointData.header.slotNumber;
+      }
     }
-    return Promise.resolve(SlotNumber(nextL1BlockSlot - 1));
+
+    if (slotFromL1Sync === undefined && slotFromCheckpoint === undefined) {
+      return undefined;
+    }
+    return SlotNumber(Math.max(slotFromL1Sync ?? 0, slotFromCheckpoint ?? 0));
   }
 
   public async getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {

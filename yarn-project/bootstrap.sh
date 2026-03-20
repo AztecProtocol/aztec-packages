@@ -248,6 +248,7 @@ function bench_cmds {
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/lightweight_checkpoint_builder.bench.json yarn-project/scripts/run_test.sh prover-client/src/light/lightweight_checkpoint_builder.bench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=8:MEM=32g:TIMEOUT=1200 BENCH_OUTPUT=bench-out/batch_verifier.bench.json yarn-project/scripts/run_test.sh ivc-integration/src/batch_verifier.bench.test.ts"
 }
 
 function release_packages {
