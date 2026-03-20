@@ -297,7 +297,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testNukeFromOrbit() public setup(4, 4) progressEpochsToInclusion {
+  function testNukeFromOrbit() public {
+    enableSlasher = true;
+    _testNukeFromOrbit();
+  }
+
+  function _testNukeFromOrbit() internal setup(4, 4) progressEpochsToInclusion {
     // We propose some checkpoints, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalized.

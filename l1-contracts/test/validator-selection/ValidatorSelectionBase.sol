@@ -56,6 +56,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
   }
 
   Slasher internal slasher;
+  bool internal enableSlasher;
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
@@ -98,8 +99,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = Math.max(_validatorCount, 1);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setStakingQueueConfig(stakingQueueConfig)
-      .setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize);
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlasherEnabled(enableSlasher)
+      .setStakingQueueConfig(stakingQueueConfig).setValidators(initialValidators)
+      .setTargetCommitteeSize(_targetCommitteeSize);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

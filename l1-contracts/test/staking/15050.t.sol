@@ -3,8 +3,10 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IStakingCore, Status, AttesterView, Exit, Timestamp} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking, IStakingCore, Status, AttesterView, Exit, Timestamp} from "@aztec/core/interfaces/IStaking.sol";
+import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 import {SlashPayload, IPayload} from "@aztec/periphery/SlashPayload.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -12,7 +14,18 @@ import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract Test15050 is StakingBase {
   function setUp() public override {
-    super.setUp();
+    // This test needs slashing enabled to test slash execution
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlasherEnabled(true);
+    builder.deploy();
+
+    registry = builder.getConfig().registry;
+    RollupConfigInput memory rollupConfig = builder.getConfig().rollupConfigInput;
+    EPOCH_DURATION_SECONDS = rollupConfig.aztecEpochDuration * rollupConfig.aztecSlotDuration;
+    staking = IStaking(address(builder.getConfig().rollup));
+    stakingAsset = builder.getConfig().testERC20;
+    ACTIVATION_THRESHOLD = staking.getActivationThreshold();
+    EJECTION_THRESHOLD = staking.getEjectionThreshold();
+    SLASHER = staking.getSlasher();
   }
 
   function test_15050() external {
