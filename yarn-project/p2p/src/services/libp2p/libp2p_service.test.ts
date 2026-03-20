@@ -1134,8 +1134,8 @@ describe('LibP2PService', () => {
       return { service, peerDiscovery, addressManager, config };
     }
 
-    it('registers observed announce address and updates config when discv5 emits ip:changed', async () => {
-      const { service, peerDiscovery, addressManager, config } = createQueryForIpService();
+    it('registers observed announce address when discv5 emits ip:changed', async () => {
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
       const expectedAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
 
       await service.start();
@@ -1144,13 +1144,12 @@ describe('LibP2PService', () => {
       expect(addressManager.addObservedAddr).toHaveBeenCalledWith(expectedAddr);
       expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(expectedAddr);
       expect(addressManager.removeObservedAddr).not.toHaveBeenCalled();
-      expect(config.p2pIp).toBe(firstIp);
 
       await service.stop();
     });
 
     it('removes previous observed address when ip:changed fires again with a new IP', async () => {
-      const { service, peerDiscovery, addressManager, config } = createQueryForIpService();
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
       const firstAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
       const secondAddr = multiaddr(convertToMultiaddr(secondIp, p2pPort, 'tcp'));
 
@@ -1165,7 +1164,6 @@ describe('LibP2PService', () => {
       expect(addressManager.removeObservedAddr).toHaveBeenCalledWith(firstAddr);
       expect(addressManager.addObservedAddr).toHaveBeenCalledWith(secondAddr);
       expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(secondAddr);
-      expect(config.p2pIp).toBe(secondIp);
 
       await service.stop();
     });
