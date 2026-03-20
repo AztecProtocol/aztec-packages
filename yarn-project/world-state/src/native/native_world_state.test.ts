@@ -2157,5 +2157,19 @@ describe('NativeWorldState', () => {
       // Recreate ws so afterEach doesn't double-close
       ws = await NativeWorldStateService.tmp();
     });
+
+    it('committed fork survives await using dispose', async () => {
+      // Simulate the sequencer pattern: fork created with await using, then committed
+      {
+        await using fork = await ws.fork();
+        await mockBlock(BlockNumber(1), 1, fork);
+        await ws.commitFork(fork, BlockNumber(0));
+        // Scope exit triggers [Symbol.asyncDispose], which should no-op due to detach
+      }
+
+      // The committed fork should still be alive and usable via getCommitted()
+      await expect(ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).resolves.toBeDefined();
+      await expect(ws.getCommitted().getStateReference()).resolves.toBeDefined();
+    });
   });
 });

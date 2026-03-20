@@ -207,6 +207,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
   private log = createLogger('world-state:merkle-trees-fork-facade');
+  private detached = false;
 
   constructor(
     instance: NativeWorldStateInstance,
@@ -217,6 +218,11 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.notEqual(revision.forkId, 0, 'Fork ID must be set');
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
+  }
+
+  /** Prevents auto-dispose from closing this fork. Used when ownership is transferred via commitFork. */
+  detach(): void {
+    this.detached = true;
   }
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
@@ -305,6 +311,9 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   }
 
   async [Symbol.asyncDispose](): Promise<void> {
+    if (this.detached) {
+      return;
+    }
     if (this.opts.closeDelayMs) {
       void sleep(this.opts.closeDelayMs)
         .then(() => this.close())

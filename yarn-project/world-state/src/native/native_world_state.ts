@@ -205,6 +205,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       );
     }
     await this.closeCommittedFork();
+    fork.detach();
     this.committedFork = fork;
   }
 

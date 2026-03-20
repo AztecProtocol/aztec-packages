@@ -288,6 +288,9 @@ export interface MerkleTreeWriteOperations
    * Closes the database, discarding any uncommitted changes.
    */
   close(): Promise<void>;
+
+  /** Prevents auto-dispose from closing this fork. Used when ownership is transferred via commitFork. */
+  detach(): void;
 }
 
 /**

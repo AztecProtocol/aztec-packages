@@ -574,6 +574,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return await this.db.close();
   }
 
+  public detach(): void {
+    this.db.detach();
+  }
+
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
   }
