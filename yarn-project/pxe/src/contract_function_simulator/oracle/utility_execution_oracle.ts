@@ -548,6 +548,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a log retrieval request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
+    // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
+    // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId)
     ).map(LogRetrievalRequest.fromFields);

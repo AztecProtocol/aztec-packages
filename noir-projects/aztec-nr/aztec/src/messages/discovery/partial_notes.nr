@@ -111,8 +111,9 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                 pending_partial_note.note_completion_log_tag,
             ]);
 
-            // We clear the completion logs as we read them so that the array is empty by the time we next query it.
             let log = logs_for_note.get(0);
+            // We clear the completion logs as we read them so that the array is empty by the time we next query it.
+            // TODO(#14943): use volatile arrays to avoid having to manually clear this.
             logs_for_note.remove(0);
 
             // The first field in the completion log payload is the storage slot, followed by the public note
