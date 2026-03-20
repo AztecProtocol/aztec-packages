@@ -156,8 +156,6 @@ describe('e2e_block_building', () => {
         const options: DeployOptions = {
           from: ownerAddress,
           contractAddressSalt: new Fr(BigInt(i + 1)),
-          skipClassPublication: true,
-          skipInstancePublication: true,
         };
         const instance = await methods[i].getInstance(options);
         addresses.push(instance.address);

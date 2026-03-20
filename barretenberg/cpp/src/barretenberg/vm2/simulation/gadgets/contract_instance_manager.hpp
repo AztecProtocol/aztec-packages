@@ -1,13 +1,15 @@
 #pragma once
 
+#include <optional>
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gadgets/address_derivation.hpp"
-#include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/update_check.hpp"
 
 namespace bb::avm2::simulation {
 

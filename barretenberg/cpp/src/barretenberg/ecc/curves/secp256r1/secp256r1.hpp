@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 158dd845c99f8f702979c20f1625730d126c4b20}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -248,7 +248,6 @@ using fr = field<FrParams>;
 struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
     static constexpr bool can_hash_to_curve = true;
-    static constexpr bool small_elements = true;
     static constexpr bool has_a = true;
 
     static constexpr fq b =

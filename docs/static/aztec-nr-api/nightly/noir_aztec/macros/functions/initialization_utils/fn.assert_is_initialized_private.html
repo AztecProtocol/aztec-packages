@@ -24,7 +24,9 @@
 <li><a href="fn.assert_is_initialized_private.html">assert_is_initialized_private</a></div></li>
 <li><a href="fn.assert_is_initialized_public.html">assert_is_initialized_public</a></div></li>
 <li><a href="fn.compute_initialization_hash.html">compute_initialization_hash</a></div></li>
-<li><a href="fn.mark_as_initialized_private.html">mark_as_initialized_private</a></div></li>
+<li><a href="fn.compute_private_initialization_nullifier.html">compute_private_initialization_nullifier</a></div></li>
+<li><a href="fn.mark_as_initialized_from_private_initializer.html">mark_as_initialized_from_private_initializer</a></div></li>
+<li><a href="fn.mark_as_initialized_from_public_initializer.html">mark_as_initialized_from_public_initializer</a></div></li>
 <li><a href="fn.mark_as_initialized_public.html">mark_as_initialized_public</a></div></li>
 </ul>
 </nav>
@@ -33,6 +35,10 @@
 <h1>Function <span class="fn">assert_is_initialized_private</span></h1>
 <pre><code>pub fn assert_is_initialized_private(context: &mut <a href="../../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code></pre>
 
+<div class="comments">
+<p>Asserts that the contract has been initialized, from private's perspective.</p>
+<p>Checks that the private initialization nullifier exists.</p>
+</div>
 </main>
 </span>
 </body>

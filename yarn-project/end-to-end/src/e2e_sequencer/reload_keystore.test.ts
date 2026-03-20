@@ -32,7 +32,7 @@ const COMMITTEE_SIZE = VALIDATOR_COUNT;
 const INITIAL_KEYSTORE_COUNT = 3;
 
 describe('e2e_reload_keystore', () => {
-  jest.setTimeout(300_000);
+  jest.setTimeout(540_000);
 
   let teardown: () => Promise<void>;
   let aztecNode: AztecNode;
@@ -81,7 +81,7 @@ describe('e2e_reload_keystore', () => {
       attester: EthAddress.fromString(validatorAddresses[i]),
       withdrawer: EthAddress.fromString(validatorAddresses[i]),
       privateKey: key,
-      bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
+      bn254SecretKey: new SecretValue(new Fr(i + 1).toBigInt()),
     }));
 
     ({
@@ -105,7 +105,7 @@ describe('e2e_reload_keystore', () => {
   });
 
   afterAll(async () => {
-    await teardown();
+    await teardown?.();
     await rm(keyStoreDirectory, { recursive: true, force: true });
   });
 
@@ -133,8 +133,6 @@ describe('e2e_reload_keystore', () => {
     const { txHash: sentTx1 } = await deployer.deploy(ownerAddress, ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(1),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
     const receipt1 = await waitForTx(aztecNode, sentTx1);
@@ -200,8 +198,6 @@ describe('e2e_reload_keystore', () => {
     const { txHash: sentTx2 } = await deployer.deploy(ownerAddress, ownerAddress, 2).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(2),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
     const receipt2 = await waitForTx(aztecNode, sentTx2);

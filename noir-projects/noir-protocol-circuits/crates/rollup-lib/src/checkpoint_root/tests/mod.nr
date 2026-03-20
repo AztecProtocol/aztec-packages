@@ -17,6 +17,7 @@ use crate::{
     tests::RollupFixtureBuilder,
     tx_merge::accumulate_out_hash,
 };
+use protocol_test_utils::{assert_array_eq, make_fixture, pad_end};
 use std::test::OracleMock;
 use types::{
     abis::{
@@ -31,7 +32,6 @@ use types::{
         OUT_HASH_TREE_LEAF_COUNT,
     },
     merkle_tree::compute_sha_tree_root,
-    tests::utils::{assert_array_eq, make_fixture, pad_end},
     traits::{Hash, Serialize},
 };
 

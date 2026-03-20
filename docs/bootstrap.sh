@@ -57,7 +57,16 @@ function check_references {
     return
   fi
   echo_header "Check doc references"
-  ./scripts/check_doc_references.sh docs || true
+  if ! ./scripts/check_doc_references.sh docs; then
+    echo "⚠ Doc reference check failed (non-blocking)."
+    if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+      curl -s -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+        -H "Content-type: application/json" \
+        -d "{\"channel\": \"#devrel-docs-updates\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
+        > /dev/null 2>&1 || true
+    fi
+  fi
 }
 
 function build_examples {

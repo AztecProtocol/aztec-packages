@@ -1,7 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
@@ -33,12 +33,12 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   }
 
   /**
-   * Forces an immediate sync to an optionally provided minimum block number
+   * Forces an immediate sync to an optionally provided minimum block number.
    * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
-   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
+   * @param blockHash - If provided, verifies the block at targetBlockNumber matches this hash.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public syncImmediate(_minBlockNumber?: BlockNumber, _skipThrowIfTargetNotReached?: boolean): Promise<BlockNumber> {
+  public syncImmediate(_minBlockNumber?: BlockNumber, _blockHash?: BlockHash): Promise<BlockNumber> {
     return Promise.resolve(this.blockNumber);
   }
 

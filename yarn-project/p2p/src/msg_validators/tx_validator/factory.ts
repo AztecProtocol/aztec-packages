@@ -53,12 +53,13 @@ import type { TxMetaData } from '../../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { ArchiveCache } from './archive_cache.js';
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
+import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
 import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
-import { PhasesTxValidator } from './phases_validator.js';
+import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';
 import { TimestampTxValidator } from './timestamp_validator.js';
 import { TxPermittedValidator } from './tx_permitted_validator.js';
@@ -97,6 +98,7 @@ export function createFirstStageTxValidationsForGossipedTransactions(
   txsPermitted: boolean,
   allowedInSetup: AllowedElement[] = [],
   bindings?: LoggerBindings,
+  gasLimitOpts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
 ): Record<string, TransactionValidator> {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
@@ -158,11 +160,16 @@ export function createFirstStageTxValidationsForGossipedTransactions(
         ProtocolContractAddress.FeeJuice,
         gasFees,
         bindings,
+        gasLimitOpts,
       ),
       severity: PeerErrorSeverity.MidToleranceError,
     },
     dataValidator: {
       validator: new DataTxValidator(bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+    contractInstanceValidator: {
+      validator: new ContractInstanceTxValidator(bindings),
       severity: PeerErrorSeverity.MidToleranceError,
     },
   };
@@ -216,6 +223,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
     ),
     new SizeTxValidator(bindings),
     new DataTxValidator(bindings),
+    new ContractInstanceTxValidator(bindings),
     new TxProofValidator(verifier, bindings),
   );
 }
@@ -278,6 +286,9 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     timestamp,
     blockNumber,
     txsPermitted,
+    rollupManaLimit,
+    maxBlockL2Gas,
+    maxBlockDAGas,
   }: {
     l1ChainId: number;
     rollupVersion: number;
@@ -287,6 +298,9 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     timestamp: UInt64;
     blockNumber: BlockNumber;
     txsPermitted: boolean;
+    rollupManaLimit: number;
+    maxBlockL2Gas?: number;
+    maxBlockDAGas?: number;
   },
   bindings?: LoggerBindings,
 ): TxValidator<Tx> {
@@ -313,11 +327,16 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new BlockHeaderTxValidator(new ArchiveCache(db), bindings),
     new DoubleSpendTxValidator(new NullifierCache(db), bindings),
     new DataTxValidator(bindings),
+    new ContractInstanceTxValidator(bindings),
   ];
 
   if (!skipFeeEnforcement) {
     validators.push(
-      new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees, bindings),
+      new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees, bindings, {
+        rollupManaLimit,
+        maxBlockL2Gas,
+        maxBlockDAGas,
+      }),
     );
   }
 
@@ -403,6 +422,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   worldStateSynchronizer: WorldStateSynchronizer,
   timestamp: bigint,
   blockNumber: BlockNumber,
+  gasLimitOpts: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
   bindings?: LoggerBindings,
 ): Promise<TxValidator<TxMetaData>> {
   await worldStateSynchronizer.syncImmediate();
@@ -419,9 +439,29 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
     },
   };
   return new AggregateTxValidator<TxMetaData>(
-    new GasLimitsValidator<TxMetaData>(bindings),
+    new GasLimitsValidator<TxMetaData>({ ...gasLimitOpts, bindings }),
     new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),
     new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
     new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),
+    new AllowedSetupCallsMetaValidator<TxMetaData>(bindings),
   );
+}
+
+/**
+ * Creates a function that checks whether a tx's setup-phase calls are on the allow list.
+ *
+ * Uses the `PhasesTxValidator` on the full Tx. The result is stored as a boolean
+ * flag in `TxMetaData.allowedSetupCalls` at receipt time, so the pending pool
+ * migration validator can check it without needing the full Tx or its dependencies.
+ */
+export function createCheckAllowedSetupCalls(
+  contractDataSource: ContractDataSource,
+  setupAllowList: AllowedElement[],
+  getTimestamp: () => UInt64,
+): (tx: Tx) => Promise<boolean> {
+  return async (tx: Tx) => {
+    const validator = new PhasesTxValidator(contractDataSource, setupAllowList, getTimestamp());
+    const result = await validator.validateTx(tx);
+    return result.result === 'valid';
+  };
 }

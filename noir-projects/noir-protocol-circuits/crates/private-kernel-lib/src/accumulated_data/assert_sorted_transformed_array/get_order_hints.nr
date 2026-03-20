@@ -48,8 +48,9 @@ where
 }
 
 mod tests {
+    use crate::accumulated_data::test_value::TestValue;
     use super::{get_order_hints, OrderHints};
-    use types::tests::{types::TestValue, utils::pad_end};
+    use protocol_test_utils::pad_end;
 
     #[test]
     unconstrained fn full_non_empty_items() {

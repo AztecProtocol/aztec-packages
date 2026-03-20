@@ -131,16 +131,16 @@ template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_dat
  * @details This function verifies the Translator circuit which ensures consistency between
  * the ECCVM transcript and the op queue data. Returns verification result with pairing points and check status.
  */
+/**
+ * @brief Load translator proof and run the pre-sumcheck (Oink-like) phase.
+ * @details Hashes the VK, populates relation parameters from ECCVM inputs, and receives all
+ * wire commitments and beta/gamma challenges from the transcript. This phase corresponds to
+ * what OinkProver/OinkVerifier do for the hiding kernel: it is the pre-sumcheck setup that
+ * binds all committed data to the shared Fiat-Shamir transcript before the joint sumcheck.
+ */
 template <typename Flavor>
-typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
+typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Flavor>::receive_pre_sumcheck()
 {
-    BB_BENCH_NAME("TranslatorVerifier::reduce");
-    using PCS = typename Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = typename ClaimBatcher::Batch;
-    using Sumcheck = SumcheckVerifier<Flavor>;
-
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
@@ -183,6 +183,21 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
+
+    return commitments;
+}
+
+template <typename Flavor>
+typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
+{
+    BB_BENCH_NAME("TranslatorVerifier::reduce");
+    using PCS = typename Flavor::PCS;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = typename ClaimBatcher::Batch;
+    using Sumcheck = SumcheckVerifier<Flavor>;
+
+    auto commitments = receive_pre_sumcheck();
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.

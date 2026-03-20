@@ -17,11 +17,17 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 |-----------|-------------------|---------|--------|
 | **Version** | `2.1.11` | `4.1.0-rc.2` | `4.0.0-devnet.2-patch.1` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) | `11155111` (Sepolia) |
-| **Rollup Version** | `0` | `4127419662 ` | `615022430` |
+| **Rollup Version** | `0` | `4127419662` | `615022430` |
 | **RPC Endpoint** | N/A | `https://rpc.testnet.aztec-labs.com` | `https://v4-devnet-2.aztec-labs.com/` |
 | **Bootnodes** | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) | N/A |
 | **Block Explorer** | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=mainnet) | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=testnet) | [Aztecscan](https://devnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=devnet) |
 | **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) | [Build on Devnet →](/developers/getting_started_on_devnet) |
+
+:::tip Network Roles (Post-Alpha)
+**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first. Note: Sponsored FPC is not available on Testnet.
+
+**Devnet is the bleeding edge.** New Devnet versions will release approximately every 3 weeks. Backward compatibility is not guaranteed. Use Devnet to experiment with the latest iteration of the network, not to build production apps. Expect documentation releases and Discord announcements with each cycle, but also expect things to break.
+:::
 
 ## Contract Addresses
 
@@ -59,7 +65,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **Class Registry** | N/A | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
 | **MultiCall Entrypoint** | N/A | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
 | **Fee Juice** | N/A | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| **SponsoredFPC** | N/A | `0x1586f476995be97f07ebd415340a14be48dc28c6c661cc6bdddb80ae790caa4e` | `0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2` |
+| **SponsoredFPC** | N/A | Not deployed | `0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2` |
 
 ## Governance Parameters
 
@@ -115,14 +121,14 @@ Ignition is currently configured with a gas limit of 0, meaning no user transact
 
 ### Testnet
 
-The Aztec Testnet provides a decentralized testing environment that closely mirrors production conditions.
+Testnet is the production path for Aztec. It operates as a fully decentralized network with multiple sequencers and closely mirrors Alpha conditions. If you plan to deploy on Alpha, Testnet is where you validate your application. Think of it as your staging environment for the real thing.
 
 #### Overview
 
-Testnet operates as a fully decentralized network with multiple sequencers. This network is ideal for testing node configurations, governance proposals, and understanding network dynamics without real financial risk.
+Testnet is ideal for testing node configurations, governance proposals, and understanding network dynamics without real financial risk.
 
 **Target Users:**
-- Future mainnet sequencer operators testing configurations
+- Future Alpha sequencer operators testing configurations
 - Developers requiring production-like testing conditions
 - Governance participants practicing proposal workflows
 - Infrastructure operators validating monitoring setups
@@ -131,7 +137,7 @@ Testnet operates as a fully decentralized network with multiple sequencers. This
 - Fully decentralized sequencer set
 - Connected to Ethereum Sepolia
 - Transactions are proven
-- Longer resolution times for features and bugs
+- No Sponsored FPC — you must handle fee payment
 - Good environment for testing node operations
 
 :::info
@@ -142,21 +148,22 @@ App developers can deploy on Testnet for production-like testing. For faster ite
 
 ### Devnet
 
-Devnet provides the most developer-friendly environment for building applications on Aztec.
+Devnet is the bleeding edge of Aztec development. New Devnet versions will be released approximately every 3 weeks through automated deployments. Backward compatibility is not guaranteed between releases. Use Devnet to experiment with the next iteration of the network — not to build production apps. Documentation updates and Discord announcements accompany each release cycle, but expect things to break.
 
 #### Overview
 
-Devnet is a centralized network operated by Aztec Labs, designed for rapid development and testing. It offers the latest Aztec package versions and quick iteration cycles, making it ideal for application developers.
+Devnet is a centralized network operated by Aztec Labs, designed for rapid experimentation with the latest features.
 
 **Target Users:**
-- Application developers building on Aztec
-- Teams testing smart contracts and dApps
+- Developers experimenting with the latest Aztec features
+- Teams testing smart contracts against upcoming versions
 - Developers learning Aztec development
 
 **Key Features:**
 - Centralized sequencer
 - Latest package versions available first
-- Fast bug fixes and feature updates
+- New versions approximately every 3 weeks
+- Backward compatibility not guaranteed
 
 ## Next Steps
 

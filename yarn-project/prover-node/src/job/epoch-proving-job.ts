@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
+import { AVM_MAX_CONCURRENT_SIMULATIONS } from '@aztec/native';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
@@ -148,21 +149,32 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
+      const blobTimer = new Timer();
       const blobFieldsPerCheckpoint = this.checkpoints.map(checkpoint => checkpoint.toBlobFields());
-      this.log.info(`Blob fields per checkpoint: ${timer.ms()}ms`);
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
-      this.log.info(`Final blob batching challeneger: ${timer.ms()}ms`);
+      this.metrics.recordBlobProcessing(blobTimer.ms());
 
       this.prover.startNewEpoch(epochNumber, epochSizeCheckpoints, finalBlobBatchingChallenges);
+      const chonkTimer = new Timer();
       await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
+      this.metrics.recordChonkVerifier(chonkTimer.ms());
 
       // Everything in the epoch should have the same chainId and version.
       const { chainId, version } = this.checkpoints[0].blocks[0].header.globalVariables;
 
       const previousBlockHeaders = this.gatherPreviousBlockHeaders();
 
-      await asyncPool(this.config.parallelBlockLimit ?? 32, this.checkpoints, async checkpoint => {
+      const allCheckpointsTimer = new Timer();
+
+      const parallelism = this.config.parallelBlockLimit
+        ? this.config.parallelBlockLimit
+        : AVM_MAX_CONCURRENT_SIMULATIONS > 0
+          ? AVM_MAX_CONCURRENT_SIMULATIONS
+          : this.checkpoints.length;
+
+      await asyncPool(parallelism, this.checkpoints, async checkpoint => {
         this.checkState();
+        const checkpointTimer = new Timer();
 
         const checkpointIndex = checkpoint.number - fromCheckpoint;
         const checkpointConstants = CheckpointConstantData.from({
@@ -196,6 +208,7 @@ export class EpochProvingJob implements Traceable {
         );
 
         for (let blockIndex = 0; blockIndex < checkpoint.blocks.length; blockIndex++) {
+          const blockTimer = new Timer();
           const block = checkpoint.blocks[blockIndex];
           const globalVariables = block.header.globalVariables;
           const txs = this.getTxs(block);
@@ -241,8 +254,11 @@ export class EpochProvingJob implements Traceable {
           // Mark block as completed to pad it
           const expectedBlockHeader = block.header;
           await this.prover.setBlockCompleted(block.number, expectedBlockHeader);
+          this.metrics.recordBlockProcessing(blockTimer.ms());
         }
+        this.metrics.recordCheckpointProcessing(checkpointTimer.ms());
       });
+      this.metrics.recordAllCheckpointsProcessing(allCheckpointsTimer.ms());
 
       const executionTime = timer.ms();
 

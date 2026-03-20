@@ -100,20 +100,15 @@ jobs:
           fail-on-alert: false
           max-items-in-chart: 100
 
-      - name: Notify Slack on failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && github.event_name != 'workflow_dispatch'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Weekly Real Proving Benchmark FAILED (nightly tag ${{ steps.nightly-tag.outputs.nightly_tag }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
-          fi
+          TAG="${{ steps.nightly-tag.outputs.nightly_tag }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
+            "Weekly Real Proving Benchmark FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
+            "Weekly real proving benchmark failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            --link "$RUN_URL"

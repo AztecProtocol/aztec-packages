@@ -27,7 +27,7 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -223,7 +223,12 @@ export class BotFactory {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.address, claim);
       const deployMethod = await accountManager.getDeployMethod();
       const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
+
+      const { estimatedGas } = await deployMethod.simulate({
+        from: AztecAddress.ZERO,
+        fee: { estimateGas: true, paymentMethod },
+      });
+      const gasSettings = GasSettings.from({ ...estimatedGas!, maxFeesPerGas, maxPriorityFeesPerGas: GasFees.empty() });
 
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await deployMethod.send({
@@ -231,7 +236,7 @@ export class BotFactory {
           fee: { gasSettings, paymentMethod },
           wait: NO_WAIT,
         });
-        this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
+        this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`, { gasSettings });
         return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
       });
       this.log.info(`Account deployed at ${address}`);
@@ -297,8 +302,9 @@ export class BotFactory {
       await deploy.register();
     } else {
       this.log.info(`Deploying token contract at ${address.toString()}`);
-      const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-      this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`);
+      const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true } });
+      const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings: estimatedGas }, wait: NO_WAIT });
+      this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`, { estimatedGas });
       await this.withNoMinTxsPerBlock(async () => {
         await waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
         return token;
@@ -338,10 +344,19 @@ export class BotFactory {
     const amm = AMMContract.at(instance.address, this.wallet);
 
     this.log.info(`AMM deployed at ${amm.address}`);
-    const { receipt: minterReceipt } = await lpToken.methods
-      .set_minter(amm.address, true)
-      .send({ from: deployer, wait: { timeout: this.config.txMinedWaitSeconds } });
-    this.log.info(`Set LP token minter to AMM txHash=${minterReceipt.txHash.toString()}`);
+    const setMinterInteraction = lpToken.methods.set_minter(amm.address, true);
+    const { estimatedGas: setMinterGas } = await setMinterInteraction.simulate({
+      from: deployer,
+      fee: { estimateGas: true },
+    });
+    const { receipt: minterReceipt } = await setMinterInteraction.send({
+      from: deployer,
+      fee: { gasSettings: setMinterGas },
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
+    this.log.info(`Set LP token minter to AMM txHash=${minterReceipt.txHash.toString()}`, {
+      estimatedGas: setMinterGas,
+    });
     this.log.info(`Liquidity token initialized`);
 
     return amm;
@@ -409,22 +424,44 @@ export class BotFactory {
         .getFunctionCall(),
     });
 
-    const { receipt: mintReceipt } = await new BatchCall(this.wallet, [
+    const mintBatch = new BatchCall(this.wallet, [
       token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
       token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
-    ]).send({ from: liquidityProvider, wait: { timeout: this.config.txMinedWaitSeconds } });
+    ]);
+    const { estimatedGas: mintGas } = await mintBatch.simulate({
+      from: liquidityProvider,
+      fee: { estimateGas: true },
+    });
+    const { receipt: mintReceipt } = await mintBatch.send({
+      from: liquidityProvider,
+      fee: { gasSettings: mintGas },
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
 
-    this.log.info(`Sent mint tx: ${mintReceipt.txHash.toString()}`);
+    this.log.info(`Sent mint tx: ${mintReceipt.txHash.toString()}`, { estimatedGas: mintGas });
 
-    const { receipt: addLiquidityReceipt } = await amm.methods
-      .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
-      .send({
-        from: liquidityProvider,
-        authWitnesses: [token0Authwit, token1Authwit],
-        wait: { timeout: this.config.txMinedWaitSeconds },
-      });
+    const addLiquidityInteraction = amm.methods.add_liquidity(
+      amount0Max,
+      amount1Max,
+      amount0Min,
+      amount1Min,
+      authwitNonce,
+    );
+    const { estimatedGas: addLiquidityGas } = await addLiquidityInteraction.simulate({
+      from: liquidityProvider,
+      fee: { estimateGas: true },
+      authWitnesses: [token0Authwit, token1Authwit],
+    });
+    const { receipt: addLiquidityReceipt } = await addLiquidityInteraction.send({
+      from: liquidityProvider,
+      fee: { gasSettings: addLiquidityGas },
+      authWitnesses: [token0Authwit, token1Authwit],
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
 
-    this.log.info(`Sent tx to add liquidity to the AMM: ${addLiquidityReceipt.txHash.toString()}`);
+    this.log.info(`Sent tx to add liquidity to the AMM: ${addLiquidityReceipt.txHash.toString()}`, {
+      estimatedGas: addLiquidityGas,
+    });
     this.log.info(`Liquidity added`);
 
     const [newT0Bal, newT1Bal, newLPBal] = await getPrivateBalances();
@@ -445,9 +482,10 @@ export class BotFactory {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       await deploy.register();
     } else {
-      this.log.info(`Deploying contract ${name} at ${address.toString()}`);
+      const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { estimateGas: true } });
+      this.log.info(`Deploying contract ${name} at ${address.toString()}`, { estimatedGas });
       await this.withNoMinTxsPerBlock(async () => {
-        const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
+        const { txHash } = await deploy.send({ ...deployOpts, fee: { gasSettings: estimatedGas }, wait: NO_WAIT });
         this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
         return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
       });
@@ -491,13 +529,16 @@ export class BotFactory {
 
     // PrivateToken's mint accesses contract-level private storage vars (admin, total_supply).
     const additionalScopes = isStandardToken ? undefined : [token.address];
+    const mintBatch = new BatchCall(token.wallet, calls);
+    const { estimatedGas } = await mintBatch.simulate({ from: minter, fee: { estimateGas: true }, additionalScopes });
     await this.withNoMinTxsPerBlock(async () => {
-      const { txHash } = await new BatchCall(token.wallet, calls).send({
+      const { txHash } = await mintBatch.send({
         from: minter,
         additionalScopes,
+        fee: { gasSettings: estimatedGas },
         wait: NO_WAIT,
       });
-      this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
+      this.log.info(`Sent token mint tx with hash ${txHash.toString()}`, { estimatedGas });
       return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
     });
   }

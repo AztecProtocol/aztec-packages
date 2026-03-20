@@ -12,6 +12,7 @@ export const RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL = 1000; // 1s
 
 export interface IPeerCollection {
   markPeerSmart(peerId: PeerId): void;
+  markPeerDumb(peerId: PeerId): void;
 
   /** Sample next peer in round-robin fashion. No smart peers if returns undefined */
   nextSmartPeerToQuery(): PeerId | undefined;
@@ -55,6 +56,10 @@ export class PeerCollection implements IPeerCollection {
 
   public markPeerSmart(peerId: PeerId): void {
     this.smartPeers.add(peerId.toString());
+  }
+
+  public markPeerDumb(peerId: PeerId): void {
+    this.smartPeers.delete(peerId.toString());
   }
 
   // We keep track of all peers that are queried for peer sampling algorithm

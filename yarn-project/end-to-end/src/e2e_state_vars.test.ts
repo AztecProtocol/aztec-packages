@@ -68,7 +68,7 @@ describe('e2e_state_vars', () => {
           contract.methods.get_public_immutable_constrained_private_indirect(),
           contract.methods.get_public_immutable(),
         ]).simulate({ from: defaultAccountAddress })
-      ).map((r: any) => r.result);
+      ).result.map((r: any) => r.result);
 
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, value: c.value + 1n });
@@ -87,7 +87,7 @@ describe('e2e_state_vars', () => {
           contract.methods.get_public_immutable_constrained_public_indirect(),
           contract.methods.get_public_immutable(),
         ]).simulate({ from: defaultAccountAddress })
-      ).map((r: any) => r.result);
+      ).result.map((r: any) => r.result);
 
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, value: c.value + 1n });

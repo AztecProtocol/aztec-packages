@@ -213,6 +213,7 @@ locals {
     "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"             = var.SEQ_MAX_TX_PER_CHECKPOINT
+    "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"   = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                 = var.SEQ_BLOCK_DURATION_MS
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"         = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
@@ -223,6 +224,8 @@ locals {
     "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
     "validator.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
     "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
+    "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"             = var.BB_CHONK_VERIFY_MAX_BATCH
+    "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"     = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
     "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
     "validator.node.secret.envEnabled"                         = true
     "validator.node.secret.mnemonic"                           = var.VALIDATOR_MNEMONIC
@@ -234,6 +237,7 @@ locals {
     "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
     "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
     "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"   = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
+    "validator.node.env.L1_TX_FAILED_STORE"                    = var.L1_TX_FAILED_STORE
     "validator.node.adminApiKeyHash"                            = var.ADMIN_API_KEY_HASH
   }
 
@@ -347,6 +351,7 @@ locals {
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
           "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
+          "node.node.env.L1_TX_FAILED_STORE"                    = var.L1_TX_FAILED_STORE
           "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
           "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
@@ -376,6 +381,8 @@ locals {
           "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
           "node.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
           "node.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
+          "node.node.env.BB_CHONK_VERIFY_MAX_BATCH"             = var.BB_CHONK_VERIFY_MAX_BATCH
+          "node.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"     = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
           "node.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
           "node.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
           "node.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
@@ -458,6 +465,8 @@ locals {
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
         "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
+        "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
         "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
@@ -512,6 +521,8 @@ locals {
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
         "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
+        "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
         "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.otelIncludeMetrics"                     = var.FULL_NODE_INCLUDE_METRICS
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
@@ -548,6 +559,8 @@ locals {
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
+        "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
         "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
@@ -618,6 +631,8 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_TRANSFERS_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
+        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -642,6 +657,8 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
+        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -666,6 +683,8 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
+        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""

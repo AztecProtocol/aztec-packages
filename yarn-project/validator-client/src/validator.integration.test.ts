@@ -53,6 +53,7 @@ describe('ValidatorClient Integration', () => {
     proofSubmissionEpochs: 2,
     l1StartBlock: 0n,
     targetCommitteeSize: 48,
+    rollupManaLimit: 200_000_000,
   };
 
   const emptyL1ToL2Messages: Fr[] = [];
@@ -96,14 +97,11 @@ describe('ValidatorClient Integration', () => {
   /** Creates a new validator and dependencies */
   const createValidatorContext = async (privateKey: Hex<32>): Promise<ValidatorContext> => {
     // Create archiver store and NoopL1Archiver
-    const archiverStore = await createArchiverStore(
-      {
-        archiverStoreMapSizeKb: 1024 * 1024,
-        dataDirectory: undefined,
-        dataStoreMapSizeKb: 1024 * 1024,
-      },
-      { epochDuration: l1Constants.epochDuration },
-    );
+    const archiverStore = await createArchiverStore({
+      archiverStoreMapSizeKb: 1024 * 1024,
+      dataDirectory: undefined,
+      dataStoreMapSizeKb: 1024 * 1024,
+    });
     await registerProtocolContracts(archiverStore);
     const archiver = await createNoopL1Archiver(archiverStore, { ...l1Constants, genesisArchiveRoot });
     await archiver.start();
@@ -214,7 +212,12 @@ describe('ValidatorClient Integration', () => {
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
     const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {});
+    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {
+      isBuildingProposal: true,
+      maxBlocksPerCheckpoint: 1,
+      perBlockAllocationMultiplier: 1.2,
+      minValidTxs: 0,
+    });
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,

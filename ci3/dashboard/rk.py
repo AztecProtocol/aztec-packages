@@ -39,9 +39,7 @@ auth = HTTPBasicAuth()
 import fcntl
 import signal
 
-_ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
-if not os.path.isdir(_ci_metrics_dir):
-    _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
+_ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
 if os.path.isdir(_ci_metrics_dir):
     _lock_path = f'/tmp/ci-metrics-{CI_METRICS_PORT}.lock'
     try:
@@ -266,12 +264,16 @@ TEMPLATE = """
             setInterval(() => {
                 if (document.visibilityState === 'visible' && window.getSelection().toString() === '') {
                     fetch(location.href)
-                        .then(response => response.text())
+                        .then(response => {
+                            if (!response.ok) throw new Error(response.status);
+                            return response.text();
+                        })
                         .then(html => {
                             const parser = new DOMParser();
                             const newDoc = parser.parseFromString(html, 'text/html');
                             document.body.innerHTML = newDoc.body.innerHTML;
-                        });
+                        })
+                        .catch(() => {});
                 }
             }, 5000);
         } else {
@@ -309,7 +311,10 @@ TEMPLATE = """
                     if (document.visibilityState === 'visible' && window.innerHeight + window.scrollY >= document.body.offsetHeight && window.getSelection().toString() === '') {
                         const startTime = Date.now();
                         fetch(location.href)
-                            .then(response => response.text())
+                            .then(response => {
+                                if (!response.ok) throw new Error(response.status);
+                                return response.text();
+                            })
                             .then(html => {
                                 const parser = new DOMParser();
                                 const newDoc = parser.parseFromString(html, 'text/html');
@@ -338,7 +343,10 @@ TEMPLATE = """
                     if (document.visibilityState === 'visible' && window.scrollY === 0 && window.getSelection().toString() === '') {
                         const startTime = Date.now();
                         fetch(location.href)
-                            .then(response => response.text())
+                            .then(response => {
+                                if (!response.ok) throw new Error(response.status);
+                                return response.text();
+                            })
                             .then(html => {
                                 const parser = new DOMParser();
                                 const newDoc = parser.parseFromString(html, 'text/html');
@@ -616,7 +624,10 @@ def get_value(key):
     if raw_text:
         key = key[:-4]  # Remove .txt extension
 
-    value = r.get(key)
+    try:
+        value = r.get(key)
+    except Exception:
+        value = None
     if value is None:
         value = read_from_s3(key)
     if value is None:

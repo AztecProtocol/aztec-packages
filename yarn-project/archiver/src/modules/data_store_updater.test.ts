@@ -42,7 +42,7 @@ describe('ArchiverDataStoreUpdater', () => {
   let instanceAddress: AztecAddress;
 
   beforeEach(async () => {
-    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test'), 1000, { epochDuration: 32 });
+    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test'), 1000);
     updater = new ArchiverDataStoreUpdater(store);
 
     // Create contract class log from sample fixture data
@@ -57,7 +57,7 @@ describe('ArchiverDataStoreUpdater', () => {
   });
 
   describe('contract data', () => {
-    it('stores contract class and instance data when blocks are added via addProposedBlocks', async () => {
+    it('stores contract class and instance data when blocks are added via addProposedBlock', async () => {
       // Create block with contract class and instance logs
       const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
@@ -66,7 +66,7 @@ describe('ArchiverDataStoreUpdater', () => {
       block.body.txEffects[0].contractClassLogs = [contractClassLog];
       block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
 
-      await updater.addProposedBlocks([block]);
+      await updater.addProposedBlock(block);
 
       // Verify contract class was stored
       const retrievedClass = await store.getContractClass(contractClassId);
@@ -92,7 +92,7 @@ describe('ArchiverDataStoreUpdater', () => {
         PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload()),
       ];
 
-      await updater.addProposedBlocks([localBlock]);
+      await updater.addProposedBlock(localBlock);
 
       // Verify contract data was stored
       const timestamp = localBlock.header.globalVariables.timestamp + 1n;
@@ -155,7 +155,7 @@ describe('ArchiverDataStoreUpdater', () => {
         slotNumber: SlotNumber(100),
       });
 
-      await updater.addProposedBlocks([block]);
+      await updater.addProposedBlock(block);
 
       // Create checkpoint with the SAME block (same archive root)
       const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
@@ -175,7 +175,7 @@ describe('ArchiverDataStoreUpdater', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
-      await updater.addProposedBlocks([localBlock]);
+      await updater.addProposedBlock(localBlock);
       const publicLogsBefore = await store.getPublicLogs({});
       expect(publicLogsBefore.logs.map(l => l.log)).toEqual(localBlock.body.txEffects.flatMap(tx => tx.publicLogs));
 
@@ -203,7 +203,7 @@ describe('ArchiverDataStoreUpdater', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
-      await updater.addProposedBlocks([localBlock]);
+      await updater.addProposedBlock(localBlock);
       const publicLogsBefore = await store.getPublicLogs({});
       expect(publicLogsBefore.logs.map(l => l.log)).toEqual(localBlock.body.txEffects.flatMap(tx => tx.publicLogs));
 

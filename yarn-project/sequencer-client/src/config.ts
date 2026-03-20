@@ -13,8 +13,10 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
+  pipelineConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -40,7 +42,8 @@ export const DefaultSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  perBlockAllocationMultiplier: 2,
+  perBlockAllocationMultiplier: 1.2,
+  redistributeCheckpointBudget: true,
   enforceTimeTable: true,
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
@@ -67,6 +70,7 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
+  PipelineConfig &
   Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
@@ -111,6 +115,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
       'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
       ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
     ...numberConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
+  },
+  redistributeCheckpointBudget: {
+    env: 'SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET',
+    description:
+      'Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget.',
+    ...booleanConfigHelper(DefaultSequencerConfig.redistributeCheckpointBudget),
   },
   coinbase: {
     env: 'COINBASE',
@@ -234,6 +244,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...sequencerTxSenderConfigMappings,
   ...sequencerPublisherConfigMappings,
   ...chainConfigMappings,
+  ...pipelineConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 

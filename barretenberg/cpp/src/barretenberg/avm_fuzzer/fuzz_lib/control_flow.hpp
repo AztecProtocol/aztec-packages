@@ -14,21 +14,21 @@ struct ReturnOptions {
     MemoryTagWrapper return_value_tag;
     uint16_t return_value_offset_index;
 
-    MSGPACK_FIELDS(return_size, return_value_tag, return_value_offset_index);
+    SERIALIZATION_FIELDS(return_size, return_value_tag, return_value_offset_index);
 };
 
 /// @brief insert instruction block to the current block
 struct InsertSimpleInstructionBlock {
     uint16_t instruction_block_idx;
 
-    MSGPACK_FIELDS(instruction_block_idx);
+    SERIALIZATION_FIELDS(instruction_block_idx);
 };
 
 /// @brief finalizes the current block with jump, creates a new block and sets it as the current block
 struct JumpToNewBlock {
     uint16_t target_program_block_instruction_block_idx;
 
-    MSGPACK_FIELDS(target_program_block_instruction_block_idx);
+    SERIALIZATION_FIELDS(target_program_block_instruction_block_idx);
 };
 
 /// @brief finalizes the current block with jump if, creates two new blocks, sets the first as the then block and the
@@ -38,9 +38,9 @@ struct JumpIfToNewBlock {
     uint16_t else_program_block_instruction_block_idx;
     uint16_t condition_offset_index;
 
-    MSGPACK_FIELDS(then_program_block_instruction_block_idx,
-                   else_program_block_instruction_block_idx,
-                   condition_offset_index);
+    SERIALIZATION_FIELDS(then_program_block_instruction_block_idx,
+                         else_program_block_instruction_block_idx,
+                         condition_offset_index);
 };
 
 /// @brief finalizes the current block with a jump to the block, which does not create a loop in the graph (defined by
@@ -48,7 +48,7 @@ struct JumpIfToNewBlock {
 struct JumpToBlock {
     uint16_t target_block_idx;
 
-    MSGPACK_FIELDS(target_block_idx);
+    SERIALIZATION_FIELDS(target_block_idx);
 };
 
 /// @brief finalizes the current block with a JumpI and Jump instructions to the block, which does not create a loop in
@@ -58,32 +58,32 @@ struct JumpIfToBlock {
     uint16_t target_then_block_idx;
     uint16_t target_else_block_idx;
     uint16_t condition_offset_index;
-    MSGPACK_FIELDS(target_then_block_idx, target_else_block_idx, condition_offset_index);
+    SERIALIZATION_FIELDS(target_then_block_idx, target_else_block_idx, condition_offset_index);
 };
 
 /// @brief finalizes the current block with Return and switches to the first non-terminated block
 struct FinalizeWithReturn {
     ReturnOptions return_options;
-    MSGPACK_FIELDS(return_options);
+    SERIALIZATION_FIELDS(return_options);
 };
 
 /// @brief finalizes the current block with Revert and switches to the first non-terminated block
 struct FinalizeWithRevert {
     ReturnOptions revert_options;
-    MSGPACK_FIELDS(revert_options);
+    SERIALIZATION_FIELDS(revert_options);
 };
 
 /// @brief switches to the non-terminated block with the chosen index
 struct SwitchToNonTerminatedBlock {
     uint16_t non_terminated_block_idx;
-    MSGPACK_FIELDS(non_terminated_block_idx);
+    SERIALIZATION_FIELDS(non_terminated_block_idx);
 };
 
 /// @brief inserts INTERNALCALL instruction to the current block
 /// creates a new block and sets it as the current block
 struct InsertInternalCall {
     uint16_t target_program_block_instruction_block_idx;
-    MSGPACK_FIELDS(target_program_block_instruction_block_idx);
+    SERIALIZATION_FIELDS(target_program_block_instruction_block_idx);
 };
 
 using CFGInstruction = std::variant<InsertSimpleInstructionBlock,

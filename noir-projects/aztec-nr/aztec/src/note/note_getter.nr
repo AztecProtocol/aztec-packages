@@ -29,11 +29,15 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
     let value: [u8; 32] = packed_note[selector.index as u32].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
+    assert(offset as u32 + length as u32 <= 32, "PropertySelector offset + length exceeds field byte width");
     let mut value_field = 0 as Field;
     let mut acc: Field = 1;
     for i in 0..32 {
         if i < length {
-            value_field += value[(31 + offset - i) as u32] as Field * acc;
+            // `value` is big-endian, so the last byte (index 31) holds the lowest value.
+            // offset shifts the starting point away from that last byte, and i walks
+            // through consecutive bytes.
+            value_field += value[(31 - offset - i) as u32] as Field * acc;
             acc = acc * 256;
         }
     }

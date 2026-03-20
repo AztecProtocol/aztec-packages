@@ -284,6 +284,16 @@ interface WithForkId {
   forkId: number;
 }
 
+interface CreateCheckpointResponse {
+  depth: number;
+}
+
+/** Request to commit/revert all checkpoints down to a target depth. The resulting depth after the operation equals the given depth. */
+interface CheckpointDepthRequest extends WithForkId {
+  /** The target depth after the operation. All checkpoints above this depth are committed/reverted. */
+  depth: number;
+}
+
 interface WithWorldStateRevision {
   revision: WorldStateRevision;
 }
@@ -487,8 +497,8 @@ export type WorldStateRequest = {
   [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
-  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: WithForkId;
-  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: WithForkId;
+  [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: CheckpointDepthRequest;
+  [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: CheckpointDepthRequest;
 
   [WorldStateMessageType.COPY_STORES]: CopyStoresRequest;
 
@@ -529,7 +539,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
 
-  [WorldStateMessageType.CREATE_CHECKPOINT]: void;
+  [WorldStateMessageType.CREATE_CHECKPOINT]: CreateCheckpointResponse;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
   [WorldStateMessageType.REVERT_CHECKPOINT]: void;
   [WorldStateMessageType.COMMIT_ALL_CHECKPOINTS]: void;

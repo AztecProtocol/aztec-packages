@@ -254,6 +254,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
+  it('getCheckpointsDataForEpoch', async () => {
+    const response = await context.client.getCheckpointsDataForEpoch(EpochNumber(1));
+    expect(response).toEqual([]);
+  });
+
   it('getNodeVersion', async () => {
     const response = await context.client.getNodeVersion();
     expect(response).toBe('1.0.0');
@@ -467,11 +472,7 @@ describe('AztecNodeApiSchema', () => {
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const response = await context.client.getContractClass(Fr.random());
-    expect(response).toEqual({
-      ...omit(contractClass, 'publicBytecodeCommitment'),
-      utilityFunctions: [],
-      privateFunctions: [],
-    });
+    expect(response).toEqual(omit(contractClass, 'publicBytecodeCommitment', 'privateFunctions'));
   });
 
   it('getContract', async () => {
@@ -534,6 +535,10 @@ class MockAztecNode implements AztecNode {
   }
 
   getCheckpointedBlocks(_from: BlockNumber, _limit: number) {
+    return Promise.resolve([]);
+  }
+
+  getCheckpointsDataForEpoch(_epochNumber: EpochNumber) {
     return Promise.resolve([]);
   }
 
@@ -821,7 +826,7 @@ class MockAztecNode implements AztecNode {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return { ...contractClass, utilityFunctions: [], privateFunctions: [] };
+    return contractClass;
   }
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);

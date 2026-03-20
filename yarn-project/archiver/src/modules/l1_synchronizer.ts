@@ -3,6 +3,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -72,7 +73,6 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly l1Constants: L1RollupConstants & {
       l1StartBlockHash: Buffer32;
       genesisArchiveRoot: Fr;
-      rollupManaLimit?: number;
     },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
@@ -217,6 +217,9 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
+    // Update the finalized L2 checkpoint based on L1 finality.
+    await this.updateFinalizedCheckpoint();
+
     // After syncing has completed, update the current l1 block number and timestamp,
     // otherwise we risk announcing to the world that we've synced to a given point,
     // but the corresponding blocks have not been processed (see #12631).
@@ -230,6 +233,27 @@ export class ArchiverL1Synchronizer implements Traceable {
       l1TimestampAtStart: currentL1Timestamp,
       l1BlockNumberAtEnd,
     });
+  }
+
+  /** Query L1 for its finalized block and update the finalized checkpoint accordingly. */
+  private async updateFinalizedCheckpoint(): Promise<void> {
+    try {
+      const finalizedL1Block = await this.publicClient.getBlock({ blockTag: 'finalized', includeTransactions: false });
+      const finalizedL1BlockNumber = finalizedL1Block.number;
+      const finalizedCheckpointNumber = await this.rollup.getProvenCheckpointNumber({
+        blockNumber: finalizedL1BlockNumber,
+      });
+      const localFinalizedCheckpointNumber = await this.store.getFinalizedCheckpointNumber();
+      if (localFinalizedCheckpointNumber !== finalizedCheckpointNumber) {
+        await this.updater.setFinalizedCheckpointNumber(finalizedCheckpointNumber);
+        this.log.info(`Updated finalized chain to checkpoint ${finalizedCheckpointNumber}`, {
+          finalizedCheckpointNumber,
+          finalizedL1BlockNumber,
+        });
+      }
+    } catch (err) {
+      this.log.warn(`Failed to update finalized checkpoint: ${err}`);
+    }
   }
 
   /** Prune all proposed local blocks that should have been checkpointed by now. */
@@ -310,17 +334,20 @@ export class ArchiverL1Synchronizer implements Traceable {
 
       const checkpointsToUnwind = localPendingCheckpointNumber - provenCheckpointNumber;
 
-      const checkpointPromises = Array.from({ length: checkpointsToUnwind })
-        .fill(0)
-        .map((_, i) => this.store.getCheckpointData(CheckpointNumber(i + pruneFrom)));
-      const checkpoints = await Promise.all(checkpointPromises);
-
-      const blockPromises = await Promise.all(
-        checkpoints
-          .filter(isDefined)
-          .map(cp => this.store.getBlocksForCheckpoint(CheckpointNumber(cp.checkpointNumber))),
+      // Fetch checkpoints and blocks in bounded batches to avoid unbounded concurrent
+      // promises when the gap between local pending and proven checkpoint numbers is large.
+      const BATCH_SIZE = 10;
+      const indices = Array.from({ length: checkpointsToUnwind }, (_, i) => CheckpointNumber(i + pruneFrom));
+      const checkpoints = (await asyncPool(BATCH_SIZE, indices, idx => this.store.getCheckpointData(idx))).filter(
+        isDefined,
       );
-      const newBlocks = blockPromises.filter(isDefined).flat();
+      const newBlocks = (
+        await asyncPool(BATCH_SIZE, checkpoints, cp =>
+          this.store.getBlocksForCheckpoint(CheckpointNumber(cp.checkpointNumber)),
+        )
+      )
+        .filter(isDefined)
+        .flat();
 
       // Emit an event for listening services to react to the chain prune
       this.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
@@ -368,6 +395,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     const localMessagesInserted = await this.store.getTotalL1ToL2MessageCount();
     const localLastMessage = await this.store.getLastL1ToL2Message();
     const remoteMessagesState = await this.inbox.getState({ blockNumber: currentL1BlockNumber });
+    await this.store.setInboxTreeInProgress(remoteMessagesState.treeInProgress);
 
     this.log.trace(`Retrieved remote inbox state at L1 block ${currentL1BlockNumber}.`, {
       localMessagesInserted,
@@ -828,7 +856,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           const prunedCheckpointNumber = result.prunedBlocks[0].checkpointNumber;
           const prunedSlotNumber = result.prunedBlocks[0].header.globalVariables.slotNumber;
 
-          this.log.warn(
+          this.log.info(
             `Pruned ${result.prunedBlocks.length} mismatching blocks for checkpoint ${prunedCheckpointNumber}`,
             { prunedBlocks: result.prunedBlocks.map(b => b.toBlockInfo()), prunedSlotNumber, prunedCheckpointNumber },
           );

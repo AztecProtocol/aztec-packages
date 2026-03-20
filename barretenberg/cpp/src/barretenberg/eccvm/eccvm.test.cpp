@@ -9,6 +9,7 @@
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -287,10 +288,12 @@ TEST_F(ECCVMTests, ProofLengthCheck)
 
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
-    ECCVMCircuitBuilder builder = generate_circuit(&engine);
-
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProver prover = [&]() {
+        ECCVMCircuitBuilder builder = generate_circuit(&engine);
+        return ECCVMProver(builder, prover_transcript);
+    }();
+
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
@@ -368,8 +371,8 @@ TEST_F(ECCVMTests, CommittedSumcheck)
                                    CONST_ECCVM_LOG_N);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
-
-    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
+    MaskingTailData<Flavor> masking_tail;
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->export_proof());
 
@@ -527,4 +530,32 @@ TEST_F(ECCVMTests, FixedVK)
         info("0x", computed_hash);
     }
     EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";
+}
+
+/**
+ * @brief Verify that ECCVM wire commitments in the proof differ from naive commits to the short polys.
+ * @details All ECCVM witness wires are masked. We run the full prover, deserialize the proof to extract
+ * the wire commitments that the verifier would receive, and check they differ from commit(short_poly).
+ */
+TEST_F(ECCVMTests, MaskingTailCommitments)
+{
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover = [&]() {
+        ECCVMCircuitBuilder builder = generate_circuit(&engine);
+        return ECCVMProver(builder, prover_transcript);
+    }();
+
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Deserialize proof to extract wire commitments as seen by the verifier
+    StructuredProof<ECCVMFlavor> structured;
+    structured.deserialize(proof, 0, CONST_ECCVM_LOG_N);
+
+    // Every wire commitment in the proof should differ from naive commit(poly)
+    auto wire_polys = prover.key->polynomials.get_wires();
+    ASSERT_EQ(wire_polys.size(), structured.wire_comms.size());
+    for (size_t i = 0; i < wire_polys.size(); i++) {
+        auto naive = prover.key->commitment_key.commit(wire_polys[i]);
+        EXPECT_NE(naive, structured.wire_comms[i]) << "Wire " << i << " commitment should be masked";
+    }
 }

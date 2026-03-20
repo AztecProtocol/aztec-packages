@@ -19,11 +19,11 @@ export class ProverPublisherFactory {
   ) {}
 
   public async start() {
-    await this.deps.publisherManager.loadState();
+    await this.deps.publisherManager.start();
   }
 
-  public stop() {
-    this.deps.publisherManager.interrupt();
+  public async stop() {
+    await this.deps.publisherManager.stop();
   }
 
   /**

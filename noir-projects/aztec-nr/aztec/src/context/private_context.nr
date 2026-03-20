@@ -349,71 +349,56 @@ impl PrivateContext {
         self.note_hashes.push(Counted::new(note_hash, self.next_counter()));
     }
 
-    /// Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree (a state tree).
+    /// Creates a new [nullifier](crate::nullifier).
     ///
-    /// See also: `push_nullifier_for_note_hash`.
+    /// ## Safety
     ///
-    /// Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
-    /// variables (see `../state_vars/`) are designed to understand when to create and push new nullifiers.
+    /// This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
+    /// Instead of calling this function, consider using the higher-level [`crate::state_vars::SingleUseClaim`].
     ///
-    /// A nullifier can only be emitted once. Duplicate nullifier insertions are rejected by the protocol.
+    /// In particular, callers must ensure all nullifiers created by a contract are properly domain-separated, so that
+    /// unrelated components don't interfere with one another (e.g. a transaction nullifier accidentally marking a
+    /// variable as initialized). Only [`PrivateContext::push_nullifier_for_note_hash`] should be used for note
+    /// nullifiers, never this one.
     ///
-    /// Generally, a nullifier is emitted to prevent an action from happening more than once, in such a way that the
-    /// action cannot be linked (by an observer of the blockchain) to any earlier transactions.
+    /// ## Advanced
     ///
-    /// I.e. a nullifier is a random-looking, but deterministic record of a private, one-time action, which does not
-    /// leak what action has been taken, and which preserves the property of "tx unlinkability".
-    ///
-    /// Usually, a nullifier will be emitted to "spend" a note (a piece of private state), without revealing which
-    /// specific note is being spent.
-    ///
-    /// (Important: in such cases, use the below `push_nullifier_for_note_hash`).
-    ///
-    /// Sometimes, a nullifier might be emitted completely unrelated to any notes. Examples include initialization of a
-    /// new contract; initialization of a PrivateMutable, or signalling in Semaphore-like applications. This
-    /// `push_nullifier` function serves such use cases.
-    ///
-    /// # Arguments
-    /// * `nullifier`
-    ///
-    /// # Advanced
-    /// From here, the protocol's kernel circuits will take over and insert the nullifier into the protocol's
-    /// "nullifier tree" (in the Base Rollup circuit). Before insertion, the protocol will:
-    /// - "Silo" the `nullifier` with the contract address of this function, to yield a `siloed_nullifier`. This
-    /// prevents state collisions between different smart contracts.
-    /// - Ensure the `siloed_nullifier` is unique (the nullifier tree is an indexed merkle tree which supports
-    /// efficient non-membership proofs).
-    ///
+    /// The raw `nullifier` is not what is inserted into the Aztec state tree: it will be first siloed by contract
+    /// address via [`crate::protocol::hash::compute_siloed_nullifier`] in order to prevent accidental or malicious
+    /// interference of nullifiers from different contracts.
     pub fn push_nullifier(&mut self, nullifier: Field) {
         notify_created_nullifier(nullifier);
         self.nullifiers.push(Nullifier { value: nullifier, note_hash: 0 }.count(self.next_counter()));
     }
 
-    /// Pushes a nullifier that corresponds to a specific note hash.
+    /// Creates a new [nullifier](crate::nullifier) associated with a note.
     ///
-    /// Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
-    /// variables (see `../state_vars/`) are designed to understand when to create and push new nullifiers.
+    /// This is a variant of [`PrivateContext::push_nullifier`] that is used for note nullifiers, i.e. nullifiers that
+    /// correspond to a note. If a note and its nullifier are created in the same transaction, then the private kernels
+    /// will 'squash' these values, deleting them both as if they never existed and reducing transaction fees.
     ///
-    /// This is a specialized version of `push_nullifier` that links a nullifier to the specific note hash it's
-    /// nullifying. This is the most common usage pattern for nullifiers. See `push_nullifier` for more explanation on
-    /// nullifiers.
+    /// The `nullification_note_hash` must be the result of calling
+    /// [`crate::note::utils::compute_confirmed_note_hash_for_nullification`] for pending notes, and `0` for settled
+    /// notes (which cannot be squashed).
     ///
-    /// # Arguments
-    /// * `nullifier`
-    /// * `nullified_note_hash` - The note hash of the note being nullified
+    /// ## Safety
     ///
-    /// # Advanced
-    ///Important: usage of this function doesn't mean that the world will _see_ that this nullifier relates to the
-    /// given nullified_note_hash (as that would violate "tx unlinkability"); it simply informs the user's PXE about
-    /// the relationship (via `notify_nullified_note`). The PXE can then use this information to feed hints to the
-    /// kernel circuits for "squashing" purposes: If a note is nullified during the same tx which created it, we can
-    /// "squash" (delete) the note and nullifier (and any private logs associated with the note), to save on data
-    /// emission costs.
+    /// This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
+    /// Instead of calling this function, consider using the higher-level [`crate::note::lifecycle::destroy_note`].
     ///
-    pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
+    /// The precautions listed for [`PrivateContext::push_nullifier`] apply here as well, and callers should
+    /// additionally ensure `nullification_note_hash` corresponds to a note emitted by this contract, with its hash
+    /// computed in the same transaction execution phase as the call to this function. Finally, only this function
+    /// should be used for note nullifiers, never [`PrivateContext::push_nullifier`].
+    ///
+    /// Failure to do these things can result in unprovable contexts, accidental deletion of notes, or double-spend
+    /// attacks.
+    pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullification_note_hash: Field) {
         let nullifier_counter = self.next_counter();
-        notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
-        self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash }.count(nullifier_counter));
+        notify_nullified_note(nullifier, nullification_note_hash, nullifier_counter);
+        self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullification_note_hash }.count(
+            nullifier_counter,
+        ));
     }
 
     /// Returns the anchor block header - the historical block header that this private function is reading from.

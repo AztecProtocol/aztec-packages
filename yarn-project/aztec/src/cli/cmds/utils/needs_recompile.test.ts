@@ -240,6 +240,62 @@ bad_dep = { path = "not_a_dir" }
     await expect(needsRecompile()).rejects.toThrow('which is not a directory');
   });
 
+  it('traverses workspace members and their path dependencies', async () => {
+    // Workspace root with two members: a contract and a test lib.
+    // The test lib has a path dependency to an external lib outside the workspace.
+    const contractDir = join(tempDir, 'test_contract');
+    const testDir = join(tempDir, 'test_test');
+    const externalLib = join(tempDir, 'external_lib');
+
+    await mkdirp(join(contractDir, 'src'));
+    await mkdirp(join(testDir, 'src'));
+    await mkdirp(join(externalLib, 'src'));
+    await mkdirp('target');
+
+    // Workspace root Nargo.toml
+    const workspaceToml = `[workspace]
+members = ["test_contract", "test_test"]
+`;
+    await writeFile('Nargo.toml', workspaceToml);
+    await utimes('Nargo.toml', 1000, 1000);
+
+    // Contract member Nargo.toml
+    await writeFile(join(contractDir, 'Nargo.toml'), '[package]\nname = "test_contract"\ntype = "contract"\n');
+    await utimes(join(contractDir, 'Nargo.toml'), 1000, 1000);
+
+    // Test member Nargo.toml with a path dependency to external_lib and a git dep (ignored)
+    const testToml = `[package]
+name = "test_test"
+type = "lib"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "v5.0.0" }
+ext = { path = "../external_lib" }
+test_contract = { path = "../test_contract" }
+`;
+    await writeFile(join(testDir, 'Nargo.toml'), testToml);
+    await utimes(join(testDir, 'Nargo.toml'), 1000, 1000);
+
+    // External lib Nargo.toml
+    await writeFile(join(externalLib, 'Nargo.toml'), '[package]\nname = "external_lib"\ntype = "lib"\n');
+    await utimes(join(externalLib, 'Nargo.toml'), 1000, 1000);
+
+    // All source files are old
+    await touch(join(contractDir, 'src', 'main.nr'), 1000);
+    await touch(join(testDir, 'src', 'test.nr'), 1000);
+    await touch(join(externalLib, 'src', 'lib.nr'), 1000);
+
+    // Artifact is newer than all sources
+    await touch(join('target', 'artifact.json'), 2000);
+
+    expect(await needsRecompile()).toBe(false);
+
+    // Now update a source file in the external lib (reachable via workspace member's path dep)
+    await utimes(join(externalLib, 'src', 'lib.nr'), 3000, 3000);
+
+    expect(await needsRecompile()).toBe(true);
+  });
+
   it('does not follow circular path dependencies', async () => {
     // Two projects that depend on each other via path.
     const libDir = join(tempDir, 'lib');

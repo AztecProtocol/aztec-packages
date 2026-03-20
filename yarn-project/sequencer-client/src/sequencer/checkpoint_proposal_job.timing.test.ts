@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -14,8 +14,8 @@ import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
+  BlockBuilderOptions,
   MerkleTreeWriteOperations,
-  PublicProcessorLimits,
   ResolvedSequencerConfig,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -80,7 +80,7 @@ class TimingAwareMockCheckpointBuilder extends MockCheckpointBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits,
+    opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult> {
     const startTime = this.getSecondsIntoSlot();
 
@@ -208,7 +208,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   let slasherClient: MockProxy<SlasherClientInterface>;
   let metrics: MockProxy<SequencerMetrics>;
 
-  let l1Constants: L1RollupConstants & { rollupManaLimit: number };
+  let l1Constants: L1RollupConstants;
   let config: ResolvedSequencerConfig;
 
   // Test state
@@ -289,8 +289,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
     return new TimingTestCheckpointProposalJob(
       dateProvider,
       getSecondsIntoSlot,
-      epoch,
       slotNumber,
+      slotNumber,
+      epoch,
+      epoch,
       checkpointNumber,
       BlockNumber.ZERO,
       proposer,
@@ -330,7 +332,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
-      rollupManaLimit: Infinity,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     // Initialize test state

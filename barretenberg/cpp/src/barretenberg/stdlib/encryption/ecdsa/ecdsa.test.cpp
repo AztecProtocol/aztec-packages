@@ -22,15 +22,15 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         std::conditional_t<Curve::type == bb::CurveType::SECP256K1, bb::curve::SECP256K1, bb::curve::SECP256R1>;
 
     // Native Types
-    using FrNative = Curve::fr;
-    using FqNative = Curve::fq;
-    using G1Native = Curve::g1;
+    using FrNative = Curve::ScalarFieldNative;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
 
     // Stdlib types
-    using Fr = Curve::bigfr_ct;
-    using Fq = Curve::fq_ct;
-    using G1 = Curve::g1_bigfr_ct;
-    using bool_t = Curve::bool_ct;
+    using Fr = Curve::ScalarField;
+    using Fq = Curve::BaseField;
+    using G1 = Curve::Group;
+    using bool_t = stdlib::bool_t<Builder>;
 
     // Reproducible signature
     static constexpr FrNative private_key =
@@ -499,14 +499,14 @@ TEST(EcdsaTests, Secp256k1PointAtInfinityRegression)
 {
     using Curve = stdlib::secp256k1<UltraCircuitBuilder>;
 
-    using FqNative = Curve::fq;
-    using FrNative = Curve::fr;
-    using G1Native = Curve::g1;
+    using FqNative = Curve::BaseFieldNative;
+    using FrNative = Curve::ScalarFieldNative;
+    using G1Native = Curve::GroupNative;
 
     using Builder = Curve::Builder;
-    using FrStdlib = Curve::bigfr_ct;
-    using FqStdlib = Curve::fq_ct;
-    using G1Stdlib = Curve::g1_bigfr_ct;
+    using FrStdlib = Curve::ScalarField;
+    using FqStdlib = Curve::BaseField;
+    using G1Stdlib = Curve::Group;
 
     // Attack parameters for P = 5*G
     // These are crafted so that u1*G + u2*P = O (point at infinity)
@@ -576,14 +576,14 @@ TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancyRegression)
 {
     using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
 
-    using FqNative = Curve::fq;
-    using FrNative = Curve::fr;
-    using G1Native = Curve::g1;
+    using FqNative = Curve::BaseFieldNative;
+    using FrNative = Curve::ScalarFieldNative;
+    using G1Native = Curve::GroupNative;
 
     using Builder = Curve::Builder;
-    using FrStdlib = Curve::bigfr_ct;
-    using FqStdlib = Curve::fq_ct;
-    using G1Stdlib = Curve::g1_bigfr_ct;
+    using FrStdlib = Curve::ScalarField;
+    using FqStdlib = Curve::BaseField;
+    using G1Stdlib = Curve::Group;
 
     const std::array<uint8_t, 32> pub_x_bytes = { 0x79, 0x9f, 0x2a, 0xba, 0xfa, 0x27, 0x16, 0x4b, 0x09, 0x50, 0xf2,
                                                   0xc8, 0x82, 0xf0, 0xd1, 0x67, 0xe1, 0xd2, 0x16, 0x74, 0x87, 0xd5,
@@ -643,13 +643,13 @@ TEST(EcdsaTests, Secp256r1NafOverflowRegression)
 {
     using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
 
-    using FqNative = Curve::fq;
-    using G1Native = Curve::g1;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
 
     using Builder = Curve::Builder;
-    using FrStdlib = Curve::bigfr_ct;
-    using FqStdlib = Curve::fq_ct;
-    using G1Stdlib = Curve::g1_bigfr_ct;
+    using FrStdlib = Curve::ScalarField;
+    using FqStdlib = Curve::BaseField;
+    using G1Stdlib = Curve::Group;
 
     const std::array<uint8_t, 32> pub_x_bytes = { 0xbd, 0xae, 0xdd, 0xff, 0x80, 0x69, 0x8b, 0xd0, 0xb5, 0xdb, 0x79,
                                                   0x10, 0xe1, 0xc6, 0x56, 0x9d, 0xc3, 0x4e, 0x77, 0x3b, 0xda, 0x69,

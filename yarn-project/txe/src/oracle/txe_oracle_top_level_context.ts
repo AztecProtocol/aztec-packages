@@ -17,6 +17,7 @@ import {
   AddressStore,
   CapsuleStore,
   type ContractStore,
+  type ContractSyncService,
   NoteStore,
   ORACLE_VERSION,
   PrivateEventStore,
@@ -111,6 +112,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private readonly contractSyncService: ContractSyncService,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
@@ -387,6 +389,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       // contract would perform, including setting senderForTags.
       senderForTags: from,
       simulator,
+      messageContextService: this.stateMachine.messageContextService,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -743,6 +746,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         senderAddressBookStore: this.senderAddressBookStore,
         capsuleStore: this.capsuleStore,
         privateEventStore: this.privateEventStore,
+        messageContextService: this.stateMachine.messageContextService,
+        contractSyncService: this.contractSyncService,
         jobId,
         scopes,
       });

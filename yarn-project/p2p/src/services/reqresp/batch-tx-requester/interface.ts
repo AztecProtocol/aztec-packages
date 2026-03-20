@@ -23,6 +23,8 @@ export interface ITxMetadataCollection {
   alreadyFetched(txHash: TxHash): boolean;
   // Returns true if tx was marked as fetched, false if it was already marked as fetched
   markPeerHas(peerId: PeerId, txHashes: TxHash[]): void;
+  /** Remove all tx metadata associations for a peer (e.g. on demotion from smart to dumb). */
+  clearPeerData(peerId: PeerId): void;
 }
 
 /**
@@ -47,7 +49,6 @@ export interface BatchTxRequesterOptions {
   //Injectable for testing purposes
   semaphore?: ISemaphore;
   peerCollection?: IPeerCollection;
-  abortSignal?: AbortSignal;
   /** Optional tx validator for testing - if not provided, one is created from p2pService.txValidatorConfig */
   txValidator?: IBatchRequestTxValidator;
 }

@@ -60,7 +60,7 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
   proverNodeMaxParallelBlocksPerEpoch: {
     env: 'PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH',
     description: 'The Maximum number of blocks to process in parallel while proving an epoch',
-    ...numberConfigHelper(32),
+    ...numberConfigHelper(0),
   },
   proverNodeFailedEpochStore: {
     env: 'PROVER_NODE_FAILED_EPOCH_STORE',

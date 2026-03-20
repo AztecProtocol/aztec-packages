@@ -65,7 +65,7 @@ class TranslatorTests : public ::testing::Test {
      * - Round 21: Gemini fold commitments -> Gemini:r
      * - Round 22: Gemini evaluations + Libra evals -> Shplonk:nu
      * - Round 23: Shplonk:Q -> Shplonk:z
-     * - Round 24: KZG:W -> KZG:masking_challenge
+     * - Round 24: KZG:W
      */
     static TranscriptManifest build_expected_translator_manifest()
     {
@@ -158,10 +158,9 @@ class TranslatorTests : public ::testing::Test {
         manifest.add_entry(shplonk_round, "Shplonk:Q", frs_per_G);
         manifest.add_challenge(shplonk_round, "Shplonk:z");
 
-        // KZG:W -> KZG:masking_challenge
+        // KZG:W
         const size_t kzg_round = shplonk_round + 1;
         manifest.add_entry(kzg_round, "KZG:W", frs_per_G);
-        manifest.add_challenge(kzg_round, "KZG:masking_challenge");
 
         return manifest;
     }

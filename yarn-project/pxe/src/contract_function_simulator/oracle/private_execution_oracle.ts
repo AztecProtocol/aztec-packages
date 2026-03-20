@@ -14,7 +14,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
@@ -26,7 +26,6 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -49,7 +48,6 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
   senderTaggingStore: SenderTaggingStore;
-  contractSyncService: ContractSyncService;
   totalPublicCalldataCount?: number;
   sideEffectCounter?: number;
   senderForTags?: AztecAddress;
@@ -73,7 +71,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private newNotes: NoteAndSlot[] = [];
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   private readonly argsHash: Fr;
@@ -84,7 +81,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
   private readonly senderTaggingStore: SenderTaggingStore;
-  private readonly contractSyncService: ContractSyncService;
   private totalPublicCalldataCount: number;
   protected sideEffectCounter: number;
   private senderForTags?: AztecAddress;
@@ -104,7 +100,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
     this.senderTaggingStore = args.senderTaggingStore;
-    this.contractSyncService = args.contractSyncService;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
     this.sideEffectCounter = args.sideEffectCounter ?? 0;
     this.senderForTags = args.senderForTags;
@@ -159,17 +154,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Return the offchain effects emitted during this execution.
+   * Returns the tagging index ranges that were used in this execution (and that need to be stored in the db).
    */
-  public getOffchainEffects() {
-    return this.offchainEffects;
-  }
-
-  /**
-   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
-   */
-  public getUsedPreTags(): PreTag[] {
-    return this.taggingIndexCache.getUsedPreTags();
+  public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
+    return this.taggingIndexCache.getUsedTaggingIndexRanges();
   }
 
   /**
@@ -569,6 +557,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       jobId: this.jobId,
       totalPublicCalldataCount: this.totalPublicCalldataCount,
@@ -652,10 +641,5 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
-  }
-
-  public emitOffchainEffect(data: Fr[]): Promise<void> {
-    this.offchainEffects.push({ data });
-    return Promise.resolve();
   }
 }

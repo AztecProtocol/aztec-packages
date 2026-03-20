@@ -8,6 +8,8 @@
 # Env:
 #   SSM_RUN_AS       - User to run the command as (default: no runuser wrapper).
 #   SSM_POLL_TIMEOUT - Max seconds to poll for completion (default: 7200 = 2h).
+#   SSM_EXEC_TIMEOUT - Max seconds AWS allows the command to run (default: SSM_POLL_TIMEOUT).
+#                      Maps to the AWS-RunShellScript executionTimeout parameter.
 #   SSM_NO_WAIT      - If set to 1, fire-and-forget: send the command and exit 0 immediately.
 #   AWS_DEFAULT_REGION - Region (default: us-east-2).
 #
@@ -45,8 +47,14 @@ else
   run_prefix=""
 fi
 
-ssm_params=$(jq -n --arg e "$encoded" --arg p "$run_prefix" \
-  '{commands: ["f=$(mktemp /tmp/ssm_cmd.XXXXXX); echo " + ($e | @json) + " | base64 -d > $f; chmod 644 $f; " + $p + "bash $f; ret=$?; rm -f $f; exit $ret"]}')
+# AWS-RunShellScript executionTimeout defaults to 3600s (1h). For long-running
+# jobs (e.g. 6h network scenarios), this silently kills the command on the AWS
+# side. Align it with the poll timeout so the server-side limit matches.
+SSM_POLL_TIMEOUT=${SSM_POLL_TIMEOUT:-7200}
+exec_timeout=${SSM_EXEC_TIMEOUT:-$SSM_POLL_TIMEOUT}
+
+ssm_params=$(jq -n --arg e "$encoded" --arg p "$run_prefix" --arg t "$exec_timeout" \
+  '{commands: ["f=$(mktemp /tmp/ssm_cmd.XXXXXX); echo " + ($e | @json) + " | base64 -d > $f; chmod 644 $f; " + $p + "bash $f; ret=$?; rm -f $f; exit $ret"], executionTimeout: [$t]}')
 
 command_id=$(aws ssm send-command \
   --region "$region" \
@@ -73,7 +81,6 @@ fi
 # StandardOutputContent / StandardErrorContent are cumulative snapshots of the
 # first 24KB of output. Each poll returns the *full* buffer so far, so we track
 # how many characters we've already printed and only emit the new portion.
-SSM_POLL_TIMEOUT=${SSM_POLL_TIMEOUT:-7200}
 poll_start=$SECONDS
 
 while true; do

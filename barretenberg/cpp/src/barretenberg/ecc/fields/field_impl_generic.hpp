@@ -306,12 +306,16 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
         const uint64_t selection_mask = 0ULL - c;
         const uint64_t selection_mask_inverse = ~selection_mask;
 
-        return {
+        field result{
             (r0 & selection_mask_inverse) | (t0 & selection_mask),
             (r1 & selection_mask_inverse) | (t1 & selection_mask),
             (r2 & selection_mask_inverse) | (t2 & selection_mask),
             (r3 & selection_mask_inverse) | (t3 & selection_mask),
         };
+        if (!std::is_constant_evaluated()) {
+            result.assert_coarse_form();
+        }
+        return result;
     }
 }
 
@@ -356,7 +360,11 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
     r2 = addc(r2, twice_modulus.data[2] & borrow, carry, carry);
     r3 += (twice_modulus.data[3] & borrow) + carry;
 
-    return { r0, r1, r2, r3 };
+    field result{ r0, r1, r2, r3 };
+    if (!std::is_constant_evaluated()) {
+        result.assert_coarse_form();
+    }
+    return result;
 }
 
 /**
@@ -750,7 +758,13 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     mac(t3, data[3], other.data[3], a, t3, a);
     mac(t3, k, modulus.data[3], c, t2, c);
     t3 = c + a;
-    return { t0, t1, t2, t3 };
+    {
+        field result{ t0, t1, t2, t3 };
+        if (!std::is_constant_evaluated()) {
+            result.assert_coarse_form();
+        }
+        return result;
+    }
 #else
 
     // Convert 4 64-bit limbs to 9 29-bit ones
@@ -896,7 +910,13 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     mac(t2, k, modulus.data[2], carry_lo, t1, carry_lo);
     mac(t3, k, modulus.data[3], carry_lo, t2, carry_lo);
     t3 = carry_lo + round_carry;
-    return { t0, t1, t2, t3 };
+    {
+        field result{ t0, t1, t2, t3 };
+        if (!std::is_constant_evaluated()) {
+            result.assert_coarse_form();
+        }
+        return result;
+    }
 #else
     // Convert from 4 64-bit limbs to 9 29-bit ones
     auto left = wasm_convert(data);

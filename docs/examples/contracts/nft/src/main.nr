@@ -21,7 +21,7 @@ pub contract NFTPunk {
     struct Storage<Context> {
         admin: PublicImmutable<AztecAddress, Context>,
         minter: PublicImmutable<AztecAddress, Context>,
-        nfts: Map<Field, DelayedPublicMutable<bool, 2, Context>, Context>,
+        nfts: Map<Field, DelayedPublicMutable<bool, 2u64, Context>, Context>,
         owners: Owned<PrivateSet<NFTNote, Context>, Context>,
     }
     #[external("public")]

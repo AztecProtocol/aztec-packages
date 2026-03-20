@@ -12,7 +12,9 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { AbortError } from '@aztec/foundation/error';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { assertLength } from '@aztec/foundation/serialize';
+import { sleep } from '@aztec/foundation/sleep';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
@@ -94,17 +96,20 @@ export class ProvingOrchestrator implements EpochProver {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
   private logger: Logger;
+  private deferredJobQueue = new SerialQueue();
 
   constructor(
     private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
     private readonly cancelJobsOnStop: boolean = false,
+    private readonly enqueueConcurrency: number,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
   ) {
     this.logger = createLogger('prover-client:orchestrator', bindings);
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
+    this.deferredJobQueue.start(this.enqueueConcurrency);
   }
 
   get tracer(): Tracer {
@@ -119,9 +124,11 @@ export class ProvingOrchestrator implements EpochProver {
     return this.dbs.size;
   }
 
-  public stop(): Promise<void> {
+  public async stop(): Promise<void> {
+    // Grab the old queue before cancel() replaces it, so we can await its draining.
+    const oldQueue = this.deferredJobQueue;
     this.cancel();
-    return Promise.resolve();
+    await oldQueue.cancel();
   }
 
   public startNewEpoch(
@@ -514,6 +521,11 @@ export class ProvingOrchestrator implements EpochProver {
    * If cancelJobsOnStop is false (default), jobs remain in the broker queue and can be reused on restart/reorg.
    */
   public cancel() {
+    void this.deferredJobQueue.cancel();
+    // Recreate the queue so it can accept jobs for subsequent epochs.
+    this.deferredJobQueue = new SerialQueue();
+    this.deferredJobQueue.start(this.enqueueConcurrency);
+
     if (this.cancelJobsOnStop) {
       for (const controller of this.pendingProvingJobs) {
         controller.abort();
@@ -623,8 +635,11 @@ export class ProvingOrchestrator implements EpochProver {
       }
     };
 
-    // let the callstack unwind before adding the job to the queue
-    setImmediate(() => void safeJob());
+    void this.deferredJobQueue.put(async () => {
+      void safeJob();
+      // we yield here to the macro task queue such to give Nodejs a chance to run other operatoins in between enqueues
+      await sleep(0);
+    });
   }
 
   private async updateL1ToL2MessageTree(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {

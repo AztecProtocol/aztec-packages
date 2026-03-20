@@ -60,7 +60,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     } = await setup(3));
 
     // We set the deadline to a week from now
-    deadline = (await cheatCodes.eth.timestamp()) + 7 * 24 * 60 * 60;
+    deadline = (await cheatCodes.eth.lastBlockTimestamp()) + 7 * 24 * 60 * 60;
 
     ({ contract: donationToken } = await TokenContract.deploy(
       wallet,
@@ -208,7 +208,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // docs:start:local-tx-fails
     await expect(
       claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }),
-    ).rejects.toThrow('hinted_note.owner == self.msg_sender()');
+    ).rejects.toThrow('confirmed_note.owner == self.msg_sender()');
     // docs:end:local-tx-fails
   });
 

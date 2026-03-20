@@ -46,7 +46,7 @@ if [ -z "${DASHBOARD_URL:-}" ]; then
   if command -v docker &>/dev/null && docker ps | grep -q "ci-redis"; then
     if [ -z "$(docker ps -q --filter "name=^/ci-dashboard$")" ]; then
       echo_stderr "Building local ci dashboard..."
-      (cd $ci3 && docker build -t aztecprotocol/ci-dashboard:latest -f dashboard/Dockerfile .) &>/dev/null
+      (cd $ci3/dashboard && docker build -t aztecprotocol/ci-dashboard:latest .) &>/dev/null
       echo_stderr "Starting local ci dashboard..."
       docker network create ci-network &>/dev/null || true
       docker run -d --rm --name ci-dashboard -p 4273:8080 \

@@ -61,7 +61,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
   // Create an archiver store to check the current state (do this only once)
   log.verbose(`Creating temporary archiver data store`);
-  const archiverStore = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
+  const archiverStore = await createArchiverStore(config);
   let archiverL1BlockNumber: bigint | undefined;
   let archiverL2BlockNumber: number | undefined;
   try {
