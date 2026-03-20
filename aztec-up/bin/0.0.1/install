@@ -194,8 +194,26 @@ function install_foundry {
 function install_aztec_packages {
   set -euo pipefail
 
+  # Determine the arch-specific bb.js package for this platform.
+  # bb.js ships native binaries in separate per-platform packages; npm's
+  # optionalDependencies should pull the right one automatically, but we
+  # install it explicitly to be robust against offline registries and
+  # --prefix installs where optional resolution can silently fail.
+  local bb_arch_pkg=""
+  local arch=$(uname -m)
+  case "${os}-${arch}" in
+    Linux-x86_64)   bb_arch_pkg="@aztec/bb.js-linux-x64" ;;
+    Linux-aarch64)  bb_arch_pkg="@aztec/bb.js-linux-arm64" ;;
+    Darwin-x86_64)  bb_arch_pkg="@aztec/bb.js-darwin-x64" ;;
+    Darwin-arm64)   bb_arch_pkg="@aztec/bb.js-darwin-arm64" ;;
+  esac
+
   # Install npm packages to the version directory using --prefix
-  npm install @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION --prefix "$version_path"
+  local pkgs="@aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION"
+  if [ -n "$bb_arch_pkg" ]; then
+    pkgs="$pkgs $bb_arch_pkg@$VERSION"
+  fi
+  npm install $pkgs --prefix "$version_path"
 }
 
 function main {
