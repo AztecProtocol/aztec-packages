@@ -319,7 +319,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 
-    IPayload slashPayload = IPayload(address(new SlashPayload(attesters, amounts, IValidatorSelection(address(rollup)))));
+    IPayload slashPayload =
+      IPayload(address(new SlashPayload(attesters, amounts, IValidatorSelection(address(rollup)))));
     vm.prank(address(slasher.PROPOSER()));
     slasher.slash(slashPayload);
 

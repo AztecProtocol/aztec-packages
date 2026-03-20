@@ -11,7 +11,6 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract Test15050 is StakingBase {
-
   function setUp() public override {
     super.setUp();
   }

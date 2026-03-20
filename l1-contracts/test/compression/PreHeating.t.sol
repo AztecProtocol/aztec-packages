@@ -132,7 +132,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   // Track attestations by checkpoint number for proof submission
   mapping(uint256 => CommitteeAttestations) internal checkpointAttestations;
 
-
   modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
