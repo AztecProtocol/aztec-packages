@@ -89,7 +89,15 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
     }
 
-    info("ChonkAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    info("ChonkAccumulate - accumulating circuit '",
+         request.loaded_circuit_name,
+         "', op_queue ECCVM rows: ",
+         circuit.op_queue->get_num_rows(),
+         " (msm: ",
+         circuit.op_queue->get_num_msm_rows(),
+         ", muls: ",
+         circuit.op_queue->get_number_of_muls(),
+         ")");
     request.ivc_in_progress->accumulate(circuit, precomputed_vk);
     request.ivc_stack_depth++;
 
