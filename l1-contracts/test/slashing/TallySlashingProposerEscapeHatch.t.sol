@@ -86,8 +86,8 @@ contract TallySlashingProposerEscapeHatchTest is TestBase {
     builder.setEpochDuration(EPOCH_DURATION).setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingQuorum(QUORUM)
       .setSlashingRoundSize(ROUND_SIZE).setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
       .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setSlashAmountSmall(SLASHING_UNIT)
-      .setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3)
-      .setSlasherEnabled(true).setValidators(initialValidators);
+      .setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherEnabled(true)
+      .setValidators(initialValidators);
 
     builder.deploy();
 

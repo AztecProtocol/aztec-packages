@@ -220,5 +220,4 @@ contract RollupConfiguration is IRollupConfiguration, Test {
       y1: validatorsJson.readUint(string.concat(basePath, ".publicKeyInG2.y1"))
     });
   }
-
 }
