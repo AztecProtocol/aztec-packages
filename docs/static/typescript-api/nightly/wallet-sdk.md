@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v5.0.0-nightly.20260319
+Version: v5.0.0-nightly.20260320
 
 ## Quick Import Reference
 
