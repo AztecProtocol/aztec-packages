@@ -7,7 +7,6 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
@@ -32,11 +31,7 @@ import {
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import { ContractClassLog, LogId } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import {
-  makeContractClassPublic,
-  makeExecutablePrivateFunctionWithMembershipProof,
-  makeUtilityFunctionWithMembershipProof,
-} from '@aztec/stdlib/testing';
+import { makeContractClassPublic } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -2379,36 +2374,6 @@ describe('KVArchiverDataStore', () => {
 
     it('returns undefined if contract class is not found', async () => {
       await expect(store.getContractClass(Fr.random())).resolves.toBeUndefined();
-    });
-
-    it('adds new private functions', async () => {
-      const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, fns, []);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.privateFunctions).toEqual(fns);
-    });
-
-    it('does not duplicate private functions', async () => {
-      const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, fns.slice(0, 1), []);
-      await store.addFunctions(contractClass.id, fns, []);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.privateFunctions).toEqual(fns);
-    });
-
-    it('adds new utility functions', async () => {
-      const fns = times(3, makeUtilityFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, [], fns);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.utilityFunctions).toEqual(fns);
-    });
-
-    it('does not duplicate utility functions', async () => {
-      const fns = times(3, makeUtilityFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
-      await store.addFunctions(contractClass.id, [], fns);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.utilityFunctions).toEqual(fns);
     });
   });
 

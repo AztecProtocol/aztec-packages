@@ -187,8 +187,6 @@ export async function registerProtocolContracts(store: KVArchiverDataStore) {
 
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
-      privateFunctions: [],
-      utilityFunctions: [],
     };
 
     const publicFunctionSignatures = contract.artifact.functions

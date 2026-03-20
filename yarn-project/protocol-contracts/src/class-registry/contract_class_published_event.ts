@@ -70,8 +70,6 @@ export class ContractClassPublishedEvent {
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
       version: this.version,
-      privateFunctions: [],
-      utilityFunctions: [],
     };
   }
 
