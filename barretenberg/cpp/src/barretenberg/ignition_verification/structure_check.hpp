@@ -9,9 +9,12 @@ namespace bb::ignition {
 /**
  * @brief Verify power-of-tau structure across all 20 sealed transcripts using chunked batch verification.
  *
- * For each consecutive pair of G1 points (g1[i], g1[i+1]), the pairing relation
+ * Each consecutive pair of G1 points (g1[i], g1[i+1]) must satisfy:
  *   e(g1[i+1], G2_gen) == e(g1[i], g2_tau)
- * must hold. We batch all N-1 checks into a single multi-pairing via random linear combination.
+ *
+ * All N-1 pair checks are batched into a single multi-pairing via Fiat-Shamir random
+ * linear combination: derive scalars r_i, compute L = Σ r_i·g1[i+1] and R = Σ r_i·g1[i],
+ * then verify e(L, G2_gen) · e(-R, g2_tau) == 1.
  *
  * @param transcript_paths Ordered paths to transcript00.dat through transcript19.dat
  * @param g2_tau The G2 point τ·G2_gen from the ceremony (first G2 in sealed transcript 0)

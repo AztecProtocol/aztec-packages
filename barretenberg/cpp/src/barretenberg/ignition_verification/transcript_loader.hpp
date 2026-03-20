@@ -11,7 +11,8 @@ using Curve = curve::BN254;
 using G1 = Curve::AffineElement;
 using G2 = Curve::G2AffineElement;
 
-// Ignition transcript constants (empirically confirmed values — spec description is wrong)
+// Ignition transcript constants. The Transcript_spec.md manifest description lists rounded values
+// (100,000,000 / 5,000,000) but the actual binary manifests contain these values.
 static constexpr size_t TOTAL_G1_POINTS = 100800000;
 static constexpr size_t POINTS_PER_TRANSCRIPT = 5040000;
 static constexpr size_t NUM_TRANSCRIPTS = 20;

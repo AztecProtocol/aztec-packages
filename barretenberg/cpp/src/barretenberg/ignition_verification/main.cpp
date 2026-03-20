@@ -198,7 +198,7 @@ VerificationReport run_chain_check(VerificationReport report,
     bool chain_ok = verify_chain(chain_data);
     report.chain_check_passed = chain_ok;
     report.participants_verified = NUM_PARTICIPANTS;
-    report.chain_links_verified = chain_data.size() - 1; // 176 links (175 participant pairs + sealed)
+    report.chain_links_verified = chain_data.size() - 1; // 176 links (0→1, 1→2, ..., 175→sealed)
 
     if (chain_ok) {
         info("Chain linkage: PASS");
