@@ -21,6 +21,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { privateKeyFromHex } from '@aztec/p2p';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -52,7 +53,8 @@ import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
-const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
+const BOOTSTRAP_NODE_PRIVATE_KEY_HEX = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
+const BOOTSTRAP_NODE_PRIVATE_KEY = privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY_HEX);
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
@@ -202,7 +204,7 @@ export class P2PNetworkTest {
     this.logger.info('Adding bootstrap node');
     const telemetry = await getEndToEndTestTelemetryClient(this.metricsPort);
     this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
-      BOOTSTRAP_NODE_PRIVATE_KEY,
+      BOOTSTRAP_NODE_PRIVATE_KEY_HEX,
       this.bootNodePort,
       telemetry,
       this.context.config,

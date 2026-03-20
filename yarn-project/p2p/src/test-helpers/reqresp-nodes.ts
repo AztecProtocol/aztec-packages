@@ -21,7 +21,7 @@ import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
-import { generateKeyPair, privateKeyToProtobuf } from '@libp2p/crypto/keys';
+import { generateKeyPair } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
 import type { PeerId, PrivateKey } from '@libp2p/interface';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
@@ -48,7 +48,7 @@ import {
 } from '../services/reqresp/interface.js';
 import { pingHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
-import { type FullLibp2p, type PubSubLibp2p, convertToMultiaddr, unmarshalLibP2PPrivateKey } from '../util.js';
+import { type FullLibp2p, type PubSubLibp2p, convertToMultiaddr, privateKeyToHex } from '../util.js';
 import { getVersions } from '../versioning.js';
 
 /**
@@ -127,11 +127,11 @@ export async function createTestLibP2PService(
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
     p2pEnabled: true,
-    peerIdPrivateKey: new SecretValue(Buffer.from(privateKeyToProtobuf(libp2pPrivateKey)).toString('hex')),
+    peerIdPrivateKey: new SecretValue(privateKeyToHex(libp2pPrivateKey)),
     bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
-  const discoveryService = new DiscV5Service(peerId, libp2pPrivateKey, config, 'test-reqresp-node', telemetry);
+  const discoveryService = new DiscV5Service(libp2pPrivateKey, config, 'test-reqresp-node', telemetry);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
 
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
@@ -311,9 +311,8 @@ export function createBootstrapNodeFromPrivateKey(
  * @param port - the port of the bootstrap node
  * @returns the bootstrap node ENR
  */
-export function getBootstrapNodeEnr(privateKeyHex: string, port: number) {
-  const libp2pPrivateKey = unmarshalLibP2PPrivateKey(privateKeyHex);
-  const enr = SignableENR.createFromPrivateKey(libp2pPrivateKey);
+export function getBootstrapNodeEnr(privateKey: PrivateKey, port: number) {
+  const enr = SignableENR.createFromPrivateKey(privateKey);
   const listenAddrUdp = multiaddr(convertToMultiaddr('127.0.0.1', port, 'udp'));
   enr.setLocationMultiaddr(listenAddrUdp);
 
@@ -326,11 +325,7 @@ export async function createBootstrapNode(
   chainConfig: ChainConfig = emptyChainConfig,
 ): Promise<BootstrapNode> {
   const libp2pPrivateKey = await generateKeyPair('secp256k1');
-  const config = createBootstrapNodeConfig(
-    Buffer.from(privateKeyToProtobuf(libp2pPrivateKey)).toString('hex'),
-    port,
-    chainConfig,
-  );
+  const config = createBootstrapNodeConfig(privateKeyToHex(libp2pPrivateKey), port, chainConfig);
 
   return startBootstrapNode(config, telemetry);
 }

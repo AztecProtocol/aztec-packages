@@ -271,7 +271,6 @@ export class LibP2PService extends WithTracer implements P2PService {
    */
   public static async new(
     config: P2PConfig,
-    peerId: PeerId,
     privateKey: PrivateKey,
     deps: {
       mempools: MemPools;
@@ -304,7 +303,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry, logger.getBindings());
 
     const peerDiscoveryService = new DiscV5Service(
-      peerId,
       privateKey,
       config,
       packageVersion,

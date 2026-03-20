@@ -9,7 +9,6 @@ import type { IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { jest } from '@jest/globals';
 import { generateKeyPair } from '@libp2p/crypto/keys';
 import type { PeerId } from '@libp2p/interface';
-import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
@@ -312,7 +311,6 @@ describe('Discv5Service', () => {
     const port = ++basePort;
     const bootnodeAddr = bootNode.getENR().encodeTxt();
     const libp2pPrivateKey = await generateKeyPair('secp256k1');
-    const peerId = peerIdFromPrivateKey(libp2pPrivateKey);
     const config: P2PConfig = {
       ...getP2PDefaultConfig(),
       ...emptyChainConfig,
@@ -326,6 +324,6 @@ describe('Discv5Service', () => {
       l2QueueSize: 100,
       ...overrides,
     };
-    return new DiscV5Service(peerId, libp2pPrivateKey, config, testPackageVersion, undefined, undefined, overrides);
+    return new DiscV5Service(libp2pPrivateKey, config, testPackageVersion, undefined, undefined, overrides);
   };
 });

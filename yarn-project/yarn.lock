@@ -1122,8 +1122,6 @@ __metadata:
     "@ethersproject/wallet": "npm:^5.8.0"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
-    "@libp2p/crypto": "npm:^5.1.0"
-    "@libp2p/peer-id": "npm:^5.1.0"
     "@scure/bip39": "npm:^2.0.1"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.chunk": "npm:^4.2.9"

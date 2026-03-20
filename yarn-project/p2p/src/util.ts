@@ -1,4 +1,4 @@
-import { SecretValue } from '@aztec/foundation/config';
+import type { SecretValue } from '@aztec/foundation/config';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
@@ -18,6 +18,22 @@ import path from 'path';
 import type { P2PConfig } from './config.js';
 
 const PEER_ID_DATA_DIR_FILE = 'p2p-private-key';
+
+/** Convert a hex-encoded protobuf private key to a PrivateKey object. */
+export function privateKeyFromHex(hex: string): PrivateKey {
+  return privateKeyFromProtobuf(new Uint8Array(Buffer.from(hex, 'hex')));
+}
+
+/** Convert a PrivateKey object to a hex-encoded protobuf string. */
+export function privateKeyToHex(key: PrivateKey): string {
+  return Buffer.from(privateKeyToProtobuf(key)).toString('hex');
+}
+
+/** Generate a new secp256k1 private key and derive the peer ID from it. */
+export async function createSecp256k1PrivateKeyWithPeerId(): Promise<{ privateKey: PrivateKey; peerId: PeerId }> {
+  const privateKey = await generateKeyPair('secp256k1');
+  return { privateKey, peerId: peerIdFromPrivateKey(privateKey) };
+}
 
 export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' | 'peerId'> {
   services: {
@@ -138,7 +154,7 @@ export async function getPeerIdPrivateKey(
   config: { peerIdPrivateKey?: SecretValue<string>; peerIdPrivateKeyPath?: string; dataDirectory?: string },
   store: AztecAsyncKVStore,
   logger: Logger,
-): Promise<SecretValue<string>> {
+): Promise<PrivateKey> {
   const peerIdPrivateKeyFilePath =
     config.peerIdPrivateKeyPath ??
     (config.dataDirectory ? path.join(config.dataDirectory, PEER_ID_DATA_DIR_FILE) : undefined);
@@ -150,14 +166,15 @@ export async function getPeerIdPrivateKey(
   };
 
   // If the peerIdPrivateKey is provided in the config, we use it and persist it in either a file or the node's store
-  if (config.peerIdPrivateKey && config.peerIdPrivateKey.getValue().trim()) {
+  const configKeyHex = config.peerIdPrivateKey?.getValue()?.trim();
+  if (configKeyHex) {
     if (peerIdPrivateKeyFilePath) {
-      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, config.peerIdPrivateKey.getValue());
+      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, configKeyHex);
     } else {
       peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
-      await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey.getValue());
+      await peerIdPrivateKeySingleton.set(configKeyHex);
     }
-    return config.peerIdPrivateKey;
+    return privateKeyFromHex(configKeyHex);
   }
 
   // Check to see if we have a peer id private key stored in a file or the node's store
@@ -180,12 +197,12 @@ export async function getPeerIdPrivateKey(
       logger.verbose(`Peer ID private key found in the node's store, persisting it to ${peerIdPrivateKeyFilePath}`);
       await writePrivateKeyToFile(peerIdPrivateKeyFilePath, storedPeerIdPrivateKey);
     }
-    return new SecretValue(storedPeerIdPrivateKey);
+    return privateKeyFromHex(storedPeerIdPrivateKey);
   }
 
   // Generate and persist a new private key
   const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-  const privateKeyString = Buffer.from(privateKeyToProtobuf(newPeerIdPrivateKey)).toString('hex');
+  const privateKeyString = privateKeyToHex(newPeerIdPrivateKey);
   if (peerIdPrivateKeyFilePath) {
     logger.verbose(`Creating new peer ID private key and persisting it to ${peerIdPrivateKeyFilePath}`);
     await writePrivateKeyToFile(peerIdPrivateKeyFilePath, privateKeyString);
@@ -196,30 +213,7 @@ export async function getPeerIdPrivateKey(
     await peerIdPrivateKeySingleton!.set(privateKeyString);
   }
 
-  return new SecretValue(privateKeyString);
-}
-
-/**
- * Create a libp2p peer ID from the private key.
- * @param privateKey - peer ID private key as hex string
- * @returns The peer ID.
- */
-export function createLibP2PPeerIdFromPrivateKey(privateKey: string): PeerId {
-  if (!privateKey?.length) {
-    throw new Error('No peer private key provided');
-  }
-
-  const asLibp2pPrivateKey: PrivateKey = privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKey, 'hex')));
-  return peerIdFromPrivateKey(asLibp2pPrivateKey);
-}
-
-/**
- * Unmarshal a hex-encoded private key string into a libp2p PrivateKey object.
- * @param privateKeyHex - The hex-encoded private key string.
- * @returns The libp2p PrivateKey object.
- */
-export function unmarshalLibP2PPrivateKey(privateKeyHex: string): PrivateKey {
-  return privateKeyFromProtobuf(new Uint8Array(Buffer.from(privateKeyHex, 'hex')));
+  return newPeerIdPrivateKey;
 }
 
 /** Creates a new secp256k1 peer ID. */

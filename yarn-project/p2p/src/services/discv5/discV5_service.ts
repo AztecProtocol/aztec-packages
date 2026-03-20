@@ -6,6 +6,7 @@ import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@a
 import { Discv5, type Discv5EventEmitter, type IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId, PrivateKey } from '@libp2p/interface';
+import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
@@ -36,6 +37,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   public bootstrapNodeEnrs: ENR[] = [];
   private trustedPeerEnrs: ENR[] = [];
 
+  private peerId: PeerId;
+
   private startTime = 0;
 
   private handlers = {
@@ -45,7 +48,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   };
 
   constructor(
-    private peerId: PeerId,
     private libp2pPrivateKey: PrivateKey,
     private config: P2PConfig,
     private readonly packageVersion: string,
@@ -54,6 +56,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     configOverrides: Partial<IDiscv5CreateOptions> = {},
   ) {
     super();
+    this.peerId = peerIdFromPrivateKey(libp2pPrivateKey);
     const { p2pIp, p2pPort, p2pBroadcastPort, bootstrapNodes, trustedPeers, privatePeers } = config;
 
     this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));

@@ -1,6 +1,11 @@
-export type { PeerId } from '@libp2p/interface';
+export type { PeerId, PrivateKey } from '@libp2p/interface';
 
-export { createSecp256k1PeerId } from './util.js';
+export {
+  createSecp256k1PeerId,
+  createSecp256k1PrivateKeyWithPeerId,
+  privateKeyFromHex,
+  privateKeyToHex,
+} from './util.js';
 
 export * from './bootstrap/bootstrap.js';
 export * from './client/index.js';

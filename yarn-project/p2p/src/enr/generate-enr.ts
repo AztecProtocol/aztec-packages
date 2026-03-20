@@ -4,23 +4,23 @@ import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId, PrivateKey } from '@libp2p/interface';
+import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import { AZTEC_ENR_CLIENT_VERSION_KEY, AZTEC_ENR_KEY } from '../types/index.js';
-import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, unmarshalLibP2PPrivateKey } from '../util.js';
+import { convertToMultiaddr } from '../util.js';
 import { setAztecClientVersionEnrKey, setAztecEnrKey } from '../versioning.js';
 
 export { ENR };
 
 export function createBootnodeENRandPeerId(
-  privateKeyHex: string,
+  privateKey: PrivateKey,
   p2pIp: string,
   p2pBroadcastPort: number,
   l1ChainId: number,
 ): { enr: SignableENR; peerId: PeerId } {
-  const libp2pPrivateKey = unmarshalLibP2PPrivateKey(privateKeyHex);
-  const peerId = createLibP2PPeerIdFromPrivateKey(privateKeyHex);
-  const enr = SignableENR.createFromPrivateKey(libp2pPrivateKey);
+  const peerId = peerIdFromPrivateKey(privateKey);
+  const enr = SignableENR.createFromPrivateKey(privateKey);
   const publicAddr = multiaddr(convertToMultiaddr(p2pIp, p2pBroadcastPort, 'udp'));
   enr.setLocationMultiaddr(publicAddr);
 

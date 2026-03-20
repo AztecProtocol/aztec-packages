@@ -10,7 +10,7 @@ import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
 import { createBootnodeENRandPeerId } from '../enr/generate-enr.js';
-import { convertToMultiaddr, getPeerIdPrivateKey, getPublicIp, unmarshalLibP2PPrivateKey } from '../util.js';
+import { convertToMultiaddr, getPeerIdPrivateKey, getPublicIp } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -56,11 +56,10 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, config.p2pBroadcastPort!, 'udp'));
 
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
-    const libp2pPrivateKey = unmarshalLibP2PPrivateKey(peerIdPrivateKey.getValue());
+    const libp2pPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
 
     const { enr: ourEnr, peerId } = createBootnodeENRandPeerId(
-      peerIdPrivateKey.getValue(),
+      libp2pPrivateKey,
       p2pIp,
       config.p2pBroadcastPort!,
       config.l1ChainId,

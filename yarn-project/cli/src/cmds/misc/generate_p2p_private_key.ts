@@ -1,12 +1,8 @@
 import type { LogFn } from '@aztec/foundation/log';
-
-import { generateKeyPair, privateKeyToProtobuf } from '@libp2p/crypto/keys';
-import { peerIdFromPrivateKey } from '@libp2p/peer-id';
+import { createSecp256k1PrivateKeyWithPeerId, privateKeyToHex } from '@aztec/p2p';
 
 export async function generateP2PPrivateKey(log: LogFn) {
-  const privateKey = await generateKeyPair('secp256k1');
-  const peerId = peerIdFromPrivateKey(privateKey);
-  const exportedPeerId = Buffer.from(privateKeyToProtobuf(privateKey)).toString('hex');
-  log(`Private key: ${exportedPeerId}`);
+  const { privateKey, peerId } = await createSecp256k1PrivateKeyWithPeerId();
+  log(`Private key: ${privateKeyToHex(privateKey)}`);
   log(`Peer Id: ${peerId}`);
 }
