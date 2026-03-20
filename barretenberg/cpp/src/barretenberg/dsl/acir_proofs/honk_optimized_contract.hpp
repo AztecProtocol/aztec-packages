@@ -480,12 +480,12 @@ contract HonkVerifier is IVerifier {
 
     // Auxiliary relation constants
     // In the Non Native Field Arithmetic Relation, large field elements are broken up into 4 LIMBs of 68 `LIMB_SIZE` bits each.
-    uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 2<<68
+    uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 1<<68
 
     // In the Delta Range Check Relation, there is a range checking relation that can validate 14-bit range checks with only 1
     // extra relation in the execution trace.
     // For large range checks, we decompose them into a collection of 14-bit range checks.
-    uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 2<<14
+    uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 1<<14
 
     // Poseidon2 internal constants
     // https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage - derivation code
@@ -500,7 +500,7 @@ contract HonkVerifier is IVerifier {
 
     // Constants inspecting proof components
     uint256 internal constant NUMBER_OF_UNSHIFTED_ENTITIES = 36;
-    // Shifted columns are columes that are duplicates of existing columns but right-shifted by 1
+    // Shifted columns are columns that are duplicates of existing columns but right-shifted by 1
     uint256 internal constant NUMBER_OF_SHIFTED_ENTITIES = 5;
     uint256 internal constant TOTAL_NUMBER_OF_ENTITIES = 41;
 
@@ -830,10 +830,10 @@ contract HonkVerifier is IVerifier {
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-                /*             GENERATE BETA and GAMMAA  CHALLENGE            */
+                /*             GENERATE BETA and GAMMA  CHALLENGE            */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-                // Generate Beta and Gamma Chalenges
+                // Generate Beta and Gamma Challenges
                 // - prevChallenge
                 // - LOOKUP_READ_COUNTS
                 // - LOOKUP_READ_TAGS
@@ -853,8 +853,8 @@ contract HonkVerifier is IVerifier {
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // Generate Alpha challenges - non-linearise the gate contributions
                 //
-                // There are 26 total subrelations in this honk relation, we do not need to non linearise the first sub relation.
-                // There are 25 total gate contributions, a gate contribution is analogous to
+                // There are 28 total subrelations in this honk relation, we do not need to non linearise the first sub relation.
+                // There are 27 total gate contributions, a gate contribution is analogous to
                 // a custom gate, it is an expression which must evaluate to zero for each
                 // row in the constraint matrix
                 //
@@ -1031,7 +1031,7 @@ contract HonkVerifier is IVerifier {
             /*                     PUBLIC INPUT DELTA                     */
             /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
             /**
-             * Generate public inputa delta
+             * Generate public inputs delta
              *
              * The public inputs delta leverages plonk's copy constraints in order to
              * evaluate public inputs.
@@ -1072,7 +1072,7 @@ contract HonkVerifier is IVerifier {
                 // numerator_acc = gamma + (beta * (PERMUTATION_ARGUMENT_VALUE_SEPARATOR + offset))
                 let numerator_acc :=
                     addmod(gamma, mulmod(beta, add(PERMUTATION_ARGUMENT_VALUE_SEPARATOR, pub_off), p_clone), p_clone)
-                // demonimator_acc = gamma - (beta * (offset + 1))
+                // denominator_acc = gamma - (beta * (offset + 1))
                 let beta_x_off := mulmod(beta, add(pub_off, 1), p_clone)
                 let denominator_acc := addmod(gamma, sub(p_clone, beta_x_off), p_clone)
 
@@ -1454,7 +1454,7 @@ contract HonkVerifier is IVerifier {
                 mstore(FINAL_ROUND_TARGET_LOC, round_target)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-                /*                        LOGUP RELATION                      */
+                /*                    ARITHMETIC RELATION                     */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 {
                     /**
@@ -1561,7 +1561,7 @@ contract HonkVerifier is IVerifier {
                      * t2 = (W3 + gamma + beta * ID3) * (W4 + gamma + beta * ID4)
                      * gp_numerator = t1 * t2
                      * t1 = (W1 + gamma + beta * sigma_1_eval) * (W2 + gamma + beta * sigma_2_eval)
-                     * t2 = (W2 + gamma + beta * sigma_3_eval) * (W3 + gamma + beta * sigma_4_eval)
+                     * t2 = (W3 + gamma + beta * sigma_3_eval) * (W4 + gamma + beta * sigma_4_eval)
                      * gp_denominator = t1 * t2
                      */
                     let t1 :=
@@ -2138,7 +2138,7 @@ contract HonkVerifier is IVerifier {
                      *            \_                                                                               _/
                      *
                      * limb_subproduct = w_1 . w_2_shift + w_1_shift . w_2
-                     * non_native_field_gate_2 = w_1 * w_4 + w_4 * w_3 - w_3_shift
+                     * non_native_field_gate_2 = w_1 * w_4 + w_2 * w_3 - w_3_shift
                      * non_native_field_gate_2 = non_native_field_gate_2 * limb_size
                      * non_native_field_gate_2 -= w_4_shift
                      * non_native_field_gate_2 += limb_subproduct
@@ -2972,7 +2972,7 @@ contract HonkVerifier is IVerifier {
             // Accumulate vk points
             loadVk()
             {
-                // Acumulator = acumulator + scalar[1] * vk[0]
+                // Accumulator = accumulator + scalar[1] * vk[0]
                 mcopy(G1_LOCATION, Q_M_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_1_LOC))
                 precomp_success_flag := and(
@@ -3417,7 +3417,7 @@ contract HonkVerifier is IVerifier {
                 }
 
                 {
-                    // Accumlate final quotient commitment into shplonk check
+                    // Accumulate final quotient commitment into shplonk check
                     // Accumulator = accumulator + shplonkZ * quotient commitment
                     mcopy(G1_LOCATION, KZG_QUOTIENT_X_LOC, 0x40)
 
