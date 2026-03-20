@@ -1053,7 +1053,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
     const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
-    if (referenceBlockNumber === 0) {
+    if (referenceBlockNumber === BlockNumber.ZERO) {
       return undefined;
     }
     const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
