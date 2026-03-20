@@ -1,4 +1,5 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { filterAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import {
@@ -15,6 +16,7 @@ import { type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/chec
 import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type UtilityFunctionWithMembershipProof,
+  computeContractAddressFromInstance,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
   isValidUtilityFunctionMembershipProof,
@@ -281,6 +283,17 @@ export class ArchiverDataStoreUpdater {
     });
   }
 
+  /**
+   * Updates the finalized checkpoint number and refreshes the L2 tips cache.
+   * @param checkpointNumber - The checkpoint number to set as finalized.
+   */
+  public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      await this.store.setFinalizedCheckpointNumber(checkpointNumber);
+      await this.l2TipsCache?.refresh();
+    });
+  }
+
   /** Extracts and stores contract data from a single block. */
   private addContractDataToDb(block: L2Block): Promise<boolean> {
     return this.updateContractDataOnDb(block, Operation.Store);
@@ -345,10 +358,27 @@ export class ArchiverDataStoreUpdater {
     blockNum: BlockNumber,
     operation: Operation,
   ): Promise<boolean> {
-    const contractInstances = allLogs
+    const allInstances = allLogs
       .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
       .map(log => ContractInstancePublishedEvent.fromLog(log))
       .map(e => e.toContractInstance());
+
+    // Verify that each instance's address matches the one derived from its fields if we're adding
+    const contractInstances =
+      operation === Operation.Delete
+        ? allInstances
+        : await filterAsync(allInstances, async instance => {
+            const computedAddress = await computeContractAddressFromInstance(instance);
+            if (!computedAddress.equals(instance.address)) {
+              this.log.warn(
+                `Found contract instance with mismatched address at block ${blockNum}. Claimed ${instance.address} but computed ${computedAddress}.`,
+                { instanceAddress: instance.address.toString(), computedAddress: computedAddress.toString(), blockNum },
+              );
+              return false;
+            }
+            return true;
+          });
+
     if (contractInstances.length > 0) {
       contractInstances.forEach(c =>
         this.log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
