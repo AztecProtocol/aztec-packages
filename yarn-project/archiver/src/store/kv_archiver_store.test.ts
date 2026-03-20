@@ -89,7 +89,7 @@ describe('KVArchiverDataStore', () => {
   };
 
   beforeEach(async () => {
-    store = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000, { epochDuration: 32 });
+    store = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000);
     // Create checkpoints sequentially to ensure archive roots are chained properly.
     // Each block's header.lastArchive must equal the previous block's archive.
     publishedCheckpoints = [];

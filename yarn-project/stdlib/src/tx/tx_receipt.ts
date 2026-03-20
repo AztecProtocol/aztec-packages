@@ -15,7 +15,7 @@ export enum TxStatus {
   PROPOSED = 'proposed',
   CHECKPOINTED = 'checkpointed',
   PROVEN = 'proven',
-  FINALIZED = 'finalized', // TODO(#13569): Implement finalized status properly
+  FINALIZED = 'finalized',
 }
 
 /** Tx status sorted by finalization progress. */

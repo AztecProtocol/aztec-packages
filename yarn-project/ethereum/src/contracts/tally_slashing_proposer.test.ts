@@ -1,4 +1,4 @@
-import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { type Anvil, EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
@@ -9,7 +9,6 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
 
-import type { Anvil } from '@viem/anvil';
 import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';

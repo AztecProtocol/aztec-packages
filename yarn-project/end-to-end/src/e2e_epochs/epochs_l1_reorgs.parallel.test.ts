@@ -73,6 +73,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       maxTxsPerBlock: 1,
       enforceTimeTable: true,
       aztecProofSubmissionEpochs: 1,
+      // Use 32 slots/epoch (matching real Ethereum mainnet)
+      anvilSlotsInAnEpoch: 32,
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
@@ -101,11 +103,31 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     const getProvenCheckpointNumber = (node: AztecNode) => node.getL2Tips().then(tips => tips.proven.checkpoint.number);
 
     it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
+      /** Logs a full state snapshot: L1 latest/finalized and archiver L2 tips. */
+      const logState = async (label: string) => {
+        const [l1Latest, l1Finalized, archiverTips] = await Promise.all([
+          test.l1Client.getBlockNumber(),
+          test.l1Client.getBlock({ blockTag: 'finalized', includeTransactions: false }).then(b => b.number),
+          archiver.getL2Tips(),
+        ]);
+        logger.warn(`[state:${label}]`, {
+          l1Latest,
+          l1Finalized,
+          l2Proposed: archiverTips.proposed.number,
+          l2Checkpointed: archiverTips.checkpointed.block.number,
+          l2Proven: archiverTips.proven.block.number,
+          provenCheckpoint: archiverTips.proven.checkpoint.number,
+          l2Finalized: archiverTips.finalized.block.number,
+          finalizedCheckpoint: archiverTips.finalized.checkpoint.number,
+        });
+      };
+
       // Send txs to trigger multi-block checkpoints
       await sendTransactions(TX_COUNT);
 
       // Capture initial chain state
       const initialProvenCheckpoint = (await monitor.run(true)).provenCheckpointNumber;
+      await logState('initial');
 
       // Wait until we have proven something and the nodes have caught up
       const epochDurationSeconds = test.constants.epochDuration * test.constants.slotDuration;
@@ -130,12 +152,23 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         epochDurationSeconds * 4 * 1000,
       );
 
+      logger.warn(
+        `Proof for checkpoint ${provenBlockEvent.provenCheckpointNumber} mined at L1 block ${provenBlockEvent.l1BlockNumber}`,
+      );
+      await logState('proof-landed');
+
       // Stop the prover node (by stopping its hosting aztec node) so it doesn't re-submit the proof after we've removed it
-      logger.warn(`Proof for block ${provenBlockEvent.provenCheckpointNumber} mined, stopping prover node`);
+      logger.warn(`Stopping prover node`);
       await test.proverNodes[0].stop();
+      await logState('prover-stopped');
 
       // And remove the proof from L1
-      await context.cheatCodes.eth.reorgTo(provenBlockEvent.l1BlockNumber - 1);
+      const reorgTarget = provenBlockEvent.l1BlockNumber - 1;
+      logger.warn(
+        `Reorging L1 from current tip to block ${reorgTarget} (removing proof block ${provenBlockEvent.l1BlockNumber})`,
+      );
+      await context.cheatCodes.eth.reorgTo(reorgTarget);
+      await logState('after-reorg');
       expect((await monitor.run(true)).provenCheckpointNumber).toEqual(initialProvenCheckpoint);
 
       // Wait until the end of the proof submission window for the epoch of the proven checkpoint
@@ -143,6 +176,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         CheckpointNumber(provenBlockEvent.provenCheckpointNumber),
       );
       await test.waitUntilLastSlotOfProofSubmissionWindow(provenCheckpointEpoch);
+      await logState('after-submission-window');
 
       // Ensure that a new node sees the reorg
       logger.warn(`Syncing new node to test reorg`);
@@ -164,6 +198,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         L2_SLOT_DURATION_IN_S * 4,
         0.1,
       );
+      await logState('old-node-synced');
       expect(await getCheckpointNumber(node)).toBeWithin(monitor.checkpointNumber - 1, monitor.checkpointNumber + 1);
 
       // Verify multi-block checkpoints were built
