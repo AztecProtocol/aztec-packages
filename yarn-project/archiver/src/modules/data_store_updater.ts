@@ -8,7 +8,11 @@ import {
 } from '@aztec/protocol-contracts/instance-registry';
 import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
-import { computeContractAddressFromInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import {
+  type ContractClassPublicWithCommitment,
+  computeContractAddressFromInstance,
+  computeContractClassId,
+} from '@aztec/stdlib/contract';
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -315,18 +319,37 @@ export class ArchiverDataStoreUpdater {
       .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
       .map(log => ContractClassPublishedEvent.fromLog(log));
 
-    const contractClasses = await Promise.all(contractClassPublishedEvents.map(e => e.toContractClassPublic()));
-    if (contractClasses.length > 0) {
-      contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
-      if (operation == Operation.Store) {
-        // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
-        const commitments = await Promise.all(
-          contractClasses.map(c => computePublicBytecodeCommitment(c.packedBytecode)),
-        );
-        return await this.store.addContractClasses(contractClasses, commitments, blockNum);
-      } else if (operation == Operation.Delete) {
+    if (operation == Operation.Delete) {
+      const contractClasses = contractClassPublishedEvents.map(e => e.toContractClassPublic());
+      if (contractClasses.length > 0) {
+        contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
         return await this.store.deleteContractClasses(contractClasses, blockNum);
       }
+      return true;
+    }
+
+    // Compute bytecode commitments and validate class IDs in a single pass.
+    const contractClasses: ContractClassPublicWithCommitment[] = [];
+    for (const event of contractClassPublishedEvents) {
+      const contractClass = await event.toContractClassPublicWithBytecodeCommitment();
+      const computedClassId = await computeContractClassId({
+        artifactHash: contractClass.artifactHash,
+        privateFunctionsRoot: contractClass.privateFunctionsRoot,
+        publicBytecodeCommitment: contractClass.publicBytecodeCommitment,
+      });
+      if (!computedClassId.equals(contractClass.id)) {
+        this.log.warn(
+          `Skipping contract class with mismatched id at block ${blockNum}. Claimed ${contractClass.id}, computed ${computedClassId}`,
+          { blockNum, contractClassId: event.contractClassId.toString() },
+        );
+        continue;
+      }
+      contractClasses.push(contractClass);
+    }
+
+    if (contractClasses.length > 0) {
+      contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
+      return await this.store.addContractClasses(contractClasses, blockNum);
     }
     return true;
   }
