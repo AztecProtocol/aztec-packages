@@ -14,9 +14,9 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 65> SUBRELATION_PARTIAL_LENGTHS = {
+    static constexpr std::array<size_t, 66> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 5, 3, 3, 3, 4, 5, 3, 5, 3, 3, 4, 3, 6, 6, 3, 3,
-        5, 6, 6, 6, 4, 3, 4, 5, 5, 5, 6, 4, 4, 3, 3, 4, 4, 6, 6, 5, 3, 3, 5, 3, 3, 3, 2, 2, 3, 3, 4, 3
+        5, 6, 6, 6, 4, 3, 4, 5, 5, 5, 6, 4, 4, 3, 3, 4, 4, 6, 6, 5, 3, 3, 5, 3, 3, 3, 2, 2, 3, 4, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -70,9 +70,10 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 59;
     static constexpr size_t SR_SEL_TRUNCATE = 60;
     static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 61;
-    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 62;
-    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 63;
-    static constexpr size_t SR_TRUNC_MID_BITS = 64;
+    static constexpr size_t SR_DEST_FF_IS_TRIVIAL = 62;
+    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 63;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 64;
+    static constexpr size_t SR_TRUNC_MID_BITS = 65;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -141,6 +142,8 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "SEL_TRUNCATE";
         case SR_TRUNC_TRIVIAL_CASE:
             return "TRUNC_TRIVIAL_CASE";
+        case SR_DEST_FF_IS_TRIVIAL:
+            return "DEST_FF_IS_TRIVIAL";
         case SR_SMALL_TRUNC_VAL_IS_LO:
             return "SMALL_TRUNC_VAL_IS_LO";
         case SR_TRUNC_LO_128_DECOMPOSITION:

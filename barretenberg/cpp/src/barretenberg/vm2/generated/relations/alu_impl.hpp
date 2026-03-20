@@ -512,26 +512,32 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (static_cast<View>(in.get(C::alu_ia)) - static_cast<View>(in.get(C::alu_ic)));
         std::get<61>(evals) += (tmp * scaling_factor);
     }
-    { // SMALL_TRUNC_VAL_IS_LO
+    { // DEST_FF_IS_TRIVIAL
         using View = typename std::tuple_element_t<62, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::alu_sel_trunc_lt_128)) *
-                   (static_cast<View>(in.get(C::alu_a_lo)) - static_cast<View>(in.get(C::alu_ia)));
+        auto tmp = static_cast<View>(in.get(C::alu_sel_op_truncate)) * static_cast<View>(in.get(C::alu_sel_is_ff)) *
+                   (FF(1) - static_cast<View>(in.get(C::alu_sel_trunc_trivial)));
         std::get<62>(evals) += (tmp * scaling_factor);
     }
-    { // TRUNC_LO_128_DECOMPOSITION
+    { // SMALL_TRUNC_VAL_IS_LO
         using View = typename std::tuple_element_t<63, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::alu_sel_trunc_lt_128)) *
+                   (static_cast<View>(in.get(C::alu_a_lo)) - static_cast<View>(in.get(C::alu_ia)));
+        std::get<63>(evals) += (tmp * scaling_factor);
+    }
+    { // TRUNC_LO_128_DECOMPOSITION
+        using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::alu_sel_trunc_non_trivial)) *
                    ((static_cast<View>(in.get(C::alu_ic)) +
                      static_cast<View>(in.get(C::alu_mid)) * (static_cast<View>(in.get(C::alu_max_value)) + FF(1))) -
                     static_cast<View>(in.get(C::alu_a_lo)));
-        std::get<63>(evals) += (tmp * scaling_factor);
+        std::get<64>(evals) += (tmp * scaling_factor);
     }
     { // TRUNC_MID_BITS
-        using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<65, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::alu_mid_bits)) - static_cast<View>(in.get(C::alu_sel_trunc_non_trivial)) *
                                                               (FF(128) - static_cast<View>(in.get(C::alu_max_bits))));
-        std::get<64>(evals) += (tmp * scaling_factor);
+        std::get<65>(evals) += (tmp * scaling_factor);
     }
 }
 
