@@ -1,5 +1,5 @@
-pub mod audit_metadata;
-mod expression_evaluation;
+pub mod analysis;
+pub(crate) mod expression_evaluation;
 mod file_writer;
 mod flavor_builder;
 pub mod lookup_builder;

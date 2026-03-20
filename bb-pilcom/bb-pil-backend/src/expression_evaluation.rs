@@ -128,7 +128,13 @@ pub fn get_expression_degree<F: FieldElement>(expr: &AlgebraicExpression<F>) -> 
                 AlgebraicBinaryOperator::Add => std::cmp::max(lhs_degree, rhs_degree),
                 AlgebraicBinaryOperator::Sub => std::cmp::max(lhs_degree, rhs_degree),
                 AlgebraicBinaryOperator::Mul => lhs_degree + rhs_degree,
-                _ => unimplemented!("{:?}", op),
+                AlgebraicBinaryOperator::Pow => {
+                    if let AlgebraicExpression::Number(n) = right.as_ref() {
+                        lhs_degree * n.to_arbitrary_integer().try_into().unwrap_or(0u64)
+                    } else {
+                        lhs_degree // conservative fallback
+                    }
+                }
             }
         }
         AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation { op, expr: operand }) => match op {
@@ -298,7 +304,15 @@ fn compute_expression_<F: FieldElement>(
                         placeholders: merge_maps(lhs.placeholders, rhs.placeholders),
                     }
                 }
-                _ => unimplemented!("{:?}", op),
+                AlgebraicBinaryOperator::Pow => {
+                    PolynomialExpression {
+                        pattern_with_placeholders: format!(
+                            "({}) ** {}",
+                            lhs.pattern_with_placeholders, rhs.pattern_with_placeholders
+                        ),
+                        placeholders: merge_maps(lhs.placeholders, rhs.placeholders),
+                    }
+                }
             }
         }
         AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation {
