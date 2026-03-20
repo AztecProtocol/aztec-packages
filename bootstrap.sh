@@ -487,12 +487,28 @@ function versions {
 }
 
 function release_bb_github {
-  # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
-  # Users can manually create releases in aztec-packages via the GitHub UI if needed.
+  # Push barretenberg source and create a GitHub release in AztecProtocol/barretenberg.
+  # Each release is a single orphan commit tagged with the version — disconnected from any branch.
   local bb_repo="AztecProtocol/barretenberg"
   if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
     return
   fi
+
+  # Push barretenberg/ contents as an orphan commit with the release tag.
+  local temp_dir=$(mktemp -d)
+  cp -a "$root/barretenberg/." "$temp_dir/"
+  (
+    cd "$temp_dir"
+    git init
+    git config user.name "AztecBot"
+    git config user.email "tech@aztec-labs.com"
+    git add -A
+    git commit -m "Release $REF_NAME"
+    git tag "$REF_NAME"
+    do_or_dryrun git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${bb_repo}.git" "$REF_NAME"
+  )
+  rm -rf "$temp_dir"
+
   local prerelease_flag=""
   if [ -n "$(semver prerelease $REF_NAME)" ]; then
     prerelease_flag="--prerelease"
@@ -806,7 +822,7 @@ case "$cmd" in
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
       echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
-      release_github
+      release_bb_github
       echo "Fetching private source from aztec-packages-private..."
       git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
       git fetch --depth 1 private "refs/tags/$REF_NAME"
