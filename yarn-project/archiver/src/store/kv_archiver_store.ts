@@ -16,6 +16,7 @@ import {
 import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
+  ContractClassPublicWithCommitment,
   ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
@@ -165,19 +166,14 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   /**
    * Add new contract classes from an L2 block to the store's list.
-   * @param data - List of contract classes to be added.
-   * @param bytecodeCommitments - Bytecode commitments for the contract classes.
+   * @param data - List of contract classes (with bytecode commitments) to be added.
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  async addContractClasses(
-    data: ContractClassPublic[],
-    bytecodeCommitments: Fr[],
-    blockNumber: BlockNumber,
-  ): Promise<boolean> {
+  async addContractClasses(data: ContractClassPublicWithCommitment[], blockNumber: BlockNumber): Promise<boolean> {
     return (
       await Promise.all(
-        data.map((c, i) => this.#contractClassStore.addContractClass(c, bytecodeCommitments[i], blockNumber)),
+        data.map(c => this.#contractClassStore.addContractClass(c, c.publicBytecodeCommitment, blockNumber)),
       )
     ).every(Boolean);
   }
