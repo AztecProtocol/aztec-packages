@@ -121,6 +121,7 @@ export class SequencerPublisher {
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
+  private dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -170,6 +171,7 @@ export class SequencerPublisher {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
+    this.dateProvider = deps.dateProvider;
     this.lastActions = deps.lastActions;
 
     this.blobClient = deps.blobClient;
@@ -651,7 +653,7 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    const ts = this.getNextL1SlotTimestamp();
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -1356,9 +1358,8 @@ export class SequencerPublisher {
     });
   }
 
-  /** Returns the timestamp to use when simulating L1 proposal calls */
+  /** Returns the timestamp to use when simulating L1 proposal calls. Uses wall-clock time instead of L1 block timestamp. */
   private getNextL1SlotTimestamp(): bigint {
-    const l1Constants = this.epochCache.getL1Constants();
-    return getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
+    return BigInt(this.dateProvider.nowInSeconds()) + this.ethereumSlotDuration;
   }
 }
