@@ -13,17 +13,12 @@ import {
 import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
-<<<<<<< HEAD
+  type ContractClassPublicWithCommitment,
   type ExecutablePrivateFunctionWithMembershipProof,
   type UtilityFunctionWithMembershipProof,
-  computePublicBytecodeCommitment,
+  computeContractClassId,
   isValidPrivateFunctionMembershipProof,
   isValidUtilityFunctionMembershipProof,
-=======
-  type ContractClassPublicWithCommitment,
-  computeContractAddressFromInstance,
-  computeContractClassId,
->>>>>>> c3c62308d8 (feat(p2p): add tx validator for contract class id verification (#21788))
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';

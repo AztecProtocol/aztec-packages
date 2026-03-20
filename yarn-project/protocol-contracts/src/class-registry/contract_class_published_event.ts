@@ -54,13 +54,9 @@ export class ContractClassPublishedEvent {
       artifactHash: this.artifactHash,
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
-<<<<<<< HEAD
-      version: this.version,
+      version: this.version as 1,
       privateFunctions: [],
       utilityFunctions: [],
-=======
-      version: this.version as 1,
->>>>>>> c3c62308d8 (feat(p2p): add tx validator for contract class id verification (#21788))
     };
   }
 
