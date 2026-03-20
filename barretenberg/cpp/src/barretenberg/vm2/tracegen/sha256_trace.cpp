@@ -619,7 +619,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_output_addr, output_addr },
                           { C::sha256_input_addr, round_input_addr },
                           { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
-                          { C::sha256_two_pow_32, 1UL << 32 },
+                          { C::sha256_two_pow_32, static_cast<uint64_t>(1) << 32 },
                           // For round selectors
                           { C::sha256_xor_op_id, AVM_BITWISE_XOR_OP_ID },
                           { C::sha256_and_op_id, AVM_BITWISE_AND_OP_ID },
@@ -681,7 +681,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_sel_mem_state_or_output, 1 },
                       { C::sha256_rw, 1 }, // Writing output
                       { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_two_pow_32, 1UL << 32 },
+                      { C::sha256_two_pow_32, static_cast<uint64_t>(1) << 32 },
                       { C::sha256_output_addr, output_addr },
                       // Output Addresses
                       { C::sha256_memory_address_0_, output_addr },
