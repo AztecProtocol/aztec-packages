@@ -1,7 +1,8 @@
 name: Copy BB Release Artifacts
 # When a release is published on aztec-packages, copy barretenberg artifacts
 # from AztecProtocol/barretenberg to the aztec-packages release.
-# This lets bbup and barretenberg-rs fall back to aztec-packages for important releases.
+# Historical bbup versions (~before April 2026) benefit from having these artifacts here.
+# Newer bbup versions are able to download experimental nightlies from barretenberg repo.
 on:
   release:
     types: [published]
