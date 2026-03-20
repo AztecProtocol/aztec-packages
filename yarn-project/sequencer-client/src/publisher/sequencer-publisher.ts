@@ -605,7 +605,7 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public async canProposeAt(
+  public canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
     opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
@@ -615,7 +615,7 @@ export class SequencerPublisher {
 
     const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
-    const nextL1SlotTs = (await this.getNextL1SlotTimestampWithL1Floor()) + slotOffset;
+    const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract
       .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
@@ -656,7 +656,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = await this.getNextL1SlotTimestampWithL1Floor();
+    const ts = this.getNextL1SlotTimestamp();
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -1590,20 +1590,9 @@ export class SequencerPublisher {
     });
   }
 
-  /**
-   * Returns the timestamp to use when simulating L1 proposal calls.
-   * Uses the wall-clock-based next L1 slot boundary, but floors it with the latest L1 block timestamp
-   * plus one slot duration. This prevents the sequencer from targeting a future L2 slot when the L1
-   * chain hasn't caught up to the wall clock yet (e.g., the dateProvider is one L1 slot ahead of the
-   * latest mined block), which would cause the propose tx to land in an L1 block with block.timestamp
-   * still in the previous L2 slot.
-   * TODO(palla): Properly fix by keeping dateProvider synced with anvil's chain time on every block.
-   */
-  private async getNextL1SlotTimestampWithL1Floor(): Promise<bigint> {
+  /** Returns the timestamp to use when simulating L1 proposal calls */
+  private getNextL1SlotTimestamp(): bigint {
     const l1Constants = this.epochCache.getL1Constants();
-    const fromWallClock = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
-    const latestBlock = await this.l1TxUtils.client.getBlock();
-    const fromL1Block = latestBlock.timestamp + BigInt(l1Constants.ethereumSlotDuration);
-    return fromWallClock > fromL1Block ? fromWallClock : fromL1Block;
+    return getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
   }
 }
