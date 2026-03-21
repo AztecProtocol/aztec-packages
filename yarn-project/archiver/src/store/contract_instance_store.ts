@@ -27,11 +27,14 @@ export class ContractInstanceStore {
 
   addContractInstance(contractInstance: ContractInstanceWithAddress, blockNumber: number): Promise<void> {
     return this.db.transactionAsync(async () => {
-      await this.#contractInstances.set(
-        contractInstance.address.toString(),
-        new SerializableContractInstance(contractInstance).toBuffer(),
-      );
-      await this.#contractInstancePublishedAt.set(contractInstance.address.toString(), blockNumber);
+      const key = contractInstance.address.toString();
+      if (await this.#contractInstances.hasAsync(key)) {
+        throw new Error(
+          `Contract instance at ${key} already exists (deployed at block ${await this.#contractInstancePublishedAt.getAsync(key)}), cannot add again at block ${blockNumber}`,
+        );
+      }
+      await this.#contractInstances.set(key, new SerializableContractInstance(contractInstance).toBuffer());
+      await this.#contractInstancePublishedAt.set(key, blockNumber);
     });
   }
 

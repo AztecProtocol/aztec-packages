@@ -73,6 +73,11 @@ SlotNumber.isValid = function (value: unknown): value is SlotNumber {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 };
 
+/** Increments a SlotNumber by a given value. */
+SlotNumber.add = function (sn: SlotNumber, increment: number): SlotNumber {
+  return SlotNumber(sn + increment);
+};
+
 /**
  * The zero slot value.
  */

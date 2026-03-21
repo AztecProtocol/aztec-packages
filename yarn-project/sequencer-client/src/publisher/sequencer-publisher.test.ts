@@ -22,6 +22,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
@@ -138,6 +139,7 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
+    epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
     epochCache.getCommittee.mockResolvedValue({
       committee: [],
       seed: 1n,
