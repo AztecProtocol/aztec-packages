@@ -27,6 +27,8 @@ class MegaZKFlavor;
 class MegaAvmFlavor;
 class Poseidon2SingleRowFlavor;
 class MegaV2Flavor;
+class MegaV2ZKFlavor;
+template <typename BuilderType> class MegaV2RecursiveFlavor_;
 class Poseidon2FinalFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;

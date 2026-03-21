@@ -32,7 +32,9 @@ template <typename T>
 concept HasPoseidon2SingleRow = IsAnyOf<T, Poseidon2SingleRowFlavor, Poseidon2FinalFlavor>;
 
 template <typename T>
-concept HasPoseidon2OpQueue = IsAnyOf<T, MegaV2Flavor>;
+concept HasPoseidon2OpQueue = IsAnyOf<T, MegaV2Flavor, MegaV2ZKFlavor,
+                                          MegaV2RecursiveFlavor_<UltraCircuitBuilder>,
+                                          MegaV2RecursiveFlavor_<MegaCircuitBuilder>>;
 
 // Poseidon2FinalFlavor is a minimal flavor with no standard Plonk infrastructure
 // (no permutation argument, no lookups, no lagrange polys, no databus)

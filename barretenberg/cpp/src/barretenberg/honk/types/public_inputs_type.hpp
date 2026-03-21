@@ -76,4 +76,17 @@ static constexpr std::size_t ROLLUP_PUBLIC_INPUTS_SIZE =
 // Number of bb::fr elements used to represent the public inputs of the inner circuit in the GoblinAvmRecursiveVerifier
 static constexpr std::size_t GOBLIN_AVM_PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE + PAIRING_POINTS_SIZE;
 
+// Number of Poseidon2 op wires (5: 4 inputs + 1 output)
+static constexpr std::size_t POSEIDON2_OP_WIRE_COUNT = 5;
+
+// V2 kernel public inputs: adds poseidon2_op_tables (5 G1 points = 20 fr elements)
+static constexpr std::size_t KERNEL_V2_PUBLIC_INPUTS_SIZE =
+    KERNEL_PUBLIC_INPUTS_SIZE +
+    /*poseidon2_op_tables*/ (POSEIDON2_OP_WIRE_COUNT * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE);
+
+// V2 hiding kernel public inputs: adds poseidon2_op_tables
+static constexpr std::size_t HIDING_KERNEL_V2_PUBLIC_INPUTS_SIZE =
+    HIDING_KERNEL_PUBLIC_INPUTS_SIZE +
+    /*poseidon2_op_tables*/ (POSEIDON2_OP_WIRE_COUNT * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE);
+
 } // namespace bb
