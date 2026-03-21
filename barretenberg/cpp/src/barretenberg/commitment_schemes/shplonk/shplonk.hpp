@@ -214,7 +214,9 @@ template <typename Curve> class ShplonkProver_ {
         }
 
         for (auto& claim : sumcheck_opening_claims) {
-            claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
+            Fr v_j = claim.opening_pair.evaluation;
+
+            claim.polynomial.at(0) = claim.polynomial[0] - v_j;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
 
             // Add the claim quotient to the batched quotient polynomial
@@ -403,6 +405,10 @@ template <typename Curve> class ShplonkVerifier_ {
 
         return { { z_challenge, evaluation }, result };
     }
+
+    // Accessors for use in split verification circuits
+    Fr get_z_challenge() const { return z_challenge; }
+    Fr get_evaluation() const { return evaluation; }
 
     /**
      * @brief Export a BatchOpeningClaim instead of performing final batch_mul

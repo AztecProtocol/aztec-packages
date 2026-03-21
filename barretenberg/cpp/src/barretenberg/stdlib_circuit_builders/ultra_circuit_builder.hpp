@@ -6,6 +6,9 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_grumpkin_params.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/honk/execution_trace/grumpkin_ultra_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
@@ -44,6 +47,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     using RomRamLogic = RomRamLogic_<ExecutionTrace>;
 
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
+
+    // Select Poseidon2 round constants based on the native field type
+    using Poseidon2Params = std::conditional_t<std::is_same_v<FF, bb::fq>,
+                                                crypto::Poseidon2GrumpkinScalarFieldParams,
+                                                crypto::Poseidon2Bn254ScalarFieldParams>;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     // The plookup-style range proof requires work linear in range size, thus cannot be used directly for
@@ -212,7 +220,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
-    std::vector<fr> ipa_proof;
+    bool circuit_finalized = false;
+
+    std::vector<FF> ipa_proof;
 
     void populate_public_inputs_block();
 
@@ -680,4 +690,5 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     msgpack::sbuffer export_circuit();
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
+using GrumpkinUltraCircuitBuilder = UltraCircuitBuilder_<GrumpkinUltraExecutionTraceBlocks>;
 } // namespace bb

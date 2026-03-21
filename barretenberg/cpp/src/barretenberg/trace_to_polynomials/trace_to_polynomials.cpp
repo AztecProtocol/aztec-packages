@@ -7,6 +7,7 @@
 #include "trace_to_polynomials.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
+#include "barretenberg/flavor/chonk_g_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
@@ -119,5 +120,6 @@ template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<MegaAvmFlavor>;
+template class TraceToPolynomials<ChonkGFlavor>;
 
 } // namespace bb

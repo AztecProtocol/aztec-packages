@@ -1,4 +1,5 @@
 #include "poseidon2_permutation.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_grumpkin_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include <gtest/gtest.h>
@@ -56,4 +57,31 @@ TEST(Poseidon2Permutation, ConsistencyCheck)
         fr(std::string("0x0cbea457c91c22c6c31fd89afd2541efc2edf31736b9f721e823b2165c90fd41")),
     };
     EXPECT_EQ(result, expected);
+}
+
+TEST(Poseidon2Permutation, GrumpkinTestVectors)
+{
+    auto input = crypto::Poseidon2GrumpkinScalarFieldParams::TEST_VECTOR_INPUT;
+    auto expected = crypto::Poseidon2GrumpkinScalarFieldParams::TEST_VECTOR_OUTPUT;
+    auto result = crypto::Poseidon2Permutation<crypto::Poseidon2GrumpkinScalarFieldParams>::permutation(input);
+
+    EXPECT_EQ(result, expected);
+}
+
+TEST(Poseidon2Permutation, GrumpkinBasicTests)
+{
+    fq a = fq::random_element(&engine);
+    fq b = fq::random_element(&engine);
+    fq c = fq::random_element(&engine);
+    fq d = fq::random_element(&engine);
+
+    std::array<fq, 4> input1{ a, b, c, d };
+    std::array<fq, 4> input2{ d, c, b, a };
+
+    auto r0 = crypto::Poseidon2Permutation<crypto::Poseidon2GrumpkinScalarFieldParams>::permutation(input1);
+    auto r1 = crypto::Poseidon2Permutation<crypto::Poseidon2GrumpkinScalarFieldParams>::permutation(input1);
+    auto r2 = crypto::Poseidon2Permutation<crypto::Poseidon2GrumpkinScalarFieldParams>::permutation(input2);
+
+    EXPECT_EQ(r0, r1);
+    EXPECT_NE(r0, r2);
 }

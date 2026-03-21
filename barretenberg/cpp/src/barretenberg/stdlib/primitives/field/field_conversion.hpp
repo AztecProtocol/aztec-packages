@@ -34,6 +34,30 @@ template <typename Field> class StdlibCodec {
     using grumpkin_commitment = cycle_group<Builder>;
 
     /**
+     * @brief Check whether a point corresponds to (0, 0), the conventional representation of the point infinity.
+     *
+     * bn254: In the case of a bn254 point, the bigfield limbs (x_lo, x_hi, y_lo, y_hi) are range constrained, and their
+     * sum is a non-negative integer not exceeding 2^138, i.e. it does not overflow the fq modulus, hence all limbs must
+     * be 0.
+     *
+     * Grumpkin: We are using the observation that (x^2 + 5 * y^2 = 0) has no non-trivial solutions in fr, since fr
+     * modulus p == 2 mod 5, i.e. 5 is not a square mod p.
+     */
+    template <typename T> static bool_t<Builder> check_point_at_infinity(std::span<const fr> fr_vec)
+    {
+        if constexpr (IsAnyOf<T, bn254_commitment>) {
+            // Sum the limbs and check whether the sum is 0
+            return (fr::accumulate(std::vector<fr>(fr_vec.begin(), fr_vec.end())).is_zero());
+        } else {
+            // Efficiently compute ((x^2 + 5 y^2) == 0)
+            const fr x_sqr = fr_vec[0].sqr();
+            const fr y = fr_vec[1];
+            const fr five_y = y * fr(5);
+            return (y.madd(five_y, x_sqr).is_zero());
+        }
+    }
+
+    /**
      * @brief  A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Assumes that
      * `challenge` is "short".
      *
@@ -67,7 +91,7 @@ template <typename Field> class StdlibCodec {
     {
         static constexpr uint64_t NUM_LIMB_BITS = fq::NUM_LIMB_BITS;
 
-        static constexpr bb::fr shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
+        static constexpr typename fr::native shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
         std::vector<fr> result(2);
         result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
         result[1] = input.binary_basis_limbs[2].element + (input.binary_basis_limbs[3].element * shift);

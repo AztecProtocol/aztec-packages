@@ -20,8 +20,8 @@ namespace bb::stdlib {
 template <typename Builder>
 field_t<Builder>::field_t(Builder* parent_context)
     : context(parent_context)
-    , additive_constant(bb::fr::zero())
-    , multiplicative_constant(bb::fr::one())
+    , additive_constant(FF::zero())
+    , multiplicative_constant(FF::one())
     , witness_index(IS_CONSTANT)
 {
     tag = OriginTag::constant();
@@ -30,18 +30,18 @@ field_t<Builder>::field_t(Builder* parent_context)
 template <typename Builder>
 field_t<Builder>::field_t(const witness_t<Builder>& value)
     : context(value.context)
-    , additive_constant(bb::fr::zero())
-    , multiplicative_constant(bb::fr::one())
+    , additive_constant(FF::zero())
+    , multiplicative_constant(FF::one())
     , witness_index(value.witness_index)
 {
     set_free_witness_tag();
 }
 
 template <typename Builder>
-field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
+field_t<Builder>::field_t(Builder* parent_context, const FF& value)
     : context(parent_context)
     , additive_constant(value)
-    , multiplicative_constant(bb::fr::one())
+    , multiplicative_constant(FF::one())
     , witness_index(IS_CONSTANT)
 {
     tag = OriginTag::constant();
@@ -53,12 +53,12 @@ field_t<Builder>::field_t(const bool_t<Builder>& other)
 {
     if (other.is_constant()) {
         additive_constant = other.get_value();
-        multiplicative_constant = bb::fr::one();
+        multiplicative_constant = FF::one();
         witness_index = IS_CONSTANT;
     } else {
         witness_index = other.witness_index;
-        additive_constant = other.witness_inverted ? bb::fr::one() : bb::fr::zero();
-        multiplicative_constant = other.witness_inverted ? bb::fr::neg_one() : bb::fr::one();
+        additive_constant = other.witness_inverted ? FF::one() : FF::zero();
+        multiplicative_constant = other.witness_inverted ? FF::neg_one() : FF::one();
     }
     tag = other.tag;
 }
@@ -87,17 +87,17 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
     if (is_constant()) {
-        BB_ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero(),
+        BB_ASSERT(additive_constant == FF::one() || additive_constant == FF::zero(),
                   "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
         bool_t<Builder> result(context);
-        result.witness_bool = (additive_constant == bb::fr::one());
+        result.witness_bool = (additive_constant == FF::one());
         result.set_origin_tag(tag);
         return result;
     }
 
-    const bool add_constant_check = (additive_constant == bb::fr::zero());
-    const bool mul_constant_check = (multiplicative_constant == bb::fr::one());
-    const bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
+    const bool add_constant_check = (additive_constant == FF::zero());
+    const bool mul_constant_check = (multiplicative_constant == FF::one());
+    const bool inverted_check = (additive_constant == FF::one()) && (multiplicative_constant == FF::neg_one());
     bool result_inverted = false;
     // Process the elements of the form
     //      a = a.v * 1 + 0 and a = a.v * (-1) + 1
@@ -114,10 +114,10 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
         witness_idx = normalize().witness_index;
     }
     // Get the normalized value of the witness
-    bb::fr witness = context->get_variable(witness_idx);
-    BB_ASSERT(witness == bb::fr::zero() || witness == bb::fr::one(),
+    FF witness = context->get_variable(witness_idx);
+    BB_ASSERT(witness == FF::zero() || witness == FF::one(),
               "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
-    bool_t result(context, witness == bb::fr::one());
+    bool_t result(context, witness == FF::one());
     result.witness_inverted = result_inverted;
     result.witness_index = witness_idx;
     context->create_bool_gate(witness_idx);
@@ -160,9 +160,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
         // which leads to the constraint
         //       a.v * q_l + b.v * q_r + result.v * q_o + q_c = 0,
         // where q_l, q_r, q_0, and q_c are the selectors storing corresponding scaling factors.
-        bb::fr left = ctx->get_variable(witness_index);        // =: a.v
-        bb::fr right = ctx->get_variable(other.witness_index); // =: b.v
-        bb::fr result_value = left * multiplicative_constant;
+        FF left = ctx->get_variable(witness_index);        // =: a.v
+        FF right = ctx->get_variable(other.witness_index); // =: b.v
+        FF result_value = left * multiplicative_constant;
         result_value += right * other.multiplicative_constant;
         result_value += additive_constant;
         result_value += other.additive_constant;
@@ -173,7 +173,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
                                .b_scaling = other.multiplicative_constant,
-                               .c_scaling = bb::fr::neg_one(),
+                               .c_scaling = FF::neg_one(),
                                .const_scaling = (additive_constant + other.additive_constant) });
     }
     result.tag = OriginTag(tag, other.tag);
@@ -255,11 +255,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
          * Output wire value: result.v (with q_o = -1)
          */
 
-        bb::fr T0;
-        bb::fr q_m;
-        bb::fr q_l;
-        bb::fr q_r;
-        bb::fr q_c;
+        FF T0;
+        FF q_m;
+        FF q_l;
+        FF q_r;
+        FF q_c;
 
         // Compute selector values
         q_c = additive_constant * other.additive_constant;
@@ -267,9 +267,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         q_l = multiplicative_constant * other.additive_constant;
         q_m = multiplicative_constant * other.multiplicative_constant;
 
-        bb::fr left = context->get_variable(witness_index);        // =: a.v
-        bb::fr right = context->get_variable(other.witness_index); // =: b.v
-        bb::fr result_value;
+        FF left = context->get_variable(witness_index);        // =: a.v
+        FF right = context->get_variable(other.witness_index); // =: b.v
+        FF result_value;
 
         result_value = left * right;
         result_value *= q_m;
@@ -289,7 +289,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
                                       .q_m = q_m,
                                       .q_l = q_l,
                                       .q_r = q_r,
-                                      .q_o = bb::fr::neg_one(),
+                                      .q_o = FF::neg_one(),
                                       .q_c = q_c });
     }
     result.tag = OriginTag(tag, other.tag);
@@ -329,13 +329,13 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     // Ensure that non-constant circuit elements can not be divided without context
     BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
-    bb::fr additive_multiplier = bb::fr::one();
+    FF additive_multiplier = FF::one();
 
     if (is_constant() && other.is_constant()) {
         // Both inputs are constant, the result is given by
         //      q = a.add / b.add, if b != 0.
         //      q = a.add        , if b == 0
-        if (!(other.additive_constant == bb::fr::zero())) {
+        if (!(other.additive_constant == FF::zero())) {
             additive_multiplier = other.additive_constant.invert();
         }
         result.additive_constant = additive_constant * additive_multiplier;
@@ -345,7 +345,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         //      q = a.v * [a.mul / b.add] + a.add / b.add, if b != 0.
         //      q = a                                    , if b == 0
         // with q.witness_index = a.witness_index.
-        if (!(other.additive_constant == bb::fr::zero())) {
+        if (!(other.additive_constant == FF::zero())) {
             additive_multiplier = other.additive_constant.invert();
         }
         result.additive_constant = additive_constant * additive_multiplier;
@@ -359,19 +359,19 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
             result.multiplicative_constant = 1;
             result.witness_index = IS_CONSTANT;
         } else {
-            bb::fr numerator = get_value();
-            bb::fr denominator_inv = other.get_value();
+            FF numerator = get_value();
+            FF denominator_inv = other.get_value();
             denominator_inv = denominator_inv.is_zero() ? 0 : denominator_inv.invert();
 
-            bb::fr out(numerator * denominator_inv);
+            FF out(numerator * denominator_inv);
             result.witness_index = ctx->add_variable(out);
             // Define non-zero selector values for an arithmetic gate
             // q_m := b.mul
             // q_l := b.add
             // q_c := a     (= a.add, since a is constant)
-            bb::fr q_m = other.multiplicative_constant;
-            bb::fr q_l = other.additive_constant;
-            bb::fr q_c = -get_value();
+            FF q_m = other.multiplicative_constant;
+            FF q_l = other.additive_constant;
+            FF q_c = -get_value();
             // The value of the quotient q = a / b has to satisfy
             //      q * (b.v * b.mul +  b.add) = a
             // Create an arithmetic gate to constrain the quotient.
@@ -387,11 +387,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         }
     } else {
         // Both numerator and denominator are circuit variables. Create a new circuit variable with the value a / b.
-        bb::fr numerator = get_value();
-        bb::fr denominator_inv = other.get_value();
+        FF numerator = get_value();
+        FF denominator_inv = other.get_value();
         denominator_inv = denominator_inv.is_zero() ? 0 : denominator_inv.invert();
 
-        bb::fr out(numerator * denominator_inv);
+        FF out(numerator * denominator_inv);
         result.witness_index = ctx->add_variable(out);
 
         // The value of the quotient q = a / b has to satisfy
@@ -404,11 +404,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         //      q_r = 0;
         //      q_o = - a.mul;
         //      q_c = - a.add.
-        bb::fr q_m = other.multiplicative_constant;
-        bb::fr q_l = other.additive_constant;
-        bb::fr q_r = bb::fr::zero();
-        bb::fr q_o = -multiplicative_constant;
-        bb::fr q_c = -additive_constant;
+        FF q_m = other.multiplicative_constant;
+        FF q_l = other.additive_constant;
+        FF q_r = FF::zero();
+        FF q_o = -multiplicative_constant;
+        FF q_c = -additive_constant;
 
         ctx->create_arithmetic_gate({ .a = result.witness_index,
                                       .b = other.witness_index,
@@ -433,7 +433,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
         return field_t(get_value().pow(exponent));
     }
     if (exponent == 0) {
-        return field_t(bb::fr::one());
+        return field_t(FF::one());
     }
 
     bool accumulator_initialized = false;
@@ -490,7 +490,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         exponent_value >>= 1;
     }
 
-    field_t<Builder> exponent_accumulator(bb::fr::zero());
+    field_t<Builder> exponent_accumulator(FF::zero());
     for (const auto& bit : exponent_bits) {
         exponent_accumulator += exponent_accumulator;
         exponent_accumulator += bit;
@@ -499,8 +499,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
 
     // Compute the result of exponentiation
-    field_t accumulator(ctx, bb::fr::one());
-    const field_t one(bb::fr::one());
+    field_t accumulator(ctx, FF::one());
+    const field_t one(FF::one());
     for (size_t i = 0; i < 32; ++i) {
         accumulator *= accumulator;
         // If current bit == 1, multiply by the base, else propagate the accumulator
@@ -544,20 +544,20 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     //   = a.v * b.v * [ mul_scaling ] + a.v * [  a_scaling  ] + b.v * [  b_scaling  ] + c.v * [ c_scaling ]
     //      +    [ const_scaling ]
 
-    bb::fr mul_scaling = multiplicative_constant * to_mul.multiplicative_constant;
-    bb::fr a_scaling = multiplicative_constant * to_mul.additive_constant;
-    bb::fr b_scaling = to_mul.multiplicative_constant * additive_constant;
-    bb::fr c_scaling = to_add.multiplicative_constant;
-    bb::fr const_scaling = additive_constant * to_mul.additive_constant + to_add.additive_constant;
+    FF mul_scaling = multiplicative_constant * to_mul.multiplicative_constant;
+    FF a_scaling = multiplicative_constant * to_mul.additive_constant;
+    FF b_scaling = to_mul.multiplicative_constant * additive_constant;
+    FF c_scaling = to_add.multiplicative_constant;
+    FF const_scaling = additive_constant * to_mul.additive_constant + to_add.additive_constant;
 
     // Note: the value of a constant field_t is wholly tracked by the field_t's `additive_constant` member, which is
     // accounted for in the above-calculated selectors (`q_`'s). Therefore no witness (`variables[witness_index]`)
     // exists for constants, and so the field_t's corresponding wire value is set to `0` in the gate equation.
-    bb::fr a = is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
-    bb::fr b = to_mul.is_constant() ? bb::fr::zero() : ctx->get_variable(to_mul.witness_index);
-    bb::fr c = to_add.is_constant() ? bb::fr::zero() : ctx->get_variable(to_add.witness_index);
+    FF a = is_constant() ? FF::zero() : ctx->get_variable(witness_index);
+    FF b = to_mul.is_constant() ? FF::zero() : ctx->get_variable(to_mul.witness_index);
+    FF c = to_add.is_constant() ? FF::zero() : ctx->get_variable(to_add.witness_index);
 
-    bb::fr out = a * b * mul_scaling + a * a_scaling + b * b_scaling + c * c_scaling + const_scaling;
+    FF out = a * b * mul_scaling + a * a_scaling + b * b_scaling + c * c_scaling + const_scaling;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
@@ -570,7 +570,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
         .a_scaling = a_scaling,
         .b_scaling = b_scaling,
         .c_scaling = c_scaling,
-        .d_scaling = bb::fr::neg_one(),
+        .d_scaling = FF::neg_one(),
         .const_scaling = const_scaling,
     });
     result.tag = OriginTag(tag, to_mul.tag, to_add.tag);
@@ -604,17 +604,17 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     // Create a `big_mul_gate` to constrain
     //  	a * b * mul_scaling + a * a_scaling + b * b_scaling + c * c_scaling + d * d_scaling + const_scaling = 0
 
-    bb::fr a_scaling = multiplicative_constant;
-    bb::fr b_scaling = add_b.multiplicative_constant;
-    bb::fr c_scaling = add_c.multiplicative_constant;
-    bb::fr const_scaling = additive_constant + add_b.additive_constant + add_c.additive_constant;
+    FF a_scaling = multiplicative_constant;
+    FF b_scaling = add_b.multiplicative_constant;
+    FF c_scaling = add_c.multiplicative_constant;
+    FF const_scaling = additive_constant + add_b.additive_constant + add_c.additive_constant;
 
     // Compute the sum of values of all summands
-    bb::fr a = is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
-    bb::fr b = add_b.is_constant() ? bb::fr::zero() : ctx->get_variable(add_b.witness_index);
-    bb::fr c = add_c.is_constant() ? bb::fr::zero() : ctx->get_variable(add_c.witness_index);
+    FF a = is_constant() ? FF::zero() : ctx->get_variable(witness_index);
+    FF b = add_b.is_constant() ? FF::zero() : ctx->get_variable(add_b.witness_index);
+    FF c = add_c.is_constant() ? FF::zero() : ctx->get_variable(add_c.witness_index);
 
-    bb::fr out = a * a_scaling + b * b_scaling + c * c_scaling + const_scaling;
+    FF out = a * a_scaling + b * b_scaling + c * c_scaling + const_scaling;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
@@ -625,11 +625,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
         .b = add_b.is_constant() ? ctx->zero_idx() : add_b.witness_index,
         .c = add_c.is_constant() ? ctx->zero_idx() : add_c.witness_index,
         .d = result.witness_index,
-        .mul_scaling = bb::fr::zero(),
+        .mul_scaling = FF::zero(),
         .a_scaling = a_scaling,
         .b_scaling = b_scaling,
         .c_scaling = c_scaling,
-        .d_scaling = bb::fr::neg_one(),
+        .d_scaling = FF::neg_one(),
         .const_scaling = const_scaling,
     });
     result.tag = OriginTag(tag, add_b.tag, add_c.tag);
@@ -654,11 +654,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     // Normalised result = result.v * 1 + 0;         // where result.v = this.v * this.mul + this.add
     // We need a new gate to enforce that the `result` was correctly calculated from `this`.
     field_t<Builder> result(context);
-    bb::fr value = context->get_variable(witness_index);
+    FF value = context->get_variable(witness_index);
 
     result.witness_index = context->add_variable(value * multiplicative_constant + additive_constant);
-    result.additive_constant = bb::fr::zero();
-    result.multiplicative_constant = bb::fr::one();
+    result.additive_constant = FF::zero();
+    result.multiplicative_constant = FF::one();
 
     // The aim of a new `add` gate is to constrain
     //              this.v * this.mul + this.add == result.v
@@ -674,8 +674,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
                                .b = context->zero_idx(),
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
-                               .b_scaling = bb::fr::zero(),
-                               .c_scaling = bb::fr::neg_one(),
+                               .b_scaling = FF::zero(),
+                               .c_scaling = FF::neg_one(),
                                .const_scaling = additive_constant });
     result.tag = tag;
     return result;
@@ -688,11 +688,11 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 {
 
     if (is_constant()) {
-        BB_ASSERT_EQ(additive_constant == bb::fr::zero(), true, msg);
+        BB_ASSERT_EQ(additive_constant == FF::zero(), true, msg);
         return;
     }
 
-    if ((get_value() != bb::fr::zero()) && !context->failed()) {
+    if ((get_value() != FF::zero()) && !context->failed()) {
         context->failure(msg);
     }
     // Aim of a new arithmetic gate: constrain this.v * this.mul + this.add == 0
@@ -704,10 +704,10 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
         .a = witness_index,
         .b = context->zero_idx(),
         .c = context->zero_idx(),
-        .q_m = bb::fr::zero(),
+        .q_m = FF::zero(),
         .q_l = multiplicative_constant,
-        .q_r = bb::fr::zero(),
-        .q_o = bb::fr::zero(),
+        .q_r = FF::zero(),
+        .q_o = FF::zero(),
         .q_c = additive_constant,
     });
 }
@@ -719,15 +719,15 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 {
 
     if (is_constant()) {
-        BB_ASSERT_EQ(additive_constant != bb::fr::zero(), true, msg);
+        BB_ASSERT_EQ(additive_constant != FF::zero(), true, msg);
         return;
     }
 
-    if ((get_value() == bb::fr::zero()) && !context->failed()) {
+    if ((get_value() == FF::zero()) && !context->failed()) {
         context->failure(msg);
     }
 
-    bb::fr inverse_value = (get_value() == bb::fr::zero()) ? bb::fr::zero() : get_value().invert();
+    FF inverse_value = (get_value() == FF::zero()) ? FF::zero() : get_value().invert();
 
     field_t<Builder> inverse(witness_t<Builder>(context, inverse_value));
 
@@ -747,10 +747,10 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
         .b = inverse.witness_index,     // inverse
         .c = context->zero_idx(),       // no output
         .q_m = multiplicative_constant, // a * b * mul_const
-        .q_l = bb::fr::zero(),          // a * 0
+        .q_l = FF::zero(),          // a * 0
         .q_r = additive_constant,       // b * mul_const
-        .q_o = bb::fr::zero(),          // c * 0
-        .q_c = bb::fr::neg_one(),       // -1
+        .q_o = FF::zero(),          // c * 0
+        .q_c = FF::neg_one(),       // -1
     });
 }
 
@@ -782,7 +782,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
  */
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 {
-    bb::fr native_value = get_value();
+    FF native_value = get_value();
     const bool is_zero_raw = native_value.is_zero();
 
     if (is_constant()) {
@@ -795,7 +795,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     bool_t is_zero = witness_t(context, is_zero_raw);
 
     // This can be done out of circuit, as `is_zero = true` implies `I = 1`.
-    bb::fr inverse_native = (is_zero_raw) ? bb::fr::one() : native_value.invert();
+    FF inverse_native = (is_zero_raw) ? FF::one() : native_value.invert();
 
     field_t inverse = witness_t(context, inverse_native);
 
@@ -811,7 +811,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     //      c_scaling := 1;
     //      d_scaling := 0;
     //      const_scaling := a.add * I.add + is_zero.add - 1;
-    field_t::evaluate_polynomial_identity(*this, inverse, is_zero, bb::fr::neg_one());
+    field_t::evaluate_polynomial_identity(*this, inverse, is_zero, FF::neg_one());
 
     // To check that `-is_zero * I + is_zero = 0`, create a `big_mul_gate` given by the equation:
     //      is_zero.v * (-I).v * mul_scaling + is_zero.v * a_scaling + (-I).v * b_scaling + is_zero.v * c_scaling + 0 *
@@ -823,7 +823,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     //      c_scaling := is_zero.mul;
     //      d_scaling := 0;
     //      const_scaling := is_zero.add * (-I).add + is_zero.add;
-    field_t::evaluate_polynomial_identity(is_zero, -inverse, is_zero, bb::fr::zero());
+    field_t::evaluate_polynomial_identity(is_zero, -inverse, is_zero, FF::zero());
     is_zero.set_origin_tag(tag);
     return is_zero;
 }
@@ -833,13 +833,13 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
  * @warning The result of this operation is a **native** field element. Ensure its value is properly constrained or only
  * used for debugging purposes.
  */
-template <typename Builder> bb::fr field_t<Builder>::get_value() const
+template <typename Builder> typename Builder::FF field_t<Builder>::get_value() const
 {
     if (!is_constant()) {
         BB_ASSERT(context);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     }
-    BB_ASSERT_DEBUG(multiplicative_constant == bb::fr::one());
+    BB_ASSERT_DEBUG(multiplicative_constant == FF::one());
     // A constant field_t's value is tracked wholly by its additive_constant member.
     return additive_constant;
 }
@@ -874,7 +874,7 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
     // Compute
     //      `predicate` * ( -2 * a ) + a.
     // If predicate's value == true, then the output is `-a`, else it's `a`
-    static constexpr bb::fr minus_two(-2);
+    static constexpr FF minus_two(-2);
     return field_t(predicate).madd(*this * minus_two, *this);
 }
 
@@ -1112,7 +1112,7 @@ void field_t<Builder>::evaluate_linear_identity(
     }
 
     // validate that a + b + c + d = 0
-    bb::fr const_scaling = a.additive_constant + b.additive_constant + c.additive_constant + d.additive_constant;
+    FF const_scaling = a.additive_constant + b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_add_gate({
         .a = a.is_constant() ? ctx->zero_idx() : a.witness_index,
@@ -1148,12 +1148,12 @@ void field_t<Builder>::evaluate_polynomial_identity(
     }
 
     // validate that a * b + c + d = 0
-    bb::fr mul_scaling = a.multiplicative_constant * b.multiplicative_constant;
-    bb::fr a_scaling = a.multiplicative_constant * b.additive_constant;
-    bb::fr b_scaling = b.multiplicative_constant * a.additive_constant;
-    bb::fr c_scaling = c.multiplicative_constant;
-    bb::fr d_scaling = d.multiplicative_constant;
-    bb::fr const_scaling = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
+    FF mul_scaling = a.multiplicative_constant * b.multiplicative_constant;
+    FF a_scaling = a.multiplicative_constant * b.additive_constant;
+    FF b_scaling = b.multiplicative_constant * a.additive_constant;
+    FF c_scaling = c.multiplicative_constant;
+    FF d_scaling = d.multiplicative_constant;
+    FF const_scaling = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_mul_add_gate({
         .a = a.is_constant() ? ctx->zero_idx() : a.witness_index,
@@ -1178,7 +1178,7 @@ void field_t<Builder>::evaluate_polynomial_identity(
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
     if (input.empty()) {
-        return field_t(bb::fr::zero());
+        return field_t(FF::zero());
     }
 
     if (input.size() == 1) {
@@ -1186,7 +1186,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     }
 
     std::vector<field_t> accumulator;
-    field_t constant_term = bb::fr::zero();
+    field_t constant_term = FF::zero();
 
     // Remove constant terms from input field elements
     for (const auto& element : input) {
@@ -1208,7 +1208,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
 
     // Step 2: compute output value
     size_t num_elements = accumulator.size();
-    bb::fr output = bb::fr::zero();
+    FF output = FF::zero();
     for (const auto& acc : accumulator) {
         output += acc.get_value();
     }
@@ -1262,7 +1262,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
                                  accumulator[3 * i + 2].additive_constant,
             },
             /*use_next_gate_w_4 = */ true);
-        bb::fr new_total = accumulating_total.get_value() - accumulator[3 * i].get_value() -
+        FF new_total = accumulating_total.get_value() - accumulator[3 * i].get_value() -
                            accumulator[3 * i + 1].get_value() - accumulator[3 * i + 2].get_value();
         accumulating_total = witness_t<Builder>(ctx, new_total);
     }
@@ -1348,5 +1348,6 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at
 
 template class field_t<bb::UltraCircuitBuilder>;
 template class field_t<bb::MegaCircuitBuilder>;
+template class field_t<bb::GrumpkinUltraCircuitBuilder>;
 
 } // namespace bb::stdlib

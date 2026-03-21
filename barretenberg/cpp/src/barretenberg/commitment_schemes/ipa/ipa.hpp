@@ -171,9 +171,15 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // between the CRS and `Commitment::one()`.
         auto aux_generator = Commitment::one() * generator_challenge;
 
+        // Derive the actual polynomial length from the opening claim. This allows the IPA to work
+        // with polynomials smaller than the static poly_length (e.g. ChonkG circuits of varying size).
+        // For ECCVM, the polynomial is always poly_length, so this is backward-compatible.
+        const size_t actual_poly_length = polynomial.size();
+        const size_t actual_log_n = numeric::get_msb(actual_poly_length);
+
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
-        BB_ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))),
+        BB_ASSERT((actual_poly_length > 0) && (!(actual_poly_length & (actual_poly_length - 1))),
                   "The polynomial degree plus 1 should be positive and a power of two");
 
         // Step 4.
@@ -181,22 +187,22 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Ensure the polynomial copy is fully-formed
         auto a_vec = polynomial.full();
         std::span<Commitment> srs_elements = ck.get_monomial_points();
-        std::vector<Commitment> G_vec_local(poly_length);
+        std::vector<Commitment> G_vec_local(actual_poly_length);
 
-        if (poly_length > srs_elements.size()) {
+        if (actual_poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
 
         // Copy the SRS into a local data structure as we need to mutate this vector for every round
         parallel_for_heuristic(
-            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i]; }, thread_heuristics::FF_COPY_COST);
+            actual_poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i]; }, thread_heuristics::FF_COPY_COST);
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
         OpeningPair<Curve> opening_pair = opening_claim.opening_pair;
-        std::vector<Fr> b_vec(poly_length);
+        std::vector<Fr> b_vec(actual_poly_length);
         parallel_for_heuristic(
-            poly_length,
+            actual_poly_length,
             [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
                 Fr b_power = opening_pair.challenge.pow(start);
                 for (size_t i = start; i < end; i++) {
@@ -211,11 +217,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Allocate space for L_i and R_i elements
         GroupElement L_i;
         GroupElement R_i;
-        std::size_t round_size = poly_length;
+        std::size_t round_size = actual_poly_length;
 
         // Step 6.
         // Perform IPA reduction rounds
-        for (size_t i = 0; i < log_poly_length; i++) {
+        for (size_t i = 0; i < actual_log_n; i++) {
             round_size /= 2;
             // Run scalar products in parallel
             auto inner_prods = parallel_for_heuristic(
@@ -246,7 +252,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
             // Step 6.c
             // Send L_i and R_i to the verifier
-            std::string index = std::to_string(log_poly_length - i - 1);
+            std::string index = std::to_string(actual_log_n - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
@@ -364,7 +370,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      */
     template <typename Transcript>
     static TranscriptData read_transcript_data(const OpeningClaim<Curve>& opening_claim,
-                                               const std::shared_ptr<Transcript>& transcript)
+                                               const std::shared_ptr<Transcript>& transcript,
+                                               size_t num_rounds = log_poly_length)
         requires(!Curve::is_stdlib_type)
     {
         // Step 2.
@@ -379,15 +386,15 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute C' = C + f(\beta) ⋅ U, i.e., the _joint_ commitment of f and f(\beta).
         const GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
-        const auto pippenger_size = 2 * log_poly_length;
-        std::vector<Fr> round_challenges(log_poly_length);
+        const auto pippenger_size = 2 * num_rounds;
+        std::vector<Fr> round_challenges(num_rounds);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
         // Step 4.
         // Receive all L_j, R_j and compute round challenges u_j
-        for (size_t i = 0; i < log_poly_length; i++) {
-            std::string index = std::to_string(log_poly_length - i - 1);
+        for (size_t i = 0; i < num_rounds; i++) {
+            std::string index = std::to_string(num_rounds - i - 1);
             const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -402,7 +409,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Fr::batch_invert(round_challenges_inv);
 
         // populate msm_scalars.
-        for (size_t i = 0; i < log_poly_length; i++) {
+        for (size_t i = 0; i < num_rounds; i++) {
             msm_scalars[2 * i] = round_challenges_inv[i];
             msm_scalars[2 * i + 1] = round_challenges[i];
         }
@@ -420,7 +427,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 7.
         // Construct vector s
         Polynomial<Fr> s_vec(
-            construct_poly_from_u_challenges_inv(std::span(round_challenges_inv).subspan(0, log_poly_length)));
+            construct_poly_from_u_challenges_inv(std::span(round_challenges_inv).subspan(0, num_rounds)));
 
         // Receive G_0 and a_0 from prover (advances transcript; G_0 not recomputed here)
         Commitment G_zero_from_prover = transcript->template receive_from_prover<Commitment>("IPA:G_0");
@@ -454,25 +461,29 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    static bool reduce_verify_internal_native(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
+    static bool reduce_verify_internal_native(const VK& vk,
+                                               const OpeningClaim<Curve>& opening_claim,
+                                               auto& transcript,
+                                               size_t num_rounds = log_poly_length)
         requires(!Curve::is_stdlib_type)
     {
         BB_BENCH_NAME("IPA::reduce_verify");
+        const size_t actual_poly_length = 1UL << num_rounds;
 
         // Steps 2–7, 9: Process transcript and extract per-proof data (step 1 done by add_claim_to_hash_buffer)
-        auto data = read_transcript_data(opening_claim, transcript);
+        auto data = read_transcript_data(opening_claim, transcript, num_rounds);
 
         // Step 8.
         // Compute G_s = <s, G> via SRS MSM and verify against prover's G_0
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
-        if (poly_length > srs_elements.size()) {
+        if (actual_poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
         Commitment G_zero;
         {
             BB_BENCH_NAME("IPA::srs_msm");
-            G_zero =
-                scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
+            G_zero = scalar_multiplication::pippenger_unsafe<Curve>(
+                data.s_vec, { &srs_elements[0], /*size*/ actual_poly_length });
         }
         BB_ASSERT_EQ(
             G_zero, data.G_zero_from_prover, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
@@ -636,11 +647,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     template <typename Transcript = NativeTranscript>
     static bool reduce_verify(const VK& vk,
                               const OpeningClaim<Curve>& opening_claim,
-                              const std::shared_ptr<Transcript>& transcript)
+                              const std::shared_ptr<Transcript>& transcript,
+                              size_t num_rounds = log_poly_length)
         requires(!Curve::is_stdlib_type)
     {
         add_claim_to_hash_buffer(opening_claim, transcript);
-        return reduce_verify_internal_native(vk, opening_claim, transcript);
+        return reduce_verify_internal_native(vk, opening_claim, transcript, num_rounds);
     }
 
     /**
@@ -850,12 +862,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      */
     static bool reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
                                                   const VK& vk,
-                                                  auto& transcript)
+                                                  auto& transcript,
+                                                  size_t num_rounds = log_poly_length)
         requires(!Curve::is_stdlib_type)
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         add_claim_to_hash_buffer(opening_claim, transcript);
-        return reduce_verify_internal_native(vk, opening_claim, transcript);
+        return reduce_verify_internal_native(vk, opening_claim, transcript, num_rounds);
     }
 
     /**
@@ -886,14 +899,16 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      */
     static Fr evaluate_challenge_poly(const std::vector<Fr>& u_challenges_inv, Fr r)
     {
+        // Derive the number of rounds from the input vector size (supports dynamic polynomial lengths)
+        const size_t num_rounds = u_challenges_inv.size();
         // Runs the obvious algorithm to compute the product ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.r^{2^{i-1}}) by
         // remembering the current 2-primary power of r.
         Fr challenge_poly_eval = 1;
         Fr r_pow = r;
-        // the loop runs to `log_poly_length - 1` because we don't want to superfluously compute r_pow.sqr() in the last
+        // the loop runs to `num_rounds - 1` because we don't want to superfluously compute r_pow.sqr() in the last
         // round.
-        for (size_t i = 0; i < log_poly_length - 1; i++) {
-            Fr monomial = u_challenges_inv[log_poly_length - 1 - i] * r_pow;
+        for (size_t i = 0; i < num_rounds - 1; i++) {
+            Fr monomial = u_challenges_inv[num_rounds - 1 - i] * r_pow;
             challenge_poly_eval *= (Fr(1) + monomial);
             r_pow = r_pow.sqr();
         }
@@ -933,19 +948,22 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      */
     static Polynomial<bb::fq> construct_poly_from_u_challenges_inv(const std::span<const bb::fq>& u_challenges_inv)
     {
+        // Derive sizes from the input span (supports dynamic polynomial lengths)
+        const size_t num_rounds = u_challenges_inv.size();
+        const size_t actual_poly_length = 1UL << num_rounds;
 
         // Construct vector s in linear time.
-        std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
-        std::vector<bb::fq> s_vec_temporaries(poly_length / 2);
+        std::vector<bb::fq> s_vec(actual_poly_length, bb::fq::one());
+        std::vector<bb::fq> s_vec_temporaries(actual_poly_length / 2);
 
         bb::fq* previous_round_s = &s_vec_temporaries[0];
         bb::fq* current_round_s = &s_vec[0];
         // if number of rounds is even we need to swap these so that s_vec always contains the result
-        if ((log_poly_length & 1) == 0) {
+        if ((num_rounds & 1) == 0) {
             std::swap(previous_round_s, current_round_s);
         }
         previous_round_s[0] = bb::fq(1);
-        for (size_t i = 0; i < log_poly_length; ++i) {
+        for (size_t i = 0; i < num_rounds; ++i) {
             const size_t round_size = 1 << (i + 1);
             const bb::fq round_challenge = u_challenges_inv[i];
             parallel_for_heuristic(
@@ -957,7 +975,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 thread_heuristics::FF_MULTIPLICATION_COST * 2);
             std::swap(current_round_s, previous_round_s);
         }
-        return { s_vec, poly_length };
+        return { s_vec, actual_poly_length };
     }
 
     /**

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "poseidon2_grumpkin_params.hpp"
 #include "poseidon2_params.hpp"
 #include "poseidon2_permutation.hpp"
 #include "sponge/sponge.hpp"
@@ -33,4 +34,5 @@ template <typename Params> class Poseidon2 {
 };
 
 extern template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
+extern template class Poseidon2<Poseidon2GrumpkinScalarFieldParams>;
 } // namespace bb::crypto

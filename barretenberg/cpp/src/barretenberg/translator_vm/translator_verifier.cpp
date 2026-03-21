@@ -127,20 +127,12 @@ template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_dat
 }
 
 /**
- * @brief Verify the TranslatorFlavor Honk proof
- * @details This function verifies the Translator circuit which ensures consistency between
- * the ECCVM transcript and the op queue data. Returns verification result with pairing points and check status.
- */
-/**
  * @brief Load translator proof and run the pre-sumcheck (Oink-like) phase.
- * @details Hashes the VK, populates relation parameters from ECCVM inputs, and receives all
- * wire commitments and beta/gamma challenges from the transcript. This phase corresponds to
- * what OinkProver/OinkVerifier do for the hiding kernel: it is the pre-sumcheck setup that
- * binds all committed data to the shared Fiat-Shamir transcript before the joint sumcheck.
  */
 template <typename Flavor>
 typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Flavor>::receive_pre_sumcheck()
 {
+    // Load the proof produced by the translator prover
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
@@ -151,7 +143,6 @@ typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Fl
     CommitmentLabels commitment_labels;
 
     // For recursive verification, mark the accumulated result's prime basis limb as used
-    // (it can be recovered from binary basis limbs, so no need to constrain it further)
     if constexpr (IsRecursive) {
         mark_witness_as_used(accumulated_result.prime_basis_limb);
     }
@@ -188,10 +179,8 @@ typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Fl
 }
 
 template <typename Flavor>
-typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
+typename TranslatorVerifier_<Flavor>::FieldVerificationResult TranslatorVerifier_<Flavor>::compute_field_verification()
 {
-    BB_BENCH_NAME("TranslatorVerifier::reduce");
-    using PCS = typename Flavor::PCS;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
@@ -256,7 +245,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         commitment_one = Commitment::one();
     }
 
-    auto [opening_claim, consistency_checked] =
+    auto shplemini_output =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
@@ -266,12 +255,37 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-
     vinfo("Translator Verifier: sumcheck verified: ", sumcheck_output.verified);
-    vinfo("Translator Verifier: consistency checked: ", consistency_checked);
+    vinfo("Translator Verifier: consistency checked: ", shplemini_output.consistency_checked);
 
-    return { pairing_points, sumcheck_output.verified && consistency_checked };
+    return { std::move(shplemini_output.batch_opening_claim),
+             sumcheck_output.verified && shplemini_output.consistency_checked };
+}
+
+/**
+ * @brief Perform the EC-only portion of Translator verification
+ * @details Takes a BatchOpeningClaim and runs KZG reduce_verify_batch_opening_claim to produce pairing points.
+ */
+template <typename Flavor>
+typename TranslatorVerifier_<Flavor>::PairingPoints TranslatorVerifier_<Flavor>::compute_ec_verification(
+    BatchOpeningClaim<Curve>&& batch_opening_claim)
+{
+    using PCS = typename Flavor::PCS;
+    return PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
+}
+
+/**
+ * @brief Verify the TranslatorFlavor Honk proof
+ * @details This function verifies the Translator circuit which ensures consistency between
+ * the ECCVM transcript and the op queue data. Returns verification result with pairing points and check status.
+ * Delegates to compute_field_verification() and compute_ec_verification().
+ */
+template <typename Flavor>
+typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
+{
+    auto field_result = compute_field_verification();
+    auto pairing_points = compute_ec_verification(std::move(field_result.batch_opening_claim));
+    return { pairing_points, field_result.verified };
 }
 
 // Explicit instantiations

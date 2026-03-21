@@ -21,5 +21,6 @@ template <typename C> field_t<C> poseidon2<C>::hash(const std::vector<field_ct>&
 
 template class poseidon2<bb::MegaCircuitBuilder>;
 template class poseidon2<bb::UltraCircuitBuilder>;
+template class poseidon2<bb::GrumpkinUltraCircuitBuilder>;
 
 } // namespace bb::stdlib

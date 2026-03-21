@@ -12,6 +12,7 @@
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_grumpkin_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "rom_ram_logic.hpp"
 
@@ -168,33 +169,50 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     create_big_add_gate({ this->zero_idx(), this->zero_idx(), this->zero_idx(), one_idx, 0, 0, 0, 1, -1 });
 
     // Take care of all polys related to lookups (q_lookup, tables, sorted, etc)
-    // by doing a dummy lookup with a special table.
-    // Note: the 4th table poly is the table index: this is not the value of the table
-    // type enum but rather the index of the table in the list of all tables utilized
-    // in the circuit. Therefore we naively need two different basic tables (indices 0, 1)
-    // to get a non-zero value in table_4.
-    // The multitable operates on 2-bit values, so the maximum is 3
-    uint32_t left_value = 3;
-    uint32_t right_value = 3;
+    if constexpr (std::is_same_v<FF, bb::fr>) {
+        // Do a dummy lookup with a special table.
+        // Note: the 4th table poly is the table index: this is not the value of the table
+        // type enum but rather the index of the table in the list of all tables utilized
+        // in the circuit. Therefore we naively need two different basic tables (indices 0, 1)
+        // to get a non-zero value in table_4.
+        // The multitable operates on 2-bit values, so the maximum is 3
+        uint32_t left_value = 3;
+        uint32_t right_value = 3;
 
-    FF left_witness_value = fr{ left_value, 0, 0, 0 }.to_montgomery_form();
-    FF right_witness_value = fr{ right_value, 0, 0, 0 }.to_montgomery_form();
+        FF left_witness_value = fr{ left_value, 0, 0, 0 }.to_montgomery_form();
+        FF right_witness_value = fr{ right_value, 0, 0, 0 }.to_montgomery_form();
 
-    uint32_t left_witness_index = this->add_variable(left_witness_value);
-    uint32_t right_witness_index = this->add_variable(right_witness_value);
-    const auto dummy_accumulators = plookup::get_lookup_accumulators(
-        plookup::MultiTableId::HONK_DUMMY_MULTI, left_witness_value, right_witness_value, true);
-    auto read_data = create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
+        uint32_t left_witness_index = this->add_variable(left_witness_value);
+        uint32_t right_witness_index = this->add_variable(right_witness_value);
+        const auto dummy_accumulators = plookup::get_lookup_accumulators(
+            plookup::MultiTableId::HONK_DUMMY_MULTI, left_witness_value, right_witness_value, true);
+        auto read_data = create_gates_from_plookup_accumulators(
+            plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
 
-    update_used_witnesses(left_witness_index);
-    update_used_witnesses(right_witness_index);
-    std::array<std::vector<uint32_t>, 3> parse_read_data{ read_data[plookup::ColumnIdx::C1],
-                                                          read_data[plookup::ColumnIdx::C2],
-                                                          read_data[plookup::ColumnIdx::C3] };
-    for (const auto& column : parse_read_data) {
-        update_used_witnesses(column);
-        update_finalize_witnesses(column);
+        update_used_witnesses(left_witness_index);
+        update_used_witnesses(right_witness_index);
+        std::array<std::vector<uint32_t>, 3> parse_read_data{ read_data[plookup::ColumnIdx::C1],
+                                                              read_data[plookup::ColumnIdx::C2],
+                                                              read_data[plookup::ColumnIdx::C3] };
+        for (const auto& column : parse_read_data) {
+            update_used_witnesses(column);
+            update_finalize_witnesses(column);
+        }
+    } else {
+        // For non-BN254 fields, plookup infrastructure is unavailable.
+        // Add a dummy gate to the lookup block with a non-zero wire value.
+        blocks.lookup.populate_wires(one_idx, this->zero_idx(), this->zero_idx(), this->zero_idx());
+        blocks.lookup.q_m().emplace_back(0);
+        blocks.lookup.q_1().emplace_back(0);
+        blocks.lookup.q_2().emplace_back(0);
+        blocks.lookup.q_3().emplace_back(0);
+        blocks.lookup.q_c().emplace_back(0);
+        blocks.lookup.q_4().emplace_back(0);
+        blocks.lookup.set_gate_selector(0);
+        check_selector_length_consistency();
+        this->increment_num_gates();
+        create_unconstrained_gate(
+            blocks.lookup, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     }
 
     // mock a poseidon external gate, with all zeros as input
@@ -547,47 +565,58 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const uint32_t key_a_index,
     std::optional<uint32_t> key_b_index)
 {
-    using plookup::ColumnIdx;
+    if constexpr (std::is_same_v<FF, bb::fr>) {
+        using plookup::ColumnIdx;
 
-    const auto& multi_table = plookup::get_multitable(id);
-    const size_t num_lookups = read_values[ColumnIdx::C1].size();
-    plookup::ReadData<uint32_t> read_data;
+        const auto& multi_table = plookup::get_multitable(id);
+        const size_t num_lookups = read_values[ColumnIdx::C1].size();
+        plookup::ReadData<uint32_t> read_data;
 
-    for (size_t i = 0; i < num_lookups; ++i) {
-        const bool is_first_lookup = (i == 0);
-        const bool is_last_lookup = (i == num_lookups - 1);
+        for (size_t i = 0; i < num_lookups; ++i) {
+            const bool is_first_lookup = (i == 0);
+            const bool is_last_lookup = (i == num_lookups - 1);
 
-        // Get basic lookup table; construct and add to builder.lookup_tables if not already present
-        plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
-        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
+            // Get basic lookup table; construct and add to builder.lookup_tables if not already present
+            plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
+            table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
 
-        // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
-        const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
-        const auto second_idx = (is_first_lookup && key_b_index.has_value())
-                                    ? *key_b_index
-                                    : this->add_variable(read_values[ColumnIdx::C2][i]);
-        const auto third_idx = this->add_variable(read_values[ColumnIdx::C3][i]);
+            // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
+            const auto first_idx =
+                is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
+            const auto second_idx = (is_first_lookup && key_b_index.has_value())
+                                        ? *key_b_index
+                                        : this->add_variable(read_values[ColumnIdx::C2][i]);
+            const auto third_idx = this->add_variable(read_values[ColumnIdx::C3][i]);
 
-        read_data[ColumnIdx::C1].push_back(first_idx);
-        read_data[ColumnIdx::C2].push_back(second_idx);
-        read_data[ColumnIdx::C3].push_back(third_idx);
-        this->assert_valid_variables({ first_idx, second_idx, third_idx });
+            read_data[ColumnIdx::C1].push_back(first_idx);
+            read_data[ColumnIdx::C2].push_back(second_idx);
+            read_data[ColumnIdx::C3].push_back(third_idx);
+            this->assert_valid_variables({ first_idx, second_idx, third_idx });
 
-        // Populate lookup gate: wire values and selectors
-        blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx());
-        blocks.lookup.set_gate_selector(1);                      // mark as lookup gate
-        blocks.lookup.q_3().emplace_back(FF(table.table_index)); // unique table identifier
-        // Step size coefficients: zero for last lookup (no next accumulator), negative step sizes otherwise
-        blocks.lookup.q_2().emplace_back(is_last_lookup ? 0 : -multi_table.column_1_step_sizes[i + 1]);
-        blocks.lookup.q_m().emplace_back(is_last_lookup ? 0 : -multi_table.column_2_step_sizes[i + 1]);
-        blocks.lookup.q_c().emplace_back(is_last_lookup ? 0 : -multi_table.column_3_step_sizes[i + 1]);
-        blocks.lookup.q_1().emplace_back(0); // unused
-        blocks.lookup.q_4().emplace_back(0); // unused
+            // Populate lookup gate: wire values and selectors
+            blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx());
+            blocks.lookup.set_gate_selector(1);                      // mark as lookup gate
+            blocks.lookup.q_3().emplace_back(FF(table.table_index)); // unique table identifier
+            // Step size coefficients: zero for last lookup (no next accumulator), negative step sizes otherwise
+            blocks.lookup.q_2().emplace_back(is_last_lookup ? 0 : -multi_table.column_1_step_sizes[i + 1]);
+            blocks.lookup.q_m().emplace_back(is_last_lookup ? 0 : -multi_table.column_2_step_sizes[i + 1]);
+            blocks.lookup.q_c().emplace_back(is_last_lookup ? 0 : -multi_table.column_3_step_sizes[i + 1]);
+            blocks.lookup.q_1().emplace_back(0); // unused
+            blocks.lookup.q_4().emplace_back(0); // unused
 
-        check_selector_length_consistency();
-        this->increment_num_gates();
+            check_selector_length_consistency();
+            this->increment_num_gates();
+        }
+        return read_data;
+    } else {
+        // Plookup tables are defined over BN254.Fr and not available for other fields
+        static_cast<void>(id);
+        static_cast<void>(read_values);
+        static_cast<void>(key_a_index);
+        static_cast<void>(key_b_index);
+        throw_or_abort("create_gates_from_plookup_accumulators not supported for this field type");
+        return {};
     }
-    return read_data;
 }
 
 /**
@@ -611,13 +640,13 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
     // the below loop goes from 0 to `num_multiples_of_three` inclusive.)
     result.variable_indices.reserve(static_cast<uint32_t>(num_multiples_of_three + 3));
     for (uint64_t i = 0; i <= num_multiples_of_three; ++i) {
-        const uint32_t index = this->add_variable(fr(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE));
+        const uint32_t index = this->add_variable(FF(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
     // `target_range` may not be divisible by 3, so we explicitly add it also.
     {
-        const uint32_t index = this->add_variable(fr(target_range));
+        const uint32_t index = this->add_variable(FF(target_range));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
@@ -664,12 +693,12 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
     // constrained to a smaller range.
     const size_t num_full_limbs = has_remainder_bits ? sublimbs.size() - 1 : sublimbs.size();
     for (size_t i = 0; i < num_full_limbs; ++i) {
-        const auto limb_idx = this->add_variable(bb::fr(sublimbs[i]));
+        const auto limb_idx = this->add_variable(FF(sublimbs[i]));
         sublimb_indices.emplace_back(limb_idx);
         create_small_range_constraint(limb_idx, sublimb_mask);
     }
     if (has_remainder_bits) {
-        const auto limb_idx = this->add_variable(bb::fr(sublimbs.back()));
+        const auto limb_idx = this->add_variable(FF(sublimbs.back()));
         sublimb_indices.emplace_back(limb_idx);
         create_small_range_constraint(limb_idx, last_limb_range);
     }
@@ -744,7 +773,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
             },
             (i != num_limb_triples - 1));
         if (i != num_limb_triples - 1) {
-            accumulator_idx = this->add_variable(fr(new_accumulator));
+            accumulator_idx = this->add_variable(FF(new_accumulator));
             accumulator = new_accumulator;
         }
     }
@@ -864,7 +893,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     }
     // tag the elements in the sorted_list to apply the multiset-equality check implicit in range-constraints.
     for (const auto sorted_value : sorted_list) {
-        const uint32_t index = this->add_variable(fr(sorted_value));
+        const uint32_t index = this->add_variable(FF(sorted_value));
         assign_tag(index, list.tau_tag);
         indices.emplace_back(index);
     }
@@ -1223,15 +1252,16 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
         // We also use zero_idx to substitute variables that should be zero
         constexpr uint256_t MAX_SUBLIMB_MASK = (uint256_t(1) << 14) - 1;
         std::array<uint32_t, 5> sublimb_indices;
-        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(fr(limb & MAX_SUBLIMB_MASK)) : this->zero_idx();
+        sublimb_indices[0] =
+            sublimb_masks[0] != 0 ? this->add_variable(FF(limb & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[1] =
-            sublimb_masks[1] != 0 ? this->add_variable(fr((limb >> 14) & MAX_SUBLIMB_MASK)) : this->zero_idx();
+            sublimb_masks[1] != 0 ? this->add_variable(FF((limb >> 14) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[2] =
-            sublimb_masks[2] != 0 ? this->add_variable(fr((limb >> 28) & MAX_SUBLIMB_MASK)) : this->zero_idx();
+            sublimb_masks[2] != 0 ? this->add_variable(FF((limb >> 28) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[3] =
-            sublimb_masks[3] != 0 ? this->add_variable(fr((limb >> 42) & MAX_SUBLIMB_MASK)) : this->zero_idx();
+            sublimb_masks[3] != 0 ? this->add_variable(FF((limb >> 42) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[4] =
-            sublimb_masks[4] != 0 ? this->add_variable(fr((limb >> 56) & MAX_SUBLIMB_MASK)) : this->zero_idx();
+            sublimb_masks[4] != 0 ? this->add_variable(FF((limb >> 56) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         return sublimb_indices;
     };
 
@@ -1499,13 +1529,13 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_native_field_multiplication(
     const non_native_partial_multiplication_witnesses<FF>& input)
 {
-    std::array<fr, 4> a{
+    std::array<FF, 4> a{
         this->get_variable(input.a[0]),
         this->get_variable(input.a[1]),
         this->get_variable(input.a[2]),
         this->get_variable(input.a[3]),
     };
-    std::array<fr, 4> b{
+    std::array<FF, 4> b{
         this->get_variable(input.b[0]),
         this->get_variable(input.b[1]),
         this->get_variable(input.b[2]),
@@ -1914,11 +1944,11 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     auto& block = this->blocks.poseidon2_external;
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
-    block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+    block.q_1().emplace_back(Poseidon2Params::round_constants[in.round_idx][0]);
+    block.q_2().emplace_back(Poseidon2Params::round_constants[in.round_idx][1]);
+    block.q_3().emplace_back(Poseidon2Params::round_constants[in.round_idx][2]);
     block.q_c().emplace_back(0);
-    block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+    block.q_4().emplace_back(Poseidon2Params::round_constants[in.round_idx][3]);
     block.set_gate_selector(1);
     this->check_selector_length_consistency();
     this->increment_num_gates();
@@ -1933,7 +1963,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     auto& block = this->blocks.poseidon2_internal;
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+    block.q_1().emplace_back(Poseidon2Params::round_constants[in.round_idx][0]);
     block.q_2().emplace_back(0);
     block.q_3().emplace_back(0);
     block.q_c().emplace_back(0);
@@ -2038,14 +2068,16 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     cir.real_variable_index = this->real_variable_index;
 
-    for (const auto& table : this->lookup_tables) {
-        const FF table_index(table.table_index);
-        info("Table no: ", table.table_index);
-        std::vector<std::vector<FF>> tmp_table;
-        for (size_t i = 0; i < table.size(); ++i) {
-            tmp_table.push_back({ table.column_1[i], table.column_2[i], table.column_3[i] });
+    if constexpr (std::is_same_v<FF, bb::fr>) {
+        for (const auto& table : this->lookup_tables) {
+            const FF table_index(table.table_index);
+            info("Table no: ", table.table_index);
+            std::vector<std::vector<FF>> tmp_table;
+            for (size_t i = 0; i < table.size(); ++i) {
+                tmp_table.push_back({ table.column_1[i], table.column_2[i], table.column_3[i] });
+            }
+            cir.lookup_tables.push_back(tmp_table);
         }
-        cir.lookup_tables.push_back(tmp_table);
     }
 
     cir.real_variable_tags = this->real_variable_tags;
@@ -2094,5 +2126,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
 template class UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 template class UltraCircuitBuilder_<MegaExecutionTraceBlocks>;
+template class UltraCircuitBuilder_<GrumpkinUltraExecutionTraceBlocks>;
 
 } // namespace bb

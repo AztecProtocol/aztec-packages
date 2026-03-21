@@ -45,6 +45,12 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
                              const FF& /*last_challenge*/)
     {}
 
+    void process_padding_round(size_t round_idx)
+    {
+        auto zero_univariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+        transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), zero_univariate);
+    }
+
     std::vector<std::array<FF, 3>> get_evaluations() { return {}; }
     std::vector<Polynomial<FF>> get_univariates() { return {}; }
 };
@@ -104,6 +110,31 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
                              const FF& last_challenge)
     {
         round_evaluations[multivariate_d - 1][2] = round_univariate.evaluate(last_challenge);
+    }
+
+    /**
+     * @brief Send committed sumcheck data for a padding round (zero univariate).
+     * @details Padding rounds must use the same transcript format (commitment + evaluations) as real rounds
+     * so the verifier's committed sumcheck round handler can read them consistently.
+     * We also store the zero round univariates and evaluations so they can be passed through to Shplemini.
+     */
+    void process_padding_round(size_t round_idx)
+    {
+        const std::string idx = std::to_string(round_idx);
+
+        // Commit to zero polynomial and send
+        Polynomial<FF> zero_poly(BATCHED_RELATION_PARTIAL_LENGTH);
+        auto zero_comm = ck.commit(zero_poly);
+        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, zero_comm);
+
+        // Send zero evaluations
+        transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_0", FF(0));
+        transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_1", FF(0));
+
+        // Store zero round univariate and evaluations for Shplemini
+        round_univariates.push_back(std::move(zero_poly));
+        round_evaluations.push_back({ FF(0), FF(0), FF(0) });
+        // Don't update previous round's third evaluation — finalize_last_round already handled that
     }
 
     std::vector<std::array<FF, 3>> get_evaluations() { return round_evaluations; }
@@ -629,9 +660,10 @@ template <typename Flavor> class SumcheckProver {
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
         // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+        // For Grumpkin flavors (committed sumcheck), padding rounds must use the same committed format
+        // (commitment + evaluations) so the verifier can read them consistently.
         for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+            handler.process_padding_round(idx);
 
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
@@ -850,10 +882,32 @@ template <typename Flavor> class SumcheckVerifier {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(virtual_log_n);
 
+        // Compute the number of real sumcheck rounds from the padding indicator array.
+        // This is needed early: for committed sumcheck (Grumpkin) to save gate_separators at the right point,
+        // and later for perform_final_verification to correctly set eval[2] at the padding boundary.
+        size_t multivariate_d = 0;
+        for (const auto& indicator : padding_indicator_array) {
+            if constexpr (IsRecursiveFlavor<Flavor>) {
+                if (indicator.get_value() == FF{ 1 }.get_value()) {
+                    multivariate_d++;
+                }
+            } else {
+                if (indicator == FF{ 1 }) {
+                    multivariate_d++;
+                }
+            }
+        }
+
         // Process univariate consistancy check rounds
         // For ECCVM we ensure the consistencies by populating an vector of claimed evaluations that will be checked in
         // the PCS rounds
         // For other flavors, we perform the sumcheck univariate consistency check
+
+        // For committed sumcheck (Grumpkin) with padding: save gate_separators.partial_evaluation_result
+        // after the last real round. The prover's finalize_last_round evaluates the last round univariate
+        // using gate_separators at d rounds, so the verifier must use the same partial_evaluation_result
+        // for compute_full_relation_purported_value.
+        FF gate_separators_partial_eval_at_real_rounds = FF{ 1 };
 
         bool verified = true;
         ClaimedEvaluations purported_evaluations;
@@ -870,6 +924,11 @@ template <typename Flavor> class SumcheckVerifier {
                         purported_evaluations,
                         transcript->template receive_from_prover<std::array<FF, Flavor::NUM_MINICIRCUIT_EVALUATIONS>>(
                             "Sumcheck:minicircuit_evaluations"));
+                }
+            }
+            if constexpr (IsGrumpkinFlavor<Flavor>) {
+                if (round_idx + 1 == multivariate_d) {
+                    gate_separators_partial_eval_at_real_rounds = gate_separators.partial_evaluation_result;
                 }
             }
         }
@@ -901,7 +960,14 @@ template <typename Flavor> class SumcheckVerifier {
         }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
-        // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
+        // In ZK Flavors, the evaluation is corrected by full_libra_purported_value.
+        // For committed sumcheck with padding (Grumpkin): use gate_separators evaluated at only the real rounds,
+        // matching the prover's finalize_last_round which evaluates before padding rounds.
+        // For standard flavors: use gate_separators evaluated at all virtual_log_n rounds (target flows through all).
+        if constexpr (IsGrumpkinFlavor<Flavor>) {
+            // Temporarily swap in the saved partial_evaluation_result from the real round boundary
+            gate_separators.partial_evaluation_result = gate_separators_partial_eval_at_real_rounds;
+        }
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alphas);
 
@@ -911,7 +977,7 @@ template <typename Flavor> class SumcheckVerifier {
             full_honk_purported_value, multivariate_challenge, padding_indicator_array);
 
         //! [Final Verification Step]
-        verified = round.perform_final_verification(full_honk_purported_value) && verified;
+        verified = round.perform_final_verification(full_honk_purported_value, multivariate_d) && verified;
 
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,

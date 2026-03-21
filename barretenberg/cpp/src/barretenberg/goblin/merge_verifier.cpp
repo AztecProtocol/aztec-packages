@@ -102,39 +102,29 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
 }
 
 /**
- * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j.
- * @details Verifies that M_j(X) = L_j(X) + X^k * R_j(X) and deg(L_j) < k for j = 1,2,3,4.
- * Checks concatenation and degree identities, then verifies Shplonk opening proof.
- *
- * @see MERGE_PROTOCOL.md for complete protocol specification.
- * @param proof The merge proof to verify
- * @param input_commitments Commitments to subtable (t) and previous table (T_prev)
- * @return VerificationResult containing pairing points, merged table commitments, and check results
+ * @brief Perform field-only merge verification: identity checks + Shplonk batching → BatchOpeningClaim.
+ * @details Everything before the KZG MSM. Returns the batch opening claim, merged commitments,
+ * and the aggregate result of degree and concatenation checks.
  */
 template <typename Curve>
-typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
+typename MergeVerifier_<Curve>::FieldVerificationResult MergeVerifier_<Curve>::compute_field_verification(
     const Proof& proof, const InputCommitments& input_commitments)
 {
     BB_BENCH_NAME("MergeVerifier::reduce");
     transcript->load_proof(proof);
 
     // Receive shift size from prover
-    // For native: shift_size is uint32_t
-    // For stdlib: shift_size is FF (we'll get the value later)
     const FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
-    ;
     if constexpr (IsRecursive) {
         BB_ASSERT_GT(uint32_t(shift_size.get_value()), 0U, "Shift size should always be bigger than 0");
     } else {
-
         BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
     }
 
     // Store T_commitments of the verifier
     TableCommitments merged_table_commitments;
 
-    // Vector of commitments
-    // The vector is composed of: [L_1], .., [L_4], [R_1], .., [R_4], [M_1], .., [M_4], [G]
+    // Vector of commitments: [L_1], .., [L_4], [R_1], .., [R_4], [M_1], .., [M_4], [G]
     std::vector<Commitment> table_commitments;
     table_commitments.reserve((3 * NUM_WIRES) + 1);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -207,7 +197,7 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Generate Shplonk opening challenge
     FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");
 
-    // Prepare batched opening claim to be passed to KZG
+    // Prepare batched opening claim
     BatchOpeningClaim<Curve> batch_opening_claim = compute_shplonk_opening_claim(table_commitments,
                                                                                  shplonk_batched_quotient,
                                                                                  shplonk_opening_challenge,
@@ -219,13 +209,35 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     BB_ASSERT(batch_opening_claim.commitments.size() == MERGE_BATCHED_CLAIM_SIZE);
     BB_ASSERT(batch_opening_claim.scalars.size() == MERGE_BATCHED_CLAIM_SIZE);
 
-    // KZG verifier - returns PairingPoints directly
-    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
-
     vinfo("Merge Verifier: degree check passed: ", degree_check_verified ? "true" : "false");
     vinfo("Merge Verifier: concatenation check passed: ", concatenation_verified ? "true" : "false");
 
-    return { pairing_points, merged_table_commitments, degree_check_verified && concatenation_verified };
+    return { std::move(batch_opening_claim), merged_table_commitments, degree_check_verified && concatenation_verified };
+}
+
+/**
+ * @brief Perform EC verification: KZG reduce_verify_batch_opening_claim → PairingPoints.
+ * @details Takes a BatchOpeningClaim from compute_field_verification() and produces pairing points.
+ */
+template <typename Curve>
+typename MergeVerifier_<Curve>::PairingPoints MergeVerifier_<Curve>::compute_ec_verification(
+    BatchOpeningClaim<Curve>&& batch_opening_claim)
+{
+    return PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
+}
+
+/**
+ * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j.
+ * @details Composes compute_field_verification() and compute_ec_verification().
+ */
+template <typename Curve>
+typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
+    const Proof& proof, const InputCommitments& input_commitments)
+{
+    auto field_result = compute_field_verification(proof, input_commitments);
+    PairingPoints pairing_points = compute_ec_verification(std::move(field_result.batch_opening_claim));
+
+    return { pairing_points, field_result.merged_commitments, field_result.verified };
 }
 
 // Explicit template instantiations

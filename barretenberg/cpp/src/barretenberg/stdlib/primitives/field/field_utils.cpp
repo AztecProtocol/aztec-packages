@@ -131,5 +131,6 @@ template void validate_split_in_field_unsafe(const field_t<bb::MegaCircuitBuilde
 // Explicit instantiations for mark_witness_as_used
 template void mark_witness_as_used(const field_t<bb::UltraCircuitBuilder>& field);
 template void mark_witness_as_used(const field_t<bb::MegaCircuitBuilder>& field);
+template void mark_witness_as_used(const field_t<bb::GrumpkinUltraCircuitBuilder>& field);
 
 } // namespace bb::stdlib

@@ -9,6 +9,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/flavor/chonk_g_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
@@ -94,8 +95,11 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         public_inputs.emplace_back(polynomials.w_r[idx]);
     }
 
-    // Copy IPA proof if present
-    ipa_proof = circuit.ipa_proof;
+    // Copy IPA proof if present. For Grumpkin-based flavors (e.g. ChonkG), the circuit FF differs from
+    // HonkProof's element type (bb::fr), and IPA proofs are not used, so skip the copy.
+    if constexpr (std::is_same_v<typename Circuit::FF, bb::fr>) {
+        ipa_proof = circuit.ipa_proof;
+    }
 
     if (std::getenv("BB_POLY_STATS")) {
         analyze_prover_polynomials(polynomials);
@@ -355,5 +359,6 @@ template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;
+template class ProverInstance_<ChonkGFlavor>;
 
 } // namespace bb

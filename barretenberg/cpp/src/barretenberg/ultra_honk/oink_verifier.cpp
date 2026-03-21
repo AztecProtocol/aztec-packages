@@ -6,6 +6,7 @@
 
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/flavor/chonk_g_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
@@ -44,7 +45,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
 {
     auto vk = verifier_instance->get_vk();
 
-    FF vk_hash = vk->hash_with_origin_tagging(*transcript);
+    auto vk_hash = vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 
@@ -166,6 +167,7 @@ template class OinkVerifier<UltraStarknetZKFlavor>;
 template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;
+template class OinkVerifier<ChonkGFlavor>;
 
 // Recursive flavor instantiations
 template class OinkVerifier<UltraRecursiveFlavor_<UltraCircuitBuilder>>;

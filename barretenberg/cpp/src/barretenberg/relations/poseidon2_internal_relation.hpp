@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/crypto/poseidon2/poseidon2_grumpkin_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "relation_types.hpp"
 
@@ -73,13 +74,23 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         7, // internal poseidon2 round sub-relation for fourth value
     };
 
-    // Internal matrix diagonal values minus one: these are D_i - 1 where D_i are the actual diagonal entries of M_I.
-    // The internal round computes: v[i] = (D_i - 1) * u[i] + sum = D_i * u[i] + (sum of other elements)
-    static constexpr fr D1_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[0];
-    static constexpr fr D2_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[1];
-    static constexpr fr D3_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[2];
-    static constexpr fr D4_minus_1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[3];
-    static constexpr fr D1 = fr{ 1 } + D1_minus_1;
+    // Select the correct Poseidon2 params based on the field type.
+    // Native: FF = bb::fr -> BN254 scalar params; FF = bb::fq -> Grumpkin scalar params.
+    // Recursive: FF = field_t<Builder> -> always BN254 scalar params (recursive circuits are over BN254).
+    static constexpr bool is_grumpkin_native = std::is_same_v<FF, bb::fq>;
+    using Params = std::conditional_t<is_grumpkin_native,
+                                      crypto::Poseidon2GrumpkinScalarFieldParams,
+                                      crypto::Poseidon2Bn254ScalarFieldParams>;
+    // Store constants as the params' native FF type; they will be implicitly converted to the
+    // relation's FF (e.g. field_t<Builder>) when used in the accumulate function.
+    using ParamsFF = typename Params::FF;
+    // Internal matrix diagonal values minus one: D_i - 1 where D_i are the actual diagonal entries of M_I.
+    // Both BN254 and Grumpkin params now provide internal_matrix_diagonal_minus_one.
+    static constexpr ParamsFF D1_minus_1 = Params::internal_matrix_diagonal_minus_one[0];
+    static constexpr ParamsFF D2_minus_1 = Params::internal_matrix_diagonal_minus_one[1];
+    static constexpr ParamsFF D3_minus_1 = Params::internal_matrix_diagonal_minus_one[2];
+    static constexpr ParamsFF D4_minus_1 = Params::internal_matrix_diagonal_minus_one[3];
+    static constexpr ParamsFF D1 = ParamsFF{ 1 } + D1_minus_1;
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *

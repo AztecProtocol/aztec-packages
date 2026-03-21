@@ -25,7 +25,7 @@ namespace bb::stdlib {
 template <typename Builder> class FieldSponge {
   private:
     using Permutation = Poseidon2Permutation<Builder>;
-    static constexpr size_t t = crypto::Poseidon2Bn254ScalarFieldParams::t; // = 4
+    static constexpr size_t t = Permutation::Params::t; // = 4
     static constexpr size_t capacity = 1;
     static constexpr size_t rate = t - capacity; // = 3
 

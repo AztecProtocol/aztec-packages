@@ -628,5 +628,6 @@ template <typename ExecutionTrace> void RomRamLogic_<ExecutionTrace>::process_RA
 // Template instantiations
 template class RomRamLogic_<UltraExecutionTraceBlocks>;
 template class RomRamLogic_<MegaExecutionTraceBlocks>;
+template class RomRamLogic_<GrumpkinUltraExecutionTraceBlocks>;
 
 } // namespace bb

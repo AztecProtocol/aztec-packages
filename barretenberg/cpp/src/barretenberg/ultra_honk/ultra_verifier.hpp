@@ -116,6 +116,25 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     };
 
     /**
+     * @brief Result of field-only verification (everything before the KZG MSM).
+     * @details Contains the BatchOpeningClaim produced by Shplemini and the aggregate result
+     * of Sumcheck and consistency checks. Used as input to compute_ec_verification().
+     */
+    struct FieldVerificationResult {
+        BatchOpeningClaim<Curve> batch_opening_claim;
+        bool verified = false;
+    };
+
+    /**
+     * @brief Result of padding computation
+     * @details Contains virtual log_n and padding indicator array for sumcheck/shplemini
+     */
+    struct PaddingData {
+        size_t log_n;
+        std::vector<FF> padding_indicator_array;
+    };
+
+    /**
      * @brief A constructor for native and recursive verifiers
      * @param vk_and_hash Contains verification key and its hash
      * @param transcript Transcript instance (optional, defaults to new transcript)
@@ -151,6 +170,21 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
 
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);
+
+    /**
+     * @brief Perform field-only verification: Oink → Sumcheck → Shplemini → BatchOpeningClaim.
+     * @details Everything before the KZG MSM. Returns the batch opening claim for EC verification.
+     */
+    [[nodiscard("Field verification result should be used")]] FieldVerificationResult
+    compute_field_verification(const Proof& proof);
+
+    /**
+     * @brief Perform EC verification: KZG reduce_verify_batch_opening_claim → PairingPoints.
+     * @details Takes a BatchOpeningClaim from compute_field_verification() and produces pairing points.
+     * @param batch_opening_claim The batch opening claim from field verification
+     * @param log_n The log of the circuit size (needed for MSM size computation)
+     */
+    PairingPoints compute_ec_verification(BatchOpeningClaim<Curve>&& batch_opening_claim, size_t log_n);
 
     /**
      * @brief Split a combined rollup proof into honk and IPA components

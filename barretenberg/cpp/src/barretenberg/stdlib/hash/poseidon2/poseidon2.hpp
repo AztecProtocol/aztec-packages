@@ -21,8 +21,8 @@ template <typename Builder> class poseidon2 {
 
   private:
     using field_ct = stdlib::field_t<Builder>;
-    using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using Permutation = Poseidon2Permutation<Builder>;
+    using Params = typename Permutation::Params;
     using Sponge = FieldSponge<Builder>;
 
   public:

@@ -17,4 +17,5 @@ typename Poseidon2<Params>::FF Poseidon2<Params>::hash(const std::vector<typenam
 }
 
 template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
+template class Poseidon2<Poseidon2GrumpkinScalarFieldParams>;
 } // namespace bb::crypto

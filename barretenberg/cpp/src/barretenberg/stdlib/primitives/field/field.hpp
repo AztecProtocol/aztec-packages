@@ -46,6 +46,7 @@ template <typename Builder> class bool_t;
 template <typename Builder_> class field_t {
   public:
     using Builder = Builder_;
+    using FF = typename Builder::FF;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
 
@@ -91,8 +92,8 @@ template <typename Builder_> class field_t {
      *
      * This will add a constraint, as both zip and zap map to circuit witnesses.
      **/
-    mutable bb::fr additive_constant;
-    mutable bb::fr multiplicative_constant;
+    mutable FF additive_constant;
+    mutable FF multiplicative_constant;
 
   private:
     /**
@@ -148,12 +149,12 @@ template <typename Builder_> class field_t {
     mutable OriginTag tag;
 
     field_t(Builder* parent_context = nullptr);
-    field_t(Builder* parent_context, const bb::fr& value);
+    field_t(Builder* parent_context, const FF& value);
 
     field_t(const int value)
         : context(nullptr)
-        , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , additive_constant(FF(value))
+        , multiplicative_constant(FF::one())
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -162,8 +163,8 @@ template <typename Builder_> class field_t {
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long long value)
         : context(nullptr)
-        , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , additive_constant(FF(value))
+        , multiplicative_constant(FF::one())
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -171,8 +172,8 @@ template <typename Builder_> class field_t {
 
     field_t(const unsigned int value)
         : context(nullptr)
-        , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , additive_constant(FF(value))
+        , multiplicative_constant(FF::one())
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -181,18 +182,18 @@ template <typename Builder_> class field_t {
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long value)
         : context(nullptr)
-        , additive_constant(bb::fr(value))
-        , multiplicative_constant(bb::fr::one())
+        , additive_constant(FF(value))
+        , multiplicative_constant(FF::one())
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
     }
 
     // Construct a constant circuit element from a native field element
-    field_t(const bb::fr& value)
+    field_t(const FF& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(FF::one())
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -202,7 +203,7 @@ template <typename Builder_> class field_t {
     field_t(const uint256_t& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(bb::fr::one())
+        , multiplicative_constant(FF::one())
         , witness_index(IS_CONSTANT)
     {
         tag = OriginTag::constant();
@@ -234,7 +235,7 @@ template <typename Builder_> class field_t {
     ~field_t() = default;
 
     static constexpr bool is_composite = false;
-    static constexpr uint256_t modulus = bb::fr::modulus;
+    static constexpr uint256_t modulus = FF::modulus;
 
     static field_t from_witness_index(Builder* ctx, uint32_t witness_index);
 
@@ -426,7 +427,11 @@ template <typename Builder_> class field_t {
 
     [[nodiscard]] field_t normalize() const;
 
-    bb::fr get_value() const;
+    // Compatibility with bigfield interface (used by committed sumcheck in sumcheck_round.hpp).
+    // For field_t this is a no-op since field_t values don't need limb reduction.
+    void self_reduce() const {}
+
+    FF get_value() const;
 
     Builder* get_context() const { return context; }
 
@@ -441,7 +446,7 @@ template <typename Builder_> class field_t {
     bool is_constant() const { return witness_index == IS_CONSTANT; }
     bool is_normalized() const
     {
-        return (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero())));
+        return (is_constant() || ((multiplicative_constant == FF::one()) && (additive_constant == FF::zero())));
     };
     uint32_t set_public() const
     {
@@ -463,16 +468,17 @@ template <typename Builder_> class field_t {
         unset_free_witness_tag();
     }
 
-    static field_t from_witness(Builder* ctx, const bb::fr& input)
+    static field_t from_witness(Builder* ctx, const FF& input)
     {
         auto result = field_t(witness_t<Builder>(ctx, input));
         result.set_free_witness_tag();
         return result;
     }
 
-    // Disallow from_witness for non-bb::fr types to prevent implicit conversions (specifically, using indices rather
-    // than values)
-    template <typename T> static field_t from_witness(Builder* ctx, const T& input) = delete;
+    // Disallow from_witness for types other than FF to prevent implicit conversions
+    template <typename T>
+        requires(!std::is_same_v<T, FF>)
+    static field_t from_witness(Builder* ctx, const T& input) = delete;
 
     static field_t reconstruct_from_public(const std::span<const field_t, PUBLIC_INPUTS_SIZE>& limbs)
     {
@@ -559,7 +565,7 @@ template <typename Builder_> class field_t {
         // Since in the worst case scenario
         //     r = K - 1 + (K - 1) = 2 * K - 2,
         // to ensure that it never wraps around the field modulus, we impose that it's smaller than half the modulus
-        static_assert(range_constant < bb::fr::modulus >> 1,
+        static_assert(range_constant < FF::modulus >> 1,
                       "ranged_less_than: 2^num_bits must be less than half the field modulus.");
 
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
@@ -574,7 +580,7 @@ template <typename Builder_> class field_t {
     using CoefficientAccumulator = field_t;
 
     // Alias used in `biggroup` and `CycleGroup`
-    using native = bb::fr;
+    using native = FF;
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, field_t<Builder> const& v)

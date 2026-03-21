@@ -894,7 +894,7 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
      * @brief Perform final verification: check that the computed target sum matches the full relation evaluation. i.e.
      * the final evaluation check
      */
-    bool perform_final_verification(const FF& full_honk_purported_value)
+    bool perform_final_verification(const FF& full_honk_purported_value, size_t /*multivariate_d*/ = 0)
     {
         bool verified = false;
         if constexpr (IsRecursiveFlavor<Flavor>) {
@@ -1003,20 +1003,27 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
     /**
      * @brief Perform final verification for Grumpkin: check first round sum, populate Shplemini data, and store final
      * evaluation.
+     * @param full_honk_purported_value The expected final evaluation S_{d-1}(u_{d-1})
+     * @param multivariate_d The number of real sumcheck rounds (log of actual circuit size).
+     *        When padding is used, this may be less than round_univariate_evaluations.size().
      */
-    bool perform_final_verification(const FF& full_honk_purported_value)
+    bool perform_final_verification(const FF& full_honk_purported_value, size_t multivariate_d = 0)
     {
+        const size_t num_rounds = round_univariate_evaluations.size();
+        // Default: all rounds are real (no padding)
+        if (multivariate_d == 0) {
+            multivariate_d = num_rounds;
+        }
+
         // Compute the sum of evaluations at 0 and 1 for the first round
         FF first_sumcheck_round_evaluations_sum =
             round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
 
         bool verified = false;
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            if constexpr (IsGrumpkinFlavor<Flavor>) {
-                first_sumcheck_round_evaluations_sum.self_reduce();
-                target_total_sum.self_reduce();
-                full_honk_purported_value.self_reduce();
-            }
+            first_sumcheck_round_evaluations_sum.self_reduce();
+            target_total_sum.self_reduce();
+            full_honk_purported_value.self_reduce();
             verified = (first_sumcheck_round_evaluations_sum.get_value() == target_total_sum.get_value());
             first_sumcheck_round_evaluations_sum.assert_equal(target_total_sum);
         } else {
@@ -1024,14 +1031,17 @@ template <typename Flavor> class SumcheckVerifierRound<Flavor, true> {
         }
 
         // Populate claimed evaluations of Sumcheck Round Univariates at the round challenges.
-        // These will be checked as a part of Shplemini.
-        for (size_t round_idx = 1; round_idx < round_univariate_evaluations.size(); round_idx++) {
+        // For each real round i, S_i(u_i) = S_{i+1}(0) + S_{i+1}(1).
+        // Only iterate over real rounds (not padding rounds).
+        for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             round_univariate_evaluations[round_idx - 1][2] =
                 round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
         }
 
-        // Store the final evaluation for Shplemini
-        round_univariate_evaluations[round_univariate_evaluations.size() - 1][2] = full_honk_purported_value;
+        // The last real round's eval at the challenge equals the full honk purported value
+        round_univariate_evaluations[multivariate_d - 1][2] = full_honk_purported_value;
+
+        // Padding rounds (if any) have eval[2] = 0, which is already set from initialization
         return verified;
     }
 

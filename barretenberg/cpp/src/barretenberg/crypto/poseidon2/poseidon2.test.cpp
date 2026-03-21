@@ -1,4 +1,5 @@
 #include "poseidon2.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_grumpkin_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include <gtest/gtest.h>
@@ -42,4 +43,22 @@ TEST(Poseidon2, HashConsistencyCheck)
     fr expected(std::string("0x2f43a0f83b51a6f5fc839dea0ecec74947637802a579fa9841930a25a0bcec11"));
 
     EXPECT_EQ(result, expected);
+}
+
+TEST(Poseidon2, GrumpkinHashBasicTests)
+{
+    fq a = fq::random_element(&engine);
+    fq b = fq::random_element(&engine);
+    fq c = fq::random_element(&engine);
+    fq d = fq::random_element(&engine);
+
+    std::vector<fq> input1{ a, b, c, d };
+    std::vector<fq> input2{ d, c, b, a };
+
+    auto r0 = crypto::Poseidon2<crypto::Poseidon2GrumpkinScalarFieldParams>::hash(input1);
+    auto r1 = crypto::Poseidon2<crypto::Poseidon2GrumpkinScalarFieldParams>::hash(input1);
+    auto r2 = crypto::Poseidon2<crypto::Poseidon2GrumpkinScalarFieldParams>::hash(input2);
+
+    EXPECT_EQ(r0, r1);
+    EXPECT_NE(r0, r2);
 }

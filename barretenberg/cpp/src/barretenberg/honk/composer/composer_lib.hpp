@@ -24,13 +24,14 @@ template <typename Flavor>
 void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit)
 {
+    using FF = typename Flavor::FF;
     size_t offset = 0;
     for (const auto& table : circuit.get_lookup_tables()) {
         for (size_t i = 0; i < table.size(); ++i) {
-            table_polynomials[0].at(offset) = table.column_1[i];
-            table_polynomials[1].at(offset) = table.column_2[i];
-            table_polynomials[2].at(offset) = table.column_3[i];
-            table_polynomials[3].at(offset) = table.table_index;
+            table_polynomials[0].at(offset) = FF(table.column_1[i]);
+            table_polynomials[1].at(offset) = FF(table.column_2[i]);
+            table_polynomials[2].at(offset) = FF(table.column_3[i]);
+            table_polynomials[3].at(offset) = FF(table.table_index);
             offset++;
         }
     }

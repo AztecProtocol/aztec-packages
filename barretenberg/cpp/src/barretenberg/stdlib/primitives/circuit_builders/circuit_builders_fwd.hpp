@@ -14,8 +14,10 @@ class Bn254FrParams;
 class Bn254FqParams;
 template <class Params> struct alignas(32) field;
 class UltraExecutionTraceBlocks;
+class GrumpkinUltraExecutionTraceBlocks;
 template <class ExecutionTrace> class UltraCircuitBuilder_;
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
+using GrumpkinUltraCircuitBuilder = UltraCircuitBuilder_<GrumpkinUltraExecutionTraceBlocks>;
 template <class FF> class MegaCircuitBuilder_;
 using MegaCircuitBuilder = MegaCircuitBuilder_<field<Bn254FrParams>>;
 
@@ -28,6 +30,7 @@ class MegaAvmFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;
 class ECCVMFlavor;
+class ChonkGFlavor;
 class TranslatorFlavor;
 class TranslatorRecursiveFlavor;
 class ECCVMRecursiveFlavor;

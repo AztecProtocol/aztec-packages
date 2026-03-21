@@ -121,7 +121,7 @@ struct AcirFormat {
  */
 struct AcirProgram {
     AcirFormat constraints;
-    WitnessVector witness;
+    WitnessVector witness = {};
 };
 
 /**

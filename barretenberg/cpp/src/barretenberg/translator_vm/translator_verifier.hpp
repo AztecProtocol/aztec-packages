@@ -53,6 +53,17 @@ template <typename Flavor> class TranslatorVerifier_ {
     };
 
     /**
+     * @brief Result of the field-only portion of translator verification
+     * @details Contains the BatchOpeningClaim (commitments + scalars + evaluation point) produced by Shplemini,
+     * plus the verification status of sumcheck and consistency checks. This is the output of all field arithmetic
+     * in the Translator verifier; the remaining work is purely EC operations (KZG reduction MSM).
+     */
+    struct FieldVerificationResult {
+        BatchOpeningClaim<Curve> batch_opening_claim; // Commitments, scalars, evaluation point from Shplemini
+        bool verified = false;                        // sumcheck + consistency checks passed
+    };
+
+    /**
      * @brief Unified constructor for both native and recursive verification
      * @details For recursive case, extracts builder from proof elements via get_context().
      * TranslatorFlavor VK is constant, so it's default-constructed.
@@ -90,14 +101,6 @@ template <typename Flavor> class TranslatorVerifier_ {
     }
 
     /**
-     * @brief Load translator proof and run the pre-sumcheck (Oink-like) phase on the shared transcript.
-     * @details Hashes the VK, sets relation parameters from ECCVM inputs, and receives wire/z_perm
-     * commitments and beta/gamma challenges. After this call, `relation_parameters` is populated.
-     * @return VerifierCommitments populated with the received commitments.
-     */
-    VerifierCommitments receive_pre_sumcheck();
-
-    /**
      * @brief Reduce the translator proof to a pairing check
      * @details Verifies the Translator circuit's internal checks (sumcheck, Libra evaluations consistency) and reduces
      * all polynomial opening claims to a KZG pairing check. This method does NOT perform the final pairing
@@ -113,12 +116,39 @@ template <typename Flavor> class TranslatorVerifier_ {
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check();
 
     /**
+     * @brief Perform the field-only portion of Translator verification
+     * @details Processes the transcript (commitments, challenges), runs sumcheck, and computes the Shplemini
+     * batch opening claim. All work here is field arithmetic — no EC operations beyond deserializing commitments
+     * from the transcript. After this call, the transcript is positioned for the EC verification step.
+     *
+     * @return FieldVerificationResult containing the BatchOpeningClaim and verification status
+     */
+    /**
+     * @brief Load translator proof and run the pre-sumcheck phase (Oink-like).
+     * @details Used by the batched verifier which handles sumcheck jointly.
+     */
+    VerifierCommitments receive_pre_sumcheck();
+
+    [[nodiscard]] FieldVerificationResult compute_field_verification();
+
+    /**
+     * @brief Perform the EC-only portion of Translator verification
+     * @details Takes a BatchOpeningClaim (from compute_field_verification) and runs KZG's
+     * reduce_verify_batch_opening_claim to produce pairing points. This reads the KZG quotient commitment
+     * from the transcript and performs the final MSM.
+     *
+     * @param batch_opening_claim The claim produced by compute_field_verification
+     * @return PairingPoints for deferred pairing verification
+     */
+    PairingPoints compute_ec_verification(BatchOpeningClaim<Curve>&& batch_opening_claim);
+
+    /**
      * @brief Get the verification key
      * @return Shared pointer to the verification key
      */
     std::shared_ptr<VerificationKey> get_verification_key() const { return key; }
 
-    // Relation parameters populated by receive_pre_sumcheck(); public for use by batched verifier.
+    // Relation parameters populated by compute_field_verification(); public for use by batched verifier.
     RelationParams relation_parameters;
 
   private:

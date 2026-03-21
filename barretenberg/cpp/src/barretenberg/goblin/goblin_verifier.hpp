@@ -101,6 +101,37 @@ template <typename Curve> class GoblinVerifier_ {
      */
     [[nodiscard("Verification result must be accumulated")]] ReductionResult reduce_to_pairing_check_and_ipa_opening();
 
+    /**
+     * @brief Result of field-only Goblin verification for the split Chonk_B circuit.
+     * @details Merge and Translator return BatchOpeningClaims (no MSMs performed).
+     * ECCVM transcript is advanced (no verification) for Fiat-Shamir continuity.
+     * ECCVM verification happens separately via ECCVMFieldCircuit + ECCVMECCircuit.
+     */
+    struct FieldReductionResult {
+        using MergeFieldResult = typename MergeVerifier::FieldVerificationResult;
+        using TranslatorFieldResult = typename TranslatorVerifier::FieldVerificationResult;
+        using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
+
+        using BN254Commitment = typename Curve::AffineElement;
+
+        MergeFieldResult merge_field_result;           // BatchOpeningClaim + merged_commitments
+        BN254Commitment merge_W;                       // KZG quotient commitment for Merge
+        TranslatorFieldResult translator_field_result;  // BatchOpeningClaim
+        BN254Commitment translator_W;                  // KZG quotient commitment for Translator
+        IPAProof ipa_proof;                             // IPA proof for deferred ECCVM verification
+        bool all_checks_passed = false;                 // Merge + Translator field checks (ECCVM checked separately)
+    };
+
+    /**
+     * @brief Reduce Goblin proof with field-only Merge/Translator + ECCVM transcript replay.
+     * @details For the split Chonk_B circuit:
+     *   - Merge: compute_field_verification() → BatchOpeningClaim (no MSM)
+     *   - ECCVM: advance_transcript_only() → advances Fiat-Shamir state (no verification)
+     *   - Translator: compute_field_verification() → BatchOpeningClaim (no MSM)
+     * The returned BatchOpeningClaims can be used with TranslatorECCircuit in Chonk_G.
+     */
+    [[nodiscard]] FieldReductionResult reduce_to_field_claims_and_ipa_opening();
+
   private:
     std::shared_ptr<Transcript> transcript;
     GoblinProof proof;

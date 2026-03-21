@@ -1,5 +1,5 @@
 # Remark: Original sage script authored by Markus Schofnegger from Horizen Labs
-# Original source: https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage 
+# Original source: https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage
 # Licenced under MIT.
 # Remark: This script contains functionality for GF(2^n), but currently works only over GF(p)! A few small adaptations are needed for GF(2^n).
 from sage.rings.polynomial.polynomial_gf2x import GF2X_BuildIrred_list
@@ -86,7 +86,7 @@ def find_FD_round_numbers(p, t, alpha, M, cost_function, security_margin):
 
 def sat_inequiv_alpha(p, t, R_F, R_P, alpha, M):
     N = int(FIELD_SIZE * NUM_CELLS)
-    
+
     if alpha > 0:
         R_F_1 = 6 if M <= ((floor(log(p, 2) - ((alpha-1)/2.0))) * (t + 1)) else 10 # Statistical
         R_F_2 = 1 + ceil(log(2, alpha) * min(M, FIELD_SIZE)) + ceil(log(t, alpha)) - R_P # Interpolation
@@ -94,7 +94,7 @@ def sat_inequiv_alpha(p, t, R_F, R_P, alpha, M):
         R_F_4 = t - 1 + log(2, alpha) * min(M / float(t + 1), log(p, 2) / float(2)) - R_P # Groebner 2
         R_F_5 = (t - 2 + (M / float(2 * log(alpha, 2))) - R_P) / float(t - 1) # Groebner 3
         R_F_max = max(ceil(R_F_1), ceil(R_F_2), ceil(R_F_3), ceil(R_F_4), ceil(R_F_5))
-        
+
         # Addition due to https://eprint.iacr.org/2023/537.pdf
         r_temp = floor(t / 3.0)
         over = (R_F - 1) * t + R_P + r_temp + r_temp * (R_F / 2.0) + R_P + alpha
@@ -452,7 +452,7 @@ def generate_matrix_partial(FIELD, FIELD_SIZE, NUM_CELLS): ## TODO: Prioritize s
             while check_minpoly_condition(M, NUM_CELLS) == False:
                 M_diagonal = matrix.diagonal([F(grain_random_bits(entry_max_bit_size)) for _ in range(0, NUM_CELLS)])
                 M = M_circulant + M_diagonal
-        
+
         if(algorithm_1(M, NUM_CELLS)[0] == False or algorithm_2(M, NUM_CELLS)[0] == False or algorithm_3(M, NUM_CELLS)[0] == False):
             print("Error: Generated partial matrix is not secure w.r.t. subspace trails.")
             exit()

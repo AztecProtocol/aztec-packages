@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/crypto/poseidon2/poseidon2_grumpkin_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
@@ -29,7 +30,10 @@ namespace bb::stdlib {
  */
 template <typename Builder> class Poseidon2Permutation {
   public:
-    using Params = crypto::Poseidon2Bn254ScalarFieldParams;
+    // Select Poseidon2 params based on Builder's native field type
+    using Params = std::conditional_t<std::is_same_v<typename Builder::FF, bb::fq>,
+                                       crypto::Poseidon2GrumpkinScalarFieldParams,
+                                       crypto::Poseidon2Bn254ScalarFieldParams>;
     using NativePermutation = crypto::Poseidon2Permutation<Params>;
     // t = sponge permutation size (in field elements)
     // t = rate + capacity

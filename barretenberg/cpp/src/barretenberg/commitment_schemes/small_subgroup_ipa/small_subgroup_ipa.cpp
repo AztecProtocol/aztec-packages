@@ -7,6 +7,7 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"
+#include "barretenberg/flavor/chonk_g_flavor.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
@@ -450,6 +451,8 @@ template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;
 #ifdef STARKNET_GARAGA_FLAVORS
 template class SmallSubgroupIPAProver<UltraStarknetZKFlavor>;
 #endif
+
+template class SmallSubgroupIPAProver<ChonkGFlavor>;
 
 // Instantiations used in tests
 template class SmallSubgroupIPAProver<BN254Settings>;

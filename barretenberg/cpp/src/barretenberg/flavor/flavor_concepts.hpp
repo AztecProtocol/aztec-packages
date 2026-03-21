@@ -15,7 +15,7 @@ template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>;
 #endif
 template <typename T>
-concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor>;
+concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, ChonkGFlavor>;
 
 template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
@@ -59,7 +59,7 @@ template <typename T>
 concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK, ChonkGFlavor>;
 
 // Flavors whose Sumcheck round univariates are committed (sent as commitment + evals at 0,1)
 // rather than sent in the clear. The committed data is later verified via Shplemini.

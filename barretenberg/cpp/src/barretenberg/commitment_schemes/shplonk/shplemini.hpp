@@ -118,8 +118,12 @@ template <typename Curve> class ShpleminiProver_ {
         OpeningClaim new_claim;
         std::vector<OpeningClaim> sumcheck_round_claims = {};
 
-        const size_t log_n = numeric::get_msb(circuit_size);
-        for (size_t idx = 0; idx < log_n; idx++) {
+        // Use the actual number of round univariates (which includes padding rounds when USE_PADDING is true)
+        // rather than log_n = get_msb(circuit_size), to match the verifier's batch_sumcheck_round_claims.
+        // Use the actual number of round univariates (which includes padding rounds when USE_PADDING is true)
+        const size_t num_rounds = sumcheck_round_univariates.size();
+        (void)circuit_size;
+        for (size_t idx = 0; idx < num_rounds; idx++) {
             const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
             size_t eval_idx = 0;
             new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
@@ -168,8 +172,18 @@ template <typename Curve, bool HasZK> struct ShpleminiVerifierOutput_ {
     BatchOpeningClaim<Curve> batch_opening_claim;
 };
 template <typename Curve> struct ShpleminiVerifierOutput_<Curve, true> {
+    using Fr = typename Curve::ScalarField;
+
     BatchOpeningClaim<Curve> batch_opening_claim;
-    bool consistency_checked;
+    bool consistency_checked = false;
+
+    // Exported for ECCVMFieldCircuit (Chonk_G split verification)
+    Fr gemini_batching_challenge;    // ρ
+    Fr gemini_evaluation_challenge;  // r
+    Fr shplonk_batching_challenge;   // ν
+    Fr shplonk_evaluation_challenge; // z
+    std::vector<Fr> gemini_fold_neg_evaluations;
+    std::vector<Fr> gemini_fold_pos_evaluations;
 };
 
 template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
@@ -368,9 +382,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        // Currently, only used in ECCVM
+        // Currently used in ECCVM and ChonkG
         if (committed_sumcheck) {
-            batch_sumcheck_round_claims(commitments,
+            batch_sumcheck_round_claims(padding_indicator_array,
+                                        commitments,
                                         scalars,
                                         constant_term_accumulator,
                                         multivariate_challenge,
@@ -385,14 +400,18 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         scalars.emplace_back(constant_term_accumulator);
 
         BatchOpeningClaim<Curve> batch_opening_claim{ commitments, scalars, shplonk_evaluation_challenge };
-        ShpleminiVerifierOutput output = [&]() {
-            if constexpr (HasZK) {
-                return ShpleminiVerifierOutput{ batch_opening_claim, consistency_checked };
-            } else {
-                return ShpleminiVerifierOutput{ batch_opening_claim };
-            }
-        }();
-        return output;
+        if constexpr (HasZK) {
+            return ShpleminiVerifierOutput{ .batch_opening_claim = std::move(batch_opening_claim),
+                                            .consistency_checked = consistency_checked,
+                                            .gemini_batching_challenge = gemini_batching_challenge,
+                                            .gemini_evaluation_challenge = gemini_evaluation_challenge,
+                                            .shplonk_batching_challenge = shplonk_batching_challenge,
+                                            .shplonk_evaluation_challenge = shplonk_evaluation_challenge,
+                                            .gemini_fold_neg_evaluations = gemini_fold_neg_evaluations,
+                                            .gemini_fold_pos_evaluations = gemini_fold_pos_evaluations };
+        } else {
+            return ShpleminiVerifierOutput{ .batch_opening_claim = std::move(batch_opening_claim) };
+        }
     };
 
     /**
@@ -626,7 +645,8 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
      * @param sumcheck_round_commitments
      * @param sumcheck_round_evaluations
      */
-    static void batch_sumcheck_round_claims(std::vector<Commitment>& commitments,
+    static void batch_sumcheck_round_claims(std::span<const Fr> padding_indicator_array,
+                                            std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
                                             Fr& constant_term_accumulator,
                                             const std::vector<Fr>& multilinear_challenge,
@@ -638,8 +658,8 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
 
         std::vector<Fr> denominators = {};
 
-        // The number of Gemini claims is equal to `2 * log_n` and `log_n` is equal to the size of
-        // `multilinear_challenge`, as this method is never used with padding.
+        // The number of Gemini claims is `2 * virtual_log_n` where virtual_log_n is the size of
+        // `multilinear_challenge` (which may include padding rounds).
         const size_t num_gemini_claims = 2 * multilinear_challenge.size();
         // Denominators for the opening claims at 0 and 1. Need to be computed only once as opposed to the claims at the
         // sumcheck round challenges.
@@ -669,6 +689,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // Compute the power of `shplonk_batching_challenge` to add sumcheck univariate commitments and evaluations to
         // the batch.
         size_t power = num_gemini_claims + NUM_SMALL_IPA_EVALUATIONS;
+        size_t round_idx = 0;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);
@@ -685,9 +706,15 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
             batched_scalar -= current_scaling_factor;
             const_term_contribution += current_scaling_factor * eval_array[2];
 
+            // Zero out padding round scalars (analogous to how batch_gemini_claims handles padding).
+            // For padding rounds, the commitment is the identity point and evaluations are 0, so the
+            // scalar should also be 0 to avoid passing infinity points with non-zero scalars to the MSM.
+            batched_scalar *= padding_indicator_array[round_idx];
+
             // Update Shplonk constant term accumulator
             constant_term_accumulator += const_term_contribution;
             scalars.push_back(batched_scalar);
+            round_idx++;
         }
     };
 };

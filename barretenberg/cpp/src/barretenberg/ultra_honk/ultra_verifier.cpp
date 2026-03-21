@@ -124,17 +124,16 @@ bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPACla
 }
 
 /**
- * @brief Reduce ultra proof to verification claims (works for both native and recursive)
- * @details Contains all shared verification logic: Oink, Sumcheck, Shplemini
- * @return ReductionResult with pairing points and intermediate consistency checks
+ * @brief Perform field-only verification: Oink → Sumcheck → Shplemini → BatchOpeningClaim.
+ * @details Everything before the KZG MSM. Returns the batch opening claim for EC verification.
  */
 template <typename Flavor, class IO>
-typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
+typename UltraVerifier_<Flavor, IO>::FieldVerificationResult UltraVerifier_<Flavor, IO>::compute_field_verification(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
+    using ClaimBatch = typename ClaimBatcher::Batch;
 
     transcript->load_proof(proof);
 
@@ -205,10 +204,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
                                                                    libra_commitments,
                                                                    sumcheck_output.claimed_libra_evaluation);
 
-    // Build reduction result
-    ReductionResult result;
-    result.pairing_points = PCS::reduce_verify_batch_opening_claim(
-        std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
+    FieldVerificationResult result;
+    result.batch_opening_claim = std::move(shplemini_output.batch_opening_claim);
 
     bool consistency_checked = true;
     if constexpr (Flavor::HasZK) {
@@ -216,7 +213,46 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         vinfo("Ultra Verifier (with ZK): Libra evals consistency checked ", consistency_checked ? "true" : "false");
     }
     vinfo("Ultra Verifier sumcheck_verified: ", sumcheck_output.verified ? "true" : "false");
-    result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
+    result.verified = sumcheck_output.verified && consistency_checked;
+
+    return result;
+}
+
+/**
+ * @brief Perform EC verification: KZG reduce_verify_batch_opening_claim → PairingPoints.
+ * @details Takes a BatchOpeningClaim from compute_field_verification() and produces pairing points.
+ */
+template <typename Flavor, class IO>
+typename UltraVerifier_<Flavor, IO>::PairingPoints UltraVerifier_<Flavor, IO>::compute_ec_verification(
+    BatchOpeningClaim<typename Flavor::Curve>&& batch_opening_claim, size_t log_n)
+{
+    using PCS = typename Flavor::PCS;
+    return PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
+}
+
+/**
+ * @brief Reduce ultra proof to verification claims (works for both native and recursive)
+ * @details Composes compute_field_verification() and compute_ec_verification().
+ * @return ReductionResult with pairing points and intermediate consistency checks
+ */
+template <typename Flavor, class IO>
+typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
+    const typename UltraVerifier_<Flavor, IO>::Proof& proof)
+{
+    auto field_result = compute_field_verification(proof);
+
+    // Determine log_n (same logic as process_padding)
+    const size_t log_n = [&]() {
+        if constexpr (Flavor::USE_PADDING) {
+            return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
+        } else if constexpr (!IsRecursive) {
+            return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+        }
+    }();
+
+    ReductionResult result;
+    result.pairing_points = compute_ec_verification(std::move(field_result.batch_opening_claim), log_n);
+    result.reduction_succeeded = field_result.verified;
 
     return result;
 }
@@ -303,6 +339,7 @@ template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
+// Note: ChonkGFlavor uses IPA PCS (not KZG) and needs its own verifier, not UltraVerifier_
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template class UltraVerifier_<UltraStarknetFlavor, DefaultIO>;

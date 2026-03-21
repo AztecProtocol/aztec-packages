@@ -59,6 +59,7 @@ namespace bb::stdlib {
  */
 template <typename Builder> class bool_t {
   public:
+    using FF = typename Builder::FF;
     bool_t(const bool value = false);
     bool_t(Builder* parent_context);
     bool_t(Builder* parent_context, const bool value);

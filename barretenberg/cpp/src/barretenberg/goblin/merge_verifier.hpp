@@ -63,6 +63,17 @@ template <typename Curve> class MergeVerifier_ {
         bool reduction_succeeded = false; // Aggregate of degree and concatenation checks
     };
 
+    /**
+     * @brief Result of field-only merge verification (everything before the KZG MSM).
+     * @details Contains the BatchOpeningClaim produced by Shplonk batching, the merged table
+     * commitments, and the aggregate result of degree and concatenation checks.
+     */
+    struct FieldVerificationResult {
+        BatchOpeningClaim<Curve> batch_opening_claim;
+        TableCommitments merged_commitments;
+        bool verified = false;
+    };
+
     MergeSettings settings;
     std::shared_ptr<Transcript> transcript;
 
@@ -91,6 +102,19 @@ template <typename Curve> class MergeVerifier_ {
      */
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(
         const Proof& proof, const InputCommitments& input_commitments);
+
+    /**
+     * @brief Perform field-only merge verification: identity checks + Shplonk batching → BatchOpeningClaim.
+     * @details Everything before the KZG MSM. Returns the batch opening claim for EC verification.
+     */
+    [[nodiscard("Field verification result should be used")]] FieldVerificationResult
+    compute_field_verification(const Proof& proof, const InputCommitments& input_commitments);
+
+    /**
+     * @brief Perform EC verification: KZG reduce_verify_batch_opening_claim → PairingPoints.
+     * @details Takes a BatchOpeningClaim from compute_field_verification() and produces pairing points.
+     */
+    PairingPoints compute_ec_verification(BatchOpeningClaim<Curve>&& batch_opening_claim);
 
   private:
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",

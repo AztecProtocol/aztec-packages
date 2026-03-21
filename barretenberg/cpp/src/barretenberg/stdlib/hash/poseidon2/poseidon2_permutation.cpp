@@ -93,8 +93,9 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
 template <typename Builder>
 void Poseidon2Permutation<Builder>::matrix_multiplication_external(typename Poseidon2Permutation<Builder>::State& state)
 {
-    const bb::fr two(2);
-    const bb::fr four(4);
+    using FF = typename Builder::FF;
+    const FF two(2);
+    const FF four(4);
     // create the 6 gates for the initial matrix multiplication
     // gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
     field_t<Builder> tmp1 = state[0].add_two(state[1], state[3] * two);
@@ -117,5 +118,6 @@ void Poseidon2Permutation<Builder>::matrix_multiplication_external(typename Pose
 
 template class Poseidon2Permutation<MegaCircuitBuilder>;
 template class Poseidon2Permutation<UltraCircuitBuilder>;
+template class Poseidon2Permutation<GrumpkinUltraCircuitBuilder>;
 
 } // namespace bb::stdlib

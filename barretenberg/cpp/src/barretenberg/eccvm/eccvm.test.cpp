@@ -559,3 +559,94 @@ TEST_F(ECCVMTests, MaskingTailCommitments)
         EXPECT_NE(naive, structured.wire_comms[i]) << "Wire " << i << " commitment should be masked";
     }
 }
+
+/**
+ * @brief Test that compute_field_verification() + compute_ec_verification() produces the same
+ *        IPA opening claim as reduce_to_ipa_opening().
+ */
+TEST_F(ECCVMTests, FieldECSplit)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    // Monolithic verification
+    std::shared_ptr<Transcript> verifier_transcript_mono = std::make_shared<Transcript>();
+    ECCVMVerifier verifier_mono(verifier_transcript_mono, proof);
+    auto mono_result = verifier_mono.reduce_to_ipa_opening();
+    ASSERT_TRUE(mono_result.reduction_succeeded) << "Monolithic ECCVM verification failed";
+
+    // Split verification: field + EC
+    std::shared_ptr<Transcript> verifier_transcript_split = std::make_shared<Transcript>();
+    ECCVMVerifier verifier_split(verifier_transcript_split, proof);
+    auto field_result = verifier_split.compute_field_verification();
+    ASSERT_TRUE(field_result.verified) << "ECCVM field verification failed";
+
+    auto ipa_claim = verifier_split.compute_ec_verification(std::move(field_result));
+
+    // Compare IPA claims
+    EXPECT_EQ(mono_result.ipa_claim.opening_pair.challenge, ipa_claim.opening_pair.challenge)
+        << "IPA challenge mismatch";
+    EXPECT_EQ(mono_result.ipa_claim.opening_pair.evaluation, ipa_claim.opening_pair.evaluation)
+        << "IPA evaluation mismatch";
+    EXPECT_EQ(mono_result.ipa_claim.commitment, ipa_claim.commitment) << "IPA commitment mismatch";
+
+    // Verify TranslatorInputData is available
+    auto translator_data = verifier_split.get_translator_input_data();
+    auto mono_translator_data = verifier_mono.get_translator_input_data();
+    EXPECT_EQ(translator_data.evaluation_challenge_x, mono_translator_data.evaluation_challenge_x);
+    EXPECT_EQ(translator_data.batching_challenge_v, mono_translator_data.batching_challenge_v);
+    EXPECT_EQ(translator_data.accumulated_result, mono_translator_data.accumulated_result);
+
+    // Verify the IPA claim is correct by checking with the IPA verifier
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, ipa_claim, ipa_verifier_transcript);
+    EXPECT_TRUE(ipa_verified) << "Split ECCVM IPA verification failed";
+
+    info("ECCVM field/EC split: IPA claims match, IPA verified");
+}
+
+/**
+ * @brief Test that compute_ec_verification_flat produces a BatchOpeningClaim whose batch_mul
+ *        gives the same commitment as the normal compute_ec_verification.
+ */
+TEST_F(ECCVMTests, FlatECVerification)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Normal EC verification
+    std::shared_ptr<Transcript> vt1 = std::make_shared<Transcript>();
+    ECCVMVerifier verifier1(vt1, proof);
+    auto field_result1 = verifier1.compute_field_verification();
+    ASSERT_TRUE(field_result1.verified);
+    auto ipa_claim = verifier1.compute_ec_verification(std::move(field_result1));
+
+    // Flat EC verification
+    std::shared_ptr<Transcript> vt2 = std::make_shared<Transcript>();
+    ECCVMVerifier verifier2(vt2, proof);
+    auto field_result2 = verifier2.compute_field_verification();
+    ASSERT_TRUE(field_result2.verified);
+    auto flat_result = verifier2.compute_ec_verification_flat(std::move(field_result2));
+
+    // Verify the flat batch claim: batch_mul should give the same commitment as the IPA claim
+    auto result_commitment = curve::Grumpkin::Element::batch_mul(
+        flat_result.batch_claim.commitments, flat_result.batch_claim.scalars);
+
+    EXPECT_EQ(curve::Grumpkin::AffineElement(result_commitment), ipa_claim.commitment)
+        << "Flat batch_mul commitment doesn't match IPA claim commitment";
+    EXPECT_EQ(flat_result.batch_claim.evaluation_point, ipa_claim.opening_pair.challenge)
+        << "z_challenge mismatch";
+    EXPECT_EQ(flat_result.batched_evaluation, ipa_claim.opening_pair.evaluation) << "evaluation mismatch";
+
+    info("ECCVM flat EC verification: ", flat_result.batch_claim.commitments.size(), " commitments in flat claim");
+}

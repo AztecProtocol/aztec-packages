@@ -14,17 +14,15 @@
 namespace bb {
 
 /**
- * @brief Verifies an ECCVM Honk proof for given program settings.
- * @details Works for both native verification and recursive (in-circuit) verification.
+ * @brief Perform field-only ECCVM verification: Sumcheck → Shplemini → translation claims.
+ * @details Everything before the Grumpkin MSMs.
  */
 template <typename Flavor>
-typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
+typename ECCVMVerifier_<Flavor>::FieldVerificationResult ECCVMVerifier_<Flavor>::compute_field_verification()
 {
     BB_BENCH_NAME("ECCVMVerifier::reduce");
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
-    using Shplonk = ShplonkVerifier_<Curve>;
-    using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
 
@@ -67,8 +65,6 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
-    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
-    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Execute Sumcheck Verifier
@@ -90,15 +86,12 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
-    // produced by the unified protocol
-
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    auto [sumcheck_batch_opening_claims, consistency_checked] =
+    auto shplemini_output =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
@@ -109,14 +102,10 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
                                                sumcheck_output.claimed_libra_evaluation,
                                                sumcheck_output.round_univariate_commitments,
                                                sumcheck_output.round_univariate_evaluations);
+    auto& sumcheck_batch_opening_claims = shplemini_output.batch_opening_claim;
+    [[maybe_unused]] auto consistency_checked = shplemini_output.consistency_checked;
 
-    // Reduce the accumulator to a single opening claim
-    OpeningClaim multivariate_to_univariate_opening_claim =
-        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
-
-    // Produce the opening claim for batch opening of `op`, `Px`, `Py`, `z1`, and `z2` wires as univariate
-    // polynomials
-
+    // Produce translation opening claims (SmallSubgroupIPA + batched translation)
     std::vector<Commitment> translation_commitments = { commitments.transcript_op,
                                                         commitments.transcript_Px,
                                                         commitments.transcript_Py,
@@ -124,19 +113,219 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
                                                         commitments.transcript_z2 };
     compute_translation_opening_claims(translation_commitments);
 
-    opening_claims.back() = multivariate_to_univariate_opening_claim;
-
-    // Construct the combined opening claim
-    const OpeningClaim batch_opening_claim = Shplonk::reduce_verification(pcs_g1_identity, opening_claims, transcript);
+    compute_accumulated_result();
 
     bool sumcheck_verified = sumcheck_output.verified;
     vinfo("ECCVM Verifier: sumcheck verified: ", sumcheck_verified);
     vinfo("ECCVM Verifier: consistency checked: ", consistency_checked);
     vinfo("ECCVM Verifier: translation masking consistency checked: ", translation_masking_consistency_checked);
 
+    FieldVerificationResult result;
+    result.sumcheck_batch_opening_claim = std::move(sumcheck_batch_opening_claims);
+    result.opening_claims = opening_claims; // Copy translation opening claims (multivariate slot not yet set)
+    result.pcs_g1_identity = pcs_g1_identity;
+    result.translator_input_data = get_translator_input_data();
+    result.verified = sumcheck_verified && consistency_checked && translation_masking_consistency_checked;
+
+    // Export sumcheck round data for ECCVMFieldCircuit (Chonk_G)
+    result.round_univariate_evaluations = sumcheck_output.round_univariate_evaluations;
+    result.round_challenges = sumcheck_output.challenge;
+    result.initial_target_sum = sumcheck_output.round_univariate_evaluations[0][0] +
+                                 sumcheck_output.round_univariate_evaluations[0][1];
+
+    // Export Shplemini data for ECCVMFieldCircuit scalar computation
+    result.gemini_batching_challenge = shplemini_output.gemini_batching_challenge;
+    result.gemini_evaluation_challenge = shplemini_output.gemini_evaluation_challenge;
+    result.shplonk_batching_challenge = shplemini_output.shplonk_batching_challenge;
+    result.shplonk_evaluation_challenge = shplemini_output.shplonk_evaluation_challenge;
+    result.gemini_fold_neg_evaluations = shplemini_output.gemini_fold_neg_evaluations;
+    result.gemini_fold_pos_evaluations = shplemini_output.gemini_fold_pos_evaluations;
+
+    return result;
+}
+
+/**
+ * @brief Advance the transcript through all ECCVM proof elements WITHOUT doing verification.
+ * @details Performs all the same transcript interactions (receive_from_prover, get_challenge)
+ * as compute_field_verification + compute_ec_verification, advancing the Fiat-Shamir hash state.
+ * Does NOT do: sumcheck verification, Shplemini computation, translation claim verification, MSMs.
+ * Returns TranslatorInputData for the downstream Translator verifier.
+ */
+template <typename Flavor>
+typename ECCVMVerifier_<Flavor>::TranslatorInputData ECCVMVerifier_<Flavor>::advance_transcript_only()
+{
+    using Curve = typename Flavor::Curve;
+    using GeminiVerifier = GeminiVerifier_<Curve>;
+
+    // Load proof into transcript
+    transcript->load_proof(proof);
+
+    // Fiat-Shamir the vk hash
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+
+    VerifierCommitments commitments{ key };
+    CommitmentLabels commitment_labels;
+
+    // --- Oink phase transcript interactions ---
+    transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+        comm = transcript->template receive_from_prover<Commitment>(label);
+    }
+    transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
+    transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
+    transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
+
+    // --- Sumcheck transcript interactions ---
+    transcript->template get_challenge<FF>("Sumcheck:alpha");
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
+        transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    // Sumcheck round interactions (committed sumcheck: commitments + evaluations at 0,1 + challenges)
+    for (size_t round_idx = 0; round_idx < CONST_ECCVM_LOG_N; round_idx++) {
+        transcript->template receive_from_prover<Commitment>("Sumcheck:round_univariate_comm_" +
+                                                              std::to_string(round_idx));
+        transcript->template receive_from_prover<FF>("Sumcheck:round_univariate_eval_0_" +
+                                                      std::to_string(round_idx));
+        transcript->template receive_from_prover<FF>("Sumcheck:round_univariate_eval_1_" +
+                                                      std::to_string(round_idx));
+        transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+    }
+
+    // Claimed evaluations
+    transcript->template receive_from_prover<std::array<FF, Flavor::NUM_ALL_ENTITIES>>("Sumcheck:evaluations");
+
+    // Libra claimed evaluation
+    transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
+    transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+    transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    // --- Shplemini/Gemini transcript interactions ---
+    transcript->template get_challenge<FF>("rho");
+    GeminiVerifier::get_fold_commitments(CONST_ECCVM_LOG_N, transcript);
+    transcript->template get_challenge<FF>("Gemini:r");
+    GeminiVerifier::get_gemini_evaluations(CONST_ECCVM_LOG_N, transcript);
+
+    // Libra evaluations (ZK)
+    transcript->template receive_from_prover<FF>("Libra:concatenation_eval");
+    transcript->template receive_from_prover<FF>("Libra:shifted_grand_sum_eval");
+    transcript->template receive_from_prover<FF>("Libra:grand_sum_eval");
+    transcript->template receive_from_prover<FF>("Libra:quotient_eval");
+
+    // Shplonk
+    transcript->template get_challenge<FF>("Shplonk:nu");
+    transcript->template receive_from_prover<Commitment>("Shplonk:Q");
+    transcript->template get_challenge<FF>("Shplonk:z");
+
+    // --- Committed sumcheck opening claims ---
+    for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+        transcript->template receive_from_prover<FF>("Gemini:a_" + std::to_string(i + 1));
+    }
+
+    // --- Translation transcript interactions ---
+    transcript->template receive_from_prover<Commitment>("Translation:concatenated_masking_term_commitment");
+    evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+
+    TranslationEvaluations_<FF> trans_evals;
+    for (auto [eval, label] : zip_view(trans_evals.get_all(), trans_evals.labels)) {
+        eval = transcript->template receive_from_prover<FF>(label);
+    }
+    batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
+    translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
+
+    transcript->template receive_from_prover<Commitment>("Translation:grand_sum_commitment");
+    transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
+    transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
+
+    auto labels = SmallSubgroupIPAVerifier<Curve>::evaluation_labels("Translation:");
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
+        transcript->template receive_from_prover<FF>(labels[idx]);
+    }
+
+    // --- Shplonk reduce_verification transcript interactions ---
+    transcript->template get_challenge<FF>("Shplonk:nu");
+    transcript->template receive_from_prover<Commitment>("Shplonk:Q");
+    transcript->template get_challenge<FF>("Shplonk:z");
+
+    // Compute accumulated_result for Translator
+    translation_evaluations = trans_evals;
     compute_accumulated_result();
 
-    return { batch_opening_claim, sumcheck_verified && consistency_checked && translation_masking_consistency_checked };
+    return get_translator_input_data();
+}
+
+/**
+ * @brief Perform EC verification: IPA batch reduction + Shplonk → final OpeningClaim<Grumpkin>.
+ * @details Performs two Grumpkin MSMs:
+ *   1. IPA::reduce_batch_opening_claim (Shplemini claims → single OpeningClaim)
+ *   2. Shplonk::reduce_verification (all claims → final IPA OpeningClaim)
+ */
+template <typename Flavor>
+OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<Flavor>::compute_ec_verification(
+    FieldVerificationResult&& field_result)
+{
+    using Curve = typename Flavor::Curve;
+    using Shplonk = ShplonkVerifier_<Curve>;
+    using OC = OpeningClaim<Curve>;
+
+    // MSM 1: Reduce Shplemini batch opening claim to a single opening claim
+    OC multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(field_result.sumcheck_batch_opening_claim);
+
+    // Set the multivariate-to-univariate claim as the last opening claim
+    field_result.opening_claims.back() = multivariate_to_univariate_opening_claim;
+
+    // MSM 2: Shplonk reduces all opening claims to a single IPA opening claim
+    return Shplonk::reduce_verification(field_result.pcs_g1_identity, field_result.opening_claims, transcript);
+}
+
+/**
+ * @brief Export EC verification as a flat batch claim (suitable for a single batch_mul in circuit).
+ * @details Performs the IPA batch reduction and Shplonk scalar computation, but exports the
+ * result as a flat BatchOpeningClaim instead of performing the final batch_mul.
+ */
+template <typename Flavor>
+typename ECCVMVerifier_<Flavor>::FlatECResult ECCVMVerifier_<Flavor>::compute_ec_verification_flat(
+    FieldVerificationResult&& field_result)
+{
+    using Curve = typename Flavor::Curve;
+    using Shplonk = ShplonkVerifier_<Curve>;
+    using OC = OpeningClaim<Curve>;
+
+    // MSM 1: Reduce Shplemini batch opening claim to a single opening claim
+    OC multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(field_result.sumcheck_batch_opening_claim);
+
+    // Set the multivariate-to-univariate claim as the last opening claim
+    field_result.opening_claims.back() = multivariate_to_univariate_opening_claim;
+
+    // Shplonk: compute scalars but don't finalize (don't do the batch_mul)
+    auto verifier = Shplonk::reduce_verification_no_finalize(field_result.opening_claims, transcript);
+
+    // Extract evaluation before export_batch_opening_claim modifies verifier state
+    FF batched_eval = verifier.get_evaluation();
+
+    // Export as flat batch claim (evaluation_point = z_challenge)
+    auto batch_claim = verifier.export_batch_opening_claim(field_result.pcs_g1_identity);
+
+    return FlatECResult{
+        .batch_claim = std::move(batch_claim),
+        .batched_evaluation = batched_eval,
+    };
+}
+
+/**
+ * @brief Verifies an ECCVM Honk proof for given program settings.
+ * @details Composes compute_field_verification() and compute_ec_verification().
+ */
+template <typename Flavor>
+typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
+{
+    auto field_result = compute_field_verification();
+    auto ipa_claim = compute_ec_verification(std::move(field_result));
+
+    return { ipa_claim, field_result.verified };
 }
 
 /**

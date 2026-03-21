@@ -324,7 +324,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     // All-ones padding for the joint Shplemini call (row-disabling already applied in FRV).
     std::vector<FF> joint_padding(JOINT_LOG_N, FF(1));
 
-    auto [opening_claim, consistency_checked] =
+    auto shplemini_output =
         MegaZKShplemini::compute_batch_opening_claim(joint_padding,
                                                      joint_claim_batcher,
                                                      joint_challenge,
@@ -336,9 +336,10 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
                                                      round_univariate_commitments,
                                                      round_univariate_evaluations);
 
-    auto pairing_points = MegaZKFlavorT::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
+    auto pairing_points = MegaZKFlavorT::PCS::reduce_verify_batch_opening_claim(
+        std::move(shplemini_output.batch_opening_claim), transcript);
 
-    return { pairing_points, sumcheck_verified && consistency_checked };
+    return { pairing_points, sumcheck_verified && shplemini_output.consistency_checked };
 }
 
 template <typename Curve>

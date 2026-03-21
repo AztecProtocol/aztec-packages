@@ -46,7 +46,7 @@ template <typename Builder>
 bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_constraint)
     : context(value.context)
 {
-    BB_ASSERT((value.witness == bb::fr::zero()) || (value.witness == bb::fr::one()),
+    BB_ASSERT((value.witness == FF::zero()) || (value.witness == FF::one()),
               "bool_t: witness value is not 0 or 1");
     witness_index = value.witness_index;
 
@@ -57,7 +57,7 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_c
         // Create an arithmetic gate to enforce the relation x^2 = x
         context->create_bool_gate(witness_index);
     }
-    witness_bool = (value.witness == bb::fr::one());
+    witness_bool = (value.witness == FF::one());
     witness_inverted = false;
     set_free_witness_tag();
 }
@@ -106,7 +106,7 @@ bool_t<Builder> bool_t<Builder>::from_witness_index_unsafe(Builder* ctx, const u
     BB_ASSERT(witness_index != IS_CONSTANT);
     bool_t<Builder> result(ctx);
     result.witness_index = witness_index;
-    const bb::fr value = ctx->get_variable(witness_index);
+    const FF value = ctx->get_variable(witness_index);
     // It does not create a constraint.
     BB_ASSERT_EQ(value * value - value, 0, "bool_t: creating a witness bool from a non-boolean value");
     result.witness_bool = (value == 1);
@@ -153,10 +153,10 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
  */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const witness_t<Builder>& other)
 {
-    BB_ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()),
+    BB_ASSERT((other.witness == FF::one()) || (other.witness == FF::zero()),
               "bool_t: witness value is not 0 or 1");
     context = other.context;
-    witness_bool = other.witness == bb::fr::one();
+    witness_bool = other.witness == FF::one();
     witness_index = other.witness_index;
     witness_inverted = false;
     // Constrain x := other.witness by the relation x^2 = x
@@ -178,7 +178,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
 
     BB_ASSERT(ctx || (is_constant() && other.is_constant()));
     if (!is_constant() && !other.is_constant()) {
-        bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
+        FF value = result.witness_bool ? FF::one() : FF::zero();
         result.witness_index = ctx->add_variable(value);
 
         /**
@@ -212,11 +212,11 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
         int i_a(static_cast<int>(witness_inverted));
         int i_b(static_cast<int>(other.witness_inverted));
 
-        fr q_m{ 1 - 2 * i_b - 2 * i_a + 4 * i_a * i_b };
-        fr q_l{ i_b * (1 - 2 * i_a) };
-        fr q_r{ i_a * (1 - 2 * i_b) };
-        fr q_o{ -1 };
-        fr q_c{ i_a * i_b };
+        FF q_m{ 1 - 2 * i_b - 2 * i_a + 4 * i_a * i_b };
+        FF q_l{ i_b * (1 - 2 * i_a) };
+        FF q_r{ i_a * (1 - 2 * i_b) };
+        FF q_o{ -1 };
+        FF q_c{ i_a * i_b };
 
         ctx->create_arithmetic_gate(
             { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
@@ -249,7 +249,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
     BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) | (other.witness_bool ^ other.witness_inverted);
-    bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
+    FF value = result.witness_bool ? FF::one() : FF::zero();
     if (!is_constant() && !other.is_constant()) {
         result.witness_index = ctx->add_variable(value);
         // Let
@@ -263,11 +263,11 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         const int rhs_inverted = static_cast<int>(other.witness_inverted);
         const int lhs_inverted = static_cast<int>(witness_inverted);
 
-        bb::fr q_m{ -(1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted) };
-        bb::fr q_l{ (1 - 2 * lhs_inverted) * (1 - rhs_inverted) };
-        bb::fr q_r{ (1 - lhs_inverted) * (1 - 2 * rhs_inverted) };
-        bb::fr q_o{ bb::fr::neg_one() };
-        bb::fr q_c{ rhs_inverted + lhs_inverted - rhs_inverted * lhs_inverted };
+        FF q_m{ -(1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted) };
+        FF q_l{ (1 - 2 * lhs_inverted) * (1 - rhs_inverted) };
+        FF q_r{ (1 - lhs_inverted) * (1 - 2 * rhs_inverted) };
+        FF q_o{ FF::neg_one() };
+        FF q_c{ rhs_inverted + lhs_inverted - rhs_inverted * lhs_inverted };
 
         // Let r := a | b;
         // Constrain
@@ -302,7 +302,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
     BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) ^ (other.witness_bool ^ other.witness_inverted);
-    bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
+    FF value = result.witness_bool ? FF::one() : FF::zero();
 
     if (!is_constant() && !other.is_constant()) {
         result.witness_index = ctx->add_variable(value);
@@ -319,11 +319,11 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
         // Compute the value that's being used in several selectors
         const int aux_prod = (1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted);
 
-        bb::fr q_m{ -2 * aux_prod };
-        bb::fr q_l{ aux_prod };
-        bb::fr q_r{ aux_prod };
-        bb::fr q_o{ bb::fr::neg_one() };
-        bb::fr q_c{ lhs_inverted + rhs_inverted - 2 * rhs_inverted * lhs_inverted };
+        FF q_m{ -2 * aux_prod };
+        FF q_l{ aux_prod };
+        FF q_r{ aux_prod };
+        FF q_o{ FF::neg_one() };
+        FF q_c{ lhs_inverted + rhs_inverted - 2 * rhs_inverted * lhs_inverted };
 
         // Let r := a ^ b;
         // Constrain
@@ -370,7 +370,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
 
     result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
     if (!is_constant() && !other.is_constant()) {
-        const bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
+        const FF value = result.witness_bool ? FF::one() : FF::zero();
 
         result.witness_index = context->add_variable(value);
 
@@ -386,11 +386,11 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
         const int lhs_inverted = static_cast<int>(witness_inverted);
         // Compute the value that's being used in several selectors
         const int aux_prod = (1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted);
-        bb::fr q_m{ 2 * aux_prod };
-        bb::fr q_l{ -aux_prod };
-        bb::fr q_r{ -aux_prod };
-        bb::fr q_o{ bb::fr::neg_one() };
-        bb::fr q_c{ 1 - lhs_inverted - rhs_inverted + 2 * rhs_inverted * lhs_inverted };
+        FF q_m{ 2 * aux_prod };
+        FF q_l{ -aux_prod };
+        FF q_r{ -aux_prod };
+        FF q_o{ FF::neg_one() };
+        FF q_c{ 1 - lhs_inverted - rhs_inverted + 2 * rhs_inverted * lhs_inverted };
 
         ctx->create_arithmetic_gate(
             { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
@@ -542,14 +542,14 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     //      q_l           q_o             q_c
     const bool value = witness_bool ^ witness_inverted;
 
-    uint32_t new_witness = context->add_variable(bb::fr{ static_cast<int>(value) });
+    uint32_t new_witness = context->add_variable(FF{ static_cast<int>(value) });
 
     const int inverted = static_cast<int>(witness_inverted);
-    bb::fr q_l{ 1 - 2 * inverted };
-    bb::fr q_c{ inverted };
-    bb::fr q_o = bb::fr::neg_one();
-    bb::fr q_m = bb::fr::zero();
-    bb::fr q_r = bb::fr::zero();
+    FF q_l{ 1 - 2 * inverted };
+    FF q_c{ inverted };
+    FF q_o = FF::neg_one();
+    FF q_m = FF::zero();
+    FF q_r = FF::zero();
     context->create_arithmetic_gate({ witness_index, context->zero_idx(), new_witness, q_m, q_l, q_r, q_o, q_c });
 
     witness_index = new_witness;
@@ -560,5 +560,6 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
 
 template class bool_t<bb::UltraCircuitBuilder>;
 template class bool_t<bb::MegaCircuitBuilder>;
+template class bool_t<bb::GrumpkinUltraCircuitBuilder>;
 
 } // namespace bb::stdlib

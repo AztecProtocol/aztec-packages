@@ -6,6 +6,7 @@
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/chonk_g_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -302,5 +303,6 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
 template class OinkProver<MegaAvmFlavor>;
+template class OinkProver<ChonkGFlavor>;
 
 } // namespace bb
