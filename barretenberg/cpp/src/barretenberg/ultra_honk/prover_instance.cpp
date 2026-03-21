@@ -12,6 +12,7 @@
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/flavor/mega_v2_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_zk_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -405,5 +406,6 @@ template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;
 template class ProverInstance_<Poseidon2SingleRowFlavor>;
 template class ProverInstance_<MegaV2Flavor>;
+template class ProverInstance_<MegaV2ZKFlavor>;
 
 } // namespace bb

@@ -12,6 +12,7 @@
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/flavor/mega_v2_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -188,5 +189,6 @@ template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<MegaAvmFlavor>;
 template class TraceToPolynomials<Poseidon2SingleRowFlavor>;
 template class TraceToPolynomials<MegaV2Flavor>;
+template class TraceToPolynomials<MegaV2ZKFlavor>;
 
 } // namespace bb

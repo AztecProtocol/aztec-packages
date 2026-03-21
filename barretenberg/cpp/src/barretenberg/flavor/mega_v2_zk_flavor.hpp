@@ -16,7 +16,12 @@ class MegaV2ZKFlavor : public bb::MegaV2Flavor {
     static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
     static constexpr bool HasZK = true;
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaV2Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    // Must match LIBRA_UNIVARIATES_LENGTH for ZK sumcheck (Libra univariates have this fixed length).
+    // MegaV2's relation MAX is lower than Mega's (6 vs 7, since Poseidon2External/Internal were removed),
+    // but the ZK BATCHED must still equal LIBRA_UNIVARIATES_LENGTH for the Sumcheck round extension.
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
+    static_assert(BATCHED_RELATION_PARTIAL_LENGTH >= MegaV2Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1,
+                  "ZK BATCHED must be at least non-ZK BATCHED + 1 for the row disabling polynomial");
 
     template <typename DataType> using AllEntities = MegaV2Flavor::AllEntities_<DataType, HasZK>;
 

@@ -9,6 +9,7 @@
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/flavor/mega_v2_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_zk_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/relations/poseidon2_op_queue_relation.hpp"
@@ -310,5 +311,6 @@ template class OinkProver<MegaZKFlavor>;
 template class OinkProver<MegaAvmFlavor>;
 template class OinkProver<Poseidon2SingleRowFlavor>;
 template class OinkProver<MegaV2Flavor>;
+template class OinkProver<MegaV2ZKFlavor>;
 
 } // namespace bb
