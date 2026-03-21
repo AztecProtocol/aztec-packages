@@ -169,6 +169,11 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         for (auto& eval : U_T.evaluations) {
             eval *= alpha_power_KH;
         }
+
+        // TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH = 8 (no RowDisablingPolynomial),
+        // while MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH = 9. The extend_to performs real
+        // polynomial interpolation here (not a no-op): U_T is degree-7, extended to degree-8
+        // by evaluating the unique interpolating polynomial at the 9th point.
         U_joint += U_T.template extend_to<SumcheckRoundUnivariate::LENGTH>();
 
         return send_round(round_idx);
