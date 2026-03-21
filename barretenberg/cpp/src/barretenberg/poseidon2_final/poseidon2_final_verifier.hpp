@@ -35,11 +35,8 @@ template <typename Curve> class Poseidon2FinalVerifier_ {
     using PCS = bb::KZG<Curve>;
     using PairingPoints =
         std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
-    using Proof = std::conditional_t<Curve::is_stdlib_type,
-                                     stdlib::Proof<typename Curve::Builder>,
-                                     HonkProof>;
-
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
+    using Proof = HonkProof; // Native only for now
     static constexpr size_t NUM_OP_WIRES = 5;
 
     // Index of the output column in poseidon2_state array: state_idx(64, 0) = 256

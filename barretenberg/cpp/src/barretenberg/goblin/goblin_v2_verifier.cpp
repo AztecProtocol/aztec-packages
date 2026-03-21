@@ -37,7 +37,7 @@ GoblinV2Verifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
     auto translator_input = eccvm_verifier.get_translator_input_data();
     all_checks &= eccvm_result.reduction_succeeded;
 
-    result.ipa_claim = eccvm_result.ipa_opening_claim;
+    result.ipa_claim = eccvm_result.ipa_claim;
     result.ipa_proof = proof.ipa_proof;
 
     // --- Step 3: Translator verification (uses ECC merged commitments) ---

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/goblin/goblin_v2_types.hpp"
 #include "barretenberg/goblin/poseidon2_merge_prover.hpp"
 #include "barretenberg/goblin/poseidon2_merge_verifier.hpp"
