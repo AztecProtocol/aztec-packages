@@ -91,11 +91,35 @@ static void mega_v2_poseidon2_prove_total(State& state) noexcept
     for (auto _ : state) {
         state.PauseTiming();
 
-        // 1. Build and prove the MegaV2 circuit (deferred hashes)
         auto mega_v2_prover =
             bb::mock_circuits::get_prover<MegaV2Prover>(&generate_mega_v2_poseidon2_circuit, num_hashes);
 
-        // 2. Build the ops list for the final Poseidon2 proof
+        // Use UltraProver<Poseidon2SingleRowFlavor> for the final proof (well-optimized pipeline)
+        auto single_row_prover = bb::mock_circuits::get_prover<Poseidon2SingleRowProver>(
+            &generate_single_row_poseidon2_circuit, num_hashes);
+
+        state.ResumeTiming();
+
+        auto mega_v2_proof = mega_v2_prover.construct_proof();
+        auto single_row_proof = single_row_prover.construct_proof();
+    }
+}
+
+// Split benchmarks to identify the bottleneck
+static void mega_v2_circuit_only(State& state) noexcept
+{
+    auto num_hashes = static_cast<size_t>(state.range(0));
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<MegaV2Prover>(
+        state, &generate_mega_v2_poseidon2_circuit, num_hashes);
+}
+
+static void poseidon2_final_only(State& state) noexcept
+{
+    auto num_hashes = static_cast<size_t>(state.range(0));
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+
+    for (auto _ : state) {
+        state.PauseTiming();
         std::vector<Poseidon2OpQueue::Poseidon2Op> ops;
         ops.reserve(num_hashes);
         for (size_t i = 0; i < num_hashes; i++) {
@@ -106,17 +130,55 @@ static void mega_v2_poseidon2_prove_total(State& state) noexcept
             ops.push_back(Poseidon2OpQueue::Poseidon2Op{ .input = input, .output = output[0] });
         }
         Poseidon2FinalProver final_prover(ops);
-
         state.ResumeTiming();
 
-        // Time both proofs together
-        auto mega_v2_proof = mega_v2_prover.construct_proof();
-        auto final_proof = final_prover.construct_proof();
+        auto proof = final_prover.construct_proof();
     }
+}
+
+static void report_circuit_sizes(State& state) noexcept
+{
+    auto num_hashes = static_cast<size_t>(state.range(0));
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+
+    // MegaV2 circuit size
+    MegaCircuitBuilder builder;
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
+    builder.poseidon2_op_queue = std::make_shared<Poseidon2OpQueue>();
+    for (size_t i = 0; i < num_hashes; i++) {
+        std::array<fr, 4> s = { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() };
+        builder.queue_poseidon2_permutation(s);
+    }
+    builder.finalize_circuit(true);
+    builder.blocks.compute_offsets();
+    auto total = builder.blocks.get_total_size();
+    auto dyadic = builder.get_circuit_subgroup_size(total);
+    state.counters["megav2_dyadic"] = static_cast<double>(dyadic);
+
+    // SingleRow circuit size (via ProverInstance)
+    MegaCircuitBuilder sr_builder;
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(sr_builder);
+    for (size_t i = 0; i < num_hashes; i++) {
+        std::array<fr, 4> input = { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() };
+        sr_builder.create_poseidon2_single_row_gate(input);
+    }
+    auto sr_instance = std::make_shared<ProverInstance_<Poseidon2SingleRowFlavor>>(sr_builder);
+    state.counters["singlerow_dyadic"] = static_cast<double>(sr_instance->dyadic_size());
+
+    // Poseidon2Final circuit size
+    auto final_dyadic = numeric::round_up_power_2(num_hashes + 1);
+    state.counters["final_dyadic"] = static_cast<double>(final_dyadic);
+    state.counters["final_num_polys"] = static_cast<double>(Poseidon2FinalFlavor::NUM_ALL_ENTITIES);
+    state.counters["singlerow_num_polys"] = static_cast<double>(Poseidon2SingleRowFlavor::NUM_ALL_ENTITIES);
+
+    for (auto _ : state) {}
 }
 
 BENCHMARK(mega_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
 BENCHMARK(single_row_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
+BENCHMARK(mega_v2_circuit_only)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
+BENCHMARK(poseidon2_final_only)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
 BENCHMARK(mega_v2_poseidon2_prove_total)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
+BENCHMARK(report_circuit_sizes)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
 
 BENCHMARK_MAIN();

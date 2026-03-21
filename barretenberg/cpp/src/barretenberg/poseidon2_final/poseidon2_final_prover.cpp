@@ -31,17 +31,18 @@ void Poseidon2FinalProver::build_witness(const std::vector<Poseidon2OpQueue::Pos
     const size_t circuit_size = key->circuit_size;
     auto& polys = key->polynomials;
 
-    // Allocate all polynomials
-    polys.q_poseidon2_single_row = Polynomial(circuit_size, circuit_size);
-    polys.w_l = Polynomial(circuit_size, circuit_size);
-    polys.w_r = Polynomial(circuit_size, circuit_size);
-    polys.w_o = Polynomial(circuit_size, circuit_size);
-    polys.w_4 = Polynomial(circuit_size, circuit_size);
+    // Allocate polynomials with active range = num_ops + 1 (for zero row), virtual size = circuit_size
+    const size_t active_size = num_ops + 1;
+    polys.q_poseidon2_single_row = Polynomial(active_size, circuit_size);
+    polys.w_l = Polynomial(active_size, circuit_size);
+    polys.w_r = Polynomial(active_size, circuit_size);
+    polys.w_o = Polynomial(active_size, circuit_size);
+    polys.w_4 = Polynomial(active_size, circuit_size);
     for (auto& p : polys.poseidon2_state) {
-        p = Polynomial(circuit_size, circuit_size);
+        p = Polynomial(active_size, circuit_size);
     }
     for (auto& p : polys.poseidon2_sq) {
-        p = Polynomial(circuit_size, circuit_size);
+        p = Polynomial(active_size, circuit_size);
     }
 
     // Populate witness for each hash (1 row per hash, starting at row 1 to skip zero row)
@@ -172,14 +173,19 @@ HonkProof Poseidon2FinalProver::export_proof()
 
 HonkProof Poseidon2FinalProver::construct_proof()
 {
-    // Commit to all witness polynomials
+    auto t0 = std::chrono::high_resolution_clock::now();
+
     execute_commitments_round();
+    auto t1 = std::chrono::high_resolution_clock::now();
 
-    // Run Sumcheck
     execute_relation_check_rounds();
+    auto t2 = std::chrono::high_resolution_clock::now();
 
-    // PCS opening proof
     execute_pcs_rounds();
+    auto t3 = std::chrono::high_resolution_clock::now();
+
+    auto ms = [](auto a, auto b) { return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count(); };
+    info("Poseidon2FinalProver: commit=", ms(t0, t1), "ms sumcheck=", ms(t1, t2), "ms pcs=", ms(t2, t3), "ms");
 
     return export_proof();
 }
