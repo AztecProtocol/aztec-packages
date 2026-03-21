@@ -5,6 +5,8 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/flavor/mega_v2_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 
@@ -152,4 +154,6 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
 
 template class HypernovaFoldingVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class HypernovaFoldingVerifier<MegaFlavor>;
+template class HypernovaFoldingVerifier<MegaV2Flavor>;
+template class HypernovaFoldingVerifier<MegaV2RecursiveFlavor_<MegaCircuitBuilder>>;
 } // namespace bb

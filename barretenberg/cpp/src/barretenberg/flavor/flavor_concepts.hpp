@@ -23,7 +23,9 @@ concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, MegaV
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                    MegaV2RecursiveFlavor_<UltraCircuitBuilder>,
+                                    MegaV2RecursiveFlavor_<MegaCircuitBuilder>>;
 
 template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
@@ -60,6 +62,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MegaV2RecursiveFlavor_<UltraCircuitBuilder>,
+                                       MegaV2RecursiveFlavor_<MegaCircuitBuilder>,
                                        TranslatorRecursiveFlavor,
                                        ECCVMRecursiveFlavor,
                                        MultilinearBatchingRecursiveFlavor,

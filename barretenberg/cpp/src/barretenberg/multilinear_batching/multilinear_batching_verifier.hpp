@@ -5,6 +5,8 @@
 // =====================
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_recursive_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -22,7 +24,17 @@ namespace bb {
  * @brief Multilinear batching verifier. Verifies claim reduction via sumcheck.
  * @details See: chonk/README.md#batching-claims-into-accumulator
  */
-template <typename Flavor_> class MultilinearBatchingVerifier {
+/**
+ * @tparam Flavor_ The batching sumcheck flavor (MultilinearBatchingFlavor or recursive variant)
+ * @tparam InstanceFlavor_ The circuit instance flavor. Defaults to MegaFlavor (native) or
+ *         MegaRecursiveFlavor_<MegaCircuitBuilder> (recursive). Override with MegaV2Flavor or
+ *         MegaV2RecursiveFlavor_ when verifying MegaV2-based circuits.
+ */
+template <typename Flavor_,
+          typename InstanceFlavor_ = std::conditional_t<std::is_same_v<Flavor_, MultilinearBatchingFlavor>,
+                                                        MegaFlavor,
+                                                        MegaRecursiveFlavor_<MegaCircuitBuilder>>>
+class MultilinearBatchingVerifier {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
@@ -34,13 +46,11 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
     using Proof = std::vector<FF>;
 
-    using InstanceFlavor = std::conditional_t<std::is_same_v<Flavor, MultilinearBatchingFlavor>,
-                                              MegaFlavor,
-                                              MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-    using InstanceCommitments = InstanceFlavor::VerifierCommitments;
-    using InstanceFF = InstanceFlavor::FF;
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    using InstanceFlavor = InstanceFlavor_;
+    using InstanceCommitments = typename InstanceFlavor::VerifierCommitments;
+    using InstanceFF = typename InstanceFlavor::FF;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = InstanceFlavor::NUM_UNSHIFTED_ENTITIES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = InstanceFlavor::NUM_SHIFTED_ENTITIES;
 
     explicit MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript);
 

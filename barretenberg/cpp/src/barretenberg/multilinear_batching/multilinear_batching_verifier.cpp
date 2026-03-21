@@ -5,6 +5,8 @@
 // =====================
 
 #include "multilinear_batching_verifier.hpp"
+#include "barretenberg/flavor/mega_v2_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_recursive_flavor.hpp"
@@ -13,13 +15,13 @@
 
 namespace bb {
 
-template <typename Flavor_>
-MultilinearBatchingVerifier<Flavor_>::MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript)
+template <typename Flavor_, typename InstanceFlavor_>
+MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-template <typename Flavor_>
-MultilinearBatchingVerifier<Flavor_>::FF MultilinearBatchingVerifier<Flavor_>::compute_new_target_sum(
+template <typename Flavor_, typename InstanceFlavor_>
+MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::FF MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::compute_new_target_sum(
     const FF& alpha,
     SumcheckOutput<InstanceFlavor>& instance_sumcheck,
     const std::vector<InstanceFF>& unshifted_challenges,
@@ -53,10 +55,10 @@ MultilinearBatchingVerifier<Flavor_>::FF MultilinearBatchingVerifier<Flavor_>::c
 /**
  * @brief Compute: Σ(commitments[i] * scalars[i]) + accumulator_commitment * batching_challenge
  */
-template <typename Flavor_>
+template <typename Flavor_, typename InstanceFlavor_>
 template <size_t N>
-MultilinearBatchingVerifier<Flavor_>::Commitment MultilinearBatchingVerifier<
-    Flavor_>::batch_instance_commitments_with_accumulator(RefArray<Commitment, N> instance_commitments,
+MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::Commitment MultilinearBatchingVerifier<
+    Flavor_, InstanceFlavor_>::batch_instance_commitments_with_accumulator(RefArray<Commitment, N> instance_commitments,
                                                           const std::vector<FF>& instance_batching_scalars,
                                                           const Commitment& accumulator_commitment,
                                                           const FF& batching_challenge)
@@ -74,8 +76,8 @@ MultilinearBatchingVerifier<Flavor_>::Commitment MultilinearBatchingVerifier<
     return Curve::Element::batch_mul(commitments, scalars);
 }
 
-template <typename Flavor_>
-MultilinearBatchingVerifier<Flavor_>::VerifierClaim MultilinearBatchingVerifier<Flavor_>::compute_new_claim(
+template <typename Flavor_, typename InstanceFlavor_>
+MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::VerifierClaim MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::compute_new_claim(
     const SumcheckOutput<Flavor>& sumcheck_result,
     InstanceCommitments& verifier_commitments,
     const std::vector<InstanceFF>& unshifted_challenges,
@@ -111,9 +113,9 @@ MultilinearBatchingVerifier<Flavor_>::VerifierClaim MultilinearBatchingVerifier<
     };
 };
 
-template <typename Flavor_>
-std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> MultilinearBatchingVerifier<
-    Flavor_>::verify_proof(SumcheckOutput<InstanceFlavor>& instance_sumcheck,
+template <typename Flavor_, typename InstanceFlavor_>
+std::pair<bool, typename MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::VerifierClaim> MultilinearBatchingVerifier<
+    Flavor_, InstanceFlavor_>::verify_proof(SumcheckOutput<InstanceFlavor>& instance_sumcheck,
                            InstanceCommitments& verifier_commitments,
                            const std::vector<InstanceFF>& unshifted_challenges,
                            const std::vector<InstanceFF>& shifted_challenges)
@@ -167,8 +169,8 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
     return { verified, verifier_claim };
 }
 
-template <typename Flavor_>
-bool MultilinearBatchingVerifier<Flavor_>::check_eq_consistency(const SumcheckOutput<Flavor>& sumcheck_result,
+template <typename Flavor_, typename InstanceFlavor_>
+bool MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::check_eq_consistency(const SumcheckOutput<Flavor>& sumcheck_result,
                                                                 const std::vector<FF>& accumulator_challenges,
                                                                 const std::vector<InstanceFF>& instance_challenges)
 {
@@ -189,5 +191,7 @@ bool MultilinearBatchingVerifier<Flavor_>::check_eq_consistency(const SumcheckOu
 
 template class MultilinearBatchingVerifier<MultilinearBatchingFlavor>;
 template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
+template class MultilinearBatchingVerifier<MultilinearBatchingFlavor, MegaV2Flavor>;
+template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor, MegaV2RecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

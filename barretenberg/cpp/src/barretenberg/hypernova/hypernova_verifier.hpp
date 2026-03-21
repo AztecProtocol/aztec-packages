@@ -33,13 +33,15 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
     using BatchingFlavor =
         std::conditional_t<IsRecursiveFlavor<Flavor>, MultilinearBatchingRecursiveFlavor, MultilinearBatchingFlavor>;
-    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<BatchingFlavor>;
+    // Pass the instance flavor (Flavor_) to the batching verifier so it uses the correct
+    // SumcheckOutput and VerifierCommitments types for the circuit being verified.
+    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<BatchingFlavor, Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
 
     using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
 
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = Flavor::NUM_UNSHIFTED_ENTITIES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = Flavor::NUM_SHIFTED_ENTITIES;
 
     HypernovaFoldingVerifier(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript)) {};
