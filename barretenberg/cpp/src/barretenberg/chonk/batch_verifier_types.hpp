@@ -32,8 +32,6 @@ struct VerifyResult {
     std::string error_message;
     double time_in_queue_ms = 0;
     double time_in_verify_ms = 0;
-    double reduce_ms = 0;             // Phase 1: reduce_to_ipa_claim time for this proof
-    double ipa_ms = 0;                // Phase 2: batch_check (IPA MSM) wall time for this batch
     uint32_t batch_failure_count = 0; // Number of bisection levels to identify failure
 
     bool verified() const { return status == static_cast<uint8_t>(VerifyStatus::OK); }
@@ -45,8 +43,7 @@ struct VerifyResult {
                  .error_message = std::move(msg) };
     }
 
-    SERIALIZATION_FIELDS(
-        request_id, status, error_message, time_in_queue_ms, time_in_verify_ms, reduce_ms, ipa_ms, batch_failure_count);
+    SERIALIZATION_FIELDS(request_id, status, error_message, time_in_queue_ms, time_in_verify_ms, batch_failure_count);
     bool operator==(const VerifyResult&) const = default;
 };
 

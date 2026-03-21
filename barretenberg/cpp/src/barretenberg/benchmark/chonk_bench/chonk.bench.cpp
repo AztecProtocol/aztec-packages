@@ -6,7 +6,6 @@
 #include <benchmark/benchmark.h>
 #include <chrono>
 
-#include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
@@ -113,56 +112,6 @@ BENCHMARK_DEFINE_F(ChonkBench, VerifyIndividual)(benchmark::State& state)
     }
 }
 
-/**
- * @brief Benchmark batch verification: range(0)=batch_size, range(1)=num_cores.
- * Reports wall time plus reduce_ms and ipa_ms from VerifyResult.
- */
-BENCHMARK_DEFINE_F(ChonkBench, BatchVerify)(benchmark::State& state)
-{
-    const auto batch_size = static_cast<uint32_t>(state.range(0));
-    const auto num_cores = static_cast<uint32_t>(state.range(1));
-    auto precomputed_vks = precompute_vks(1);
-    auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(1, precomputed_vks);
-
-    double total_reduce_ms = 0;
-    double total_ipa_ms = 0;
-    size_t result_count = 0;
-
-    for (auto _ : state) {
-        std::vector<VerifyResult> results;
-        std::mutex mu;
-        std::condition_variable cv;
-
-        ChonkBatchVerifier verifier;
-        verifier.start({ vk_and_hash }, num_cores, batch_size, [&](VerifyResult r) {
-            std::lock_guard lock(mu);
-            results.push_back(std::move(r));
-            cv.notify_one();
-        });
-
-        for (uint32_t i = 0; i < batch_size; ++i) {
-            verifier.enqueue(VerifyRequest{ .request_id = i, .vk_index = 0, .proof = proof });
-        }
-
-        {
-            std::unique_lock lock(mu);
-            cv.wait(lock, [&] { return results.size() >= batch_size; });
-        }
-        verifier.stop();
-
-        for (const auto& r : results) {
-            total_reduce_ms += r.reduce_ms;
-            total_ipa_ms += r.ipa_ms;
-            result_count++;
-        }
-    }
-
-    if (result_count > 0) {
-        state.counters["avg_reduce_ms"] = total_reduce_ms / static_cast<double>(result_count);
-        state.counters["ipa_ms"] = total_ipa_ms / static_cast<double>(result_count);
-    }
-}
-
 #define ARGS Arg(ChonkBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
 
 BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
@@ -170,21 +119,6 @@ BENCHMARK_REGISTER_F(ChonkBench, VerificationOnly)->Unit(benchmark::kMillisecond
 BENCHMARK_REGISTER_F(ChonkBench, ProofCompress)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, ProofDecompress)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, VerifyIndividual)->Unit(benchmark::kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
-
-// BatchVerify: every multiple-of-cores batch size up to 30, for each core count.
-// clang-format off
-BENCHMARK_REGISTER_F(ChonkBench, BatchVerify)->Unit(benchmark::kMillisecond)->Iterations(1)
-    // 1 core: bs = 1,2,3,4,5,6
-    ->Args({1,1})->Args({2,1})->Args({3,1})->Args({4,1})->Args({5,1})->Args({6,1})
-    // 2 cores: bs = 2,4,6,8,10,12
-    ->Args({2,2})->Args({4,2})->Args({6,2})->Args({8,2})->Args({10,2})->Args({12,2})
-    // 4 cores: bs = 4,8,12,16,20,24
-    ->Args({4,4})->Args({8,4})->Args({12,4})->Args({16,4})->Args({20,4})->Args({24,4})
-    // 6 cores: bs = 6,12,18,24,30
-    ->Args({6,6})->Args({12,6})->Args({18,6})->Args({24,6})->Args({30,6})
-    // 8 cores: bs = 8,16,24
-    ->Args({8,8})->Args({16,8})->Args({24,8});
-// clang-format on
 
 } // namespace
 
