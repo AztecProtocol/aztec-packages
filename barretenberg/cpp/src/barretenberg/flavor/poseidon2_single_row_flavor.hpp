@@ -5,13 +5,20 @@
 namespace bb {
 
 /**
- * @brief A variant of MegaFlavor that adds support for evaluating the entire Poseidon2
- * permutation in a single row.
+ * @brief Minimal flavor for proving Poseidon2 permutations via the single-row relation.
  *
- * @details Extends MegaFlavor with:
- *   - 1 new selector: q_poseidon2_single_row
- *   - 352 new witness columns: poseidon2_input[4], poseidon2_state[260], poseidon2_sq[88]
- *   - 1 new relation: Poseidon2SingleRowRelation
+ * @details Uses the standard UltraProver_/ProverInstance_/OinkProver pipeline but strips out
+ * all Mega-specific baggage (ECC op wires, databus, their relations). Only contains:
+ *   - Standard Ultra infrastructure (wires, selectors, permutation arg, lookups, lagrange)
+ *   - The Poseidon2SingleRowRelation (348 subrelations)
+ *   - 348 extra witness columns (poseidon2_state[260] + poseidon2_sq[88])
+ *   - 1 extra selector (q_poseidon2_single_row)
+ *
+ * This flavor is NOT IsMegaFlavor — it skips ECC op wire allocation, databus allocation,
+ * and all Mega-only code paths in ProverInstance/OinkProver/TraceToPolynomials.
+ *
+ * Uses MegaCircuitBuilder (which has 9 gate blocks), so the 9 gate selectors from
+ * MegaFlavor::PrecomputedEntities are kept (most will be zero/empty).
  */
 class Poseidon2SingleRowFlavor {
   public:
@@ -33,7 +40,6 @@ class Poseidon2SingleRowFlavor {
     static constexpr bool USE_PADDING = true;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    // ==================== Helper for const RefArray from std::array ====================
     template <typename T, size_t N>
     static RefArray<const T, N> make_const_ref_array(const std::array<T, N>& arr)
     {
@@ -45,7 +51,10 @@ class Poseidon2SingleRowFlavor {
     }
 
     // ==================== Relations ====================
-    // MegaFlavor relations + Poseidon2SingleRowRelation
+    // Only Poseidon2SingleRowRelation — no arithmetic, permutation, lookups, ECC, databus.
+    // The standard Ultra relations (ArithmeticRelation, UltraPermutationRelation, etc.) are
+    // still needed for the UltraProver pipeline to function (permutation arg, lookups), but
+    // they produce zero contributions since the circuit has no arithmetic/lookup gates.
     template <typename FF>
     using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
@@ -54,8 +63,6 @@ class Poseidon2SingleRowFlavor {
                                   bb::EllipticRelation<FF>,
                                   bb::MemoryRelation<FF>,
                                   bb::NonNativeFieldRelation<FF>,
-                                  bb::EccOpQueueRelation<FF>,
-                                  bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2SingleRowRelation<FF>>;
     using Relations = Relations_<FF>;
 
@@ -70,7 +77,7 @@ class Poseidon2SingleRowFlavor {
     using SubrelationSeparator = FF;
 
     // ==================== Precomputed Entities ====================
-    // MegaFlavor precomputed + q_poseidon2_single_row
+    // Mega's precomputed (31 polys: selectors, sigmas, ids, tables, lagrange) + q_poseidon2_single_row
     template <typename DataType> class Poseidon2SingleRowSelectorEntity {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, q_poseidon2_single_row)
@@ -90,9 +97,7 @@ class Poseidon2SingleRowFlavor {
         }
         auto get_gate_selectors()
         {
-            // q_poseidon2_single_row is NOT included here because the MegaCircuitBuilder
-            // only populates 9 gate selectors. The new selector is in get_all() but managed
-            // separately from the builder's execution trace blocks.
+            // Must return exactly 9 selectors to match MegaCircuitBuilder's 9 gate blocks
             return MegaFlavor::PrecomputedEntities<DataType_>::get_gate_selectors();
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -101,31 +106,36 @@ class Poseidon2SingleRowFlavor {
         auto get_tables() { return MegaFlavor::PrecomputedEntities<DataType_>::get_tables(); }
     };
 
-    // ==================== Witness Entities ====================
-    // WireEntities: same as Mega (w_l, w_r, w_o, w_4)
+    // ==================== Wire Entities ====================
     template <typename DataType> using WireEntities = MegaFlavor::WireEntities<DataType>;
 
-    // DerivedEntities: same as Mega
-    template <typename DataType> using DerivedEntities = MegaFlavor::DerivedEntities<DataType>;
+    // ==================== Derived Entities (minimal — NO ECC ops, NO databus) ====================
+    template <typename DataType> class DerivedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              z_perm,
+                              lookup_inverses,
+                              lookup_read_counts,
+                              lookup_read_tags);
 
-    // New: Poseidon2 single-row witness columns (348 columns)
-    // Inputs come from w_l, w_r, w_o, w_4 (the standard wire entities)
+        auto get_to_be_shifted() { return RefArray{ z_perm }; }
+    };
+
+    // ==================== Poseidon2 Witness Entities (348 columns) ====================
     template <typename DataType> class Poseidon2SingleRowWitnessEntities {
       public:
-        std::array<DataType, 260> poseidon2_state; // 65 stages x 4 elements
-        std::array<DataType, 88> poseidon2_sq;     // S-box x^2 intermediates
+        std::array<DataType, 260> poseidon2_state;
+        std::array<DataType, 88> poseidon2_sq;
 
         static constexpr size_t _members_size = 348;
 
         auto get_all()
         {
-            return concatenate(RefArray<DataType, 260>(poseidon2_state),
-                               RefArray<DataType, 88>(poseidon2_sq));
+            return concatenate(RefArray<DataType, 260>(poseidon2_state), RefArray<DataType, 88>(poseidon2_sq));
         }
         auto get_all() const
         {
-            return concatenate(make_const_ref_array(poseidon2_state),
-                               make_const_ref_array(poseidon2_sq));
+            return concatenate(make_const_ref_array(poseidon2_state), make_const_ref_array(poseidon2_sq));
         }
         static constexpr size_t size() { return _members_size; }
         static const std::vector<std::string>& get_labels()
@@ -145,7 +155,7 @@ class Poseidon2SingleRowFlavor {
         }
     };
 
-    // Combined witness entities: Mega wires + derived + Poseidon2 single-row
+    // ==================== Combined Witness ====================
     template <typename DataType>
     class WitnessEntities_ : public WireEntities<DataType>,
                               public DerivedEntities<DataType>,
@@ -156,27 +166,6 @@ class Poseidon2SingleRowFlavor {
                                 Poseidon2SingleRowWitnessEntities<DataType>)
 
         auto get_wires() { return WireEntities<DataType>::get_all(); }
-        auto get_ecc_op_wires()
-        {
-            return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
-        }
-        auto get_databus_entities()
-        {
-            return RefArray{ this->calldata,           this->calldata_read_counts,
-                             this->calldata_read_tags, this->secondary_calldata,
-                             this->secondary_calldata_read_counts,
-                             this->secondary_calldata_read_tags,
-                             this->return_data,        this->return_data_read_counts,
-                             this->return_data_read_tags };
-        }
-        auto get_databus_inverses()
-        {
-            return RefArray{
-                this->calldata_inverses,
-                this->secondary_calldata_inverses,
-                this->return_data_inverses,
-            };
-        }
         auto get_to_be_shifted()
         {
             return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
@@ -185,10 +174,7 @@ class Poseidon2SingleRowFlavor {
 
     template <typename DataType> using WitnessEntities = WitnessEntities_<DataType>;
 
-    // MaskingEntities: same as Mega
     template <typename DataType, bool HasZK_ = false> using MaskingEntities = MegaFlavor::MaskingEntities<DataType, HasZK_>;
-
-    // ShiftedEntities: same as Mega (our single-row relation doesn't use shifts)
     template <typename DataType> using ShiftedEntities = MegaFlavor::ShiftedEntities<DataType>;
 
     // ==================== AllEntities ====================
@@ -217,17 +203,16 @@ class Poseidon2SingleRowFlavor {
 
     template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
 
-    // ==================== Derived counts ====================
+    // ==================== Counts ====================
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES =
-        MegaFlavor::PrecomputedEntities<FF>::_members_size +
-        Poseidon2SingleRowSelectorEntity<FF>::_members_size; // Mega's 31 + 1
+        MegaFlavor::PrecomputedEntities<FF>::_members_size + 1; // 31 + 1 = 32
     static constexpr size_t NUM_WITNESS_ENTITIES =
-        MegaFlavor::WireEntities<FF>::_members_size +
-        MegaFlavor::DerivedEntities<FF>::_members_size +
-        Poseidon2SingleRowWitnessEntities<FF>::_members_size; // 4 + 20 + 348 = 372
-    static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
+        WireEntities<FF>::_members_size +
+        DerivedEntities<FF>::_members_size +
+        Poseidon2SingleRowWitnessEntities<FF>::_members_size; // 4 + 4 + 348 = 356
+    static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size; // 5
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES; // 388
+    static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES; // 393
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
@@ -237,19 +222,18 @@ class Poseidon2SingleRowFlavor {
         return NUM_UNSHIFTED_ENTITIES + log_n + 2;
     }
 
-    // ==================== Standard flavor types ====================
+    // ==================== Standard types ====================
     template <bool HasZK_ = HasZK> class AllValues_ : public AllEntities_<FF, HasZK_> {
       public:
         using Base = AllEntities_<FF, HasZK_>;
         using Base::Base;
     };
-
     using AllValues = AllValues_<HasZK>;
 
     template <bool HasZK_ = HasZK>
     using ProverPolynomials_ = ProverPolynomialsBase<AllEntities_<Polynomial, HasZK_>, AllValues_<HasZK_>, Polynomial>;
-
     using ProverPolynomials = ProverPolynomials_<HasZK>;
+
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
@@ -258,7 +242,6 @@ class Poseidon2SingleRowFlavor {
     template <bool HasZK_ = HasZK>
     using PartiallyEvaluatedMultivariates_ =
         PartiallyEvaluatedMultivariatesBase<AllEntities_<Polynomial, HasZK_>, ProverPolynomials_<HasZK_>, Polynomial>;
-
     using PartiallyEvaluatedMultivariates = PartiallyEvaluatedMultivariates_<HasZK>;
 
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
@@ -270,7 +253,6 @@ class Poseidon2SingleRowFlavor {
       public:
         CommitmentLabels()
         {
-            // Mega labels
             this->w_l = "W_L";
             this->w_r = "W_R";
             this->w_o = "W_O";
@@ -279,22 +261,6 @@ class Poseidon2SingleRowFlavor {
             this->lookup_inverses = "LOOKUP_INVERSES";
             this->lookup_read_counts = "LOOKUP_READ_COUNTS";
             this->lookup_read_tags = "LOOKUP_READ_TAGS";
-            this->ecc_op_wire_1 = "ECC_OP_WIRE_1";
-            this->ecc_op_wire_2 = "ECC_OP_WIRE_2";
-            this->ecc_op_wire_3 = "ECC_OP_WIRE_3";
-            this->ecc_op_wire_4 = "ECC_OP_WIRE_4";
-            this->calldata = "CALLDATA";
-            this->calldata_read_counts = "CALLDATA_READ_COUNTS";
-            this->calldata_read_tags = "CALLDATA_READ_TAGS";
-            this->calldata_inverses = "CALLDATA_INVERSES";
-            this->secondary_calldata = "SECONDARY_CALLDATA";
-            this->secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
-            this->secondary_calldata_read_tags = "SECONDARY_CALLDATA_READ_TAGS";
-            this->secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
-            this->return_data = "RETURN_DATA";
-            this->return_data_read_counts = "RETURN_DATA_READ_COUNTS";
-            this->return_data_read_tags = "RETURN_DATA_READ_TAGS";
-            this->return_data_inverses = "RETURN_DATA_INVERSES";
             this->q_c = "Q_C";
             this->q_l = "Q_L";
             this->q_r = "Q_R";
@@ -325,8 +291,6 @@ class Poseidon2SingleRowFlavor {
             this->table_4 = "TABLE_4";
             this->lagrange_first = "LAGRANGE_FIRST";
             this->lagrange_last = "LAGRANGE_LAST";
-            this->lagrange_ecc_op = "Q_ECC_OP_QUEUE";
-            // Poseidon2 single-row labels are auto-generated via get_labels()
         }
     };
 

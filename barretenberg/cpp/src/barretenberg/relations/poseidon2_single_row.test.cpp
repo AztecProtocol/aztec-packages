@@ -314,22 +314,22 @@ TEST(Poseidon2SingleRowRelation, FlavorEntityCounts)
     // Precomputed: Mega's 31 + 1 new selector = 32
     EXPECT_EQ(Flavor::NUM_PRECOMPUTED_ENTITIES, 32UL);
 
-    // Witness: Mega's 24 (4 wires + 20 derived) + 348 Poseidon2 = 372
-    EXPECT_EQ(Flavor::NUM_WITNESS_ENTITIES, 372UL);
+    // Witness: 4 wires + 4 derived (z_perm, lookup_inverses, read_counts, read_tags) + 348 Poseidon2 = 356
+    EXPECT_EQ(Flavor::NUM_WITNESS_ENTITIES, 356UL);
 
-    // Shifted: same as Mega (5)
+    // Shifted: 5 (w_l, w_r, w_o, w_4, z_perm)
     EXPECT_EQ(Flavor::NUM_SHIFTED_ENTITIES, 5UL);
 
-    // Total unshifted = 32 + 372 = 404
-    EXPECT_EQ(Flavor::NUM_UNSHIFTED_ENTITIES, 404UL);
+    // Total unshifted = 32 + 356 = 388
+    EXPECT_EQ(Flavor::NUM_UNSHIFTED_ENTITIES, 388UL);
 
-    // Total = 404 + 5 = 409
-    EXPECT_EQ(Flavor::NUM_ALL_ENTITIES, 409UL);
+    // Total = 388 + 5 = 393
+    EXPECT_EQ(Flavor::NUM_ALL_ENTITIES, 393UL);
 
-    // Relations: Mega's 11 - 2 old poseidon2 + 1 single-row = 10
-    EXPECT_EQ(Flavor::NUM_RELATIONS, 10UL);
+    // Relations: 7 Ultra relations + 1 Poseidon2SingleRow = 8
+    EXPECT_EQ(Flavor::NUM_RELATIONS, 8UL);
 
-    // Subrelations: Mega's ~40 - 8 old poseidon2 + 348 single-row
+    // Subrelations: Ultra ~32 + 348 single-row
     EXPECT_GT(Flavor::NUM_SUBRELATIONS, 348UL);
 
     // AllValues should be instantiable
