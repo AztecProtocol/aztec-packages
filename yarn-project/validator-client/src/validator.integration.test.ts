@@ -19,6 +19,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TestTxProvider } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import type { AvmIpcBackend, CdbIpcServer } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -66,6 +67,8 @@ describe('ValidatorClient Integration', () => {
     checkpointsBuilder: FullNodeCheckpointsBuilder;
     p2pClient: MockProxy<P2P>;
     validator: ValidatorClient;
+    avmBackend?: AvmIpcBackend;
+    cdbServer?: CdbIpcServer;
   };
 
   let slotNumber: SlotNumber;
@@ -118,6 +121,26 @@ describe('ValidatorClient Integration', () => {
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
+    // Spawn AVM backend for IPC simulation
+    const wsdbSocketPath = worldStateDb.getSocketPath();
+    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+    const { findAvmBinary } = await import('@aztec/bb.js/platform');
+    const avmBinaryPath = findAvmBinary();
+    if (!avmBinaryPath) {
+      throw new Error('aztec-avm binary not found');
+    }
+
+    const { CdbIpcServer, PublicContractsDB } = await import('@aztec/simulator/server');
+    const cdbServer = new CdbIpcServer();
+    const contractsDB = new PublicContractsDB(archiver);
+    cdbServer.setContractsDB(contractsDB, 0n);
+
+    const avmBackend: AvmIpcBackend = new AvmBackend({
+      binaryPath: avmBinaryPath,
+      wsdbSocketPath,
+      cdbSocketPath: cdbServer.socketPath,
+    });
+
     // Create real checkpoints builder
     const checkpointsBuilder = new FullNodeCheckpointsBuilder(
       {
@@ -131,6 +154,10 @@ describe('ValidatorClient Integration', () => {
       synchronizer,
       archiver,
       dateProvider,
+      /*telemetryClient=*/ undefined,
+      /*debugLogStore=*/ undefined,
+      avmBackend,
+      cdbServer,
     );
 
     // Create mock p2p client
@@ -199,6 +226,8 @@ describe('ValidatorClient Integration', () => {
       checkpointsBuilder,
       p2pClient,
       validator,
+      avmBackend,
+      cdbServer,
     };
   };
 
@@ -371,11 +400,13 @@ describe('ValidatorClient Integration', () => {
 
   afterEach(async () => {
     logger.warn(`Stopping validator contexts`);
-    for (const { validator, synchronizer, archiver, worldStateDb } of [attestor, proposer]) {
+    for (const { validator, synchronizer, archiver, worldStateDb, avmBackend, cdbServer } of [attestor, proposer]) {
       await tryStop(validator);
       await tryStop(synchronizer);
       await tryStop(archiver);
       await tryStop(worldStateDb);
+      await avmBackend?.destroy?.();
+      await cdbServer?.close();
     }
   });
 

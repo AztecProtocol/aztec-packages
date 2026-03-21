@@ -21,7 +21,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import { type BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
-import { type WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 import assert from 'assert';
 
@@ -45,8 +45,8 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.initialHeader;
   }
 
-  getRevision(): WorldStateRevisionWithHandle {
-    return WorldStateRevisionWithHandle.fromWorldStateRevision(this.revision, this.instance.getHandle());
+  getRevision(): WorldStateRevision {
+    return this.revision;
   }
 
   findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {
@@ -218,6 +218,12 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
   }
+
+  /** Returns the WSDB fork ID for this fork. */
+  getForkId(): number {
+    return this.revision.forkId;
+  }
+
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
@@ -228,7 +234,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
 
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     await this.instance.call(WorldStateMessageType.APPEND_LEAVES, {
-      leaves: leaves.map(leaf => leaf as any),
+      leaves: leaves.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf as any))),
       forkId: this.revision.forkId,
       treeId,
     });

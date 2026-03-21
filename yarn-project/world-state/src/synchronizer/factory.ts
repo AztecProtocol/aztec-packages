@@ -6,6 +6,7 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WsdbIpcBackend } from '../native/ipc_world_state_instance.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import type { WorldStateConfig } from './config.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
@@ -24,9 +25,10 @@ export async function createWorldStateSynchronizer(
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   client: TelemetryClient = getTelemetryClient(),
   bindings?: LoggerBindings,
+  wsdbBackend?: WsdbIpcBackend,
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
-  const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation, bindings);
+  const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation, bindings, wsdbBackend);
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
 
@@ -45,7 +47,13 @@ export async function createWorldState(
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   bindings?: LoggerBindings,
+  wsdbBackend?: WsdbIpcBackend,
 ) {
+  // If an IPC backend is provided, use it directly (avoids spawning a new wsdb process)
+  if (wsdbBackend) {
+    return NativeWorldStateService.fromIpc(wsdbBackend, instrumentation, bindings);
+  }
+
   const dataDirectory = config.worldStateDataDirectory ?? config.dataDirectory;
   const dataStoreMapSizeKb = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKb;
   const wsTreeMapSizes: WorldStateTreeMapSizes = {

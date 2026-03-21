@@ -1,16 +1,17 @@
 import type { LogFn, LogLevel, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type MeasuredSimulatorFactory,
   PublicTxSimulationTester,
   SimpleContractDataSource,
   type TestEnqueuedCall,
   type TestExecutorMetrics,
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
+import { CdbIpcServer, MeasuredCppPublicTxSimulator, PublicContractsDB } from '@aztec/simulator/server';
 import type { PublicTxResult } from '@aztec/simulator/server';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -105,9 +106,9 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     merkleTrees: MerkleTreeWriteOperations,
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
+    simulatorFactory?: MeasuredSimulatorFactory,
   ) {
-    // simulator factory is undefined because for proving, we use the default C++ simulator
-    super(merkleTrees, contractDataSource, globals, metrics, /*simulatorFactory=*/ undefined, provingConfig);
+    super(merkleTrees, contractDataSource, globals, metrics, simulatorFactory, provingConfig);
   }
 
   static async new(
@@ -118,7 +119,41 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   ) {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await worldStateService.fork();
-    return new AvmProvingTester(checkCircuitOnly, contractDataSource, merkleTrees, globals, metrics);
+
+    // Set up IPC simulator (replaces the old NAPI default)
+    const wsdbSocketPath = worldStateService.getSocketPath();
+    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+    const { findAvmBinary } = await import('@aztec/bb.js/platform');
+    const avmBinaryPath = findAvmBinary();
+    if (!avmBinaryPath) {
+      throw new Error('aztec-avm binary not found');
+    }
+
+    const cdbServer = new CdbIpcServer();
+    const contractsDB = new PublicContractsDB(contractDataSource);
+    cdbServer.setContractsDB(contractsDB, globals?.timestamp ?? 0n);
+
+    const avmBackend = new AvmBackend({
+      binaryPath: avmBinaryPath,
+      wsdbSocketPath,
+      cdbSocketPath: cdbServer.socketPath,
+    });
+
+    const forkId = merkleTrees.getRevision().forkId;
+    const simulatorFactory: MeasuredSimulatorFactory = (_mt, _cdb, g, m, c) =>
+      new MeasuredCppPublicTxSimulator(avmBackend, g, m, c, undefined, forkId);
+
+    const tester = new AvmProvingTester(
+      checkCircuitOnly,
+      contractDataSource,
+      merkleTrees,
+      globals,
+      metrics,
+      simulatorFactory,
+    );
+    tester.avmBackend = avmBackend;
+    tester.cdbServer = cdbServer;
+    return tester;
   }
 
   async prove(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx'): Promise<BBResult> {
@@ -212,7 +247,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
     disableRevertCheck: boolean = false,
-    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
     const simTimer = new Timer();
     const simRes = await this.simulateTx(
@@ -223,7 +257,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       feePayer,
       privateInsertions,
       txLabel,
-      gasLimits,
     );
     const simDuration = simTimer.ms();
     this.logger.info(`Simulation took ${simDuration} ms for tx ${txLabel}`);
@@ -250,7 +283,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
-    gasLimits?: Gas,
   ) {
     return await this.simProveVerify(
       sender,
@@ -262,7 +294,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       privateInsertions,
       txLabel,
       true,
-      gasLimits,
     );
   }
 
@@ -270,7 +301,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     appCall: TestEnqueuedCall,
     expectRevert?: boolean,
     txLabel: string = 'unlabeledTx',
-    gasLimits?: Gas,
   ) {
     await this.simProveVerify(
       /*sender=*/ AztecAddress.fromNumber(42),
@@ -281,8 +311,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       /*feePayer=*/ undefined,
       /*privateInsertions=*/ undefined,
       txLabel,
-      /*disableRevertCheck=*/ false,
-      gasLimits,
     );
   }
 }

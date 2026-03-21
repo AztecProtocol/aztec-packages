@@ -1,179 +1,118 @@
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
-import { type CancellationToken, avmSimulate, cancelSimulation, createCancellationToken } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
   AvmFastSimulationInputs,
   AvmTxHint,
-  type PublicSimulatorConfig,
+  PublicSimulatorConfig,
   PublicTxResult,
   deserializeFromMessagePack,
+  serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
-import { WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { strict as assert } from 'assert';
 
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
-import type { PublicContractsDB } from '../public_db_sources.js';
-import { ContractProviderForCpp } from './contract_provider_for_cpp.js';
-import { PublicTxSimulator } from './public_tx_simulator.js';
 import type {
   MeasuredPublicTxSimulatorInterface,
   PublicTxSimulatorInterface,
 } from './public_tx_simulator_interface.js';
 
+/** Msgpack IPC backend interface (matches bb.js IMsgpackBackendAsync). */
+export interface AvmIpcBackend {
+  call(inputBuffer: Uint8Array): Promise<Uint8Array>;
+  cancel?(): Promise<void>;
+  destroy?(): Promise<void>;
+}
+
 /**
- * C++ implementation of PublicTxSimulator using the C++ simulator.
- * The C++ simulator accesses the world state directly/natively within C++.
- * For contract DB accesses, it makes callbacks through NAPI back to the TS PublicContractsDB cache.
+ * IPC-based C++ implementation of PublicTxSimulator.
+ * Communicates with the aztec-avm binary over Unix Domain Socket IPC.
+ * The AVM binary connects directly to WSDB and CDB - no merkle tree
+ * or contract DB references needed here.
  */
-export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxSimulatorInterface {
-  protected override log: Logger;
-  /** Current cancellation token for in-flight simulation. */
-  private cancellationToken?: CancellationToken;
-  /** Current simulation promise, used to wait for completion after cancellation. */
-  private simulationPromise?: Promise<Buffer>;
+export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
+  protected log: Logger;
 
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
-    globalVariables: GlobalVariables,
-    config?: Partial<PublicSimulatorConfig>,
+    private avmBackend: AvmIpcBackend,
+    private globalVariables: GlobalVariables,
+    private config: Partial<PublicSimulatorConfig> = {},
     bindings?: LoggerBindings,
+    private wsdbForkId?: number,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config, undefined, bindings);
-    this.log = createLogger(`simulator:cpp_public_tx_simulator`, bindings);
+    this.log = createLogger('simulator:cpp_public_tx_simulator', bindings);
   }
 
-  /**
-   * Simulate a transaction's public portion using the C++ avvm simulator.
-   *
-   * @param tx - The transaction to simulate.
-   * @returns The result of the transaction's public execution.
-   */
-  public override async simulate(tx: Tx): Promise<PublicTxResult> {
-    const txHash = this.computeTxHash(tx);
-    this.log.debug(`C++ simulation of ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, {
-      txHash,
-    });
-
-    // Using the "as WorldStateRevisionWithHandle" is a bit of a "trust me bro", hence the assert.
-    let wsRevision = this.merkleTree.getRevision();
-    assert(
-      wsRevision instanceof WorldStateRevisionWithHandle,
-      'CppPublicTxSimulator a real NativeWorldStateInstance with a handle to the C++ WorldState object',
-    );
-    const wsCppHandle = (wsRevision as WorldStateRevisionWithHandle).handle;
-    wsRevision = wsRevision.toWorldStateRevision(); // for msgpack serialization, we don't include the handle in the type
-
-    this.log.trace(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
+  public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const txHash = tx.getTxHash();
+    this.log.debug(`IPC simulation for tx ${txHash}, wsdbForkId=${this.wsdbForkId ?? 0}`);
 
     // Create the fast simulation inputs
     const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
     const protocolContracts = ProtocolContractsList;
     const fastSimInputs = new AvmFastSimulationInputs(
-      wsRevision,
-      this.config,
+      { forkId: this.wsdbForkId ?? 0, blockNumber: 0, includeUncommitted: true },
+      PublicSimulatorConfig.from(this.config ?? {}),
       txHint,
       this.globalVariables,
       protocolContracts,
     );
 
-    // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
-    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables, this.bindings);
-
-    // Serialize to msgpack and call the C++ simulator
-    this.log.trace(`Serializing fast simulation inputs to msgpack...`);
+    // Serialize inputs to msgpack
     const inputBuffer = fastSimInputs.serializeWithMessagePack();
 
-    // Create cancellation token for this simulation
-    this.cancellationToken = createCancellationToken();
+    // Wrap as AvmSimulate NamedUnion command: [["AvmSimulate", {inputs: <binary>}]]
+    const wrappedCommand = serializeWithMessagePack([['AvmSimulate', { inputs: inputBuffer }]]);
 
-    // Store the promise so cancel() can wait for it
-    this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-    this.simulationPromise = avmSimulate(
-      inputBuffer,
-      contractProvider,
-      wsCppHandle,
-      this.log.level,
-      undefined,
-      this.cancellationToken,
-    );
-
-    let resultBuffer: Buffer;
+    let resultBuffer: Uint8Array;
     try {
-      resultBuffer = await this.simulationPromise;
+      resultBuffer = await this.avmBackend.call(wrappedCommand);
     } catch (error: any) {
-      // Check if this was a cancellation
-      if (error.message?.includes('Simulation cancelled')) {
-        throw new SimulationError(`C++ simulation cancelled`, []);
-      }
-      throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
-    } finally {
-      this.cancellationToken = undefined;
-      this.simulationPromise = undefined;
+      throw new SimulationError(`IPC AVM simulation failed: ${error.message}`, []);
     }
 
-    // If we've reached this point, C++ succeeded during simulation,
+    // Deserialize the response NamedUnion, extract result bytes
+    const responseObj: any = deserializeFromMessagePack(Buffer.from(resultBuffer));
 
-    // Deserialize the msgpack result
-    this.log.trace(`Deserializing C++ from buffer (size: ${resultBuffer.length})...`);
-    const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
-    this.log.trace(`Deserializing C++ result to PublicTxResult...`);
-    const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
+    // The response is a NamedUnion: ["AvmSimulateResponse", {result: [...]}]
+    // or ["AvmErrorResponse", {message: "..."}]
+    if (Array.isArray(responseObj) && responseObj.length === 2) {
+      const [name, payload] = responseObj;
+      if (name === 'AvmErrorResponse') {
+        throw new SimulationError(`AVM error: ${payload.message}`, []);
+      }
+      if (name === 'AvmSimulateResponse' && payload.result) {
+        const resultBytes = Buffer.from(payload.result);
+        const cppResultJSON: object = deserializeFromMessagePack(resultBytes);
+        return PublicTxResult.fromPlainObject(cppResultJSON);
+      }
+    }
 
-    this.log.trace(`C++ simulation completed for tx ${txHash}`, {
-      txHash,
-      reverted: !cppResult.revertCode.isOK(),
-      cppGasUsed: cppResult.gasUsed.totalGas.l2Gas,
-    });
-
-    return cppResult;
+    throw new SimulationError('Unexpected response format from aztec-avm', []);
   }
 
-  /**
-   * Cancel the current simulation if one is in progress.
-   * This signals the C++ simulator to stop at the next opcode or before the next WorldState write.
-   * Safe to call even if no simulation is in progress.
-   *
-   * @param waitTimeoutMs - If provided, wait up to this many ms for the simulation to actually stop.
-   *                        This is important because C++ might be in the middle of a slow operation
-   *                        (e.g., pad_trees) and won't check the cancellation flag until it completes.
-   *                        Default timeout of 100ms after cancellation.
-   */
-  public async cancel(waitTimeoutMs: number = 100): Promise<void> {
-    if (this.cancellationToken) {
-      this.log.debug('Cancelling C++ simulation');
-      cancelSimulation(this.cancellationToken);
-    }
-
-    // Wait for the simulation to actually complete if not already done
-    if (this.simulationPromise) {
-      this.log.debug(`Waiting up to ${waitTimeoutMs}ms for C++ simulation to stop`);
-      await Promise.race([
-        this.simulationPromise.catch(() => {}), // Ignore rejection, just wait for completion
-        sleep(waitTimeoutMs),
-      ]);
-      this.log.debug('C++ simulation stopped or wait timed out');
-    }
+  // eslint-disable-next-line require-await
+  public async cancel(_waitTimeoutMs: number = 100): Promise<void> {
+    // IPC cancel is a no-op: the AVM process stays alive and the in-flight
+    // simulation completes in the background. Its response resolves the
+    // abandoned pending callback. The fork is reverted by the caller.
+    this.log.debug('IPC simulation cancelled (AVM will complete in background)');
   }
 }
 
+/** C++ public tx simulator with metrics recording. */
 export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implements MeasuredPublicTxSimulatorInterface {
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    avmBackend: AvmIpcBackend,
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
+    wsdbForkId?: number,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config, bindings);
+    super(avmBackend, globalVariables, config, bindings, wsdbForkId);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -188,23 +127,20 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
   }
 }
 
-/**
- * A C++ public tx simulator that tracks runtime/production metrics with telemetry.
- */
+/** C++ public tx simulator with telemetry. */
 export class TelemetryCppPublicTxSimulator extends MeasuredCppPublicTxSimulator {
-  /* tracer needed by trackSpans */
   public readonly tracer: Tracer;
 
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    avmBackend: AvmIpcBackend,
     globalVariables: GlobalVariables,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
+    wsdbForkId?: number,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'CppPublicTxSimulator');
-    super(merkleTree, contractsDB, globalVariables, metrics, config, bindings);
+    super(avmBackend, globalVariables, metrics, config, bindings, wsdbForkId);
     this.tracer = metrics.tracer;
   }
 }

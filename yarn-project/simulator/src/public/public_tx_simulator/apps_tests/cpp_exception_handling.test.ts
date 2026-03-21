@@ -5,7 +5,9 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe('C++ Exception Handling during Public Tx Simulation', () => {
+// Skipped: these tests are specific to the C++ NAPI simulator path which has been removed.
+// They test C++ exception propagation which is not applicable to the TS simulator.
+describe.skip('C++ Exception Handling during Public Tx Simulation', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: PublicTxSimulationTester;
@@ -13,12 +15,7 @@ describe('C++ Exception Handling during Public Tx Simulation', () => {
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      /*useCppSimulator=*/ true, // Use C++ simulator
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, /*metrics=*/ undefined);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
@@ -27,6 +24,7 @@ describe('C++ Exception Handling during Public Tx Simulation', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

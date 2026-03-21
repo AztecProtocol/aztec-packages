@@ -96,6 +96,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     this.log = createLogger(`simulator:public_tx_simulator`, bindings);
   }
 
+  /** No-op cancel for the TS simulator (cancellation is only meaningful for IPC/C++ simulators). */
+
+  public async cancel(_waitTimeoutMs?: number): Promise<void> {}
+
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.

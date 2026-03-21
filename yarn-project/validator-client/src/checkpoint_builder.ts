@@ -9,6 +9,8 @@ import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import { createTxValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
+  type AvmIpcBackend,
+  type CdbIpcServer,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
@@ -59,6 +61,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private telemetryClient: TelemetryClient,
     bindings?: LoggerBindings,
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
+    private avmBackend?: AvmIpcBackend,
+    private cdbServer?: CdbIpcServer,
   ) {
     this.log = createLogger('checkpoint-builder', {
       ...bindings,
@@ -239,18 +243,25 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...(this.config.txPublicSetupAllowListExtend ?? []),
     ];
     const contractsDB = this.contractsDB;
+    // Wire the CDB server to this block's PublicContractsDB so the C++ AVM
+    // can query contract data over UDS during simulation.
+    if (this.cdbServer) {
+      this.cdbServer.setContractsDB(contractsDB, globalVariables.timestamp);
+    }
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
-    const collectDebugLogs = this.debugLogStore.isEnabled;
-
     const bindings = this.log.getBindings();
+    if (!this.avmBackend) {
+      throw new Error('AVM IPC backend is required for block building. Ensure aztec-avm is running.');
+    }
+    // Extract the WSDB fork ID so the C++ AVM can modify the same fork in-place.
+    const wsdbForkId = 'getForkId' in fork ? (fork as { getForkId(): number }).getForkId() : undefined;
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
-      guardedFork,
-      contractsDB,
+      this.avmBackend,
       globalVariables,
       this.telemetryClient,
       bindings,
-      collectDebugLogs,
+      wsdbForkId,
     );
 
     const processor = new PublicProcessor(
@@ -291,6 +302,8 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
+    private avmBackend?: AvmIpcBackend,
+    private cdbServer?: CdbIpcServer,
   ) {
     this.log = createLogger('checkpoint-builder');
   }
@@ -346,6 +359,8 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.telemetryClient,
       bindings,
       this.debugLogStore,
+      this.avmBackend,
+      this.cdbServer,
     );
   }
 
@@ -407,6 +422,8 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.telemetryClient,
       bindings,
       this.debugLogStore,
+      this.avmBackend,
+      this.cdbServer,
     );
   }
 

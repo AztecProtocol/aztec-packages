@@ -3,7 +3,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
@@ -26,6 +25,7 @@ import { join } from 'path';
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
+import { IpcWorldState, type WsdbIpcBackend, getWsdbOptions } from './ipc_world_state_instance.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
@@ -36,7 +36,7 @@ import {
   sanitizeSummary,
   treeStateReferenceToSnapshot,
 } from './message.js';
-import { NativeWorldState } from './native_world_state_instance.js';
+import type { NativeWorldStateInstance } from './native_world_state_instance.js';
 
 // The current version of the world state database schema
 // Increment this when making incompatible changes to the database schema
@@ -50,7 +50,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
-    protected instance: NativeWorldState,
+    protected instance: NativeWorldStateInstance,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger,
     private readonly cleanup = () => Promise.resolve(),
@@ -67,15 +67,30 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database', bindings);
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
+
+    const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
+    const { findWsdbBinary } = await import('@aztec/bb.js/platform');
+    const wsdbBinaryPath = findWsdbBinary();
+    if (!wsdbBinaryPath) {
+      throw new Error('aztec-wsdb binary not found');
+    }
+
     // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager({
       schemaVersion: WORLD_STATE_DB_VERSION,
       rollupAddress,
       dataDirectory: worldStateDirectory,
-      onOpen: (dir: string) => {
-        return Promise.resolve(
-          new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation, bindings),
-        );
+      onOpen: async (dir: string) => {
+        const wsdbOpts = getWsdbOptions(dir, wsTreeMapSizes);
+        const prefilledData = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer]);
+        const backend = new WsdbBackend({
+          binaryPath: wsdbBinaryPath,
+          dataDir: dir,
+          ...wsdbOpts,
+          prefilledPublicData: prefilledData,
+        });
+        await backend.waitUntilReady();
+        return new IpcWorldState(backend, instrumentation, bindings);
       },
     });
 
@@ -92,7 +107,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   static async tmp(
-    rollupAddress = EthAddress.ZERO,
+    _rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
@@ -110,8 +125,27 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     };
     log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
 
-    // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
+    const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
+    const { findWsdbBinary } = await import('@aztec/bb.js/platform');
+    const wsdbBinaryPath = findWsdbBinary();
+    if (!wsdbBinaryPath) {
+      throw new Error('aztec-wsdb binary not found');
+    }
+
+    const wsdbOpts = getWsdbOptions(dataDir, worldStateTreeMapSizes);
+    const prefilledData = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer]);
+    const wsdbBackend = new WsdbBackend({
+      binaryPath: wsdbBinaryPath,
+      dataDir,
+      ...wsdbOpts,
+      prefilledPublicData: prefilledData,
+    });
+    await wsdbBackend.waitUntilReady();
+
     const cleanup = async () => {
+      if (wsdbBackend.destroy) {
+        await wsdbBackend.destroy();
+      }
       if (cleanupTmpDir) {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
         log.debug(`Deleted temporary world state database: ${dataDir}`);
@@ -120,15 +154,29 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(
-      rollupAddress,
-      dataDir,
-      worldStateTreeMapSizes,
-      prefilledPublicData,
-      instrumentation,
-      bindings,
-      cleanup,
-    );
+    return NativeWorldStateService.fromIpc(wsdbBackend, instrumentation, bindings, cleanup);
+  }
+
+  /**
+   * Creates a NativeWorldStateService backed by an IPC connection to a running aztec-wsdb process.
+   * The WsdbBackend manages the process lifecycle; we wrap it in IpcWorldState for the msgpack protocol.
+   */
+  static async fromIpc(
+    wsdbBackend: WsdbIpcBackend,
+    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    bindings?: LoggerBindings,
+    cleanup = () => Promise.resolve(),
+  ): Promise<NativeWorldStateService> {
+    const log = createLogger('world-state:database', bindings);
+    const instance = new IpcWorldState(wsdbBackend, instrumentation, bindings);
+    const worldState = new this(instance, instrumentation, log, cleanup);
+    try {
+      await worldState.init();
+    } catch (e) {
+      log.error(`Error initializing IPC world state: ${e}`);
+      throw e;
+    }
+    return worldState;
   }
 
   protected async init() {
@@ -152,11 +200,17 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }
 
-  public async clear() {
-    await this.instance.close();
-    this.cachedStatusSummary = undefined;
-    await tryRmDir(this.instance.getDataDir(), this.log);
-    this.instance = this.instance.clone();
+  // eslint-disable-next-line require-await
+  public async clear(): Promise<void> {
+    throw new Error('clear() is not supported with IPC world state');
+  }
+
+  /** Returns the socket path of the underlying IPC backend, if available. */
+  public getSocketPath(): string {
+    if (this.instance instanceof IpcWorldState) {
+      return this.instance.getSocketPath();
+    }
+    throw new Error('getSocketPath() is only available with IPC world state');
   }
 
   public getCommitted(): MerkleTreeReadOperations {

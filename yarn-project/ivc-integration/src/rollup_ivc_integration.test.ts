@@ -85,10 +85,10 @@ describe('Rollup IVC Integration', () => {
       worldStateService,
       /*globals=*/ undefined, // default
       /*metrics=*/ undefined,
-      /*useCppSimulator=*/ true,
       simConfig,
     );
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    await simTester.close();
     await worldStateService.close();
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 

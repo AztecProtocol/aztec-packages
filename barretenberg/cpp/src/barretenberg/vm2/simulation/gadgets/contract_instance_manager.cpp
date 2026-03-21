@@ -94,7 +94,8 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         return std::nullopt;
     }
 
-    BB_ASSERT(maybe_instance.has_value(), "Contract instance should be found if nullifier exists");
+    BB_ASSERT(maybe_instance.has_value(),
+              "Contract instance should be found if nullifier exists: address=" << contract_address);
     const ContractInstance& instance = maybe_instance.value();
 
     // Validate that the contract instance is the latest if there have been any updates.

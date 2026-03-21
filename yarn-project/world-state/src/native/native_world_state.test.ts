@@ -335,22 +335,10 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
 
-    it('manually clears the database', async () => {
+    it('clear() is not supported with IPC', async () => {
       const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
-      const initialStatus = await ws.getStatusSummary();
-      expect(initialStatus.unfinalizedBlockNumber).toBe(0);
-
-      // Populate the db
-      const fork = await ws.fork();
-      ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
-      await fork.close();
-      const status = await ws.handleL2BlockAndMessages(block, messages);
-      expect(status.summary.unfinalizedBlockNumber).toBe(1);
-
-      // Clear it
-      await ws.clear();
-      const emptyStatus = await ws.getStatusSummary();
-      expect(emptyStatus.unfinalizedBlockNumber).toBe(0);
+      await expect(ws.clear()).rejects.toThrow('clear() is not supported with IPC world state');
+      await ws.close();
     });
   });
 

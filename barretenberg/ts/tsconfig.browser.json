@@ -5,5 +5,5 @@
     "noEmit": false
   },
   "include": ["src"],
-  "exclude": ["src/main.ts", "src/**/*.test.ts", "src/bindgen", "src/benchmark"]
+  "exclude": ["src/main.ts", "src/**/*.test.ts", "src/bindgen", "src/benchmark", "src/aztec-wsdb", "src/aztec-cdb", "src/aztec-avm"]
 }

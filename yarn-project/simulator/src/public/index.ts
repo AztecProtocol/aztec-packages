@@ -1,10 +1,14 @@
+export { CdbIpcServer } from './cdb_ipc_server.js';
+export type { PublicContractsDBInterface } from './db_interfaces.js';
 export { PublicContractsDB } from './public_db_sources.js';
 export { GuardedMerkleTreeOperations } from './public_processor/guarded_merkle_tree.js';
 export { PublicProcessor, PublicProcessorFactory } from './public_processor/public_processor.js';
 export {
+  type AvmIpcBackend,
   CppPublicTxSimulator,
+  MeasuredCppPublicTxSimulator,
   createPublicTxSimulatorForBlockBuilding,
-  DumpingCppPublicTxSimulator,
+  PublicTxSimulator,
   type PublicTxSimulatorInterface,
   TelemetryCppPublicTxSimulator,
 } from './public_tx_simulator/index.js';

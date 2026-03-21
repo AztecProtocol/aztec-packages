@@ -64,13 +64,14 @@
     ]
   },
   "dependencies": {
+    "@aztec/bb.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/native": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
+    "msgpackr": "^1.11.2",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"
   },

@@ -72,6 +72,7 @@ class IpcClient {
     // Factory methods
     static std::unique_ptr<IpcClient> create_socket(const std::string& socket_path);
     static std::unique_ptr<IpcClient> create_shm(const std::string& base_name);
+    static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name, size_t client_id);
 };
 
 } // namespace bb::ipc

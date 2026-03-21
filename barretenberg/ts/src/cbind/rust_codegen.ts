@@ -12,6 +12,8 @@ import type { CompiledSchema, Type, Struct, Field } from './schema_visitor.js';
 import { toSnakeCase, toPascalCase } from './naming.js';
 
 export class RustCodegen {
+  private errorTypeName: string = 'ErrorResponse';
+
   // Type mapping: Schema type -> Rust type
   private mapType(type: Type): string {
     switch (type.kind) {
@@ -216,8 +218,9 @@ ${deserializeCases}
   private generateResponseEnum(schema: CompiledSchema): string {
     // Include all response types from commands plus ErrorResponse if it exists
     const commandResponseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
-    const responseTypes = schema.responses.has('ErrorResponse')
-      ? [...commandResponseTypes, 'ErrorResponse']
+    const errorName = schema.errorTypeName || 'ErrorResponse';
+    const responseTypes = schema.responses.has(errorName)
+      ? [...commandResponseTypes, errorName]
       : commandResponseTypes;
     const variants = responseTypes
       .map(name => {
@@ -381,6 +384,7 @@ mod serde_array4_bytes {
 
   // Generate types file
   generateTypes(schema: CompiledSchema): string {
+    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     // Create set of top-level command struct names (only these need __typename)
     const commandNames = new Set(schema.commands.map(c => c.name));
 
@@ -438,7 +442,7 @@ ${this.generateResponseEnum(schema)}
         let cmd = Command::${cmdRustName}(${cmdRustName}::new(${paramConversions}));
         match self.execute(cmd)? {
             Response::${respRustName}(resp) => Ok(resp),
-            Response::ErrorResponse(err) => Err(BarretenbergError::Backend(
+            Response::${toPascalCase(this.errorTypeName)}(err) => Err(BarretenbergError::Backend(
                 err.message
             )),
             _ => Err(BarretenbergError::InvalidResponse(
@@ -450,6 +454,7 @@ ${this.generateResponseEnum(schema)}
 
   // Generate API file
   generateApi(schema: CompiledSchema): string {
+    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     const apiMethods = schema.commands
       .filter(c => c.name !== 'Shutdown')
       .map(c => this.generateApiMethod(c))

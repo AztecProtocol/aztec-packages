@@ -37,7 +37,7 @@ class AvmSimulationHelper {
     // An extra entry point that is not used in production.
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints, const PublicSimulatorConfig& config);
 
-  protected:
+    // Direct entry point that takes pre-constructed DB interfaces (used by aztec-avm binary).
     TxSimulationResult simulate_fast_internal(simulation::ContractDBInterface& raw_contract_db,
                                               simulation::LowLevelMerkleDBInterface& raw_merkle_db,
                                               const PublicSimulatorConfig& config,
@@ -46,6 +46,17 @@ class AvmSimulationHelper {
                                               const ProtocolContracts& protocol_contracts,
                                               simulation::CancellationTokenPtr cancellation_token = nullptr);
 
+    // Hint collection entry point that takes pre-constructed DB interfaces (used by aztec-avm binary).
+    TxSimulationResult simulate_for_hint_collection_internal(
+        simulation::ContractDBInterface& raw_contract_db,
+        simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+        const PublicSimulatorConfig& config,
+        const Tx& tx,
+        const GlobalVariables& global_variables,
+        const ProtocolContracts& protocol_contracts,
+        simulation::CancellationTokenPtr cancellation_token = nullptr);
+
+  protected:
     template <template <typename> class DefaultEventEmitter, template <typename> class DefaultDeduplicatingEventEmitter>
     std::tuple<simulation::EventsContainer, TxSimulationResult> simulate_for_witgen_internal(
         simulation::ContractDBInterface& raw_contract_db,

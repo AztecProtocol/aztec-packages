@@ -12,7 +12,7 @@ import type {
   TreeInfo,
 } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
-import type { WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 /**
  * Wraps an instance of `MerkleTreeWriteOperations` to allow the sequencer to gate access.
@@ -94,7 +94,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   getInitialHeader(): BlockHeader {
     return this.target.getInitialHeader();
   }
-  public getRevision(): WorldStateRevision | WorldStateRevisionWithHandle {
+  public getRevision(): WorldStateRevision {
     return this.target.getRevision();
   }
   getSiblingPath<ID extends MerkleTreeId>(treeId: ID, index: bigint): Promise<SiblingPath<TreeHeights[ID]>> {

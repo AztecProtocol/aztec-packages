@@ -33,7 +33,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { CdbIpcServer, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   EpochPruneWatcher,
@@ -114,8 +114,11 @@ import {
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
-import { createWorldStateSynchronizer } from '@aztec/world-state';
+import { createWorldStateSynchronizer, getWsdbOptions } from '@aztec/world-state';
 
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createPublicClient } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
@@ -134,6 +137,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private isUploadingSnapshot = false;
 
   public readonly tracer: Tracer;
+
+  /** IPC backends to clean up on stop (CDB, AVM). WSDB is cleaned up by world state. */
+  private ipcBackends: Array<{ destroy?(): Promise<void> }> = [];
 
   constructor(
     protected config: AztecNodeConfig,
@@ -309,12 +315,75 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       { blockUntilSync: !config.skipArchiverInitialSync },
     );
 
+    // Set up IPC backends for world state and AVM simulation.
+    // CDB is always a TS UDS server (no C++ binary needed).
+    const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
+    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+    const { findWsdbBinary, findAvmBinary } = await import('@aztec/bb.js/platform');
+
+    const wsdbBinaryPath = findWsdbBinary();
+    const avmBinaryPath = findAvmBinary();
+
+    if (!wsdbBinaryPath || !avmBinaryPath) {
+      throw new Error(`Missing required binaries: wsdb=${wsdbBinaryPath}, avm=${avmBinaryPath}`);
+    }
+
+    const configuredDataDir = config.worldStateDataDirectory ?? config.dataDirectory;
+    // When no data directory is configured, create a temp directory (fresh state each run).
+    // This matches the old NativeWorldStateService.tmp() behavior.
+    const dataDirectory = configuredDataDir ?? (await mkdtemp(join(tmpdir(), 'aztec-world-state-')));
+    const dataStoreMapSizeKb = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKb;
+    const wsTreeMapSizes = {
+      archiveTreeMapSizeKb: config.archiveTreeMapSizeKb ?? dataStoreMapSizeKb,
+      nullifierTreeMapSizeKb: config.nullifierTreeMapSizeKb ?? dataStoreMapSizeKb,
+      noteHashTreeMapSizeKb: config.noteHashTreeMapSizeKb ?? dataStoreMapSizeKb,
+      messageTreeMapSizeKb: config.messageTreeMapSizeKb ?? dataStoreMapSizeKb,
+      publicDataTreeMapSizeKb: config.publicDataTreeMapSizeKb ?? dataStoreMapSizeKb,
+    };
+    const wsdbOpts = getWsdbOptions(dataDirectory, wsTreeMapSizes);
+    const prefilledData = (options.prefilledPublicData ?? []).map(
+      d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
+    );
+
+    log.info('Starting IPC backends', {
+      wsdbBinary: wsdbBinaryPath,
+      avmBinary: avmBinaryPath,
+      dataDir: dataDirectory,
+    });
+
+    const wsdbBackend = new WsdbBackend({
+      binaryPath: wsdbBinaryPath,
+      dataDir: join(dataDirectory, 'world_state'),
+      ...wsdbOpts,
+      prefilledPublicData: prefilledData,
+      logger: (msg: string) => log.debug(msg),
+      useShm: false, // AVM connects to WSDB via UDS; SHM requires NAPI which AVM doesn't have
+    });
+
+    // Create the TS CDB server (replaces the C++ aztec-cdb binary).
+    // Contract data is served from PublicContractsDB via lazy archiver fallback.
+    const cdbServer = new CdbIpcServer();
+
+    // Wait for WSDB socket to be ready before spawning AVM
+    log.info('Waiting for WSDB backend to be ready...');
+    await wsdbBackend.waitUntilReady();
+
+    log.info('WSDB ready, spawning AVM');
+    const avmBackend = new AvmBackend({
+      binaryPath: avmBinaryPath,
+      wsdbSocketPath: wsdbBackend.getSocketPath(),
+      cdbSocketPath: cdbServer.socketPath,
+      logger: (msg: string) => log.debug(msg),
+    });
+
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
       config,
       archiver,
       options.prefilledPublicData,
       telemetry,
+      undefined,
+      wsdbBackend,
     );
     const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
     let peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -375,6 +444,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver,
       dateProvider,
       telemetry,
+      undefined, // debugLogStore
+      avmBackend,
+      cdbServer,
     );
 
     let validatorClient: ValidatorClient | undefined;
@@ -537,6 +609,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         telemetry,
         debugLogStore,
+        avmBackend,
+        cdbServer,
       );
 
       sequencer = await SequencerClient.new(config, {
@@ -616,6 +690,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       keyStoreManager,
       debugLogStore,
     );
+
+    // Register IPC backends for cleanup on stop (WSDB is cleaned up by world state)
+    if (cdbServer) {
+      node.ipcBackends.push({ destroy: () => cdbServer!.close() });
+    }
+    if (avmBackend) {
+      node.ipcBackends.push(avmBackend);
+    }
 
     return node;
   }
@@ -962,6 +1044,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
     await tryStop(this.blobClient);
+    // Destroy IPC backends (CDB, AVM). WSDB is cleaned up by worldStateSynchronizer.
+    for (const backend of this.ipcBackends) {
+      try {
+        await backend.destroy?.();
+      } catch (e) {
+        this.log.warn(`Error destroying IPC backend: ${e}`);
+      }
+    }
     await tryStop(this.telemetry);
     this.log.info(`Stopped Aztec Node`);
   }

@@ -604,6 +604,38 @@ TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
     return std::move(tx_result);
 }
 
+TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection_internal(
+    simulation::ContractDBInterface& raw_contract_db,
+    simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+    const PublicSimulatorConfig& config,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts,
+    CancellationTokenPtr cancellation_token)
+{
+    (void)cancellation_token; // Not yet used in this path.
+    BB_ASSERT(config.collect_hints && "Use simulate_fast_internal instead");
+
+    auto starting_tree_roots = raw_merkle_db.get_tree_roots();
+    HintingContractsDB hinting_contract_db(raw_contract_db);
+    HintingRawDB hinting_merkle_db(raw_merkle_db);
+
+    // We use NoopEventEmitters here because we don't want to collect events.
+    auto [/* unused */ events_, tx_result] = simulate_for_witgen_internal<NoopEventEmitter, NoopEventEmitter>(
+        hinting_contract_db, hinting_merkle_db, config, tx, global_variables, protocol_contracts);
+
+    ExecutionHints collected_hints = ExecutionHints{ .global_variables = global_variables,
+                                                     .tx = tx,
+                                                     .protocol_contracts = protocol_contracts,
+                                                     .starting_tree_roots = starting_tree_roots };
+    hinting_contract_db.dump_hints(collected_hints);
+    hinting_merkle_db.dump_hints(collected_hints);
+
+    tx_result.hints = std::move(collected_hints);
+
+    return std::move(tx_result);
+}
+
 EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
 {
     // TODO(fcarreiro): decide if we want to pass a config here.

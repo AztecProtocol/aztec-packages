@@ -64,6 +64,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/bb.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/native": "workspace:^",
@@ -77,6 +78,7 @@
     "@aztec/world-state": "workspace:^",
     "lodash.clonedeep": "^4.5.0",
     "lodash.merge": "^4.6.2",
+    "msgpackr": "^1.11.2",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
