@@ -456,9 +456,10 @@ std::array<uint32_t, 4> MegaCircuitBuilder_<FF>::queue_poseidon2_permutation(con
     this->check_selector_length_consistency();
     this->increment_num_gates();
 
-    // Row 1: hash output + 3 zeros
+    // Row 1: w_l = output, w_r = 1 (serves as read_tag via w_r_shift at row 0)
     uint32_t out_idx = this->add_variable(output);
-    block.populate_wires(out_idx, this->zero_idx(), this->zero_idx(), this->zero_idx());
+    uint32_t one_idx = this->add_variable(FF(1));
+    block.populate_wires(out_idx, one_idx, this->zero_idx(), this->zero_idx());
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
     block.q_2().emplace_back(0);

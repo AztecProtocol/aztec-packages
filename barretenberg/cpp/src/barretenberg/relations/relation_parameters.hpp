@@ -30,6 +30,7 @@ template <typename T> struct RelationParameters {
     T public_input_delta{ 0 }; // Permutation
     T beta_sqr{ 0 };
     T beta_cube{ 0 };
+    T beta_four{ 0 }; // β⁴ for Poseidon2 op wire logup (5-column batching)
 
     // Compute eta powers from a single eta challenge
     void compute_eta_powers(const T& eta_challenge)
@@ -44,6 +45,7 @@ template <typename T> struct RelationParameters {
         beta = beta_challenge;
         beta_sqr = beta * beta;
         beta_cube = beta_sqr * beta;
+        beta_four = beta_cube * beta;
     }
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we

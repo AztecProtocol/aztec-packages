@@ -119,30 +119,33 @@ class MegaV2Flavor {
     // ==================== Witness Entities ====================
     template <typename DataType> using WireEntities = MegaFlavor::WireEntities<DataType>;
 
-    // DerivedEntities: Mega's derived + 4 poseidon2 op wires
+    // DerivedEntities: Mega's derived + 5 poseidon2 op wires + inverses
     template <typename DataType> class DerivedEntities : public MegaFlavor::DerivedEntities<DataType> {
       public:
         DataType poseidon2_op_wire_1;
         DataType poseidon2_op_wire_2;
         DataType poseidon2_op_wire_3;
         DataType poseidon2_op_wire_4;
+        DataType poseidon2_op_wire_5;
+        DataType poseidon2_op_wire_inverses;
 
         auto get_all()
         {
             return concatenate(MegaFlavor::DerivedEntities<DataType>::get_all(),
                                RefArray{ poseidon2_op_wire_1, poseidon2_op_wire_2, poseidon2_op_wire_3,
-                                         poseidon2_op_wire_4 });
+                                         poseidon2_op_wire_4, poseidon2_op_wire_5, poseidon2_op_wire_inverses });
         }
         auto get_all() const
         {
             return concatenate(
                 MegaFlavor::DerivedEntities<DataType>::get_all(),
-                RefArray<const DataType, 4>{ poseidon2_op_wire_1, poseidon2_op_wire_2, poseidon2_op_wire_3,
-                                             poseidon2_op_wire_4 });
+                RefArray<const DataType, 6>{ poseidon2_op_wire_1, poseidon2_op_wire_2, poseidon2_op_wire_3,
+                                             poseidon2_op_wire_4, poseidon2_op_wire_5,
+                                             poseidon2_op_wire_inverses });
         }
         static constexpr size_t size()
         {
-            return MegaFlavor::DerivedEntities<DataType>::_members_size + 4;
+            return MegaFlavor::DerivedEntities<DataType>::_members_size + 6;
         }
         static const std::vector<std::string>& get_labels()
         {
@@ -152,6 +155,8 @@ class MegaV2Flavor {
                 base.push_back("poseidon2_op_wire_2");
                 base.push_back("poseidon2_op_wire_3");
                 base.push_back("poseidon2_op_wire_4");
+                base.push_back("poseidon2_op_wire_5");
+                base.push_back("poseidon2_op_wire_inverses");
                 return base;
             }();
             return labels;
@@ -164,7 +169,8 @@ class MegaV2Flavor {
 
         auto get_poseidon2_op_wires()
         {
-            return RefArray{ poseidon2_op_wire_1, poseidon2_op_wire_2, poseidon2_op_wire_3, poseidon2_op_wire_4 };
+            return RefArray{ poseidon2_op_wire_1, poseidon2_op_wire_2, poseidon2_op_wire_3, poseidon2_op_wire_4,
+                             poseidon2_op_wire_5 };
         }
     };
 
@@ -181,7 +187,7 @@ class MegaV2Flavor {
         auto get_poseidon2_op_wires()
         {
             return RefArray{ this->poseidon2_op_wire_1, this->poseidon2_op_wire_2, this->poseidon2_op_wire_3,
-                             this->poseidon2_op_wire_4 };
+                             this->poseidon2_op_wire_4, this->poseidon2_op_wire_5 };
         }
         auto get_databus_entities()
         {
@@ -241,7 +247,7 @@ class MegaV2Flavor {
         MegaFlavor::PrecomputedEntities<FF>::_members_size + 1; // + lagrange_poseidon2_op
     static constexpr size_t NUM_WITNESS_ENTITIES =
         MegaFlavor::WireEntities<FF>::_members_size +
-        MegaFlavor::DerivedEntities<FF>::_members_size + 4; // + 4 poseidon2 op wires
+        MegaFlavor::DerivedEntities<FF>::_members_size + 6; // + 5 poseidon2 op wires + inverses
     static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;

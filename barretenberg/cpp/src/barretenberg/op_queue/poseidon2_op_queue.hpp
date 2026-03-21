@@ -30,8 +30,8 @@ class Poseidon2OpQueue {
     using Perm = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
 
   public:
-    static constexpr size_t TABLE_WIDTH = 4;
-    static constexpr size_t NUM_ROWS_PER_OP = 2;
+    static constexpr size_t TABLE_WIDTH = 5;
+    static constexpr size_t NUM_ROWS_PER_OP = 1;
 
     struct Poseidon2Op {
         std::array<FF, 4> input; // sponge state before permutation
@@ -128,8 +128,8 @@ class Poseidon2OpQueue {
     // ==================== Polynomial construction for merge protocol ====================
 
     /**
-     * @brief Write one Poseidon2 op into 4 column polynomials at a given row offset.
-     * @details Row 0: input[0..3], Row 1: output, 0, 0, 0
+     * @brief Write one Poseidon2 op into 5 column polynomials at a given row offset.
+     * @details Single row: [input[0], input[1], input[2], input[3], output]
      */
     static void write_op_to_polynomials(std::array<Polynomial<FF>, TABLE_WIDTH>& polys,
                                         const Poseidon2Op& op,
@@ -139,11 +139,7 @@ class Poseidon2OpQueue {
         polys[1].at(row_idx) = op.input[1];
         polys[2].at(row_idx) = op.input[2];
         polys[3].at(row_idx) = op.input[3];
-
-        polys[0].at(row_idx + 1) = op.output;
-        polys[1].at(row_idx + 1) = FF(0);
-        polys[2].at(row_idx + 1) = FF(0);
-        polys[3].at(row_idx + 1) = FF(0);
+        polys[4].at(row_idx) = op.output;
     }
 
     /**

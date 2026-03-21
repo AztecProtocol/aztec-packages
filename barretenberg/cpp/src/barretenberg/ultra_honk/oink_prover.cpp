@@ -11,6 +11,7 @@
 #include "barretenberg/flavor/mega_v2_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/relations/poseidon2_op_queue_relation.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
@@ -157,6 +158,12 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
             batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
         };
     }
+    // If MegaV2, commit to the poseidon2 op wire inverse polynomial
+    if constexpr (HasPoseidon2OpQueue<Flavor>) {
+        batch.add_to_batch(prover_instance->polynomials.poseidon2_op_wire_inverses,
+                           "POSEIDON2_OP_WIRE_INVERSES",
+                           /*mask?*/ Flavor::HasZK);
+    }
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
 
     prover_instance->commitments.lookup_inverses = computed_commitments[0];
@@ -266,6 +273,11 @@ template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_invers
         // Compute inverses for return data reads
         DatabusLookupRelation<FF>::template compute_logderivative_inverse</*bus_idx=*/2>(
             polynomials, relation_parameters, circuit_size);
+    }
+
+    if constexpr (HasPoseidon2OpQueue<Flavor>) {
+        // Compute inverses for Poseidon2 op wire logup
+        Poseidon2OpQueueRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
     }
 }
 

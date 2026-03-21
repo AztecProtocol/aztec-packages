@@ -308,6 +308,9 @@ void ProverInstance_<Flavor>::allocate_poseidon2_op_polynomials(const Circuit& c
         wire = Polynomial(poseidon2_op_block_size, dyadic_size());
     }
     polynomials.lagrange_poseidon2_op = Polynomial(poseidon2_op_block_size, dyadic_size());
+    // Logup inverse polynomial — allocated at full trace size since both read and table
+    // positions contribute, and they may be at different trace locations
+    polynomials.poseidon2_op_wire_inverses = Polynomial(trace_active_range_size(), dyadic_size());
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)

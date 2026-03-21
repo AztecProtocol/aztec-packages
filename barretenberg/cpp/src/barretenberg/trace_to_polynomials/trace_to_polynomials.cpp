@@ -138,29 +138,39 @@ void TraceToPolynomials<Flavor>::add_poseidon2_single_row_to_prover_instance(Bui
 }
 
 /**
- * @brief Copy poseidon2 op block wire data into dedicated poseidon2_op_wire polynomials.
- * @details Unlike ecc_op_wires (which start at index 0 and use w_shift), poseidon2_op_wires
- * store data at the same trace positions as the poseidon2_op block. The Poseidon2OpQueueRelation
- * uses non-shifted wires (w_l, w_r, w_o, w_4) for the copy constraint.
+ * @brief Populate poseidon2 op wire columns and lagrange_poseidon2_op from the op queue.
  *
- * NOTE: This is a separate implementation from add_ecc_op_wires_to_prover_instance. In a future
- * refactor, both could be templated to share the logic (though the index mapping differs).
+ * @details The op wire columns are densely packed (1 row per hash, 5 columns) from the
+ * Poseidon2OpQueue. The lagrange_poseidon2_op selector is set at every OTHER row of the
+ * poseidon2_op block (input rows only — each hash uses 2 circuit rows but 1 op wire row).
+ *
+ * The logup relation (Poseidon2OpQueueRelation) proves that the op wire multiset matches
+ * the circuit wire multiset using w_r_shift as the read_tag.
  */
 template <class Flavor>
 void TraceToPolynomials<Flavor>::add_poseidon2_op_wires_to_prover_instance(Builder& builder,
                                                                            ProverPolynomials& polynomials)
     requires HasPoseidon2OpQueue<Flavor>
 {
+    BB_ASSERT(builder.poseidon2_op_queue != nullptr, "Poseidon2OpQueue must be initialized");
+
     auto& poseidon2_op_selector = polynomials.lagrange_poseidon2_op;
-    const size_t num_poseidon2_op_rows = builder.blocks.poseidon2_op.size();
     const size_t poseidon2_op_offset = builder.blocks.poseidon2_op.trace_offset();
 
-    for (auto [poseidon2_op_wire, wire] :
-         zip_view(polynomials.get_poseidon2_op_wires(), polynomials.get_wires())) {
-        for (size_t i = 0; i < num_poseidon2_op_rows; ++i) {
-            size_t trace_pos = poseidon2_op_offset + i;
-            poseidon2_op_wire.at(trace_pos) = wire[trace_pos];
-            poseidon2_op_selector.at(trace_pos) = 1;
+    // Set lagrange_poseidon2_op = 1 at input rows (every other row of the poseidon2_op block)
+    const size_t num_ops = builder.poseidon2_op_queue->get_total_num_ops();
+    for (size_t i = 0; i < num_ops; ++i) {
+        // Each op uses 2 circuit rows; the input row is at even indices within the block
+        size_t input_row = poseidon2_op_offset + i * 2;
+        poseidon2_op_selector.at(input_row) = 1;
+    }
+
+    // Populate the 5 op wire columns densely from the op queue
+    auto op_wire_columns = builder.poseidon2_op_queue->construct_table_columns();
+    auto op_wires = polynomials.get_poseidon2_op_wires();
+    for (size_t col = 0; col < 5; ++col) {
+        for (size_t row = 0; row < num_ops; ++row) {
+            op_wires[col].at(row) = op_wire_columns[col][row];
         }
     }
 }
