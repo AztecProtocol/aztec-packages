@@ -11,6 +11,7 @@
 
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -33,6 +34,10 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
 
     if constexpr (HasPoseidon2SingleRow<Flavor>) {
         add_poseidon2_single_row_to_prover_instance(builder, polynomials);
+    }
+
+    if constexpr (HasPoseidon2OpQueue<Flavor>) {
+        add_poseidon2_op_wires_to_prover_instance(builder, polynomials);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -132,6 +137,34 @@ void TraceToPolynomials<Flavor>::add_poseidon2_single_row_to_prover_instance(Bui
     }
 }
 
+/**
+ * @brief Copy poseidon2 op block wire data into dedicated poseidon2_op_wire polynomials.
+ * @details Unlike ecc_op_wires (which start at index 0 and use w_shift), poseidon2_op_wires
+ * store data at the same trace positions as the poseidon2_op block. The Poseidon2OpQueueRelation
+ * uses non-shifted wires (w_l, w_r, w_o, w_4) for the copy constraint.
+ *
+ * NOTE: This is a separate implementation from add_ecc_op_wires_to_prover_instance. In a future
+ * refactor, both could be templated to share the logic (though the index mapping differs).
+ */
+template <class Flavor>
+void TraceToPolynomials<Flavor>::add_poseidon2_op_wires_to_prover_instance(Builder& builder,
+                                                                           ProverPolynomials& polynomials)
+    requires HasPoseidon2OpQueue<Flavor>
+{
+    auto& poseidon2_op_selector = polynomials.lagrange_poseidon2_op;
+    const size_t num_poseidon2_op_rows = builder.blocks.poseidon2_op.size();
+    const size_t poseidon2_op_offset = builder.blocks.poseidon2_op.trace_offset();
+
+    for (auto [poseidon2_op_wire, wire] :
+         zip_view(polynomials.get_poseidon2_op_wires(), polynomials.get_wires())) {
+        for (size_t i = 0; i < num_poseidon2_op_rows; ++i) {
+            size_t trace_pos = poseidon2_op_offset + i;
+            poseidon2_op_wire.at(trace_pos) = wire[trace_pos];
+            poseidon2_op_selector.at(trace_pos) = 1;
+        }
+    }
+}
+
 template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
@@ -144,5 +177,6 @@ template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<MegaAvmFlavor>;
 template class TraceToPolynomials<Poseidon2SingleRowFlavor>;
+template class TraceToPolynomials<MegaV2Flavor>;
 
 } // namespace bb

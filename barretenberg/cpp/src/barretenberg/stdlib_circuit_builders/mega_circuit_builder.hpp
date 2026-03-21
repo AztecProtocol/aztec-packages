@@ -11,6 +11,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/op_queue/poseidon2_op_queue.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
@@ -28,6 +29,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
+
+    // Optional: stores deferred Poseidon2 operations for MegaV2Flavor IVC
+    std::shared_ptr<Poseidon2OpQueue> poseidon2_op_queue;
 
     // Indices for constant variables corresponding to ECCOpQueue op codes
     uint32_t null_op_idx;
@@ -129,6 +133,17 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     std::vector<Poseidon2SingleRowGateData> poseidon2_single_row_gates;
 
     void create_poseidon2_single_row_gate(const std::array<FF, 4>& input);
+
+    /**
+     * @brief Queue a deferred Poseidon2 permutation (for MegaV2Flavor IVC).
+     * @details Adds the 4 sponge state values and the hash output to the poseidon2_op block
+     * (2 rows per hash). The permutation is computed natively; the output is returned as a
+     * circuit variable. Correctness is deferred to the final Poseidon2SingleRowFlavor proof.
+     *
+     * @param sponge_state The 4 sponge state values before the permutation
+     * @return Array of 4 circuit variable indices for the permutation output state
+     */
+    std::array<uint32_t, 4> queue_poseidon2_permutation(const std::array<FF, 4>& sponge_state);
 
     void finalize_circuit(const bool ensure_nonzero);
     void add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();

@@ -309,7 +309,8 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
  * binary indicator (1 inside the ecc_op block, 0 elsewhere).
  */
 struct MegaTraceBlockData {
-    MegaTraceBlock ecc_op; // Must remain first
+    MegaTraceBlock ecc_op; // Must remain first (EccOpQueueRelation uses w_shift trick)
+    MegaTraceBlock poseidon2_op; // Second op block (Poseidon2OpQueueRelation uses w directly, not w_shift)
     MegaTraceBusReadBlock busread;
     MegaTraceLookupBlock lookup;
     MegaTracePublicInputBlock pub_inputs;
@@ -321,17 +322,19 @@ struct MegaTraceBlockData {
     MegaTracePoseidon2ExternalBlock poseidon2_external;
     MegaTracePoseidon2InternalBlock poseidon2_internal;
 
-    static constexpr size_t NUM_BLOCKS = 11;
+    static constexpr size_t NUM_BLOCKS = 12;
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",        "delta_range",
-                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal" };
+        return { "ecc_op",   "poseidon2_op", "busread",   "lookup",    "pub_inputs",
+                 "arithmetic", "delta_range", "elliptic", "memory",    "nnf",
+                 "poseidon2_external", "poseidon2_internal" };
     }
 
     auto get()
     {
         return RefArray(std::array<MegaTraceBlock*, NUM_BLOCKS>{ &ecc_op,
+                                                                 &poseidon2_op,
                                                                  &busread,
                                                                  &lookup,
                                                                  &pub_inputs,
@@ -347,6 +350,7 @@ struct MegaTraceBlockData {
     auto get() const
     {
         return RefArray(std::array<const MegaTraceBlock*, NUM_BLOCKS>{ &ecc_op,
+                                                                       &poseidon2_op,
                                                                        &busread,
                                                                        &lookup,
                                                                        &pub_inputs,
@@ -398,6 +402,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
     {
         info("Gate blocks summary:");
         info("goblin ecc op :\t", this->ecc_op.size());
+        info("poseidon2 op  :\t", this->poseidon2_op.size());
         info("busread       :\t", this->busread.size());
         info("lookups       :\t", this->lookup.size());
         info("pub inputs    :\t", this->pub_inputs.size(), " (populated in decider pk constructor)");

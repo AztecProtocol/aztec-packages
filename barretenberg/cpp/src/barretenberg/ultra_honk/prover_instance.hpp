@@ -101,6 +101,9 @@ template <typename Flavor_> class ProverInstance_ {
     void allocate_poseidon2_single_row_polynomials(const Circuit&)
         requires HasPoseidon2SingleRow<Flavor>;
 
+    void allocate_poseidon2_op_polynomials(const Circuit&)
+        requires HasPoseidon2OpQueue<Flavor>;
+
     void allocate_databus_polynomials(const Circuit&)
         requires HasDataBus<Flavor>;
 

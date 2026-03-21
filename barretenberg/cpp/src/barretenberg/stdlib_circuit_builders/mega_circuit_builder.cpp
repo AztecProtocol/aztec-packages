@@ -415,5 +415,69 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_single_row_gate(const std::array<
     this->increment_num_gates();
 }
 
+/**
+ * @brief Queue a deferred Poseidon2 permutation for MegaV2Flavor IVC.
+ * @details Records 5 values across 2 rows in the poseidon2_op block:
+ *   Row 0: state[0], state[1], state[2], state[3]  (sponge state before permutation)
+ *   Row 1: output,   0,        0,        0          (hash output = state[0] after permutation)
+ * The permutation is computed natively via the Poseidon2OpQueue; the output is returned
+ * as circuit variables for use in subsequent circuit logic.
+ */
+template <typename FF>
+std::array<uint32_t, 4> MegaCircuitBuilder_<FF>::queue_poseidon2_permutation(const std::array<FF, 4>& sponge_state)
+{
+    BB_ASSERT(poseidon2_op_queue != nullptr,
+              "Poseidon2OpQueue must be initialized to use queue_poseidon2_permutation");
+
+    using Perm_ = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
+
+    // Compute permutation natively and record in the op queue
+    auto output = poseidon2_op_queue->add_hash_op(sponge_state);
+
+    // Compute the full permutation output for returning to the circuit
+    auto output_state = Perm_::permutation(sponge_state);
+
+    // Row 0: sponge state (4 input values)
+    uint32_t in_0 = this->add_variable(sponge_state[0]);
+    uint32_t in_1 = this->add_variable(sponge_state[1]);
+    uint32_t in_2 = this->add_variable(sponge_state[2]);
+    uint32_t in_3 = this->add_variable(sponge_state[3]);
+
+    auto& block = this->blocks.poseidon2_op;
+    block.populate_wires(in_0, in_1, in_2, in_3);
+    // Set all gate selectors to 0 (this is an op block, not a gate block)
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.set_gate_selector(0);
+    this->check_selector_length_consistency();
+    this->increment_num_gates();
+
+    // Row 1: hash output + 3 zeros
+    uint32_t out_idx = this->add_variable(output);
+    block.populate_wires(out_idx, this->zero_idx(), this->zero_idx(), this->zero_idx());
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.set_gate_selector(0);
+    this->check_selector_length_consistency();
+    this->increment_num_gates();
+
+    // Return output state as circuit variable indices
+    std::array<uint32_t, 4> output_indices;
+    output_indices[0] = out_idx; // state[0] already added above
+    output_indices[1] = this->add_variable(output_state[1]);
+    output_indices[2] = this->add_variable(output_state[2]);
+    output_indices[3] = this->add_variable(output_state[3]);
+
+    return output_indices;
+}
+
 template class MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

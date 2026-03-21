@@ -1,7 +1,9 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
+#include "barretenberg/flavor/mega_v2_flavor.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
+#include "barretenberg/op_queue/poseidon2_op_queue.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -9,6 +11,7 @@ using namespace benchmark;
 using namespace bb;
 
 using Poseidon2SingleRowProver = UltraProver_<Poseidon2SingleRowFlavor>;
+using MegaV2Prover = UltraProver_<MegaV2Flavor>;
 
 // ==================== Circuit builders ====================
 
@@ -39,6 +42,24 @@ static void generate_single_row_poseidon2_circuit(MegaCircuitBuilder& builder, s
     }
 }
 
+/**
+ * @brief Build a circuit with N deferred Poseidon2 hashes (MegaV2: 2 op rows/hash, 0 poseidon2 gates).
+ */
+static void generate_mega_v2_poseidon2_circuit(MegaCircuitBuilder& builder, size_t num_hashes)
+{
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
+    // Initialize poseidon2_op_queue if not already done
+    if (!builder.poseidon2_op_queue) {
+        builder.poseidon2_op_queue = std::make_shared<Poseidon2OpQueue>();
+    }
+    for (size_t i = 0; i < num_hashes; i++) {
+        std::array<fr, 4> sponge_state = {
+            fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+        };
+        builder.queue_poseidon2_permutation(sponge_state);
+    }
+}
+
 // ==================== Benchmarks ====================
 
 static void mega_poseidon2_prove(State& state) noexcept
@@ -55,7 +76,15 @@ static void single_row_poseidon2_prove(State& state) noexcept
         state, &generate_single_row_poseidon2_circuit, num_hashes);
 }
 
+static void mega_v2_poseidon2_prove(State& state) noexcept
+{
+    auto num_hashes = static_cast<size_t>(state.range(0));
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<MegaV2Prover>(
+        state, &generate_mega_v2_poseidon2_circuit, num_hashes);
+}
+
 BENCHMARK(mega_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
 BENCHMARK(single_row_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
+BENCHMARK(mega_v2_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
 
 BENCHMARK_MAIN();

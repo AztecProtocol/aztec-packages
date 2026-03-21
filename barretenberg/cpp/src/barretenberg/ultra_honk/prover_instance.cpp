@@ -11,6 +11,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
+#include "barretenberg/flavor/mega_v2_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -68,6 +69,9 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         }
         if constexpr (HasPoseidon2SingleRow<Flavor>) {
             allocate_poseidon2_single_row_polynomials(circuit);
+        }
+        if constexpr (HasPoseidon2OpQueue<Flavor>) {
+            allocate_poseidon2_op_polynomials(circuit);
         }
 
         // Set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
@@ -290,6 +294,22 @@ void ProverInstance_<Flavor>::allocate_poseidon2_single_row_polynomials(const Ci
     polynomials.q_poseidon2_single_row = Polynomial(trace_active_range_size(), dyadic_size());
 }
 
+template <typename Flavor>
+void ProverInstance_<Flavor>::allocate_poseidon2_op_polynomials(const Circuit& circuit)
+    requires HasPoseidon2OpQueue<Flavor>
+{
+    const size_t poseidon2_op_block_size = circuit.blocks.poseidon2_op.size();
+    if (poseidon2_op_block_size == 0) {
+        return;
+    }
+    BB_BENCH_NAME("allocate_poseidon2_op_polynomials");
+
+    for (auto& wire : polynomials.get_poseidon2_op_wires()) {
+        wire = Polynomial(poseidon2_op_block_size, dyadic_size());
+    }
+    polynomials.lagrange_poseidon2_op = Polynomial(poseidon2_op_block_size, dyadic_size());
+}
+
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
 {
     {
@@ -381,5 +401,6 @@ template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;
 template class ProverInstance_<Poseidon2SingleRowFlavor>;
+template class ProverInstance_<MegaV2Flavor>;
 
 } // namespace bb
