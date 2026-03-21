@@ -120,6 +120,16 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return 0;
     }
 
+    // Storage for Poseidon2 single-row gate witness data (used by Poseidon2SingleRowFlavor)
+    struct Poseidon2SingleRowGateData {
+        std::array<FF, 260> state; // 65 stages x 4 elements
+        std::array<FF, 88> sq;     // S-box x^2 intermediates
+        size_t block_row_index;    // index within the arithmetic block
+    };
+    std::vector<Poseidon2SingleRowGateData> poseidon2_single_row_gates;
+
+    void create_poseidon2_single_row_gate(const std::array<FF, 4>& input);
+
     void finalize_circuit(const bool ensure_nonzero);
     void add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
     void add_mega_gates_to_ensure_all_polys_are_non_zero();

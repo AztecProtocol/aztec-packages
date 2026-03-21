@@ -46,6 +46,9 @@ template <class Flavor> class TraceToPolynomials {
      */
     static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
         requires IsMegaFlavor<Flavor>;
+
+    static void add_poseidon2_single_row_to_prover_instance(Builder& builder, ProverPolynomials&)
+        requires HasPoseidon2SingleRow<Flavor>;
 };
 
 } // namespace bb

@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
@@ -157,5 +158,6 @@ template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
 template class UltraProver_<MegaAvmFlavor>;
+template class UltraProver_<Poseidon2SingleRowFlavor>;
 
 } // namespace bb

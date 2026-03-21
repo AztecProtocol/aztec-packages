@@ -7,7 +7,9 @@
 #include "mega_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/relations/poseidon2_single_row.hpp"
 #include <unordered_map>
 #include <unordered_set>
 
@@ -321,6 +323,96 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);
     block.set_gate_selector(1);
+}
+
+/**
+ * @brief Create a single-row Poseidon2 gate.
+ * @details Computes the full Poseidon2 permutation natively, records all intermediate witness
+ * values, and reserves a row in the arithmetic block (with all selectors = 0). The extra
+ * columns are populated later by TraceToPolynomials for flavors that support them.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_single_row_gate(const std::array<FF, 4>& input)
+{
+    using Params = crypto::Poseidon2Bn254ScalarFieldParams;
+    using Perm = crypto::Poseidon2Permutation<Params>;
+    using RelImpl = Poseidon2SingleRowRelationImpl<FF>;
+
+    Poseidon2SingleRowGateData gate_data{};
+
+    std::array<FF, 4> state = input;
+
+    // Initial M_E
+    Perm::matrix_multiplication_external(state);
+    for (size_t j = 0; j < 4; j++) {
+        gate_data.state[RelImpl::state_idx(0, j)] = state[j];
+    }
+
+    // First 4 external rounds
+    for (size_t r = 0; r < 4; r++) {
+        for (size_t j = 0; j < 4; j++) {
+            auto s = state[j] + Params::round_constants[r][j];
+            gate_data.sq[RelImpl::sq_idx(r, j)] = s * s;
+            auto x2 = s.sqr();
+            x2.self_sqr();
+            state[j] = x2 * s;
+        }
+        Perm::matrix_multiplication_external(state);
+        for (size_t j = 0; j < 4; j++) {
+            gate_data.state[RelImpl::state_idx(r + 1, j)] = state[j];
+        }
+    }
+
+    // 56 internal rounds
+    for (size_t r = 4; r < 60; r++) {
+        auto s0 = state[0] + Params::round_constants[r][0];
+        gate_data.sq[RelImpl::sq_idx(r)] = s0 * s0;
+        auto x2 = s0.sqr();
+        x2.self_sqr();
+        state[0] = x2 * s0;
+        Perm::matrix_multiplication_internal(state);
+        for (size_t j = 0; j < 4; j++) {
+            gate_data.state[RelImpl::state_idx(r + 1, j)] = state[j];
+        }
+    }
+
+    // Last 4 external rounds
+    for (size_t r = 60; r < 64; r++) {
+        for (size_t j = 0; j < 4; j++) {
+            auto s = state[j] + Params::round_constants[r][j];
+            gate_data.sq[RelImpl::sq_idx(r, j)] = s * s;
+            auto x2 = s.sqr();
+            x2.self_sqr();
+            state[j] = x2 * s;
+        }
+        Perm::matrix_multiplication_external(state);
+        for (size_t j = 0; j < 4; j++) {
+            gate_data.state[RelImpl::state_idx(r + 1, j)] = state[j];
+        }
+    }
+
+    // Record which row in the arithmetic block this gate occupies
+    gate_data.block_row_index = this->blocks.arithmetic.size();
+    poseidon2_single_row_gates.push_back(std::move(gate_data));
+
+    // Add the input values as variables and wire them into w_l, w_r, w_o, w_4
+    uint32_t a_idx = this->add_variable(input[0]);
+    uint32_t b_idx = this->add_variable(input[1]);
+    uint32_t c_idx = this->add_variable(input[2]);
+    uint32_t d_idx = this->add_variable(input[3]);
+
+    // Reserve a trace row in the arithmetic block (all arithmetic selectors = 0)
+    auto& block = this->blocks.arithmetic;
+    block.populate_wires(a_idx, b_idx, c_idx, d_idx);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.set_gate_selector(0); // q_arith = 0
+    this->check_selector_length_consistency();
+    this->increment_num_gates();
 }
 
 template class MegaCircuitBuilder_<bb::fr>;

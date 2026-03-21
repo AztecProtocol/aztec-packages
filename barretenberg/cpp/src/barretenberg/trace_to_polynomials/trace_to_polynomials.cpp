@@ -10,6 +10,7 @@
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -28,6 +29,10 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
 
         add_ecc_op_wires_to_prover_instance(builder, polynomials);
+    }
+
+    if constexpr (HasPoseidon2SingleRow<Flavor>) {
+        add_poseidon2_single_row_to_prover_instance(builder, polynomials);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -108,6 +113,25 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
     }
 }
 
+template <class Flavor>
+void TraceToPolynomials<Flavor>::add_poseidon2_single_row_to_prover_instance(Builder& builder,
+                                                                             ProverPolynomials& polynomials)
+    requires HasPoseidon2SingleRow<Flavor>
+{
+    const size_t arith_offset = builder.blocks.arithmetic.trace_offset();
+    for (const auto& gate : builder.poseidon2_single_row_gates) {
+        const size_t row = arith_offset + gate.block_row_index;
+        polynomials.q_poseidon2_single_row.at(row) = 1;
+        // Inputs are in w_l, w_r, w_o, w_4 (populated from the arithmetic block wires)
+        for (size_t i = 0; i < 260; i++) {
+            polynomials.poseidon2_state[i].at(row) = gate.state[i];
+        }
+        for (size_t i = 0; i < 88; i++) {
+            polynomials.poseidon2_sq[i].at(row) = gate.sq[i];
+        }
+    }
+}
+
 template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
@@ -119,5 +143,6 @@ template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
 template class TraceToPolynomials<MegaAvmFlavor>;
+template class TraceToPolynomials<Poseidon2SingleRowFlavor>;
 
 } // namespace bb

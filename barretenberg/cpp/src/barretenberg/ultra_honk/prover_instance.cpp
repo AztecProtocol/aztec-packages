@@ -10,6 +10,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -64,6 +65,9 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         }
         if constexpr (HasDataBus<Flavor>) {
             allocate_databus_polynomials(circuit);
+        }
+        if constexpr (HasPoseidon2SingleRow<Flavor>) {
+            allocate_poseidon2_single_row_polynomials(circuit);
         }
 
         // Set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
@@ -268,6 +272,24 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
 }
 
+template <typename Flavor>
+void ProverInstance_<Flavor>::allocate_poseidon2_single_row_polynomials(const Circuit& circuit)
+    requires HasPoseidon2SingleRow<Flavor>
+{
+    if (circuit.poseidon2_single_row_gates.empty()) {
+        return;
+    }
+    BB_BENCH_NAME("allocate_poseidon2_single_row_polynomials");
+
+    for (auto& p : polynomials.poseidon2_state) {
+        p = Polynomial(trace_active_range_size(), dyadic_size());
+    }
+    for (auto& p : polynomials.poseidon2_sq) {
+        p = Polynomial(trace_active_range_size(), dyadic_size());
+    }
+    polynomials.q_poseidon2_single_row = Polynomial(trace_active_range_size(), dyadic_size());
+}
+
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
 {
     {
@@ -358,5 +380,6 @@ template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;
+template class ProverInstance_<Poseidon2SingleRowFlavor>;
 
 } // namespace bb

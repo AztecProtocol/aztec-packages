@@ -18,7 +18,7 @@ template <typename T>
 concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor>;
 
 template <typename T>
-concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
+concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor, Poseidon2SingleRowFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
@@ -27,6 +27,9 @@ concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
 
 template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
+
+template <typename T>
+concept HasPoseidon2SingleRow = IsAnyOf<T, Poseidon2SingleRowFlavor>;
 
 // Whether the Flavor has randomness at the end of its trace to randomise commitments and evaluations of its polynomials
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
