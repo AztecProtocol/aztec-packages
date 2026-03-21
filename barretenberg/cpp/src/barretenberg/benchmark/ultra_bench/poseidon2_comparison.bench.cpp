@@ -76,15 +76,38 @@ static void single_row_poseidon2_prove(State& state) noexcept
         state, &generate_single_row_poseidon2_circuit, num_hashes);
 }
 
-static void mega_v2_poseidon2_prove(State& state) noexcept
+/**
+ * @brief MegaV2 circuit proof + final Poseidon2SingleRow proof to verify all deferred hashes.
+ * @details In an IVC setting, the MegaV2 proof defers hash verification. The accumulated
+ * hashes must then be proven correct by a Poseidon2SingleRowFlavor proof. The total cost
+ * is the sum of both proofs.
+ */
+static void mega_v2_poseidon2_prove_total(State& state) noexcept
 {
     auto num_hashes = static_cast<size_t>(state.range(0));
-    bb::mock_circuits::construct_proof_with_specified_num_iterations<MegaV2Prover>(
-        state, &generate_mega_v2_poseidon2_circuit, num_hashes);
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+
+    for (auto _ : state) {
+        state.PauseTiming();
+
+        // 1. Build and prove the MegaV2 circuit (deferred hashes)
+        auto mega_v2_prover =
+            bb::mock_circuits::get_prover<MegaV2Prover>(&generate_mega_v2_poseidon2_circuit, num_hashes);
+
+        // 2. Build the SingleRow circuit that verifies all deferred hashes
+        auto single_row_prover =
+            bb::mock_circuits::get_prover<Poseidon2SingleRowProver>(&generate_single_row_poseidon2_circuit, num_hashes);
+
+        state.ResumeTiming();
+
+        // Time both proofs together
+        auto mega_v2_proof = mega_v2_prover.construct_proof();
+        auto single_row_proof = single_row_prover.construct_proof();
+    }
 }
 
 BENCHMARK(mega_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
 BENCHMARK(single_row_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
-BENCHMARK(mega_v2_poseidon2_prove)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
+BENCHMARK(mega_v2_poseidon2_prove_total)->Arg(100)->Arg(1000)->Arg(10000)->Unit(kMillisecond);
 
 BENCHMARK_MAIN();
