@@ -4,6 +4,7 @@
 #include "barretenberg/flavor/mega_v2_flavor.hpp"
 #include "barretenberg/flavor/poseidon2_single_row_flavor.hpp"
 #include "barretenberg/op_queue/poseidon2_op_queue.hpp"
+#include "barretenberg/poseidon2_final/poseidon2_final_prover.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -77,10 +78,10 @@ static void single_row_poseidon2_prove(State& state) noexcept
 }
 
 /**
- * @brief MegaV2 circuit proof + final Poseidon2SingleRow proof to verify all deferred hashes.
+ * @brief MegaV2 circuit proof + final Poseidon2 proof to verify all deferred hashes.
  * @details In an IVC setting, the MegaV2 proof defers hash verification. The accumulated
- * hashes must then be proven correct by a Poseidon2SingleRowFlavor proof. The total cost
- * is the sum of both proofs.
+ * hashes must then be proven correct by a Poseidon2FinalProver (standalone, modeled after
+ * TranslatorProver — no OinkProver/ProverInstance overhead). The total cost is both proofs.
  */
 static void mega_v2_poseidon2_prove_total(State& state) noexcept
 {
@@ -94,15 +95,23 @@ static void mega_v2_poseidon2_prove_total(State& state) noexcept
         auto mega_v2_prover =
             bb::mock_circuits::get_prover<MegaV2Prover>(&generate_mega_v2_poseidon2_circuit, num_hashes);
 
-        // 2. Build the SingleRow circuit that verifies all deferred hashes
-        auto single_row_prover =
-            bb::mock_circuits::get_prover<Poseidon2SingleRowProver>(&generate_single_row_poseidon2_circuit, num_hashes);
+        // 2. Build the ops list for the final Poseidon2 proof
+        std::vector<Poseidon2OpQueue::Poseidon2Op> ops;
+        ops.reserve(num_hashes);
+        for (size_t i = 0; i < num_hashes; i++) {
+            std::array<fr, 4> input = {
+                fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element()
+            };
+            auto output = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>::permutation(input);
+            ops.push_back(Poseidon2OpQueue::Poseidon2Op{ .input = input, .output = output[0] });
+        }
+        Poseidon2FinalProver final_prover(ops);
 
         state.ResumeTiming();
 
         // Time both proofs together
         auto mega_v2_proof = mega_v2_prover.construct_proof();
-        auto single_row_proof = single_row_prover.construct_proof();
+        auto final_proof = final_prover.construct_proof();
     }
 }
 

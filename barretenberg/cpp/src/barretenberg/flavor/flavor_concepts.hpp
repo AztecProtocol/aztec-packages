@@ -29,10 +29,15 @@ template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
 
 template <typename T>
-concept HasPoseidon2SingleRow = IsAnyOf<T, Poseidon2SingleRowFlavor>;
+concept HasPoseidon2SingleRow = IsAnyOf<T, Poseidon2SingleRowFlavor, Poseidon2FinalFlavor>;
 
 template <typename T>
 concept HasPoseidon2OpQueue = IsAnyOf<T, MegaV2Flavor>;
+
+// Poseidon2FinalFlavor is a minimal flavor with no standard Plonk infrastructure
+// (no permutation argument, no lookups, no lagrange polys, no databus)
+template <typename T>
+concept IsPoseidon2FinalFlavor = IsAnyOf<T, Poseidon2FinalFlavor>;
 
 // Whether the Flavor has randomness at the end of its trace to randomise commitments and evaluations of its polynomials
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.

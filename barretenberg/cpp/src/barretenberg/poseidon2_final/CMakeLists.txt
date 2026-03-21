@@ -1,0 +1,1 @@
+barretenberg_module(poseidon2_final sumcheck commitment_schemes relations)

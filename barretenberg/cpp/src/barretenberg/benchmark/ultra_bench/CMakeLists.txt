@@ -4,4 +4,5 @@ barretenberg_module(
   stdlib_sha256
   stdlib_keccak
   stdlib_poseidon2
+  poseidon2_final
 )
