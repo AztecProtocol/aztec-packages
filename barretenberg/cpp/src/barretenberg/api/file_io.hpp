@@ -159,8 +159,8 @@ template <typename T>
 inline std::vector<T> many_from_buffer_exact(const std::vector<uint8_t>& buffer, std::string_view object_name)
 {
     if (buffer.size() % sizeof(T) != 0) {
-        THROW std::runtime_error(std::string(object_name) + " size must be a multiple of " +
-                                 std::to_string(sizeof(T)) + " bytes, got " + std::to_string(buffer.size()));
+        THROW std::runtime_error(std::string(object_name) + " size must be a multiple of " + std::to_string(sizeof(T)) +
+                                 " bytes, got " + std::to_string(buffer.size()));
     }
     return ::many_from_buffer<T>(buffer);
 }
