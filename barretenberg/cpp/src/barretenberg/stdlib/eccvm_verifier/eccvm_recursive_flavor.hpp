@@ -56,6 +56,7 @@ class ECCVMRecursiveFlavor {
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = ECCVMFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = ECCVMFlavor::LIBRA_UNIVARIATES_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     /**

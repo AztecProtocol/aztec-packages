@@ -118,6 +118,9 @@ class ECCVMFlavor {
     // The degree has to be further increased by 1 because the relation is multiplied by the Row Disabling    //
     // Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
+    // ECCVM uses committed sumcheck: the prover commits to each round univariate and only reveals
+    // its evaluations at 0 and 1, so only 3 values are transmitted per round (commitment + eval@0 + eval@1).
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 3;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();

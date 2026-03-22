@@ -264,7 +264,8 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               Flavor::LIBRA_UNIVARIATES_LENGTH);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 

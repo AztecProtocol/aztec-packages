@@ -200,8 +200,11 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
-    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
-        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+    bool consistency_checked = Verifier::check_libra_evaluations_consistency(small_ipa_evaluations,
+                                                                             this->evaluation_challenge,
+                                                                             multivariate_challenge,
+                                                                             claimed_inner_product,
+                                                                             TypeParam::LIBRA_UNIVARIATES_LENGTH);
 
     EXPECT_TRUE(consistency_checked);
 }
@@ -243,8 +246,11 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(witness_polynomials);
 
-    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
-        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+    bool consistency_checked = Verifier::check_libra_evaluations_consistency(small_ipa_evaluations,
+                                                                             this->evaluation_challenge,
+                                                                             multivariate_challenge,
+                                                                             claimed_inner_product,
+                                                                             TypeParam::LIBRA_UNIVARIATES_LENGTH);
 
     // Since witness polynomials were modified, the consistency check must fail
     EXPECT_FALSE(consistency_checked);
@@ -384,8 +390,61 @@ TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
     FF dummy_inner_product = FF::random_element();
 
     // The check should throw/abort because the evaluation challenge is in the subgroup
-    EXPECT_THROW(Verifier::check_libra_evaluations_consistency(
-                     dummy_evaluations, subgroup_element, multivariate_challenge, dummy_inner_product),
+    EXPECT_THROW(Verifier::check_libra_evaluations_consistency(dummy_evaluations,
+                                                               subgroup_element,
+                                                               multivariate_challenge,
+                                                               dummy_inner_product,
+                                                               TypeParam::LIBRA_UNIVARIATES_LENGTH),
                  std::runtime_error);
 }
+// Verify that the consistency check fails when the verifier uses a different libra_univariate_length
+// than the prover.
+TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyWrongLength)
+{
+    using FF = typename TypeParam::FF;
+    using Curve = typename TypeParam::Curve;
+    using Verifier = SmallSubgroupIPAVerifier<Curve>;
+    using Prover = SmallSubgroupIPAProver<TypeParam>;
+    using ZKData = ZKSumcheckData<TypeParam>;
+    using CK = typename TypeParam::CommitmentKey;
+
+    static constexpr size_t correct_length = TypeParam::LIBRA_UNIVARIATES_LENGTH;
+    // Use length - 1 to avoid exceeding SUBGROUP_SIZE with length + 1
+    static_assert(correct_length > 1, "LIBRA_UNIVARIATES_LENGTH must be > 1 for this test");
+    static constexpr size_t wrong_length = correct_length - 1;
+
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
+
+    static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+
+    ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
+
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+
+    const FF claimed_inner_product =
+        Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
+
+    Prover small_subgroup_ipa_prover =
+        Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
+    small_subgroup_ipa_prover.prove();
+
+    const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
+        this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
+
+    // Verify that the correct length passes
+    bool correct = Verifier::check_libra_evaluations_consistency(small_ipa_evaluations,
+                                                                 this->evaluation_challenge,
+                                                                 multivariate_challenge,
+                                                                 claimed_inner_product,
+                                                                 correct_length);
+    EXPECT_TRUE(correct);
+
+    // Verify that using the wrong length fails: the challenge polynomial is computed with fewer
+    // non-zero entries, so the inner product check does not hold.
+    bool wrong = Verifier::check_libra_evaluations_consistency(
+        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product, wrong_length);
+    EXPECT_FALSE(wrong);
+}
+
 } // namespace bb

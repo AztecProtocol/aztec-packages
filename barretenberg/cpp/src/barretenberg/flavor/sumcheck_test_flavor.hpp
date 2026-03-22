@@ -174,11 +174,11 @@ class SumcheckTestFlavor_ {
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     // For ZK flavors, BATCHED_RELATION_PARTIAL_LENGTH is incremented by 1 for the libra masking univariates
-    // For BN254 with ZK, this must match Curve::LIBRA_UNIVARIATES_LENGTH (9)
     // Note: MAX_PARTIAL_RELATION_LENGTH = 6 (from ArithmeticRelation's [6,5])
     // Non-ZK: 6 + 1 = 7
-    // ZK: 6 + 3 = 9 (matches BN254::LIBRA_UNIVARIATES_LENGTH)
+    // ZK: 6 + 3 = 9
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + (HasZK ? 3 : 1);
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = HasZK ? BATCHED_RELATION_PARTIAL_LENGTH : 0;
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     using SubrelationSeparator = FF;

@@ -86,11 +86,10 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Length of the big sum identity quotient Q(X) = length(C) - length(Z_H) + 1
     static constexpr size_t QUOTIENT_LENGTH = GRAND_SUM_IDENTITY_LENGTH - SUBGROUP_SIZE;
 
-    // The length of a random polynomial masking Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
-    // send the coefficients of the univariates, hence we choose these value to be the max sumcheck univariate length
-    // over Translator, Ultra, and Mega. In ECCVM, the Sumcheck prover will commit to its univariates, which reduces the
-    // required length from 23 to 3.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
+    // The number of evaluations of the Libra masking univariate sent per sumcheck round.
+    // Taken directly from the flavor: equal to BATCHED_RELATION_PARTIAL_LENGTH for BN254 flavors,
+    // or 3 for ECCVM (committed sumcheck sends only commitment + eval@0 + eval@1).
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::LIBRA_UNIVARIATES_LENGTH;
     // Fixed generator of H
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
@@ -222,12 +221,6 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     // L_1, and Lagrange last L_{H}.
     static constexpr size_t NUM_BARYCENTRIC_EVALUATIONS = 3;
 
-    // The length of a random polynomial masking Prover's Sumcheck Univariates. In the case of BN254-based Flavors, we
-    // send the coefficients of the univariates, hence we choose these value to be the max sumcheck univariate length
-    // over Translator, UltraZK, and MegaZK. In ECCVM, the Sumcheck prover will commit to its univariates, which reduces
-    // the required length from 23 to 3.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
-
   public:
     /**
      * @brief Generic consistency check agnostic to challenge polynomial \f$ F\f$.
@@ -292,18 +285,20 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     static bool check_libra_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
                                                     const FF& gemini_evaluation_challenge,
                                                     const std::vector<FF>& multilinear_challenge,
-                                                    const FF& inner_product_eval_claim)
+                                                    const FF& inner_product_eval_claim,
+                                                    size_t libra_univariate_length)
     {
 
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
         // gemini_evaluation_challenge
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
-        return check_consistency(libra_evaluations,
-                                 gemini_evaluation_challenge,
-                                 compute_challenge_polynomial_coeffs<Curve>(multilinear_challenge),
-                                 inner_product_eval_claim,
-                                 vanishing_poly_eval);
+        return check_consistency(
+            libra_evaluations,
+            gemini_evaluation_challenge,
+            compute_challenge_polynomial_coeffs<Curve>(multilinear_challenge, libra_univariate_length),
+            inner_product_eval_claim,
+            vanishing_poly_eval);
     }
     /**
      * @brief A method required for the verification Translation Evaluations in the ECCVMVerifier. The challenge
@@ -425,12 +420,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
  */
 template <typename Curve>
 static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coeffs(
-    const std::vector<typename Curve::ScalarField>& multivariate_challenge)
+    const std::vector<typename Curve::ScalarField>& multivariate_challenge, size_t libra_univariates_length)
 {
 
     using FF = typename Curve::ScalarField;
     std::vector<FF> challenge_polynomial_lagrange(Curve::SUBGROUP_SIZE);
-    static constexpr size_t libra_univariates_length = Curve::LIBRA_UNIVARIATES_LENGTH;
 
     const size_t challenge_poly_length = libra_univariates_length * multivariate_challenge.size() + 1;
 

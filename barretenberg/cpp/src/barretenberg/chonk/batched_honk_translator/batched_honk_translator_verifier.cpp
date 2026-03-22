@@ -333,6 +333,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
                                                      REPEATED_COMMITMENTS,
                                                      libra_commitments,
                                                      libra_evaluation,
+                                                     MegaZKFlavorT::LIBRA_UNIVARIATES_LENGTH,
                                                      round_univariate_commitments,
                                                      round_univariate_evaluations);
 

@@ -27,8 +27,10 @@ template <typename Flavor> struct ZKSumcheckData {
 
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
-    // The size of the LibraUnivariates.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
+    // The number of evaluations of the Libra masking univariate sent per sumcheck round.
+    // Taken directly from the flavor: equal to BATCHED_RELATION_PARTIAL_LENGTH for BN254 flavors,
+    // or 3 for ECCVM (committed sumcheck sends only commitment + eval@0 + eval@1).
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::LIBRA_UNIVARIATES_LENGTH;
 
     static constexpr FF one_half = FF(1) / FF(2);
 

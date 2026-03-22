@@ -143,11 +143,11 @@ class TranslatorFlavor {
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3.
-    // The degree has to be further increased because the relation is multiplied by the Row Disabling Polynomial
-    // total degree = sumcheck relation degree + 1 (PowZeta) + 1 (masking)
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
-    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
-                  "LIBRA_UNIVARIATES_LENGTH must be equal to Translator::BATCHED_RELATION_PARTIAL_LENGTH");
+    // Translator uses ZK Sumcheck (Libra masking) but does NOT use RowDisablingPolynomial, unlike UltraZK/MegaZK.
+    // total degree = sumcheck relation degree + 1 (PowZeta)
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    // Each Libra univariate has BATCHED_RELATION_PARTIAL_LENGTH coefficients
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();

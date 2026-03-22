@@ -107,6 +107,7 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
                                                Flavor::REPEATED_COMMITMENTS,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation,
+                                               Flavor::LIBRA_UNIVARIATES_LENGTH,
                                                sumcheck_output.round_univariate_commitments,
                                                sumcheck_output.round_univariate_evaluations);
 

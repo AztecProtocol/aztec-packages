@@ -109,19 +109,20 @@ class TranslatorTests : public ::testing::Test {
 
         // Rounds 3-15: Sumcheck univariates for mini-circuit rounds 0..12
         constexpr size_t LOG_MINI = Flavor::LOG_MINI_CIRCUIT_SIZE;
+        constexpr size_t BRPL = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         for (size_t i = 0; i < LOG_MINI; ++i) {
-            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
+            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), BRPL);
             manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
         }
 
         // Round 16: 154 minicircuit wire evaluations sent mid-sumcheck, then univariate_13
         manifest.add_entry(3 + LOG_MINI, "Sumcheck:minicircuit_evaluations", Flavor::NUM_MINICIRCUIT_EVALUATIONS);
-        manifest.add_entry(3 + LOG_MINI, "Sumcheck:univariate_" + std::to_string(LOG_MINI), 9);
+        manifest.add_entry(3 + LOG_MINI, "Sumcheck:univariate_" + std::to_string(LOG_MINI), BRPL);
         manifest.add_challenge(3 + LOG_MINI, "Sumcheck:u_" + std::to_string(LOG_MINI));
 
         // Rounds 17-19: remaining sumcheck rounds 14..16
         for (size_t i = LOG_MINI + 1; i < NUM_SUMCHECK_ROUNDS; ++i) {
-            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
+            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), BRPL);
             manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
         }
 

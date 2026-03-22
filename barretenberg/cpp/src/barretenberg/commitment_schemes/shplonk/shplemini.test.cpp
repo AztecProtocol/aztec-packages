@@ -349,7 +349,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                        verifier_transcript,
                                                        {},
                                                        libra_commitments,
-                                                       libra_evaluation);
+                                                       libra_evaluation,
+                                                       TypeParam::LIBRA_UNIVARIATES_LENGTH);
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -456,6 +457,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
                                                                               {},
                                                                               libra_commitments,
                                                                               libra_evaluation,
+                                                                              TypeParam::LIBRA_UNIVARIATES_LENGTH,
                                                                               mock_claims.sumcheck_commitments,
                                                                               mock_claims.sumcheck_evaluations)
                                    .batch_opening_claim;
@@ -706,7 +708,8 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
                                                                            verifier_transcript,
                                                                            {},
                                                                            libra_commitments,
-                                                                           libra_evaluation);
+                                                                           libra_evaluation,
+                                                                           TypeParam::LIBRA_UNIVARIATES_LENGTH);
 
     // Verify that consistency_checked is false due to corrupted Libra evaluation
     EXPECT_FALSE(shplemini_output.consistency_checked);
@@ -800,7 +803,8 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
                                                        verifier_transcript,
                                                        {},
                                                        libra_commitments,
-                                                       libra_evaluation);
+                                                       libra_evaluation,
+                                                       TypeParam::LIBRA_UNIVARIATES_LENGTH);
 
     EXPECT_EQ(consistency_checked, expected_consistency_checked);
 
