@@ -114,7 +114,6 @@ export class CdbIpcServer {
     this.server.listen(this.socketPath, () => {
       this.log.debug(`CDB IPC server listening on ${this.socketPath}`);
     });
-    this.server.unref();
   }
 
   /** Set the contracts DB and block timestamp for the current block. */

@@ -82,8 +82,6 @@ export class AvmBackend implements IMsgpackBackendAsync {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    this.process.unref();
-
     // Always capture stderr for error diagnostics; optionally forward via logger
     let stderrOutput = '';
     if (this.process.stdout) {
@@ -149,7 +147,6 @@ export class AvmBackend implements IMsgpackBackendAsync {
     this.socket = net.createConnection(this.socketPath);
 
     this.socket.on('connect', () => {
-      this.socket!.unref();
       resolve();
     });
 
@@ -227,13 +224,8 @@ export class AvmBackend implements IMsgpackBackendAsync {
       const lengthBuf = Buffer.alloc(4);
       lengthBuf.writeUInt32LE(inputBuffer.length, 0);
 
-      this.socket!.ref();
       this.socket!.write(lengthBuf);
       this.socket!.write(Buffer.from(inputBuffer));
-
-      if (this.pendingCallbacks.length === 0) {
-        this.socket!.unref();
-      }
     });
   }
 

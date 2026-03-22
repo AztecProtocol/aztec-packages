@@ -164,8 +164,6 @@ export class WsdbBackend implements IMsgpackBackendAsync {
       env,
     });
 
-    this.process.unref();
-
     if (options.logger) {
       const logger = options.logger;
       if (this.process.stdout) {
@@ -290,7 +288,6 @@ export class WsdbBackend implements IMsgpackBackendAsync {
     this.socket = net.createConnection(this.inputPath);
 
     this.socket.on('connect', () => {
-      this.socket!.unref();
       resolve();
     });
 
@@ -388,13 +385,8 @@ export class WsdbBackend implements IMsgpackBackendAsync {
       const lengthBuf = Buffer.alloc(4);
       lengthBuf.writeUInt32LE(inputBuffer.length, 0);
 
-      this.socket!.ref();
       this.socket!.write(lengthBuf);
       this.socket!.write(Buffer.from(inputBuffer));
-
-      if (this.pendingCallbacks.length === 0) {
-        this.socket!.unref();
-      }
     });
   }
 
