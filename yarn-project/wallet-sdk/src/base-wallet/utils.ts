@@ -229,10 +229,12 @@ export function buildMergedSimulationResult(
       }
     : undefined;
 
-  return new TxSimulationResult(
+  const merged = new TxSimulationResult(
     baseResult.privateExecutionResult,
     baseResult.publicInputs,
     mergedPublicOutput,
     normalResult?.stats,
   );
+  merged.setUserCallOffset(normalResult?.userCallOffset);
+  return merged;
 }

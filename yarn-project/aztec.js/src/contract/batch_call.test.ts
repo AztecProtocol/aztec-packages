@@ -6,6 +6,7 @@ import {
   Capsule,
   ExecutionPayload,
   HashedValues,
+  NestedProcessReturnValues,
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
   TxSimulationResult,
@@ -27,6 +28,8 @@ function mockTxSimResult(overrides: { anchorBlockTimestamp?: bigint; offchainEff
       },
     },
   });
+  // No fee payment calls precede app calls in this test setup.
+  txSimResult.setUserCallOffset(0);
   return txSimResult;
 }
 
@@ -137,9 +140,7 @@ describe('BatchCall', () => {
       const publicReturnValues = [Fr.random()];
 
       const txSimResult = mockTxSimResult();
-      txSimResult.getPrivateReturnValues.mockReturnValue({
-        nested: [{ values: privateReturnValues }],
-      } as any);
+      txSimResult.getUserPrivateReturnValues.mockReturnValue({ values: privateReturnValues } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
 
       // Mock wallet.batch to return both utility results and simulateTx result
@@ -301,9 +302,7 @@ describe('BatchCall', () => {
           { data: txRawEffectData, contractAddress: emitterContract },
         ],
       });
-      txSimResult.getPrivateReturnValues.mockReturnValue({
-        nested: [{ values: [Fr.random()] }, { values: [Fr.random()] }],
-      } as any);
+      txSimResult.getUserPrivateReturnValues.mockImplementation(() => new NestedProcessReturnValues([Fr.random()]));
 
       wallet.batch.mockResolvedValue([
         { name: 'executeUtility', result: utilityResult },
@@ -345,9 +344,7 @@ describe('BatchCall', () => {
       const publicReturnValues = [Fr.random()];
 
       const txSimResult = mockTxSimResult();
-      txSimResult.getPrivateReturnValues.mockReturnValue({
-        nested: [{ values: privateReturnValues }],
-      } as any);
+      txSimResult.getUserPrivateReturnValues.mockReturnValue({ values: privateReturnValues } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
 
       wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);

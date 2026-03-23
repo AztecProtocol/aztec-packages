@@ -257,7 +257,7 @@ export class TestWallet extends BaseWallet {
       );
     }
 
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipKernels,
       skipFeeEnforcement,
@@ -265,6 +265,8 @@ export class TestWallet extends BaseWallet {
       overrides,
       scopes,
     });
+    result.setUserCallOffset(await this.computeUserCallOffset(from, feeOptions));
+    return result;
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {

@@ -233,6 +233,8 @@ describe('Contract Class', () => {
 
     const txSimResult = mock<TxSimulationResult>();
     txSimResult.getPrivateReturnValues.mockReturnValue({ nested: [{ values: [] }] } as any);
+    // Called via account contract with no FPC → user fn is at nested[0].
+    txSimResult.setUserCallOffset(0);
     Object.defineProperty(txSimResult, 'offchainEffects', {
       value: [
         {

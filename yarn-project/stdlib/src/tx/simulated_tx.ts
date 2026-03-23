@@ -79,12 +79,24 @@ export class PrivateSimulationResult {
 }
 
 export class TxSimulationResult {
+  /**
+   * Index into the private return values nested array where user function calls start. Set by the wallet based on
+   * how many fee payment calls precede user calls. Undefined when using DefaultEntrypoint (NO_FROM) — in that case
+   * the user fn is the root call.
+   */
+  public userCallOffset?: number;
+
   constructor(
     public privateExecutionResult: PrivateExecutionResult,
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
     public stats?: SimulationStats,
   ) {}
+
+  /** Sets the offset where user function calls start in the nested return values array. */
+  setUserCallOffset(offset: number | undefined): void {
+    this.userCallOffset = offset;
+  }
 
   /** Returns offchain effects collected from private execution. */
   get offchainEffects(): OffchainEffect[] {
@@ -145,6 +157,19 @@ export class TxSimulationResult {
 
   getPrivateReturnValues() {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).getPrivateReturnValues();
+  }
+
+  /**
+   * Returns the private return values for the user call at the given index, accounting for any fee payment calls
+   * that precede user calls in the nested array. When userCallOffset is undefined (DefaultEntrypoint / NO_FROM),
+   * the user fn is the root call and callIndex is ignored.
+   */
+  getUserPrivateReturnValues(callIndex: number = 0): NestedProcessReturnValues | undefined {
+    const all = this.getPrivateReturnValues();
+    if (this.userCallOffset === undefined) {
+      return all;
+    }
+    return all?.nested?.[callIndex + this.userCallOffset];
   }
 
   toSimulatedTx(): Promise<Tx> {

@@ -335,12 +335,30 @@ export abstract class BaseWallet implements Wallet {
       opts.from,
       opts.feeOptions,
     );
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
       scopes: opts.scopes,
     });
+    result.setUserCallOffset(await this.computeUserCallOffset(opts.from, opts.feeOptions));
+    return result;
+  }
+
+  /**
+   * Computes the index offset where user calls start, based on the number of fee payment calls.
+   * @param from - The sender address, or NO_FROM for the default entrypoint.
+   * @param feeOptions - Fee options containing the wallet fee payment method.
+   */
+  protected async computeUserCallOffset(
+    from: AztecAddress | NoFrom,
+    feeOptions: FeeOptions,
+  ): Promise<number | undefined> {
+    if (from === NO_FROM) {
+      return undefined;
+    }
+    const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    return feeExecutionPayload?.calls.length ?? 0;
   }
 
   /**
