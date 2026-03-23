@@ -186,6 +186,14 @@ case "$cmd" in
     export CPUS=${CPUS:-192}
     bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
     ;;
+  grind-p2p)
+    # Temporary: grind p2p integration and e2e tests on a single EC2 instance.
+    export CI_DASHBOARD="deflake"
+    export JOB_ID="grind-p2p"
+    export INSTANCE_POSTFIX="grind-p2p"
+    export CPUS=${CPUS:-192}
+    bootstrap_ec2 "./bootstrap.sh ci-grind-p2p" | DUP=1 cache_log "Grind p2p tests" $RUN_ID
+    ;;
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################

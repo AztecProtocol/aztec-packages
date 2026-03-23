@@ -662,6 +662,47 @@ case "$cmd" in
 
     grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
     ;;
+  "ci-grind-p2p")
+    # Temporary: grind p2p tests to check for flakes after libp2p upgrade.
+    export CI=1
+    export USE_TEST_CACHE=0
+    prep
+    echo_header "build yarn-project for p2p grind"
+    make yarn-project
+
+    timeout="${1:-20m}"
+    hash="grind"
+    failed=0
+
+    # P2P integration tests
+    integration_tests=(
+      "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+      "p2p/src/client/test/p2p_client.integration_block_txs.test.ts"
+      "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
+      "p2p/src/client/test/p2p_client.integration_batch_txs.test.ts"
+      "p2p/src/client/test/p2p_client.integration_reqresp.test.ts"
+    )
+    for test in "${integration_tests[@]}"; do
+      echo_header "Grinding: $test"
+      full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=debug yarn-project/scripts/run_test.sh ${test}"
+      grind_test "$full_cmd" "$timeout" || { echo "FAILED: $test"; failed=1; }
+    done
+
+    # P2P e2e tests
+    e2e_tests=(
+      "e2e_p2p/gossip_network.test.ts"
+      "e2e_p2p/rediscovery.test.ts"
+      "e2e_p2p/reqresp/reqresp.test.ts"
+      "e2e_p2p/preferred_gossip_network.test.ts"
+    )
+    for test in "${e2e_tests[@]}"; do
+      echo_header "Grinding: $test"
+      full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL='verbose; debug:p2p' yarn-project/end-to-end/scripts/run_test.sh simple src/${test}"
+      grind_test "$full_cmd" "$timeout" || { echo "FAILED: $test"; failed=1; }
+    done
+
+    exit $failed
+    ;;
 
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
