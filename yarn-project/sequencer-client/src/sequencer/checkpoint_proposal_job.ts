@@ -321,7 +321,7 @@ export class CheckpointProposalJob implements Traceable {
 
       // Create a forked world state for the checkpoint builder.
       // Fork lifecycle is managed manually: each block commits and destroys the fork, then creates a new one.
-      let fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
+      const fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
       const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(

@@ -314,7 +314,11 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
       void sleep(this.opts.closeDelayMs)
         .then(() => this.close())
         .catch(err => {
-          if (err && 'message' in err && (err.message === 'Native instance is closed' || err.message === 'Fork not found')) {
+          if (
+            err &&
+            'message' in err &&
+            (err.message === 'Native instance is closed' || err.message === 'Fork not found')
+          ) {
             return;
           }
           this.log.warn('Error closing MerkleTreesForkFacade after delay', { err });
