@@ -94,7 +94,6 @@
         "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a",
         "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
         "DISABLE_ASM": "OFF",
