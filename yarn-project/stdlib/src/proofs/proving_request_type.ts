@@ -19,4 +19,9 @@ export enum ProvingRequestType {
 
   PARITY_BASE,
   PARITY_ROOT,
+
+  /** Completion marker for a checkpoint sub-tree proving job. Auto-completed by the broker. */
+  CHECKPOINT_SUB_TREE_COMPLETE = 100,
+  /** Completion marker for a top-tree proving job. Auto-completed by the broker. */
+  TOP_TREE_COMPLETE = 101,
 }

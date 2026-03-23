@@ -60,7 +60,7 @@ export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RE
   verificationKey: VerificationKeyData;
 };
 
-function schemaForPublicInputsAndRecursiveProof<T extends object, N extends number>(
+export function schemaForPublicInputsAndRecursiveProof<T extends object, N extends number>(
   inputs: ZodFor<T>,
   proofSize: N,
 ): ZodFor<PublicInputsAndRecursiveProof<T, typeof proofSize>> {
@@ -171,6 +171,9 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return ParityBasePrivateInputs;
     case ProvingRequestType.PARITY_ROOT:
       return ParityRootPrivateInputs;
+    case ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE:
+    case ProvingRequestType.TOP_TREE_COMPLETE:
+      throw new Error(`Completion marker type ${ProvingRequestType[type]} has no circuit inputs class`);
     default: {
       const _exhaustive: never = type;
       throw new Error(`Cannot find circuit inputs class for proving type ${type}`);
@@ -199,6 +202,8 @@ export type ProvingJobInputsMap = {
   [ProvingRequestType.ROOT_ROLLUP]: RootRollupPrivateInputs;
   [ProvingRequestType.PARITY_BASE]: ParityBasePrivateInputs;
   [ProvingRequestType.PARITY_ROOT]: ParityRootPrivateInputs;
+  [ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE]: never;
+  [ProvingRequestType.TOP_TREE_COMPLETE]: never;
 };
 
 export const ProvingJobResult = z.discriminatedUnion('type', [
@@ -382,7 +387,15 @@ export type ProvingJobResultsMap = {
     ParityPublicInputs,
     typeof NESTED_RECURSIVE_PROOF_LENGTH
   >;
+  [ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE]: never;
+  [ProvingRequestType.TOP_TREE_COMPLETE]: never;
 };
+
+/** Proving request types that have circuit inputs and results (excludes completion markers). */
+export type CircuitProvingRequestType = Exclude<
+  ProvingRequestType,
+  ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE | ProvingRequestType.TOP_TREE_COMPLETE
+>;
 
 export type ProvingRequestResultFor<T extends ProvingRequestType> = { type: T; result: ProvingJobResultsMap[T] };
 

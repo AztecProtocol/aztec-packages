@@ -1,6 +1,7 @@
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 
 import type { ProvingRequestType } from '../proofs/proving_request_type.js';
+import type { ClaimStatus, ClaimToken, WorkItemId } from './prover-claims.js';
 import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus } from './proving-job.js';
 
 /**
@@ -26,11 +27,13 @@ export interface ProvingJobProducer {
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus>;
 
   /**
-   * Returns the ids of jobs that have been completed since the last call
-   * Also returns the set of provided job ids that are completed
-   * @param ids - The set of job ids to check for completion
+   * Returns the ids of jobs that have been completed since the last call.
+   * Uses per-consumer notification queues so multiple facades can poll
+   * without draining each other's notifications.
+   * @param ids - The set of job ids to check for completion (snapshot sync)
+   * @param consumerId - Unique identifier for this consumer (facade instance)
    */
-  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]>;
+  getCompletedJobs(ids: ProvingJobId[], consumerId?: string): Promise<ProvingJobId[]>;
 }
 
 export type ProvingJobFilter = {
@@ -109,4 +112,32 @@ export interface ProvingJobBrokerDebug {
     epochNumber: EpochNumber,
     inputsUri: ProofUri,
   ): Promise<ProvingJobStatus>;
+}
+
+/** Result of a successful claim. */
+export type ClaimResult = { workItemId: WorkItemId; claimToken: ClaimToken };
+
+/** Interface for claiming work items across competing prover nodes. */
+export interface ProvingJobClaimManager {
+  /** Attempt to claim a work item. Returns a claim token if granted, undefined if already claimed. */
+  claimWork(workItemId: WorkItemId, nodeId: string): Promise<ClaimToken | undefined>;
+
+  /**
+   * Claim up to `maxClaims` work items from a list. The broker checks each item
+   * and claims those that are unclaimed or expired. Returns the claimed items
+   * with their tokens, or an empty array if none are available.
+   */
+  claimN(workItemIds: WorkItemId[], maxClaims: number, nodeId: string): Promise<ClaimResult[]>;
+
+  /** Reset the inactivity timeout for a claim. Returns false if token doesn't match. */
+  heartbeatClaim(workItemId: WorkItemId, claimToken: ClaimToken): Promise<boolean>;
+
+  /** Get the current status of a work item claim. */
+  getClaimStatus(workItemId: WorkItemId): Promise<ClaimStatus>;
+
+  /** Batch query: get claim statuses for multiple work items. Returns statuses in same order as input. */
+  getClaimStatuses(workItemIds: WorkItemId[]): Promise<ClaimStatus[]>;
+
+  /** Release a claim (e.g., on graceful shutdown). */
+  releaseClaim(workItemId: WorkItemId, claimToken: ClaimToken): Promise<void>;
 }

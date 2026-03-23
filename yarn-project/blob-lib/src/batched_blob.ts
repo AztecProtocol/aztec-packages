@@ -1,5 +1,7 @@
 import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { FinalBlobAccumulator } from './circuit_types/index.js';
 
@@ -22,5 +24,28 @@ export class BatchedBlob {
 
   toFinalBlobAccumulator() {
     return new FinalBlobAccumulator(this.blobCommitmentsHash, this.z, this.y, this.commitment);
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer(this.blobCommitmentsHash, this.z, this.y, this.commitment, this.q);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): BatchedBlob {
+    const reader = BufferReader.asReader(buffer);
+    return new BatchedBlob(
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      BLS12Fr.fromBuffer(reader),
+      BLS12Point.fromBuffer(reader),
+      BLS12Point.fromBuffer(reader),
+    );
+  }
+
+  toString(): string {
+    return bufferToHex(this.toBuffer());
+  }
+
+  static fromString(str: string): BatchedBlob {
+    return BatchedBlob.fromBuffer(hexToBuffer(str));
   }
 }
