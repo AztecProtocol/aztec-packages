@@ -21,6 +21,13 @@ elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   done
 
   llvm-strip-20 ./build/*/*
+
+  # Re-sign macOS Mach-O binaries after stripping (stripping invalidates the ad-hoc code signature).
+  for arch in amd64-macos arm64-macos; do
+    for f in ./build/$arch/*; do
+      ldid -S "$f"
+    done
+  done
 else
   echo "This task is expected to be run in an x86 release context."
   # TODO bring back. was being called by release.

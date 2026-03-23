@@ -89,30 +89,6 @@ template <typename FF_>
 using lookup_calldata_hashing_get_calldata_field_2_relation =
     lookup_relation_base<FF_, lookup_calldata_hashing_get_calldata_field_2_settings>;
 
-/////////////////// lookup_calldata_hashing_check_final_size ///////////////////
-
-struct lookup_calldata_hashing_check_final_size_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_CHECK_FINAL_SIZE";
-    static constexpr std::string_view RELATION_NAME = "calldata_hashing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::calldata_hashing_latch;
-    static constexpr Column DST_SELECTOR = Column::calldata_latch;
-    static constexpr Column COUNTS = Column::lookup_calldata_hashing_check_final_size_counts;
-    static constexpr Column INVERSES = Column::lookup_calldata_hashing_check_final_size_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::calldata_hashing_calldata_size, ColumnAndShifts::calldata_hashing_context_id
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::calldata_index, ColumnAndShifts::calldata_context_id
-    };
-};
-
-using lookup_calldata_hashing_check_final_size_settings =
-    lookup_settings<lookup_calldata_hashing_check_final_size_settings_>;
-template <typename FF_>
-using lookup_calldata_hashing_check_final_size_relation =
-    lookup_relation_base<FF_, lookup_calldata_hashing_check_final_size_settings>;
-
 /////////////////// lookup_calldata_hashing_poseidon2_hash ///////////////////
 
 struct lookup_calldata_hashing_poseidon2_hash_settings_ {
@@ -124,7 +100,7 @@ struct lookup_calldata_hashing_poseidon2_hash_settings_ {
     static constexpr Column COUNTS = Column::lookup_calldata_hashing_poseidon2_hash_counts;
     static constexpr Column INVERSES = Column::lookup_calldata_hashing_poseidon2_hash_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::calldata_hashing_start,      ColumnAndShifts::calldata_hashing_latch,
+        ColumnAndShifts::calldata_hashing_start,      ColumnAndShifts::calldata_hashing_end,
         ColumnAndShifts::calldata_hashing_input_0_,   ColumnAndShifts::calldata_hashing_input_1_,
         ColumnAndShifts::calldata_hashing_input_2_,   ColumnAndShifts::calldata_hashing_input_len,
         ColumnAndShifts::calldata_hashing_rounds_rem, ColumnAndShifts::calldata_hashing_output_hash
