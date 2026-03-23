@@ -227,7 +227,8 @@
         "AVM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "MULTITHREADING": "OFF",
+        "FUZZER_PRESET_NAME": "${presetName}"
       }
     },
     {
