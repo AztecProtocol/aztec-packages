@@ -917,8 +917,7 @@ TEST_F(WorldStateTest, CommitForkHappyPath)
     // Verify canonical committed state has the new leaves
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(43));
-    assert_leaf_value(
-        ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, 128, NullifierLeafValue(129));
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, 128, NullifierLeafValue(129));
     assert_leaf_value(
         ws, WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE, 128, PublicDataLeafValue(129, 1));
 
@@ -969,8 +968,7 @@ TEST_F(WorldStateTest, CommitForkRejectsWhenTipMoved)
     ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, tmp_fork);
     ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, tmp_fork);
     ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, tmp_fork);
-    auto state_ref1 =
-        ws.get_state_reference(WorldStateRevision{ .forkId = tmp_fork, .includeUncommitted = true });
+    auto state_ref1 = ws.get_state_reference(WorldStateRevision{ .forkId = tmp_fork, .includeUncommitted = true });
     ws.delete_fork(tmp_fork);
     ws.sync_block(state_ref1, fr(1), { 42 }, { 43 }, { NullifierLeafValue(129) }, { { PublicDataLeafValue(129, 1) } });
 
@@ -983,8 +981,7 @@ TEST_F(WorldStateTest, CommitForkRejectsWhenTipMoved)
     ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 45 }, tmp_fork2);
     ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 130 } }, 0, tmp_fork2);
     ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 130, 2 } }, 0, tmp_fork2);
-    auto state_ref2 =
-        ws.get_state_reference(WorldStateRevision{ .forkId = tmp_fork2, .includeUncommitted = true });
+    auto state_ref2 = ws.get_state_reference(WorldStateRevision{ .forkId = tmp_fork2, .includeUncommitted = true });
     ws.delete_fork(tmp_fork2);
     ws.sync_block(state_ref2, fr(2), { 44 }, { 45 }, { NullifierLeafValue(130) }, { { PublicDataLeafValue(130, 2) } });
 
