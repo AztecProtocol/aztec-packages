@@ -28,14 +28,6 @@ VERSION="${VERSION:-nightly}"
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
-<<<<<<< HEAD
-# Add color to the AZTEC ascii art.
-function print_colored() {
-  local b=$'\033[34m' # Blue
-  local y=$'\033[33m' # Yellow
-  local r=$'\033[0m'  # Reset
-  echo "$1" | sed -E "s/(█+)/${b}\1${y}/g"
-=======
 # Check if version string is valid semver
 function is_semver {
   local version="$1"
@@ -62,17 +54,12 @@ function resolve_version {
 
 VERSION=$(resolve_version "$VERSION")
 
-function typewriter {
-  trap 'printf "${r}\n"; exit 1' INT
-  local text="$1"
-  local color="${2:-}"
-  local delay="${3:-0.02}"
-  local width=80
-  local pad=$(( (width - ${#text}) / 2 ))
-  printf "\r\033[2K%${pad}s${color}" ""
-  for (( i=0; i<${#text}; i++ )); do printf '%s' "${text:$i:1}"; sleep "$delay"; done
-  trap - INT
->>>>>>> 32a57967f5 (fix(aztec-up): strip leading `v` prefix from version strings (#21813))
+# Add color to the AZTEC ascii art.
+function print_colored() {
+  local b=$'\033[34m' # Blue
+  local y=$'\033[33m' # Yellow
+  local r=$'\033[0m'  # Reset
+  echo "$1" | sed -E "s/(█+)/${b}\1${y}/g"
 }
 
 function title {
