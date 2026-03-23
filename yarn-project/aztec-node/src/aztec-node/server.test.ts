@@ -649,8 +649,7 @@ describe('aztec node', () => {
 
       it('returns undefined when reference block is the initial block hash', async () => {
         // The initial block (block 0) has an empty archive — no block hashes exist in it.
-        // getBlockHashMembershipWitness computes referenceBlockNumber - 1, which would be 0 - 1 = -1.
-        // This should return undefined (empty archive has no witnesses) rather than crashing.
+        // This should return undefined (empty archive has no witnesses) rather than attempting a lookup.
         const initialHash = await initialHeader.hash();
         const initialBlockHash = new BlockHash(initialHash);
         const someBlockHash = BlockHash.random();
