@@ -91,9 +91,6 @@ export class PublicProcessorFactory {
     const bindings = this.log.getBindings();
     const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
 
-    // Wire the CDB IPC server so the C++ AVM can query contract data over UDS.
-    this.cdbServer?.setContractsDB(contractsDB, globalVariables.timestamp);
-
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
     const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
 
@@ -110,12 +107,16 @@ export class PublicProcessorFactory {
 
   protected createPublicTxSimulator(
     merkleTree: MerkleTreeWriteOperations,
-    _contractsDB: PublicContractsDB,
+    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
     const bindings = this.log.getBindings();
     const forkId = merkleTree.getRevision().forkId;
+    // Pass CDB wiring so the simulator atomically sets the contracts DB under a lock
+    // before each simulation. This prevents concurrent simulations from corrupting
+    // each other's checkpoint stacks on the shared CDB server.
+    const cdbWiring = this.cdbServer ? { cdbServer: this.cdbServer, contractsDB } : undefined;
     return new TelemetryCppPublicTxSimulator(
       this.avmBackend,
       globalVariables,
@@ -123,6 +124,7 @@ export class PublicProcessorFactory {
       config,
       bindings,
       forkId,
+      cdbWiring,
     );
   }
 }

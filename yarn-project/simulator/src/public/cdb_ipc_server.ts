@@ -100,6 +100,8 @@ export class CdbIpcServer {
   private contractsDB: PublicContractsDB | null = null;
   private timestamp: bigint = 0n;
   private connections = new Set<net.Socket>();
+  /** Promise chain used to serialize concurrent simulations that share this CDB server. */
+  private simulationLock: Promise<void> = Promise.resolve();
 
   constructor() {
     this.log = createLogger('cdb-ipc-server');
@@ -120,6 +122,28 @@ export class CdbIpcServer {
   setContractsDB(contractsDB: PublicContractsDB, timestamp: bigint): void {
     this.contractsDB = contractsDB;
     this.timestamp = timestamp;
+  }
+
+  /**
+   * Atomically set the contracts DB and run a callback while holding an exclusive lock.
+   * This serializes concurrent simulations that share this CDB server, ensuring that
+   * each simulation's CDB queries go to the correct PublicContractsDB instance.
+   */
+  async withContractsDB<T>(contractsDB: PublicContractsDB, timestamp: bigint, fn: () => Promise<T>): Promise<T> {
+    // Chain on the previous simulation's lock to serialize access
+    const prev = this.simulationLock;
+    let release!: () => void;
+    this.simulationLock = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    await prev;
+    this.contractsDB = contractsDB;
+    this.timestamp = timestamp;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
   }
 
   /** Close the server and all active connections. */

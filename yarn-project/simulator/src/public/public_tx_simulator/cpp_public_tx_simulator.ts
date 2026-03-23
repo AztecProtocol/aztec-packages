@@ -12,8 +12,10 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
+import type { CdbIpcServer } from '../cdb_ipc_server.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
+import type { PublicContractsDB } from '../public_db_sources.js';
 import type {
   MeasuredPublicTxSimulatorInterface,
   PublicTxSimulatorInterface,
@@ -41,11 +43,23 @@ export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
     private config: Partial<PublicSimulatorConfig> = {},
     bindings?: LoggerBindings,
     private wsdbForkId?: number,
+    /** Optional CDB server + contracts DB for atomic setContractsDB + simulate. */
+    private cdbWiring?: { cdbServer: CdbIpcServer; contractsDB: PublicContractsDB },
   ) {
     this.log = createLogger('simulator:cpp_public_tx_simulator', bindings);
   }
 
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    // If CDB wiring is set, atomically set the contracts DB and run the simulation
+    // under a lock to prevent concurrent simulations from corrupting each other.
+    if (this.cdbWiring) {
+      const { cdbServer, contractsDB } = this.cdbWiring;
+      return await cdbServer.withContractsDB(contractsDB, this.globalVariables.timestamp, () => this.doSimulate(tx));
+    }
+    return await this.doSimulate(tx);
+  }
+
+  private async doSimulate(tx: Tx): Promise<PublicTxResult> {
     const txHash = tx.getTxHash();
     this.log.debug(`IPC simulation for tx ${txHash}, wsdbForkId=${this.wsdbForkId ?? 0}`);
 
@@ -111,8 +125,9 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
     wsdbForkId?: number,
+    cdbWiring?: { cdbServer: CdbIpcServer; contractsDB: PublicContractsDB },
   ) {
-    super(avmBackend, globalVariables, config, bindings, wsdbForkId);
+    super(avmBackend, globalVariables, config, bindings, wsdbForkId, cdbWiring);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -138,9 +153,10 @@ export class TelemetryCppPublicTxSimulator extends MeasuredCppPublicTxSimulator 
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
     wsdbForkId?: number,
+    cdbWiring?: { cdbServer: CdbIpcServer; contractsDB: PublicContractsDB },
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'CppPublicTxSimulator');
-    super(avmBackend, globalVariables, metrics, config, bindings, wsdbForkId);
+    super(avmBackend, globalVariables, metrics, config, bindings, wsdbForkId, cdbWiring);
     this.tracer = metrics.tracer;
   }
 }
