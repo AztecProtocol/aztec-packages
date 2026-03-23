@@ -93,8 +93,8 @@ void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init
  * @brief Decompose a value into high and low limbs at a given bit position and write them to the trace.
  * @param a The value to decompose.
  * @param b The bit position at which to split (low limb has b bits).
- * @param c_lhs The column for the high limb (a >> b).
- * @param c_rhs The column for the low limb (a & (2^b - 1)).
+ * @param col_lhs The column for the high limb (a >> b).
+ * @param col_rhs The column for the low limb (a & (2^b - 1)).
  * @param trace The trace container to populate.
  * @pre b must satisfy b < 64. A value >= 64 would cause undefined behavior per the C++ standard
  *      for 64-bit operands (a >> b and 1 << b). This is an internal helper; all callers pass
@@ -102,20 +102,20 @@ void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init
  *      or the literal 32 for modular reduction, so this precondition is always satisfied.
  */
 void Sha256TraceBuilder::into_limbs_with_witness(
-    uint64_t a, const uint8_t b, C c_lhs, C c_rhs, TraceContainer& trace) const
+    uint64_t a, const uint8_t b, C col_lhs, C col_rhs, TraceContainer& trace) const
 {
     uint32_t a_lhs = static_cast<uint32_t>(a >> b);
     uint32_t a_rhs = static_cast<uint32_t>(a) & static_cast<uint32_t>((static_cast<uint64_t>(1) << b) - 1);
-    trace.set(row, { { { c_lhs, a_lhs }, { c_rhs, a_rhs } } });
+    trace.set(row, { { { col_lhs, a_lhs }, { col_rhs, a_rhs } } });
 }
 
 /**
  * @brief Perform a 32-bit right rotation and insert the result and limb decomposition into the trace.
  * @param val The 32-bit value to rotate.
  * @param shift The number of bits to rotate right.
- * @param c_result The column for the rotation result.
- * @param c_lhs The column for the high limb of the decomposition.
- * @param c_rhs The column for the low limb of the decomposition.
+ * @param col_result The column for the rotation result.
+ * @param col_lhs The column for the high limb of the decomposition.
+ * @param col_rhs The column for the low limb of the decomposition.
  * @param trace The trace container to populate.
  * @return The rotated 32-bit value.
  * @pre shift must satisfy 0 < shift < 32. A shift >= 32 causes undefined behavior per the
@@ -125,11 +125,11 @@ void Sha256TraceBuilder::into_limbs_with_witness(
  *      22, 25), so this precondition is always satisfied.
  */
 uint32_t Sha256TraceBuilder::ror_with_witness(
-    const uint32_t val, const uint8_t shift, C c_result, C c_lhs, C c_rhs, TraceContainer& trace) const
+    const uint32_t val, const uint8_t shift, C col_result, C col_lhs, C col_rhs, TraceContainer& trace) const
 {
     auto result = (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
-    into_limbs_with_witness(val, shift, c_lhs, c_rhs, trace);
-    trace.set(c_result, row, result);
+    into_limbs_with_witness(val, shift, col_lhs, col_rhs, trace);
+    trace.set(col_result, row, result);
     return result;
 }
 
@@ -137,9 +137,9 @@ uint32_t Sha256TraceBuilder::ror_with_witness(
  * @brief Perform a 32-bit right shift and insert the result and limb decomposition into the trace.
  * @param val The 32-bit value to shift.
  * @param shift The number of bits to shift right.
- * @param c_result The column for the shift result.
- * @param c_lhs The column for the high limb of the decomposition.
- * @param c_rhs The column for the low limb of the decomposition.
+ * @param col_result The column for the shift result.
+ * @param col_lhs The column for the high limb of the decomposition.
+ * @param col_rhs The column for the low limb of the decomposition.
  * @param trace The trace container to populate.
  * @return The shifted 32-bit value.
  * @pre shift must satisfy shift < 32. A shift >= 32 would cause undefined behavior per the
@@ -147,11 +147,11 @@ uint32_t Sha256TraceBuilder::ror_with_witness(
  *      SHA-256 shift amounts (3, 10), so this precondition is always satisfied.
  */
 uint32_t Sha256TraceBuilder::shr_with_witness(
-    const uint32_t val, const uint8_t shift, C c_result, C c_lhs, C c_rhs, TraceContainer& trace) const
+    const uint32_t val, const uint8_t shift, C col_result, C col_lhs, C col_rhs, TraceContainer& trace) const
 {
     auto result = val >> shift;
-    into_limbs_with_witness(val, shift, c_lhs, c_rhs, trace);
-    trace.set(c_result, row, result);
+    into_limbs_with_witness(val, shift, col_lhs, col_rhs, trace);
+    trace.set(col_result, row, result);
     return result;
 }
 
