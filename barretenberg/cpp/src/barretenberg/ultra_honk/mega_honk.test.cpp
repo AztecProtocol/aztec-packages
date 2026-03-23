@@ -276,7 +276,6 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
                 Builder tight_builder;
                 GoblinMockCircuits::construct_simple_circuit(tight_builder);
                 MockCircuits::add_arithmetic_gates(tight_builder, num_extra_gates - 1);
-                auto tight_instance = std::make_shared<ProverInstance>(tight_builder);
                 bool verified = this->construct_and_verify_honk_proof(tight_builder);
                 EXPECT_TRUE(verified);
 

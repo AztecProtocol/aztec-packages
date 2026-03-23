@@ -252,7 +252,11 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
     static std::shared_ptr<Chonk::MegaVerificationKey> get_kernel_vk_from_circuit(Builder& kernel)
     {
-        auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);
+        // Use a copy so that ProverInstance construction (which frees circuit block data) doesn't affect
+        // the original kernel, which is still needed by ivc->accumulate.
+        Builder kernel_copy{ kernel };
+        kernel_copy.op_queue = std::make_shared<ECCOpQueue>(*kernel_copy.op_queue);
+        auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel_copy);
         auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
         return verification_key;
     }

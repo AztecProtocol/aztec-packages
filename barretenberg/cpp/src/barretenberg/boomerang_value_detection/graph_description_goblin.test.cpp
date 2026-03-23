@@ -109,6 +109,15 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     // rather than relying solely on them being public outputs.
     translator_pairing_points.fix_witness();
 
+    // Run static analysis before ProverInstance construction, which frees circuit block data.
+    // finalize_circuit() is normally called inside ProverInstance; since we need to run the StaticAnalyzer
+    // first, we call it explicitly here (ProverInstance will skip it when called again due to the guard).
+    builder.finalize_circuit(/*ensure_nonzero_polynomials=*/false);
+    info("Recursive Verifier: num gates = ", builder.num_gates());
+    auto graph = cdg::StaticAnalyzer(builder, false);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
+
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto prover_instance = std::make_shared<OuterProverInstance>(builder);
@@ -118,15 +127,11 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         OuterProver prover(prover_instance, verification_key);
         OuterVerifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
+        info("Proof constructed");
         bool verified = verifier.verify_proof(proof).result;
 
         ASSERT_TRUE(verified);
     }
-
-    info("Recursive Verifier: num gates = ", builder.num_gates());
-    auto graph = cdg::StaticAnalyzer(builder, false);
-    auto variables_in_one_gate = graph.get_variables_in_one_gate();
-    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 } // namespace bb::stdlib::recursion::honk

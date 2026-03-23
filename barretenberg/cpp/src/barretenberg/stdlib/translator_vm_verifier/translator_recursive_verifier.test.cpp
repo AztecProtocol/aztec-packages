@@ -213,7 +213,11 @@ class TranslatorRecursiveTests : public ::testing::Test {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
 
-        auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
+        // Use a copy to compute VK so that the original circuit's block data remains valid for callers.
+        // ProverInstance construction frees circuit block data, so callers that need blocks (e.g.
+        // test_independent_vk_hash) or that will construct their own ProverInstance must not have blocks freed here.
+        OuterBuilder outer_circuit_for_key = outer_circuit;
+        auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit_for_key);
         auto outer_verification_key =
             std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
 

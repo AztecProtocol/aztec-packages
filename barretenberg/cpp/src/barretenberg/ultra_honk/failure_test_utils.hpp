@@ -54,11 +54,11 @@ template <typename Flavor> class MaliciousWitnessInjector {
      */
     std::pair<std::shared_ptr<ProverInstance>, std::shared_ptr<ProverInstance>> create_instances()
     {
-        // Create good instance from original builder (this finalizes the circuit)
-        auto good_instance = std::make_shared<ProverInstance>(builder);
-
-        // Create bad instance
+        // Create bad_builder copy BEFORE constructing good_instance: ProverInstance construction frees
+        // circuit block data, so create_builder_with_malicious_witnesses() must run first.
         Builder bad_builder = create_builder_with_malicious_witnesses();
+
+        auto good_instance = std::make_shared<ProverInstance>(builder);
         auto bad_instance = std::make_shared<ProverInstance>(bad_builder);
 
         return { good_instance, bad_instance };
