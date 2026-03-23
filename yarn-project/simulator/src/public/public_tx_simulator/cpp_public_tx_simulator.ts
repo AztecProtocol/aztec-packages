@@ -63,7 +63,9 @@ export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
     const backendPromise = pool.checkout();
     const result = backendPromise.then(b => this.doSimulate(tx, b));
     // Return slot to pool when done (success or error)
-    void result.finally(() => backendPromise.then(b => pool.return(b)).catch(() => {}));
+    void result.finally(() => {
+      void backendPromise.then(b => pool.return(b)).catch(() => {});
+    });
 
     return {
       result,

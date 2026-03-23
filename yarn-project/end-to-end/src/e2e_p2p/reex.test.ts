@@ -6,7 +6,7 @@ import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
 import type { LibP2PService, P2PClient } from '@aztec/p2p';
-import type { CppPublicTxSimulator, PublicTxResult, SimulationHandle } from '@aztec/simulator/server';
+import type { CppPublicTxSimulator, SimulationHandle } from '@aztec/simulator/server';
 import { BlockProposal } from '@aztec/stdlib/p2p';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorKeyStore } from '@aztec/validator-client';
