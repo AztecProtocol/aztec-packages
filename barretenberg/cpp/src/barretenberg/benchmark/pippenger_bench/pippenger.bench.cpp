@@ -135,10 +135,11 @@ BENCHMARK_REGISTER_F(PippengerBench, BatchMSM)
     ->Args({ 32, 1 << 19 })
     ->Args({ 32, 1 << 21 });
 
-// Issue #1656 sweep: {threads, msm_size}
+// Issue #1656 target: {threads=256, msm_size}
 BENCHMARK_REGISTER_F(PippengerBench, BatchMSM_1656)
     ->Unit(benchmark::kMillisecond)
-    ->ArgsProduct({ { 1, 4, 16, 64, 256 }, { 1 << 16, 1 << 20 } });
+    ->Args({ 256, 1 << 16 })
+    ->Args({ 256, 1 << 20 });
 
 } // namespace
 
