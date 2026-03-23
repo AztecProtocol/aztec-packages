@@ -605,7 +605,7 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public async canProposeAt(
+  public canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
     opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
@@ -615,7 +615,7 @@ export class SequencerPublisher {
 
     const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
-    const nextL1SlotTs = (await this.getNextL1SlotTimestamp()) + slotOffset;
+    const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract
       .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
@@ -656,7 +656,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = await this.getNextL1SlotTimestamp();
+    const ts = this.getNextL1SlotTimestamp();
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -821,9 +821,13 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
-    // Anchor the simulation timestamp to the checkpoint's own slot start time
-    // rather than the current L1 block timestamp, which may overshoot into the next slot if the build ran late.
-    const ts = checkpoint.header.timestamp;
+    // When pipelining, anchor the simulation timestamp to the checkpoint's own slot start time,
+    // which is always in the future. Without pipelining, the slot start time is in the past by the
+    // time we simulate, so use the next L1 slot timestamp derived from the wall clock instead.
+    const l1Constants = this.epochCache.getL1Constants();
+    const ts = this.epochCache.isProposerPipeliningEnabled()
+      ? checkpoint.header.timestamp
+      : getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -1449,11 +1453,6 @@ export class SequencerPublisher {
 
     const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
 
-    // Floor the simulation timestamp with latest L1 block timestamp to prevent
-    // eth_simulateV1 from rejecting with "block timestamps must be in order".
-    const latestBlock = await this.l1TxUtils.getBlock();
-    const simulationTs = timestamp > latestBlock.timestamp ? timestamp : latestBlock.timestamp;
-
     const simulationResult = await this.l1TxUtils
       .simulate(
         {
@@ -1464,7 +1463,7 @@ export class SequencerPublisher {
         },
         {
           // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
-          time: simulationTs + 1n,
+          time: timestamp + 1n,
           // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
           gasLimit: MAX_L1_TX_LIMIT * 2n,
         },
@@ -1595,17 +1594,9 @@ export class SequencerPublisher {
     });
   }
 
-  /**
-   * Returns the timestamp to use when simulating L1 proposal calls.
-   * Uses the wall-clock-based next L1 slot boundary, but floors it with the latest L1 block timestamp
-   * plus one slot duration. This prevents simulation failures when the wall-clock timestamp is behind
-   * the latest L1 block, which causes eth_simulateV1 to reject with "block timestamps must be in order".
-   */
-  private async getNextL1SlotTimestamp(): Promise<bigint> {
+  /** Returns the timestamp to use when simulating L1 proposal calls */
+  private getNextL1SlotTimestamp(): bigint {
     const l1Constants = this.epochCache.getL1Constants();
-    const fromWallClock = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
-    const latestBlock = await this.l1TxUtils.getBlock();
-    const fromL1Block = latestBlock.timestamp + BigInt(l1Constants.ethereumSlotDuration);
-    return fromWallClock > fromL1Block ? fromWallClock : fromL1Block;
+    return getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
   }
 }
