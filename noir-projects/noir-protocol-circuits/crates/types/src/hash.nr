@@ -133,8 +133,8 @@ pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullif
     )
 }
 
-pub fn compute_log_tag(tag: Field, dom_sep: u32) -> Field {
-    poseidon2_hash_with_separator([tag], dom_sep)
+pub fn compute_log_tag(raw_tag: Field, dom_sep: u32) -> Field {
+    poseidon2_hash_with_separator([raw_tag], dom_sep)
 }
 
 pub fn compute_siloed_private_log_first_field(

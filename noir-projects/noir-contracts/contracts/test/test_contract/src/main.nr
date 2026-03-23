@@ -31,10 +31,7 @@ pub contract Test {
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::{
-                PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS,
-                MAX_PUBLIC_LOG_SIZE_IN_FIELDS,
-            },
+            constants::{PRIVATE_LOG_CIPHERTEXT_LEN, MAX_PUBLIC_LOG_SIZE_IN_FIELDS},
             traits::{Hash, Packable, Serialize},
         },
         // Event related

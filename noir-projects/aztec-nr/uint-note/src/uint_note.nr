@@ -250,7 +250,7 @@ impl PartialUintNote {
     }
 
     fn compute_note_completion_payload_padded_for_private_log(
-        self,
+        _self: Self,
         storage_slot: Field,
         value: u128,
     ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN] {
