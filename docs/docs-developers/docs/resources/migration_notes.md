@@ -204,6 +204,9 @@ The `maxLogsHit` flag indicates whether the log limit was reached, meaning more 
 ### [Aztec.nr] Removed `get_random_bytes`
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
+
+## 4.1.0-rc.2
+
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 
 All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
@@ -341,7 +344,6 @@ The `--name` flag has been removed from both `aztec new` and `aztec init`. For `
 ```
 
 **Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
-
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
@@ -383,7 +385,6 @@ my_project/
 - Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
 - The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
 - Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
-
 ### Scope enforcement for private state access (TXE and PXE)
 
 Scope enforcement is now active across both TXE (test environment) and PXE (client). Previously, private execution could implicitly access any account's keys and notes. Now, only the caller (`from`) address is in scope by default, and accessing another address's private state requires explicitly granting scope.
@@ -449,6 +450,8 @@ The `simulateUtility` method and related types have been renamed to `executeUtil
 - let result = env.simulate_utility(my_contract_address, selector);
 + let result = env.execute_utility(my_contract_address, selector);
 ```
+
+## 4.0.0-devnet.2-patch.0
 
 ### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
 
@@ -712,8 +715,6 @@ For this reason we've created place holder protocol contracts in `noir-projects/
 On your side all you need to do is update the dependency in `Nargo.toml`:
 
 ```diff
--auth_contract = { path = "../../protocol/auth_registry_contract" }
-+auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
 -instance_contract = { path = "../../protocol/contract_instance_registry" }
 +instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```

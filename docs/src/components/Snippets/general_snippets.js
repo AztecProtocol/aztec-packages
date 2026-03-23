@@ -19,8 +19,7 @@ export const General = {
 
   node_ver: () => (
     <p>
-      Aztec libraries use Node.js version v24.12.x (lts/krypton), and backwards
-      compatible from version 20. You can use{" "}
+      Aztec libraries require Node.js version 24. You can use{" "}
       <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
       versions.
     </p>
@@ -64,6 +63,13 @@ export const General = {
       authentication and a method of payment, allowing it to be used by the
       protocol to perform a transaction.
     </p>
+  ),
+
+  AztecJSPrerequisites: ({ href = "how_to_connect_to_local_network" }) => (
+    <>
+      <a href={href}>Connected to a network</a>{" "}
+      with an <code>EmbeddedWallet</code> instance and funded accounts
+    </>
   ),
 };
 

@@ -16,9 +16,9 @@ import { getPublicEvents } from "@aztec/aztec.js/events";
 import { BlockNumber } from "@aztec/aztec.js/fields";
 
 // Setup: connect to network
-const node = createAztecNodeClient("http://localhost:8080");
+const node = createAztecNodeClient(process.env.AZTEC_NODE_URL ?? "http://localhost:8080");
 await waitForNode(node);
-const wallet = await EmbeddedWallet.create(node);
+const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 
 const testAccounts = await getInitialTestAccountsData();
 const [aliceAddress, bobAddress] = await Promise.all(
@@ -124,6 +124,10 @@ const externalContract = await TokenContract.at(contractAddress, wallet);
 
 await token.methods
   .mint_to_public(aliceAddress, 10000n)
+  .send({ from: aliceAddress });
+
+await token.methods
+  .mint_to_private(aliceAddress, 10000n)
   .send({ from: aliceAddress });
 
 // docs:start:no_wait_deploy

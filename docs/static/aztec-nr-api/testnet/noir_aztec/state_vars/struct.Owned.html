@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct Owned documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Owned</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct Owned</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.context">context</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#at">at</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-StateVariable&lt;1, Context&gt;-for-Owned<V, Context>">StateVariable&lt;1, Context&gt;</a></li>
+</ul>
+<h2>In module state_vars</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.Map.html">Map</a></div></li>
+<li><a href="struct.Owned.html">Owned</a></div></li>
+<li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
+<li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
+<li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
+<li><a href="struct.PublicImmutable.html">PublicImmutable</a></div></li>
+<li><a href="struct.PublicMutable.html">PublicMutable</a></div></li>
+<li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
+<li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
+<li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+<li><a href="struct.Storable.html">Storable</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
+<li><a href="trait.StateVariable.html">StateVariable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
+<h1>Struct <span id="struct" class="struct">Owned</span></h1>
+<pre><code>pub struct Owned&lt;V, Context&gt; {
+    pub context: Context,
+    <span class="comment">/* private fields */</span>
+}
+</code></pre>
+<div class="comments">
+<p>Per-account state variable.</p>
+<p>A wrapper state variable that is to be used with variables that implement the <code>OwnedStateVariable</code> trait.</p>
+<p>Example usage:</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage {
+    balance: Owned&lt;PrivateSet&lt;UintNote, Context&gt;, Context&gt;,
+}</code></pre>
+<p>To access the underlying owned state variable for a specific owner, use the <code>at</code> method:</p>
+<pre><code><span class="kw">let</span> user_balance = storage.balance.at(user_address);</code></pre>
+<p>For more information on ownership, see the documentation for the <code>OwnedStateVariable</code> trait.</p>
+<h2>Type Parameters</h2>
+<ul>
+<li><code>V</code> - The underlying type that implements <code>OwnedStateVariable&lt;Context&gt;</code> (e.g., <code>PrivateSet</code>, <code>PrivateMutable</code>).</li>
+<li><code>Context</code> - The execution context type (e.g., <code>PublicContext</code>, <code>PrivateContext</code>, <code>UtilityContext</code>). The context
+determines which methods of the state variable are available.</li>
+</ul></div>
+<h2>Fields</h2>
+<div id="structfield.context" class="struct-field"><code class="code-header">context: Context</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;Context, V&gt; <a href="../../noir_aztec/state_vars/struct.Owned.html" class="struct">Owned</a>&lt;V, Context&gt;</code></h3>
+
+<div class="padded-methods"><code id="at" class="code-header">pub fn <a href="#at"><span class="fn">at</span></a>(self, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> V
+<div class="where-clause">where
+    V: <a href="../../noir_aztec/state_vars/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt;</div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns an instance of the underlying owned state variable for a given owner.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;1, Context&gt;-for-Owned<V, Context>"><code class="code-header">impl&lt;Context, V&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.Owned.html" class="struct">Owned</a>&lt;V, Context&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>
