@@ -214,16 +214,17 @@ validate_project() {
                 return 1
             fi
 
-            # Check for .d.ts files in dest/ or lib/ (different packages use different output dirs)
+            # Check for .d.ts files in common output dirs
             local dts_count=0
-            if [ -d "$link_target/dest" ]; then
-                dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
-            elif [ -d "$link_target/lib" ]; then
-                dts_count=$(find "$link_target/lib" -name "*.d.ts" 2>/dev/null | wc -l)
-            fi
+            for check_dir in dest lib nodejs web; do
+                if [ -d "$link_target/$check_dir" ]; then
+                    dts_count=$(find "$link_target/$check_dir" -name "*.d.ts" 2>/dev/null | wc -l)
+                    [ "$dts_count" -gt 0 ] && break
+                fi
+            done
 
             if [ "$dts_count" -eq 0 ]; then
-                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/ and lib/)"
+                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/, lib/, nodejs/, web/)"
                 ls -la "$link_target" | head -20 || true
                 return 1
             fi
