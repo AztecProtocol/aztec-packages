@@ -86,6 +86,9 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
                 selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
         }
+
+        // Free this block's wire and selector memory now that it has been consumed into prover polynomials.
+        block.free_data();
     }
 
     return copy_cycles;

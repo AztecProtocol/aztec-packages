@@ -278,6 +278,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
      */
     void free_data()
     {
+        if (data_freed_) {
+            return;
+        }
         cached_size_ = std::get<0>(wires).size();
         data_freed_ = true;
         for (auto& wire : wires) {
