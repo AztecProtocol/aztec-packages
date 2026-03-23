@@ -128,14 +128,14 @@ class Execution : public ExecutionInterface {
               MemoryAddress l2_gas_offset,
               MemoryAddress da_gas_offset,
               MemoryAddress addr,
-              MemoryAddress cd_size_offset,
-              MemoryAddress cd_offset);
+              MemoryAddress args_size_offset,
+              MemoryAddress args_offset);
     void static_call(ContextInterface& context,
                      MemoryAddress l2_gas_offset,
                      MemoryAddress da_gas_offset,
                      MemoryAddress addr,
-                     MemoryAddress cd_size_offset,
-                     MemoryAddress cd_offset);
+                     MemoryAddress args_size_offset,
+                     MemoryAddress args_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
     void cd_copy(ContextInterface& context,

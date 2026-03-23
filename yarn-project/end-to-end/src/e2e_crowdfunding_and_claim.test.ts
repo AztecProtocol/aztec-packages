@@ -60,7 +60,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     } = await setup(3));
 
     // We set the deadline to a week from now
-    deadline = (await cheatCodes.eth.timestamp()) + 7 * 24 * 60 * 60;
+    deadline = (await cheatCodes.eth.lastBlockTimestamp()) + 7 * 24 * 60 * 60;
 
     ({ contract: donationToken } = await TokenContract.deploy(
       wallet,

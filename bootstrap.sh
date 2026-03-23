@@ -486,36 +486,22 @@ function versions {
   echo "wasi-sdk: $wasi_sdk_version"
 }
 
-function release_github {
-  # Add an easy link for comparing to previous release.
-  local compare_link=""
-  if gh release view "v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/v${CURRENT_VERSION}...${COMMIT_HASH}")
+function release_bb_github {
+  # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
+  # Users can manually create releases in aztec-packages via the GitHub UI if needed.
+  local bb_repo="AztecProtocol/barretenberg"
+  if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
+    return
   fi
-  # Legacy releases. TODO: Eventually remove.
-  if gh release view "aztec-packages-v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v${CURRENT_VERSION}...${COMMIT_HASH}")
-  fi
-  # Determine if this is a prerelease (has a prerelease tag like -rc.1, -alpha, etc.)
-  local is_prerelease=false
+  local prerelease_flag=""
   if [ -n "$(semver prerelease $REF_NAME)" ]; then
-    is_prerelease=true
+    prerelease_flag="--prerelease"
   fi
-  # Ensure we have a commit release.
-  if ! gh release view "$REF_NAME" &>/dev/null; then
-    local prerelease_flag=""
-    if $is_prerelease; then
-      prerelease_flag="--prerelease"
-    fi
-    do_or_dryrun gh release create "$REF_NAME" \
-      $prerelease_flag \
-      --target $COMMIT_HASH \
-      --title "$REF_NAME" \
-      --notes "$compare_link"
-  elif ! $is_prerelease; then
-    # Release exists but this is not a prerelease version - ensure it's marked as a full release
-    do_or_dryrun gh release edit "$REF_NAME" --prerelease=false
-  fi
+  do_or_dryrun gh release create "$REF_NAME" \
+    --repo "$bb_repo" \
+    $prerelease_flag \
+    --title "$REF_NAME" \
+    --notes "Release $REF_NAME — see https://github.com/AztecProtocol/aztec-packages/commits/$COMMIT_HASH"
 }
 
 function release {
@@ -525,9 +511,9 @@ function release {
   echo_header "release all"
   set -x
 
-  # Ensure we have a github release for our REF_NAME.
-  # This is in case were are not going through release-please.
-  release_github
+  # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
+  # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
+  release_bb_github
 
   projects=(
     barretenberg/cpp

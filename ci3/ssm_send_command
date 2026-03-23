@@ -71,6 +71,18 @@ fi
 
 echo "SSM command $command_id sent to $iid" >&2
 
+# Cancel the SSM command server-side on signal so it doesn't stay InProgress
+# after the instance is terminated. This is a runner→SSM-service API call,
+# independent of the SSM agent on the instance.
+# Exit so bootstrap_ec2's EXIT trap can run and terminate the EC2 instance.
+function cancel_ssm_command {
+  aws ssm cancel-command \
+    --region "$region" \
+    --command-id "$command_id" 2>/dev/null || true
+  exit 143  # 128 + 15 (SIGTERM)
+}
+trap cancel_ssm_command SIGINT SIGTERM
+
 # --- Step 2: Optionally skip polling (fire-and-forget) ---
 if [ "${SSM_NO_WAIT:-0}" -eq 1 ]; then
   exit 0
