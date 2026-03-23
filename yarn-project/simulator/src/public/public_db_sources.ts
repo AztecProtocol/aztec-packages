@@ -81,7 +81,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    */
   public createCheckpoint(): void {
     const currentState = this.getCurrentState();
-    const newState = currentState.deepCopy();
+    const newState = currentState.fork();
     this.contractStateStack.push(newState);
   }
 
