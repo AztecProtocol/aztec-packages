@@ -319,8 +319,9 @@ export class CheckpointProposalJob implements Traceable {
       // Get the fee asset price modifier from the oracle
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
 
-      // Create a long-lived forked world state for the checkpoint builder
-      await using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
+      // Create a forked world state for the checkpoint builder.
+      // Fork lifecycle is managed manually: each block commits and destroys the fork, then creates a new one.
+      let fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
       const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
@@ -508,7 +509,6 @@ export class CheckpointProposalJob implements Traceable {
     const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
-    let forkCommitted = false;
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
@@ -571,14 +571,12 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
-      // If this is the last block, sync it to the archiver and exit the loop
-      // so we can build the checkpoint and start collecting attestations.
+      // Commit the fork to persist this block to LMDB. The fork is destroyed after this call.
+      await this.tryCommitFork(fork);
+      await this.syncProposedBlockToArchiver(block);
+
+      // If this is the last block, exit the loop so we can build the checkpoint and start collecting attestations.
       if (timingInfo.isLastBlock) {
-        if (!forkCommitted) {
-          forkCommitted = true;
-          await this.tryCommitFork(fork);
-        }
-        await this.syncProposedBlockToArchiver(block);
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.targetSlot}`, {
           slot: this.targetSlot,
           blockNumber,
@@ -594,17 +592,12 @@ export class CheckpointProposalJob implements Traceable {
       // a HA error we don't pollute our archiver with a block that won't make it to the chain.
       const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
 
-      // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal.
-      // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building.
-      // If this throws, we abort the entire checkpoint.
-      if (!forkCommitted) {
-        forkCommitted = true;
-        await this.tryCommitFork(fork);
-      }
-      await this.syncProposedBlockToArchiver(block);
-
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
       proposal && (await this.p2pClient.broadcastProposal(proposal));
+
+      // Create a new fork at the advanced tip for the next block
+      fork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
+      checkpointBuilder.setFork(fork);
 
       // Wait until the next block's start time
       await this.waitUntilNextSubslot(timingInfo.deadline);
@@ -1020,10 +1013,10 @@ export class CheckpointProposalJob implements Traceable {
     await this.p2pClient.handleFailedExecution(failedTxHashes);
   }
 
-  /** Commits the fork so getCommitted() immediately reflects the built blocks. */
+  /** Commits the fork so getCommitted() immediately reflects the built blocks. The fork is destroyed after this call. */
   private async tryCommitFork(fork: MerkleTreeWriteOperations): Promise<void> {
     try {
-      await this.worldState.commitFork(fork, this.syncedToBlockNumber);
+      await this.worldState.commitFork(fork);
     } catch (err) {
       this.log.debug(`Could not commit fork (block stream may have synced first)`, { err });
     }

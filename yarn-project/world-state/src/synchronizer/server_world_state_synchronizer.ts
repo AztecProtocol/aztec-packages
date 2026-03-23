@@ -85,8 +85,8 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeDb.fork(blockNumber, opts);
   }
 
-  public commitFork(fork: MerkleTreeWriteOperations, blockNumber: BlockNumber): Promise<void> {
-    return this.merkleTreeDb.commitFork(fork, blockNumber);
+  public commitFork(fork: MerkleTreeWriteOperations): Promise<void> {
+    return this.merkleTreeDb.commitFork(fork);
   }
 
   public backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {

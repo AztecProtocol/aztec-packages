@@ -194,21 +194,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async commitFork(fork: MerkleTreeWriteOperations, blockNumber: BlockNumber): Promise<void> {
-    const status = await this.getStatusSummary();
-    if (status.unfinalizedBlockNumber !== blockNumber) {
-      throw new Error(
-        `Can't commit fork: expected tip at block ${blockNumber}, but canonical tip is at ${status.unfinalizedBlockNumber}`,
-      );
-    }
-    fork.detach();
-
-    // Promote fork's tree caches to canonical LMDB.
-    // After this call, the fork is consumed by the native layer and canonical LMDB has the fork's state.
+  public async commitFork(fork: MerkleTreeWriteOperations): Promise<void> {
     const forkFacade = fork as MerkleTreesForkFacade;
     this.committedForkStatus = await this.instance.call(
       WorldStateMessageType.COMMIT_FORK,
-      { forkId: forkFacade.forkId },
+      { forkId: forkFacade.forkId, canonical: true as const },
       this.sanitizeAndCacheSummaryFromFull.bind(this),
       this.deleteCachedSummary.bind(this),
     );

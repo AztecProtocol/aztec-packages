@@ -2011,9 +2011,13 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork();
       await mockBlock(BlockNumber(1), 1, fork);
 
-      await ws.commitFork(fork, BlockNumber(0));
+      // Snapshot the fork's state before committing (fork is destroyed after commit)
+      const forkStateRef = await fork.getStateReference();
 
-      await assertSameState(ws.getCommitted(), fork);
+      await ws.commitFork(fork);
+
+      const committedStateRef = await ws.getCommitted().getStateReference();
+      expect(committedStateRef).toEqual(forkStateRef);
     });
 
     it('fails if tip has moved', async () => {
@@ -2028,40 +2032,31 @@ describe('NativeWorldState', () => {
       await mockBlock(BlockNumber(1), 1, staleFork);
 
       // commitFork should fail because tip moved from 0 to 1
-      await expect(ws.commitFork(staleFork, BlockNumber(0))).rejects.toThrow();
+      await expect(ws.commitFork(staleFork)).rejects.toThrow();
     });
 
-    it('handleL2BlockAndMessages clears the committed fork', async () => {
+    it('handleL2BlockAndMessages skips already committed block', async () => {
       const fork = await ws.fork();
       const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
 
-      // Snapshot the fork's state before committing (fork will be closed by handleL2BlockAndMessages)
+      // Snapshot the fork's state before committing
       const forkStateRef = await fork.getStateReference();
 
-      await ws.commitFork(fork, BlockNumber(0));
+      await ws.commitFork(fork);
 
-      // getCommitted() should return the fork's state
+      // getCommitted() should return the committed state
       const committedStateRef = await ws.getCommitted().getStateReference();
       expect(committedStateRef).toEqual(forkStateRef);
 
-      // Now sync the same block via handleL2BlockAndMessages (this closes the committed fork)
+      // Sync the same block via handleL2BlockAndMessages (should be skipped since already committed)
       await ws.handleL2BlockAndMessages(block, messages);
 
-      // getCommitted() should now return LMDB state (which should match since same block was synced)
+      // State should still match
       const lmdbStateRef = await ws.getCommitted().getStateReference();
       expect(lmdbStateRef).toEqual(forkStateRef);
-
-      // Verify getCommitted() is now a fresh LMDB facade, not the fork, by creating a new fork
-      // and confirming getCommitted() doesn't track new fork mutations
-      const newFork = await ws.fork();
-      const committedInfoBefore = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-      await newFork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [Fr.random()]);
-      const committedInfoAfter = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-      expect(committedInfoAfter).toEqual(committedInfoBefore);
-      await newFork.close();
     });
 
-    it('unwindBlocks clears the committed fork', async () => {
+    it('unwindBlocks after commitFork', async () => {
       // Sync blocks 1..3
       const setupFork = await ws.fork();
       for (let i = 1; i <= 3; i++) {
@@ -2076,80 +2071,45 @@ describe('NativeWorldState', () => {
       // Create fork at block 3, build block 4, commitFork
       const fork = await ws.fork();
       await mockBlock(BlockNumber(4), 1, fork);
-      await ws.commitFork(fork, BlockNumber(3));
+      await ws.commitFork(fork);
 
-      // Reorg back to block 2 (this closes the committed fork)
+      // Reorg back to block 2
       await ws.unwindBlocks(BlockNumber(2));
 
-      // getCommitted() should return LMDB state at block 2, not the fork's state
+      // getCommitted() should return LMDB state at block 2
       const committedStateRef = await ws.getCommitted().getStateReference();
       expect(committedStateRef).toEqual(snapshot2StateRef);
     });
 
-    it('replaces a previous committed fork', async () => {
-      // Build fork1 with block 1
+    it('commit then create new fork at advanced tip', async () => {
+      // Build and commit block 1
       const fork1 = await ws.fork();
       await mockBlock(BlockNumber(1), 1, fork1);
-      await ws.commitFork(fork1, BlockNumber(0));
+      await ws.commitFork(fork1);
 
-      // Build fork2 with different state for block 1
+      // Create new fork at latest (should be at block 1)
       const fork2 = await ws.fork();
-      await mockBlock(BlockNumber(1), 1, fork2);
-      await ws.commitFork(fork2, BlockNumber(0));
+      await mockBlock(BlockNumber(2), 1, fork2);
+      await ws.commitFork(fork2);
 
-      // getCommitted() should match fork2, not fork1
-      await assertSameState(ws.getCommitted(), fork2);
+      // Verify canonical is at block 2
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalizedBlockNumber).toEqual(2);
     });
 
-    const expectForkClosed = async (fork: MerkleTreeWriteOperations) => {
-      await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow('Fork not found');
-    };
-
-    it('closes the previous fork when replacing', async () => {
-      const fork1 = await ws.fork();
-      await mockBlock(BlockNumber(1), 1, fork1);
-      await ws.commitFork(fork1, BlockNumber(0));
-
-      const fork2 = await ws.fork();
-      await mockBlock(BlockNumber(1), 1, fork2);
-      await ws.commitFork(fork2, BlockNumber(0));
-
-      await expectForkClosed(fork1);
-      // fork2 is still the committed fork and should be usable
-      await expect(fork2.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).resolves.toBeDefined();
-    });
-
-    it('handleL2BlockAndMessages closes the committed fork', async () => {
-      const fork = await ws.fork();
-      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
-      await ws.commitFork(fork, BlockNumber(0));
-
-      await ws.handleL2BlockAndMessages(block, messages);
-
-      await expectForkClosed(fork);
-    });
-
-    it('unwindBlocks disposes the committed fork', async () => {
-      const setupFork = await ws.fork();
-      for (let i = 1; i <= 3; i++) {
-        const { block, messages } = await mockBlock(BlockNumber(i), 1, setupFork);
-        await ws.handleL2BlockAndMessages(block, messages);
-      }
-      await setupFork.close();
-
-      const fork = await ws.fork();
-      await mockBlock(BlockNumber(4), 1, fork);
-      await ws.commitFork(fork, BlockNumber(3));
-
-      await ws.unwindBlocks(BlockNumber(2));
-
-      await expectForkClosed(fork);
-    });
-
-    it('close() closes the committed fork', async () => {
+    it('fork is destroyed after commitFork', async () => {
       const fork = await ws.fork();
       await mockBlock(BlockNumber(1), 1, fork);
-      await ws.commitFork(fork, BlockNumber(0));
+      await ws.commitFork(fork);
+
+      // Fork should be destroyed — operations on it should fail
+      await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow('Fork not found');
+    });
+
+    it('close() after commitFork', async () => {
+      const fork = await ws.fork();
+      await mockBlock(BlockNumber(1), 1, fork);
+      await ws.commitFork(fork);
 
       await ws.close();
 
@@ -2158,16 +2118,16 @@ describe('NativeWorldState', () => {
       ws = await NativeWorldStateService.tmp();
     });
 
-    it('committed fork survives await using dispose', async () => {
-      // Simulate the sequencer pattern: fork created with await using, then committed
+    it('committed state survives await using dispose', async () => {
+      // Simulate: fork created with await using, then committed.
+      // asyncDispose calls close() which tolerates "Fork not found" since C++ already destroyed the fork.
       {
         await using fork = await ws.fork();
         await mockBlock(BlockNumber(1), 1, fork);
-        await ws.commitFork(fork, BlockNumber(0));
-        // Scope exit triggers [Symbol.asyncDispose], which should no-op due to detach
+        await ws.commitFork(fork);
       }
 
-      // The committed fork should still be alive and usable via getCommitted()
+      // The committed state should be accessible via getCommitted()
       await expect(ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).resolves.toBeDefined();
       await expect(ws.getCommitted().getStateReference()).resolves.toBeDefined();
     });

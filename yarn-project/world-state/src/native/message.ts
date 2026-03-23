@@ -442,7 +442,9 @@ interface CreateForkResponse {
 
 interface DeleteForkRequest extends WithForkId {}
 
-interface CommitForkRequest extends WithForkId {}
+interface CommitForkRequest extends WithCanonicalForkId {
+  forkId: number;
+}
 
 interface CopyStoresRequest extends WithCanonicalForkId {
   dstPath: string;

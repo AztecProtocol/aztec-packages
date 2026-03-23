@@ -52,11 +52,11 @@ export interface ForkMerkleTreeOperations {
   fork(block?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations>;
 
   /**
-   * Commits a fork as the current "committed" view of the world state.
-   * Only succeeds if the canonical tip hasn't moved past the given block number.
-   * Ownership of the fork transfers to the world state — caller must not close it.
+   * Commits a fork's state to canonical LMDB and destroys the fork.
+   * Only succeeds if the canonical tip hasn't moved since the fork was created.
+   * The fork is invalid after this call — caller must not use it.
    */
-  commitFork(fork: MerkleTreeWriteOperations, blockNumber: BlockNumber): Promise<void>;
+  commitFork(fork: MerkleTreeWriteOperations): Promise<void>;
 
   /** Backups the db to the target path. */
   backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>>;

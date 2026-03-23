@@ -50,6 +50,11 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   /** Persistent contracts DB shared across all blocks in this checkpoint. */
   protected contractsDB: PublicContractsDB;
 
+  /** Replaces the fork used for subsequent block builds. */
+  public setFork(fork: MerkleTreeWriteOperations): void {
+    this.fork = fork;
+  }
+
   constructor(
     private checkpointBuilder: LightweightCheckpointBuilder,
     private fork: MerkleTreeWriteOperations,
