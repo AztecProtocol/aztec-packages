@@ -78,6 +78,7 @@ pub contract ContractClassRegistry {
             capsules::load(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
+                Option::none(),
             )
                 .unwrap()
         };

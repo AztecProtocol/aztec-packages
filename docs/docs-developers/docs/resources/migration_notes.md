@@ -9,6 +9,42 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Capsule operations now require a scope param
+
+All capsule oracle functions (`store`, `load`, `delete`, `copy`) now take an additional `scope: Option<AztecAddress>`
+parameter. This enables multiple independent namespaces within the same contract's capsule storage. If you need to keep
+the previous (global) behavior, call said methods with `Option::none()` as scope.
+
+`CapsuleArray::at` now requires a `scope: AztecAddress` argument that isolates the array's data to that scope. For the previous (global) behavior, use the new `CapsuleArray::at_global_scope` constructor.
+
+**Migration:**
+
+```diff
+// Oracle functions now require a scope parameter
+- capsules::store(contract_address, slot, value);
++ capsules::store(contract_address, slot, value, Option::none());
+
+- capsules::load(contract_address, slot);
++ capsules::load(contract_address, slot, Option::none());
+
+- capsules::delete(contract_address, slot);
++ capsules::delete(contract_address, slot, Option::none());
+
+- capsules::copy(contract_address, src_slot, dst_slot, num_entries);
++ capsules::copy(contract_address, src_slot, dst_slot, num_entries, Option::none());
+```
+
+```diff
+// CapsuleArray: use at_global_scope for the old behavior
+- let array = CapsuleArray::at(contract_address, base_slot);
++ let array = CapsuleArray::at_global_scope(contract_address, base_slot);
+
+// Or scope to a specific address for isolated namespaces
++ let array = CapsuleArray::at(contract_address, base_slot, scope_address);
+```
+
+**Impact**: All code using capsule oracles directly or `CapsuleArray::at` must be updated. Pass `Option::none()` to oracle functions for the previous global behavior, or replace `CapsuleArray::at` with `CapsuleArray::at_global_scope`.
+
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
@@ -20,7 +56,7 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 **Migration:**
 
 ```diff
-  attempt_note_discovery(
+    attempt_note_discovery(
       contract_address,
       tx_hash,
       unique_note_hashes_in_tx,
