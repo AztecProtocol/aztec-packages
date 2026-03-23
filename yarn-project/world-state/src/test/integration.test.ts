@@ -42,6 +42,7 @@ describe('world-state integration', () => {
     );
     log.info(`Generated ${checkpoints.length} mock checkpoints`);
     await fork.close();
+    await db.close();
   });
 
   beforeEach(async () => {
