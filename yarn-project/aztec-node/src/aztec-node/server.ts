@@ -317,11 +317,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Set up IPC backends for world state and AVM simulation.
     // CDB is always a TS UDS server (no C++ binary needed).
-    // Keep-alive: IPC child processes and sockets are unref'd so they don't prevent clean
-    // shutdown. But during initialization (before the HTTP server starts), this means the
-    // event loop can drain and the process exits with code 0. Use a ref'd interval to
-    // prevent this. It is cleared once createAndSync returns and the HTTP server takes over.
-    const keepAlive = setInterval(() => {}, 60_000);
+    // The CDB server's listening socket is ref'd, keeping the event loop alive.
+    // IPC child processes (wsdb, avm) and their sockets are unref'd for clean Jest shutdown.
 
     const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
     const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
@@ -704,10 +701,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (avmBackend) {
       node.ipcBackends.push(avmBackend);
     }
-
-    // Clear the keep-alive timer now that the node is fully initialized.
-    // The HTTP server (started by the caller) will keep the event loop alive from here.
-    clearInterval(keepAlive);
 
     return node;
   }

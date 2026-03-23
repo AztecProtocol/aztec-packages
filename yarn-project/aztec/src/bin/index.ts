@@ -27,21 +27,11 @@ const debugLogger = createLogger('cli');
 
 /** CLI & full node main entrypoint */
 async function main() {
-  const shutdown = (signal: string) => {
-    console.error(`[aztec-bin] Received ${signal} during startup, exiting`);
-    console.error(new Error('Signal stack trace').stack);
+  const shutdown = () => {
     process.exit(0);
   };
-  process.once('SIGINT', () => shutdown('SIGINT'));
-  process.once('SIGTERM', () => shutdown('SIGTERM'));
-
-  // Log when process is about to exit for any reason
-  process.on('beforeExit', (code: number) => {
-    console.error(`[aztec-bin] beforeExit event with code ${code}`);
-  });
-  process.on('exit', (code: number) => {
-    console.error(`[aztec-bin] exit event with code ${code}`);
-  });
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 
   // Intercept the setting of a network and enrich the environment with defaults for that network
   let networkValue: string | undefined;
