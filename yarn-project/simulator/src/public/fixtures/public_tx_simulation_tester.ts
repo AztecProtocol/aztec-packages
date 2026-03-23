@@ -273,13 +273,17 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     this.metrics.prettyPrint();
   }
 
-  /** Clean up IPC resources (AvmBackend process and CDB server) created by create(). */
+  /** Clean up IPC resources (AvmBackend process, CDB server, and merkle tree fork) created by create(). */
   public async close(): Promise<void> {
     if (this.avmBackend?.destroy) {
       await this.avmBackend.destroy();
     }
     if (this.cdbServer) {
       await this.cdbServer.close();
+    }
+    // Close the merkle tree fork to release IPC resources before the wsdb process is killed.
+    if (this.merkleTrees?.close) {
+      await this.merkleTrees.close().catch(() => {});
     }
   }
 
