@@ -271,6 +271,13 @@ export class AvmBackend implements IMsgpackBackendAsync {
     }
     await this.processExitPromise;
 
+    // Clean up stdio streams and remove all listeners to allow the event loop to exit.
+    if (this.process) {
+      this.process.stdout?.destroy();
+      this.process.stderr?.destroy();
+      this.process.removeAllListeners();
+    }
+
     // Clean up socket file
     try {
       if (fs.existsSync(this.socketPath)) {
