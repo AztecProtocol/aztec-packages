@@ -28,6 +28,32 @@ VERSION="${VERSION:-nightly}"
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
+# Check if version string is valid semver
+function is_semver {
+  local version="$1"
+  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
+  [[ "$version" =~ $semver_regex ]]
+}
+
+# Resolve alias (like "nightly") to actual version number.
+function resolve_version {
+  local version="$1"
+  # Strip leading v from semver-like inputs (v0.85.0 -> 0.85.0), but not aliases (v4-nightly)
+  local stripped="${version#v}"
+  if is_semver "$stripped"; then
+    echo "$stripped"
+  else
+    local resolved
+    if ! resolved=$(curl -fsSL "$INSTALL_URI/aliases/$version" 2>/dev/null); then
+      echo "Error: Could not resolve alias '$version'" >&2
+      exit 1
+    fi
+    echo "$resolved"
+  fi
+}
+
+VERSION=$(resolve_version "$VERSION")
+
 # Add color to the AZTEC ascii art.
 function print_colored() {
   local b=$'\033[34m' # Blue
