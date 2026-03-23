@@ -197,7 +197,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
 
         if (check_circuit_sizes) {
-            auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
+            // Use a copy so that ProverInstance construction (which frees circuit block data) doesn't
+            // affect the original circuit, which is still needed by get_verification_key and accumulate.
+            MegaCircuitBuilder_<bb::fr> circuit_copy{ circuit };
+            circuit_copy.op_queue = std::make_shared<ECCOpQueue>(*circuit_copy.op_queue);
+            auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit_copy);
             size_t log2_dyadic_size = prover_instance->log_dyadic_size();
             if (log2_num_gates != 0) {
                 if (is_kernel) {
