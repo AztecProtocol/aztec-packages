@@ -49,6 +49,15 @@
     "src",
     "!*.test.*"
   ],
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/embedded/entrypoints/browser.ts",
+      "./src/embedded/entrypoints/node.ts",
+      "./src/testing.ts"
+    ],
+    "name": "Wallets",
+    "tsconfig": "./tsconfig.json"
+  },
   "engines": {
     "node": ">=20.10"
   },

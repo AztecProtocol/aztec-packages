@@ -13,3 +13,4 @@ dependencies:
   - "@aztec/wallets"
   - "@aztec/noir-contracts.js"
   - "@aztec/stdlib"
+  - "@aztec/ethereum"
