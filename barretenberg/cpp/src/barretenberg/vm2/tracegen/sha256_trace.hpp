@@ -22,18 +22,18 @@ class Sha256TraceBuilder final {
     uint32_t row = 1; // Start from 1 to avoid the precomputed row.
 
     void into_limbs_with_witness(
-        const uint64_t, const uint8_t b, Column c_lhs, Column c_rhs, TraceContainer& trace) const;
+        const uint64_t, const uint8_t b, Column col_lhs, Column col_rhs, TraceContainer& trace) const;
     uint32_t ror_with_witness(const uint32_t val,
                               const uint8_t shift,
-                              Column c_result,
-                              Column c_lhs,
-                              Column c_rhs,
+                              Column col_result,
+                              Column col_lhs,
+                              Column col_rhs,
                               TraceContainer& trace) const;
     uint32_t shr_with_witness(const uint32_t val,
                               const uint8_t shift,
-                              Column c_result,
-                              Column c_lhs,
-                              Column c_rhs,
+                              Column col_result,
+                              Column col_lhs,
+                              Column col_rhs,
                               TraceContainer& trace) const;
     uint32_t compute_w_with_witness(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace) const;
     std::array<uint32_t, 8> compute_compression_with_witness(const std::array<uint32_t, 8>& state,
