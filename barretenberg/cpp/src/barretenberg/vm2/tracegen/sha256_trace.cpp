@@ -16,6 +16,19 @@ using C = Column;
 
 namespace {
 
+// Precomputed inverses for values 0..65. Covers:
+// - rounds_remaining inverses: FF(64 - i) for i in [0, 63], i.e., values 1..64
+// - input_rounds_rem inverses: values 1..16
+// Index 0 maps to FF(0) which is not invertible; batch_invert leaves it as 0.
+const std::array<FF, 65> PRECOMPUTED_INVERSES = []() {
+    std::array<FF, 65> inverses;
+    for (size_t i = 0; i < 65; i++) {
+        inverses[i] = FF(i);
+    }
+    FF::batch_invert(inverses);
+    return inverses;
+}();
+
 // These are some useful groupings of columns for the SHA256 trace that we will iterate over.
 constexpr std::array<C, 8> STATE_COLS = {
     C::sha256_a, C::sha256_b, C::sha256_c, C::sha256_d, C::sha256_e, C::sha256_f, C::sha256_g, C::sha256_h,
@@ -507,8 +520,9 @@ void Sha256TraceBuilder::process(
             trace.set(row,
                       { {
                           { C::sha256_sel_invalid_state_tag_err, 1 },
-                          // Guaranteed non-zero (so inversion is safe) since we have an invalid tag
-                          { C::sha256_batch_tag_inv, FF(batched_tag_check).invert() },
+                          // Inline inversion (not batched): this is an error path that should not often occur in
+                          // production. Guaranteed non-zero (so inversion is safe) since we have an invalid tag.
+                          { C::sha256_batch_tag_inv, batched_tag_check.invert() },
                           { C::sha256_latch, 1 },
                           { C::sha256_err, 1 }, // Set the error flag
                       } });
@@ -534,11 +548,12 @@ void Sha256TraceBuilder::process(
         // to the start row (to communicate back to execution) and to turn off any computation constraints.
         for (uint32_t i = 0; i < event.input.size(); i++) {
             const uint32_t input_rounds_rem = 16 - i;
-            FF input_rounds_rem_inv = input_rounds_rem == 0 ? 0 : FF(input_rounds_rem).invert();
+            FF input_rounds_rem_inv = PRECOMPUTED_INVERSES[input_rounds_rem];
 
             const MemoryValue& round_input = event.input[i];
             FF input_tag = FF(static_cast<uint8_t>(round_input.get_tag()));
             FF input_tag_diff = input_tag - EXPECTED_TAG;
+            // Inline inversion (not batched): this is an error path that should not often occur in production.
             FF input_tag_diff_inv = input_tag_diff == 0 ? 0 : input_tag_diff.invert();
 
             bool is_last = (i == event.input.size() - 1);
@@ -604,7 +619,7 @@ void Sha256TraceBuilder::process(
             // Detect if we are still using the inputs for values of w
             bool is_an_input_round = i < 16;
             // Used to check we non-zero rounds remaining
-            FF inv = FF(64 - i).invert();
+            FF inv = PRECOMPUTED_INVERSES[64 - i];
             uint32_t round_w =
                 is_an_input_round ? event.input[i].as<uint32_t>() : compute_w_with_witness(prev_w_helpers, trace);
             // For input_addr: during input rounds (0-15), it increments by 1 each row.
