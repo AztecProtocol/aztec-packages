@@ -36,8 +36,11 @@ function compile-circuits {
       (cd "$REPO_ROOT/docs" && $NARGO compile --package "$name")
     fi
   done
+<<<<<<< HEAD
 
   echo_stderr "Vanilla circuits compiled"
+=======
+>>>>>>> a2dc7b879a (fix(docs): integrate recursive_verification into examples execution pipeline)
 }
 
 function compile {
