@@ -641,6 +641,30 @@ describe('aztec node', () => {
         expect(result).toBe(snapshotMerkleTreeOps);
       });
     });
+
+    describe('getBlockHashMembershipWitness', () => {
+      let initialHeader: BlockHeader;
+
+      beforeEach(() => {
+        lastBlockNumber = BlockNumber(5);
+        initialHeader = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
+        });
+        merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
+      });
+
+      it('returns undefined when reference block is the initial block hash', async () => {
+        // The initial block (block 0) has an empty archive — no block hashes exist in it.
+        // getBlockHashMembershipWitness computes referenceBlockNumber - 1, which would be 0 - 1 = -1.
+        // This should return undefined (empty archive has no witnesses) rather than crashing.
+        const initialHash = await initialHeader.hash();
+        const initialBlockHash = new BlockHash(initialHash);
+        const someBlockHash = BlockHash.random();
+
+        const result = await node.getBlockHashMembershipWitness(initialBlockHash, someBlockHash);
+        expect(result).toBeUndefined();
+      });
+    });
   });
 
   describe('simulatePublicCalls', () => {
