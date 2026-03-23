@@ -53,6 +53,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   /** Replaces the fork used for subsequent block builds. */
   public setFork(fork: MerkleTreeWriteOperations): void {
     this.fork = fork;
+    this.checkpointBuilder.db = fork;
   }
 
   constructor(

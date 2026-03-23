@@ -48,7 +48,7 @@ export class LightweightCheckpointBuilder {
     public feeAssetPriceModifier: bigint,
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
-    public readonly db: MerkleTreeWriteOperations,
+    public db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
   ) {
     this.logger = createLogger('checkpoint-builder', {
