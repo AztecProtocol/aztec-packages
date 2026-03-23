@@ -243,6 +243,11 @@ void WorldState::delete_fork(const uint64_t& forkId)
     }
 }
 
+WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
+{
+    throw std::runtime_error("commit_fork not implemented");
+}
+
 Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();

@@ -75,6 +75,8 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     ContentAddressedAppendOnlyTree& operator=(ContentAddressedAppendOnlyTree const&& other) = delete;
     virtual ~ContentAddressedAppendOnlyTree() = default;
 
+    void clear_initialized_from_block() { store_->clear_initialized_from_block(); }
+
     /**
      * @brief Adds a single value to the end of the tree
      * @param value The value to be added

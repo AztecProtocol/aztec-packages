@@ -274,6 +274,7 @@ class WorldState {
 
     uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
+    WorldStateStatusFull commit_fork(const uint64_t& forkId);
 
     WorldStateStatusSummary set_finalized_blocks(const block_number_t& toBlockNumber);
     WorldStateStatusFull unwind_blocks(const block_number_t& toBlockNumber);
