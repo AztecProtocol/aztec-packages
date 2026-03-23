@@ -301,13 +301,20 @@ export class IpcWorldState implements NativeWorldStateInstance {
     this.open = false;
     const queue = this.queues.get(0)!;
 
-    await queue.execute(
-      async () => {
-        await this.api.wsdbShutdown({});
-      },
-      WorldStateMessageType.CLOSE,
-      false,
-    );
+    // Send shutdown command. The WSDB process may exit before sending a response,
+    // which would leave the IPC call pending. We catch any error (rejected by socket close
+    // or process exit handler) and proceed to destroy the backend regardless.
+    try {
+      await queue.execute(
+        async () => {
+          await this.api.wsdbShutdown({});
+        },
+        WorldStateMessageType.CLOSE,
+        false,
+      );
+    } catch (err: any) {
+      this.log.debug(`wsdbShutdown completed with error: ${err.message}`);
+    }
     await queue.stop();
 
     if (this.wsdbBackend.destroy) {

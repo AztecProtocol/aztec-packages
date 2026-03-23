@@ -143,9 +143,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await wsdbBackend.waitUntilReady();
 
     const cleanup = async () => {
-      if (wsdbBackend.destroy) {
-        await wsdbBackend.destroy();
-      }
+      // Note: wsdbBackend.destroy() is already called by IpcWorldState.close()
+      // so we only clean up the data directory here.
       if (cleanupTmpDir) {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
         log.debug(`Deleted temporary world state database: ${dataDir}`);
@@ -304,8 +303,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async close(): Promise<void> {
-    await this.instance.close();
-    await this.cleanup();
+    try {
+      await this.instance.close();
+    } finally {
+      await this.cleanup();
+    }
   }
 
   private async buildInitialHeader(): Promise<BlockHeader> {
