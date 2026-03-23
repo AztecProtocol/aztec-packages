@@ -151,7 +151,6 @@ await l2Dai.methods
   .send({ from: account.address });
 
 // Initialize L1 portals with registry, underlying token, and L2 bridge addresses
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const initWethPortal = await l1Client.writeContract({
   address: wethPortalAddress.toString() as `0x${string}`,
   abi: ExampleTokenPortal.abi,
@@ -164,7 +163,6 @@ const initWethPortal = await l1Client.writeContract({
 });
 await l1Client.waitForTransactionReceipt({ hash: initWethPortal });
 
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const initDaiPortal = await l1Client.writeContract({
   address: daiPortalAddress.toString() as `0x${string}`,
   abi: ExampleTokenPortal.abi,
@@ -178,7 +176,6 @@ const initDaiPortal = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: initDaiPortal });
 
 // Initialize uniswap portal
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const initUniswapPortal = await l1Client.writeContract({
   address: uniswapPortalAddress.toString() as `0x${string}`,
   abi: ExampleUniswapPortal.abi,
@@ -196,7 +193,6 @@ console.log("Funding accounts...\n");
 const SWAP_AMOUNT = 100n * 10n ** 18n; // 100 tokens
 
 // Mint WETH on L1 for the user
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const mintWethHash = await l1Client.writeContract({
   address: wethAddress.toString() as `0x${string}`,
   abi: ExampleERC20.abi,
@@ -206,7 +202,6 @@ const mintWethHash = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: mintWethHash });
 
 // Pre-fund the uniswap portal with DAI (for the mock 1:1 swap)
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const mintDaiHash = await l1Client.writeContract({
   address: daiAddress.toString() as `0x${string}`,
   abi: ExampleERC20.abi,
@@ -226,7 +221,6 @@ const depositSecret = Fr.random();
 const depositSecretHash = await computeSecretHash(depositSecret);
 
 // Approve WETH portal to take tokens
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const approveHash = await l1Client.writeContract({
   address: wethAddress.toString() as `0x${string}`,
   abi: ExampleERC20.abi,
@@ -236,7 +230,6 @@ const approveHash = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: approveHash });
 
 // Deposit to Aztec publicly
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const depositHash = await l1Client.writeContract({
   address: wethPortalAddress.toString() as `0x${string}`,
   abi: ExampleTokenPortal.abi,
@@ -403,7 +396,6 @@ console.log("Consuming L2->L1 messages on L1...\n");
 // 1. Token bridge exit (withdraw WETH to uniswap portal)
 // 2. Uniswap swap intent
 
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const portalRollupVersion = (await l1Client.readContract({
   address: wethPortalAddress.toString() as `0x${string}`,
   abi: ExampleTokenPortal.abi,
@@ -510,7 +502,6 @@ const swapSiblingPath = swapWitness!.siblingPath
 
 // docs:start:consume_l1_messages_execute
 // Execute the swap on L1 (consumes both messages)
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
 const l1SwapHash = await l1Client.writeContract({
   address: uniswapPortalAddress.toString() as `0x${string}`,
   abi: ExampleUniswapPortal.abi,

@@ -264,16 +264,20 @@ get_all_projects() {
     done
 }
 
-# In CI, validate all yarn.lock files are empty (they must exist but contain no content).
-# Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
+# In CI, validate all yarn.lock files are empty in git (they must exist but contain no content).
+# We check the git index rather than the working tree because previous failed runs
+# (killed by parallel --halt) may leave yarn.lock files populated on disk.
 if [ "${CI:-0}" != "0" ]; then
     for lockfile in */yarn.lock; do
         [ -f "$lockfile" ] || continue
-        if [ -s "$lockfile" ]; then
-            echo_stderr "ERROR: $lockfile is not empty. These files must be committed empty."
+        if git cat-file -e "HEAD:docs/examples/ts/$lockfile" 2>/dev/null && \
+           [ "$(git cat-file -s "HEAD:docs/examples/ts/$lockfile" 2>/dev/null)" != "0" ]; then
+            echo_stderr "ERROR: $lockfile is not empty in git. These files must be committed empty."
             echo_stderr "       Run: > $lockfile && git add $lockfile"
             exit 1
         fi
+        # Reset to empty in case a previous failed run left it populated
+        > "$lockfile"
     done
 fi
 
