@@ -49,16 +49,22 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         }
     }
 
+    info("[prover_instance] before polynomial alloc, dyadic_size=", metadata.dyadic_size);
     {
         BB_BENCH_NAME("allocating polynomials");
         vinfo("allocating polynomials object in prover instance...");
 
         populate_memory_records(circuit);
         allocate_wires();
+        info("[prover_instance] after allocate_wires");
         allocate_permutation_argument_polynomials();
+        info("[prover_instance] after allocate_permutation_argument_polynomials");
         allocate_selectors(circuit);
+        info("[prover_instance] after allocate_selectors");
         allocate_table_lookup_polynomials(circuit);
+        info("[prover_instance] after allocate_table_lookup_polynomials");
         allocate_lagrange_polynomials();
+        info("[prover_instance] after allocate_lagrange_polynomials");
 
         if constexpr (IsMegaFlavor<Flavor>) {
             allocate_ecc_op_polynomials(circuit);
@@ -73,7 +79,17 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
 
     // Construct and add to proving key the wire, selector and copy constraint polynomials
     vinfo("populating trace...");
+    info("[prover_instance] before populate trace");
     TraceToPolynomials<Flavor>::populate(circuit, polynomials);
+    info("[prover_instance] after populate trace");
+
+    // Free circuit block data (wires + selectors) now that it has been consumed into prover polynomials.
+    // Lookup tables are still needed for construct_lookup_polynomials below, but they live in circuit.tables,
+    // not in the blocks. size() and trace_offset() remain valid after free_data() via cached_size_.
+    for (auto& block : circuit.blocks.get()) {
+        block.free_data();
+    }
+    info("[prover_instance] after free block data");
 
     if constexpr (IsMegaFlavor<Flavor>) {
         BB_BENCH_NAME("constructing databus polynomials");
