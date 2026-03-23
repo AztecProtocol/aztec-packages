@@ -167,7 +167,7 @@ namespace sha256;
     // (1) state_addr + 7 > max_mem_addr
     // (2) input_addr + 15 > max_mem_addr
     // (3) output_addr + 7 > max_mem_addr
-    pol commit max_mem_addr; // todo: While we do not support constants
+    pol commit max_mem_addr; // Lookup constant support: Can be removed when we support constants in lookups.
     start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 
     // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
@@ -211,7 +211,7 @@ namespace sha256;
     pol commit memory_address[8]; // Addresses to read from or write to
     pol commit memory_register[8]; // These will be used by state and output values
     pol commit memory_tag[8]; // Memory Tag loaded from memory
-    pol commit u32_tag; // todo: While no constants in lookup
+    pol commit u32_tag; // Lookup constant support: Can be removed when we support constants in lookups.
     u32_tag = sel * constants.MEM_TAG_U32;
 
     // When this selector is on, the memory columns are active
@@ -239,8 +239,6 @@ namespace sha256;
     sel_mem_state_or_output * (memory_address[6] - (MEM_ADDR + 6)) = 0;
     sel_mem_state_or_output * (memory_address[7] - (MEM_ADDR + 7)) = 0;
 
-    // todo(ilyas): might be a way to get the sha256 compression trace to operate directly on memory_registers
-    //              this is an optimisation
     // If we are at the start, the init_x values of the sha256 compression trace is populated by these registers
     // If we are at the end, the output_x_rhs values of the sha256 compression trace populate these registers
     sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[0] - init_a) + OUTPUT_WRITE_CONDITION * (memory_register[0] - output_a_rhs)) = 0;
