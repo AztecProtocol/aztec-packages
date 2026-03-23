@@ -36,19 +36,12 @@ template <typename G1> class TestAffineElement : public testing::Test {
         // a generic point
         {
             affine_element P = affine_element(element::random_element());
-            affine_element Q;
             affine_element R;
 
-            std::vector<uint8_t> v(65); // extra byte to allow a bad read
+            std::vector<uint8_t> v(64);
             uint8_t* ptr = v.data();
             affine_element::serialize_to_buffer(P, ptr);
 
-            // bad read
-            Q = affine_element::serialize_from_buffer(ptr + 1);
-            ASSERT_FALSE(Q.on_curve() && !Q.is_point_at_infinity());
-            ASSERT_FALSE(P == Q);
-
-            // good read
             R = affine_element::serialize_from_buffer(ptr);
             ASSERT_TRUE(R.on_curve());
             ASSERT_TRUE(P == R);
@@ -67,6 +60,26 @@ template <typename G1> class TestAffineElement : public testing::Test {
             R = affine_element::serialize_from_buffer(ptr);
             ASSERT_TRUE(R.is_point_at_infinity());
             ASSERT_TRUE(P == R);
+        }
+    }
+
+    // Verify that serialize_from_buffer rejects off-curve bytes by throwing.
+    static void test_deserialize_off_curve_throws()
+    {
+        using Fq = typename G1::Fq;
+        // Take a valid on-curve point and corrupt its y-coordinate.
+        // P.y + 1 satisfies (y+1)^2 != y^2 (i.e. off-curve) unless 2y + 1 = 0 (prob ~1/p).
+        affine_element P = affine_element(element::random_element());
+        affine_element off_curve;
+        off_curve.x = P.x;
+        off_curve.y = P.y + Fq::one();
+
+        std::vector<uint8_t> v(sizeof(affine_element));
+        uint8_t* ptr = v.data();
+        affine_element::serialize_to_buffer(off_curve, ptr);
+
+        if (!off_curve.on_curve()) {
+            EXPECT_THROW(affine_element::serialize_from_buffer(ptr), std::runtime_error);
         }
     }
 
@@ -192,6 +205,24 @@ template <typename G1> class TestAffineElement : public testing::Test {
         EXPECT_NE(P < Q, Q < P);
     }
 
+    // Verify that from_compressed with an x that has no y on the curve returns the (0,0) sentinel.
+    static void test_point_compression_invalid_x()
+    {
+        using Fq = typename G1::Fq;
+        size_t invalid_count = 0;
+        for (size_t i = 0; i < 20; ++i) {
+            affine_element result = affine_element::from_compressed(uint256_t(Fq::random_element()));
+            if (!result.on_curve()) {
+                ++invalid_count;
+                // from_compressed returns (0, 0) when x has no valid y
+                EXPECT_EQ(result.x, Fq::zero());
+                EXPECT_EQ(result.y, Fq::zero());
+            }
+        }
+        // With 20 trials ~10 should have no valid y, so we almost certainly exercise this path
+        EXPECT_GT(invalid_count, 0U);
+    }
+
     /**
      * @brief A regression test to make sure the -1 case is covered
      *
@@ -298,15 +329,22 @@ class TestElementPrivate {
 };
 } // namespace bb::group_elements
 
-// Our endomorphism-specialized multiplication should match our generic multiplication
+// Our endomorphism-specialized multiplication should match our generic multiplication.
+// Previously only tested on Grumpkin; now runs on every curve that has USE_ENDOMORPHISM.
 TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 {
-    for (int i = 0; i < 100; i++) {
-        auto x1 = bb::group_elements::element(grumpkin::g1::affine_element::random_element());
-        auto f1 = grumpkin::fr::random_element();
-        auto r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, f1);
-        auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
-        EXPECT_EQ(r1, r2);
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        using element_t = typename TypeParam::element;
+        using Fr = typename TypeParam::Fr;
+        for (int i = 0; i < 100; i++) {
+            element_t x1(element_t::random_element());
+            Fr f1 = Fr::random_element();
+            element_t r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, f1);
+            element_t r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
+            EXPECT_EQ(r1, r2);
+        }
     }
 }
 
@@ -344,6 +382,26 @@ TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
     auto reconstructed = FrCodec::deserialize_from_fields<AffineElement>(limbs);
 
     EXPECT_EQ(reconstructed, point);
+}
+
+// Verify that batch_mul_with_endomorphism gives correct results for even scalars (where k1 or k2 in the
+// GLV decomposition is even), exercising the skew-correction path that uses affine_element::operator+.
+// Scalar 0 gives k1 = k2 = 0 (both skews), and even scalars like 2 and 4 trigger the k1-skew path.
+// These are regression tests for the operator+ fix: reverting to add_chunked would abort when the
+// accumulated result happens to equal ±P during the skew correction.
+TEST(AffineElement, BatchMulEndomorphismEvenScalars)
+{
+    using G1 = grumpkin::g1;
+    const G1::affine_element P = G1::affine_element::one();
+    const std::vector<G1::affine_element> points(4, P);
+
+    for (const grumpkin::fr scalar : { grumpkin::fr(0), grumpkin::fr(2), grumpkin::fr(4), grumpkin::fr(6) }) {
+        const auto result = G1::element::batch_mul_with_endomorphism(points, scalar);
+        const G1::affine_element expected(G1::element(P) * scalar);
+        for (size_t i = 0; i < points.size(); ++i) {
+            EXPECT_EQ(result[i], expected);
+        }
+    }
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason
@@ -392,6 +450,22 @@ TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
         TestFixture::test_batch_endomorphism_by_minus_one();
     } else {
         GTEST_SKIP();
+    }
+}
+
+// Verify that serialize_from_buffer rejects off-curve bytes by throwing (tests the invalid-curve attack fix).
+TYPED_TEST(TestAffineElement, DeserializeOffCurveThrows)
+{
+    TestFixture::test_deserialize_off_curve_throws();
+}
+
+// Verify that from_compressed returns the (0,0) sentinel for x values with no valid y.
+TYPED_TEST(TestAffineElement, PointCompressionInvalidX)
+{
+    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        GTEST_SKIP(); // from_compressed is not used on large-modulus curves
+    } else {
+        TestFixture::test_point_compression_invalid_x();
     }
 }
 
