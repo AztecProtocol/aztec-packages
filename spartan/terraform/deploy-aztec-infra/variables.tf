@@ -309,6 +309,12 @@ variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   default     = false
 }
 
+variable "PROVER_NODE_SPLIT_PROVING" {
+  description = "Enable split proving mode for parallel checkpoint-level proving"
+  type        = bool
+  default     = false
+}
+
 variable "P2P_MAX_TX_POOL_SIZE" {
   description = "Maximum size of the P2P transaction pool"
   type        = string

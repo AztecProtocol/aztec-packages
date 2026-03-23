@@ -358,6 +358,7 @@ locals {
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHERS_PER_PROVER"                 = var.PROVER_PUBLISHERS_PER_PROVER
           "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"     = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
+          "node.node.env.PROVER_NODE_SPLIT_PROVING"              = var.PROVER_NODE_SPLIT_PROVING
           "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
           "node.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
           "node.node.secret.envEnabled"                         = true
