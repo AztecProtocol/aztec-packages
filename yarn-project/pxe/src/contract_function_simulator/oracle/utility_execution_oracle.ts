@@ -600,8 +600,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
       // TODO(@mverzilli): this is a prime example of where using a volatile array would make much more sense, we don't
       // need scopes here, we just need a bit of shared memory to cross boundaries between Noir and TS.
-      // At the same time, we don't want allow any global scope access other than where backwards compatibility forces
-      // us to, so we need scope to be here artificially.
+      // At the same time, we don't want to allow any global scope access other than where backwards compatibility
+      // forces us to. Hence we need the scope here to be artificial.
       const requestCapsules = await this.capsuleStore.readCapsuleArray(
         contractAddress,
         messageContextRequestsArrayBaseSlot,
