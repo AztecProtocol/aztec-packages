@@ -37,6 +37,8 @@ export class AvmBackend implements IMsgpackBackendAsync {
   private socketPath: string;
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
+  /** Resolves when the child process exits (for clean destroy). */
+  private processExitPromise: Promise<void>;
 
   private pendingCallbacks: Array<{
     resolve: (data: Uint8Array) => void;
@@ -106,13 +108,16 @@ export class AvmBackend implements IMsgpackBackendAsync {
       connectionReject?.(new Error(msg));
     });
 
-    this.process.on('exit', (code: number | null) => {
-      const msg = `aztec-avm process exited with code ${code}\nstderr: ${stderrOutput}`;
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(new Error(msg));
-      }
-      this.pendingCallbacks = [];
-      connectionReject?.(new Error(msg));
+    this.processExitPromise = new Promise<void>(resolve => {
+      this.process.on('exit', (code: number | null) => {
+        const msg = `aztec-avm process exited with code ${code}\nstderr: ${stderrOutput}`;
+        for (const cb of this.pendingCallbacks) {
+          cb.reject(new Error(msg));
+        }
+        this.pendingCallbacks = [];
+        connectionReject?.(new Error(msg));
+        resolve();
+      });
     });
 
     // Poll for socket file
@@ -261,13 +266,10 @@ export class AvmBackend implements IMsgpackBackendAsync {
       this.socket = null;
     }
 
-    if (this.process && !this.process.killed) {
-      const exitPromise = new Promise<void>(resolve => {
-        this.process!.once('exit', () => resolve());
-      });
+    if (this.process && this.process.exitCode === null) {
       this.process.kill('SIGTERM');
-      await exitPromise;
     }
+    await this.processExitPromise;
 
     // Clean up socket file
     try {

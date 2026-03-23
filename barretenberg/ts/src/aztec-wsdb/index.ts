@@ -111,6 +111,8 @@ export class WsdbBackend implements IMsgpackBackendAsync {
   private useShm: boolean;
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
+  /** Resolves when the child process exits (for clean destroy). */
+  private processExitPromise: Promise<void>;
 
   private pendingCallbacks: Array<{
     resolve: (data: Uint8Array) => void;
@@ -182,12 +184,15 @@ export class WsdbBackend implements IMsgpackBackendAsync {
       connectionReject?.(err);
     });
 
-    this.process.on('exit', (code: number | null) => {
-      const error = new Error(`aztec-wsdb process exited with code ${code}`);
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(error);
-      }
-      this.pendingCallbacks = [];
+    this.processExitPromise = new Promise<void>(resolve => {
+      this.process.on('exit', (code: number | null) => {
+        const error = new Error(`aztec-wsdb process exited with code ${code}`);
+        for (const cb of this.pendingCallbacks) {
+          cb.reject(error);
+        }
+        this.pendingCallbacks = [];
+        resolve();
+      });
     });
 
     if (this.useShm) {
@@ -405,13 +410,10 @@ export class WsdbBackend implements IMsgpackBackendAsync {
       this.socket = null;
     }
 
-    if (this.process && !this.process.killed) {
-      const exitPromise = new Promise<void>(resolve => {
-        this.process!.once('exit', () => resolve());
-      });
+    if (this.process && this.process.exitCode === null) {
       this.process.kill('SIGTERM');
-      await exitPromise;
     }
+    await this.processExitPromise;
 
     // Clean up socket/shm files
     try {
