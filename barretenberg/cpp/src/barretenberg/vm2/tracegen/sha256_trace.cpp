@@ -127,7 +127,7 @@ void Sha256TraceBuilder::into_limbs_with_witness(
 uint32_t Sha256TraceBuilder::ror_with_witness(
     const uint32_t val, const uint8_t shift, C col_result, C col_lhs, C col_rhs, TraceContainer& trace) const
 {
-    auto result = (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
+    auto result = (val >> shift) | (val << (32U - shift));
     into_limbs_with_witness(val, shift, col_lhs, col_rhs, trace);
     trace.set(col_result, row, result);
     return result;
