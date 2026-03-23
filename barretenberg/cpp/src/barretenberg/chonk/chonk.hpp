@@ -229,9 +229,9 @@ class Chonk : public IVCBase {
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
 
-    void debug_incoming_circuit(ClientCircuit& circuit,
-                                const std::shared_ptr<ProverInstance>& prover_instance,
-                                const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+    void debug_circuit_check(ClientCircuit& circuit);
+    void debug_vk_check(const std::shared_ptr<ProverInstance>& prover_instance,
+                        const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
 
     QUEUE_TYPE get_queue_type() const;

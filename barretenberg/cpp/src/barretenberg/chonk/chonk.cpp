@@ -402,8 +402,8 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     std::shared_ptr<ProverInstance> prover_instance;
 
 #ifndef NDEBUG
-    prover_instance = std::make_shared<ProverInstance>(circuit);
-    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
+    // Circuit checker must run before ProverInstance construction, which frees circuit block data.
+    debug_circuit_check(circuit);
 #endif
 
     // For the hiding kernel (MEGA), build the ZK proving key and store it.
@@ -425,15 +425,17 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         return;
     }
 
-    // Construct the prover instance for circuit (may already exist from debug path above)
-    if (!prover_instance) {
-        prover_instance = std::make_shared<ProverInstance>(circuit);
-    }
+    prover_instance = std::make_shared<ProverInstance>(circuit);
 
     // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
+
+#ifndef NDEBUG
+    // VK comparison runs after ProverInstance construction (circuit blocks already freed, but not needed here).
+    debug_vk_check(prover_instance, precomputed_vk);
+#endif
 
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
@@ -650,24 +652,24 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 }
 
-void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
-                                   const std::shared_ptr<ProverInstance>& prover_instance,
-                                   const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+void Chonk::debug_circuit_check(ClientCircuit& circuit)
 {
     info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
-
     info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
     info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
     info("Did we find a failure? ", circuit.failed() ? "true" : "false");
     if (circuit.failed()) {
         info("\t\t\tError message? ", circuit.err());
     }
+}
 
+void Chonk::debug_vk_check(const std::shared_ptr<ProverInstance>& prover_instance,
+                           const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+{
     // Compare precomputed VK with the one generated during accumulation
     auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
     info("Does the precomputed vk match with the one generated during accumulation? ",
          vk->compare(*precomputed_vk, MegaFlavor::CommitmentLabels().get_precomputed()) ? "true" : "false");
-
     info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }
 #endif
