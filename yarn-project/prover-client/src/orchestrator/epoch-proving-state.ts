@@ -286,6 +286,11 @@ export class EpochProvingState {
     }
   }
 
+  /** Sets the end blob accumulator directly (used by TopTreeOrchestrator with pre-built inputs). */
+  public setEndBlobAccumulator(accumulator: BatchedBlobAccumulator) {
+    this.endBlobAccumulator = accumulator;
+  }
+
   public async finalizeBatchedBlob() {
     if (!this.endBlobAccumulator) {
       throw new Error('End blob accumulator not ready.');

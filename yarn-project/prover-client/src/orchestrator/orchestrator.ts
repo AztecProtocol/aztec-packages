@@ -1213,7 +1213,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
   }
 
-  private async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
+  protected async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
     if (!provingState.isReadyForCheckpointRoot()) {
       return;
     }

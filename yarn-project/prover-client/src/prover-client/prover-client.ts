@@ -18,7 +18,9 @@ import {
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ProverClientConfig } from '../config.js';
+import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
@@ -59,6 +61,53 @@ export class ProverClient implements EpochProverManager {
       bindings,
     );
     return new ServerEpochProver(facade, orchestrator);
+  }
+
+  /** Creates a CheckpointSubTreeOrchestrator with its facade for split proving mode. */
+  public createCheckpointSubTreeProver(): {
+    orchestrator: CheckpointSubTreeOrchestrator;
+    facade: BrokerCircuitProverFacade;
+  } {
+    const bindings = this.log.getBindings();
+    const facade = new BrokerCircuitProverFacade(
+      this.orchestratorClient,
+      this.proofStore,
+      this.failedProofStore,
+      1000,
+      bindings,
+      1_000, // Fast snapshot sync — multiple facades share the broker
+    );
+    const orchestrator = new CheckpointSubTreeOrchestrator(
+      this.worldState,
+      facade,
+      this.config.proverId,
+      this.config.enqueueConcurrency,
+      this.telemetry,
+      bindings,
+    );
+    return { orchestrator, facade };
+  }
+
+  /** Creates a TopTreeOrchestrator with a started facade for split proving mode. */
+  public createTopTreeProver(): { orchestrator: TopTreeOrchestrator; facade: BrokerCircuitProverFacade } {
+    const bindings = this.log.getBindings();
+    const facade = new BrokerCircuitProverFacade(
+      this.orchestratorClient,
+      this.proofStore,
+      this.failedProofStore,
+      1000,
+      bindings,
+      1_000, // Fast snapshot sync — multiple facades share the broker
+    );
+    facade.start();
+    const orchestrator = new TopTreeOrchestrator(
+      facade,
+      this.config.proverId,
+      this.config.enqueueConcurrency,
+      this.telemetry,
+      bindings,
+    );
+    return { orchestrator, facade };
   }
 
   public getProverId(): EthAddress {

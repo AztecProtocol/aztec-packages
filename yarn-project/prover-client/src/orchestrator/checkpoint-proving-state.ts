@@ -340,6 +340,11 @@ export class CheckpointProvingState {
     this.parentEpoch.reject(reason);
   }
 
+  /** Returns the final child proofs needed for checkpoint root rollup (the sub-tree output). */
+  public getSubTreeOutputProofs() {
+    return this.#getChildProofsForRoot();
+  }
+
   #getChildProofsForRoot() {
     const rootLocation = { level: 0, index: 0 };
     return this.totalNumBlocks === 1
