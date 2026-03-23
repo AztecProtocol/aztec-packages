@@ -1062,6 +1062,7 @@ describe('NativeWorldState', () => {
       await testQuery(initialPublicTreeInfo.size, publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () =>
         PublicDataWrite.random().toBuffer(),
       );
+      await ws.close();
     });
   });
 
@@ -1120,6 +1121,7 @@ describe('NativeWorldState', () => {
       await testQuery(noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);
       await testQuery(nullifiers, MerkleTreeId.NULLIFIER_TREE, () => Fr.random().toBuffer());
       await testQuery(publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () => PublicDataWrite.random().toBuffer());
+      await ws.close();
     });
   });
 
@@ -1181,6 +1183,7 @@ describe('NativeWorldState', () => {
         [before, before + 1, before + 2].map(x => BigInt(x)),
       );
       expect(blockNumbers).toEqual([2, 2, undefined].map(x => (x == undefined ? x : BlockNumber(x))));
+      await ws.close();
     });
   });
 
