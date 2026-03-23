@@ -1,6 +1,7 @@
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { FifoFrameReader } from '@aztec/foundation/fifo';
 import { createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
@@ -31,6 +32,7 @@ interface FifoVerifyResult {
 const CHONK_VK_ARTIFACTS = ['HidingKernelToRollup', 'HidingKernelToPublic'] as const;
 
 interface PendingRequest {
+  promise: Promise<IVCProofVerificationResult>;
   resolve: (result: IVCProofVerificationResult) => void;
   reject: (error: Error) => void;
   totalTimer: Timer;
@@ -142,9 +144,8 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     const totalTimer = new Timer();
     const requestId = this.nextRequestId++;
 
-    const resultPromise = new Promise<IVCProofVerificationResult>((resolve, reject) => {
-      this.pendingRequests.set(requestId, { resolve, reject, totalTimer });
-    });
+    const { promise, resolve, reject } = promiseWithResolvers<IVCProofVerificationResult>();
+    this.pendingRequests.set(requestId, { promise, resolve, reject, totalTimer });
 
     void this.sendQueue
       .put(async () => {
@@ -162,7 +163,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
         }
       });
 
-    return resultPromise;
+    return promise;
   }
 
   public async stop(): Promise<void> {

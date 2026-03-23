@@ -30,6 +30,9 @@ export class FifoFrameReader extends EventEmitter<FifoFrameReaderEvents> {
   private stream: Readable | null = null;
   private pendingBuf: Buffer = Buffer.alloc(0);
   private running = false;
+  private onData: ((chunk: Buffer | string) => void) | null = null;
+  private onError: ((err: Error) => void) | null = null;
+  private onEnd: (() => void) | null = null;
 
   constructor(private readonly maxPayloadSize = 10 * 1024 * 1024) {
     super();
@@ -49,30 +52,48 @@ export class FifoFrameReader extends EventEmitter<FifoFrameReaderEvents> {
     this.pendingBuf = Buffer.alloc(0);
     this.stream = stream;
 
-    stream.on('data', (chunk: Buffer | string) => {
+    // TODO(#21823): Use a ring buffer with read/write pointers instead of
+    // Buffer.concat on every data event to reduce allocations.
+    this.onData = (chunk: Buffer | string) => {
       const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       this.pendingBuf = this.pendingBuf.length > 0 ? Buffer.concat([this.pendingBuf, buf]) : buf;
       this.drainFrames();
-    });
+    };
 
-    stream.on('error', (err: Error) => {
+    this.onError = (err: Error) => {
       if (this.running) {
         this.emit('error', err);
       }
-    });
+    };
 
-    stream.on('end', () => {
+    this.onEnd = () => {
       this.emit('end');
-    });
+    };
+
+    stream.on('data', this.onData);
+    stream.on('error', this.onError);
+    stream.on('end', this.onEnd);
   }
 
-  /** Stop reading and destroy the underlying stream. */
+  /** Stop reading, remove event listeners, and destroy the underlying stream. */
   stop(): void {
     this.running = false;
     if (this.stream) {
+      if (this.onData) {
+        this.stream.removeListener('data', this.onData);
+      }
+      if (this.onError) {
+        this.stream.removeListener('error', this.onError);
+      }
+      if (this.onEnd) {
+        this.stream.removeListener('end', this.onEnd);
+      }
       this.stream.destroy();
       this.stream = null;
     }
+    this.onData = null;
+    this.onError = null;
+    this.onEnd = null;
   }
 
   /** Parse complete frames out of the pending buffer. */
