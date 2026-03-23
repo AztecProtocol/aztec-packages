@@ -5,6 +5,7 @@
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/avm_sim_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/wsdb/wsdb_commands.hpp"
 
@@ -12,6 +13,11 @@ namespace bb::avm {
 
 using namespace bb::avm2;
 using namespace bb::world_state;
+
+// Global cancellation token for the currently active simulation.
+// Set before simulation starts, cleared after. SIGUSR1 handler reads this to cancel.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::atomic<avm2::simulation::CancellationToken*> g_active_cancellation_token{ nullptr };
 
 // ---------------------------------------------------------------------------
 // Helper: serialize a value to msgpack bytes
@@ -66,6 +72,11 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
     // Route CDB requests to the correct PublicContractsDB via fork ID
     request.cdb_client.set_fork_id(fork_id);
 
+    // Create a cancellation token for this simulation and expose it globally
+    // so the SIGUSR1 handler can signal cancellation from TypeScript.
+    auto cancellation_token = std::make_shared<avm2::simulation::CancellationToken>();
+    g_active_cancellation_token.store(cancellation_token.get(), std::memory_order_release);
+
     try {
         // Create revision pointing to the fork
         WorldStateRevision revision = {
@@ -86,13 +97,17 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
                                                                                     sim_inputs.config,
                                                                                     sim_inputs.tx,
                                                                                     sim_inputs.global_variables,
-                                                                                    sim_inputs.protocol_contracts)
+                                                                                    sim_inputs.protocol_contracts,
+                                                                                    cancellation_token)
                           : simulation_helper.simulate_fast_internal(request.cdb_client,
                                                                      merkle_db,
                                                                      sim_inputs.config,
                                                                      sim_inputs.tx,
                                                                      sim_inputs.global_variables,
-                                                                     sim_inputs.protocol_contracts);
+                                                                     sim_inputs.protocol_contracts,
+                                                                     cancellation_token);
+
+        g_active_cancellation_token.store(nullptr, std::memory_order_release);
 
         // Only clean up fork if we created it
         if (!use_external_fork) {
@@ -101,6 +116,8 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
 
         return Response{ .result = serialize_to_msgpack(result) };
     } catch (...) {
+        g_active_cancellation_token.store(nullptr, std::memory_order_release);
+
         // Only clean up fork on error if we created it
         if (!use_external_fork) {
             try {

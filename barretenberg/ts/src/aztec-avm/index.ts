@@ -235,20 +235,15 @@ export class AvmBackend implements IMsgpackBackendAsync {
   }
 
   /**
-   * Cancel the current simulation.
-   *
-   * We intentionally do NOT kill the AVM process here. The process is long-lived
-   * and shared across block builds. Killing it would make it unavailable for
-   * subsequent blocks. Instead, the in-flight simulation completes in the background
-   * and its response is received by the pending callback (which the caller has
-   * already abandoned due to timeout). The fork's checkpoints are reverted by
-   * the caller, so the AVM's writes are discarded.
-   *
-   * TODO(#IPC): Add an AvmCancel IPC command that sets the C++ CancellationToken
-   * to abort the simulation early without killing the process.
+   * Cancel the current simulation by sending SIGUSR1 to the AVM process.
+   * The C++ side has a signal handler that sets the CancellationToken,
+   * causing the simulation to throw CancelledException at the next opcode check.
+   * The process stays alive and is reusable for subsequent simulations.
    */
   async cancel(): Promise<void> {
-    // No-op: let the simulation finish in the background.
+    if (this.process && this.process.exitCode === null) {
+      this.process.kill('SIGUSR1');
+    }
   }
 
   async destroy(): Promise<void> {

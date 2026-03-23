@@ -48,19 +48,13 @@ export class AvmSimulatorPool implements AvmIpcBackend {
   }
 
   /**
-   * Cancel all in-flight simulations by destroying their backends.
-   * Dead slots are replaced with fresh processes on next checkout.
+   * Cancel all in-flight simulations by sending SIGUSR1 to their AVM processes.
+   * The C++ side sets a CancellationToken, causing the simulation to throw at
+   * the next opcode check. The processes stay alive and are reusable.
    */
   async cancel(): Promise<void> {
-    const backends = [...this.inFlight];
-    this.inFlight.clear();
-    for (const backend of backends) {
-      const idx = this.slots.indexOf(backend);
-      if (idx >= 0) {
-        this.slots[idx] = null; // Mark slot as dead
-      }
-      await backend.destroy?.();
-      this.log.debug('Cancelled in-flight AVM simulation by destroying backend');
+    for (const backend of this.inFlight) {
+      await backend.cancel?.();
     }
   }
 

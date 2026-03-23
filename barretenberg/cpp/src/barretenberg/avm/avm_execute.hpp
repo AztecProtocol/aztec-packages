@@ -7,9 +7,16 @@
 #include "barretenberg/avm/avm_commands.hpp"
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/named_union.hpp"
+#include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_client_generated.hpp"
 
+#include <atomic>
+
 namespace bb::avm {
+
+/** Global cancellation token for the active simulation. SIGUSR1 handler uses this. */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern std::atomic<avm2::simulation::CancellationToken*> g_active_cancellation_token;
 
 /**
  * @brief Context passed to each command's execute() method.

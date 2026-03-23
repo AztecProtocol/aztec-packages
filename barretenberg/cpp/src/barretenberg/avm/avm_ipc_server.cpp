@@ -131,8 +131,18 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
         std::exit(1);
     };
 
+    // SIGUSR1 cancels the active simulation without killing the process.
+    // TypeScript sends this signal when a tx exceeds its deadline.
+    auto cancel_simulation_handler = [](int /*signal*/) {
+        auto* token = g_active_cancellation_token.load(std::memory_order_acquire);
+        if (token) {
+            token->cancel();
+        }
+    };
+
     (void)std::signal(SIGTERM, graceful_shutdown_handler);
     (void)std::signal(SIGINT, graceful_shutdown_handler);
+    (void)std::signal(SIGUSR1, cancel_simulation_handler);
     (void)std::signal(SIGBUS, fatal_error_handler);
     (void)std::signal(SIGSEGV, fatal_error_handler);
 
