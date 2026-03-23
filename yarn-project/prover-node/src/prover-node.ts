@@ -18,11 +18,14 @@ import {
   EpochProvingJobTerminalState,
   type ITxProvider,
   type ProverNodeApi,
+  type ProvingJobClaimManager,
+  type ProvingJobProducer,
   type Service,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
+// makeCheckpointSubTreeWorkItemId, makeTopTreeWorkItemId removed — claims now handled by WorkPoller
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -38,12 +41,16 @@ import {
 
 import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
 import type { SpecificProverNodeConfig } from './config.js';
+import { CheckpointSubTreeJob } from './job/checkpoint-sub-tree-job.js';
 import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
+import { TopTreeJob } from './job/top-tree-job.js';
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
+import { WorkPoller, type WorkPollerHandler } from './monitors/work-poller.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
 import type { ProverPublisherFactory } from './prover-publisher-factory.js';
+import { isSplitProverManager } from './split-prover-manager.js';
 
 type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
 type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
@@ -53,13 +60,14 @@ type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfi
  * fetches their txs from the p2p network or external nodes, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
-export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable {
+export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
 
   private jobs: Map<string, EpochProvingJob> = new Map();
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
+  private workPoller: WorkPoller | undefined;
 
   public readonly tracer: Tracer;
 
@@ -80,6 +88,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
     private delayer?: Delayer,
     private readonly dateProvider: DateProvider = new DateProvider(),
+    private readonly broker?: ProvingJobProducer & ProvingJobClaimManager,
   ) {
     this.config = {
       proverNodePollingIntervalMs: 1_000,
@@ -91,6 +100,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       txGatheringTimeoutMs: 120_000,
       proverNodeFailedEpochStore: undefined,
       proverNodeEpochProvingDelayMs: undefined,
+      proverNodeSplitProving: false,
+      proverNodeWorkPollIntervalMs: 1_000,
+      proverNodeClaimHeartbeatIntervalMs: 30_000,
       ...compact(config),
     };
 
@@ -151,12 +163,34 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * starts proving jobs for them.
    */
   async start() {
-    this.epochsMonitor.start(this);
-    await this.publisherFactory.start();
-    this.publisher = await this.publisherFactory.create();
-    await this.rewardsMetrics.start();
-    this.l1Metrics.start();
-    this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.config);
+    if (this.config.proverNodeSplitProving) {
+      if (!this.broker) {
+        throw new Error('Split proving mode requires a broker instance');
+      }
+      this.log.info('Starting Prover Node in split proving mode');
+      this.workPoller = new WorkPoller(
+        this.l2BlockSource,
+        this.broker,
+        this.config.proverNodeWorkPollIntervalMs,
+        this.config.proverNodeMaxPendingJobs,
+      );
+      this.workPoller.start(this);
+      await this.publisherFactory.start();
+      this.publisher = await this.publisherFactory.create();
+      await this.rewardsMetrics.start();
+      this.l1Metrics.start();
+      this.log.info(
+        `Started Prover Node (split mode) with prover id ${this.prover.getProverId().toString()}`,
+        this.config,
+      );
+    } else {
+      this.epochsMonitor.start(this);
+      await this.publisherFactory.start();
+      this.publisher = await this.publisherFactory.create();
+      await this.rewardsMetrics.start();
+      this.l1Metrics.start();
+      this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.config);
+    }
   }
 
   /**
@@ -165,6 +199,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   async stop() {
     this.log.info('Stopping ProverNode');
+    await this.workPoller?.stop();
     await this.epochsMonitor.stop();
     await this.prover.stop();
     await tryStop(this.publisherFactory);
@@ -174,6 +209,178 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.l1Metrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
+  }
+
+  // WorkPollerHandler implementation (split proving mode)
+
+  async onCheckpointAvailable(
+    epoch: EpochNumber,
+    checkpointIndex: number,
+    claim: { workItemId: string; claimToken: string },
+  ): Promise<void> {
+    if (!this.broker) {
+      return;
+    }
+
+    try {
+      const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epoch);
+      const checkpoint = checkpoints[checkpointIndex];
+      if (!checkpoint) {
+        throw new Error(`Checkpoint ${checkpointIndex} not found for epoch ${epoch}`);
+      }
+
+      // Gather txs, messages, previous header
+      const deadline = new Date(this.dateProvider.now() + this.config.txGatheringTimeoutMs);
+      const txProvider = this.p2pClient.getTxProvider();
+      const txsByBlock = await Promise.all(
+        checkpoint.blocks.map(block => txProvider.getTxsForBlock(block, { deadline })),
+      );
+      const txsByHash = new Map(txsByBlock.flatMap(({ txs }) => txs).map(tx => [tx.getTxHash().toString(), tx]));
+      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpoint.number);
+
+      const firstBlockNumber = checkpoint.blocks[0].number;
+      const previousBlockHeader = await (firstBlockNumber === 1
+        ? this.worldState.getCommitted().getInitialHeader()
+        : this.l2BlockSource.getBlockHeader(BlockNumber(firstBlockNumber - 1)));
+      if (!previousBlockHeader) {
+        throw new Error(`Previous block header not found for block ${firstBlockNumber - 1}`);
+      }
+
+      const lastBlock = checkpoint.blocks.at(-1)!;
+      await this.worldState.syncImmediate(lastBlock.number, await lastBlock.header.hash());
+
+      // Create sub-tree orchestrator with facade
+      if (!isSplitProverManager(this.prover)) {
+        throw new Error('Prover client does not support split proving');
+      }
+      const { orchestrator, facade } = this.prover.createCheckpointSubTreeProver();
+      facade.start();
+
+      const publicProcessorFactory = new PublicProcessorFactory(
+        this.contractDataSource,
+        this.dateProvider,
+        this.telemetryClient,
+      );
+
+      const job = new CheckpointSubTreeJob(
+        epoch,
+        checkpointIndex,
+        checkpoint,
+        txsByHash,
+        l1ToL2Messages,
+        previousBlockHeader,
+        orchestrator,
+        this.broker,
+        this.worldState,
+        publicProcessorFactory,
+        claim.claimToken,
+        claim.workItemId,
+        { heartbeatIntervalMs: this.config.proverNodeClaimHeartbeatIntervalMs },
+      );
+
+      void job
+        .run()
+        .finally(() => facade.stop())
+        .catch(err => {
+          this.log.error(`Sub-tree job failed for epoch=${epoch} checkpoint=${checkpointIndex}`, err);
+        });
+    } catch (err) {
+      this.log.error(`Failed to start sub-tree job for epoch=${epoch} checkpoint=${checkpointIndex}`, err);
+      await this.broker.releaseClaim(claim.workItemId, claim.claimToken);
+    }
+  }
+
+  async onEpochReadyForTopTree(epoch: EpochNumber, claim: { workItemId: string; claimToken: string }): Promise<void> {
+    if (!this.broker) {
+      return;
+    }
+
+    try {
+      // Gather checkpoint data from archiver
+      const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epoch);
+      if (!checkpoints.length) {
+        throw new Error(`No checkpoints found for epoch ${epoch}`);
+      }
+
+      const firstBlockNumber = checkpoints[0].blocks[0].number;
+      const previousBlockHeader = await (firstBlockNumber === 1
+        ? this.worldState.getCommitted().getInitialHeader()
+        : this.l2BlockSource.getBlockHeader(BlockNumber(firstBlockNumber - 1)));
+      if (!previousBlockHeader) {
+        throw new Error(`Previous block header not found for block ${firstBlockNumber - 1}`);
+      }
+
+      // Sync world state for archive sibling paths
+      const lastBlock = checkpoints.at(-1)!.blocks.at(-1)!;
+      await this.worldState.syncImmediate(lastBlock.number, await lastBlock.header.hash());
+
+      // Compute epoch-level blob challenges
+      const { buildFinalBlobChallenges } = await import('@aztec/prover-client/helpers');
+      const blobFieldsPerCheckpoint = checkpoints.map(c => c.toBlobFields());
+      const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
+
+      // Create TopTreeOrchestrator — lightweight, no block re-processing
+      if (!isSplitProverManager(this.prover)) {
+        throw new Error('Prover client does not support split proving');
+      }
+      const { orchestrator: topTreeOrchestrator } = this.prover.createTopTreeProver();
+
+      const job = new TopTreeJob(
+        epoch,
+        checkpoints,
+        previousBlockHeader,
+        topTreeOrchestrator,
+        this.broker,
+        this.l2BlockSource,
+        this.worldState,
+        finalBlobBatchingChallenges,
+        claim.claimToken,
+        claim.workItemId,
+        { heartbeatIntervalMs: this.config.proverNodeClaimHeartbeatIntervalMs },
+      );
+
+      void job.run().catch(err => {
+        this.log.error(`Top-tree job failed for epoch=${epoch}`, err);
+      });
+    } catch (err) {
+      this.log.error(`Top-tree job failed for epoch=${epoch}`, err);
+      await this.broker.releaseClaim(claim.workItemId, claim.claimToken);
+    }
+  }
+
+  async onEpochReadyForPublishing(
+    epoch: EpochNumber,
+    claim: { workItemId: string; claimToken: string },
+  ): Promise<void> {
+    if (!this.broker || !this.publisher) {
+      return;
+    }
+
+    try {
+      const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epoch);
+      if (!checkpoints.length) {
+        this.log.warn(`No checkpoints found for epoch ${epoch}, cannot publish`);
+        await this.broker.releaseClaim(claim.workItemId, claim.claimToken);
+        return;
+      }
+      const [lastPublishedCheckpoint] = await this.l2BlockSource.getCheckpoints(checkpoints.at(-1)!.number, 1);
+      const attestations = lastPublishedCheckpoint?.attestations?.map(a => a.toViem()) ?? [];
+
+      const { RootRollupPublishJob } = await import('./job/root-rollup-publish-job.js');
+      const job = new RootRollupPublishJob(
+        epoch,
+        checkpoints,
+        attestations,
+        this.publisher!,
+        this.broker,
+        claim.claimToken,
+        claim.workItemId,
+      );
+      await job.run();
+    } catch (err) {
+      this.log.error(`Failed to start publish job for epoch=${epoch}`, err);
+      await this.broker.releaseClaim(claim.workItemId, claim.claimToken);
+    }
   }
 
   /** Returns world state status. */

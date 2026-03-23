@@ -44,6 +44,12 @@ export type SpecificProverNodeConfig = {
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
   txGatheringMaxParallelRequestsPerNode: number;
+  /** Enable split proving mode (checkpoint sub-tree + top-tree + publishing). Default: false (legacy mode). */
+  proverNodeSplitProving: boolean;
+  /** Poll interval for checkpoint/top-tree/publishing discovery loops in split mode. */
+  proverNodeWorkPollIntervalMs: number;
+  /** Heartbeat interval for claim keep-alive in split mode. */
+  proverNodeClaimHeartbeatIntervalMs: number;
 };
 
 export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
@@ -95,6 +101,21 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
     env: 'PROVER_NODE_DISABLE_PROOF_PUBLISH',
     description: 'Whether the prover node skips publishing proofs to L1',
     ...booleanConfigHelper(false),
+  },
+  proverNodeSplitProving: {
+    env: 'PROVER_NODE_SPLIT_PROVING',
+    description: 'Enable split proving mode (checkpoint sub-tree + top-tree + publishing)',
+    ...booleanConfigHelper(false),
+  },
+  proverNodeWorkPollIntervalMs: {
+    env: 'PROVER_NODE_WORK_POLL_INTERVAL_MS',
+    description: 'Poll interval for work discovery in split proving mode',
+    ...numberConfigHelper(1_000),
+  },
+  proverNodeClaimHeartbeatIntervalMs: {
+    env: 'PROVER_NODE_CLAIM_HEARTBEAT_INTERVAL_MS',
+    description: 'Heartbeat interval for claim keep-alive in split proving mode',
+    ...numberConfigHelper(30_000),
   },
 };
 

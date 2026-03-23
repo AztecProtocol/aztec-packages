@@ -113,6 +113,9 @@ describe('prover-node', () => {
       txGatheringTimeoutMs: 1000,
       proverNodeEpochProvingDelayMs: undefined,
       proverNodeDisableProofPublish: false,
+      proverNodeSplitProving: false,
+      proverNodeWorkPollIntervalMs: 5_000,
+      proverNodeClaimHeartbeatIntervalMs: 30_000,
     };
 
     // World state returns a new mock db every time it is asked to fork

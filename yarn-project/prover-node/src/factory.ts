@@ -23,6 +23,8 @@ import type {
   ITxProvider,
   ProverConfig,
   ProvingJobBroker,
+  ProvingJobClaimManager,
+  ProvingJobProducer,
   Service,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -155,6 +157,9 @@ export async function createProverNode(
       'txGatheringTimeoutMs',
       'proverNodeFailedEpochStore',
       'proverNodeDisableProofPublish',
+      'proverNodeSplitProving',
+      'proverNodeWorkPollIntervalMs',
+      'proverNodeClaimHeartbeatIntervalMs',
       'dataDirectory',
       'l1ChainId',
       'rollupVersion',
@@ -176,6 +181,14 @@ export async function createProverNode(
   // Extract the shared delayer from the first L1TxUtils instance (all instances share the same delayer)
   const delayer = l1TxUtils[0]?.delayer;
 
+  // In split proving mode, pass the broker to the prover node for claim management.
+  // In split proving mode, pass the broker for claim management.
+  // The ProvingBroker runtime type implements ProvingJobClaimManager, verified by the 'claimWork' check.
+  const brokerForSplitProving =
+    config.proverNodeSplitProving && 'claimWork' in broker
+      ? (broker as unknown as ProvingJobProducer & ProvingJobClaimManager)
+      : undefined;
+
   return new ProverNode(
     prover,
     publisherFactory,
@@ -191,5 +204,6 @@ export async function createProverNode(
     telemetry,
     delayer,
     dateProvider,
+    brokerForSplitProving,
   );
 }
