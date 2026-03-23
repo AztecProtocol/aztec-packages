@@ -216,12 +216,12 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
                 auto builder = create_circuit<Builder>(program, Base::generate_metadata());
                 num_gates.emplace_back(builder.get_num_finalized_gates_inefficient());
 
-                auto prover_instance = std::make_shared<ProverInstance>(builder);
-                vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-
-                // Validate the builder
+                // Validate the builder before ProverInstance construction (which frees circuit block data).
                 EXPECT_TRUE(CircuitChecker::check(builder));
                 EXPECT_FALSE(builder.failed());
+
+                auto prover_instance = std::make_shared<ProverInstance>(builder);
+                vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
             }
 
             std::shared_ptr<VerificationKey> vk_from_constraint;
