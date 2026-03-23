@@ -30,12 +30,10 @@ pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) note_completion_log_tag: Field,
     pub(crate) note_type_id: Field,
     pub(crate) packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>,
-    pub(crate) recipient: AztecAddress,
 }
 
 pub(crate) unconstrained fn process_partial_note_private_msg(
     contract_address: AztecAddress,
-    recipient: AztecAddress,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
@@ -54,7 +52,6 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
             note_completion_log_tag,
             note_type_id,
             packed_private_note_content,
-            recipient,
         };
 
         CapsuleArray::at(

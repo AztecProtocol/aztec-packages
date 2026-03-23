@@ -10,6 +10,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
+import { MessageContext } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
 import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
@@ -28,7 +29,6 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
-import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -334,11 +334,11 @@ describe('Utility Execution test suite', () => {
         );
         expect(response).toBeDefined();
         const responseFields = response![2][0];
-        expect(responseFields).toEqual(MessageTxContext.toSerializedOption(null));
+        expect(responseFields).toEqual(MessageContext.toSerializedOption(null));
         expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
       });
 
-      it('resolves a valid tx hash into a MessageTxContext', async () => {
+      it('resolves a valid tx hash into a MessageContext', async () => {
         const txHash = TxHash.random();
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
@@ -358,7 +358,7 @@ describe('Utility Execution test suite', () => {
         );
         expect(response).toBeDefined();
         const responseFields = response![2][0];
-        const expected = MessageTxContext.toSerializedOption(new MessageTxContext(txHash, [noteHash], firstNullifier));
+        const expected = MessageContext.toSerializedOption(new MessageContext(txHash, [noteHash], firstNullifier));
         expect(responseFields).toEqual(expected);
       });
 
@@ -380,7 +380,7 @@ describe('Utility Execution test suite', () => {
         );
         expect(response).toBeDefined();
         const responseFields = response![2][0];
-        expect(responseFields).toEqual(MessageTxContext.toSerializedOption(null));
+        expect(responseFields).toEqual(MessageContext.toSerializedOption(null));
       });
 
       it('throws on empty capsule entry', async () => {

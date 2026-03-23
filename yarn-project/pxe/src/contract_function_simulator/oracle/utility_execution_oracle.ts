@@ -15,7 +15,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
-import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { MessageContext, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -38,7 +38,6 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
-import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -627,7 +626,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.setCapsuleArray(
         contractAddress,
         messageContextResponsesArrayBaseSlot,
-        maybeMessageContexts.map(MessageTxContext.toSerializedOption),
+        maybeMessageContexts.map(MessageContext.toSerializedOption),
         this.jobId,
         scope,
       );

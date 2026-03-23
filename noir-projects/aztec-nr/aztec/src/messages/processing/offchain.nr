@@ -3,7 +3,7 @@ use crate::{
     context::UtilityContext,
     messages::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{MessageContext, MessageTxContext, OffchainMessageWithContext, resolve_message_contexts},
+        processing::{MessageContext, OffchainMessageWithContext, resolve_message_contexts},
     },
     protocol::{
         address::AztecAddress,
@@ -142,7 +142,7 @@ pub unconstrained fn sync_inbox(
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, scope);
     let context_resolution_requests: CapsuleArray<Field> =
         CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_REQUESTS_SLOT, scope);
-    let resolved_contexts: CapsuleArray<Option<MessageTxContext>> =
+    let resolved_contexts: CapsuleArray<Option<MessageContext>> =
         CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_RESPONSES_SLOT, scope);
     let ready_to_process: CapsuleArray<OffchainMessageWithContext> =
         CapsuleArray::at(contract_address, OFFCHAIN_READY_MESSAGES_SLOT, scope);
@@ -221,13 +221,7 @@ pub unconstrained fn sync_inbox(
         // consider it has expired: this is because we need to account for reorgs. If reorg occurs after we processed
         // a message, the effects of processing the message get rewind. However, the associated TX can be included in
         // a subsequent block. Should that happen, the message must be re-processed to ensure consistency.
-        let ctx = maybe_ctx.unwrap();
-        let message_context = MessageContext {
-            tx_hash: ctx.tx_hash,
-            unique_note_hashes_in_tx: ctx.unique_note_hashes_in_tx,
-            first_nullifier_in_tx: ctx.first_nullifier_in_tx,
-            recipient: msg.recipient,
-        };
+        let message_context = maybe_ctx.unwrap();
         ready_to_process.push(OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context });
     }
 
@@ -431,7 +425,6 @@ mod test {
 
             let ctx = result.get(0).message_context;
             assert_eq(ctx.tx_hash, known_tx_hash);
-            assert_eq(ctx.recipient, SCOPE);
             assert(ctx.first_nullifier_in_tx != 0, "resolved context must have a first nullifier");
 
             // Message stays in inbox (not expired) for potential reorg reprocessing.

@@ -192,7 +192,6 @@ export class LogService {
         scopedLog.txHash,
         scopedLog.noteHashes,
         scopedLog.firstNullifier,
-        recipient,
       );
 
       return pendingTaggedLog.toFields();

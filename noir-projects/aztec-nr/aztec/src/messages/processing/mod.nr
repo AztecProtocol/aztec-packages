@@ -3,7 +3,6 @@ pub mod offchain;
 
 mod message_context;
 pub use message_context::MessageContext;
-pub(crate) use message_context::MessageTxContext;
 
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
@@ -83,6 +82,11 @@ pub(crate) unconstrained fn get_private_logs(
 ///
 /// `owner` is the address used in note hash and nullifier computation, often requiring knowledge of their nullifier
 /// secret key.
+///
+/// `scope` is the account to which the note message was delivered (i.e. the address the message was encrypted to).
+/// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
+/// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In
+/// most cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
 pub unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
     owner: AztecAddress,
