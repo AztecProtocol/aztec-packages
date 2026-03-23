@@ -266,6 +266,10 @@ export class AvmBackend implements IMsgpackBackendAsync {
     }
 
     if (this.process && !this.process.killed) {
+      // Re-ref the process so the event loop stays alive until it exits.
+      // Without this, the unref'd process handle lets the event loop drain
+      // before the 'exit' event fires, causing the Node.js process to exit.
+      this.process.ref();
       const exitPromise = new Promise<void>(resolve => {
         this.process!.once('exit', () => resolve());
       });
