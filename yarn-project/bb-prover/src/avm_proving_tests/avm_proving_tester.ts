@@ -12,6 +12,7 @@ import { CdbIpcServer, MeasuredCppPublicTxSimulator, PublicContractsDB } from '@
 import type { PublicTxResult } from '@aztec/simulator/server';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -247,6 +248,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
     disableRevertCheck: boolean = false,
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
     const simTimer = new Timer();
     const simRes = await this.simulateTx(
@@ -257,6 +259,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       feePayer,
       privateInsertions,
       txLabel,
+      gasLimits,
     );
     const simDuration = simTimer.ms();
     this.logger.info(`Simulation took ${simDuration} ms for tx ${txLabel}`);
@@ -301,6 +304,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     appCall: TestEnqueuedCall,
     expectRevert?: boolean,
     txLabel: string = 'unlabeledTx',
+    gasLimits?: Gas,
   ) {
     await this.simProveVerify(
       /*sender=*/ AztecAddress.fromNumber(42),
@@ -311,6 +315,8 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       /*feePayer=*/ undefined,
       /*privateInsertions=*/ undefined,
       txLabel,
+      /*disableRevertCheck=*/ false,
+      gasLimits,
     );
   }
 }
