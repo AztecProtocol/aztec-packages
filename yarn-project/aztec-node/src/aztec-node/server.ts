@@ -317,8 +317,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Set up IPC backends for world state and AVM simulation.
     // CDB is always a TS UDS server (no C++ binary needed).
-    // The CDB server's listening socket is ref'd, keeping the event loop alive.
-    // IPC child processes (wsdb, avm) and their sockets are unref'd for clean Jest shutdown.
+    // All IPC handles (processes, sockets, servers) are ref'd by default.
+    // Callers must call destroy()/close() to clean up.
 
     const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
     const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');

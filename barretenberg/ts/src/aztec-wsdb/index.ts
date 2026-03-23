@@ -164,8 +164,6 @@ export class WsdbBackend implements IMsgpackBackendAsync {
       env,
     });
 
-    this.process.unref();
-
     if (options.logger) {
       const logger = options.logger;
       if (this.process.stdout) {
@@ -290,7 +288,6 @@ export class WsdbBackend implements IMsgpackBackendAsync {
     this.socket = net.createConnection(this.inputPath);
 
     this.socket.on('connect', () => {
-      this.socket!.unref();
       resolve();
     });
 
@@ -388,7 +385,6 @@ export class WsdbBackend implements IMsgpackBackendAsync {
       const lengthBuf = Buffer.alloc(4);
       lengthBuf.writeUInt32LE(inputBuffer.length, 0);
 
-      this.socket!.ref();
       this.socket!.write(lengthBuf);
       this.socket!.write(Buffer.from(inputBuffer));
     });
@@ -410,10 +406,6 @@ export class WsdbBackend implements IMsgpackBackendAsync {
     }
 
     if (this.process && !this.process.killed) {
-      // Re-ref the process so the event loop stays alive until it exits.
-      // Without this, the unref'd process handle lets the event loop drain
-      // before the 'exit' event fires, causing the Node.js process to exit.
-      this.process.ref();
       const exitPromise = new Promise<void>(resolve => {
         this.process!.once('exit', () => resolve());
       });
