@@ -41,58 +41,6 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     const Fq& evaluation_input_x)
 {
 
-    /**
-     * @brief A small function to transform a uint512_t element into its 4 68-bit limbs in Fr scalars
-     *
-     * @details Split and integer stored in uint512_T into 4 68-bit chunks (we assume that it is lower than 2²⁷²),
-     * convert to Fr
-     */
-    auto uint512_t_to_limbs = [](const uint512_t& original) {
-        return std::array<Fr, NUM_BINARY_LIMBS>{ Fr(original.slice(0, NUM_LIMB_BITS).lo),
-                                                 Fr(original.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo),
-                                                 Fr(original.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo),
-                                                 Fr(original.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS).lo) };
-    };
-
-    /**
-     * @brief A function for splitting wide limbs (P_x_lo, P_y_hi, etc) into two limbs
-     */
-    auto split_wide_limb_into_2_limbs = [](const Fr& wide_limb) {
-        return std::array<Fr, NUM_Z_LIMBS>{ Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
-                                            Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)) };
-    };
-
-    /**
-     * @brief A function to split a limb into microlimbs for range constraints
-     *
-     * @details Splits a limb of arbitrary bit size into 14-bit microlimbs. For partial microlimbs,
-     * stores both the actual value and its shifted version for proper range constraint handling.
-     * Always returns NUM_MICRO_LIMBS (6) elements, padding with zeros if needed.
-     */
-    auto split_limb_into_microlimbs = [](const Fr& limb, const size_t num_bits) {
-        static_assert(MICRO_LIMB_BITS == 14);
-        size_t num_full_micro_limbs = num_bits / MICRO_LIMB_BITS;
-        size_t last_limb_bits = num_bits % MICRO_LIMB_BITS;
-        std::array<Fr, NUM_MICRO_LIMBS> microlimbs{};
-
-        // Fill in the full 14-bit microlimbs
-        for (size_t i = 0; i < num_full_micro_limbs; ++i) {
-            microlimbs[i] = uint256_t(limb).slice(i * MICRO_LIMB_BITS, (i + 1) * MICRO_LIMB_BITS);
-        }
-
-        // If there's a partial microlimb at the end, store both actual microlimb and its tail
-        if (last_limb_bits > 0) {
-            // Extract up to the next 14-bit boundary (actual)
-            microlimbs[num_full_micro_limbs] = uint256_t(limb).slice(num_full_micro_limbs * MICRO_LIMB_BITS,
-                                                                     (num_full_micro_limbs + 1) * MICRO_LIMB_BITS);
-
-            // Store the shifted version in the next slot (tail microlimb)
-            microlimbs[num_full_micro_limbs + 1] = uint256_t(microlimbs[num_full_micro_limbs])
-                                                   << (MICRO_LIMB_BITS - last_limb_bits);
-        }
-        return microlimbs;
-    };
-
     // x and v are challenges: random values unknown at compile time, treated as witnesses.
     Fq v_squared = batching_challenge_v * batching_challenge_v;
     Fq v_cubed = v_squared * batching_challenge_v;
@@ -351,19 +299,6 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
     BB_ASSERT_EQ(acc_step.ultra_op.z_1, acc_step.z_1_limbs[0] + acc_step.z_1_limbs[1] * SHIFT_1);
     BB_ASSERT_EQ(acc_step.ultra_op.z_2, acc_step.z_2_limbs[0] + acc_step.z_2_limbs[1] * SHIFT_1);
 
-    /**
-     * @brief Check correctness of limbs values
-     *
-     */
-    auto check_binary_limbs_maximum_values = []<size_t total_limbs>(const std::array<Fr, total_limbs>& limbs,
-                                                                    const uint256_t& MAX_LAST_LIMB =
-                                                                        (uint256_t(1) << NUM_LAST_LIMB_BITS)) {
-        for (size_t i = 0; i < total_limbs - 1; i++) {
-            BB_ASSERT_LT(uint256_t(limbs[i]), SHIFT_1);
-        }
-        BB_ASSERT_LT(uint256_t(limbs[total_limbs - 1]), MAX_LAST_LIMB);
-    };
-
     const auto MAX_Z_LAST_LIMB = uint256_t(1) << (NUM_Z_BITS - NUM_LIMB_BITS);
     const auto MAX_QUOTIENT_LAST_LIMB = uint256_t(1) << (NUM_LAST_QUOTIENT_LIMB_BITS);
     // Check limb values are in 68-bit range
@@ -376,15 +311,6 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
     check_binary_limbs_maximum_values(acc_step.quotient_binary_limbs, /*MAX_LAST_LIMB=*/MAX_QUOTIENT_LAST_LIMB);
 
     // Check limbs used in range constraints are in range
-    auto check_micro_limbs_maximum_values =
-        []<size_t binary_limb_count, size_t micro_limb_count>(
-            const std::array<std::array<Fr, micro_limb_count>, binary_limb_count>& limbs) {
-            for (size_t i = 0; i < binary_limb_count; i++) {
-                for (size_t j = 0; j < micro_limb_count; j++) {
-                    BB_ASSERT_LT(uint256_t(limbs[i][j]), MICRO_SHIFT);
-                }
-            }
-        };
     check_micro_limbs_maximum_values(acc_step.P_x_microlimbs);
     check_micro_limbs_maximum_values(acc_step.P_y_microlimbs);
     check_micro_limbs_maximum_values(acc_step.z_1_microlimbs);
@@ -471,17 +397,6 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     auto top_quotient_microlimbs = acc_step.quotient_microlimbs[NUM_BINARY_LIMBS - 1];
     top_quotient_microlimbs[NUM_MICRO_LIMBS - 1] = high_relation_microlimbs[NUM_MICRO_LIMBS - 1];
 
-    /**
-     * @brief A function to place an array of values into sequential wires starting from a given wire ID
-     */
-    auto lay_limbs_in_row = [this]<size_t array_size>(std::array<Fr, array_size> input, WireIds starting_wire) {
-        size_t wire_index = starting_wire;
-        for (auto element : input) {
-            wires[wire_index].push_back(add_variable(element));
-            wire_index++;
-        }
-    };
-
     // Now put all microlimbs into appropriate wires
     lay_limbs_in_row(acc_step.P_x_microlimbs[0], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0);
     lay_limbs_in_row(acc_step.P_x_microlimbs[1], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0);
@@ -531,17 +446,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         wire.push_back(zero_idx());
     }
     increment_num_gates(2);
-
-    auto process_random_op = [&](const UltraOp& ultra_op) {
-        BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
-        populate_wires_from_ultra_op(ultra_op);
-        // Populate the other wires with zeros
-        for (size_t i = WireIds::P_X_LOW_LIMBS; i < wires.size(); i++) {
-            wires[i].push_back(zero_idx());
-            wires[i].push_back(zero_idx());
-        }
-        increment_num_gates(2);
-    };
 
     // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
     // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
@@ -633,4 +537,39 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         process_random_op(ultra_ops[i]);
     }
 }
+std::array<TranslatorCircuitBuilder::Fr, TranslatorCircuitBuilder::NUM_MICRO_LIMBS> TranslatorCircuitBuilder::
+    split_limb_into_microlimbs(const Fr& limb, size_t num_bits)
+{
+    static_assert(MICRO_LIMB_BITS == 14);
+    const size_t num_full_micro_limbs = num_bits / MICRO_LIMB_BITS;
+    const size_t last_limb_bits = num_bits % MICRO_LIMB_BITS;
+    std::array<Fr, NUM_MICRO_LIMBS> microlimbs{};
+
+    // Fill in the full 14-bit microlimbs
+    for (size_t i = 0; i < num_full_micro_limbs; ++i) {
+        microlimbs[i] = uint256_t(limb).slice(i * MICRO_LIMB_BITS, (i + 1) * MICRO_LIMB_BITS);
+    }
+
+    // If there's a partial microlimb at the end, store both actual microlimb and its tail
+    if (last_limb_bits > 0) {
+        microlimbs[num_full_micro_limbs] =
+            uint256_t(limb).slice(num_full_micro_limbs * MICRO_LIMB_BITS, (num_full_micro_limbs + 1) * MICRO_LIMB_BITS);
+        microlimbs[num_full_micro_limbs + 1] = uint256_t(microlimbs[num_full_micro_limbs])
+                                               << (MICRO_LIMB_BITS - last_limb_bits);
+    }
+    return microlimbs;
+}
+
+void TranslatorCircuitBuilder::process_random_op(const UltraOp& ultra_op)
+{
+    BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
+    populate_wires_from_ultra_op(ultra_op);
+    // Populate the other wires with zeros
+    for (size_t i = WireIds::P_X_LOW_LIMBS; i < wires.size(); i++) {
+        wires[i].push_back(zero_idx());
+        wires[i].push_back(zero_idx());
+    }
+    increment_num_gates(2);
+}
+
 } // namespace bb
