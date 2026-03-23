@@ -9,6 +9,42 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Domain-separated tags on log emission
+
+All logs emitted through the Aztec.nr framework now include a domain-separated tag at `fields[0]`. Each log category uses its own domain separator via `compute_log_tag(raw_tag, dom_sep)`:
+
+- **Events** (`DOM_SEP__EVENT_LOG_TAG`): the event type ID is the raw tag.
+- **Message delivery** (`DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG` / `DOM_SEP__CONSTRAINED_MSG_LOG_TAG`): the discovery tag is the raw tag.
+- **Partial note completion logs** (`DOM_SEP__NOTE_COMPLETION_LOG_TAG`): the partial note commitment is the raw tag.
+
+The low-level emit methods now take `tag` as an explicit first parameter and have been renamed with an `_unsafe` suffix:
+
+```diff
+- context.emit_private_log(log, length);
++ context.emit_private_log_unsafe(tag, log, length);
+- context.emit_raw_note_log(log, length, note_hash_counter);
++ context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
+- context.emit_public_log(log);
++ context.emit_public_log_unsafe(tag, log);
+```
+
+Prefer the higher-level APIs (`emit` for events, `MessageDelivery` for messages) which handle tagging automatically.
+
+### [Aztec.nr] Public events no longer include the event type selector at the end of the payload
+
+`emit_event_in_public` previously appended the event type selector as the last field. It now prepends a domain-separated tag at `fields[0]` instead. The payload after the tag contains only the serialized event fields.
+
+If you were reading public event logs manually (not via `getPublicEvents`), update your parsing:
+
+```diff
+- // Old: fields = [serialized_event..., event_type_selector]
+- const selector = EventSelector.fromField(fields[fields.length - 1]);
+- const event = decodeFromAbi([abiType], fields);
++ // New: fields = [domain_separated_tag, serialized_event...]
++ const eventFields = log.getEmittedFieldsWithoutTag();
++ const event = decodeFromAbi([abiType], eventFields);
+```
+
 ### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
 
 `ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.
