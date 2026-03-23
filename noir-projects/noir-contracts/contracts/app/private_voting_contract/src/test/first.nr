@@ -97,7 +97,7 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
     assert_eq(tally, 2);
 }
 
-#[test(should_fail_with = "Nullifier collision")]
+#[test(should_fail_with = "duplicate siloed nullifier")]
 unconstrained fn test_fail_vote_twice() {
     let (mut env, voting_contract_address, admin) = utils::setup();
     let alice = env.create_light_account();
