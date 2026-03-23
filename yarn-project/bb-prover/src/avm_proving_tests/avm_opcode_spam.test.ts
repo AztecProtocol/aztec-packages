@@ -54,6 +54,7 @@ describeOrSkip('AVM Opcode Spammer Proving Benchmarks', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

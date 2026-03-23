@@ -34,6 +34,7 @@ describe('AVM check-circuit - contract class limits', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

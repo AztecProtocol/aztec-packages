@@ -29,6 +29,7 @@ describe.skip('AVM proven MEGA bulk test', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

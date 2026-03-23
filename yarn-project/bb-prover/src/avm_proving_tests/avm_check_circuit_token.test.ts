@@ -28,6 +28,7 @@ describe('AVM proven TokenContract', () => {
   });
 
   afterAll(async () => {
+    await tester.close();
     await worldStateService.close();
     if (process.env.BENCH_OUTPUT) {
       mkdirSync(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });

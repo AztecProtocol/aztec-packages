@@ -29,6 +29,7 @@ describe('AVM check-circuit - contract updates', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

@@ -13,6 +13,7 @@ describe('AVM proven minimal tx', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

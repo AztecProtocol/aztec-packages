@@ -29,6 +29,7 @@ describe('AVM proven AMM', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

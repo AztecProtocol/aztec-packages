@@ -39,6 +39,7 @@ describe.skip('AVM proven gadgets test', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 
