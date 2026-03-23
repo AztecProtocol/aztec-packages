@@ -9,6 +9,7 @@ import {
   type L1RollupConstants,
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
+  getNextL1SlotTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampForSlot,
@@ -148,10 +149,6 @@ export class EpochCache implements EpochCacheInterface {
     return { ...this.getEpochAndSlotAtTimestamp(nowSeconds), nowMs };
   }
 
-  public nowInSeconds(): bigint {
-    return BigInt(Math.floor(this.dateProvider.now() / 1000));
-  }
-
   private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
     const epoch = getEpochAtSlot(slot, this.l1constants);
     const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
@@ -159,8 +156,8 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = this.nowInSeconds();
-    const nextSlotTs = now + BigInt(this.l1constants.ethereumSlotDuration);
+    const now = BigInt(this.dateProvider.nowInSeconds());
+    const nextSlotTs = getNextL1SlotTimestamp(Number(now), this.l1constants);
     return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
   }
 
@@ -376,10 +373,11 @@ export class EpochCache implements EpochCacheInterface {
   async getRegisteredValidators(): Promise<EthAddress[]> {
     const validatorRefreshIntervalMs = this.config.validatorRefreshIntervalSeconds * 1000;
     const validatorRefreshTime = this.lastValidatorRefresh + validatorRefreshIntervalMs;
-    if (validatorRefreshTime < this.dateProvider.now()) {
-      const currentSet = await this.rollup.getAttesters();
+    const now = this.dateProvider.now();
+    if (validatorRefreshTime < now) {
+      const currentSet = await this.rollup.getAttesters(BigInt(Math.floor(now / 1000)));
       this.allValidators = new Set(currentSet.map(v => v.toString()));
-      this.lastValidatorRefresh = this.dateProvider.now();
+      this.lastValidatorRefresh = now;
     }
     return Array.from(this.allValidators.keys()).map(v => EthAddress.fromString(v));
   }
