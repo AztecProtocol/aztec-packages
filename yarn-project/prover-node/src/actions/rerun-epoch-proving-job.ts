@@ -3,7 +3,7 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { CdbIpcServer, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldState } from '@aztec/world-state';
@@ -31,7 +31,33 @@ export async function rerunEpochProvingJob(
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
   const worldState = await createWorldState(config);
   const archiver = await createArchiverStore(config);
-  const publicProcessorFactory = new PublicProcessorFactory(archiver, undefined, undefined, log.getBindings());
+
+  // Spawn IPC backends for C++ simulation
+  const wsdbSocketPath = worldState.getSocketPath();
+  const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+  const { findAvmBinary } = await import('@aztec/bb.js/platform');
+  const avmBinaryPath = findAvmBinary();
+  if (!avmBinaryPath) {
+    throw new Error('aztec-avm binary not found');
+  }
+
+  const cdbServer = new CdbIpcServer();
+  const contractsDB = new PublicContractsDB(archiver);
+  cdbServer.setContractsDB(contractsDB, 0n);
+
+  const avmBackend = new AvmBackend({
+    binaryPath: avmBinaryPath,
+    wsdbSocketPath,
+    cdbSocketPath: cdbServer.socketPath,
+  });
+
+  const publicProcessorFactory = new PublicProcessorFactory(
+    archiver,
+    avmBackend,
+    undefined,
+    undefined,
+    log.getBindings(),
+  );
 
   const publisher = { submitEpochProof: () => Promise.resolve(true) };
   const l2BlockSourceForReorgDetection = undefined;
@@ -64,6 +90,8 @@ export async function rerunEpochProvingJob(
   } finally {
     await prover.stop();
     await broker.stop();
+    await avmBackend.destroy?.();
+    await cdbServer.close();
     await worldState.close();
   }
 }

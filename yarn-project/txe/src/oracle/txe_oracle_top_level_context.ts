@@ -47,10 +47,11 @@ import {
   witnessMapToFields,
 } from '@aztec/simulator/client';
 import {
+  CdbIpcServer,
+  CppPublicTxSimulator,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
-  PublicTxSimulator,
 } from '@aztec/simulator/server';
 import { type ContractArtifact, EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -456,13 +457,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
+    // Update CDB server with current contract data source for this simulation
+    const { cdbServer, avmBackend } = this.stateMachine.synchronizer;
+    cdbServer.setContractsDB(contractsDB, globals.timestamp);
+    const forkId = forkedWorldTrees.getRevision().forkId;
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
       contractsDB,
-      // TXE uses the TS simulator because it doesn't have IPC infrastructure (AvmBackend/CdbIpcServer).
-      // TODO(IPC): Wire IPC backends into TXE for C++ simulation parity with production.
-      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config),
+      new CppPublicTxSimulator(avmBackend, globals, config, bindings, forkId),
       new TestDateProvider(),
       undefined,
       createLogger('simulator:public-processor', bindings),
@@ -575,9 +578,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    // TXE uses the TS simulator because it doesn't have IPC infrastructure (AvmBackend/CdbIpcServer).
-    // TODO(IPC): Wire IPC backends into TXE for C++ simulation parity with production.
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
+    // Update CDB server with current contract data source for this simulation
+    const { cdbServer: cdbServer2, avmBackend: avmBackend2 } = this.stateMachine.synchronizer;
+    cdbServer2.setContractsDB(contractsDB, globals.timestamp);
+    const forkId2 = forkedWorldTrees.getRevision().forkId;
+    const simulator = new CppPublicTxSimulator(avmBackend2, globals, config, bindings2, forkId2);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,

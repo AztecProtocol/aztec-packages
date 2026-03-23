@@ -658,6 +658,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         epochCache,
         blobClient,
         keyStoreManager,
+        avmBackend,
       });
 
       if (!options.dontStartProverNode) {
@@ -1387,10 +1388,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
+      this.avmBackend!,
       new DateProvider(),
       this.telemetry,
       this.log.getBindings(),
-      this.avmBackend,
     );
 
     this.log.verbose(`Simulating public calls for tx ${txHash}`, {

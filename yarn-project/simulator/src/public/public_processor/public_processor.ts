@@ -56,7 +56,6 @@ import {
   type PublicTxSimulatorConfig,
   type PublicTxSimulatorInterface,
   TelemetryCppPublicTxSimulator,
-  TelemetryPublicTxSimulator,
 } from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -68,10 +67,10 @@ export class PublicProcessorFactory {
   private log: Logger;
   constructor(
     private contractDataSource: ContractDataSource,
+    private avmBackend: AvmIpcBackend,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
-    private avmBackend?: AvmIpcBackend,
   ) {
     this.log = createLogger('simulator:public-processor-factory', bindings);
   }
@@ -106,23 +105,20 @@ export class PublicProcessorFactory {
 
   protected createPublicTxSimulator(
     merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    _contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
-    if (this.avmBackend) {
-      const bindings = this.log.getBindings();
-      const forkId = merkleTree.getRevision().forkId;
-      return new TelemetryCppPublicTxSimulator(
-        this.avmBackend,
-        globalVariables,
-        this.telemetryClient,
-        config,
-        bindings,
-        forkId,
-      );
-    }
-    return new TelemetryPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
+    const bindings = this.log.getBindings();
+    const forkId = merkleTree.getRevision().forkId;
+    return new TelemetryCppPublicTxSimulator(
+      this.avmBackend,
+      globalVariables,
+      this.telemetryClient,
+      config,
+      bindings,
+      forkId,
+    );
   }
 }
 

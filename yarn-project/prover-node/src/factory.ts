@@ -19,6 +19,7 @@ import {
   type ProverTxSenderConfig,
   getPublisherConfigFromProverConfig,
 } from '@aztec/sequencer-client';
+import type { AvmIpcBackend } from '@aztec/simulator/server';
 import type {
   ITxProvider,
   ProverConfig,
@@ -48,6 +49,8 @@ export type ProverNodeDeps = {
   epochCache: EpochCacheInterface;
   blobClient: BlobClientInterface;
   keyStoreManager?: KeystoreManager;
+  /** AVM IPC backend for public simulation. */
+  avmBackend: AvmIpcBackend;
 };
 
 /** Creates a new prover node subsystem given a config and dependencies */
@@ -187,6 +190,7 @@ export async function createProverNode(
     epochMonitor,
     rollupContract,
     l1Metrics,
+    deps.avmBackend,
     proverNodeConfig,
     telemetry,
     delayer,
