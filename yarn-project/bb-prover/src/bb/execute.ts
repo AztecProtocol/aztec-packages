@@ -103,13 +103,15 @@ export function executeBB(
       }, timeout);
     }
 
-    readline.createInterface({ input: bb.stdout }).on('line', logger);
-    readline.createInterface({ input: bb.stderr }).on('line', logger);
+    const rlStdout = readline.createInterface({ input: bb.stdout }).on('line', logger);
+    const rlStderr = readline.createInterface({ input: bb.stderr }).on('line', logger);
 
     bb.on('close', (exitCode: number, signal?: string) => {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+      rlStdout.close();
+      rlStderr.close();
       if (resultParser(exitCode)) {
         resolve({ status: BB_RESULT.SUCCESS, exitCode, signal });
       } else {
