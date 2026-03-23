@@ -30,12 +30,20 @@ VERSION=${VERSION:-0.0.1}
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
+# Check if version string is valid semver
+function is_semver {
+  local version="$1"
+  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
+  [[ "$version" =~ $semver_regex ]]
+}
+
 # Resolve alias (like "nightly") to actual version number.
 function resolve_version {
   local version="$1"
-  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
-  if [[ "$version" =~ $semver_regex ]]; then
-    echo "$version"
+  # Strip leading v from semver-like inputs (v0.85.0 -> 0.85.0), but not aliases (v4-nightly)
+  local stripped="${version#v}"
+  if is_semver "$stripped"; then
+    echo "$stripped"
   else
     local resolved
     if ! resolved=$(curl -fsSL "$INSTALL_URI/aliases/$version" 2>/dev/null); then
