@@ -46,7 +46,7 @@ MemoryValue Sha256::ror(const MemoryValue& x, uint8_t shift)
     // In a rotation, we decompose into a lhs and rhs (or hi and lo) part.
     uint32_t lo = val & ((static_cast<uint32_t>(1) << shift) - 1);
     uint32_t hi = val >> shift;
-    uint32_t result = lo << (32U - (shift & 31U)) | hi;
+    uint32_t result = (lo << (32U - shift)) | hi;
 
     // Do this outside of an assert, in case this gets built without assert
     bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
