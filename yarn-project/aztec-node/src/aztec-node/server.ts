@@ -1043,6 +1043,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
+    if (referenceBlock === BlockNumber.ZERO) {
+      return undefined;
+    }
+    if (BlockHash.isBlockHash(referenceBlock)) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (referenceBlock.equals(initialBlockHash)) {
+        return undefined;
+      }
+    }
     const committedDb = await this.getWorldState(referenceBlock);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
