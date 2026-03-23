@@ -47,7 +47,6 @@ import {
   witnessMapToFields,
 } from '@aztec/simulator/client';
 import {
-  CdbIpcServer,
   CppPublicTxSimulator,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
