@@ -85,17 +85,12 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
-<<<<<<< HEAD
-    build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
-=======
     if [[ "$target" == *-windows ]]; then
       # Windows builds exclude nodejs_module (N-API requires MSVC, not MinGW)
       AVM_TRANSPILER=0 build_preset zig-$target --target barretenberg vm2_stub circuit_checker honk
     else
-      (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
       build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
     fi
->>>>>>> 1e99be6a95 (feat: Add Windows x86_64 cross-compilation via Zig)
   fi
 }
 
@@ -335,14 +330,9 @@ function build {
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-<<<<<<< HEAD
       "build_cross amd64-macos true" \
       "build_cross arm64-macos true" \
-=======
-      "build_cross amd64-macos" \
-      "build_cross arm64-macos" \
       "build_cross_windows amd64-windows" \
->>>>>>> 1e99be6a95 (feat: Add Windows x86_64 cross-compilation via Zig)
       "build_ios zig-arm64-ios" \
       "build_ios zig-arm64-ios-sim" \
       "build_android zig-arm64-android" \
