@@ -28,12 +28,51 @@ VERSION="${VERSION:-nightly}"
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
+<<<<<<< HEAD
 # Add color to the AZTEC ascii art.
 function print_colored() {
   local b=$'\033[34m' # Blue
   local y=$'\033[33m' # Yellow
   local r=$'\033[0m'  # Reset
   echo "$1" | sed -E "s/(█+)/${b}\1${y}/g"
+=======
+# Check if version string is valid semver
+function is_semver {
+  local version="$1"
+  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
+  [[ "$version" =~ $semver_regex ]]
+}
+
+# Resolve alias (like "nightly") to actual version number.
+function resolve_version {
+  local version="$1"
+  # Strip leading v from semver-like inputs (v0.85.0 -> 0.85.0), but not aliases (v4-nightly)
+  local stripped="${version#v}"
+  if is_semver "$stripped"; then
+    echo "$stripped"
+  else
+    local resolved
+    if ! resolved=$(curl -fsSL "$INSTALL_URI/aliases/$version" 2>/dev/null); then
+      echo "Error: Could not resolve alias '$version'" >&2
+      exit 1
+    fi
+    echo "$resolved"
+  fi
+}
+
+VERSION=$(resolve_version "$VERSION")
+
+function typewriter {
+  trap 'printf "${r}\n"; exit 1' INT
+  local text="$1"
+  local color="${2:-}"
+  local delay="${3:-0.02}"
+  local width=80
+  local pad=$(( (width - ${#text}) / 2 ))
+  printf "\r\033[2K%${pad}s${color}" ""
+  for (( i=0; i<${#text}; i++ )); do printf '%s' "${text:$i:1}"; sleep "$delay"; done
+  trap - INT
+>>>>>>> 32a57967f5 (fix(aztec-up): strip leading `v` prefix from version strings (#21813))
 }
 
 function title {
