@@ -460,6 +460,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
+      // TXE uses the TS simulator because it doesn't have IPC infrastructure (AvmBackend/CdbIpcServer).
+      // TODO(IPC): Wire IPC backends into TXE for C++ simulation parity with production.
       new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config),
       new TestDateProvider(),
       undefined,
@@ -573,6 +575,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
+    // TXE uses the TS simulator because it doesn't have IPC infrastructure (AvmBackend/CdbIpcServer).
+    // TODO(IPC): Wire IPC backends into TXE for C++ simulation parity with production.
     const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
     const processor = new PublicProcessor(
       globals,

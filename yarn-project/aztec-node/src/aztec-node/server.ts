@@ -33,7 +33,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
-import { CdbIpcServer, PublicProcessorFactory } from '@aztec/simulator/server';
+import { type AvmIpcBackend, CdbIpcServer, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   EpochPruneWatcher,
@@ -140,6 +140,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   /** IPC backends to clean up on stop (CDB, AVM). WSDB is cleaned up by world state. */
   private ipcBackends: Array<{ destroy?(): Promise<void> }> = [];
+  /** Shared AVM IPC backend for public simulation. */
+  private avmBackend?: AvmIpcBackend;
 
   constructor(
     protected config: AztecNodeConfig,
@@ -700,6 +702,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
     if (avmBackend) {
       node.ipcBackends.push(avmBackend);
+      node.avmBackend = avmBackend;
     }
 
     return node;
@@ -1387,6 +1390,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       new DateProvider(),
       this.telemetry,
       this.log.getBindings(),
+      this.avmBackend,
     );
 
     this.log.verbose(`Simulating public calls for tx ${txHash}`, {
