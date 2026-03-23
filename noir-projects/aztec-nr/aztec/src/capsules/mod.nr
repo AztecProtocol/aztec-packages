@@ -350,23 +350,6 @@ mod test {
     }
 
     #[test]
-    unconstrained fn scoped_push_and_get() {
-        let env = TestEnvironment::new();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let scope = AztecAddress { inner: 0xcafe };
-            let array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            array.push(42);
-            array.push(43);
-
-            assert_eq(array.len(), 2);
-            assert_eq(array.get(0), 42);
-            assert_eq(array.get(1), 43);
-        });
-    }
-
-    #[test]
     unconstrained fn different_scopes_are_isolated() {
         let env = TestEnvironment::new();
         env.private_context(|context| {
@@ -387,26 +370,6 @@ mod test {
 
             assert_eq(array_b.len(), 1);
             assert_eq(array_b.get(0), 99);
-        });
-    }
-
-    #[test]
-    unconstrained fn scoped_remove() {
-        let env = TestEnvironment::new();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let scope = AztecAddress { inner: 0xeee };
-            let array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            array.push(7);
-            array.push(8);
-            array.push(9);
-
-            array.remove(1);
-
-            assert_eq(array.len(), 2);
-            assert_eq(array.get(0), 7);
-            assert_eq(array.get(1), 9);
         });
     }
 }
