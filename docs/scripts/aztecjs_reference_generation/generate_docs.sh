@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Convenience script to generate Aztec.js API documentation in one step
 # Usage: ./scripts/aztecjs_reference_generation/generate_docs.sh [output_dir] [--validate]
 

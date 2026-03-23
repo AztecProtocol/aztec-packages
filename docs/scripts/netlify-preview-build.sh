@@ -8,10 +8,20 @@ DOCS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "=== Installing noirup and nargo ==="
 export PATH="$HOME/.nargo/bin:$PATH"
+
+# Ensure noir submodule is available for version detection
+REPO_ROOT="$DOCS_ROOT/.."
+if [ ! -f "$REPO_ROOT/noir/noir-repo/.git" ] && [ ! -d "$REPO_ROOT/noir/noir-repo/.git" ]; then
+    git -C "$REPO_ROOT" submodule update --init --depth 1 noir/noir-repo
+fi
+
+# Use the pinned noir version from the submodule (falls back to nightly)
+NOIR_TAG=$(git -C "$REPO_ROOT/noir/noir-repo" describe --tags --exact-match 2>/dev/null || echo "nightly")
+echo "Using noir version: $NOIR_TAG"
+
 # Install noirup (ignore shell detection failure - binary still gets installed)
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash || true
-# Install nargo nightly
-noirup -v nightly
+noirup -v "$NOIR_TAG"
 
 echo "=== Verifying nargo installation ==="
 nargo --version

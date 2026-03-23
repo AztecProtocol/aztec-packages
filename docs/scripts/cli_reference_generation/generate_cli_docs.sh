@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Script to generate auto-generated CLI documentation
 # Usage: ./scripts/cli_reference_generation/generate_cli_docs.sh [OPTIONS] <cli_name> [target_version] [output_dir]
 #
@@ -206,6 +206,7 @@ EOF
 
 # Append markdown content (skip first line which is duplicate title)
 tail -n +2 "$TEMP_MD" >> "$TEMP_WITH_FRONTMATTER"
+
 
 # Step 4: Deploy to target locations
 echo ""

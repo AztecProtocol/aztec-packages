@@ -3,7 +3,8 @@ title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
 description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
-references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr", "yarn-project/end-to-end/src/composed/docs_examples.test.ts", "yarn-project/end-to-end/src/e2e_card_game.test.ts", "yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts"]
+references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/e2e_card_game.test.ts", "yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts"]
+
 ---
 
 ## What is a Call
@@ -164,7 +165,7 @@ public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag 
 
 Even with the public checks contract, achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
-For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/state_variables.md#delayed-public-mutable) state when possible.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/state_variables.md#delayedpublicmutable) state when possible.
 
 ### Public Execution
 
@@ -197,7 +198,7 @@ There are two main ways to execute an Aztec contract function using the `aztec.j
 
 This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [utility functions](#utility).
 
-#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
 
 :::warning
 No correctness is guaranteed on the result of `simulate`! Correct execution is entirely optional and left up to the client that handles this request.

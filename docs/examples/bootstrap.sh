@@ -25,18 +25,54 @@ function compile-circuits {
     return 0
   fi
 
-  # Compile all circuits in the workspace
-  echo_stderr "Compiling circuits workspace..."
-  (cd "$CIRCUITS_DIR" && $NARGO compile --workspace)
+  # Compile vanilla circuits (not contracts - those are compiled separately).
+  # nargo walks up to docs/Nargo.toml, so we compile specific packages.
+  echo_stderr "Compiling circuits..."
+  local circuit
+  for circuit in "$CIRCUITS_DIR"/*/; do
+    local name=$(basename "$circuit")
+    if [ -f "$circuit/Nargo.toml" ]; then
+      echo_stderr "  Compiling $name..."
+      (cd "$REPO_ROOT/docs" && $NARGO compile --package "$name")
+    fi
+  done
 
   echo_stderr "Vanilla circuits compiled"
 }
 
 function compile {
   echo_header "Compiling example contracts"
-  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/)
+  local CONTRACTS_DIR="$REPO_ROOT/docs/examples/contracts"
+
+  if [ ! -d "$CONTRACTS_DIR" ]; then
+    echo_stderr "No contracts directory found at $CONTRACTS_DIR"
+    return 0
+  fi
+
+  local contracts=()
+  if [ "$#" -gt 0 ]; then
+    local contract
+    for contract in "$@"; do
+      if [[ "$contract" == */* ]]; then
+        contracts+=("$contract")
+      else
+        contracts+=("contracts/$contract")
+      fi
+    done
+  else
+    local contract
+    for contract in "$CONTRACTS_DIR"/*/; do
+      if [ -f "$contract/Nargo.toml" ]; then
+        contracts+=("contracts/$(basename "$contract")")
+      fi
+    done
+  fi
+
+  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/).
+  # Pass only contract packages so circuits in the shared docs workspace are not
+  # treated as contract artifacts by the noir-contracts bootstrap.
   DOCS_WORKING_DIR="$(cd .. && pwd)" \
-    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "$@"
+    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
 }
 
 function compile-solidity {
@@ -75,6 +111,12 @@ function compile-solidity {
 function validate-ts {
   echo_header "Validating TypeScript examples"
   (cd ts && ./bootstrap.sh "$@")
+}
+
+function execute-examples {
+  echo_header "Executing TypeScript documentation examples"
+  local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
+  run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
 
 ##############################################################################
@@ -135,7 +177,7 @@ function send_slack_message {
 FAILED_STEPS=()
 FAILED_OUTPUTS=()
 
-# Run a step, collect failure if it fails
+# Run a step with retry, collect failure if it fails
 function run_step {
   local step_name=$1
   local step_func=$2
@@ -148,8 +190,18 @@ function run_step {
   set -e
   echo "$output"
 
+  # Retry once on failure
   if [[ $exit_code -ne 0 ]]; then
-    echo "WARNING: $step_name failed (exit code $exit_code)"
+    echo "WARNING: $step_name failed (exit code $exit_code), retrying..."
+    set +e
+    output=$($step_func 2>&1)
+    exit_code=$?
+    set -e
+    echo "$output"
+  fi
+
+  if [[ $exit_code -ne 0 ]]; then
+    echo "WARNING: $step_name failed after retry (exit code $exit_code)"
     FAILED_STEPS+=("$step_name")
     FAILED_OUTPUTS+=("$output")
   fi
@@ -194,9 +246,37 @@ case "$cmd" in
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
+    run_step "Execute examples" execute-examples
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
+
+      # Print a prominent error summary at the bottom of the log
+      echo ""
+      echo "============================================================"
+      echo "  DOCS EXAMPLES FAILURE SUMMARY"
+      echo "============================================================"
+      for i in "${!FAILED_STEPS[@]}"; do
+        echo ""
+        echo "--- FAILED: ${FAILED_STEPS[$i]} ---"
+        # Extract lines containing 'error' or 'ERROR' for a concise summary
+        error_lines=$(echo "${FAILED_OUTPUTS[$i]}" | grep -i 'error' || true)
+        if [[ -n "$error_lines" ]]; then
+          echo "$error_lines"
+        else
+          # If no error lines found, show the last 20 lines of output
+          echo "${FAILED_OUTPUTS[$i]}" | tail -20
+        fi
+      done
+      echo ""
+      echo "============================================================"
+      echo ""
+
+      # Block PRs on failure, but allow merge queue to proceed (may be transient infra issues)
+      if [[ ! "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+        echo "ERROR: Docs examples validation failed. Failing the build."
+        exit 1
+      fi
     fi
     ;;
   compile-circuits)
@@ -204,6 +284,9 @@ case "$cmd" in
     ;;
   compile-solidity)
     compile-solidity
+    ;;
+  execute)
+    execute-examples
     ;;
   *)
     default_cmd_handler "$@"
