@@ -891,6 +891,9 @@ describe('NativeWorldState', () => {
       }
 
       await compareChains(ws.getCommitted(), nonReorgState.getCommitted());
+
+      await nonReorgState.close();
+      await sequentialReorgState.close();
     });
 
     it('forks are deleted during a re-org', async () => {

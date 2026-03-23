@@ -55,7 +55,6 @@
       "default"
     ],
     "testTimeout": 120000,
-    "forceExit": true,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ],
