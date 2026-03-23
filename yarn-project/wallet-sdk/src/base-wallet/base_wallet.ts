@@ -141,8 +141,9 @@ export abstract class BaseWallet implements Wallet {
     executionPayload: ExecutionPayload,
     from: AztecAddress | NoFrom,
     feeOptions: FeeOptions,
-  ): Promise<TxExecutionRequest> {
+  ): Promise<{ txRequest: TxExecutionRequest; userCallOffset: number | undefined }> {
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const feeCallCount = feeExecutionPayload?.calls.length ?? 0;
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
@@ -150,7 +151,10 @@ export abstract class BaseWallet implements Wallet {
 
     if (from === NO_FROM) {
       const entrypoint = new DefaultEntrypoint();
-      return entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
+      return {
+        txRequest: await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo),
+        userCallOffset: undefined,
+      };
     } else {
       const fromAccount = await this.getAccountFromAddress(from);
       const executionOptions: DefaultAccountEntrypointOptions = {
@@ -159,12 +163,15 @@ export abstract class BaseWallet implements Wallet {
         // If from is an address, feeOptions include the way the account contract should handle the fee payment
         feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
       };
-      return fromAccount.createTxExecutionRequest(
-        finalExecutionPayload,
-        feeOptions.gasSettings,
-        chainInfo,
-        executionOptions,
-      );
+      return {
+        txRequest: await fromAccount.createTxExecutionRequest(
+          finalExecutionPayload,
+          feeOptions.gasSettings,
+          chainInfo,
+          executionOptions,
+        ),
+        userCallOffset: feeCallCount,
+      };
     }
   }
 
@@ -330,17 +337,19 @@ export abstract class BaseWallet implements Wallet {
    * @param opts - Simulation options.
    */
   protected async simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(
+    const { txRequest, userCallOffset } = await this.createTxExecutionRequestFromPayloadAndFee(
       executionPayload,
       opts.from,
       opts.feeOptions,
     );
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
       scopes: opts.scopes,
     });
+    result.userCallOffset = userCallOffset;
+    return result;
   }
 
   /**
@@ -393,12 +402,14 @@ export abstract class BaseWallet implements Wallet {
         : Promise.resolve(null),
     ]);
 
-    return buildMergedSimulationResult(optimizedResults, normalResult);
+    const mergedResult = buildMergedSimulationResult(optimizedResults, normalResult);
+    mergedResult.userCallOffset = normalResult?.userCallOffset;
+    return mergedResult;
   }
 
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
+    const { txRequest } = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
@@ -411,7 +422,7 @@ export abstract class BaseWallet implements Wallet {
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
+    const { txRequest } = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const offchainOutput = extractOffchainOutput(
       provenTx.getOffchainEffects(),

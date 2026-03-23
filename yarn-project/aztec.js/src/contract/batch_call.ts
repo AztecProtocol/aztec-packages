@@ -129,12 +129,10 @@ export class BatchCall extends BaseContractInteraction {
         simulatedTx = txResultWrapper.result as TxSimulationResult;
         indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
           const call = request.calls[0];
-          // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-          // since we're interested in the first set of values AFTER the account entrypoint
-          // For public functions we retrieve the first values directly from the public output.
+          // For public functions we retrieve the values directly from the public output.
           const rawReturnValues =
             call.type == FunctionType.PRIVATE
-              ? simulatedTx!.getPrivateReturnValues()?.nested?.[resultIndex].values
+              ? simulatedTx!.getUserPrivateReturnValues(resultIndex)?.values
               : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
 
           results[callIndex] = {
