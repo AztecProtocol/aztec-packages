@@ -96,19 +96,19 @@ void CdbIpcClient::add_contracts(CdbAddContracts cmd)
     send(std::move(cmd));
 }
 
-void CdbIpcClient::create_checkpoint()
+void CdbIpcClient::create_checkpoint(CdbCreateCheckpoint cmd)
 {
-    send(CdbCreateCheckpoint{});
+    send(std::move(cmd));
 }
 
-void CdbIpcClient::commit_checkpoint()
+void CdbIpcClient::commit_checkpoint(CdbCommitCheckpoint cmd)
 {
-    send(CdbCommitCheckpoint{});
+    send(std::move(cmd));
 }
 
-void CdbIpcClient::revert_checkpoint()
+void CdbIpcClient::revert_checkpoint(CdbRevertCheckpoint cmd)
 {
-    send(CdbRevertCheckpoint{});
+    send(std::move(cmd));
 }
 
 void CdbIpcClient::add_contract_class(CdbAddContractClass cmd)

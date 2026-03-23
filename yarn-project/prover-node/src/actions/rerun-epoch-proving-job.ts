@@ -3,7 +3,7 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import { CdbIpcServer, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
+import { AvmSimulatorPool, CdbIpcServer, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldState } from '@aztec/world-state';
@@ -34,7 +34,6 @@ export async function rerunEpochProvingJob(
 
   // Spawn IPC backends for C++ simulation
   const wsdbSocketPath = worldState.getSocketPath();
-  const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
   const { findAvmBinary } = await import('@aztec/bb.js/platform');
   const avmBinaryPath = findAvmBinary();
   if (!avmBinaryPath) {
@@ -43,17 +42,19 @@ export async function rerunEpochProvingJob(
 
   const cdbServer = new CdbIpcServer();
   const contractsDB = new PublicContractsDB(archiver);
-  cdbServer.setContractsDB(contractsDB, 0n);
+  cdbServer.registerFork(0, contractsDB, 0n);
 
-  const avmBackend = new AvmBackend({
-    binaryPath: avmBinaryPath,
+  const maxAvmProcesses = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
+  const avmPool = new AvmSimulatorPool({
+    maxSize: maxAvmProcesses,
+    avmBinaryPath,
     wsdbSocketPath,
     cdbSocketPath: cdbServer.socketPath,
   });
 
   const publicProcessorFactory = new PublicProcessorFactory(
     archiver,
-    avmBackend,
+    avmPool,
     cdbServer,
     undefined,
     undefined,
@@ -64,9 +65,6 @@ export async function rerunEpochProvingJob(
   const l2BlockSourceForReorgDetection = undefined;
   const deadline = undefined;
 
-  // This starts a local proving broker that does not get exposed as a service. This should be good enough for
-  // smallish epochs to be proven if we run on a large machine, but as epochs grow larger, we may want to switch
-  // this out for a live proving broker with multiple agents that we can connect to.
   const broker = await createAndStartProvingBroker(config, telemetry);
   const prover = await createProverClient(config, worldState, broker, telemetry);
 
@@ -91,7 +89,7 @@ export async function rerunEpochProvingJob(
   } finally {
     await prover.stop();
     await broker.stop();
-    await avmBackend.destroy?.();
+    await avmPool.destroy();
     await cdbServer.close();
     await worldState.close();
   }

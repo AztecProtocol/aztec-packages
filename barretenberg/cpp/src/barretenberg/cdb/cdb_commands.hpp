@@ -36,8 +36,9 @@ struct CdbGetContractInstance {
         bool operator==(const Response&) const = default;
     };
     avm2::AztecAddress address;
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    SERIALIZATION_FIELDS(address);
+    SERIALIZATION_FIELDS(address, forkId);
     bool operator==(const CdbGetContractInstance&) const = default;
 };
 
@@ -50,8 +51,9 @@ struct CdbGetContractClass {
         bool operator==(const Response&) const = default;
     };
     avm2::ContractClassId classId;
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    SERIALIZATION_FIELDS(classId);
+    SERIALIZATION_FIELDS(classId, forkId);
     bool operator==(const CdbGetContractClass&) const = default;
 };
 
@@ -64,8 +66,9 @@ struct CdbGetBytecodeCommitment {
         bool operator==(const Response&) const = default;
     };
     avm2::ContractClassId classId;
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    SERIALIZATION_FIELDS(classId);
+    SERIALIZATION_FIELDS(classId, forkId);
     bool operator==(const CdbGetBytecodeCommitment&) const = default;
 };
 
@@ -79,8 +82,9 @@ struct CdbGetDebugFunctionName {
     };
     avm2::AztecAddress address;
     avm2::FunctionSelector selector;
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    SERIALIZATION_FIELDS(address, selector);
+    SERIALIZATION_FIELDS(address, selector, forkId);
     bool operator==(const CdbGetDebugFunctionName&) const = default;
 };
 
@@ -96,8 +100,9 @@ struct CdbAddContracts {
         bool operator==(const Response&) const = default;
     };
     avm2::ContractDeploymentData contractDeploymentData;
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    SERIALIZATION_FIELDS(contractDeploymentData);
+    SERIALIZATION_FIELDS(contractDeploymentData, forkId);
     bool operator==(const CdbAddContracts&) const = default;
 };
 
@@ -112,8 +117,9 @@ struct CdbCreateCheckpoint {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    void msgpack(auto&& pack_fn) { pack_fn(); }
+    SERIALIZATION_FIELDS(forkId);
     bool operator==(const CdbCreateCheckpoint&) const = default;
 };
 
@@ -124,8 +130,9 @@ struct CdbCommitCheckpoint {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    void msgpack(auto&& pack_fn) { pack_fn(); }
+    SERIALIZATION_FIELDS(forkId);
     bool operator==(const CdbCommitCheckpoint&) const = default;
 };
 
@@ -136,8 +143,9 @@ struct CdbRevertCheckpoint {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
+    uint64_t forkId = 0;
     Response execute(CdbRequest& request) &&;
-    void msgpack(auto&& pack_fn) { pack_fn(); }
+    SERIALIZATION_FIELDS(forkId);
     bool operator==(const CdbRevertCheckpoint&) const = default;
 };
 

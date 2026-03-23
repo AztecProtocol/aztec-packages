@@ -91,17 +91,16 @@ function serializeContractClass(contractClass: {
 
 /**
  * TS UDS server implementing the CDB IPC protocol.
- * The C++ AVM connects as a client and sends CDB commands.
+ * Multiple C++ AVM processes connect as clients. Requests are routed to the
+ * correct PublicContractsDB instance using the forkId field in each command.
  */
 export class CdbIpcServer {
   public readonly socketPath: string;
   private server: net.Server;
   private log: Logger;
-  private contractsDB: PublicContractsDB | null = null;
-  private timestamp: bigint = 0n;
+  /** Maps WSDB fork ID → (contracts DB, timestamp) for routing concurrent simulations. */
+  private forks = new Map<number, { db: PublicContractsDB; timestamp: bigint }>();
   private connections = new Set<net.Socket>();
-  /** Promise chain used to serialize concurrent simulations that share this CDB server. */
-  private simulationLock: Promise<void> = Promise.resolve();
 
   constructor() {
     this.log = createLogger('cdb-ipc-server');
@@ -118,32 +117,14 @@ export class CdbIpcServer {
     });
   }
 
-  /** Set the contracts DB and block timestamp for the current block. */
-  setContractsDB(contractsDB: PublicContractsDB, timestamp: bigint): void {
-    this.contractsDB = contractsDB;
-    this.timestamp = timestamp;
+  /** Register a PublicContractsDB for a given WSDB fork ID. */
+  registerFork(forkId: number, contractsDB: PublicContractsDB, timestamp: bigint): void {
+    this.forks.set(forkId, { db: contractsDB, timestamp });
   }
 
-  /**
-   * Atomically set the contracts DB and run a callback while holding an exclusive lock.
-   * This serializes concurrent simulations that share this CDB server, ensuring that
-   * each simulation's CDB queries go to the correct PublicContractsDB instance.
-   */
-  async withContractsDB<T>(contractsDB: PublicContractsDB, timestamp: bigint, fn: () => Promise<T>): Promise<T> {
-    // Chain on the previous simulation's lock to serialize access
-    const prev = this.simulationLock;
-    let release!: () => void;
-    this.simulationLock = new Promise<void>(resolve => {
-      release = resolve;
-    });
-    await prev;
-    this.contractsDB = contractsDB;
-    this.timestamp = timestamp;
-    try {
-      return await fn();
-    } finally {
-      release();
-    }
+  /** Unregister a fork's contracts DB (call after simulation completes). */
+  unregisterFork(forkId: number): void {
+    this.forks.delete(forkId);
   }
 
   /** Close the server and all active connections. */
@@ -246,24 +227,32 @@ export class CdbIpcServer {
     socket.write(response);
   }
 
+  /** Look up the contracts DB for a given fork ID, throwing if not registered. */
+  private getFork(forkId: number): { db: PublicContractsDB; timestamp: bigint } {
+    const fork = this.forks.get(forkId);
+    if (!fork) {
+      throw new Error(`CDB server: no contracts DB registered for forkId ${forkId}`);
+    }
+    return fork;
+  }
+
   private async dispatch(
     commandName: string,
     payload: Record<string, any>,
   ): Promise<[string, Record<string, unknown>]> {
-    if (!this.contractsDB) {
-      throw new Error('CDB server: no contracts DB set (block not started?)');
-    }
-
-    const db = this.contractsDB;
+    // All simulation commands carry a forkId for routing.
+    const forkId: number = payload.forkId ?? 0;
 
     switch (commandName) {
       case 'CdbGetContractInstance': {
+        const { db, timestamp } = this.getFork(forkId);
         const address = AztecAddress.fromBuffer(payload.address);
-        const instance = await db.getContractInstance(address, this.timestamp);
+        const instance = await db.getContractInstance(address, timestamp);
         return ['CdbGetContractInstanceResponse', { instance: instance ? serializeContractInstance(instance) : null }];
       }
 
       case 'CdbGetContractClass': {
+        const { db } = this.getFork(forkId);
         const classId = Fr.fromBuffer(payload.classId);
         const contractClass = await db.getContractClass(classId);
         return [
@@ -273,12 +262,14 @@ export class CdbIpcServer {
       }
 
       case 'CdbGetBytecodeCommitment': {
+        const { db } = this.getFork(forkId);
         const classId = Fr.fromBuffer(payload.classId);
         const commitment = await db.getBytecodeCommitment(classId);
         return ['CdbGetBytecodeCommitmentResponse', { commitment: commitment ? toFieldBuffer(commitment) : null }];
       }
 
       case 'CdbGetDebugFunctionName': {
+        const { db } = this.getFork(forkId);
         const address = AztecAddress.fromBuffer(payload.address);
         const selectorField = Fr.fromBuffer(payload.selector);
         const selector = FunctionSelector.fromFieldOrUndefined(selectorField);
@@ -287,22 +278,26 @@ export class CdbIpcServer {
       }
 
       case 'CdbAddContracts': {
+        const { db } = this.getFork(forkId);
         const contractDeploymentData = ContractDeploymentData.fromPlainObject(payload.contractDeploymentData);
         db.addContracts(contractDeploymentData);
         return ['CdbAddContractsResponse', {}];
       }
 
       case 'CdbCreateCheckpoint': {
+        const { db } = this.getFork(forkId);
         db.createCheckpoint();
         return ['CdbCreateCheckpointResponse', {}];
       }
 
       case 'CdbCommitCheckpoint': {
+        const { db } = this.getFork(forkId);
         db.commitCheckpoint();
         return ['CdbCommitCheckpointResponse', {}];
       }
 
       case 'CdbRevertCheckpoint': {
+        const { db } = this.getFork(forkId);
         db.revertCheckpoint();
         return ['CdbRevertCheckpointResponse', {}];
       }

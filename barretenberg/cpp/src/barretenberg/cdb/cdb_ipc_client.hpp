@@ -20,6 +20,10 @@ class CdbIpcContractDB final : public avm2::simulation::ContractDBInterface {
     explicit CdbIpcContractDB(const std::string& socket_path);
     ~CdbIpcContractDB() override;
 
+    /** Set the fork ID used to route CDB requests to the correct PublicContractsDB. */
+    void set_fork_id(uint64_t fork_id) { fork_id_ = fork_id; }
+    uint64_t get_fork_id() const { return fork_id_; }
+
     // ContractDBInterface implementation
     std::optional<avm2::ContractInstance> get_contract_instance(const avm2::AztecAddress& address) const override;
     std::optional<avm2::ContractClass> get_contract_class(const avm2::ContractClassId& class_id) const override;
@@ -35,6 +39,7 @@ class CdbIpcContractDB final : public avm2::simulation::ContractDBInterface {
 
   private:
     std::unique_ptr<CdbIpcClient> client_;
+    uint64_t fork_id_ = 0;
 };
 
 } // namespace bb::cdb

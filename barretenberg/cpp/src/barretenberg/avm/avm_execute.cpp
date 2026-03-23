@@ -63,6 +63,9 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
         vinfo("Using external WSDB fork ", fork_id, " for AVM simulation");
     }
 
+    // Route CDB requests to the correct PublicContractsDB via fork ID
+    request.cdb_client.set_fork_id(fork_id);
+
     try {
         // Create revision pointing to the fork
         WorldStateRevision revision = {

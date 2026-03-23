@@ -132,15 +132,14 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 
     const cdbServer = new CdbIpcServer();
     const contractsDB = new PublicContractsDB(contractDataSource);
-    cdbServer.setContractsDB(contractsDB, globals?.timestamp ?? 0n);
+    const forkId = merkleTrees.getRevision().forkId;
+    cdbServer.registerFork(forkId, contractsDB, globals?.timestamp ?? 0n);
 
     const avmBackend = new AvmBackend({
       binaryPath: avmBinaryPath,
       wsdbSocketPath,
       cdbSocketPath: cdbServer.socketPath,
     });
-
-    const forkId = merkleTrees.getRevision().forkId;
     const simulatorFactory: MeasuredSimulatorFactory = (_mt, _cdb, g, m, c) =>
       new MeasuredCppPublicTxSimulator(avmBackend, g, m, c, undefined, forkId);
 

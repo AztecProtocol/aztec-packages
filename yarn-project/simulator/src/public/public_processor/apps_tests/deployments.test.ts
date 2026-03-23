@@ -64,7 +64,6 @@ describe.each([
       }
 
       cdbServer = new CdbIpcServer();
-      cdbServer.setContractsDB(contractsDB, globals.timestamp);
 
       avmBackend = new AvmBackend({
         binaryPath: avmBinaryPath,
@@ -73,6 +72,7 @@ describe.each([
       });
 
       const forkId = merkleTrees.getRevision().forkId;
+      cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
       simulator = new CppPublicTxSimulator(avmBackend, globals, config, undefined, forkId);
     } else {
       // TS mode: use IpcVsTs to compare TS and IPC C++ results
@@ -86,7 +86,6 @@ describe.each([
       }
 
       cdbServer = new CdbIpcServer();
-      cdbServer.setContractsDB(contractsDB, globals.timestamp);
 
       avmBackend = new AvmBackend({
         binaryPath: avmBinaryPath,
@@ -95,6 +94,7 @@ describe.each([
       });
 
       const forkId = merkleTrees.getRevision().forkId;
+      cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
       simulator = new IpcVsTsPublicTxSimulator(
         guardedMerkleTrees,
         contractsDB,

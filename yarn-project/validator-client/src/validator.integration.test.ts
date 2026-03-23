@@ -133,7 +133,7 @@ describe('ValidatorClient Integration', () => {
     const { CdbIpcServer, PublicContractsDB } = await import('@aztec/simulator/server');
     const cdbServer = new CdbIpcServer();
     const contractsDB = new PublicContractsDB(archiver);
-    cdbServer.setContractsDB(contractsDB, 0n);
+    cdbServer.registerFork(0, contractsDB, 0n);
 
     const avmBackend: AvmIpcBackend = new AvmBackend({
       binaryPath: avmBinaryPath,

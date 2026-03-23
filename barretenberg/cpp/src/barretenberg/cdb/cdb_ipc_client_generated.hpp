@@ -29,9 +29,9 @@ class CdbIpcClient {
     CdbGetBytecodeCommitment::Response get_bytecode_commitment(CdbGetBytecodeCommitment cmd);
     CdbGetDebugFunctionName::Response get_debug_function_name(CdbGetDebugFunctionName cmd) const;
     void add_contracts(CdbAddContracts cmd);
-    void create_checkpoint();
-    void commit_checkpoint();
-    void revert_checkpoint();
+    void create_checkpoint(CdbCreateCheckpoint cmd);
+    void commit_checkpoint(CdbCommitCheckpoint cmd);
+    void revert_checkpoint(CdbRevertCheckpoint cmd);
     void add_contract_class(CdbAddContractClass cmd);
     void add_contract_instance(CdbAddContractInstance cmd);
     void register_function_signatures(CdbRegisterFunctionSignatures cmd);

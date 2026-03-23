@@ -78,10 +78,10 @@ export class PublicProcessorFactory {
   }
 
   /**
-   * Creates a new instance of a PublicProcessor.
-   * @param globalVariables - The global variables for the block being processed.
-   * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
-   * @returns A new instance of a PublicProcessor.
+   * Creates a new instance of a PublicProcessor and registers the fork's contracts DB
+   * on the CDB server for fork-ID-based request routing.
+   *
+   * The caller must call `cdbServer.unregisterFork(forkId)` when the fork is closed.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
@@ -90,9 +90,16 @@ export class PublicProcessorFactory {
   ): PublicProcessor {
     const bindings = this.log.getBindings();
     const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
+    const forkId = merkleTree.getRevision().forkId;
+
+    // Register this fork's contracts DB on the CDB server so AVM requests
+    // carrying this forkId are routed to the correct PublicContractsDB instance.
+    if (this.cdbServer) {
+      this.cdbServer.registerFork(forkId, contractsDB, globalVariables.timestamp);
+    }
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, globalVariables, config);
 
     return new PublicProcessor(
       globalVariables,
@@ -107,16 +114,11 @@ export class PublicProcessorFactory {
 
   protected createPublicTxSimulator(
     merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
     const bindings = this.log.getBindings();
     const forkId = merkleTree.getRevision().forkId;
-    // Pass CDB wiring so the simulator atomically sets the contracts DB under a lock
-    // before each simulation. This prevents concurrent simulations from corrupting
-    // each other's checkpoint stacks on the shared CDB server.
-    const cdbWiring = this.cdbServer ? { cdbServer: this.cdbServer, contractsDB } : undefined;
     return new TelemetryCppPublicTxSimulator(
       this.avmBackend,
       globalVariables,
@@ -124,7 +126,6 @@ export class PublicProcessorFactory {
       config,
       bindings,
       forkId,
-      cdbWiring,
     );
   }
 }

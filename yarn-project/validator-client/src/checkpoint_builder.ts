@@ -251,16 +251,16 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     }
     // Extract the WSDB fork ID so the C++ AVM can modify the same fork in-place.
     const wsdbForkId = 'getForkId' in fork ? (fork as { getForkId(): number }).getForkId() : undefined;
-    // Pass CDB wiring so the simulator atomically sets the contracts DB under a lock
-    // before each simulation, preventing races with concurrent RPC simulations.
-    const cdbWiring = this.cdbServer ? { cdbServer: this.cdbServer, contractsDB } : undefined;
+    // Register this fork's contracts DB on the CDB server for fork-ID routing.
+    if (this.cdbServer && wsdbForkId !== undefined) {
+      this.cdbServer.registerFork(wsdbForkId, contractsDB, globalVariables.timestamp);
+    }
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
       this.avmBackend,
       globalVariables,
       this.telemetryClient,
       bindings,
       wsdbForkId,
-      cdbWiring,
     );
 
     const processor = new PublicProcessor(

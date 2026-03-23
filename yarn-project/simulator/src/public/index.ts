@@ -1,3 +1,4 @@
+export { AvmSimulatorPool, type AvmSimulatorPoolOptions } from './avm_simulator_pool.js';
 export { CdbIpcServer } from './cdb_ipc_server.js';
 export type { PublicContractsDBInterface } from './db_interfaces.js';
 export { PublicContractsDB } from './public_db_sources.js';

@@ -33,7 +33,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
-import { type AvmIpcBackend, CdbIpcServer, PublicProcessorFactory } from '@aztec/simulator/server';
+import { type AvmIpcBackend, AvmSimulatorPool, CdbIpcServer, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   EpochPruneWatcher,
@@ -140,8 +140,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   /** IPC backends to clean up on stop (CDB, AVM). WSDB is cleaned up by world state. */
   private ipcBackends: Array<{ destroy?(): Promise<void> }> = [];
-  /** Shared AVM IPC backend for public simulation. */
-  private avmBackend?: AvmIpcBackend;
+  /** AVM IPC backend (pool) for parallel public simulation. */
+  private avmPool?: AvmIpcBackend;
   /** CDB IPC server for contract data queries during AVM simulation. */
   private cdbServer?: CdbIpcServer;
 
@@ -325,7 +325,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Callers must call destroy()/close() to clean up.
 
     const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
-    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
     const { findWsdbBinary, findAvmBinary } = await import('@aztec/bb.js/platform');
 
     const wsdbBinaryPath = findWsdbBinary();
@@ -375,9 +374,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     log.info('Waiting for WSDB backend to be ready...');
     await wsdbBackend.waitUntilReady();
 
-    log.info('WSDB ready, spawning AVM');
-    const avmBackend = new AvmBackend({
-      binaryPath: avmBinaryPath,
+    const maxAvmProcesses = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
+    log.info(`WSDB ready, creating AVM simulator pool (max ${maxAvmProcesses} processes)`);
+    const avmPool = new AvmSimulatorPool({
+      maxSize: maxAvmProcesses,
+      avmBinaryPath,
       wsdbSocketPath: wsdbBackend.getSocketPath(),
       cdbSocketPath: cdbServer.socketPath,
       logger: (msg: string) => log.debug(msg),
@@ -452,7 +453,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       dateProvider,
       telemetry,
       undefined, // debugLogStore
-      avmBackend,
+      avmPool,
       cdbServer,
     );
 
@@ -616,7 +617,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         telemetry,
         debugLogStore,
-        avmBackend,
+        avmPool,
         cdbServer,
       );
 
@@ -660,7 +661,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         epochCache,
         blobClient,
         keyStoreManager,
-        avmBackend,
+        avmBackend: avmPool,
         cdbServer,
       });
 
@@ -704,9 +705,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (cdbServer) {
       node.ipcBackends.push({ destroy: () => cdbServer!.close() });
     }
-    if (avmBackend) {
-      node.ipcBackends.push(avmBackend);
-      node.avmBackend = avmBackend;
+    if (avmPool) {
+      node.ipcBackends.push(avmPool);
+      node.avmPool = avmPool;
     }
     if (cdbServer) {
       node.cdbServer = cdbServer;
@@ -1394,7 +1395,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
-      this.avmBackend!,
+      this.avmPool!,
       this.cdbServer,
       new DateProvider(),
       this.telemetry,

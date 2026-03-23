@@ -87,7 +87,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
           const contractsDB = new PublicContractsDB(contractDataSource);
           cdbServer = new CdbIpcServer();
-          cdbServer.setContractsDB(contractsDB, globals.timestamp);
 
           avmBackend = new AvmBackend({
             binaryPath: avmBinaryPath,
@@ -96,6 +95,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
           });
 
           const forkId = merkleTree.getRevision().forkId;
+          cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
           simulatorFactory = (_mt, _cdb, g, m, c) =>
             new MeasuredCppPublicTxSimulator(avmBackend!, g, m, c, undefined, forkId);
         } else {
@@ -238,7 +238,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
           const contractsDB = new PublicContractsDB(contractDataSource);
           cdbServer = new CdbIpcServer();
-          cdbServer.setContractsDB(contractsDB, globals.timestamp);
 
           avmBackend = new AvmBackend({
             binaryPath: avmBinaryPath,
@@ -247,6 +246,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
           });
 
           const forkId = merkleTree.getRevision().forkId;
+          cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
           simulatorFactory = (_mt, _cdb, g, m, c) =>
             new MeasuredCppPublicTxSimulator(avmBackend!, g, m, c, undefined, forkId);
         } else {

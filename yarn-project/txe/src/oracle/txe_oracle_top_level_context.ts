@@ -458,8 +458,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
     // Update CDB server with current contract data source for this simulation
     const { cdbServer, avmBackend } = this.stateMachine.synchronizer;
-    cdbServer.setContractsDB(contractsDB, globals.timestamp);
     const forkId = forkedWorldTrees.getRevision().forkId;
+    cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
@@ -579,8 +579,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
     // Update CDB server with current contract data source for this simulation
     const { cdbServer: cdbServer2, avmBackend: avmBackend2 } = this.stateMachine.synchronizer;
-    cdbServer2.setContractsDB(contractsDB, globals.timestamp);
     const forkId2 = forkedWorldTrees.getRevision().forkId;
+    cdbServer2.registerFork(forkId2, contractsDB, globals.timestamp);
     const simulator = new CppPublicTxSimulator(avmBackend2, globals, config, bindings2, forkId2);
     const processor = new PublicProcessor(
       globals,

@@ -99,15 +99,14 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
 
         const contractsDB = new PublicContractsDB(contractDataSource);
         cdbServer = new CdbIpcServer();
-        cdbServer.setContractsDB(contractsDB, globals.timestamp);
+        const forkId = merkleTree.getRevision().forkId;
+        cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
 
         avmBackend = new AvmBackend({
           binaryPath: avmBinaryPath,
           wsdbSocketPath,
           cdbSocketPath: cdbServer.socketPath,
         });
-
-        const forkId = merkleTree.getRevision().forkId;
         simulatorFactory = (_mt, _cdb, g, m, c) =>
           new MeasuredCppPublicTxSimulator(avmBackend!, g, m, c, undefined, forkId);
       } else {

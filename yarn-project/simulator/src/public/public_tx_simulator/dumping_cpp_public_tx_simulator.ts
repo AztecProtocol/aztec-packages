@@ -13,8 +13,6 @@ import { strict as assert } from 'assert';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import type { CdbIpcServer } from '../cdb_ipc_server.js';
-import type { PublicContractsDB } from '../public_db_sources.js';
 import { type AvmIpcBackend, CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
 
 /**
@@ -31,9 +29,8 @@ export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
     outputDir: string,
     bindings?: LoggerBindings,
     wsdbForkId?: number,
-    cdbWiring?: { cdbServer: CdbIpcServer; contractsDB: PublicContractsDB },
   ) {
-    super(avmBackend, globalVariables, config, bindings, wsdbForkId, cdbWiring);
+    super(avmBackend, globalVariables, config, bindings, wsdbForkId);
     assert(config.collectHints === true, 'collectHints must be enabled to dump AVM circuit inputs');
     assert(config.collectPublicInputs === true, 'collectPublicInputs must be enabled to dump AVM circuit inputs');
     this.outputDir = outputDir;
