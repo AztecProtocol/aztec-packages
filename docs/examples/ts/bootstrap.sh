@@ -231,7 +231,7 @@ validate_project() {
             echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
         done
 
-        yarn add -D typescript >/dev/null 2>&1
+        yarn add -D "typescript@^5.3.3" >/dev/null 2>&1
 
         # Create tsconfig.json from template
         if [ ! -f "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" ]; then
@@ -264,16 +264,20 @@ get_all_projects() {
     done
 }
 
-# In CI, validate all yarn.lock files are empty (they must exist but contain no content).
+# In CI, validate all yarn.lock files are committed empty (they must exist but contain no content).
+# We check git state (not filesystem) because a previous interrupted validation run may have
+# populated lockfiles on disk via yarn add before cleanup could run.
 # Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
 if [ "${CI:-0}" != "0" ]; then
     for lockfile in */yarn.lock; do
         [ -f "$lockfile" ] || continue
-        if [ -s "$lockfile" ]; then
-            echo_stderr "ERROR: $lockfile is not empty. These files must be committed empty."
+        if [ -n "$(git show HEAD:"docs/examples/ts/$lockfile" 2>/dev/null)" ]; then
+            echo_stderr "ERROR: $lockfile is not empty in git. These files must be committed empty."
             echo_stderr "       Run: > $lockfile && git add $lockfile"
             exit 1
         fi
+        # Ensure clean filesystem state (may be dirty from a previous interrupted run)
+        > "$lockfile"
     done
 fi
 
