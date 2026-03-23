@@ -446,12 +446,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const result2 = await ap.tryAddBlockProposal(proposal2);
         expect(result2.count).toBe(2);
 
-        // Add a third proposal for same position
+        // Third proposal for same position should be rejected (cap is 2)
         const proposal3 = await mockBlockProposalWithIndex(signers[2], slotNumber, indexWithinCheckpoint);
         const result3 = await ap.tryAddBlockProposal(proposal3);
 
-        expect(result3.added).toBe(true);
-        expect(result3.count).toBe(3);
+        expect(result3.added).toBe(false);
+        expect(result3.count).toBe(2);
       });
 
       it('should return added=false when exceeding capacity', async () => {
@@ -666,12 +666,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const result2 = await ap.tryAddCheckpointProposal(proposal2);
         expect(result2.count).toBe(2);
 
-        // Add a third proposal for same slot
+        // Third proposal for same slot should be rejected (cap is 2)
         const proposal3 = await mockCheckpointProposalCoreForPool(signers[2], slotNumber);
         const result3 = await ap.tryAddCheckpointProposal(proposal3);
 
-        expect(result3.added).toBe(true);
-        expect(result3.count).toBe(3);
+        expect(result3.added).toBe(false);
+        expect(result3.count).toBe(2);
       });
 
       it('should not count attestations as proposals for duplicate detection', async () => {

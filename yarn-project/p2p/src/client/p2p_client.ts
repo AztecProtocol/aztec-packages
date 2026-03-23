@@ -696,12 +696,14 @@ export class P2PClient extends WithTracer implements P2P {
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */
   private async maybeCallPrepareForSlot(): Promise<void> {
-    const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
-    if (currentSlot <= this.lastSlotProcessed) {
+    // If we have a pending checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
+    // Knowledege of pending checkpoints is in the PR above
+    const { targetSlot } = this.epochCache.getTargetAndNextSlot();
+    if (targetSlot <= this.lastSlotProcessed) {
       return;
     }
-    this.lastSlotProcessed = currentSlot;
-    await this.txPool.prepareForSlot(currentSlot);
+    this.lastSlotProcessed = targetSlot;
+    await this.txPool.prepareForSlot(targetSlot);
   }
 
   private async startServiceIfSynched() {

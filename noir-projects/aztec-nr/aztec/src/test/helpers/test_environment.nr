@@ -13,20 +13,13 @@ use crate::{
     hash::hash_args,
     messages::{
         discovery::{
-            ComputeNoteHashAndNullifier, CustomMessageHandler, NoteHashAndNullifier,
-            process_message::process_message_plaintext,
+            ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
         encoding::MESSAGE_PLAINTEXT_LEN,
         logs::{event::encode_private_event_message, note::encode_private_note_message},
         processing::{MessageContext, validate_and_store_enqueued_notes_and_events},
     },
-    note::{
-        HintedNote,
-        note_interface::{NoteHash, NoteType},
-        note_metadata::SettledNoteMetadata,
-        NoteMessage,
-        utils::compute_note_hash_for_nullification,
-    },
+    note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
     test::helpers::{txe_oracles, utils::ContractDeployment},
     utils::array::subarray,
@@ -783,30 +776,25 @@ impl TestEnvironment {
             note_message.new_note.randomness,
         ));
 
-        // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
-        // typically be created by the macros for the different notes in a given contract. Here we build one
-        // specialized for `Note`.
-        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
+        // We also need to provide an implementation for the `compute_note_hash` and `compute_note_nullifier`
+        // functions, which would typically be created by the macros for the different notes in a given contract. Here
+        // we build variants specialized for `Note`.
+        let compute_note_hash: ComputeNoteHash = |packed_note, owner, storage_slot, note_type_id, _contract_address, randomness| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
 
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
-            let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-            let note_hash_for_nullification = compute_note_hash_for_nullification(
-                HintedNote {
-                    note,
-                    contract_address,
-                    owner,
-                    randomness,
-                    storage_slot,
-                    metadata: SettledNoteMetadata::new(note_nonce).into(),
-                },
-            );
+            Option::some(note.compute_note_hash(owner, storage_slot, randomness))
+        };
 
-            let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
+        let compute_note_nullifier: ComputeNoteNullifier = |unique_note_hash, packed_note, owner, _storage_slot, note_type_id, _contract_address, _randomness| {
+            assert_eq(note_type_id, Note::get_id());
+            assert_eq(packed_note.len(), <Note as Packable>::N);
 
-            Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
+            let note = Note::unpack(subarray(packed_note.storage(), 0));
+
+            note.compute_nullifier_unconstrained(owner, unique_note_hash)
         };
 
         let process_custom_message: Option<CustomMessageHandler<()>> = Option::none();
@@ -814,7 +802,8 @@ impl TestEnvironment {
             message_plaintext,
             opts.contract_address,
             Option::some(note_message.new_note.owner),
-            compute_note_hash_and_nullifier,
+            compute_note_hash,
+            compute_note_nullifier,
             process_custom_message,
         );
     }
@@ -907,12 +896,18 @@ impl TestEnvironment {
             event_message.new_event.randomness,
         ));
 
-        // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
-        // typically be created by the macros for the different notes in a given contract. Here we build an empty one,
-        // since it will never be invoked as this is an event and not a note message.
-        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |_packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness, _note_nonce| {
+        // We also need to provide an implementation for the `compute_note_hash` and `compute_note_nullifier`
+        // functions, which would typically be created by the macros for the different notes in a given contract. Here
+        // we build empty ones, since they will never be invoked as this is an event and not a note message.
+        let compute_note_hash: ComputeNoteHash = |_packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness| {
             panic(
-                f"Unexpected compute_note_hash_and_nullifier invocation in TestEnvironment::discover_event",
+                f"Unexpected compute_note_hash invocation in TestEnvironment::discover_event",
+            )
+        };
+
+        let compute_note_nullifier: ComputeNoteNullifier = |_unique_note_hash, _packed_note, _owner, _storage_slot, _note_type_id, _contract_address, _randomness| {
+            panic(
+                f"Unexpected compute_note_nullifier invocation in TestEnvironment::discover_event",
             )
         };
 
@@ -921,17 +916,19 @@ impl TestEnvironment {
             message_plaintext,
             opts.contract_address,
             Option::some(recipient),
-            compute_note_hash_and_nullifier,
+            compute_note_hash,
+            compute_note_nullifier,
             process_custom_message,
         );
     }
 
-    unconstrained fn discover_data_in_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
+    unconstrained fn discover_data_in_message_plaintext<CustomMessageHandlerEnv>(
         self,
         message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
         contract_address: Option<AztecAddress>,
         recipient: Option<AztecAddress>,
-        compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
+        compute_note_hash: ComputeNoteHash,
+        compute_note_nullifier: ComputeNoteNullifier,
         process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     ) {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
@@ -960,7 +957,8 @@ impl TestEnvironment {
         self.utility_context_opts(UtilityContextOptions { contract_address }, |context| {
             process_message_plaintext(
                 context.this_address(),
-                compute_note_hash_and_nullifier,
+                compute_note_hash,
+                compute_note_nullifier,
                 process_custom_message,
                 message_plaintext,
                 message_context,

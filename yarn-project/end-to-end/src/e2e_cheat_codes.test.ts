@@ -46,19 +46,19 @@ describe('e2e_cheat_codes', () => {
 
     it.each([100, 42, 99])(`setNextBlockTimestamp by %i`, async increment => {
       const blockNumber = await ethCheatCodes.blockNumber();
-      const timestamp = await ethCheatCodes.timestamp();
+      const timestamp = await ethCheatCodes.lastBlockTimestamp();
       await ethCheatCodes.setNextBlockTimestamp(timestamp + increment);
 
-      expect(await ethCheatCodes.timestamp()).toBe(timestamp);
+      expect(await ethCheatCodes.lastBlockTimestamp()).toBe(timestamp);
 
       await ethCheatCodes.mine();
 
       expect(await ethCheatCodes.blockNumber()).toBe(blockNumber + 1);
-      expect(await ethCheatCodes.timestamp()).toBe(timestamp + increment);
+      expect(await ethCheatCodes.lastBlockTimestamp()).toBe(timestamp + increment);
     });
 
     it('setNextBlockTimestamp to a past timestamp throws', async () => {
-      const timestamp = await ethCheatCodes.timestamp();
+      const timestamp = await ethCheatCodes.lastBlockTimestamp();
       const pastTimestamp = timestamp - 1000;
       await expect(async () => await ethCheatCodes.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow(
         'Timestamp error',

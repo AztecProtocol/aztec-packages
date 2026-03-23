@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <span>
-#include <vector>
 
 #include "barretenberg/vm2/common/field.hpp"
 

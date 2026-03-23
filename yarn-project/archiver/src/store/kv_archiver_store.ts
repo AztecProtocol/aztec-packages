@@ -16,11 +16,10 @@ import {
 import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
+  ContractClassPublicWithCommitment,
   ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
@@ -37,7 +36,7 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 5;
+export const ARCHIVER_DB_VERSION = 6;
 export const MAX_FUNCTION_SIGNATURES = 1000;
 export const MAX_FUNCTION_NAME_LEN = 256;
 
@@ -167,19 +166,14 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   /**
    * Add new contract classes from an L2 block to the store's list.
-   * @param data - List of contract classes to be added.
-   * @param bytecodeCommitments - Bytecode commitments for the contract classes.
+   * @param data - List of contract classes (with bytecode commitments) to be added.
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  async addContractClasses(
-    data: ContractClassPublic[],
-    bytecodeCommitments: Fr[],
-    blockNumber: BlockNumber,
-  ): Promise<boolean> {
+  async addContractClasses(data: ContractClassPublicWithCommitment[], blockNumber: BlockNumber): Promise<boolean> {
     return (
       await Promise.all(
-        data.map((c, i) => this.#contractClassStore.addContractClass(c, bytecodeCommitments[i], blockNumber)),
+        data.map(c => this.#contractClassStore.addContractClass(c, c.publicBytecodeCommitment, blockNumber)),
       )
     ).every(Boolean);
   }
@@ -192,15 +186,6 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     return this.#contractClassStore.getBytecodeCommitment(contractClassId);
-  }
-
-  /** Adds private functions to a contract class. */
-  addFunctions(
-    contractClassId: Fr,
-    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    utilityFunctions: UtilityFunctionWithMembershipProof[],
-  ): Promise<boolean> {
-    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
   /**

@@ -12,6 +12,7 @@ import { join } from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
+import { ethPrivateKeySchema } from '../src/schemas.js';
 import { LocalSigner, RemoteSigner } from '../src/signer.js';
 import type { KeyStore } from '../src/types.js';
 
@@ -1558,6 +1559,49 @@ describe('KeystoreManager', () => {
       expect(validateAccessSpy).toHaveBeenCalledTimes(2);
       expect(validateAccessSpy).toHaveBeenCalledWith(url1, [address1.toString()]);
       expect(validateAccessSpy).toHaveBeenCalledWith(url2, [address2.toString()]);
+    });
+  });
+
+  describe('createFundingSigner', () => {
+    const fundingPrivateKey = ethPrivateKeySchema.parse(
+      '0x1234567890123456789012345678901234567890123456789012345678901234',
+    );
+
+    it('returns signer from top-level fundingAccount', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+        fundingAccount: fundingPrivateKey,
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const signer = manager.createFundingSigner();
+
+      expect(signer).toBeDefined();
+      const expected = new LocalSigner(Buffer32.fromString(fundingPrivateKey));
+      expect(signer!.address.equals(expected.address)).toBeTruthy();
+    });
+
+    it('returns undefined when no fundingAccount configured', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const signer = manager.createFundingSigner();
+
+      expect(signer).toBeUndefined();
     });
   });
 });

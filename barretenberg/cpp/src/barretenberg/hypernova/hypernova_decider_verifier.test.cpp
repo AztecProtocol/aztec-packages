@@ -50,45 +50,45 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for HyperNova decider
-     * @details Manifest tracking is enabled after folding (which uses 48 rounds, 0-47), so only
-     * decider rounds are tracked. Since folding ends with a challenge (claim_batching_challenge)
-     * at round 47, and the decider starts with a challenge (rho), they are in the same round:
-     * - Round 47: rho challenge (same round as folding's claim_batching_challenge)
-     * - Round 48: Gemini FOLD commitments -> Gemini:r challenge
-     * - Round 49: Gemini evaluations -> Shplonk:nu challenge
-     * - Round 50: Shplonk:Q commitment -> Shplonk:z challenge
-     * - Round 51: KZG:W commitment
+     * @details Manifest tracking is enabled after folding, so only decider rounds are tracked.
+     * LAST_FOLDING_ROUND = 2 * VIRTUAL_LOG_N + 5. Since folding ends with a challenge
+     * (claim_batching_challenge), and the decider starts with a challenge (rho), they share a round:
+     * - Round LAST_FOLDING_ROUND: rho challenge
+     * - Round LAST_FOLDING_ROUND+1: Gemini FOLD commitments -> Gemini:r challenge
+     * - Round LAST_FOLDING_ROUND+2: Gemini evaluations -> Shplonk:nu challenge
+     * - Round LAST_FOLDING_ROUND+3: Shplonk:Q commitment -> Shplonk:z challenge
+     * - Round LAST_FOLDING_ROUND+4: KZG:W commitment
      */
     static TranscriptManifest build_expected_decider_manifest()
     {
         TranscriptManifest manifest;
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
-        constexpr size_t NUM_GEMINI_FOLDS = NativeFlavor::VIRTUAL_LOG_N - 1; // 20
-        constexpr size_t NUM_GEMINI_EVALS = NativeFlavor::VIRTUAL_LOG_N;     // 21
-        // Folding uses 48 rounds (0-47). The last round (47) ends with claim_batching_challenge.
-        // Since rho is also a challenge with no data between, it stays in round 47.
-        constexpr size_t LAST_FOLDING_ROUND = 47;
+        constexpr size_t NUM_GEMINI_FOLDS = NativeFlavor::VIRTUAL_LOG_N - 1;
+        constexpr size_t NUM_GEMINI_EVALS = NativeFlavor::VIRTUAL_LOG_N;
+        // Folding uses 3 Oink rounds + VIRTUAL_LOG_N sumcheck + 1 batching + 1 MLB data + VIRTUAL_LOG_N MLB sumcheck.
+        // The last round ends with claim_batching_challenge. rho shares the same round.
+        constexpr size_t LAST_FOLDING_ROUND = (2 * NativeFlavor::VIRTUAL_LOG_N) + 5;
 
-        // Round 47: rho challenge (same round as folding's claim_batching_challenge)
+        // rho challenge (same round as folding's claim_batching_challenge)
         manifest.add_challenge(LAST_FOLDING_ROUND, "rho");
 
-        // Round 48: Gemini FOLD commitments -> Gemini:r
+        // Gemini FOLD commitments -> Gemini:r
         for (size_t i = 1; i <= NUM_GEMINI_FOLDS; ++i) {
             manifest.add_entry(LAST_FOLDING_ROUND + 1, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
         }
         manifest.add_challenge(LAST_FOLDING_ROUND + 1, "Gemini:r");
 
-        // Round 49: Gemini evaluations -> Shplonk:nu
+        // Gemini evaluations -> Shplonk:nu
         for (size_t i = 1; i <= NUM_GEMINI_EVALS; ++i) {
             manifest.add_entry(LAST_FOLDING_ROUND + 2, "Gemini:a_" + std::to_string(i), 1);
         }
         manifest.add_challenge(LAST_FOLDING_ROUND + 2, "Shplonk:nu");
 
-        // Round 50: Shplonk:Q -> Shplonk:z
+        // Shplonk:Q -> Shplonk:z
         manifest.add_entry(LAST_FOLDING_ROUND + 3, "Shplonk:Q", frs_per_G);
         manifest.add_challenge(LAST_FOLDING_ROUND + 3, "Shplonk:z");
 
-        // Round 51: KZG:W
+        // KZG:W
         manifest.add_entry(LAST_FOLDING_ROUND + 4, "KZG:W", frs_per_G);
 
         return manifest;
