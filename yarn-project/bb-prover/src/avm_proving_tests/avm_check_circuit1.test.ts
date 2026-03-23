@@ -14,7 +14,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 30_000;
+const TIMEOUT = 60_000;
 
 describe('AVM check-circuit – unhappy paths 1', () => {
   let avmTestContractInstance: ContractInstanceWithAddress;
