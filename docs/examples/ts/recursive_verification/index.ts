@@ -57,7 +57,8 @@ async function main() {
   const manager = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
 
   // Deploy the account contract
-  await manager.send({
+  const deployMethod = await manager.getDeployMethod();
+  await deployMethod.send({
     from: NO_FROM,
     fee: { paymentMethod: sponsoredPaymentMethod },
   });
