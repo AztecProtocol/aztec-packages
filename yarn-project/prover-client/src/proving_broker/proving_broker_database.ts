@@ -1,5 +1,12 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
+import type {
+  Claim,
+  ProofUri,
+  ProvingJob,
+  ProvingJobId,
+  ProvingJobSettledResult,
+  WorkItemId,
+} from '@aztec/stdlib/interfaces/server';
 
 /**
  * A database for storing proof requests and their results
@@ -10,6 +17,12 @@ export interface ProvingBrokerDatabase {
    * @param job - The proof request to save
    */
   addProvingJob(job: ProvingJob): Promise<void>;
+
+  /** Retrieves a single proving job by ID. Used for lazy loading full job data. */
+  getProvingJob(id: ProvingJobId): Promise<ProvingJob | undefined>;
+
+  /** Retrieves a single proving job result by ID. Used for lazy loading full result data. */
+  getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined>;
 
   /**
    * Deletes all proving jobs belonging to epochs older than the given epoch
@@ -42,4 +55,24 @@ export interface ProvingBrokerDatabase {
    * Closes the database
    */
   close(): Promise<void>;
+
+  // Claim management
+
+  /** Persists a claim on a work item. */
+  addClaim(claim: Claim): Promise<void>;
+
+  /** Updates the lastActivity timestamp for a claim. Returns true if the claim existed. */
+  updateClaimActivity(workItemId: WorkItemId, lastActivity: number): Promise<boolean>;
+
+  /** Retrieves a claim by work item ID. */
+  getClaim(workItemId: WorkItemId): Promise<Claim | undefined>;
+
+  /** Deletes a claim by work item ID. */
+  deleteClaim(workItemId: WorkItemId): Promise<void>;
+
+  /** Deletes all claims belonging to epochs older than the given epoch. */
+  deleteClaimsOlderThanEpoch(epochNumber: EpochNumber): Promise<void>;
+
+  /** Returns an async iterator over all persisted claims. */
+  allClaims(): AsyncIterableIterator<Claim>;
 }

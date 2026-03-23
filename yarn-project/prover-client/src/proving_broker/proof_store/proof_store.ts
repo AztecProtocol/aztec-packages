@@ -1,4 +1,5 @@
 import type {
+  CircuitProvingRequestType,
   ProofUri,
   ProvingJobId,
   ProvingJobInputs,
@@ -6,7 +7,6 @@ import type {
   ProvingJobResult,
   ProvingJobResultsMap,
 } from '@aztec/stdlib/interfaces/server';
-import type { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 /**
  * A database for storing proof inputs and outputs.
@@ -19,7 +19,7 @@ export interface ProofStore {
    * @param inputs - The proof input to save.
    * @returns The URI of the saved proof input.
    */
-  saveProofInput<T extends ProvingRequestType>(
+  saveProofInput<T extends CircuitProvingRequestType>(
     jobId: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
@@ -32,7 +32,7 @@ export interface ProofStore {
    * @param result - The proof output to save.
    * @returns The URI of the saved proof output.
    */
-  saveProofOutput<T extends ProvingRequestType>(
+  saveProofOutput<T extends CircuitProvingRequestType>(
     id: ProvingJobId,
     type: T,
     result: ProvingJobResultsMap[T],

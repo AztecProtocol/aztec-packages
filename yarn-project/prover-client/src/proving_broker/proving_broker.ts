@@ -4,22 +4,29 @@ import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from 
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type Claim,
+  type ClaimResult,
+  type ClaimStatus,
+  type ClaimToken,
   type GetProvingJobResponse,
   type ProofUri,
   type ProvingJob,
   type ProvingJobBrokerDebug,
+  type ProvingJobClaimManager,
   type ProvingJobConsumer,
   type ProvingJobFilter,
   type ProvingJobId,
   type ProvingJobProducer,
   type ProvingJobSettledResult,
   type ProvingJobStatus,
+  type WorkItemId,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
+import { randomUUID } from 'node:crypto';
 
 import { type ProverBrokerConfig, defaultProverBrokerConfig } from './config.js';
 import type { ProvingBrokerDatabase } from './proving_broker_database.js';
@@ -37,7 +44,9 @@ type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
  * A broker that manages proof requests and distributes them to workers based on their priority.
  * It takes a backend that is responsible for storing and retrieving proof requests and results.
  */
-export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, ProvingJobBrokerDebug, Traceable {
+export class ProvingBroker
+  implements ProvingJobProducer, ProvingJobConsumer, ProvingJobBrokerDebug, ProvingJobClaimManager, Traceable
+{
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -67,6 +76,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
     [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+
+    [ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
+    [ProvingRequestType.TOP_TREE_COMPLETE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // holds a copy of the database in memory in order to quickly fulfill requests
@@ -90,15 +104,26 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   // a map of promises that will be resolved when a job is settled
   private promises = new Map<ProvingJobId, PromiseWithResolvers<ProvingJobSettledResult>>();
 
+  /** In-memory cache of work item claims for the split-proving coordination system. */
+  private claimsCache = new Map<WorkItemId, Claim>();
+
   private cleanupPromise: RunningPromise;
   private msTimeSource = () => Date.now();
   private jobTimeoutMs: number;
+  private claimTimeoutMs: number;
   private maxRetries: number;
 
   private instrumentation: ProvingBrokerInstrumentation;
   public readonly tracer: Tracer;
 
-  private completedJobNotifications: ProvingJobId[] = [];
+  /** Per-consumer notification queues. When a job completes, its ID is pushed to ALL registered consumers. */
+  private consumerNotifications = new Map<string, ProvingJobId[]>();
+  /** Tracks when each consumer last polled, for expiring stale consumers. */
+  private consumerLastPoll = new Map<string, number>();
+  /** Default consumer ID for backward compatibility (legacy single-facade mode). */
+  private static readonly DEFAULT_CONSUMER = '__default__';
+  /** Consumers that haven't polled in this many ms are considered stale and removed. */
+  private static readonly CONSUMER_EXPIRY_MS = 60_000;
 
   /**
    * The broker keeps track of the highest epoch its seen.
@@ -125,6 +150,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       proverBrokerJobMaxRetries,
       proverBrokerMaxEpochsToKeepResultsFor,
       proverBrokerDebugReplayEnabled,
+      proverBrokerClaimTimeoutMs,
     }: Required<
       Pick<
         ProverBrokerConfig,
@@ -133,6 +159,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
         | 'proverBrokerJobMaxRetries'
         | 'proverBrokerMaxEpochsToKeepResultsFor'
         | 'proverBrokerDebugReplayEnabled'
+        | 'proverBrokerClaimTimeoutMs'
       >
     > = defaultProverBrokerConfig,
     client: TelemetryClient = getTelemetryClient(),
@@ -142,6 +169,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     this.instrumentation = new ProvingBrokerInstrumentation(client);
     this.cleanupPromise = new RunningPromise(this.cleanupPass.bind(this), this.logger, proverBrokerPollIntervalMs);
     this.jobTimeoutMs = proverBrokerJobTimeoutMs!;
+    this.claimTimeoutMs = proverBrokerClaimTimeoutMs!;
     this.maxRetries = proverBrokerJobMaxRetries!;
     this.maxEpochsToKeepResultsFor = proverBrokerMaxEpochsToKeepResultsFor!;
     this.debugReplayEnabled = proverBrokerDebugReplayEnabled ?? false;
@@ -186,6 +214,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       }
     }
 
+    // Restore claims from database
+    for await (const claim of this.database.allClaims()) {
+      this.claimsCache.set(claim.workItemId, claim);
+    }
+
     this.cleanupPromise.start();
 
     this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
@@ -214,8 +247,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     return Promise.resolve(this.#getProvingJobStatus(id));
   }
 
-  public getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
-    return this.#getCompletedJobs(ids);
+  public getCompletedJobs(ids: ProvingJobId[], consumerId?: string): Promise<ProvingJobId[]> {
+    return this.#getCompletedJobs(ids, consumerId);
   }
 
   public getProvingJob(filter?: ProvingJobFilter): Promise<GetProvingJobResponse | undefined> {
@@ -270,7 +303,99 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     return { status: 'in-queue' };
   }
 
+  // ProvingJobClaimManager implementation
+
+  public async claimN(workItemIds: WorkItemId[], maxClaims: number, nodeId: string): Promise<ClaimResult[]> {
+    const results: ClaimResult[] = [];
+    for (const workItemId of workItemIds) {
+      if (results.length >= maxClaims) {
+        break;
+      }
+      const claimToken = await this.claimWork(workItemId, nodeId);
+      if (claimToken) {
+        results.push({ workItemId, claimToken });
+      }
+    }
+    return results;
+  }
+
+  public async claimWork(workItemId: WorkItemId, nodeId: string): Promise<ClaimToken | undefined> {
+    const existing = this.claimsCache.get(workItemId);
+    if (existing && !this.isClaimExpired(existing)) {
+      return undefined; // Already actively claimed
+    }
+
+    const claim: Claim = {
+      workItemId,
+      nodeId,
+      claimToken: randomUUID(),
+      epochNumber: this.currentEpoch(),
+      claimedAt: this.msTimeSource(),
+      lastActivity: this.msTimeSource(),
+    };
+
+    this.claimsCache.set(workItemId, claim);
+    await this.database.addClaim(claim);
+    this.logger.verbose(`Claim granted for ${workItemId} to node ${nodeId}`);
+    return claim.claimToken;
+  }
+
+  public async heartbeatClaim(workItemId: WorkItemId, claimToken: ClaimToken): Promise<boolean> {
+    const claim = this.claimsCache.get(workItemId);
+    if (!claim || claim.claimToken !== claimToken) {
+      return false;
+    }
+    claim.lastActivity = this.msTimeSource();
+    await this.database.updateClaimActivity(workItemId, claim.lastActivity);
+    return true;
+  }
+
+  public getClaimStatus(workItemId: WorkItemId): Promise<ClaimStatus> {
+    const claim = this.claimsCache.get(workItemId);
+    if (!claim) {
+      return Promise.resolve({ status: 'unclaimed' });
+    }
+    if (this.isClaimExpired(claim)) {
+      return Promise.resolve({ status: 'expired' });
+    }
+    return Promise.resolve({ status: 'active', nodeId: claim.nodeId });
+  }
+
+  public async getClaimStatuses(workItemIds: WorkItemId[]): Promise<ClaimStatus[]> {
+    const results: ClaimStatus[] = [];
+    for (const id of workItemIds) {
+      results.push(await this.getClaimStatus(id));
+    }
+    return results;
+  }
+
+  public async releaseClaim(workItemId: WorkItemId, claimToken: ClaimToken): Promise<void> {
+    const claim = this.claimsCache.get(workItemId);
+    if (!claim || claim.claimToken !== claimToken) {
+      return;
+    }
+    this.claimsCache.delete(workItemId);
+    await this.database.deleteClaim(workItemId);
+    this.logger.verbose(`Claim released for ${workItemId}`);
+  }
+
+  private isClaimExpired(claim: Claim): boolean {
+    return this.msTimeSource() - claim.lastActivity > this.claimTimeoutMs;
+  }
+
+  private currentEpoch(): EpochNumber {
+    return EpochNumber(this.epochHeight);
+  }
+
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
+    // Completion markers are auto-completed immediately — they are never queued for agents
+    if (
+      job.type === ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE ||
+      job.type === ProvingRequestType.TOP_TREE_COMPLETE
+    ) {
+      return this.#autoCompleteMarker(job);
+    }
+
     // We return the job status at the start of this call
     const jobStatus = this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
@@ -303,6 +428,29 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       throw err;
     }
     return jobStatus;
+  }
+
+  async #autoCompleteMarker(job: ProvingJob): Promise<ProvingJobStatus> {
+    // If already fulfilled, return existing status (dedup)
+    const existing = this.resultsCache.get(job.id);
+    if (existing && existing.status === 'fulfilled') {
+      return existing;
+    }
+
+    // Store as fulfilled immediately — the inputsUri IS the payload
+    const result: ProvingJobSettledResult = { status: 'fulfilled', value: job.inputsUri };
+    this.jobsCache.set(job.id, job);
+    this.resultsCache.set(job.id, result);
+    this.notifyAllConsumers(job.id);
+
+    await this.database.addProvingJob(job);
+    await this.database.setProvingJobResult(job.id, job.inputsUri);
+
+    this.logger.info(`Auto-completed marker id=${job.id} type=${ProvingRequestType[job.type]}`, {
+      provingJobId: job.id,
+    });
+
+    return result;
   }
 
   async #cancelProvingJob(id: ProvingJobId): Promise<void> {
@@ -345,11 +493,29 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     }
   }
 
-  #getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+  #getCompletedJobs(ids: ProvingJobId[], consumerId?: string): Promise<ProvingJobId[]> {
     const completedJobs = ids.filter(id => this.resultsCache.has(id));
-    const notifications = this.completedJobNotifications;
-    this.completedJobNotifications = [];
+    const cid = consumerId ?? ProvingBroker.DEFAULT_CONSUMER;
+    // Ensure consumer queue exists (registers the consumer for future notifications)
+    if (!this.consumerNotifications.has(cid)) {
+      this.consumerNotifications.set(cid, []);
+    }
+    this.consumerLastPoll.set(cid, this.msTimeSource());
+    const notifications = this.consumerNotifications.get(cid)!;
+    this.consumerNotifications.set(cid, []);
     return Promise.resolve(notifications.concat(completedJobs));
+  }
+
+  /** Push a job completion notification to all registered consumer queues. */
+  private notifyAllConsumers(jobId: ProvingJobId): void {
+    if (this.consumerNotifications.size === 0) {
+      // No consumers registered yet — push to default queue
+      this.consumerNotifications.set(ProvingBroker.DEFAULT_CONSUMER, [jobId]);
+    } else {
+      for (const [_cid, queue] of this.consumerNotifications) {
+        queue.push(jobId);
+      }
+    }
   }
 
   #getProvingJob(filter: ProvingJobFilter = { allowList: [] }): { job: ProvingJob; time: number } | undefined {
@@ -454,7 +620,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const result: ProvingJobSettledResult = { status: 'rejected', reason: String(err) };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
-    this.completedJobNotifications.push(id);
+    this.notifyAllConsumers(id);
 
     if (aborted) {
       this.instrumentation.incAbortedJobs(item.type);
@@ -572,7 +738,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const result: ProvingJobSettledResult = { status: 'fulfilled', value };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
-    this.completedJobNotifications.push(id);
+    this.notifyAllConsumers(id);
 
     this.instrumentation.incResolvedJobs(item.type);
     if (info) {
@@ -596,9 +762,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   private async cleanupPass() {
     this.cleanupStaleJobs();
     this.reEnqueueExpiredJobs();
+    this.cleanupStaleClaims();
+    this.cleanupStaleConsumers();
     const oldestEpochToKeep = this.oldestEpochToKeep();
     if (oldestEpochToKeep > 0) {
       await this.database.deleteAllProvingJobsOlderThanEpoch(EpochNumber(oldestEpochToKeep));
+      await this.database.deleteClaimsOlderThanEpoch(EpochNumber(oldestEpochToKeep));
       this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
   }
@@ -636,6 +805,26 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
         this.inProgress.delete(id);
         this.enqueueJobInternal(item);
         this.instrumentation.incTimedOutJobs(item.type);
+      }
+    }
+  }
+
+  private cleanupStaleClaims() {
+    const oldestEpoch = this.oldestEpochToKeep();
+    for (const [workItemId, claim] of this.claimsCache) {
+      if (claim.epochNumber < oldestEpoch) {
+        this.claimsCache.delete(workItemId);
+      }
+    }
+  }
+
+  /** Remove consumer queues that haven't been polled recently. Covers crashed/stopped facades. */
+  private cleanupStaleConsumers() {
+    const now = this.msTimeSource();
+    for (const [cid, lastPoll] of this.consumerLastPoll) {
+      if (cid !== ProvingBroker.DEFAULT_CONSUMER && now - lastPoll > ProvingBroker.CONSUMER_EXPIRY_MS) {
+        this.consumerNotifications.delete(cid);
+        this.consumerLastPoll.delete(cid);
       }
     }
   }
@@ -716,6 +905,8 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * is to get picked up by agents
  */
 export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+  ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE,
+  ProvingRequestType.TOP_TREE_COMPLETE,
   ProvingRequestType.ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,

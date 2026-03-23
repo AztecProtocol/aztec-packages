@@ -18,6 +18,7 @@ describe('ProvingBroker RPC', () => {
       proverBrokerJobMaxRetries: 3,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
       proverBrokerDebugReplayEnabled: false,
+      proverBrokerClaimTimeoutMs: 120_000,
     });
     await broker.start();
 

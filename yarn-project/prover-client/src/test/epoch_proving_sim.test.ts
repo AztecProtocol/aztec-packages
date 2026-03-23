@@ -411,6 +411,12 @@ function enqueueDependentJobs(job: Job, state: SimState, queues: Queues, checkpo
       state.rootRollupComplete = true;
       break;
     }
+
+    case ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE:
+    case ProvingRequestType.TOP_TREE_COMPLETE: {
+      // Completion markers are auto-completed by the broker and never enqueued as agent work
+      break;
+    }
   }
 }
 
@@ -717,7 +723,11 @@ type SimulationResult = {
 function runSimulationWithConfig(config: TestConfig): SimulationResult {
   const { name, workers: workerCount, checkpoints } = config;
   const state = initializeState(checkpoints);
-  const queues: Queues = times(Object.values(ProvingRequestType).length, () => []) as any;
+  const queues = Object.fromEntries(
+    Object.values(ProvingRequestType)
+      .filter((v): v is ProvingRequestType => typeof v === 'number')
+      .map(v => [v, [] as Job[]]),
+  ) as unknown as Queues;
   const workerPool: Worker[] = [];
   const completed: Job[] = [];
 

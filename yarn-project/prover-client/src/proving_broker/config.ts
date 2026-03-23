@@ -33,6 +33,8 @@ export const ProverBrokerConfig = z.object({
   proverBrokerMaxEpochsToKeepResultsFor: z.number().int().nonnegative(),
   /** Enable debug replay mode for replaying proving jobs from stored inputs */
   proverBrokerDebugReplayEnabled: z.boolean(),
+  /** Timeout in ms after which a work item claim expires if not heartbeated */
+  proverBrokerClaimTimeoutMs: z.number().int().nonnegative(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
@@ -68,8 +70,8 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
   },
   proverBrokerMaxEpochsToKeepResultsFor: {
     env: 'PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR',
-    description: 'The maximum number of epochs to keep results for',
-    ...numberConfigHelper(1),
+    description: 'The maximum number of epochs to keep results for. Split proving needs at least 2.',
+    ...numberConfigHelper(2),
   },
   proverBrokerStoreMapSizeKb: {
     env: 'PROVER_BROKER_STORE_MAP_SIZE_KB',
@@ -80,6 +82,11 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     env: 'PROVER_BROKER_DEBUG_REPLAY_ENABLED',
     description: 'Enable debug replay mode for replaying proving jobs from stored inputs',
     ...booleanConfigHelper(false),
+  },
+  proverBrokerClaimTimeoutMs: {
+    env: 'PROVER_BROKER_CLAIM_TIMEOUT_MS',
+    description: 'Timeout in ms after which a work item claim expires if not heartbeated',
+    ...numberConfigHelper(120_000),
   },
   ...dataConfigMappings,
   ...l1ReaderConfigMappings,

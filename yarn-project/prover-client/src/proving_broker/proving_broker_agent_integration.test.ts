@@ -36,6 +36,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
       proverBrokerPollIntervalMs: WORK_LOOP,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
       proverBrokerDebugReplayEnabled: false,
+      proverBrokerClaimTimeoutMs: 120_000,
     });
 
     addBrokerDelay('getProvingJob', 5, 50);

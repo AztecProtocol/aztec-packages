@@ -1,6 +1,7 @@
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import type { FileStore } from '@aztec/stdlib/file-store';
 import {
+  type CircuitProvingRequestType,
   type ProofUri,
   type ProvingJobId,
   type ProvingJobInputs,
@@ -23,7 +24,7 @@ const OUTPUTS_PATH = 'outputs';
 export class FileStoreProofStore implements ProofStore {
   constructor(private readonly fileStore: FileStore) {}
 
-  async saveProofInput<T extends ProvingRequestType>(
+  async saveProofInput<T extends CircuitProvingRequestType>(
     id: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
@@ -33,7 +34,7 @@ export class FileStoreProofStore implements ProofStore {
     return uri as ProofUri;
   }
 
-  async saveProofOutput<T extends ProvingRequestType>(
+  async saveProofOutput<T extends CircuitProvingRequestType>(
     id: ProvingJobId,
     type: T,
     result: ProvingJobResultsMap[T],

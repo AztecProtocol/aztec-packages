@@ -61,6 +61,7 @@ describe.each([
       proverBrokerJobMaxRetries: maxRetries,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
       proverBrokerDebugReplayEnabled: false,
+      proverBrokerClaimTimeoutMs: 120_000,
     });
   });
 
@@ -1375,4 +1376,108 @@ describe.each([
       expect.objectContaining({ job: expect.objectContaining({ id }) }),
     );
   }
+
+  describe('completion markers', () => {
+    it('auto-completes a sub-tree completion marker on enqueue', async () => {
+      await broker.start();
+      const job: ProvingJob = {
+        id: '1:CHECKPOINT_SUB_TREE_COMPLETE:abc123' as ProvingJobId,
+        type: ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE,
+        epochNumber: EpochNumber(1),
+        inputsUri: 'data:application/json,{"proof":"test"}' as ProofUri,
+      };
+      const status = await broker.enqueueProvingJob(job);
+      expect(status).toEqual({ status: 'fulfilled', value: job.inputsUri });
+    });
+
+    it('deduplicates completion markers', async () => {
+      await broker.start();
+      const job: ProvingJob = {
+        id: '1:TOP_TREE_COMPLETE:def456' as ProvingJobId,
+        type: ProvingRequestType.TOP_TREE_COMPLETE,
+        epochNumber: EpochNumber(1),
+        inputsUri: 'data:application/json,{"proof":"test2"}' as ProofUri,
+      };
+      const status1 = await broker.enqueueProvingJob(job);
+      const status2 = await broker.enqueueProvingJob(job);
+      expect(status1).toEqual({ status: 'fulfilled', value: job.inputsUri });
+      expect(status2).toEqual({ status: 'fulfilled', value: job.inputsUri });
+    });
+
+    it('markers appear in getCompletedJobs', async () => {
+      await broker.start();
+      const markerId = '1:CHECKPOINT_SUB_TREE_COMPLETE:ghi789' as ProvingJobId;
+      await broker.enqueueProvingJob({
+        id: markerId,
+        type: ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE,
+        epochNumber: EpochNumber(1),
+        inputsUri: 'data:test' as ProofUri,
+      });
+      const completed = await broker.getCompletedJobs([markerId]);
+      expect(completed).toContain(markerId);
+    });
+
+    it('markers are not dispatched to agents', async () => {
+      await broker.start();
+      await broker.enqueueProvingJob({
+        id: '1:CHECKPOINT_SUB_TREE_COMPLETE:xyz' as ProvingJobId,
+        type: ProvingRequestType.CHECKPOINT_SUB_TREE_COMPLETE,
+        epochNumber: EpochNumber(1),
+        inputsUri: 'data:test' as ProofUri,
+      });
+      // Agent should get nothing since markers are auto-completed
+      const agentJob = await broker.getProvingJob();
+      expect(agentJob).toBeUndefined();
+    });
+  });
+
+  describe('claim system', () => {
+    it('first caller wins a claim', async () => {
+      await broker.start();
+      const token = await broker.claimWork('test-item', 'node-1');
+      expect(token).toBeDefined();
+
+      const token2 = await broker.claimWork('test-item', 'node-2');
+      expect(token2).toBeUndefined();
+    });
+
+    it('heartbeat keeps claim alive', async () => {
+      await broker.start();
+      const token = await broker.claimWork('test-item', 'node-1');
+      expect(token).toBeDefined();
+
+      const ok = await broker.heartbeatClaim('test-item', token!);
+      expect(ok).toBe(true);
+
+      const status = await broker.getClaimStatus('test-item');
+      expect(status).toEqual({ status: 'active', nodeId: 'node-1' });
+    });
+
+    it('wrong token is rejected for heartbeat', async () => {
+      await broker.start();
+      await broker.claimWork('test-item', 'node-1');
+
+      const ok = await broker.heartbeatClaim('test-item', 'wrong-token');
+      expect(ok).toBe(false);
+    });
+
+    it('released claim becomes unclaimed', async () => {
+      await broker.start();
+      const token = await broker.claimWork('test-item', 'node-1');
+      await broker.releaseClaim('test-item', token!);
+
+      const status = await broker.getClaimStatus('test-item');
+      expect(status).toEqual({ status: 'unclaimed' });
+    });
+
+    it('batch getClaimStatuses returns correct statuses', async () => {
+      await broker.start();
+      await broker.claimWork('item-1', 'node-1');
+      // item-2 not claimed
+
+      const statuses = await broker.getClaimStatuses(['item-1', 'item-2']);
+      expect(statuses[0]).toEqual({ status: 'active', nodeId: 'node-1' });
+      expect(statuses[1]).toEqual({ status: 'unclaimed' });
+    });
+  });
 });

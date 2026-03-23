@@ -3,6 +3,7 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { AbortError } from '@aztec/foundation/error';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type {
+  CircuitProvingRequestType,
   ProvingJobId,
   ProvingJobInputs,
   ProvingJobResultsMap,
@@ -20,7 +21,7 @@ export class ProvingJobController {
   private status: ProvingJobControllerStatus = ProvingJobControllerStatus.IDLE;
   private promise?: Promise<void>;
   private abortController = new AbortController();
-  private result?: ProvingJobResultsMap[ProvingRequestType] | Error;
+  private result?: ProvingJobResultsMap[CircuitProvingRequestType] | Error;
   private log: Logger;
 
   constructor(
@@ -61,7 +62,7 @@ export class ProvingJobController {
     return this.status;
   }
 
-  public getResult(): ProvingJobResultsMap[ProvingRequestType] | Error | undefined {
+  public getResult(): ProvingJobResultsMap[CircuitProvingRequestType] | Error | undefined {
     return this.result;
   }
 
@@ -98,7 +99,7 @@ export class ProvingJobController {
 
   private run = async () => {
     this.status = ProvingJobControllerStatus.RUNNING;
-    let result: ProvingJobResultsMap[ProvingRequestType] | Error;
+    let result: ProvingJobResultsMap[CircuitProvingRequestType] | Error;
     try {
       result = await this.generateProof();
     } catch (err) {
@@ -126,7 +127,7 @@ export class ProvingJobController {
     }
   };
 
-  private async generateProof(): Promise<ProvingJobResultsMap[ProvingRequestType]> {
+  private async generateProof(): Promise<ProvingJobResultsMap[CircuitProvingRequestType]> {
     const { type, inputs } = this.inputs;
     const signal = this.abortController.signal;
     switch (type) {

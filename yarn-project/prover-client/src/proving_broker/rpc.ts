@@ -1,11 +1,13 @@
 import { EpochNumberSchema } from '@aztec/foundation/branded-types';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import {
+  ClaimStatusSchema,
   type GetProvingJobResponse,
   ProofUri,
   ProvingJob,
   type ProvingJobBroker,
   type ProvingJobBrokerDebug,
+  type ProvingJobClaimManager,
   type ProvingJobConsumer,
   ProvingJobId,
   type ProvingJobProducer,
@@ -31,7 +33,7 @@ export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
   enqueueProvingJob: z.function().args(ProvingJob).returns(ProvingJobStatus),
   getProvingJobStatus: z.function().args(ProvingJobId).returns(ProvingJobStatus),
   cancelProvingJob: z.function().args(ProvingJobId).returns(z.void()),
-  getCompletedJobs: z.function().args(z.array(ProvingJobId)).returns(z.array(ProvingJobId)),
+  getCompletedJobs: z.function().args(z.array(ProvingJobId), optional(z.string())).returns(z.array(ProvingJobId)),
 };
 
 export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
@@ -67,6 +69,24 @@ export const ProvingJobBrokerSchemaWithDebug: ApiSchemaFor<ProvingJobBroker & Pr
   ...ProvingJobBrokerDebugSchema,
 };
 
+const ClaimResultSchema = z.object({ workItemId: z.string(), claimToken: z.string() });
+
+export const ProvingJobClaimManagerSchema: ApiSchemaFor<ProvingJobClaimManager> = {
+  claimWork: z.function().args(z.string(), z.string()).returns(z.string().optional()),
+  claimN: z.function().args(z.array(z.string()), z.number(), z.string()).returns(z.array(ClaimResultSchema)),
+  heartbeatClaim: z.function().args(z.string(), z.string()).returns(z.boolean()),
+  getClaimStatus: z.function().args(z.string()).returns(ClaimStatusSchema),
+  getClaimStatuses: z.function().args(z.array(z.string())).returns(z.array(ClaimStatusSchema)),
+  releaseClaim: z.function().args(z.string(), z.string()).returns(z.void()),
+};
+
+export const ProvingJobBrokerSchemaWithClaims: ApiSchemaFor<
+  ProvingJobBroker & ProvingJobBrokerDebug & ProvingJobClaimManager
+> = {
+  ...ProvingJobBrokerSchemaWithDebug,
+  ...ProvingJobClaimManagerSchema,
+};
+
 export function createProvingJobBrokerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
@@ -98,6 +118,18 @@ export function createProvingJobConsumerClient(
 ): ProvingJobConsumer {
   return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
     namespaceMethods: 'provingJobConsumer',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
+}
+
+export function createProvingJobClaimManagerClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobClaimManager {
+  return createSafeJsonRpcClient(url, ProvingJobClaimManagerSchema, {
+    namespaceMethods: 'provingJobClaimManager',
     fetch,
     onResponse: getVersioningResponseHandler(versions),
   });

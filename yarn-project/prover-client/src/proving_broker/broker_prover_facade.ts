@@ -12,6 +12,7 @@ import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from 
 import { truncate } from '@aztec/foundation/string';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
+  type CircuitProvingRequestType,
   type ProofUri,
   type ProvingJobId,
   type ProvingJobInputsMap,
@@ -47,7 +48,7 @@ import type {
   TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';
 
@@ -73,13 +74,17 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   private jobsToRetrieve: Set<ProvingJobId> = new Set();
   private log: Logger;
 
+  private consumerId: string;
+
   constructor(
     private broker: ProvingJobProducer,
     private proofStore: ProofStore = new InlineProofStore(),
     private failedProofStore?: ProofStore,
     private pollIntervalMs = 1000,
     bindings?: LoggerBindings,
+    private snapshotSyncIntervalMs = SNAPSHOT_SYNC_INTERVAL_MS,
   ) {
+    this.consumerId = randomUUID();
     this.log = createLogger('prover-client:broker-circuit-prover-facade', bindings);
   }
 
@@ -89,7 +94,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
    *
    * This could be called in a SerialQueue if it needs to become async.
    */
-  private getOrCreateProvingJob<T extends ProvingRequestType>(
+  private getOrCreateProvingJob<T extends CircuitProvingRequestType>(
     id: ProvingJobId,
     type: T,
     signal?: AbortSignal,
@@ -131,7 +136,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     return { job, isEnqueued: false };
   }
 
-  private async enqueueJob<T extends ProvingRequestType>(
+  private async enqueueJob<T extends CircuitProvingRequestType>(
     id: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
@@ -230,7 +235,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       try {
         const batches = ids.length > 0 ? chunk(ids, SNAPSHOT_SYNC_CHECK_MAX_REQUEST_SIZE) : [[]];
         await asyncPool(1, batches, async batch => {
-          const completed = await this.broker.getCompletedJobs(batch);
+          const completed = await this.broker.getCompletedJobs(batch, this.consumerId);
           completed.forEach(id => allCompleted.add(id));
         });
       } catch (err) {
@@ -242,7 +247,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     const snapshotSyncIds: string[] = [];
     const currentTime = Date.now();
     const secondsSinceLastSnapshotSync = currentTime - this.timeOfLastSnapshotSync;
-    if (secondsSinceLastSnapshotSync > SNAPSHOT_SYNC_INTERVAL_MS) {
+    if (secondsSinceLastSnapshotSync > this.snapshotSyncIntervalMs) {
       this.timeOfLastSnapshotSync = currentTime;
       snapshotSyncIds.push(...this.jobs.keys());
       this.log.trace(`Performing full snapshot sync of completed jobs with ${snapshotSyncIds.length} job(s)`);
@@ -271,7 +276,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   }
 
   private async retrieveJobsThatShouldBeReady() {
-    const convertJobResult = async <T extends ProvingRequestType>(
+    const convertJobResult = async <T extends CircuitProvingRequestType>(
       result: ProvingJobStatus,
       jobType: ProvingRequestType,
     ): Promise<{
