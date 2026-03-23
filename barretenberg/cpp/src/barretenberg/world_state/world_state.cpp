@@ -245,7 +245,47 @@ void WorldState::delete_fork(const uint64_t& forkId)
 
 WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
 {
-    throw std::runtime_error("commit_fork not implemented");
+    if (forkId == CANONICAL_FORK_ID) {
+        throw std::runtime_error("Cannot commit the canonical fork");
+    }
+    validate_trees_are_equally_synched();
+
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+
+    // Validate tip hasn't moved since fork was created
+    auto archiveMeta = get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+    if (archiveMeta.meta.unfinalizedBlockHeight != fork->_blockNumber) {
+        throw std::runtime_error("Can't commit fork: canonical tip has moved from " +
+                                 std::to_string(fork->_blockNumber) + " to " +
+                                 std::to_string(archiveMeta.meta.unfinalizedBlockHeight));
+    }
+
+    // Rollback canonical to clear any uncommitted state
+    rollback();
+
+    // Clear fork flags so commit_block() is allowed on fork stores
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit([](auto&& wrapper) { wrapper.tree->clear_initialized_from_block(); }, tree);
+    }
+
+    // Commit fork trees to LMDB
+    WorldStateStatusFull status;
+    auto [success, message] = commit(fork, status);
+    if (!success) {
+        throw std::runtime_error("Failed to commit fork: " + message);
+    }
+
+    // Rollback canonical so it re-reads the updated LMDB state
+    rollback();
+
+    // Destroy the fork
+    {
+        std::unique_lock lock(mtx);
+        _forks.erase(forkId);
+    }
+
+    populate_status_summary(status);
+    return status;
 }
 
 Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
@@ -526,8 +566,12 @@ void WorldState::update_archive(const StateReference& block_state_ref,
 
 std::pair<bool, std::string> WorldState::commit(WorldStateStatusFull& status)
 {
+    return commit(retrieve_fork(CANONICAL_FORK_ID), status);
+}
+
+std::pair<bool, std::string> WorldState::commit(Fork::SharedPtr fork, WorldStateStatusFull& status)
+{
     // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     std::atomic_bool success = true;
     std::string message;
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));

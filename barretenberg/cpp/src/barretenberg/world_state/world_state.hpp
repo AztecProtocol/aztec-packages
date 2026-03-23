@@ -344,6 +344,8 @@ class WorldState {
 
     static void populate_status_summary(WorldStateStatusFull& status);
 
+    std::pair<bool, std::string> commit(Fork::SharedPtr fork, WorldStateStatusFull& status);
+
     template <typename TreeType>
     void commit_tree(TreeDBStats& dbStats,
                      Signal& signal,
