@@ -135,7 +135,7 @@ export class CapsuleStore implements StagedStore {
    * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
    * network state it's backed by local PXE db.
    */
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope?: AztecAddress) {
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
     const dbSlotKey = dbSlotToKey(contractAddress, slot, scope);
 
     // A store overrides any pre-existing data on the slot
@@ -148,12 +148,7 @@ export class CapsuleStore implements StagedStore {
    * @param slot - The slot in the database to read.
    * @returns The stored data or `null` if no data is stored under the slot.
    */
-  async loadCapsule(
-    contractAddress: AztecAddress,
-    slot: Fr,
-    jobId: string,
-    scope?: AztecAddress,
-  ): Promise<Fr[] | null> {
+  async loadCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[] | null> {
     const dataBuffer = await this.#getFromStage(jobId, dbSlotToKey(contractAddress, slot, scope));
     if (!dataBuffer) {
       this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
@@ -171,7 +166,7 @@ export class CapsuleStore implements StagedStore {
    * @param contractAddress - The contract address under which the data is scoped.
    * @param slot - The slot in the database to delete.
    */
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope?: AztecAddress) {
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress) {
     // When we commit this, we will interpret null as a deletion, so we'll propagate the delete to the KV store
     this.#deleteOnStage(jobId, dbSlotToKey(contractAddress, slot, scope));
   }
@@ -193,7 +188,7 @@ export class CapsuleStore implements StagedStore {
     dstSlot: Fr,
     numEntries: number,
     jobId: string,
-    scope?: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // This transactional context gives us "copy atomicity":
     // there shouldn't be concurrent writes to what's being copied here.
@@ -236,7 +231,7 @@ export class CapsuleStore implements StagedStore {
     baseSlot: Fr,
     content: Fr[][],
     jobId: string,
-    scope?: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // We wrap this in a transaction to serialize concurrent calls from Promise.all.
     // Without this, concurrent appends to the same array could race: both read length=0,
@@ -260,7 +255,7 @@ export class CapsuleStore implements StagedStore {
     });
   }
 
-  readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string, scope?: AztecAddress): Promise<Fr[][]> {
+  readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[][]> {
     // I'm leaving this transactional context here though because I'm assuming this
     // gives us "read array atomicity": there shouldn't be concurrent writes to what's being copied
     // here.
@@ -289,7 +284,7 @@ export class CapsuleStore implements StagedStore {
     });
   }
 
-  setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope?: AztecAddress) {
+  setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) {
     // This transactional context in theory isn't so critical now because we aren't
     // writing to DB so if there's exceptions midway and it blows up, no visible impact
     // to persistent storage will happen.
@@ -319,8 +314,8 @@ export class CapsuleStore implements StagedStore {
   }
 }
 
-function dbSlotToKey(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): string {
-  return [contractAddress.toString(), (scope ?? AztecAddress.ZERO).toString(), slot.toString()].join(':');
+function dbSlotToKey(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): string {
+  return [contractAddress.toString(), scope.toString(), slot.toString()].join(':');
 }
 
 function arraySlot(baseSlot: Fr, index: number) {

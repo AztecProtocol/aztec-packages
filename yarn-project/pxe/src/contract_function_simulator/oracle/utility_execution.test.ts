@@ -304,7 +304,9 @@ describe('Utility Execution test suite', () => {
 
         capsuleStore.loadCapsule.mockResolvedValueOnce(persisted);
 
-        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot)).toEqual(transientGlobal);
+        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
+          transientGlobal,
+        );
         expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
           transientGlobal,
         );

@@ -641,7 +641,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope?: AztecAddress): void {
+  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -649,24 +649,23 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.capsuleStore.storeCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
-  public async loadCapsule(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): Promise<Fr[] | null> {
+  public async loadCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    const normalizedScope = scope ?? AztecAddress.ZERO;
     const maybeTransientCapsule = this.capsules.find(
       c =>
         c.contractAddress.equals(contractAddress) &&
         c.storageSlot.equals(slot) &&
-        (c.scope ?? AztecAddress.ZERO).equals(normalizedScope),
+        (c.scope ?? AztecAddress.ZERO).equals(scope),
     )?.data;
 
     // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
     return maybeTransientCapsule ?? (await this.capsuleStore.loadCapsule(contractAddress, slot, this.jobId, scope));
   }
 
-  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope?: AztecAddress): void {
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -679,7 +678,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     srcSlot: Fr,
     dstSlot: Fr,
     numEntries: number,
-    scope?: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB

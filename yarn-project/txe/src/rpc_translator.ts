@@ -30,12 +30,6 @@ import {
   toSingle,
 } from './util/encoding.js';
 
-function optionalAddressFromForeignCall(addressIsSome?: ForeignCallSingle, addressValue?: ForeignCallSingle) {
-  return addressIsSome && fromSingle(addressIsSome).toBool()
-    ? AztecAddress.fromField(fromSingle(addressValue!))
-    : undefined;
-}
-
 const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
 
@@ -833,13 +827,12 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignCapsule: ForeignCallArray,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const capsule = fromArray(foreignCapsule);
-    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     this.handlerAsUtility().storeCapsule(contractAddress, slot, capsule, scope);
 
@@ -851,13 +844,12 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignTSize: ForeignCallSingle,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const tSize = fromSingle(foreignTSize).toNumber();
-    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     const values = await this.handlerAsUtility().loadCapsule(contractAddress, slot, scope);
 
@@ -876,12 +868,11 @@ export class RPCTranslator {
   aztec_utl_deleteCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
-    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     this.handlerAsUtility().deleteCapsule(contractAddress, slot, scope);
 
@@ -894,14 +885,13 @@ export class RPCTranslator {
     foreignSrcSlot: ForeignCallSingle,
     foreignDstSlot: ForeignCallSingle,
     foreignNumEntries: ForeignCallSingle,
-    foreignScopeIsSome?: ForeignCallSingle,
-    foreignScopeValue?: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const srcSlot = fromSingle(foreignSrcSlot);
     const dstSlot = fromSingle(foreignDstSlot);
     const numEntries = fromSingle(foreignNumEntries).toNumber();
-    const scope = optionalAddressFromForeignCall(foreignScopeIsSome, foreignScopeValue);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope);
 

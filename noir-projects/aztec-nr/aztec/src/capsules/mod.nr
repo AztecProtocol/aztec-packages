@@ -28,12 +28,7 @@ impl<T> CapsuleArray<T> {
     /// Returns the number of elements stored in the array.
     pub unconstrained fn len(self) -> u32 {
         // An uninitialized array defaults to a length of 0.
-        capsules::load(
-            self.contract_address,
-            self.base_slot,
-            Option::some(self.scope),
-        )
-            .unwrap_or(0) as u32
+        capsules::load(self.contract_address, self.base_slot, self.scope).unwrap_or(0) as u32
     }
 
     /// Stores a value at the end of the array.
@@ -49,7 +44,7 @@ impl<T> CapsuleArray<T> {
             self.contract_address,
             self.slot_at(current_length),
             value,
-            Option::some(self.scope),
+            self.scope,
         );
 
         // Then we simply update the length.
@@ -58,7 +53,7 @@ impl<T> CapsuleArray<T> {
             self.contract_address,
             self.base_slot,
             new_length,
-            Option::some(self.scope),
+            self.scope,
         );
     }
 
@@ -69,12 +64,7 @@ impl<T> CapsuleArray<T> {
     {
         assert(index < self.len(), "Attempted to read past the length of a CapsuleArray");
 
-        capsules::load(
-            self.contract_address,
-            self.slot_at(index),
-            Option::some(self.scope),
-        )
-            .unwrap()
+        capsules::load(self.contract_address, self.slot_at(index), self.scope).unwrap()
     }
 
     /// Deletes the value stored in the array at `index`. Throws if the index is out of bounds.
@@ -92,7 +82,7 @@ impl<T> CapsuleArray<T> {
                 self.slot_at(index + 1),
                 self.slot_at(index),
                 current_length - index - 1,
-                Option::some(self.scope),
+                self.scope,
             );
         }
 
@@ -101,13 +91,13 @@ impl<T> CapsuleArray<T> {
         capsules::delete(
             self.contract_address,
             self.slot_at(current_length - 1),
-            Option::some(self.scope),
+            self.scope,
         );
         capsules::store(
             self.contract_address,
             self.base_slot,
             current_length - 1,
-            Option::some(self.scope),
+            self.scope,
         );
     }
 
