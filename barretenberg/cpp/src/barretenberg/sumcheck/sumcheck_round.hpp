@@ -177,6 +177,159 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
+     * @brief Deferred round 1: compute edge from 4 consecutive full-polynomial values folded with u0.
+     * @details Used when PartiallyEvaluatedMultivariates has not yet been allocated. Computes:
+     *   edge[0] = poly[2*ve]   + u0*(poly[2*ve+1] - poly[2*ve])
+     *   edge[1] = poly[2*ve+2] + u0*(poly[2*ve+3] - poly[2*ve+2])
+     * @param virtual_edge_idx Even index in [0, round_size) in the virtual round-1 polynomial space.
+     */
+    void extend_edges_deferred(ExtendedEdges& extended_edges,
+                               const typename Flavor::ProverPolynomials& full_polynomials,
+                               const size_t virtual_edge_idx,
+                               const FF& u0)
+    {
+        const size_t base = virtual_edge_idx * 2;
+        for (auto [extended_edge, poly] : zip_view(extended_edges.get_all(), full_polynomials.get_all())) {
+            if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+                auto get = [&](size_t offset) -> FF {
+                    return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
+                };
+                FF v0 = get(0) + u0 * (get(1) - get(0));
+                FF v1 = get(2) + u0 * (get(3) - get(2));
+                extended_edge = bb::Univariate<FF, 2>({ v0, v1 });
+            } else {
+                if (poly.end_index() < base) {
+                    static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
+                    extended_edge = zero_univariate;
+                } else {
+                    auto get = [&](size_t offset) -> FF {
+                        return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
+                    };
+                    FF v0 = get(0) + u0 * (get(1) - get(0));
+                    FF v1 = get(2) + u0 * (get(3) - get(2));
+                    extended_edge = bb::Univariate<FF, 2>({ v0, v1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Deferred round 2: compute edge from 8 consecutive full-polynomial values folded with u0, u1.
+     * @param virtual_edge_idx Even index in [0, round_size) in the virtual round-2 polynomial space.
+     */
+    void extend_edges_deferred(ExtendedEdges& extended_edges,
+                               const typename Flavor::ProverPolynomials& full_polynomials,
+                               const size_t virtual_edge_idx,
+                               const FF& u0,
+                               const FF& u1)
+    {
+        const size_t base = virtual_edge_idx * 4;
+        for (auto [extended_edge, poly] : zip_view(extended_edges.get_all(), full_polynomials.get_all())) {
+            if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+                auto get = [&](size_t offset) -> FF {
+                    return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
+                };
+                FF a0 = get(0) + u0 * (get(1) - get(0));
+                FF a1 = get(2) + u0 * (get(3) - get(2));
+                FF a2 = get(4) + u0 * (get(5) - get(4));
+                FF a3 = get(6) + u0 * (get(7) - get(6));
+                FF v0 = a0 + u1 * (a1 - a0);
+                FF v1 = a2 + u1 * (a3 - a2);
+                extended_edge = bb::Univariate<FF, 2>({ v0, v1 });
+            } else {
+                if (poly.end_index() < base) {
+                    static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
+                    extended_edge = zero_univariate;
+                } else {
+                    auto get = [&](size_t offset) -> FF {
+                        return (base + offset < poly.end_index()) ? poly[base + offset] : FF(0);
+                    };
+                    FF a0 = get(0) + u0 * (get(1) - get(0));
+                    FF a1 = get(2) + u0 * (get(3) - get(2));
+                    FF a2 = get(4) + u0 * (get(5) - get(4));
+                    FF a3 = get(6) + u0 * (get(7) - get(6));
+                    FF v0 = a0 + u1 * (a1 - a0);
+                    FF v1 = a2 + u1 * (a3 - a2);
+                    extended_edge = bb::Univariate<FF, 2>({ v0, v1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Compute round univariate for deferred round 1 directly from full polynomials.
+     * @details Avoids allocating PartiallyEvaluatedMultivariates. Folds 4 consecutive values per edge on the fly.
+     * round_size must already reflect the virtual round-1 size (N/2).
+     */
+    SumcheckRoundUnivariate compute_univariate_deferred(const typename Flavor::ProverPolynomials& full_polynomials,
+                                                        const bb::RelationParameters<FF>& relation_parameters,
+                                                        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+                                                        const SubrelationSeparators& alphas,
+                                                        const FF& u0)
+    {
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
+
+        parallel_for([&](ThreadChunk chunk) {
+            ExtendedEdges extended_edges;
+            auto iteration_range = chunk.range(round_size / 2);
+            for (size_t i : iteration_range) {
+                const size_t virtual_edge_idx = i * 2;
+                extend_edges_deferred(extended_edges, full_polynomials, virtual_edge_idx, u0);
+                FF scaling_factor{};
+                if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                    scaling_factor = gate_separators[virtual_edge_idx];
+                }
+                accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
+                                                extended_edges,
+                                                relation_parameters,
+                                                scaling_factor);
+            }
+        });
+
+        for (auto& accumulators : thread_univariate_accumulators) {
+            Utils::add_nested_tuples(univariate_accumulators, accumulators);
+        }
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
+    }
+
+    /**
+     * @brief Compute round univariate for deferred round 2 directly from full polynomials.
+     * @details Folds 8 consecutive values per edge on the fly using u0 and u1.
+     * round_size must already reflect the virtual round-2 size (N/4).
+     */
+    SumcheckRoundUnivariate compute_univariate_deferred(const typename Flavor::ProverPolynomials& full_polynomials,
+                                                        const bb::RelationParameters<FF>& relation_parameters,
+                                                        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+                                                        const SubrelationSeparators& alphas,
+                                                        const FF& u0,
+                                                        const FF& u1)
+    {
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
+
+        parallel_for([&](ThreadChunk chunk) {
+            ExtendedEdges extended_edges;
+            auto iteration_range = chunk.range(round_size / 2);
+            for (size_t i : iteration_range) {
+                const size_t virtual_edge_idx = i * 2;
+                extend_edges_deferred(extended_edges, full_polynomials, virtual_edge_idx, u0, u1);
+                FF scaling_factor{};
+                if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                    scaling_factor = gate_separators[virtual_edge_idx];
+                }
+                accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
+                                                extended_edges,
+                                                relation_parameters,
+                                                scaling_factor);
+            }
+        });
+
+        for (auto& accumulators : thread_univariate_accumulators) {
+            Utils::add_nested_tuples(univariate_accumulators, accumulators);
+        }
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
+    }
+
+    /**
      * @brief Return the evaluations of the univariate round polynomials. Toggles between chunked computation
      * (designed with the AVM in mind) and a version which intelligently allows from row-skipped functionality
      */

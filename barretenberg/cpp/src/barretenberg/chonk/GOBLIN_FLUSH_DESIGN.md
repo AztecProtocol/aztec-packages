@@ -1,237 +1,120 @@
-# Goblin Flush: Unbounded Circuit Accumulation in Chonk
+# Goblin Reset Design
 
 ## Problem
 
 Chonk's accumulation capacity is bounded by the ECCVM circuit size (`2^CONST_ECCVM_LOG_N = 2^15 = 32,768` rows). Each folding step generates ~62 short scalar multiplications that are deferred to the ECCVM via Goblin's op queue. Currently, the maximum is ~17 app circuits before the ECCVM overflows.
 
-## Goal
-
-Enable theoretically unbounded accumulation by periodically "flushing" the Goblin op queue mid-accumulation. Each flush proves the accumulated EC ops so far and resets the queue, keeping the ECCVM size bounded regardless of how many circuits are accumulated.
-
 ## Design
 
-### Flush Operation
+### Goblin App
 
-A Goblin flush consists of:
-1. **Merge proof** — proves op queue consistency for accumulated ops
-2. **ECCVM proof** — proves the EC operations on Grumpkin
-3. **Translator proof** — bridges the result back from Grumpkin to BN254
+This is an app $A_G$ that does only one thing: it recursively verifies an Ultra Honk proof of the circuit $C$ which contains a Goblin recursive verifier.
 
-After a flush, the op queue is reset and accumulation continues on a fresh queue. Each flush also produces an IPA opening claim that must be accumulated (see IPA Claim Accumulation below).
+A valid witness for $A_G$ attests to the knowledge of a valid proof for the circuit $C$, which in turn attests to the knowledge of a valid proof of Goblin (merge + ECCVM + Translator).
 
-### IPA Claim Accumulation
+In addition to the recursive verification, $A_G$ exposes in its return data:
+- The **IPA opening claim** extracted from the ECCVM recursive verification inside $C$.
+- The **`T_pre_flush` commitment** — the merged op queue table that was proven, read from the merge proof's public inputs inside $C$. This is needed by the Goblin kernel for the merge chain consistency check (see below).
 
-Each flush produces an IPA opening claim (Grumpkin curve) from its ECCVM proof. These claims must be accumulated so the final proof output is constant-size regardless of the number of flushes.
+### Goblin Kernel
 
-**Running accumulator through the kernel chain.** Every kernel (not just flush kernels) carries a running IPA claim accumulator in its public inputs (`KernelIO` / `HidingKernelIO`). The accumulator is ~8 field elements (a commitment point + opening pair).
+This is a kernel $K_G$ that behaves almost like an inner kernel with the difference that it recursively verifies the folding of a kernel into a running accumulator and of the Goblin app into the accumulator.
 
-- **Init kernel**: Sets a trivial/default accumulator in output.
-- **Inner kernels**: Pass-through — copy the accumulator from the previous kernel's public inputs to their own. No accumulation gates, but not free — the pass-through adds copy constraints in the permutation argument.
-- **Flush kernels**: Fold the flush's IPA claim into the running accumulator (~54K gates for the accumulation circuit).
-- **Tail kernel**: Pass-through.
-- **Hiding kernel**: Pass-through — outputs the accumulated claim in `HidingKernelIO`.
-- **`prove()`**: The final ECCVM IPA claim only exists after `prove()` runs the ECCVM prover, when no kernels remain. So `prove()` builds a dedicated IPA accumulation circuit that folds the final claim into the kernel-chain accumulator. This circuit's Oink is a separate sub-proof; its sumcheck/PCS are batched into the joint proof (see Proof Structure).
+So:
+- It verifies two foldings.
+- For the second folding, the VK is equal to the VK of $A_G$ (in contrast with inner kernels, where the VK is one of the allowed VKs in `ALLOWED_VK_TREE`).
+- It extracts the IPA claim from the Goblin app's return data and accumulates it into the running IPA claim, which is part of the public inputs of every kernel (see IPA Claim Accumulation below).
 
-For zero-flush flows, the trivial accumulator passes through the entire kernel chain untouched. The accumulation circuit in `prove()` folds the single final IPA claim into the trivial accumulator, producing a result equivalent to today's single IPA claim.
+#### Merge Chain Reset (T_prev subtlety)
 
-### Flush Kernel
+$K_G$ must also reset the Goblin merge chain. This is the subtlest part of the design.
 
-A flush kernel is a new fixed-size kernel circuit that:
-- Recursively verifies the flush proof (merge + ECCVM + Translator)
-- Folds the flush's IPA claim into the running accumulator (~54K gates)
-- Passes through the HyperNova accumulator (it participates in the folding chain)
-- Has constant, known ECCVM row cost
+The Chonk verification loop threads a `T_prev` commitment through every kernel: each kernel reads `T_prev` from the previous kernel's `ecc_op_tables`, merges the new subtable onto it, and outputs the updated commitment. At a flush, this chain must be broken and restarted cleanly, because the final ECCVM at `prove()` time only covers post-flush ops — it never proves `T_pre_flush`.
 
-### Circuit Sequence With Flush
+$K_G$'s `complete_kernel_circuit_logic` therefore does the following, in place of the standard T_prev inheritance:
 
-Without flush:
-```
-App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Tail → Hiding
-```
+1. Reads `T_pre_flush` from the **previous kernel's** `ecc_op_tables`.
+2. Reads `T_pre_flush` from **$A_G$'s return data** — the commitment to the table that $A_G$ verified was correctly processed by the intermediate ECCVM inside $C$.
+3. **Asserts equality**: `A_G.verified_T_pre_flush == prev_kernel.ecc_op_tables`. This ties the two chains together: the flush proof covered exactly the ops committed to by the previous kernel, no more, no less. Without this check a malicious prover could supply an $A_G$ that verifies a flush proof for a different (smaller) batch of ops, leaving some pre-flush operations unaccounted for.
+4. Uses **T_0 (empty tables)** as `T_prev` for the merge verification of $A_G$'s subtable — discarding `T_pre_flush` from the forward chain.
+5. Outputs `ecc_op_tables = T_0 ∥ A_G ops`, the fresh starting point for all subsequent kernels.
 
-With flush (triggered before App₂):
-```
-App₀ → Kernel₀ → App₁ → Kernel₁ → [Flush + FlushKernel] → App₂ → Kernel₂ → ... → Tail → Hiding
-```
+The native `prove_merge()` call for $A_G$ uses `MergeSettings::RESET`, setting `T_prev = T_0`, so prover and verifier agree on the fresh start.
 
-The flush mechanism is opaque to the caller — `accumulate()` handles flush decisions and flush kernel insertion internally. The caller only observes a rejection if an app exceeds ECCVM capacity.
+#### IPA Claim Accumulation
 
-### App Size Constraint
+Every kernel carries a running IPA accumulator in `KernelIO` / `HidingKernelIO` (~8 field elements: a commitment point + opening pair):
 
-Apps whose EC ops alone (plus one kernel) exceed ECCVM capacity are **rejected** — they can never fit, flush or not. This is enforced after building the circuit by checking the per-subtable ECCVM row contribution.
+- **Init kernel**: outputs a trivial/default accumulator.
+- **Inner / Reset kernels**: pass-through — copy the accumulator from the previous kernel's public inputs. Not free: adds copy constraints in the permutation argument.
+- **$K_G$**: folds the flush's IPA claim from $A_G$'s return data into the running accumulator (~54K gates for the accumulation gadget).
+- **Tail / Hiding kernels**: pass-through. Hiding kernel outputs the accumulated claim in `HidingKernelIO`.
+- **`prove()`**: the final ECCVM IPA claim only exists after `prove()` runs the ECCVM prover. A dedicated IPA accumulation circuit folds this final claim into the kernel-chain accumulator. Its Oink is a separate sub-proof; sumcheck/PCS are batched into the joint proof.
 
-## Temporary Op Queue: Build-Then-Transplant
+For zero-flush flows, the trivial accumulator passes through untouched. The `prove()` accumulation circuit folds the single final IPA claim into the trivial accumulator, equivalent to today's behaviour.
 
-### Problem
+### How to Drop Them In
 
-Currently, the `MegaCircuitBuilder` receives the shared IVC op queue at construction time. EC ops land on the shared queue immediately during circuit construction, which happens *outside* of `accumulate()`. By the time chonk sees the circuit, the ops are already on the shared queue — too late to flush cleanly.
+Write $A_1, \dots, A_N$ for the execution stack. Each app has a number $N_i$ of ECC ops that can be estimated from ACIR by counting the number of recursive verifications happening in the app.
 
-### Solution
+In `proveWithKernels` we proceed as follows:
 
-Build each app circuit with a **temporary, isolated op queue**. After construction, `accumulate()` inspects the temp queue's ECCVM row cost and decides whether to flush before transplanting the ops onto the shared queue.
+1. Run a loop over `executionStack` and add Reset kernels as we do now, producing `executionStackWithKernels`.
+2. Run a loop over `executionStackWithKernels` and estimate the running ECC op count at each step. If app $A_i$ (plus the following kernel or kernels) would push the total above the ECCVM fixed size, insert the Goblin pair before it so the stack becomes $A_1, \dots, A_{i-1}, A_G, K_G, A_i, \dots$
 
-This works because the circuit builder's `blocks.ecc_op` block stores EC op data as local witness variable indices — it has no direct references into the op queue. The op queue and the circuit's gate data are independent representations of the same operations.
+This works because $A_G$ and $K_G$ do not read or write any Aztec state, so inserting them at any position in the kernel chain after Reset kernels have been placed is valid.
 
-### Flow
+An app whose EC ops alone (plus one kernel pair) exceed ECCVM capacity is **rejected** at this point — it can never fit regardless of flushing.
 
-```
-1. Create a temporary op queue
-2. Build the app circuit using the temp queue (all EC ops land there)
-3. Pass circuit to accumulate()
-4. accumulate() computes:
-     app_rows   = temp_queue.get_num_rows()
-     total_rows = shared_queue.get_num_rows() + app_rows + KERNEL_ECCVM_ROWS
-5. if app_rows + KERNEL_ECCVM_ROWS > ECCVM_CAPACITY:
-     → REJECT (app too big, will never fit)
-6. if total_rows > ECCVM_CAPACITY:
-     → flush shared queue (merge + ECCVM + Translator)
-     → insert flush kernel
-7. Transplant temp queue's subtable onto shared queue
-8. Accumulate normally
-```
+A **hard bound** (insert a flush every $N$ circuits regardless of row count) is enforced as a safety net in the same loop.
 
-Step 6 is guaranteed to succeed after flush: the shared queue is fresh with full capacity, and step 5 confirmed the app fits.
+## Implementation
 
-### Transplant Operation
+### Goblin App
 
-Moving the temp subtable onto the shared queue requires:
-- Moving the ECCVM ops subtable entries (deque, cheap)
-- Moving the Ultra ops subtable entries (deque, cheap)
-- Updating the shared queue's native accumulator to reflect the transplanted ops
-- Updating the shared queue's `EccvmRowTracker` with the transplanted ops' contribution
+This is a Noir app that calls `std::verify_with_type`. We define a new ACIR proof type `ULTRA_GOBLIN` which performs an Ultra recursive verification and hard-codes the VK hash to be that of the Ultra circuit $C$ containing the Goblin recursive verifier. The return data of $A_G$ includes the IPA claim and `T_pre_flush` commitment extracted from $C$'s proof.
 
-Op queue subtables are small (hundreds of ops per circuit), so this is negligible cost.
+### Goblin Kernel
 
-### Why Not Rollback?
+This is a Noir kernel similar to inner kernels. The differences are:
 
-The rollback approach (build on shared queue, detect overflow, undo ops, flush, rebuild) requires:
-- Snapshot/restore machinery on the op queue
-- Rebuilding the circuit from scratch after flush (wasted work)
-- The caller to cooperate in the rebuild (leaks flush details)
+- **Noir**: the second VK being folded is hard-coded to the VK of $A_G$ instead of being checked against `ALLOWED_VK_TREE`.
+- **BB**: `complete_kernel_circuit_logic` has a Goblin-kernel path that:
+  - Performs the `T_pre_flush` consistency check (step 3 above).
+  - Resets `T_prev` to T_0 before processing $A_G$'s merge subtable (steps 4–5 above).
+  - Invokes the IPA accumulation gadget on the claim from $A_G$'s return data.
 
-The temporary queue approach avoids all of this. The circuit is built once, and the transplant is a cheap move.
+### TS Land
 
-## Hard Bound Safety Net
-
-If N circuits (e.g., 17) have been accumulated without a flush, force one regardless of ECCVM utilization. This provides a guaranteed upper bound and avoids relying solely on overflow detection.
-
-## Chonk API Changes
-
-### `accumulate()`
-
-The flush logic wraps the existing accumulation. The caller builds and passes a circuit as before — flush insertion is internal.
-
-```
-accumulate(circuit, vk):
-    app_rows = circuit.temp_op_queue->get_num_rows()
-
-    // App too big — reject
-    if app_rows + KERNEL_ECCVM_ROWS > ECCVM_CAPACITY:
-        REJECT
-
-    // Overflow — flush then transplant
-    if shared_queue.get_num_rows() + app_rows + KERNEL_ECCVM_ROWS > ECCVM_CAPACITY:
-        flush_goblin()
-        insert_flush_kernel()
-
-    // Hard bound
-    if num_circuits_since_last_flush >= HARD_FLUSH_BOUND:
-        flush_goblin()
-        insert_flush_kernel()
-
-    // Move app's ops onto shared queue
-    shared_queue.transplant(circuit.temp_op_queue)
-
-    // ... existing proving logic ...
-```
-
-### Circuit Construction (caller side)
-
-```cpp
-// Before (current): circuit built with shared IVC op queue
-auto op_queue = ivc.get_goblin().op_queue;
-MegaCircuitBuilder circuit{ op_queue };
-
-// After: circuit built with temporary op queue
-auto temp_queue = std::make_shared<ECCOpQueue>();
-MegaCircuitBuilder circuit{ temp_queue };
-// ... build circuit ...
-ivc.accumulate(circuit, vk);  // accumulate() handles transplant internally
-```
-
-### New state in Chonk
-
-```cpp
-class Chonk {
-    // Counter for hard bound
-    size_t num_circuits_since_last_flush = 0;
-
-    // Native copy of the running IPA accumulator (mirrors what's in KernelIO).
-    // Updated after each flush kernel. Used in prove() as input to the
-    // IPA accumulation circuit.
-    OpeningClaim<curve::Grumpkin> ipa_accumulator; // trivial default initially
-
-    // Flush method
-    void flush_goblin();
-```
-
-### New op queue method
-
-```cpp
-class ECCOpQueue {
-public:
-    // Move a temp queue's subtable onto this queue
-    void transplant(std::shared_ptr<ECCOpQueue> temp_queue);
-};
-```
+Modifications to `proveWithKernels` as per the *How to Drop Them In* section:
+- Estimate ECC op counts from ACIR (by counting recursive verifications per circuit).
+- Two-pass loop: first place Reset kernels, then insert Goblin pairs at overflow points.
+- Witness generation for $A_G$: produce the Goblin flush proof (merge + ECCVM + Translator), pass through $C$ (the GoblinRecursiveVerifier), and package the resulting Ultra Honk proof as $A_G$'s witness input.
 
 ## Proof Structure
 
-The proof remains **constant size** (6 sub-proofs):
-1. **MegaZK Oink proof** (hiding kernel pre-sumcheck)
-2. **Merge proof** (final op queue subtable)
-3. **ECCVM proof** (final EC operations on Grumpkin)
-4. **IPA proof** (opening proof for ECCVM's polynomial commitment)
-5. **IPA accumulation Oink proof** (pre-sumcheck for the accumulation circuit)
-6. **Joint proof** (batched sumcheck + batched PCS for MegaZK, Translator, and IPA accumulation)
+The final proof is **constant size** (6 sub-proofs), identical whether zero or $N$ flushes occurred. The verifier cannot distinguish a zero-flush proof from an $N$-flush proof.
 
-`prove()` sequence:
-```
-1. MegaZK Oink              (hiding kernel, shared transcript)
-2. Merge proof               (final subtable, APPEND mode)
-3. ECCVM proof               → produces IPA opening claim
-4. IPA proof                 → proves the ECCVM opening claim (separate transcript)
-5. IPA accumulation Oink     → folds final IPA claim into kernel-chain accumulator
-6. Joint proof               → Translator Oink + batched sumcheck + batched PCS
-                                (batches 3 circuits: MegaZK, Translator, IPA accumulation)
-```
+1. **MegaZK Oink proof** — hiding kernel pre-sumcheck
+2. **Merge proof** — final op queue subtable (post-last-flush ops only)
+3. **ECCVM proof** — final EC operations on Grumpkin (post-last-flush)
+4. **IPA proof** — opening proof for the final ECCVM's polynomial commitment
+5. **IPA accumulation Oink proof** — pre-sumcheck for the `prove()`-time accumulation circuit
+6. **Joint proof** — Translator Oink + batched sumcheck + batched PCS (MegaZK, Translator, IPA accumulation)
 
 ## Impact on Non-Flush Flows
 
-Even flows that never trigger a flush are affected by the following structural changes:
+All non-flush flows are affected by the following structural changes:
 
-### Changes vs today's flow
-- **Temp op queue API**: All callers must build app circuits with a temporary op queue instead of the shared IVC op queue. `accumulate()` handles transplant internally.
-- **KernelIO / HidingKernelIO**: Gain IPA accumulator fields. All kernel VKs change.
-- **`complete_kernel_circuit_logic()`**: Every kernel passes through the accumulator (copy constraints only).
-- **`prove()`**: New IPA accumulation circuit + Oink sub-proof. Joint proof batches 3 circuits instead of 2.
-- **Verifier**: Batches three circuit reductions (MegaZK, Translator, IPA accumulation) instead of two.
+- **`KernelIO` / `HidingKernelIO`**: gain IPA accumulator fields. All kernel VKs change.
+- **`complete_kernel_circuit_logic()`**: every kernel passes through the IPA accumulator (copy constraints only for non-Goblin kernels).
+- **`prove()`**: new IPA accumulation circuit + Oink sub-proof. Joint proof batches 3 circuits instead of 2.
+- **Verifier**: batches three circuit reductions (MegaZK, Translator, IPA accumulation) instead of two.
 - **Constants**: `HIDING_KERNEL_PUBLIC_INPUTS_SIZE`, `CHONK_PROOF_LENGTH`, Noir constants, TypeScript constants all update.
-
-### Constant with or without flushes
-The proof structure, verifier logic, and kernel VKs are identical regardless of whether flushes occurred. The only difference is internal to the accumulation: flush kernels fold IPA claims into the running accumulator, while non-flush kernels pass it through. The consumer (verifier, rollup) cannot distinguish a zero-flush proof from an N-flush proof.
-
-## Resolved Design Decisions
-
-1. **IPA accumulation location**: Running accumulator propagated through the kernel chain. Flush kernels pay ~54K gates; all other kernels just pass through. Final fold happens in a dedicated accumulation circuit in `prove()`, batched into the joint proof.
-2. **Temp op queue is universal**: All flows use temporary op queues — one code path, no branching on flush mode.
-3. **Tail/hiding interaction**: Unaffected by flush — ZK masking doesn't depend on queue history. Hiding kernel passes the accumulator through; it does not perform accumulation.
-4. **Kernel op queue**: Kernels use the shared op queue (fixed ECCVM cost). Temp queues are only needed for apps.
 
 ## Open Questions
 
-1. **Flush kernel circuit design**: Full recursive verifiers for merge + ECCVM + Translator, plus IPA accumulation gadget. What is total gate count / ECCVM row cost?
-2. **IPA claim accumulation protocol**: Is this the same `IPA::accumulate()` already used at the rollup level? If so, the accumulated claim type is `OpeningClaim<Grumpkin>` — same as a raw claim — and rollup changes are minimal.
-3. **Op queue reset semantics**: After a flush, how exactly is the merged portion cleared? Does the subtable deque structure support this cleanly?
-4. **Hard bound value**: Should be derived from ECCVM capacity and known per-circuit costs rather than hardcoded.
-5. **Testing strategy**: How to test flush triggering, transplant correctness, and proof validity across flushes?
+1. **GoblinRecursiveVerifier gate count**: what is the total gate count and ECCVM row cost of circuit $C$? This determines the overhead of each flush and informs the hard bound value.
+2. **IPA claim accumulation protocol**: is this the same `IPA::accumulate()` already used at the rollup level? If so, the accumulated claim type is `OpeningClaim<Grumpkin>` and rollup changes are minimal.
+3. **Hard bound value**: should be derived from ECCVM capacity and known per-circuit costs rather than hardcoded.
+4. **Testing strategy**: flush triggering in TS, T_pre_flush consistency check correctness, proof validity across multiple flushes.

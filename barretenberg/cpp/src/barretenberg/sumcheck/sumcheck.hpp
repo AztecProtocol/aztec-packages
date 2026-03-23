@@ -410,16 +410,48 @@ template <typename Flavor> class SumcheckProver {
 
         // Place the evaluations of the round univariate into transcript.
         transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
-        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-        multivariate_challenge.emplace_back(round_challenge);
-
-        // Populate the book-keeping table
-        PartiallyEvaluatedMultivariates partially_evaluated_polynomials =
-            partially_evaluate_first_round(full_polynomials, round_challenge);
-
-        gate_separators.partially_evaluate(round_challenge);
+        FF u_0 = transcript->template get_challenge<FF>("Sumcheck:u_0");
+        multivariate_challenge.emplace_back(u_0);
+        gate_separators.partially_evaluate(u_0);
         round.round_size = round.round_size >> 1;
-        for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
+
+        // For Ultra/Mega non-ZK: defer PartiallyEvaluatedMultivariates allocation by running rounds 1 and 2
+        // directly from full_polynomials (folding 4/8 values per edge on the fly), then batch-apply all 3
+        // challenges to produce the book-keeping table at 1/8 of full size instead of 1/2.
+        // For all other flavors: populate the book-keeping table at N/2 immediately (original behavior).
+        PartiallyEvaluatedMultivariates partially_evaluated_polynomials = [&]() {
+            if constexpr (IsUltraOrMegaHonk<Flavor> && !Flavor::HasZK) {
+                // Round 1 deferred: fold 4 consecutive full_polynomial values per edge on the fly.
+                round_univariate = round.compute_univariate_deferred(
+                    full_polynomials, relation_parameters, gate_separators, alphas, u_0);
+                transcript->send_to_verifier("Sumcheck:univariate_1", round_univariate);
+                FF u_1 = transcript->template get_challenge<FF>("Sumcheck:u_1");
+                multivariate_challenge.emplace_back(u_1);
+                gate_separators.partially_evaluate(u_1);
+                round.round_size = round.round_size >> 1;
+
+                // Round 2 deferred: fold 8 consecutive full_polynomial values per edge on the fly.
+                round_univariate = round.compute_univariate_deferred(
+                    full_polynomials, relation_parameters, gate_separators, alphas, u_0, u_1);
+                transcript->send_to_verifier("Sumcheck:univariate_2", round_univariate);
+                FF u_2 = transcript->template get_challenge<FF>("Sumcheck:u_2");
+                multivariate_challenge.emplace_back(u_2);
+                // Allocate at N/8 by batch-applying all 3 challenges in one pass.
+                PartiallyEvaluatedMultivariates result =
+                    partially_evaluate_first_k_rounds(full_polynomials, u_0, u_1, u_2);
+                gate_separators.partially_evaluate(u_2);
+                round.round_size = round.round_size >> 1;
+                return result;
+            } else {
+                // Original behavior: populate the book-keeping table at N/2.
+                return partially_evaluate_first_round(full_polynomials, u_0);
+            }
+        }();
+
+        // Ultra/Mega deferred: loop starts at round 3 (rounds 1,2 handled above in the lambda).
+        // All other flavors: loop starts at round 1 (original behavior).
+        const size_t first_loop_round = (IsUltraOrMegaHonk<Flavor> && !Flavor::HasZK) ? 3 : 1;
+        for (size_t round_idx = first_loop_round; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
 
             // Write the round univariate to the transcript
@@ -721,6 +753,51 @@ template <typename Flavor> class SumcheckProver {
     {
         partially_evaluate(polynomials, polynomials, round_challenge);
     };
+
+    /**
+     * @brief Apply 3 round challenges to full_polynomials in one pass, writing directly to dest at size N/8.
+     * @details Processes groups of 8 consecutive source values, applying 3 folds inline without intermediate storage.
+     * Used by partially_evaluate_first_k_rounds to defer PartiallyEvaluatedMultivariates allocation.
+     */
+    static void batch_partially_evaluate_3rounds(const ProverPolynomials& source,
+                                                 PartiallyEvaluatedMultivariates& dest,
+                                                 const FF& u0,
+                                                 const FF& u1,
+                                                 const FF& u2)
+    {
+        auto source_view = source.get_all();
+        auto dest_view = dest.get_all();
+        parallel_for(source_view.size(), [&](size_t j) {
+            const auto& src = source_view[j];
+            auto& dst = dest_view[j];
+            size_t limit = src.end_index();
+            for (size_t i = 0; i < limit; i += 8) {
+                auto get = [&](size_t offset) -> FF { return (i + offset < limit) ? src[i + offset] : FF(0); };
+                FF a0 = get(0) + u0 * (get(1) - get(0));
+                FF a1 = get(2) + u0 * (get(3) - get(2));
+                FF a2 = get(4) + u0 * (get(5) - get(4));
+                FF a3 = get(6) + u0 * (get(7) - get(6));
+                FF b0 = a0 + u1 * (a1 - a0);
+                FF b1 = a2 + u1 * (a3 - a2);
+                dst.at(i >> 3) = b0 + u2 * (b1 - b0);
+            }
+            dst.shrink_end_index((limit + 7) / 8);
+        });
+    }
+
+    /**
+     * @brief Create PartiallyEvaluatedMultivariates at N/8 by batch-applying 3 round challenges.
+     * @details Defers allocation until after 3 deferred rounds, saving N/2 * num_polys of peak memory.
+     */
+    PartiallyEvaluatedMultivariates partially_evaluate_first_k_rounds(const ProverPolynomials& full_polynomials,
+                                                                      const FF& u0,
+                                                                      const FF& u1,
+                                                                      const FF& u2)
+    {
+        PartiallyEvaluatedMultivariates result(full_polynomials, multivariate_n, 3);
+        batch_partially_evaluate_3rounds(full_polynomials, result, u0, u1, u2);
+        return result;
+    }
 
     /**
      * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates a

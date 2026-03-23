@@ -36,6 +36,22 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
             poly = Polynomial(desired_size, circuit_size / 2);
         }
     }
+
+    /**
+     * @brief Construct for use after num_deferred_rounds rounds of deferred computation.
+     * @details Allocates at circuit_size / 2^num_deferred_rounds, used together with batch_partially_evaluate.
+     */
+    PartiallyEvaluatedMultivariatesBase(const ProverPolynomialsType& full_polynomials,
+                                        size_t circuit_size,
+                                        size_t num_deferred_rounds)
+    {
+        const size_t stride = size_t(1) << num_deferred_rounds;
+        for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
+            size_t end = full_poly.end_index();
+            size_t desired_size = (end + stride - 1) / stride;
+            poly = Polynomial(desired_size, circuit_size / stride);
+        }
+    }
 };
 
 } // namespace bb
