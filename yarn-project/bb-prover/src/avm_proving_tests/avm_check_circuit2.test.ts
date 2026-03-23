@@ -53,28 +53,32 @@ describe('AVM check-circuit – unhappy paths 2', () => {
 
   it('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails
-    const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly=*/ true);
-    // Note: we need to specify the contract artifacts here because we intentionally skip registration,
-    // so the tester can't retrieve them on its own.
-    await tester.simProveVerify(
-      sender,
-      /*setupCalls=*/ [],
-      /*appCalls=*/ [
-        {
+    const localTester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly=*/ true);
+    try {
+      // Note: we need to specify the contract artifacts here because we intentionally skip registration,
+      // so the tester can't retrieve them on its own.
+      await localTester.simProveVerify(
+        sender,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmTestContractInstance.address,
+            fnName: 'add_args_return',
+            args: [new Fr(1), new Fr(2)],
+            contractArtifact: AvmTestContractArtifact,
+          },
+        ],
+        /*teardownCall=*/ {
           address: avmTestContractInstance.address,
           fnName: 'add_args_return',
           args: [new Fr(1), new Fr(2)],
           contractArtifact: AvmTestContractArtifact,
         },
-      ],
-      /*teardownCall=*/ {
-        address: avmTestContractInstance.address,
-        fnName: 'add_args_return',
-        args: [new Fr(1), new Fr(2)],
-        contractArtifact: AvmTestContractArtifact,
-      },
-      /*expectRevert=*/ true,
-    );
+        /*expectRevert=*/ true,
+      );
+    } finally {
+      await localTester.close();
+    }
   });
 
   it('error during revertible insertions - skips to teardown', async () => {
