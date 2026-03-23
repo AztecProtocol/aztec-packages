@@ -54,12 +54,7 @@ pub struct OffchainMessageWithContext {
     pub message_context: MessageContext,
 }
 
-/// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
-/// and stores them in a `CapsuleArray` which is then returned.
-///
-/// Note that eventually it would make sense to make this function accept an array of addresses as of scopes, since it
-/// might be useful to integrate all private logs known to a set of accounts. However, this function is currently only
-/// used from `do_sync_state`, which by design works on a single scope at a time, so there is no current need for more.
+/// Searches for private logs emitted by `contract_address` that might contain messages for the given `scope`.
 pub(crate) unconstrained fn get_private_logs(
     contract_address: AztecAddress,
     scope: AztecAddress,
