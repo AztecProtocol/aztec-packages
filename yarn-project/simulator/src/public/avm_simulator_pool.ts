@@ -27,6 +27,8 @@ export class AvmSimulatorPool implements AvmIpcBackend {
   private available: number[] = [];
   private waiters: Array<(backend: AvmIpcBackend) => void> = [];
   private createdCount = 0;
+  /** Backends currently in use by in-flight call()s. */
+  private inFlight = new Set<AvmIpcBackend>();
   private log: Logger;
 
   constructor(private options: AvmSimulatorPoolOptions) {
@@ -36,10 +38,29 @@ export class AvmSimulatorPool implements AvmIpcBackend {
   /** Send a request to any available AVM process. Blocks if all are busy. */
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     const backend = await this.checkout();
+    this.inFlight.add(backend);
     try {
       return await backend.call(inputBuffer);
     } finally {
+      this.inFlight.delete(backend);
       this.return(backend);
+    }
+  }
+
+  /**
+   * Cancel all in-flight simulations by destroying their backends.
+   * Dead slots are replaced with fresh processes on next checkout.
+   */
+  async cancel(): Promise<void> {
+    const backends = [...this.inFlight];
+    this.inFlight.clear();
+    for (const backend of backends) {
+      const idx = this.slots.indexOf(backend);
+      if (idx >= 0) {
+        this.slots[idx] = null; // Mark slot as dead
+      }
+      await backend.destroy?.();
+      this.log.debug('Cancelled in-flight AVM simulation by destroying backend');
     }
   }
 
@@ -60,18 +81,20 @@ export class AvmSimulatorPool implements AvmIpcBackend {
 
     this.slots = [];
     this.available = [];
+    this.inFlight.clear();
     this.createdCount = 0;
     this.log.info('AVM simulator pool destroyed');
   }
 
   private async checkout(): Promise<AvmIpcBackend> {
     const idx = this.available.pop();
-    if (idx !== undefined) {
+    if (idx !== undefined && this.slots[idx]) {
       return this.slots[idx]!;
     }
 
-    if (this.createdCount < this.options.maxSize) {
-      return await this.createSlot();
+    // Create a new slot if under max (or replacing a dead slot)
+    if (this.createdCount < this.options.maxSize || (idx !== undefined && !this.slots[idx])) {
+      return await this.createSlot(idx);
     }
 
     return new Promise<AvmIpcBackend>(resolve => {
@@ -91,7 +114,7 @@ export class AvmSimulatorPool implements AvmIpcBackend {
     }
   }
 
-  private async createSlot(): Promise<AvmIpcBackend> {
+  private async createSlot(reuseIdx?: number): Promise<AvmIpcBackend> {
     const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
     const backend = new AvmBackend({
       binaryPath: this.options.avmBinaryPath,
@@ -99,10 +122,13 @@ export class AvmSimulatorPool implements AvmIpcBackend {
       cdbSocketPath: this.options.cdbSocketPath,
       logger: this.options.logger,
     });
-    const idx = this.slots.length;
-    this.slots.push(backend);
-    this.createdCount++;
-    this.log.debug(`Created AVM pool slot ${idx} (${this.createdCount}/${this.options.maxSize})`);
+    if (reuseIdx !== undefined && reuseIdx < this.slots.length) {
+      this.slots[reuseIdx] = backend;
+    } else {
+      this.slots.push(backend);
+      this.createdCount++;
+    }
+    this.log.debug(`Created AVM pool slot (${this.createdCount}/${this.options.maxSize})`);
     return backend;
   }
 }

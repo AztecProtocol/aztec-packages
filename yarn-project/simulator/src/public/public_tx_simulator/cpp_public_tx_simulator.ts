@@ -86,9 +86,9 @@ export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
     throw new SimulationError('Unexpected response format from aztec-avm', []);
   }
 
-  // eslint-disable-next-line require-await
   public async cancel(_waitTimeoutMs: number = 100): Promise<void> {
-    this.log.debug('IPC simulation cancelled (AVM will complete in background)');
+    this.log.debug('Cancelling IPC simulation');
+    await this.avmBackend.cancel?.();
   }
 }
 

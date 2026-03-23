@@ -81,7 +81,7 @@ export class PublicProcessorFactory {
    * Creates a new instance of a PublicProcessor and registers the fork's contracts DB
    * on the CDB server for fork-ID-based request routing.
    *
-   * The caller must call `cdbServer.unregisterFork(forkId)` when the fork is closed.
+   * The caller must call `unregisterFork(forkId)` when the fork is closed.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
@@ -110,6 +110,11 @@ export class PublicProcessorFactory {
       this.telemetryClient,
       createLogger('simulator:public-processor', bindings),
     );
+  }
+
+  /** Unregister a fork's contracts DB from the CDB server. Call when the fork is closed. */
+  unregisterFork(forkId: number): void {
+    this.cdbServer?.unregisterFork(forkId);
   }
 
   protected createPublicTxSimulator(

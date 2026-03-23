@@ -246,6 +246,7 @@ export class EpochProvingJob implements Traceable {
           const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
           const processed = await this.processTxs(publicProcessor, txs);
           await this.prover.addTxs(processed);
+          this.publicProcessorFactory.unregisterFork(db.getRevision().forkId);
           await db.close();
           this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
             blockNumber: block.number,
