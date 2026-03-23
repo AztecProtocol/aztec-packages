@@ -2,7 +2,6 @@ import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import type { TxEffect } from '../tx/tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 
 /**
@@ -51,10 +50,6 @@ export class MessageContext {
     } else {
       return [new Fr(0), ...MessageContext.toEmptyFields()];
     }
-  }
-
-  static fromTxEffect(txEffect: TxEffect): MessageContext {
-    return new MessageContext(txEffect.txHash, txEffect.noteHashes, txEffect.nullifiers[0]);
   }
 }
 

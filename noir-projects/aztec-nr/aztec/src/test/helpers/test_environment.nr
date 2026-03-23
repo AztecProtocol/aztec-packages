@@ -940,18 +940,16 @@ impl TestEnvironment {
         // along with the message from a tagged log.
         let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx) = txe_oracles::get_last_tx_effects();
 
-        // Real messages would also have a recipient, a concept which is currently half-supported in `TestEnvironment`
-        // as events are properly scoped by recipient, but notes use a global scope instead. We therefore simply set
-        // the zero address as the recipient if one is not supplied, which PXE accepts as a scope despite this not
-        // being a registered account.
-        let message_context = MessageContext {
-            tx_hash,
-            unique_note_hashes_in_tx,
-            first_nullifier_in_tx: nullifiers_in_tx.get(0),
-            recipient: recipient.unwrap_or(AztecAddress::zero()),
-        };
+        let message_context =
+            MessageContext { tx_hash, unique_note_hashes_in_tx, first_nullifier_in_tx: nullifiers_in_tx.get(0) };
 
-        // Both private and utility functions perform message processing . We do it in an utility context here as that
+        // The scope controls which PXE account can see discovered notes/events. We use the zero address as the
+        // default scope if no recipient is supplied, which PXE accepts despite this not being a registered account.
+        // TODO(@mverzilli): we should revisit how we treat scope in test env, it seems we're treating it too
+        // implicitly.
+        let scope = recipient.unwrap_or(AztecAddress::zero());
+
+        // Both private and utility functions perform message processing. We do it in an utility context here as that
         // one is more lightweight and does not create new blocks, which also allows for `discover_note` and
         // `discover_event` to be called repeatedly with multiple messages from the same transaction.
         self.utility_context_opts(UtilityContextOptions { contract_address }, |context| {
@@ -962,12 +960,10 @@ impl TestEnvironment {
                 process_custom_message,
                 message_plaintext,
                 message_context,
-                message_context.recipient,
+                scope,
             );
 
-            // TODO(@mverzilli): we should revisit how we treat scope in test env, it seems we're treating it too
-            // implicitly.
-            validate_and_store_enqueued_notes_and_events(context.this_address(), message_context.recipient);
+            validate_and_store_enqueued_notes_and_events(context.this_address(), scope);
         });
     }
 }
