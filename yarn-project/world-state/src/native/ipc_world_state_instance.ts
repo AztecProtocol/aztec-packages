@@ -301,9 +301,11 @@ export class IpcWorldState implements NativeWorldStateInstance {
     this.open = false;
     const queue = this.queues.get(0)!;
 
-    // Send shutdown command. The WSDB process may exit before sending a response,
-    // which would leave the IPC call pending. We catch any error (rejected by socket close
-    // or process exit handler) and proceed to destroy the backend regardless.
+    // Send shutdown command. Under normal operation, the WSDB process sends its
+    // response before exiting (via ShutdownRequested in ipc_server.hpp). The
+    // try/catch is defensive: if the process is killed externally (SIGKILL, OOM)
+    // before responding, the pending IPC callback would be rejected by the socket
+    // close handler. We proceed to destroy the backend regardless.
     try {
       await queue.execute(
         async () => {

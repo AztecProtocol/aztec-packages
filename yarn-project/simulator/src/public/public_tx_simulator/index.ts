@@ -4,6 +4,7 @@ export {
   MeasuredCppPublicTxSimulator,
   TelemetryCppPublicTxSimulator,
 } from './cpp_public_tx_simulator.js';
+export { DumpingCppPublicTxSimulator } from './dumping_cpp_public_tx_simulator.js';
 export { IpcVsTsPublicTxSimulator, MeasuredIpcVsTsPublicTxSimulator } from './ipc_vs_ts_public_tx_simulator.js';
 export { createPublicTxSimulatorForBlockBuilding } from './factories.js';
 export type { AvmIpcBackend } from './cpp_public_tx_simulator.js';

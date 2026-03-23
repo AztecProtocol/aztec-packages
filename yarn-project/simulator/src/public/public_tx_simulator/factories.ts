@@ -6,10 +6,12 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { CdbIpcServer } from '../cdb_ipc_server.js';
 import type { PublicContractsDB } from '../public_db_sources.js';
 import { type AvmIpcBackend, TelemetryCppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import { DumpingCppPublicTxSimulator } from './dumping_cpp_public_tx_simulator.js';
 
 /**
  * Creates an IPC-based public tx simulator for block building.
- * Sends simulation commands to an external aztec-avm process over UDS.
+ * Uses DumpingCppPublicTxSimulator if DUMP_AVM_INPUTS_TO_DIR env var is set (for CI/testing AVM circuit),
+ * otherwise uses TelemetryCppPublicTxSimulator (for production).
  */
 export function createPublicTxSimulatorForBlockBuilding(
   avmBackend: AvmIpcBackend,
@@ -27,6 +29,21 @@ export function createPublicTxSimulatorForBlockBuilding(
     collectStatistics: false,
     collectCallMetadata: false,
   });
+
+  const dumpDir = process.env.DUMP_AVM_INPUTS_TO_DIR;
+  if (dumpDir) {
+    const dumpingConfig = { ...config, collectHints: true, collectPublicInputs: true };
+    return new DumpingCppPublicTxSimulator(
+      avmBackend,
+      globalVariables,
+      dumpingConfig,
+      dumpDir,
+      bindings,
+      wsdbForkId,
+      cdbWiring,
+    );
+  }
+
   return new TelemetryCppPublicTxSimulator(
     avmBackend,
     globalVariables,
