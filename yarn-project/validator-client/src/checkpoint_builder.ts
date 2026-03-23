@@ -243,11 +243,6 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...(this.config.txPublicSetupAllowListExtend ?? []),
     ];
     const contractsDB = this.contractsDB;
-    // Wire the CDB server to this block's PublicContractsDB so the C++ AVM
-    // can query contract data over UDS during simulation.
-    if (this.cdbServer) {
-      this.cdbServer.setContractsDB(contractsDB, globalVariables.timestamp);
-    }
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
     const bindings = this.log.getBindings();
@@ -256,12 +251,16 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     }
     // Extract the WSDB fork ID so the C++ AVM can modify the same fork in-place.
     const wsdbForkId = 'getForkId' in fork ? (fork as { getForkId(): number }).getForkId() : undefined;
+    // Pass CDB wiring so the simulator atomically sets the contracts DB under a lock
+    // before each simulation, preventing races with concurrent RPC simulations.
+    const cdbWiring = this.cdbServer ? { cdbServer: this.cdbServer, contractsDB } : undefined;
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
       this.avmBackend,
       globalVariables,
       this.telemetryClient,
       bindings,
       wsdbForkId,
+      cdbWiring,
     );
 
     const processor = new PublicProcessor(
