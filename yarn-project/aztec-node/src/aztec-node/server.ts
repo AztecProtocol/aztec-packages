@@ -142,6 +142,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private ipcBackends: Array<{ destroy?(): Promise<void> }> = [];
   /** Shared AVM IPC backend for public simulation. */
   private avmBackend?: AvmIpcBackend;
+  /** CDB IPC server for contract data queries during AVM simulation. */
+  private cdbServer?: CdbIpcServer;
 
   constructor(
     protected config: AztecNodeConfig,
@@ -659,6 +661,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         blobClient,
         keyStoreManager,
         avmBackend,
+        cdbServer,
       });
 
       if (!options.dontStartProverNode) {
@@ -704,6 +707,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (avmBackend) {
       node.ipcBackends.push(avmBackend);
       node.avmBackend = avmBackend;
+    }
+    if (cdbServer) {
+      node.cdbServer = cdbServer;
     }
 
     return node;
@@ -1389,6 +1395,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
       this.avmBackend!,
+      this.cdbServer,
       new DateProvider(),
       this.telemetry,
       this.log.getBindings(),

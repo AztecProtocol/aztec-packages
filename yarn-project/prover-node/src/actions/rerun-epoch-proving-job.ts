@@ -54,6 +54,7 @@ export async function rerunEpochProvingJob(
   const publicProcessorFactory = new PublicProcessorFactory(
     archiver,
     avmBackend,
+    cdbServer,
     undefined,
     undefined,
     log.getBindings(),

@@ -80,6 +80,7 @@ describe('prover-node', () => {
       rollupContract,
       l1Metrics,
       avmBackend,
+      undefined, // cdbServer
       config,
     );
 

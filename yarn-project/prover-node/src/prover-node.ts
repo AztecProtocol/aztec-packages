@@ -7,7 +7,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { type AvmIpcBackend, PublicProcessorFactory } from '@aztec/simulator/server';
+import { type AvmIpcBackend, type CdbIpcServer, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
@@ -77,6 +77,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly rollupContract: RollupContract,
     protected readonly l1Metrics: L1Metrics,
     private readonly avmBackend: AvmIpcBackend,
+    private readonly cdbServer: CdbIpcServer | undefined,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
     private delayer?: Delayer,
@@ -294,6 +295,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
       this.avmBackend,
+      this.cdbServer,
       this.dateProvider,
       this.telemetryClient,
       this.log.getBindings(),

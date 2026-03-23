@@ -50,6 +50,7 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { AssertionError } from 'assert';
 
+import type { CdbIpcServer } from '../cdb_ipc_server.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
   type AvmIpcBackend,
@@ -68,6 +69,7 @@ export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
     private avmBackend: AvmIpcBackend,
+    private cdbServer?: CdbIpcServer,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
@@ -88,6 +90,9 @@ export class PublicProcessorFactory {
   ): PublicProcessor {
     const bindings = this.log.getBindings();
     const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
+
+    // Wire the CDB IPC server so the C++ AVM can query contract data over UDS.
+    this.cdbServer?.setContractsDB(contractsDB, globalVariables.timestamp);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
     const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
