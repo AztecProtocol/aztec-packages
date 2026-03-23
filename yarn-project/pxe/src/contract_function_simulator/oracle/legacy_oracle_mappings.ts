@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { toACVMField } from '@aztec/simulator/client';
 import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -97,21 +96,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       ephPKField1: ACVMField[],
       ephPKField2: ACVMField[],
     ): Promise<ACVMField[]> => oracle.aztec_utl_getSharedSecret(address, ephPKField0, ephPKField1, ephPKField2),
-    utilityFetchTaggedLogs: (pendingTaggedLogArrayBaseSlot: ACVMField[]): Promise<ACVMField[]> =>
-      // TODO: either remove mapping or restrict usage to protocol contracts
-      oracle.aztec_utl_fetchTaggedLogs(pendingTaggedLogArrayBaseSlot, [toACVMField(AztecAddress.ZERO)]),
-    utilityBulkRetrieveLogs: (
-      contractAddress: ACVMField[],
-      logRetrievalRequestsArrayBaseSlot: ACVMField[],
-      logRetrievalResponsesArrayBaseSlot: ACVMField[],
-    ): Promise<ACVMField[]> =>
-      oracle.aztec_utl_bulkRetrieveLogs(
-        contractAddress,
-        logRetrievalRequestsArrayBaseSlot,
-        logRetrievalResponsesArrayBaseSlot,
-        // TODO: either remove mapping or restrict usage to protocol contracts
-        [toACVMField(AztecAddress.ZERO)],
-      ),
     utilityGetL1ToL2MembershipWitness: (
       contractAddress: ACVMField[],
       messageHash: ACVMField[],
@@ -119,22 +103,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     ): Promise<(ACVMField | ACVMField[])[]> =>
       oracle.aztec_utl_getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
     utilityEmitOffchainEffect: (data: ACVMField[]): Promise<ACVMField[]> => oracle.aztec_utl_emitOffchainEffect(data),
-    // Adapter: old 3-param signature → new 5-param with injected constants.
-    // Values derived from: MAX_MESSAGE_CONTENT_LEN(11) - RESERVED_FIELDS (3 for notes, 1 for events).
-    utilityValidateAndStoreEnqueuedNotesAndEvents: (
-      contractAddress: ACVMField[],
-      noteValidationRequestsArrayBaseSlot: ACVMField[],
-      eventValidationRequestsArrayBaseSlot: ACVMField[],
-    ): Promise<ACVMField[]> =>
-      oracle.aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
-        contractAddress,
-        noteValidationRequestsArrayBaseSlot,
-        eventValidationRequestsArrayBaseSlot,
-        [new Fr(8).toString()],
-        [new Fr(10).toString()],
-        // TODO: either remove mapping or restrict usage to protocol contracts
-        [toACVMField(AztecAddress.ZERO)],
-      ),
     // Renames (same signature, different oracle name)
     privateNotifySetMinRevertibleSideEffectCounter: (counter: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_prv_notifyRevertiblePhaseStart(counter),
