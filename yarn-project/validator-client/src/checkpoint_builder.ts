@@ -105,7 +105,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       feeRecipient: constants.feeRecipient,
       gasFees: constants.gasFees,
     });
-    const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
+    const { processor, validator, wsdbForkId } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
 
     // Cap gas limits amd available blob fields by remaining checkpoint-level budgets
     const cappedOpts: PublicProcessorLimits & { expectedEndState?: StateReference } = {
@@ -160,6 +160,11 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       // Otherwise it reverts any changes made to the fork for this failed block
       await forkCheckpoint.revert();
       throw err;
+    } finally {
+      // Unregister the fork's contracts DB from the CDB server to prevent leaks.
+      if (wsdbForkId !== undefined) {
+        this.cdbServer?.unregisterFork(wsdbForkId);
+      }
     }
   }
 
@@ -261,6 +266,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       this.telemetryClient,
       bindings,
       wsdbForkId,
+      this.debugLogStore?.isEnabled ?? false,
     );
 
     const processor = new PublicProcessor(
@@ -286,6 +292,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     return {
       processor,
       validator,
+      wsdbForkId,
     };
   }
 }

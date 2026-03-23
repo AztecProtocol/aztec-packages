@@ -374,10 +374,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     log.info('Waiting for WSDB backend to be ready...');
     await wsdbBackend.waitUntilReady();
 
-    const maxAvmProcesses = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
-    log.info(`WSDB ready, creating AVM simulator pool (max ${maxAvmProcesses} processes)`);
+    log.info('WSDB ready, creating AVM simulator pool');
     const avmPool = new AvmSimulatorPool({
-      maxSize: maxAvmProcesses,
       avmBinaryPath,
       wsdbSocketPath: wsdbBackend.getSocketPath(),
       cdbSocketPath: cdbServer.socketPath,

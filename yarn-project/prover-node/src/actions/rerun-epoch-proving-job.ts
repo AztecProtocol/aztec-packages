@@ -44,9 +44,7 @@ export async function rerunEpochProvingJob(
   const contractsDB = new PublicContractsDB(archiver);
   cdbServer.registerFork(0, contractsDB, 0n);
 
-  const maxAvmProcesses = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
   const avmPool = new AvmSimulatorPool({
-    maxSize: maxAvmProcesses,
     avmBinaryPath,
     wsdbSocketPath,
     cdbSocketPath: cdbServer.socketPath,

@@ -12,6 +12,7 @@ import { PublicTxSimulator } from './public_tx_simulator.js';
 import type {
   MeasuredPublicTxSimulatorInterface,
   PublicTxSimulatorInterface,
+  SimulationHandle,
 } from './public_tx_simulator_interface.js';
 
 /**
@@ -45,9 +46,14 @@ export class IpcVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
    * Simulate a transaction's public portion using both C++ (IPC) and TS simulators, then compare results.
    *
    * @param tx - The transaction to simulate.
-   * @returns The result of the C++ simulation (after verifying parity with TS).
+   * @returns A SimulationHandle with the result of the C++ simulation (after verifying parity with TS).
    */
-  public override async simulate(tx: Tx): Promise<PublicTxResult> {
+  public override simulate(tx: Tx): SimulationHandle {
+    const result = this.doCompare(tx);
+    return { result, cancel: async () => {} };
+  }
+
+  private async doCompare(tx: Tx): Promise<PublicTxResult> {
     const txHash = this.computeTxHash(tx);
     this.log.debug(`IPC vs TS simulation of ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, {
       txHash,
@@ -60,7 +66,7 @@ export class IpcVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     await this.merkleTree.createCheckpoint();
     this.contractsDB.createCheckpoint();
     try {
-      tsResult = await super.simulate(tx);
+      tsResult = await super.simulate(tx).result;
       this.log.debug(`TS simulation completed for tx ${txHash}`);
       tsStateRef = await this.merkleTree.getStateReference();
     } catch (error: any) {
@@ -73,7 +79,7 @@ export class IpcVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
 
     // Run C++ simulation via IPC
     this.log.debug(`Running C++ (IPC) simulation for tx ${txHash}`);
-    const cppResult = await this.cppSimulator.simulate(tx);
+    const cppResult = await this.cppSimulator.simulate(tx).result;
 
     // If C++ succeeded, TS should have too
     assert(tsResult !== undefined, 'TS simulation should have succeeded if C++ succeeded');
@@ -157,14 +163,18 @@ export class MeasuredIpcVsTsPublicTxSimulator
     super(merkleTree, contractsDB, globalVariables, avmBackend, config, bindings, wsdbForkId);
   }
 
-  public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
+  public override simulate(tx: Tx, txLabel: string = 'unlabeledTx'): SimulationHandle {
+    const handle = super.simulate(tx);
     this.metrics.startRecordingTxSimulation(txLabel);
-    let result: PublicTxResult | undefined;
-    try {
-      result = await super.simulate(tx);
-    } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
-    }
-    return result;
+    const result = handle.result
+      .then(r => {
+        this.metrics.stopRecordingTxSimulation(txLabel, r?.gasUsed, r?.revertCode);
+        return r;
+      })
+      .catch(err => {
+        this.metrics.stopRecordingTxSimulation(txLabel, undefined, undefined);
+        throw err;
+      });
+    return { result, cancel: handle.cancel };
   }
 }

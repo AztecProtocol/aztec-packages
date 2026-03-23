@@ -1,4 +1,5 @@
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
   AvmFastSimulationInputs,
@@ -12,11 +13,13 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
+import type { AvmSimulatorPool } from '../avm_simulator_pool.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
 import type {
   MeasuredPublicTxSimulatorInterface,
   PublicTxSimulatorInterface,
+  SimulationHandle,
 } from './public_tx_simulator_interface.js';
 
 /** Msgpack IPC backend interface (matches bb.js IMsgpackBackendAsync). */
@@ -45,7 +48,35 @@ export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
     this.log = createLogger('simulator:cpp_public_tx_simulator', bindings);
   }
 
-  public async simulate(tx: Tx): Promise<PublicTxResult> {
+  public simulate(tx: Tx): SimulationHandle {
+    // If avmBackend has checkout/return (pool), use per-simulation cancel.
+    const pool = this.avmBackend as any;
+    if (typeof pool.checkout === 'function') {
+      return this.simulateWithPool(tx, pool as AvmSimulatorPool);
+    }
+    // Single backend path
+    const result = this.doSimulate(tx);
+    return { result, cancel: async () => {} };
+  }
+
+  private simulateWithPool(tx: Tx, pool: AvmSimulatorPool): SimulationHandle {
+    const backendPromise = pool.checkout();
+    const result = backendPromise.then(b => this.doSimulate(tx, b));
+    // Return slot to pool when done (success or error)
+    void result.finally(() => backendPromise.then(b => pool.return(b)).catch(() => {}));
+
+    return {
+      result,
+      cancel: async (waitTimeoutMs = 100) => {
+        const b = await backendPromise;
+        await b.cancel?.();
+        await Promise.race([result.catch(() => {}), sleep(waitTimeoutMs)]);
+      },
+    };
+  }
+
+  protected async doSimulate(tx: Tx, backend?: AvmIpcBackend): Promise<PublicTxResult> {
+    const effectiveBackend = backend ?? this.avmBackend;
     const txHash = tx.getTxHash();
     this.log.debug(`IPC simulation for tx ${txHash}, wsdbForkId=${this.wsdbForkId ?? 0}`);
 
@@ -64,7 +95,7 @@ export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
 
     let resultBuffer: Uint8Array;
     try {
-      resultBuffer = await this.avmBackend.call(wrappedCommand);
+      resultBuffer = await effectiveBackend.call(wrappedCommand);
     } catch (error: any) {
       throw new SimulationError(`IPC AVM simulation failed: ${error.message}`, []);
     }
@@ -85,11 +116,6 @@ export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
 
     throw new SimulationError('Unexpected response format from aztec-avm', []);
   }
-
-  public async cancel(_waitTimeoutMs: number = 100): Promise<void> {
-    this.log.debug('Cancelling IPC simulation');
-    await this.avmBackend.cancel?.();
-  }
 }
 
 /** C++ public tx simulator with metrics recording. */
@@ -105,15 +131,19 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
     super(avmBackend, globalVariables, config, bindings, wsdbForkId);
   }
 
-  public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
+  public override simulate(tx: Tx, txLabel: string = 'unlabeledTx'): SimulationHandle {
+    const handle = super.simulate(tx);
     this.metrics.startRecordingTxSimulation(txLabel);
-    let result: PublicTxResult | undefined;
-    try {
-      result = await super.simulate(tx);
-    } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
-    }
-    return result;
+    const result = handle.result
+      .then(r => {
+        this.metrics.stopRecordingTxSimulation(txLabel, r?.gasUsed, r?.revertCode);
+        return r;
+      })
+      .catch(err => {
+        this.metrics.stopRecordingTxSimulation(txLabel, undefined, undefined);
+        throw err;
+      });
+    return { result, cancel: handle.cancel };
   }
 }
 

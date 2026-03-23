@@ -148,6 +148,8 @@ class PublicProcessorTimeoutError extends Error {
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
+  /** Handle for the currently in-flight simulation, used for cancellation on timeout. */
+  private currentSimulationHandle?: { cancel(waitTimeoutMs?: number): Promise<void> };
   constructor(
     protected globalVariables: GlobalVariables,
     private guardedMerkleTree: GuardedMerkleTreeOperations,
@@ -336,7 +338,7 @@ export class PublicProcessor implements Traceable {
           // and won't check the cancellation flag until that operation completes.
           // Without waiting, we'd proceed to revert checkpoints while C++ is still writing to state.
           // Wait for C++ to stop gracefully.
-          await this.publicTxSimulator.cancel?.();
+          await this.currentSimulationHandle?.cancel();
 
           // Now stop the guarded fork to prevent any further TS-side access to the world state.
           await this.guardedMerkleTree.stop();
@@ -576,7 +578,9 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[], DebugLog[]]> {
     const timer = new Timer();
 
-    const result = await this.publicTxSimulator.simulate(tx);
+    const handle = this.publicTxSimulator.simulate(tx);
+    this.currentSimulationHandle = handle;
+    const result = await handle.result;
     // TODO: use the callStackMetadata here to extract more data about public execution
     const { hints, publicInputs, publicTxEffect, gasUsed, revertCode /*callStackMetadata*/ } = result;
 

@@ -70,6 +70,7 @@ export type MeasuredSimulatorFactory = (
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   protected txCount: number = 0;
   private simulator: MeasuredPublicTxSimulatorInterface;
+  private currentHandle?: { cancel(waitTimeoutMs?: number): Promise<void> };
   private metricsPrefix?: string;
   protected avmBackend?: AvmIpcBackend;
   protected cdbServer?: CdbIpcServer;
@@ -204,7 +205,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
         'No simulator configured. Pass a simulatorFactory to the constructor or use PublicTxSimulationTester.create()',
       );
     }
-    const avmResult = await this.simulator.simulate(tx, fullTxLabel);
+    const handle = this.simulator.simulate(tx, fullTxLabel);
+    this.currentHandle = handle;
+    const avmResult = await handle.result;
 
     await this.#recordBytecodeSizes(fullTxLabel, [...setupCalls, ...appCalls, ...(teardownCall ? [teardownCall] : [])]);
 
@@ -294,7 +297,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
    * @param waitTimeoutMs - If provided, wait up to this many ms for the simulation to actually stop.
    */
   public async cancel(waitTimeoutMs?: number): Promise<void> {
-    await this.simulator.cancel?.(waitTimeoutMs);
+    await this.currentHandle?.cancel(waitTimeoutMs);
   }
 
   /**

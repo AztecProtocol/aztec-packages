@@ -94,6 +94,7 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
     const contractsDB = new PublicContractsDB(contractDataSource);
 
     const simulator = new PublicTxSimulator(merkleTrees, contractsDB, globals);
+    let lastHandle: { cancel(waitTimeoutMs?: number): Promise<void> } | undefined;
 
     const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
     await tester.setFeePayerBalance(admin);
@@ -107,7 +108,7 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
 
     for (let iteration = 0; iteration < numIterations; iteration++) {
       // Ensure any previous simulation is fully stopped before starting a new one
-      await simulator.cancel(1000);
+      await lastHandle?.cancel(1000);
 
       // Get initial state for trees we need to check
       const initialTreeInfo = new Map<MerkleTreeId, { size: bigint; root: Buffer }>();
@@ -123,7 +124,9 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
       const tx = await tester.createTx(admin, [], [{ address: contractAddress, args: callArgs }]);
 
       // Start C++ simulation (not awaiting - like production timeout behavior!)
-      const simulationPromise = simulator.simulate(tx);
+      const handle = simulator.simulate(tx);
+      lastHandle = handle;
+      const simulationPromise = handle.result;
       // Eagerly add catch to prevent unhandled promise rejection warnings
       simulationPromise.catch(() => {});
 
@@ -134,7 +137,7 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
       if (useCancellation) {
         // FIX - Signal cancellation and WAIT for C++ to actually stop (up to 100ms)
         // This ensures C++ has finished before we proceed with reverts.
-        await simulator.cancel(100);
+        await handle.cancel(100);
       }
       // BUG - No cancel, C++ continues running during reverts below
 
@@ -160,14 +163,14 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
         raceObservedCount++;
         // Early exit - bug exists, no need to continue
         // Always cancel simulation for clean test shutdown (prevent crash during afterEach)
-        await simulator.cancel(1000);
+        await lastHandle?.cancel(1000);
         logger.verbose(`Early exit`);
         return raceObservedCount;
       }
     }
 
     // Always cancel simulation for clean test shutdown (prevent crash during afterEach)
-    await simulator.cancel(1000);
+    await lastHandle?.cancel(1000);
     return raceObservedCount;
   }
 
@@ -256,18 +259,22 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
 
       // Track the simulation promise so we can await it for cleanup.
       // Use an object wrapper to avoid TypeScript control flow analysis issues.
-      const simState = { promise: null as Promise<any> | null };
+      const simState = { promise: null as Promise<any> | null, handle: null as any };
 
       // Both tests use IDENTICAL code - the ONLY difference is whether cancel() exists.
-      // PublicProcessor now calls: await this.publicTxSimulator.cancel?.(100)
+      // PublicProcessor now calls: await this.currentSimulationHandle?.cancel()
       // - FIX - cancel exists, waits for C++ to stop before reverts
-      // - BUG - cancel is undefined, reverts proceed while C++ is still running
+      // - BUG - cancel is no-op, reverts proceed while C++ is still running
       const simulator = {
         simulate: (tx: any) => {
-          simState.promise = realSimulator.simulate(tx);
-          return simState.promise;
+          const handle = realSimulator.simulate(tx);
+          simState.promise = handle.result;
+          simState.handle = handle;
+          return {
+            result: simState.promise,
+            cancel: useCancellation ? (waitTimeoutMs?: number) => handle.cancel(waitTimeoutMs) : async () => {},
+          };
         },
-        cancel: useCancellation ? (waitTimeoutMs?: number) => realSimulator.cancel(waitTimeoutMs) : undefined, // No cancel method - PublicProcessor can't wait for C++ to stop
       };
 
       // Use TestDateProvider to control time
@@ -350,7 +357,7 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
         corruptionCount++;
         // Early exit - bug exists, no need to continue
         // Always cancel simulation for clean test shutdown (prevent crash during afterEach)
-        await realSimulator.cancel(1000);
+        await simState.handle?.cancel(1000);
         logger.verbose(
           `Early exit: checkWorldStateUnchanged caught=${checkWorldStateUnchangedCaughtIt}, our check caught=true`,
         );
@@ -358,7 +365,7 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
       }
 
       // Cancel simulation before next iteration or function end
-      await realSimulator.cancel(1000);
+      await simState.handle?.cancel(1000);
     }
 
     return corruptionCount;

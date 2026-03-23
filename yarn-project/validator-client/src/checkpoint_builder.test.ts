@@ -66,7 +66,7 @@ describe('CheckpointBuilder', () => {
     declare public contractsDB: PublicContractsDB;
 
     public override makeBlockBuilderDeps(_globalVariables: GlobalVariables, _fork: MerkleTreeWriteOperations) {
-      return Promise.resolve({ processor, validator });
+      return Promise.resolve({ processor, validator, wsdbForkId: undefined });
     }
 
     /** Expose for testing */

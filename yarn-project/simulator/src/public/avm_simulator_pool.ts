@@ -3,8 +3,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AvmIpcBackend } from './public_tx_simulator/cpp_public_tx_simulator.js';
 
 export interface AvmSimulatorPoolOptions {
-  /** Maximum number of concurrent AVM processes. */
-  maxSize: number;
+  /** Maximum number of concurrent AVM processes. If not set, defaults to AVM_MAX_CONCURRENT_SIMULATIONS env var or 4. */
+  maxSize?: number;
   /** Path to the aztec-avm binary. */
   avmBinaryPath: string;
   /** Socket path for the shared WSDB server. */
@@ -27,34 +27,21 @@ export class AvmSimulatorPool implements AvmIpcBackend {
   private available: number[] = [];
   private waiters: Array<(backend: AvmIpcBackend) => void> = [];
   private createdCount = 0;
-  /** Backends currently in use by in-flight call()s. */
-  private inFlight = new Set<AvmIpcBackend>();
   private log: Logger;
+  private maxSize: number;
 
   constructor(private options: AvmSimulatorPoolOptions) {
     this.log = createLogger('simulator:avm-pool');
+    this.maxSize = options.maxSize ?? parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
   }
 
   /** Send a request to any available AVM process. Blocks if all are busy. */
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     const backend = await this.checkout();
-    this.inFlight.add(backend);
     try {
       return await backend.call(inputBuffer);
     } finally {
-      this.inFlight.delete(backend);
       this.return(backend);
-    }
-  }
-
-  /**
-   * Cancel all in-flight simulations by sending SIGUSR1 to their AVM processes.
-   * The C++ side sets a CancellationToken, causing the simulation to throw at
-   * the next opcode check. The processes stay alive and are reusable.
-   */
-  async cancel(): Promise<void> {
-    for (const backend of this.inFlight) {
-      await backend.cancel?.();
     }
   }
 
@@ -75,19 +62,19 @@ export class AvmSimulatorPool implements AvmIpcBackend {
 
     this.slots = [];
     this.available = [];
-    this.inFlight.clear();
     this.createdCount = 0;
     this.log.info('AVM simulator pool destroyed');
   }
 
-  private async checkout(): Promise<AvmIpcBackend> {
+  /** Check out an AVM backend from the pool. Caller must return() it when done. */
+  async checkout(): Promise<AvmIpcBackend> {
     const idx = this.available.pop();
     if (idx !== undefined && this.slots[idx]) {
       return this.slots[idx]!;
     }
 
     // Create a new slot if under max (or replacing a dead slot)
-    if (this.createdCount < this.options.maxSize || (idx !== undefined && !this.slots[idx])) {
+    if (this.createdCount < this.maxSize || (idx !== undefined && !this.slots[idx])) {
       return await this.createSlot(idx);
     }
 
@@ -96,7 +83,8 @@ export class AvmSimulatorPool implements AvmIpcBackend {
     });
   }
 
-  private return(backend: AvmIpcBackend): void {
+  /** Return an AVM backend to the pool after use. */
+  return(backend: AvmIpcBackend): void {
     const waiter = this.waiters.shift();
     if (waiter) {
       waiter(backend);
@@ -122,7 +110,7 @@ export class AvmSimulatorPool implements AvmIpcBackend {
       this.slots.push(backend);
       this.createdCount++;
     }
-    this.log.debug(`Created AVM pool slot (${this.createdCount}/${this.options.maxSize})`);
+    this.log.debug(`Created AVM pool slot (${this.createdCount}/${this.maxSize})`);
     return backend;
   }
 }

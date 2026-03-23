@@ -11,6 +11,7 @@ export {
   createPublicTxSimulatorForBlockBuilding,
   PublicTxSimulator,
   type PublicTxSimulatorInterface,
+  type SimulationHandle,
   TelemetryCppPublicTxSimulator,
 } from './public_tx_simulator/index.js';
 export type { PublicTxResult, PublicSimulatorConfig as PublicTxSimulatorConfig } from '@aztec/stdlib/avm';

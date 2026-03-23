@@ -30,8 +30,8 @@ import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';
 
-/** Maximum concurrent AVM simulations. Defaults to 4. Set to 0 for unlimited. */
-const AVM_MAX_CONCURRENT_SIMULATIONS = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
+/** Default parallelism for processing checkpoints. The AVM pool already limits concurrent processes. */
+const DEFAULT_PARALLEL_CHECKPOINT_LIMIT = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
 
 export type EpochProvingJobOptions = {
   parallelBlockLimit?: number;
@@ -170,8 +170,8 @@ export class EpochProvingJob implements Traceable {
 
       const parallelism = this.config.parallelBlockLimit
         ? this.config.parallelBlockLimit
-        : AVM_MAX_CONCURRENT_SIMULATIONS > 0
-          ? AVM_MAX_CONCURRENT_SIMULATIONS
+        : DEFAULT_PARALLEL_CHECKPOINT_LIMIT > 0
+          ? DEFAULT_PARALLEL_CHECKPOINT_LIMIT
           : this.checkpoints.length;
 
       await asyncPool(parallelism, this.checkpoints, async checkpoint => {

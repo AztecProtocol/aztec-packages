@@ -14,6 +14,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { type AvmIpcBackend, CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import type { SimulationHandle } from './public_tx_simulator_interface.js';
 
 /**
  * IPC-based C++ public tx simulator that dumps AVM circuit inputs to disk after simulation.
@@ -36,10 +37,13 @@ export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
     this.outputDir = outputDir;
   }
 
-  public override async simulate(tx: Tx): Promise<PublicTxResult> {
-    const result = await super.simulate(tx);
-    this.dumpAvmCircuitInputs(result, tx.getTxHash().toString());
-    return result;
+  public override simulate(tx: Tx): SimulationHandle {
+    const handle = super.simulate(tx);
+    const result = handle.result.then(r => {
+      this.dumpAvmCircuitInputs(r, tx.getTxHash().toString());
+      return r;
+    });
+    return { result, cancel: handle.cancel };
   }
 
   private dumpAvmCircuitInputs(result: PublicTxResult, txHash: string): void {

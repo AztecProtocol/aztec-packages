@@ -93,9 +93,10 @@ describe('public_processor', () => {
     merkleTree.getStateReference.mockResolvedValue(stateReference);
     merkleTree.createCheckpoint.mockResolvedValue(1);
 
-    publicTxSimulator.simulate.mockImplementation(() => {
-      return Promise.resolve(mockedEnqueuedCallsResult);
-    });
+    publicTxSimulator.simulate.mockImplementation(() => ({
+      result: Promise.resolve(mockedEnqueuedCallsResult),
+      cancel: async () => {},
+    }));
 
     processor = new PublicProcessor(
       globalVariables,
@@ -148,7 +149,10 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      publicTxSimulator.simulate.mockRejectedValue(new Error(`Failed`));
+      publicTxSimulator.simulate.mockReturnValue({
+        result: Promise.reject(new Error(`Failed`)),
+        cancel: async () => {},
+      });
 
       const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx]);
@@ -244,10 +248,13 @@ describe('public_processor', () => {
       const txs = await timesParallel(3, seed => mockTxWithPublicCalls({ seed }));
 
       // The simulator will take 400ms to process each tx
-      publicTxSimulator.simulate.mockImplementation(async () => {
-        await sleep(800);
-        return mockedEnqueuedCallsResult;
-      });
+      publicTxSimulator.simulate.mockImplementation(() => ({
+        result: (async () => {
+          await sleep(800);
+          return mockedEnqueuedCallsResult;
+        })(),
+        cancel: async () => {},
+      }));
 
       // We allocate a deadline of 2s, so only 2 txs should fit
       const deadline = new Date(Date.now() + 2000);
@@ -323,7 +330,10 @@ describe('public_processor', () => {
   describe('checkpoint depth', () => {
     it('calls revertAllCheckpointsTo with depth on tx failure', async function () {
       merkleTree.createCheckpoint.mockResolvedValue(2);
-      publicTxSimulator.simulate.mockRejectedValue(new Error('Boom'));
+      publicTxSimulator.simulate.mockReturnValue({
+        result: Promise.reject(new Error('Boom')),
+        cancel: async () => {},
+      });
 
       const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx]);
