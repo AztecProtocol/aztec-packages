@@ -213,8 +213,8 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
 
     // Compute w:= w[0] + s0 + w[9] + s1
     // The computation of w can overflow 32 bits so we need to use a 64-bit integer and perform modulo reduction
-    uint64_t computed_w =
-        prev_w_helpers[0] + static_cast<uint64_t>(w_s_0) + prev_w_helpers[9] + static_cast<uint64_t>(w_s_1);
+    uint64_t computed_w = static_cast<uint64_t>(prev_w_helpers[0]) + static_cast<uint64_t>(w_s_0) +
+                          static_cast<uint64_t>(prev_w_helpers[9]) + static_cast<uint64_t>(w_s_1);
 
     into_limbs_with_witness(computed_w, 32, C::sha256_computed_w_lhs, C::sha256_computed_w_rhs, trace);
     return static_cast<uint32_t>(computed_w);
@@ -270,7 +270,7 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     // Compute ~e & g
     uint32_t not_e_and_g = not_e & state[6];
     trace.set(C::sha256_not_e_and_g, row, not_e_and_g);
-    // Compute (e & f) ^ (~e & g)
+    // Compute (e & f) ^ (~e & g),this can't overflow but we expand to uint64_t for later use
     uint64_t ch = e_and_f ^ not_e_and_g;
     trace.set(C::sha256_ch, row, ch);
 
@@ -310,7 +310,8 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     trace.set(C::sha256_maj, row, maj);
 
     // Compute temp values, these need be 64-bit integers and performed modulo 2^32
-    uint64_t temp1 = static_cast<uint64_t>(state[7]) + S1 + ch + round_constant + round_w;
+    uint64_t temp1 = static_cast<uint64_t>(state[7]) + S1 + ch + static_cast<uint64_t>(round_constant) +
+                     static_cast<uint64_t>(round_w);
     uint64_t temp2 = S0 + maj;
     uint64_t next_a = temp1 + temp2;
     into_limbs_with_witness(next_a, 32, C::sha256_next_a_lhs, C::sha256_next_a_rhs, trace);
@@ -318,7 +319,7 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     uint32_t a = static_cast<uint32_t>(next_a);
 
     // Additions can overflow 32 bits so we perform modulo reduction
-    uint64_t next_e = state[3] + temp1;
+    uint64_t next_e = static_cast<uint64_t>(state[3]) + temp1;
     into_limbs_with_witness(next_e, 32, C::sha256_next_e_lhs, C::sha256_next_e_rhs, trace);
     uint32_t e = static_cast<uint32_t>(next_e);
 
@@ -373,6 +374,7 @@ void Sha256TraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::Sha256CompressionEvent>::Container& events,
     TraceContainer& trace)
 {
+    // row is a class member and is initialized to 1 (we use shifted columns) in the constructor.
 
     for (const auto& event : events) {
 
@@ -489,15 +491,16 @@ void Sha256TraceBuilder::process(
         bool invalid_state_tag_err = std::ranges::any_of(
             event.state, [](const MemoryValue& state) { return state.get_tag() != MemoryTag::U32; });
 
+        constexpr FF TARGET_TAG = FF(static_cast<uint8_t>(MemoryTag::U32));
+
         if (invalid_state_tag_err) {
             // This is the more efficient batched tag check we perform in the circuit
             FF batched_tag_check = 0;
             // Batch the state tag checks
-            FF target_tag = FF(static_cast<uint8_t>(MemoryTag::U32));
             for (uint32_t i = 0; i < event.state.size(); i++) {
                 // Compute the batched tag check step by step to match the circuit implementation
                 FF mem_tag = FF(static_cast<uint8_t>(event.state[i].get_tag()));
-                FF state_tag_diff = mem_tag - target_tag;
+                FF state_tag_diff = mem_tag - TARGET_TAG;
                 FF exponent = FF(1 << (i * 3)); // exponent is 1, 8, 64, 512, ...
                 batched_tag_check += state_tag_diff * exponent;
             }
@@ -523,19 +526,19 @@ void Sha256TraceBuilder::process(
         // Therefore, it is just sufficient to check the tag of the last element
         BB_ASSERT(!event.input.empty(), "SHA256 input cannot be empty");
         bool invalid_tag_err = event.input.back().get_tag() != MemoryTag::U32;
+        constexpr FF EXPECTED_TAG = FF(static_cast<uint8_t>(MemoryTag::U32));
 
         // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
         // sel_invalid_input_ROW_tag_err. And all the rows before need to contain sel_invalid_input_tag_err.
         // The former is used to constrain the specific error, while the latter is used to propagate the error
         // to the start row (to communicate back to execution) and to turn off any computation constraints.
         for (uint32_t i = 0; i < event.input.size(); i++) {
-            uint32_t input_rounds_rem = 16 - i;
+            const uint32_t input_rounds_rem = 16 - i;
             FF input_rounds_rem_inv = input_rounds_rem == 0 ? 0 : FF(input_rounds_rem).invert();
 
-            MemoryValue round_input = event.input[i];
+            const MemoryValue& round_input = event.input[i];
             FF input_tag = FF(static_cast<uint8_t>(round_input.get_tag()));
-            FF expected_tag = FF(static_cast<uint8_t>(MemoryTag::U32));
-            FF input_tag_diff = input_tag - expected_tag;
+            FF input_tag_diff = input_tag - EXPECTED_TAG;
             FF input_tag_diff_inv = input_tag_diff == 0 ? 0 : input_tag_diff.invert();
 
             bool is_last = (i == event.input.size() - 1);
@@ -547,7 +550,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_space_id, event.space_id },
                           { C::sha256_output_addr, output_addr },
                           { C::sha256_sel_is_input_round, 1 },
-                          { C::sha256_u32_tag, expected_tag },
+                          { C::sha256_u32_tag, EXPECTED_TAG },
                           { C::sha256_sel_read_input_from_memory, 1 },
                           // Input Rounds Control Flow
                           { C::sha256_input_rounds_rem, input_rounds_rem },
