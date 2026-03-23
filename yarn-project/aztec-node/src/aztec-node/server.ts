@@ -1440,7 +1440,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         debugLogs,
       );
     } finally {
-      publicProcessorFactory.unregisterFork(merkleTreeFork.getRevision().forkId);
+      try {
+        publicProcessorFactory.unregisterFork(merkleTreeFork.getRevision().forkId);
+      } catch {
+        // Fork may be in an error state after simulation failure
+      }
       await merkleTreeFork.close();
     }
   }
