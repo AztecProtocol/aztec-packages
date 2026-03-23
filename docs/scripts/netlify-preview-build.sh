@@ -27,7 +27,9 @@ echo "=== Verifying nargo installation ==="
 nargo --version
 
 echo "=== Generating aztec-nr API documentation ==="
-"$SCRIPT_DIR/aztec_nr_docs_generation/generate_aztec_nr_docs.sh"
+if ! "$SCRIPT_DIR/aztec_nr_docs_generation/generate_aztec_nr_docs.sh"; then
+    echo "WARNING: aztec-nr API doc generation failed (nargo version may be incompatible). Skipping API docs for this preview."
+fi
 
 echo "=== Running yarn build ==="
 cd "$DOCS_ROOT"
