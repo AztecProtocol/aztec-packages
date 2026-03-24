@@ -40,7 +40,7 @@ export class CachedNetCrs {
   }
 
   /**
-   * G1 points data for prover key (compressed, 32 bytes/point).
+   * G1 points data for prover key (64 bytes/point).
    */
   getG1Data(): Uint8Array {
     return this.g1Data;
