@@ -26,9 +26,17 @@ export async function createWorldStateSynchronizer(
   client: TelemetryClient = getTelemetryClient(),
   bindings?: LoggerBindings,
   wsdbBackend?: WsdbIpcBackend,
+  recreateIpcInstance?: () => Promise<import('../native/native_world_state_instance.js').NativeWorldStateInstance>,
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
-  const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation, bindings, wsdbBackend);
+  const merkleTrees = await createWorldState(
+    config,
+    prefilledPublicData,
+    instrumentation,
+    bindings,
+    wsdbBackend,
+    recreateIpcInstance,
+  );
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
 
@@ -48,10 +56,11 @@ export async function createWorldState(
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   bindings?: LoggerBindings,
   wsdbBackend?: WsdbIpcBackend,
+  recreateIpcInstance?: () => Promise<import('../native/native_world_state_instance.js').NativeWorldStateInstance>,
 ) {
   // If an IPC backend is provided, use it directly (avoids spawning a new wsdb process)
   if (wsdbBackend) {
-    return NativeWorldStateService.fromIpc(wsdbBackend, instrumentation, bindings);
+    return NativeWorldStateService.fromIpc(wsdbBackend, instrumentation, bindings, undefined, recreateIpcInstance);
   }
 
   const dataDirectory = config.worldStateDataDirectory ?? config.dataDirectory;

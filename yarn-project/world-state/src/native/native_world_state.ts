@@ -198,10 +198,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
+    recreateInstance?: () => Promise<NativeWorldStateInstance>,
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database', bindings);
     const instance = new IpcWorldState(wsdbBackend, instrumentation, bindings);
-    const worldState = new this(instance, instrumentation, log, cleanup);
+    const worldState = new this(instance, instrumentation, log, cleanup, recreateInstance);
     try {
       await worldState.init();
     } catch (e) {

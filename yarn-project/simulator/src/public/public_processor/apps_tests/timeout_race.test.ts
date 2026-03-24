@@ -42,9 +42,9 @@ const SSTORE_SPAMMER = SPAM_CONFIGS[Opcode.SSTORE]![0]; // "Same slot (no limit)
 
 jest.setTimeout(120_000);
 
-// Skipped: these tests are specific to the C++ NAPI simulator path which has been removed.
-// They test C++ timeout/cancellation race conditions which are not applicable to the TS simulator.
-describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
+// The "BUG PROOF" tests are NAPI-specific (C++ writing directly through shared handle).
+// The "FIX PROOF" tests validate that cancel+revert is safe and work with any simulator.
+describe('PublicProcessor Timeout Race Condition', () => {
   // BUG PROOF tests - this is the race condition and is flaky so we run more iterations
   const MAX_BUG_PROOF_ITERATIONS = 10;
   // FIX PROOF tests - just confirm that the fix always works
@@ -184,7 +184,9 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
    * The race is non-deterministic, so we run multiple iterations.
    * This test PASSES if we observe corruption (proving the bug exists).
    */
-  it('PublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
+  // NAPI-only: demonstrates corruption when C++ writes directly through shared handle without cancel.
+  // With IPC, the AVM writes through WSDB IPC with fork isolation — this race doesn't exist.
+  it.skip('PublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
     const raceObservedCount = await runRaceConditionTest(false, MAX_BUG_PROOF_ITERATIONS);
     logger.info(`Race condition observed in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
     expect(raceObservedCount).toBeGreaterThan(0);
@@ -378,7 +380,8 @@ describe.skip('PublicProcessor C++ Timeout Race Condition', () => {
    * PublicProcessor's timeout handling completes, corrupting state. This is the root
    * cause of CI failures like "Fork state reference changed by tx after error".
    */
-  it('PublicProcessor BUG PROOF: state corruption occurs WITHOUT cancellation', async () => {
+  // NAPI-only: demonstrates corruption when C++ writes directly through shared handle without cancel.
+  it.skip('PublicProcessor BUG PROOF: state corruption occurs WITHOUT cancellation', async () => {
     const corruptionCount = await runPublicProcessorTimeoutTest(false, MAX_BUG_PROOF_ITERATIONS);
     logger.info(`State corruption detected in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
     // BUG - Without cancellation, C++ corrupts state after process() completes

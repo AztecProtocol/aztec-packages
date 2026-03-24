@@ -14,6 +14,7 @@ import {
   type AvmProvingRequest,
   PublicDataWrite,
   PublicSimulatorConfig,
+  type PublicTxResult,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -580,8 +581,12 @@ export class PublicProcessor implements Traceable {
 
     const handle = this.publicTxSimulator.simulate(tx);
     this.currentSimulationHandle = handle;
-    const result = await handle.result;
-    this.currentSimulationHandle = undefined;
+    let result: PublicTxResult;
+    try {
+      result = await handle.result;
+    } finally {
+      this.currentSimulationHandle = undefined;
+    }
     // TODO: use the callStackMetadata here to extract more data about public execution
     const { hints, publicInputs, publicTxEffect, gasUsed, revertCode /*callStackMetadata*/ } = result;
 

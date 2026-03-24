@@ -114,9 +114,14 @@ import {
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
-import { createWorldStateSynchronizer, getWsdbOptions } from '@aztec/world-state';
+import {
+  IpcWorldState,
+  WorldStateInstrumentation,
+  createWorldStateSynchronizer,
+  getWsdbOptions,
+} from '@aztec/world-state';
 
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createPublicClient } from 'viem';
@@ -382,6 +387,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       logger: (msg: string) => log.debug(msg),
     });
 
+    // Closure to recreate a fresh WSDB + IpcWorldState from scratch (used by clear() for forced rollbacks).
+    const wsdbDir = join(dataDirectory, 'world_state');
+    const recreateIpcInstance = async () => {
+      await rm(wsdbDir, { recursive: true, force: true, maxRetries: 3 });
+      await mkdir(wsdbDir, { recursive: true });
+      const freshBackend = new WsdbBackend({
+        binaryPath: wsdbBinaryPath,
+        dataDir: wsdbDir,
+        ...wsdbOpts,
+        prefilledPublicData: prefilledData,
+        logger: (msg: string) => log.debug(msg),
+        useShm: false,
+      });
+      await freshBackend.waitUntilReady();
+      return new IpcWorldState(freshBackend, new WorldStateInstrumentation(telemetry));
+    };
+
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
       config,
@@ -390,6 +412,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
       undefined,
       wsdbBackend,
+      recreateIpcInstance,
     );
     const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
     let peerProofVerifier: ClientProtocolCircuitVerifier;
