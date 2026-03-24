@@ -57,6 +57,13 @@ export interface BlobClientConfig extends BlobArchiveApiConfig {
    */
   blobHealthcheckUploadIntervalMinutes?: number;
 
+  /**
+   * Skip reading blobs from the filestore and go straight to consensus client.
+   * Useful for the blob-sink node, which is the primary uploader to the filestore:
+   * reading from R2 before uploading wastes ~5s in 404 retries.
+   */
+  blobSkipFileStoreRead?: boolean;
+
   /** Timeout for HTTP requests to the L1 RPC node in ms. */
   l1HttpTimeoutMS?: number;
 }
@@ -111,6 +118,12 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
     env: 'BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES',
     description: 'Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
+  },
+  blobSkipFileStoreRead: {
+    env: 'BLOB_SKIP_FILE_STORE_READ',
+    description:
+      'Skip reading blobs from the filestore and go straight to consensus client. Useful for the blob-sink node.',
+    ...booleanConfigHelper(false),
   },
   l1HttpTimeoutMS: {
     env: 'ETHEREUM_HTTP_TIMEOUT_MS',

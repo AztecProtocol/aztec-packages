@@ -244,8 +244,11 @@ export class HttpBlobClient implements BlobClientInterface {
 
     const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex) };
 
+    const skipFileStoreRead = this.config.blobSkipFileStoreRead ?? false;
+
     // Try filestore (quick, no retries) - useful for both historical and near-tip sync
-    if (this.fileStoreClients.length > 0 && getMissingBlobHashes().length > 0) {
+    // Skipped when blobSkipFileStoreRead is set (e.g. blob-sink node that is the primary uploader)
+    if (!skipFileStoreRead && this.fileStoreClients.length > 0 && getMissingBlobHashes().length > 0) {
       await this.tryFileStores(getMissingBlobHashes, fillResults, ctx);
       if (getMissingBlobHashes().length === 0) {
         return returnWithCallback(getFilledBlobs());
@@ -294,7 +297,13 @@ export class HttpBlobClient implements BlobClientInterface {
 
     // For near-tip sync, retry filestores with backoff (eventual consistency)
     // This handles the case where blobs are still being uploaded by other validators
-    if (!isHistoricalSync && this.fileStoreClients.length > 0 && getMissingBlobHashes().length > 0) {
+    // Skipped when blobSkipFileStoreRead is set (e.g. blob-sink node)
+    if (
+      !skipFileStoreRead &&
+      !isHistoricalSync &&
+      this.fileStoreClients.length > 0 &&
+      getMissingBlobHashes().length > 0
+    ) {
       try {
         await retry(
           async () => {
