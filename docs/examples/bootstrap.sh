@@ -11,6 +11,11 @@ export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-"$REPO_ROOT/noir-projects/
 export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
 export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
 
+# Safety net: ensure all TS example yarn.lock files are empty on exit.
+# Both validate-ts and execute-examples (via Docker volume mount) can populate
+# these files, and their per-project cleanup may not run if processes are killed.
+trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
+
 function compile-circuits {
   echo_header "Compiling vanilla Noir circuits"
   local CIRCUITS_DIR="$REPO_ROOT/docs/examples/circuits"
