@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type SendInteractionOptions } from '@aztec/aztec.js/contracts';
+import type { SendInteractionOptions } from '@aztec/aztec.js/contracts';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
