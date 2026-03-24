@@ -37,6 +37,40 @@ resource "cloudflare_r2_custom_domain" "aztec_labs_snapshots_com" {
   enabled     = true
 }
 
+# Cache rule: do not cache error responses (300-499) on the custom domain.
+# By default Cloudflare caches 404s for up to 3 minutes, which means
+# requests for blobs that haven't been uploaded to R2 yet return stale 404s
+# even after the blob becomes available.
+resource "cloudflare_ruleset" "cache_settings" {
+  zone_id = var.R2_ZONE_ID
+  kind    = "zone"
+  name    = "R2 cache settings"
+  phase   = "http_request_cache_settings"
+
+  rules = [
+    {
+      description = "Do not cache error responses for R2 custom domain"
+      expression  = "(http.host eq \"${var.DOMAIN}\")"
+      action      = "set_cache_settings"
+      action_parameters = {
+        cache = true
+        edge_ttl = {
+          mode = "override_origin"
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 300
+                to   = 499
+              }
+              value = 0
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+
 locals {
   top_level_folders = toset([
     "devnet",
