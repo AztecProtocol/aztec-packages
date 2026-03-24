@@ -169,7 +169,7 @@ export class NoteService {
       //     We therefore error out here rather than assuming the offchain message was constructed by a malicious
       // sender with the intention of bricking recipient's PXE (if we assumed that we would just ignore the message).
       throw new Error(
-        `Obtained a newer tx effect for ${txHash} for a note validation request than the anchor block ${anchorBlockNumber}. This is a bug as we should not ever be processing a note from a newer block than anchor block.`,
+        `Obtained a newer tx effect for ${txHash} for a note validation request than the anchor block ${anchorBlockNumber}. This is a bug as we should not ever be processing a note from a newer block than the anchor block.`,
       );
     }
 
