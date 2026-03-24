@@ -22,7 +22,7 @@ if (!fs.existsSync("data.json")) {
 const data = JSON.parse(fs.readFileSync("data.json", "utf-8"));
 // docs:end:sample_data
 
-export const NODE_URL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+export const NODE_URL = "http://localhost:8080";
 
 // docs:start:setup_wallet
 // Setup sponsored fee payment - the FPC pays transaction fees for us
@@ -37,7 +37,7 @@ export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
     // Create wallet with embedded PXE
     // The wallet manages accounts and connects to the node
-    let wallet = await EmbeddedWallet.create(NODE_URL);
+    let wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true });
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);

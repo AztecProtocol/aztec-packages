@@ -104,15 +104,13 @@ export class FullProverTest {
     await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
 
     this.logger.info('Applying base setup: deploying token contract');
-    const {
-      receipt: { contract: asset, instance },
-    } = await TokenContract.deploy(
+    const { contract: asset, instance } = await TokenContract.deploy(
       this.wallet,
       this.accounts[0],
       FullProverTest.TOKEN_NAME,
       FullProverTest.TOKEN_SYMBOL,
       FullProverTest.TOKEN_DECIMALS,
-    ).send({ from: this.accounts[0], wait: { returnReceipt: true } });
+    ).send({ from: this.accounts[0] });
     this.logger.verbose(`Token deployed to ${asset.address}`);
 
     this.fakeProofsAsset = asset;
