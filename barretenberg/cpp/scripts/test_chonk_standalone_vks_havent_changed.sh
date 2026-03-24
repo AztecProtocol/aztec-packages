@@ -4,24 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source
 # Resolve bb from an explicit preset when provided, and fall back to known build dirs.
 script_dir="$root/barretenberg/cpp/scripts"
 bb_preset="${BB_BUILD_PRESET:-${NATIVE_PRESET:-clang20}}"
-bb_build_dir="$root/barretenberg/cpp/$($script_dir/preset-build-dir "$bb_preset")"
+bb="$root/barretenberg/cpp/$($script_dir/preset-build-dir "$bb_preset")/bin/bb"
 
 export bb_preset
-
-if [[ -x "$bb_build_dir/bin/bb" ]]; then
-  export bb="$bb_build_dir/bin/bb"
-elif [[ -x "$root/barretenberg/cpp/build-debug/bin/bb" ]]; then
-  export bb="$root/barretenberg/cpp/build-debug/bin/bb"
-elif [[ -x "$root/barretenberg/cpp/build/bin/bb" ]]; then
-  export bb="$root/barretenberg/cpp/build/bin/bb"
-else
-  echo_stderr "Error: Could not find bb binary. Tried:"
-  echo_stderr "  $bb_build_dir/bin/bb (preset: $bb_preset)"
-  echo_stderr "  $root/barretenberg/cpp/build-debug/bin/bb"
-  echo_stderr "  $root/barretenberg/cpp/build/bin/bb"
-  echo_stderr "Set BB_BUILD_PRESET or NATIVE_PRESET to the preset used for your build."
-  exit 1
-fi
+export bb
 
 # script path to auto update short hash
 script_path="$root/barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
