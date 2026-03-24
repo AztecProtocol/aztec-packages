@@ -131,7 +131,7 @@ void bn254_point_decompression(benchmark::State& state)
     constexpr size_t NUM_POINTS = 1 << 17; // 131072 — typical circuit size
 
     // Read compressed points from disk (32 bytes each, big-endian uint256_t)
-    auto compressed_buf = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", NUM_POINTS * sizeof(uint256_t));
+    auto compressed_buf = read_file(bb::srs::bb_crs_path() / "bn254_g1.dat", NUM_POINTS * sizeof(uint256_t));
     std::vector<uint256_t> compressed(NUM_POINTS);
     for (size_t i = 0; i < NUM_POINTS; ++i) {
         compressed[i] = from_buffer<uint256_t>(compressed_buf, i * sizeof(uint256_t));

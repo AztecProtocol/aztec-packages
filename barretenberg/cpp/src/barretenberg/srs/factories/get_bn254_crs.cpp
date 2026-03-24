@@ -19,6 +19,44 @@ constexpr const char* CRS_PRIMARY_URL = "http://crs.aztec-cdn.foundation/g1_comp
 // Fallback CRS URL (AWS S3)
 constexpr const char* CRS_FALLBACK_URL = "http://crs.aztec-labs.com/g1_compressed.dat";
 constexpr size_t COMPRESSED_POINT_SIZE = 32;
+constexpr size_t UNCOMPRESSED_POINT_SIZE = 64; // sizeof(g1::affine_element)
+
+/**
+ * @brief Detect whether a CRS file on disk is compressed (32 bytes/point) or uncompressed (64 bytes/point).
+ *
+ * @details The first point in both formats has x=1 (the BN254 generator), so the first 32 bytes are identical.
+ * We distinguish by checking the full 64-byte first element against the known uncompressed generator (x=1, y=2).
+ * If it matches, the file is uncompressed. Otherwise, if the first 32 bytes match the compressed generator,
+ * the file is compressed.
+ */
+size_t detect_point_size(const std::filesystem::path& g1_path)
+{
+    size_t file_size = bb::get_file_size(g1_path);
+    if (file_size == 0) {
+        return 0;
+    }
+
+    // Try uncompressed first (64 bytes): the first element should be (1, 2) — the BN254 generator
+    // This must be checked before compressed because both formats share the same first 32 bytes (x=1).
+    if (file_size >= UNCOMPRESSED_POINT_SIZE) {
+        auto header = bb::read_file(g1_path, UNCOMPRESSED_POINT_SIZE);
+        auto first_uncompressed = from_buffer<bb::g1::affine_element>(header, 0);
+        if (first_uncompressed == bb::srs::BN254_G1_FIRST_ELEMENT) {
+            return UNCOMPRESSED_POINT_SIZE;
+        }
+    }
+
+    // Try compressed (32 bytes): check if the first 32-byte value matches the compressed generator
+    if (file_size >= COMPRESSED_POINT_SIZE) {
+        auto header = bb::read_file(g1_path, COMPRESSED_POINT_SIZE);
+        auto first_compressed = from_buffer<uint256_t>(header, 0);
+        if (first_compressed == bb::srs::BN254_G1_FIRST_ELEMENT_COMPRESSED) {
+            return COMPRESSED_POINT_SIZE;
+        }
+    }
+
+    return 0;
+}
 
 /**
  * @brief Round num_points up to the next chunk boundary so every downloaded byte is hash-verified.
@@ -105,6 +143,20 @@ std::vector<bb::g1::affine_element> decompress_g1_points(const std::vector<uint8
     return points;
 }
 
+/**
+ * @brief Deserialize a buffer of uncompressed G1 points (64 bytes each) into affine elements.
+ */
+std::vector<bb::g1::affine_element> deserialize_g1_points(const std::vector<uint8_t>& data, size_t num_points)
+{
+    std::vector<bb::g1::affine_element> points(num_points);
+    bb::parallel_for([&](bb::ThreadChunk chunk) {
+        for (auto i : chunk.range(num_points)) {
+            points[i] = from_buffer<bb::g1::affine_element>(data, i * UNCOMPRESSED_POINT_SIZE);
+        }
+    });
+    return points;
+}
+
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
                                             const std::string& primary_url,
                                             const std::string& fallback_url)
@@ -153,9 +205,6 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
     return data;
 }
 
-// Legacy uncompressed point size (64 bytes = two 256-bit field elements x, y)
-constexpr size_t LEGACY_POINT_SIZE = 64;
-
 } // namespace
 
 namespace bb {
@@ -170,56 +219,50 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     BB_BENCH_NAME("get_bn254_g1_data");
     std::filesystem::create_directories(path);
 
-    auto compressed_path = path / "bn254_g1_compressed.dat";
-    auto legacy_path = path / "bn254_g1.dat";
+    auto g1_path = path / "bn254_g1.dat";
     auto lock_path = path / "crs.lock";
     // Acquire exclusive lock to prevent simultaneous downloads
     FileLockGuard lock(lock_path.string());
 
-    // Try compressed format first (new format: 32 bytes per point)
-    size_t compressed_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
-    if (compressed_points >= num_points) {
-        vinfo("using cached bn254 crs with ", std::to_string(compressed_points), " points at ", compressed_path);
-        auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
-        return decompress_g1_points(data, num_points);
+    // Auto-detect file format: compressed (32 bytes/point) or uncompressed (64 bytes/point)
+    size_t point_size = detect_point_size(g1_path);
+    size_t cached_points = (point_size > 0) ? get_file_size(g1_path) / point_size : 0;
+
+    if (cached_points >= num_points) {
+        vinfo("using cached bn254 crs with ", std::to_string(cached_points), " points at ", g1_path);
+        auto data = read_file(g1_path, num_points * point_size);
+        if (point_size == COMPRESSED_POINT_SIZE) {
+            return decompress_g1_points(data, num_points);
+        }
+        return deserialize_g1_points(data, num_points);
     }
 
-    // Fall back to legacy uncompressed format (bn254_g1.dat, 64 bytes per point)
-    size_t legacy_points = get_file_size(legacy_path) / LEGACY_POINT_SIZE;
-    if (legacy_points >= num_points) {
-        vinfo("using legacy cached bn254 crs with ", std::to_string(legacy_points), " points at ", legacy_path);
-        auto data = read_file(legacy_path, num_points * LEGACY_POINT_SIZE);
-        std::vector<g1::affine_element> points(num_points);
-        parallel_for([&](ThreadChunk chunk) {
-            for (auto i : chunk.range(num_points)) {
-                points[i] = from_buffer<g1::affine_element>(data, i * LEGACY_POINT_SIZE);
-            }
-        });
-        return points;
-    }
-
-    if (!allow_download && compressed_points == 0 && legacy_points == 0) {
-        throw_or_abort("bn254 g1 compressed data not found at " + compressed_path.string() +
+    if (!allow_download && cached_points == 0) {
+        throw_or_abort("bn254 g1 data not found at " + g1_path.string() +
                        " and bb does not automatically download in this context." +
                        " Run barretenberg/crs/bootstrap.sh to download.");
     } else if (!allow_download) {
         throw_or_abort(format("bn254 g1 data had ",
-                              std::max(compressed_points, legacy_points),
+                              cached_points,
                               " points and ",
                               num_points,
                               " were requested but download not allowed in this context"));
     }
 
     // Double-check after acquiring lock (another process may have downloaded while we waited)
-    compressed_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
-    if (compressed_points >= num_points) {
-        auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
-        return decompress_g1_points(data, num_points);
+    point_size = detect_point_size(g1_path);
+    cached_points = (point_size > 0) ? get_file_size(g1_path) / point_size : 0;
+    if (cached_points >= num_points) {
+        auto data = read_file(g1_path, num_points * point_size);
+        if (point_size == COMPRESSED_POINT_SIZE) {
+            return decompress_g1_points(data, num_points);
+        }
+        return deserialize_g1_points(data, num_points);
     }
 
     vinfo("downloading bn254 crs...");
     auto data = download_bn254_g1_data(num_points, primary_url, fallback_url);
-    write_file(compressed_path, data);
+    write_file(g1_path, data);
     return decompress_g1_points(data, num_points);
 }
 

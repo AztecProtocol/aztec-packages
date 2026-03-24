@@ -44,8 +44,14 @@ download_with_fallback() {
 crs_path=$HOME/.bb-crs
 crs_size=$((2**25+1))
 crs_size_bytes=$((crs_size*32))
-g1=$crs_path/bn254_g1_compressed.dat
+g1=$crs_path/bn254_g1.dat
 g2=$crs_path/bn254_g2.dat
+# Remove old uncompressed file if present (2x larger, replaced by compressed format)
+if [ -f "$g1" ] && [ $(stat -c%s "$g1") -ge $((crs_size*64)) ]; then
+  echo "Removing old uncompressed CRS ($(stat -c%s "$g1") bytes), re-downloading compressed format..."
+  chmod u+w "$g1" 2>/dev/null || true
+  rm -f "$g1"
+fi
 if [ ! -f "$g1" ] || [ $(stat -c%s "$g1") -lt $crs_size_bytes ]; then
   echo "Downloading compressed crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
   mkdir -p $crs_path
