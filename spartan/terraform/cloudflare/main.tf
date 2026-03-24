@@ -49,6 +49,7 @@ resource "cloudflare_ruleset" "cache_settings" {
 
   rules = [
     {
+      ref         = "no_cache_error_responses"
       description = "Do not cache error responses for R2 custom domain"
       expression  = "(http.host eq \"${var.DOMAIN}\")"
       action      = "set_cache_settings"
