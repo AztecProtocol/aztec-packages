@@ -15,6 +15,10 @@ on:
         description: 'Context link (e.g., PR URL, issue URL, external reference)'
         required: false
         type: string
+      target_ref:
+        description: 'Git ref to checkout in the container (e.g., origin/backport-to-v4-next-staging)'
+        required: false
+        type: string
 
 jobs:
   claudebox:
@@ -123,6 +127,7 @@ jobs:
           CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
           CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
           CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
+          CLAUDEBOX_TARGET_REF: ${{ inputs.target_ref || '' }}
           COMMENT_ID: ${{ github.event.comment.id || '' }}
           RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
           REPO: ${{ github.repository }}
@@ -139,7 +144,8 @@ jobs:
             --arg repo "$REPO" \
             --arg run_url "$RUN_URL" \
             --arg link "$CLAUDEBOX_LINK" \
-            '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link}')
+            --arg target_ref "$CLAUDEBOX_TARGET_REF" \
+            '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link, target_ref: $target_ref}')
 
           echo "Sending payload..."
           # Start session — returns 202 with log URL

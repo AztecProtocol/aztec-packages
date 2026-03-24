@@ -114,3 +114,4 @@ The addresses of all private calls are hidden from observers.
 - Learn about [accounts](./accounts/index.md) and how they authorize transactions
 - Understand [state management](./state_management.md) and how transaction effects are stored
 - Explore the [PXE](./pxe/index.md) in more detail
+- Understand the [performance impact of kernel circuits](./advanced/circuits/private_kernel.md#performance-impact) on proving time

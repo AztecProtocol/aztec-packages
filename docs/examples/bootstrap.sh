@@ -25,18 +25,52 @@ function compile-circuits {
     return 0
   fi
 
-  # Compile all circuits in the workspace
-  echo_stderr "Compiling circuits workspace..."
-  (cd "$CIRCUITS_DIR" && $NARGO compile --workspace)
-
-  echo_stderr "Vanilla circuits compiled"
+  # Compile vanilla circuits (not contracts - those are compiled separately).
+  # nargo walks up to docs/Nargo.toml, so we compile specific packages.
+  echo_stderr "Compiling circuits..."
+  local circuit
+  for circuit in "$CIRCUITS_DIR"/*/; do
+    local name=$(basename "$circuit")
+    if [ -f "$circuit/Nargo.toml" ]; then
+      echo_stderr "  Compiling $name..."
+      (cd "$REPO_ROOT/docs" && $NARGO compile --package "$name")
+    fi
+  done
 }
 
 function compile {
   echo_header "Compiling example contracts"
-  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/)
+  local CONTRACTS_DIR="$REPO_ROOT/docs/examples/contracts"
+
+  if [ ! -d "$CONTRACTS_DIR" ]; then
+    echo_stderr "No contracts directory found at $CONTRACTS_DIR"
+    return 0
+  fi
+
+  local contracts=()
+  if [ "$#" -gt 0 ]; then
+    local contract
+    for contract in "$@"; do
+      if [[ "$contract" == */* ]]; then
+        contracts+=("$contract")
+      else
+        contracts+=("contracts/$contract")
+      fi
+    done
+  else
+    local contract
+    for contract in "$CONTRACTS_DIR"/*/; do
+      if [ -f "$contract/Nargo.toml" ]; then
+        contracts+=("contracts/$(basename "$contract")")
+      fi
+    done
+  fi
+
+  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/).
+  # Pass only contract packages so circuits in the shared docs workspace are not
+  # treated as contract artifacts by the noir-contracts bootstrap.
   DOCS_WORKING_DIR="$(cd .. && pwd)" \
-    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "$@"
+    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
 }
 
 function compile-solidity {

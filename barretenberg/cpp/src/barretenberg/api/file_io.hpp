@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <cstdint>
@@ -9,6 +10,7 @@
 #include <fstream>
 #include <ios>
 #include <sstream>
+#include <string_view>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
@@ -151,6 +153,16 @@ inline std::vector<uint8_t> read_vk_file(const std::filesystem::path& vk_path)
                                  "flag, or run `bb write_vk` to generate a standalone vk."
                                  "\nIf you already have a vk file, specify its path with `--vk_path <path>`.");
     }
+}
+
+template <typename T>
+inline std::vector<T> many_from_buffer_exact(const std::vector<uint8_t>& buffer, std::string_view object_name)
+{
+    if (buffer.size() % sizeof(T) != 0) {
+        THROW std::runtime_error(std::string(object_name) + " size must be a multiple of " + std::to_string(sizeof(T)) +
+                                 " bytes, got " + std::to_string(buffer.size()));
+    }
+    return ::many_from_buffer<T>(buffer);
 }
 
 // On Windows, std::filesystem::path uses wide strings (wchar_t) and doesn't implicitly convert
