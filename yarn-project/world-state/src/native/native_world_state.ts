@@ -54,6 +54,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger,
     private readonly cleanup = () => Promise.resolve(),
+    /** Data directory for the world state LMDB stores (used by clear()). */
+    private readonly dataDirectory?: string,
   ) {}
 
   static async new(
@@ -95,7 +97,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     });
 
     const [instance] = await versionManager.open();
-    const worldState = new this(instance, instrumentation, log, cleanup);
+    const worldState = new this(instance, instrumentation, log, cleanup, worldStateDirectory);
     try {
       await worldState.init();
     } catch (e) {
@@ -199,9 +201,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }
 
-  // eslint-disable-next-line require-await
   public async clear(): Promise<void> {
-    throw new Error('clear() is not supported with IPC world state');
+    if (!this.dataDirectory) {
+      throw new Error('clear() requires a data directory (not available for externally-managed IPC backends)');
+    }
+    this.log.warn('Clearing world state: shutting down WSDB and deleting data directory');
+    await this.instance.close();
+    this.cachedStatusSummary = undefined;
+    await rm(this.dataDirectory, { recursive: true, force: true, maxRetries: 3 });
+    this.log.warn(`Deleted world state data directory: ${this.dataDirectory}. Node must be restarted.`);
   }
 
   /** Returns the socket path of the underlying IPC backend, if available. */

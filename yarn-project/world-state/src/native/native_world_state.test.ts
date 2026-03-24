@@ -335,10 +335,11 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
 
-    it('clear() is not supported with IPC', async () => {
+    it('clear() deletes data directory and shuts down WSDB', async () => {
       const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
-      await expect(ws.clear()).rejects.toThrow('clear() is not supported with IPC world state');
-      await ws.close();
+      await ws.clear();
+      // After clear, the data directory is deleted and the WSDB process is stopped.
+      // The node must restart to recreate the world state.
     });
   });
 
