@@ -60,4 +60,11 @@ export type BackendOptions = {
    * and call destroy() to clean up.
    */
   unref?: boolean;
+
+  /**
+   * @description Skip SRS/CRS initialization for WASM backends.
+   * Use this when you only need hashing functions (blake2s, poseidon, pedersen) and
+   * don't need proving/verification capabilities.
+   */
+  skipSrsInit?: boolean;
 };
