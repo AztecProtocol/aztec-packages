@@ -26,7 +26,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
   });
 
   it('on behalf of self', async () => {
-    const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const balancePriv = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balancePriv / 2n;
     expect(amount).toBeGreaterThan(0n);
 
@@ -36,7 +39,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
   });
 
   it('on behalf of other', async () => {
-    const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const balancePriv0 = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balancePriv0 / 2n;
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
@@ -56,7 +62,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
 
   describe('failure cases', () => {
     it('on behalf of self (more than balance)', async () => {
-      const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balancePriv = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePriv + 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -66,7 +75,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     });
 
     it('on behalf of self (invalid authwit nonce)', async () => {
-      const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balancePriv = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePriv + 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -78,7 +90,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     });
 
     it('on behalf of other (more than balance)', async () => {
-      const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balancePriv0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePriv0 + 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -93,7 +108,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     });
 
     it('on behalf of other (invalid designated caller)', async () => {
-      const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balancePriv0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePriv0 + 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);

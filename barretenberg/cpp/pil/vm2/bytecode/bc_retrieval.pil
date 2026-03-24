@@ -3,16 +3,16 @@ include "class_id_derivation.pil";
 
 include "../constants_gen.pil";
 include "../precomputed.pil";
-include "../trees/retrieved_bytecodes_tree_check.pil";
+include "../trees/indexed_tree_check.pil";
 
 /**
  * This subtrace constrains everything related to "retrieving" a bytecode given an address. It is responsible for proving success or failure of retrieval for a bytecode id
  * and does not fetch the bytes themselves. In practice this means we:
  *  - Silo the address:
  *      - siloed_nullifier = H(DOM_SEP__SILOED_NULLIFIER, deployer_protocol_contract_address, address)
- *      - Enforced by lookup into contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]), which looks up nullifier_check.pil (#[DEPLOYMENT_NULLIFIER_READ]).
+ *      - Enforced by lookup into contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]), which looks up indexed_tree_check.pil (#[DEPLOYMENT_NULLIFIER_READ]).
  *  - Check if the nullifier exists.
- *      - Enforced in above lookup (contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]) -> nullifier_check.pil (#[DEPLOYMENT_NULLIFIER_READ])).
+ *      - Enforced in above lookup (contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]) -> indexed_tree_check.pil (#[DEPLOYMENT_NULLIFIER_READ])).
  *  - Derive the address.
  *      - Enforced in above lookup (contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]) -> address_derivation.pil (#[ADDRESS_DERIVATION])).
  *      - Note: for this trace, we only 'care' about the contract instance member current_class_id (not salt, deployer_addr, init_hash), which is validated in
@@ -63,10 +63,10 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  * TRACE SHAPE: This subtrace retrieves one bytecode instance per row, anchored by the bytecode_id column.
  *
  * INTERACTIONS:
- *  execution.pil --> bc_retrieval.pil --> contract_instance_retrieval.pil --> nullifier_check.pil
+ *  execution.pil --> bc_retrieval.pil --> contract_instance_retrieval.pil --> indexed_tree_check.pil
  *                                                                         --> address_derivation.pil
  *                                                                         --> update_check.pil
- *                                     --> retrieved_bytecodes_tree_check.pil
+ *                                     --> indexed_tree_check.pil
  *                                     --> class_id_derivation.pil
  *                --> instr_fetching.pil --> bc_decomposition.pil <-> bc_hashing.pil
  *                                                                --> precomputed.pil
@@ -81,9 +81,9 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  *                                    (#[CONTRACT_INSTANCE_RETRIEVAL]). Additionally links the state tree roots and enforces that the class id is zero if the
  *                                    instance does not exist. This lookup is crucial since we defer the nullifier, address, and update checks to the contract
  *                                    instance retrieval trace.
- * - retrieved_bytecodes_tree_check.pil: If an instance exists, to constrain whether it is a new class id not yet accessed by this tx (#[IS_NEW_CLASS_CHECK]).
- *                                       If there is no error, to insert the class id into the retrieved bytecodes tree (#[RETRIEVED_BYTECODES_INSERTION]).
- *                                       These cases must form separate lookups to ensure we do not add to the tree when we have hit the bytecode limit.
+ * - indexed_tree_check.pil: If an instance exists, to constrain whether it is a new class id not yet accessed by this tx (#[IS_NEW_CLASS_CHECK]).
+ *                           If there is no error, to insert the class id into the retrieved bytecodes tree (#[RETRIEVED_BYTECODES_INSERTION]).
+ *                           These cases must form separate lookups to ensure we do not add to the tree when we have hit the bytecode limit.
  * - class_id_derivation.pil: If there is no error, to constrain correctness of the class id against the contract class member columns of this trace
  *                            (#[CLASS_ID_DERIVATION]). In terms of this trace's columns, that is:
  *                              current_class_id = Poseidon2(DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_functions_root, bytecode_id),
@@ -168,7 +168,7 @@ sel {
 // Switching on the error column forces the class members to be zero.
 
 // Whether we have retrieved the bytecode for this class before (if not, is_new_class == 1 and we insert the bytecode into the tree).
-pol commit is_new_class; // @boolean (by lookup into retrieved_bytecodes_tree_check when instance_exists == 1; constrained to be 0 when instance_exists == 0)
+pol commit is_new_class; // @boolean (by lookup into indexed_tree_check when instance_exists == 1; constrained to be 0 when instance_exists == 0)
 
 // Whether we have retrieved the maximum number of different bytecodes for this tx.
 pol commit no_remaining_bytecodes; // @boolean
@@ -233,36 +233,46 @@ should_retrieve {
 // Bytecode Tree Read/Write
 ///////////////////////////////
 
+// Lookup constant support: Can be removed when we support constants in lookups.
+pol commit retrieved_bytecodes_tree_height;
+sel * (retrieved_bytecodes_tree_height - constants.AVM_RETRIEVED_BYTECODES_TREE_HEIGHT) = 0;
+
 // This constrains that is_new_class is on iff the bytecode does not exist in the transient tree (i.e. this
 // bytecode has not been used in this tx).
 // Note: instance_exists can be on for inactive rows, but this lookup below not create side effects, so
 // it is safe to gate by instance_exists rather than sel && instance_exists.
 #[IS_NEW_CLASS_CHECK]
 instance_exists {
-    current_class_id,
-    is_new_class,
-    prev_retrieved_bytecodes_tree_root
-} in retrieved_bytecodes_tree_check.sel {
-    retrieved_bytecodes_tree_check.class_id,
-    retrieved_bytecodes_tree_check.leaf_not_exists,
-    retrieved_bytecodes_tree_check.root
+    is_new_class, // not_exists
+    current_class_id, // value
+    prev_retrieved_bytecodes_tree_root,
+    retrieved_bytecodes_tree_height,
+    precomputed.zero // sel_silo = 0 (no siloing)
+} in indexed_tree_check.sel {
+    indexed_tree_check.not_exists,
+    indexed_tree_check.value,
+    indexed_tree_check.root,
+    indexed_tree_check.tree_height,
+    indexed_tree_check.sel_silo
 };
 
 // This constrains that if we have retrieved bytecode for a new class, we update the tree correctly.
 #[RETRIEVED_BYTECODES_INSERTION]
 should_retrieve {
-    current_class_id,
-    should_retrieve, /*=1*/
+    current_class_id, // value
     prev_retrieved_bytecodes_tree_root,
-    prev_retrieved_bytecodes_tree_size,
     next_retrieved_bytecodes_tree_root,
-    next_retrieved_bytecodes_tree_size
-} in retrieved_bytecodes_tree_check.sel {
-    retrieved_bytecodes_tree_check.class_id,
-    retrieved_bytecodes_tree_check.write,
-    retrieved_bytecodes_tree_check.root,
-    retrieved_bytecodes_tree_check.tree_size_before_write,
-    retrieved_bytecodes_tree_check.write_root,
-    retrieved_bytecodes_tree_check.tree_size_after_write
+    prev_retrieved_bytecodes_tree_size,
+    next_retrieved_bytecodes_tree_size,
+    retrieved_bytecodes_tree_height,
+    precomputed.zero // sel_silo = 0 (no siloing)
+} in indexed_tree_check.write {
+    indexed_tree_check.value,
+    indexed_tree_check.root,
+    indexed_tree_check.write_root,
+    indexed_tree_check.tree_size_before_write,
+    indexed_tree_check.tree_size_after_write,
+    indexed_tree_check.tree_height,
+    indexed_tree_check.sel_silo
 };
 

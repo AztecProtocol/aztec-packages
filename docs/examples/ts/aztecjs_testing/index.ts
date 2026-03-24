@@ -26,7 +26,7 @@ async function setup() {
     }),
   );
 
-  token = await TokenContract.deploy(
+  ({ contract: token } = await TokenContract.deploy(
     wallet,
     aliceAddress,
     "Test",
@@ -34,7 +34,7 @@ async function setup() {
     18,
   ).send({
     from: aliceAddress,
-  });
+  }));
 }
 
 // Test: mints tokens to an account
@@ -43,7 +43,7 @@ async function testMintTokens() {
     .mint_to_public(aliceAddress, 1000n)
     .send({ from: aliceAddress });
 
-  const balance = await token.methods
+  const { result: balance } = await token.methods
     .balance_of_public(aliceAddress)
     .simulate({ from: aliceAddress });
 
@@ -63,10 +63,10 @@ async function testTransferTokens() {
   // Transfer to bob using public transfer
   await token.methods.transfer_in_public(aliceAddress, bobAddress, 100n, 0n).send({ from: aliceAddress });
 
-  const aliceBalance = await token.methods
+  const { result: aliceBalance } = await token.methods
     .balance_of_public(aliceAddress)
     .simulate({ from: aliceAddress });
-  const bobBalance = await token.methods
+  const { result: bobBalance } = await token.methods
     .balance_of_public(bobAddress)
     .simulate({ from: bobAddress });
 
@@ -77,7 +77,7 @@ async function testTransferTokens() {
 
 // Test: reverts when transferring more than balance
 async function testRevertOnOverTransfer() {
-  const balance = await token.methods
+  const { result: balance } = await token.methods
     .balance_of_public(aliceAddress)
     .simulate({ from: aliceAddress });
 

@@ -2,6 +2,11 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
+  echo "AVM_TRANSPILER=0, skipping."
+  exit 0
+fi
+
 hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 export GIT_COMMIT=$(git -C ../noir/noir-repo rev-parse HEAD)
@@ -13,13 +18,13 @@ function build_native {
   echo_header "avm-transpiler build_native"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
-    # Serialize cargo/rustup operations to avoid race conditions when running parallel builds
-    # Cargo may trigger rustup to install components (rust-src, etc.) in shared directories
+    # Serialize cargo/rustup operations to avoid race conditions with noir build
+    # which may run in parallel and share the same RUSTUP_HOME/CARGO_HOME.
     (
       flock -x 200
       denoise "cargo build --release --locked --bin avm-transpiler"
       denoise "cargo build --release --locked --lib"
-    ) 200>/tmp/rustup-avm-transpiler.lock
+    ) 200>/tmp/rustup.lock
 
     denoise "cargo fmt --check"
     denoise "cargo clippy"
@@ -48,13 +53,16 @@ function build_cross {
       arm64-macos)
         rust_target=aarch64-apple-darwin
         ;;
+      amd64-windows)
+        rust_target=x86_64-pc-windows-gnu
+        ;;
       *)
         echo_stderr "Unknown target: $target"
         exit 1
         ;;
     esac
 
-    # Serialize rustup operations to avoid race conditions when running parallel builds
+    # Serialize rustup operations to avoid race conditions with noir build
     (
       flock -x 200
       if ! command -v cargo-zigbuild >/dev/null 2>&1; then
@@ -65,7 +73,7 @@ function build_cross {
         echo "Installing Rust target: $rust_target"
         rustup target add "$rust_target"
       fi
-    ) 200>/tmp/rustup-avm-transpiler.lock
+    ) 200>/tmp/rustup.lock
 
     cargo zigbuild --release --target "$rust_target" --lib
 

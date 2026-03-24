@@ -34,7 +34,7 @@ import { execSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { createServer } from 'http';
 import { dirname, join } from 'path';
-import puppeteer, { Browser } from 'puppeteer';
+import { Browser, launch } from 'puppeteer';
 import { fileURLToPath } from 'url';
 
 const logger = createLogger('ivc-integration:test:browser');
@@ -89,7 +89,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
       logger.info("Using Puppeteer's default Chrome");
     }
 
-    browser = await puppeteer.launch(launchOptions);
+    browser = await launch(launchOptions);
     logger.info('Browser launched');
   });
 
@@ -320,7 +320,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
             const backend = new AztecClientBackend(bytecodes, barretenberg);
 
             console.log('[Test] Proving...');
-            const [, proof, vk] = await backend.prove(witnessStack, vks);
+            const { proof, vk } = await backend.prove(witnessStack, vks);
             console.log(\`[Test] Proof generated, size: \${proof.length} bytes\`);
 
             console.log('[Test] Verifying...');

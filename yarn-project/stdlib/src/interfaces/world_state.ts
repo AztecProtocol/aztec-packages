@@ -3,6 +3,7 @@ import type { PromiseWithResolvers } from '@aztec/foundation/promise';
 
 import { z } from 'zod';
 
+import type { BlockHash } from '../block/block_hash.js';
 import type { SnapshotDataKeys } from '../snapshots/types.js';
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
@@ -80,12 +81,12 @@ export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMe
   resumeSync(): void;
 
   /**
-   * Forces an immediate sync to an optionally provided minimum block number
+   * Forces an immediate sync to an optionally provided minimum block number.
    * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
-   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
+   * @param blockHash - If provided, verifies the block at targetBlockNumber matches this hash. On mismatch, triggers a resync (reorg detection).
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  syncImmediate(minBlockNumber?: BlockNumber, skipThrowIfTargetNotReached?: boolean): Promise<BlockNumber>;
+  syncImmediate(minBlockNumber?: BlockNumber, blockHash?: BlockHash): Promise<BlockNumber>;
 
   /** Deletes the db */
   clear(): Promise<void>;

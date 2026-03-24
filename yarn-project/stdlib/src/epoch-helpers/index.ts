@@ -12,6 +12,7 @@ export type L1RollupConstants = {
   ethereumSlotDuration: number;
   proofSubmissionEpochs: number;
   targetCommitteeSize: number;
+  rollupManaLimit: number;
 };
 
 export const EmptyL1RollupConstants: L1RollupConstants = {
@@ -22,6 +23,7 @@ export const EmptyL1RollupConstants: L1RollupConstants = {
   ethereumSlotDuration: 1,
   proofSubmissionEpochs: 1,
   targetCommitteeSize: 48,
+  rollupManaLimit: Number.MAX_SAFE_INTEGER,
 };
 
 export const L1RollupConstantsSchema = zodFor<L1RollupConstants>()(
@@ -33,6 +35,7 @@ export const L1RollupConstantsSchema = zodFor<L1RollupConstants>()(
     ethereumSlotDuration: z.number(),
     proofSubmissionEpochs: z.number(),
     targetCommitteeSize: z.number(),
+    rollupManaLimit: z.number(),
   }),
 );
 
@@ -52,6 +55,17 @@ export function getSlotAtTimestamp(
   return ts < constants.l1GenesisTime
     ? SlotNumber.ZERO
     : SlotNumber.fromBigInt((ts - constants.l1GenesisTime) / BigInt(constants.slotDuration));
+}
+
+/** Returns the timestamp of the next L1 slot boundary after the given wall-clock time. */
+export function getNextL1SlotTimestamp(
+  nowInSeconds: number,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'ethereumSlotDuration'>,
+): bigint {
+  const now = BigInt(nowInSeconds);
+  const elapsed = now - constants.l1GenesisTime;
+  const currentL1Slot = elapsed / BigInt(constants.ethereumSlotDuration);
+  return constants.l1GenesisTime + (currentL1Slot + 1n) * BigInt(constants.ethereumSlotDuration);
 }
 
 /** Returns the L2 slot number at the next L1 block based on the current timestamp. */

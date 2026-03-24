@@ -71,10 +71,10 @@ describe('e2e_local_network_example', () => {
 
     ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
-    let aliceBalance = await tokenContract.methods.balance_of_private(alice).simulate({ from: alice });
+    let { result: aliceBalance } = await tokenContract.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's balance ${aliceBalance}`);
 
-    let bobBalance = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob });
+    let { result: bobBalance } = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance ${bobBalance}`);
 
     expect(aliceBalance).toBe(initialSupply);
@@ -88,10 +88,10 @@ describe('e2e_local_network_example', () => {
     await tokenContract.methods.transfer(bob, transferQuantity).send({ from: alice });
 
     // Check the new balances
-    aliceBalance = await tokenContract.methods.balance_of_private(alice).simulate({ from: alice });
+    ({ result: aliceBalance } = await tokenContract.methods.balance_of_private(alice).simulate({ from: alice }));
     logger.info(`Alice's balance ${aliceBalance}`);
 
-    bobBalance = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob });
+    ({ result: bobBalance } = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob }));
     logger.info(`Bob's balance ${bobBalance}`);
 
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
@@ -108,10 +108,10 @@ describe('e2e_local_network_example', () => {
     await mintTokensToPrivate(tokenContract, bob, bob, mintQuantity);
 
     // Check the new balances
-    aliceBalance = await tokenContract.methods.balance_of_private(alice).simulate({ from: alice });
+    ({ result: aliceBalance } = await tokenContract.methods.balance_of_private(alice).simulate({ from: alice }));
     logger.info(`Alice's balance ${aliceBalance}`);
 
-    bobBalance = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob });
+    ({ result: bobBalance } = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob }));
     logger.info(`Bob's balance ${bobBalance}`);
 
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
@@ -188,7 +188,7 @@ describe('e2e_local_network_example', () => {
     const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5);
     const gasSettings = GasSettings.default({ maxFeesPerGas });
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
-    const receiptForAlice = await bananaCoin.methods
+    const { receipt: receiptForAlice } = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)
       .send({ from: alice, fee: { paymentMethod } });
     // docs:end:private_fpc_payment
@@ -196,11 +196,11 @@ describe('e2e_local_network_example', () => {
     logger.info(`Transaction fee: ${transactionFee}`);
 
     // Check the balances
-    const aliceBalance = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
+    const { result: aliceBalance } = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's balance: ${aliceBalance}`);
     expect(aliceBalance).toEqual(mintAmount - transactionFee - amountTransferToBob);
 
-    const bobBalance = await bananaCoin.methods.balance_of_private(bob).simulate({ from: bob });
+    const { result: bobBalance } = await bananaCoin.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance: ${bobBalance}`);
     expect(bobBalance).toEqual(amountTransferToBob);
 
@@ -214,16 +214,16 @@ describe('e2e_local_network_example', () => {
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
     const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, node);
 
-    const receiptForBob = await bananaCoin.methods
+    const { receipt: receiptForBob } = await bananaCoin.methods
       .transfer(alice, amountTransferToAlice)
       .send({ from: bob, fee: { paymentMethod: sponsoredPaymentMethod } });
     // docs:end:sponsored_fpc_payment
     // Check the balances
-    const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
+    const { result: aliceNewBalance } = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's new balance: ${aliceNewBalance}`);
     expect(aliceNewBalance).toEqual(aliceBalance + amountTransferToAlice);
 
-    const bobNewBalance = await bananaCoin.methods.balance_of_private(bob).simulate({ from: bob });
+    const { result: bobNewBalance } = await bananaCoin.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's new balance: ${bobNewBalance}`);
     expect(bobNewBalance).toEqual(bobBalance - amountTransferToAlice);
 

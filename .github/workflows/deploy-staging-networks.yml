@@ -40,29 +40,38 @@ jobs:
 
       - name: Determine branch
         id: branch
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
+          GIT_REF_NAME: ${{ github.ref_name }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.ref }}" ]]; then
-            echo "value=${{ github.ref }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "value=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$GIT_REF" ]]; then
+            echo "value=$GIT_REF" >> $GITHUB_OUTPUT
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "value=$GIT_REF_NAME" >> $GITHUB_OUTPUT
           else
-            echo "value=${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "value=${WORKFLOW_RUN_HEAD_BRANCH:-$GIT_REF_NAME}" >> $GITHUB_OUTPUT
           fi
 
       - name: Determine semver
         id: semver
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SEMVER: ${{ inputs.semver }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
             git fetch --tags --force
-            tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
+            tag=$(git tag --points-at "$WORKFLOW_RUN_HEAD_SHA" | head -n1)
             if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
-              echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
+              echo "No semver tag found for head_sha: $WORKFLOW_RUN_HEAD_SHA. Skipping."
               echo "should_deploy=false" >> $GITHUB_OUTPUT
               exit 0
             fi
             semver="${tag#v}"
           else
-            semver="${{ inputs.semver }}"
+            semver="$INPUT_SEMVER"
           fi
 
           major_version="${semver%%.*}"

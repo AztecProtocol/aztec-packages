@@ -5,6 +5,7 @@
 // =====================
 
 #include "goblin_verifier.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 
 namespace bb {
@@ -17,6 +18,7 @@ namespace bb {
 template <typename Curve>
 typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
 {
+    BB_BENCH_NAME("GoblinVerifier::reduce");
     // Step 1: Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);

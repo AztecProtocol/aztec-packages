@@ -2,6 +2,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
 namespace bb::srs {
 
@@ -49,5 +50,19 @@ inline g2::affine_element get_bn254_g2_crs_element()
     };
     return from_buffer<g2::affine_element>(g2_data);
 }
+
+/**
+ * @brief Compressed form of the first G1 element (generator point).
+ * @details For (1, 2): x=1, y=2 is even so sign bit = 0, compressed = uint256_t(1).
+ */
+inline constexpr uint256_t BN254_G1_FIRST_ELEMENT_COMPRESSED = uint256_t(1);
+
+/**
+ * @brief Compressed form of the second G1 element from the trusted setup.
+ * @details x = 0x2d360628289ff943ff6bd1a87bbe4e62abe7fb61ba83effd266f22bdcf31e6f9
+ *          y = 0x26b92a79e563c3f48252cce7feeca2f0f8d33dcb4ef7b0643bf07bd405700aaa (even, sign bit = 0)
+ */
+inline constexpr uint256_t BN254_G1_SECOND_ELEMENT_COMPRESSED =
+    uint256_t(0x266f22bdcf31e6f9ULL, 0xabe7fb61ba83effdULL, 0xff6bd1a87bbe4e62ULL, 0x2d360628289ff943ULL);
 
 } // namespace bb::srs

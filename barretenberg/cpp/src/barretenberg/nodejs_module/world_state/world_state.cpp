@@ -265,11 +265,11 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
 
     _dispatcher.register_target(
         WorldStateMessageType::COMMIT_ALL_CHECKPOINTS,
-        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_all_checkpoints(obj, buffer); });
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_all_checkpoints_to(obj, buffer); });
 
     _dispatcher.register_target(
         WorldStateMessageType::REVERT_ALL_CHECKPOINTS,
-        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_all_checkpoints(obj, buffer); });
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_all_checkpoints_to(obj, buffer); });
 
     _dispatcher.register_target(
         WorldStateMessageType::COPY_STORES,
@@ -514,6 +514,8 @@ bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer
             request.value.revision, request.value.treeId, r3.value.leaves, response.indices, r3.value.startIndex);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type");
     }
 
     MsgHeader header(request.header.messageId);
@@ -555,6 +557,8 @@ bool WorldStateWrapper::find_sibling_paths(msgpack::object& obj, msgpack::sbuffe
             request.value.revision, request.value.treeId, r3.value.leaves, response.paths);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type");
     }
 
     MsgHeader header(request.header.messageId);
@@ -607,6 +611,8 @@ bool WorldStateWrapper::append_leaves(msgpack::object& obj, msgpack::sbuffer& bu
         _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type");
     }
 
     MsgHeader header(request.header.messageId);
@@ -843,10 +849,12 @@ bool WorldStateWrapper::checkpoint(msgpack::object& obj, msgpack::sbuffer& buffe
     TypedMessage<ForkIdOnlyRequest> request;
     obj.convert(request);
 
-    _ws->checkpoint(request.value.forkId);
+    uint32_t depth = _ws->checkpoint(request.value.forkId);
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::CREATE_CHECKPOINT, header, {});
+    CheckpointDepthResponse resp_value{ depth };
+    messaging::TypedMessage<CheckpointDepthResponse> resp_msg(
+        WorldStateMessageType::CREATE_CHECKPOINT, header, resp_value);
     msgpack::pack(buffer, resp_msg);
 
     return true;
@@ -880,12 +888,12 @@ bool WorldStateWrapper::revert_checkpoint(msgpack::object& obj, msgpack::sbuffer
     return true;
 }
 
-bool WorldStateWrapper::commit_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer)
+bool WorldStateWrapper::commit_all_checkpoints_to(msgpack::object& obj, msgpack::sbuffer& buffer)
 {
-    TypedMessage<ForkIdOnlyRequest> request;
+    TypedMessage<ForkIdWithDepthRequest> request;
     obj.convert(request);
 
-    _ws->commit_all_checkpoints(request.value.forkId);
+    _ws->commit_all_checkpoints_to(request.value.forkId, request.value.depth);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_ALL_CHECKPOINTS, header, {});
@@ -894,12 +902,12 @@ bool WorldStateWrapper::commit_all_checkpoints(msgpack::object& obj, msgpack::sb
     return true;
 }
 
-bool WorldStateWrapper::revert_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer)
+bool WorldStateWrapper::revert_all_checkpoints_to(msgpack::object& obj, msgpack::sbuffer& buffer)
 {
-    TypedMessage<ForkIdOnlyRequest> request;
+    TypedMessage<ForkIdWithDepthRequest> request;
     obj.convert(request);
 
-    _ws->revert_all_checkpoints(request.value.forkId);
+    _ws->revert_all_checkpoints_to(request.value.forkId, request.value.depth);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_ALL_CHECKPOINTS, header, {});

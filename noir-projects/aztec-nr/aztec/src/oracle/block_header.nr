@@ -2,7 +2,7 @@ use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_f
 
 use crate::{context::PrivateContext, oracle::get_membership_witness::get_block_hash_membership_witness};
 
-#[oracle(utilityGetBlockHeader)]
+#[oracle(aztec_utl_getBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
 
 unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {
@@ -61,7 +61,7 @@ fn constrain_get_block_header_at_internal(
     // 3) Check that the block is in the archive (i.e. the witness is valid)
     assert_eq(
         anchor_block_header.last_archive.root,
-        root_from_sibling_path(block_hash, witness.index, witness.path),
+        root_from_sibling_path(block_hash, witness.leaf_index, witness.sibling_path),
         "Proving membership of a block in archive failed",
     );
 
@@ -75,11 +75,107 @@ fn constrain_get_block_header_at_internal(
 }
 
 mod test {
+    use crate::protocol::traits::Hash;
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{constrain_get_block_header_at_internal, get_block_header_at_internal};
+    use super::{constrain_get_block_header_at_internal, get_block_header_at, get_block_header_at_internal};
 
-    #[test(should_fail_with = "Proving membership of a block in archive failed")]
-    unconstrained fn fetching_header_with_mismatched_block_number_should_fail() {
+    #[test]
+    unconstrained fn fetching_earliest_block_header_succeeds() {
+        let env = TestEnvironment::new();
+
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+
+        env.private_context(|context| {
+            let anchor_block_header = context.anchor_block_header;
+
+            let header = get_block_header_at_internal(1);
+            constrain_get_block_header_at_internal(header, 1, anchor_block_header);
+
+            assert_eq(header.block_number(), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn fetching_past_block_header_succeeds() {
+        let env = TestEnvironment::new();
+
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+
+        env.private_context(|context| {
+            let anchor_block_header = context.anchor_block_header;
+            let target_block_number = anchor_block_header.block_number() - 2;
+
+            let header = get_block_header_at_internal(target_block_number);
+            constrain_get_block_header_at_internal(header, target_block_number, anchor_block_header);
+
+            assert_eq(header.block_number(), target_block_number);
+        });
+    }
+
+    #[test]
+    unconstrained fn fetching_header_immediately_before_anchor_succeeds() {
+        let env = TestEnvironment::new();
+
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+
+        // Block N-1 is the boundary case: last_archive covers exactly up to block N-1.
+        env.private_context(|context| {
+            let anchor_block_header = context.anchor_block_header;
+            let target_block_number = anchor_block_header.block_number() - 1;
+
+            let header = get_block_header_at_internal(target_block_number);
+            constrain_get_block_header_at_internal(header, target_block_number, anchor_block_header);
+
+            assert_eq(header.block_number(), target_block_number);
+        });
+    }
+
+    #[test]
+    unconstrained fn fetching_anchor_block_header_works() {
+        let env = TestEnvironment::new();
+
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+
+        env.private_context(|context| {
+            let anchor_block_number = context.anchor_block_header.block_number();
+
+            let header = get_block_header_at(anchor_block_number, *context);
+
+            assert_eq(header.block_number(), anchor_block_number);
+            assert_eq(header.hash(), context.anchor_block_header.hash());
+        });
+    }
+
+    #[test(should_fail_with = "Last archive block number is smaller than the block number")]
+    unconstrained fn fetching_future_block_header_fails() {
+        let env = TestEnvironment::new();
+
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+
+        env.private_context(|context| {
+            let anchor_block_number = context.anchor_block_header.block_number();
+
+            let _header = get_block_header_at(anchor_block_number + 1, *context);
+        });
+    }
+
+    #[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
+    unconstrained fn fetching_header_with_mismatched_block_number_fails() {
         let env = TestEnvironment::new();
 
         env.mine_block();

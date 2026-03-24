@@ -71,12 +71,14 @@ export class AmmBot extends BaseBot {
         .getFunctionCall(),
     });
 
-    const amountOutMin = await amm.methods
-      .get_amount_out_for_exact_in(
-        await tokenIn.methods.balance_of_public(amm.address).simulate({ from: this.defaultAccountAddress }),
-        await tokenOut.methods.balance_of_public(amm.address).simulate({ from: this.defaultAccountAddress }),
-        amountIn,
-      )
+    const { result: tokenInBalance } = await tokenIn.methods
+      .balance_of_public(amm.address)
+      .simulate({ from: this.defaultAccountAddress });
+    const { result: tokenOutBalance } = await tokenOut.methods
+      .balance_of_public(amm.address)
+      .simulate({ from: this.defaultAccountAddress });
+    const { result: amountOutMin } = await amm.methods
+      .get_amount_out_for_exact_in(tokenInBalance, tokenOutBalance, amountIn)
       .simulate({ from: this.defaultAccountAddress });
 
     const swapExactTokensInteraction = amm.methods
@@ -89,7 +91,8 @@ export class AmmBot extends BaseBot {
 
     this.log.verbose(`Sending transaction`, logCtx);
     this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });
-    return swapExactTokensInteraction.send({ ...opts, wait: NO_WAIT });
+    const { txHash } = await swapExactTokensInteraction.send({ ...opts, wait: NO_WAIT });
+    return txHash;
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {
@@ -110,15 +113,17 @@ export class AmmBot extends BaseBot {
   }
 
   private async getPublicBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
-    return {
-      token0: await this.token0.methods.balance_of_public(address).simulate({ from: from ?? address }),
-      token1: await this.token1.methods.balance_of_public(address).simulate({ from: from ?? address }),
-    };
+    const { result: token0 } = await this.token0.methods.balance_of_public(address).simulate({ from: from ?? address });
+    const { result: token1 } = await this.token1.methods.balance_of_public(address).simulate({ from: from ?? address });
+    return { token0, token1 };
   }
   private async getPrivateBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
-    return {
-      token0: await this.token0.methods.balance_of_private(address).simulate({ from: from ?? address }),
-      token1: await this.token1.methods.balance_of_private(address).simulate({ from: from ?? address }),
-    };
+    const { result: token0 } = await this.token0.methods
+      .balance_of_private(address)
+      .simulate({ from: from ?? address });
+    const { result: token1 } = await this.token1.methods
+      .balance_of_private(address)
+      .simulate({ from: from ?? address });
+    return { token0, token1 };
   }
 }

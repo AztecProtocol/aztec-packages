@@ -76,7 +76,8 @@ export class Bot extends BaseBot {
     await batch.simulate({ from: this.defaultAccountAddress });
 
     this.log.verbose(`Sending transaction`, logCtx);
-    return batch.send({ ...opts, wait: NO_WAIT });
+    const { txHash } = await batch.send({ ...opts, wait: NO_WAIT });
+    return txHash;
   }
 
   public async getBalances() {

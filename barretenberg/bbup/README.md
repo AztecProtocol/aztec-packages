@@ -1,6 +1,6 @@
 # BBup
 
-BBup is a CLI tool that makes it easy to install the [Barretenberg](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/README.md) proving backend.
+BBup is a CLI tool that makes it easy to install the [Barretenberg](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/README.md) proving backend.
 
 It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 
@@ -9,11 +9,11 @@ It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 BBup is an installer for whatever version of BB you may want. Install BBup with:
 
 ```bash
-curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/next/barretenberg/bbup/install | bash
 ```
 
 > [!IMPORTANT]
-> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/install) which installs [bbup](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/bbup) in your system's PATH
+> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/bbup/install) which installs [bbup](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/bbup/bbup) in your system's PATH
 
 ## Usage
 

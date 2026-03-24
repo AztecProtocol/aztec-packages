@@ -18,6 +18,7 @@ SchnorrConstructSignature::Response SchnorrConstructSignature::execute(BB_UNUSED
 
     std::string message_str(reinterpret_cast<const char*>(message.data()), message.size());
     auto sig = crypto::schnorr_construct_signature<crypto::Blake2sHasher, grumpkin::fq>(message_str, key_pair);
+    crypto::secure_erase_bytes(&key_pair.private_key, sizeof(key_pair.private_key));
 
     return { sig.s, sig.e };
 }

@@ -24,6 +24,7 @@ import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol }
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
@@ -45,8 +46,12 @@ import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
-import { createHASigner } from '@aztec/validator-ha-signer/factory';
-import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
+import {
+  createHASigner,
+  createLocalSignerWithProtection,
+  createSignerFromSharedDb,
+} from '@aztec/validator-ha-signer/factory';
+import { DutyType, type SigningContext, type SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
 
 import { EventEmitter } from 'events';
@@ -108,7 +113,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
-    private haSigner: ValidatorHASigner | undefined,
+    private slashingProtectionSigner: ValidatorHASigner,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     log = createLogger('validator'),
@@ -196,11 +201,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     blobClient: BlobClientInterface,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
+    slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
+      maxTxsPerBlock: config.validateMaxTxsPerBlock,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
@@ -217,18 +223,33 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
 
     const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
-    let validatorKeyStore: ExtendedValidatorKeyStore = nodeKeystoreAdapter;
-    let haSigner: ValidatorHASigner | undefined;
-    if (config.haSigningEnabled) {
+    let slashingProtectionSigner: ValidatorHASigner;
+    if (slashingProtectionDb) {
+      // Shared database mode: use a pre-existing database (e.g. for testing HA setups).
+      ({ signer: slashingProtectionSigner } = createSignerFromSharedDb(slashingProtectionDb, config, {
+        telemetryClient: telemetry,
+        dateProvider,
+      }));
+    } else if (config.haSigningEnabled) {
+      // Multi-node HA mode: use PostgreSQL-backed distributed locking.
       // If maxStuckDutiesAgeMs is not explicitly set, compute it from Aztec slot duration
       const haConfig = {
         ...config,
         maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs ?? epochCache.getL1Constants().slotDuration * 2 * 1000,
       };
-      const { signer } = await createHASigner(haConfig, { telemetryClient: telemetry, dateProvider });
-      haSigner = signer;
-      validatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, signer);
+      ({ signer: slashingProtectionSigner } = await createHASigner(haConfig, {
+        telemetryClient: telemetry,
+        dateProvider,
+      }));
+    } else {
+      // Single-node mode: use LMDB-backed local signing protection.
+      // This prevents double-signing if the node crashes and restarts mid-proposal.
+      ({ signer: slashingProtectionSigner } = await createLocalSignerWithProtection(config, {
+        telemetryClient: telemetry,
+        dateProvider,
+      }));
     }
+    const validatorKeyStore: ExtendedValidatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, slashingProtectionSigner);
 
     const validator = new ValidatorClient(
       validatorKeyStore,
@@ -241,7 +262,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       l1ToL2MessageSource,
       config,
       blobClient,
-      haSigner,
+      slashingProtectionSigner,
       dateProvider,
       telemetry,
     );
@@ -280,24 +301,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public reloadKeystore(newManager: KeystoreManager): void {
-    if (this.config.haSigningEnabled && !this.haSigner) {
-      this.log.warn(
-        'HA signing is enabled in config but was not initialized at startup. ' +
-          'Restart the node to enable HA signing.',
-      );
-    } else if (!this.config.haSigningEnabled && this.haSigner) {
-      this.log.warn(
-        'HA signing was disabled via config update but the HA signer is still active. ' +
-          'Restart the node to fully disable HA signing.',
-      );
-    }
-
     const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
-    if (this.haSigner) {
-      this.keyStore = new HAKeyStore(newAdapter, this.haSigner);
-    } else {
-      this.keyStore = newAdapter;
-    }
+    this.keyStore = new HAKeyStore(newAdapter, this.slashingProtectionSigner);
     this.validationService = new ValidationService(this.keyStore, this.log.createChild('validation-service'));
   }
 
@@ -384,13 +389,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return false;
     }
 
-    // Ignore proposals from ourselves (may happen in HA setups)
+    // Log self-proposals from HA peers (same validator key on different nodes)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.verbose(`Processing block proposal from HA peer for slot ${slotNumber}`, {
         proposer: proposer.toString(),
         slotNumber,
       });
-      return false;
     }
 
     // Check if we're in the committee (for metrics purposes)
@@ -422,9 +426,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
 
     if (!validationResult.isValid) {
-      this.log.warn(`Block proposal validation failed: ${validationResult.reason}`, proposalInfo);
-
       const reason = validationResult.reason || 'unknown';
+
+      this.log.warn(`Block proposal validation failed: ${reason}`, proposalInfo);
+
       // Classify failure reason: bad proposal vs node issue
       const badProposalReasons: BlockProposalValidationFailureReason[] = [
         'invalid_proposal',
@@ -479,26 +484,26 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposal: CheckpointProposalCore,
     _proposalSender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined> {
-    const slotNumber = proposal.slotNumber;
+    const proposalSlotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
 
     // If escape hatch is open for this slot's epoch, do not attest.
-    if (await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber)) {
-      this.log.warn(`Escape hatch open for slot ${slotNumber}, skipping checkpoint attestation handling`);
+    if (await this.epochCache.isEscapeHatchOpenAtSlot(proposalSlotNumber)) {
+      this.log.warn(`Escape hatch open for slot ${proposalSlotNumber}, skipping checkpoint attestation handling`);
       return undefined;
     }
 
     // Reject proposals with invalid signatures
     if (!proposer) {
-      this.log.warn(`Received checkpoint proposal with invalid signature for slot ${slotNumber}`);
+      this.log.warn(`Received checkpoint proposal with invalid signature for proposal slot ${proposalSlotNumber}`);
       return undefined;
     }
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.debug(`Ignoring block proposal from self for slot ${proposalSlotNumber}`, {
         proposer: proposer.toString(),
-        slotNumber,
+        proposalSlotNumber,
       });
       return undefined;
     }
@@ -506,30 +511,28 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Validate fee asset price modifier is within allowed range
     if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
       this.log.warn(
-        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${slotNumber}`,
+        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposalSlotNumber}`,
       );
       return undefined;
     }
 
-    // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
+    // Check that I have any address in the committee where this checkpoint will land before attesting
+    const inCommittee = await this.epochCache.filterInCommittee(proposalSlotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {
-      slotNumber,
+      proposalSlotNumber,
       archive: proposal.archive.toString(),
       proposer: proposer.toString(),
-      txCount: proposal.txHashes.length,
     };
-    this.log.info(`Received checkpoint proposal for slot ${slotNumber}`, {
+    this.log.info(`Received checkpoint proposal for slot ${proposalSlotNumber}`, {
       ...proposalInfo,
-      txHashes: proposal.txHashes.map(t => t.toString()),
       fishermanMode: this.config.fishermanMode || false,
     });
 
     // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set)
     if (this.config.skipCheckpointProposalValidation) {
-      this.log.warn(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
+      this.log.warn(`Skipping checkpoint proposal validation for slot ${proposalSlotNumber}`, proposalInfo);
     } else {
       const validationResult = await this.validateCheckpointProposal(proposal, proposalInfo);
       if (!validationResult.isValid) {
@@ -551,16 +554,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`${partOfCommittee ? 'Attesting to' : 'Validated'} checkpoint proposal for slot ${slotNumber}`, {
-      ...proposalInfo,
-      inCommittee: partOfCommittee,
-      fishermanMode: this.config.fishermanMode || false,
-    });
+    this.log.info(
+      `${partOfCommittee ? 'Attesting to' : 'Validated'} checkpoint proposal for slot ${proposalSlotNumber}`,
+      {
+        ...proposalInfo,
+        inCommittee: partOfCommittee,
+        fishermanMode: this.config.fishermanMode || false,
+      },
+    );
 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
 
     // Track epoch participation per attester: count each (attester, epoch) pair at most once
-    const proposalEpoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
+    const proposalEpoch = getEpochAtSlot(proposalSlotNumber, this.epochCache.getL1Constants());
     for (const attester of inCommittee) {
       const key = attester.toString();
       const lastEpoch = this.lastAttestedEpochByAttester.get(key);
@@ -588,7 +594,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     if (this.config.fishermanMode) {
       // bail out early and don't save attestations to the pool in fisherman mode
-      this.log.info(`Creating checkpoint attestations for slot ${slotNumber}`, {
+      this.log.info(`Creating checkpoint attestations for slot ${proposalSlotNumber}`, {
         ...proposalInfo,
         attestors: attestors.map(a => a.toString()),
       });
@@ -764,6 +770,20 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           ...proposalInfo,
         });
         return { isValid: false, reason: 'out_hash_mismatch' };
+      }
+
+      // Final round of validations on the checkpoint, just in case.
+      try {
+        validateCheckpoint(computedCheckpoint, {
+          rollupManaLimit: this.checkpointsBuilder.getConfig().rollupManaLimit,
+          maxDABlockGas: this.config.validateMaxDABlockGas,
+          maxL2BlockGas: this.config.validateMaxL2BlockGas,
+          maxTxsPerBlock: this.config.validateMaxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.validateMaxTxsPerCheckpoint,
+        });
+      } catch (err) {
+        this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
+        return { isValid: false, reason: 'checkpoint_validation_failed' };
       }
 
       this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);

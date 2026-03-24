@@ -5,9 +5,9 @@ import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { Offense, ProposerSlashAction, SlashPayloadRound } from '@aztec/stdlib/slashing';
 
 import { createSlasherImplementation } from './factory/create_implementation.js';

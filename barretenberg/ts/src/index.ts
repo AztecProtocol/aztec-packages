@@ -7,8 +7,10 @@ export {
   UltraHonkVerifierBackend,
   UltraHonkBackend,
   AztecClientBackend,
+  flattenChonkProofFields,
   fieldToString,
   fieldsToStrings,
+  type AztecClientProveResult,
   type UltraHonkBackendOptions,
   type VerifierTarget,
 } from './barretenberg/index.js';
@@ -47,4 +49,4 @@ export {
   SECP256R1_G1_GENERATOR,
 } from './cbind/generated/curve_constants.js';
 
-export { findNapiBinary } from './bb_backends/node/platform.js';
+export { findBbBinary, findNapiBinary } from './bb_backends/node/platform.js';

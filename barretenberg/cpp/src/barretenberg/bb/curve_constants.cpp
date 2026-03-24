@@ -34,19 +34,19 @@ struct CurveConstants {
     uint256_t secp256r1_fq_modulus;
     secp256r1::g1::affine_element secp256r1_g1_generator;
 
-    MSGPACK_FIELDS(bn254_fr_modulus,
-                   bn254_fq_modulus,
-                   bn254_g1_generator,
-                   bn254_g2_generator,
-                   grumpkin_fr_modulus,
-                   grumpkin_fq_modulus,
-                   grumpkin_g1_generator,
-                   secp256k1_fr_modulus,
-                   secp256k1_fq_modulus,
-                   secp256k1_g1_generator,
-                   secp256r1_fr_modulus,
-                   secp256r1_fq_modulus,
-                   secp256r1_g1_generator);
+    SERIALIZATION_FIELDS(bn254_fr_modulus,
+                         bn254_fq_modulus,
+                         bn254_g1_generator,
+                         bn254_g2_generator,
+                         grumpkin_fr_modulus,
+                         grumpkin_fq_modulus,
+                         grumpkin_g1_generator,
+                         secp256k1_fr_modulus,
+                         secp256k1_fq_modulus,
+                         secp256k1_g1_generator,
+                         secp256r1_fr_modulus,
+                         secp256r1_fq_modulus,
+                         secp256r1_g1_generator);
 };
 
 static CurveConstants get_curve_constants()

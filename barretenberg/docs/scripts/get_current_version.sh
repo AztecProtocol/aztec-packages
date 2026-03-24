@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script fetches the current version from versioned_docs directory
 # Returns the version number (e.g. "v0.85.0")

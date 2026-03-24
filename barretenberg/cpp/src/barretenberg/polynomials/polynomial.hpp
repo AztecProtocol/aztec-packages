@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -247,22 +247,6 @@ template <typename Fr> class Polynomial {
     Polynomial& operator*=(const Fr& scaling_factor);
 
     void multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor);
-
-    /**
-     * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
-     * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
-     * knowledge.
-     */
-    void mask()
-    {
-        // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
-        BB_ASSERT_GTE(virtual_size(), NUM_MASKED_ROWS);
-        BB_ASSERT_EQ(virtual_size(), end_index());
-
-        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
-            at(i) = FF::random_element();
-        }
-    }
 
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }

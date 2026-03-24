@@ -70,24 +70,25 @@ using lookup_contract_instance_retrieval_read_derived_address_from_public_inputs
 struct lookup_contract_instance_retrieval_deployment_nullifier_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTRACT_INSTANCE_RETRIEVAL_DEPLOYMENT_NULLIFIER_READ";
     static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
     static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_should_check_nullifier;
-    static constexpr Column DST_SELECTOR = Column::nullifier_check_sel;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_sel;
     static constexpr Column COUNTS = Column::lookup_contract_instance_retrieval_deployment_nullifier_read_counts;
     static constexpr Column INVERSES = Column::lookup_contract_instance_retrieval_deployment_nullifier_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::contract_instance_retrieval_exists,
         ColumnAndShifts::contract_instance_retrieval_address,
         ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root,
-        ColumnAndShifts::contract_instance_retrieval_deployer_protocol_contract_address,
-        ColumnAndShifts::contract_instance_retrieval_sel
+        ColumnAndShifts::contract_instance_retrieval_nullifier_tree_height,
+        ColumnAndShifts::contract_instance_retrieval_sel,
+        ColumnAndShifts::contract_instance_retrieval_siloing_separator,
+        ColumnAndShifts::contract_instance_retrieval_deployer_protocol_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::nullifier_check_exists,
-        ColumnAndShifts::nullifier_check_nullifier,
-        ColumnAndShifts::nullifier_check_root,
-        ColumnAndShifts::nullifier_check_address,
-        ColumnAndShifts::nullifier_check_sel_silo
+        ColumnAndShifts::indexed_tree_check_exists,   ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,     ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_sel_silo, ColumnAndShifts::indexed_tree_check_siloing_separator,
+        ColumnAndShifts::indexed_tree_check_address
     };
 };
 

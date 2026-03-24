@@ -55,7 +55,7 @@ console.log("New account address:", newAccount.address.toString());
 
 // docs:start:deploy_account_sponsored_fpc
 // Additional imports needed for account deployment examples
-import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { NO_FROM } from "@aztec/aztec.js/account";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
@@ -76,7 +76,7 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 // newAccount is the account created in the previous section
 const deployMethod = await newAccount.getDeployMethod();
 await deployMethod.send({
-  from: AztecAddress.ZERO,
+  from: NO_FROM,
   fee: { paymentMethod: sponsoredPaymentMethod },
 });
 // docs:end:deploy_account_sponsored_fpc
@@ -112,7 +112,7 @@ const claim = await portalManager.bridgeTokensPublic(
 // docs:start:deploy_contract
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
-const token = await TokenContract.deploy(
+const { contract: token } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "TestToken",
@@ -124,7 +124,7 @@ console.log(`Token deployed at: ${token.address.toString()}`);
 // docs:end:deploy_contract
 
 // docs:start:send_transaction
-const receipt = await token.methods
+const { receipt } = await token.methods
   .mint_to_public(aliceAddress, 1000n)
   .send({ from: aliceAddress });
 
@@ -133,7 +133,7 @@ console.log(`Transaction fee: ${receipt.transactionFee}`);
 // docs:end:send_transaction
 
 // docs:start:simulate_function
-const balance = await token.methods
+const { result: balance } = await token.methods
   .balance_of_public(aliceAddress)
   .simulate({ from: aliceAddress });
 
@@ -144,7 +144,7 @@ console.log(`Alice's token balance: ${balance}`);
 // Deploy the account using the bridged Fee Juice
 const deployMethodFeeJuice = await feeJuiceAccount.getDeployMethod();
 await deployMethodFeeJuice.send({
-  from: AztecAddress.ZERO,
+  from: NO_FROM,
   fee: {
     paymentMethod: new FeeJuicePaymentMethodWithClaim(
       feeJuiceAccount.address,
@@ -156,5 +156,5 @@ await deployMethodFeeJuice.send({
 
 // docs:start:verify_account_deployment
 const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
-console.log("Account deployed:", metadata.isContractInitialized);
+console.log("Account deployed:", metadata.initializationStatus);
 // docs:end:verify_account_deployment

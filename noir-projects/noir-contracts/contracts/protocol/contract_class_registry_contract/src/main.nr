@@ -37,9 +37,10 @@ pub contract ContractClassRegistry {
     /// Publishes a contract class to the network.
     ///
     /// The caller provides the three components of the contract class id (artifact_hash, private_functions_root,
-    /// public_bytecode_commitment) together with the packed public bytecode loaded via a capsule. For contracts with
-    /// no public functions the bytecode is empty, but registration is still possible so that the instance can later be
-    /// deployed or upgraded.
+    /// public_bytecode_commitment) together with the packed public bytecode loaded via a capsule. Even contracts with
+    /// no public functions have non-empty bytecode because the AVM transpiler adds a public dispatch function that
+    /// simply reverts. Without it, publishing would fail due to the non-zero bytecode length check in
+    /// `compute_public_bytecode_commitment`.
     ///
     /// Note that there is only one public bytecode commitment per contract instead of per contract-function as
     /// bytecode of public functions is merged into one `public_dispatch` function and the relevant code branch is then
@@ -93,6 +94,7 @@ pub contract ContractClassRegistry {
         // Emit the contract class id as a nullifier:
         // - to demonstrate that this contract class hasn't been published before
         // - to enable apps to read that this contract class has been published.
+        // We use no domain separators because these are the only nullifiers this contract uses.
         context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode

@@ -14,6 +14,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
+import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import {
@@ -27,7 +28,7 @@ import {
 } from './factory.js';
 import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
-import { PhasesTxValidator } from './phases_validator.js';
+import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';
 import { TimestampTxValidator } from './timestamp_validator.js';
 import { TxPermittedValidator } from './tx_permitted_validator.js';
@@ -73,6 +74,7 @@ describe('Validator factory functions', () => {
         'doubleSpendValidator',
         'gasValidator',
         'dataValidator',
+        'contractInstanceValidator',
       ]);
     });
 
@@ -170,6 +172,7 @@ describe('Validator factory functions', () => {
         MetadataTxValidator.name,
         SizeTxValidator.name,
         DataTxValidator.name,
+        ContractInstanceTxValidator.name,
         TxProofValidator.name,
       ]);
     });
@@ -187,6 +190,7 @@ describe('Validator factory functions', () => {
         MetadataTxValidator.name,
         SizeTxValidator.name,
         DataTxValidator.name,
+        ContractInstanceTxValidator.name,
         TxProofValidator.name,
       ]);
     });
@@ -208,6 +212,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -220,6 +225,7 @@ describe('Validator factory functions', () => {
         BlockHeaderTxValidator.name,
         DoubleSpendTxValidator.name,
         DataTxValidator.name,
+        ContractInstanceTxValidator.name,
         GasTxValidator.name,
         TxProofValidator.name,
       ]);
@@ -235,6 +241,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -252,6 +259,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -296,7 +304,12 @@ describe('Validator factory functions', () => {
 
   describe('createTxValidatorForTransactionsEnteringPendingTxPool', () => {
     it('contains the state-dependent checks missed by well-formedness validators', async () => {
-      const validator = await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5));
+      const validator = await createTxValidatorForTransactionsEnteringPendingTxPool(
+        synchronizer,
+        100n,
+        BlockNumber(5),
+        { rollupManaLimit: Number.MAX_SAFE_INTEGER },
+      );
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       expect(getValidatorNames(aggregate)).toEqual([
@@ -304,11 +317,14 @@ describe('Validator factory functions', () => {
         TimestampTxValidator.name,
         DoubleSpendTxValidator.name,
         BlockHeaderTxValidator.name,
+        AllowedSetupCallsMetaValidator.name,
       ]);
     });
 
     it('syncs world state before creating the validator', async () => {
-      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5));
+      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5), {
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
+      });
 
       expect(synchronizer.syncImmediate).toHaveBeenCalled();
     });

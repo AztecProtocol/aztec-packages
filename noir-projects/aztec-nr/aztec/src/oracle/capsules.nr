@@ -33,7 +33,7 @@ pub unconstrained fn copy(contract_address: AztecAddress, src_slot: Field, dst_s
     copy_oracle(contract_address, src_slot, dst_slot, num_entries);
 }
 
-#[oracle(utilityStoreCapsule)]
+#[oracle(aztec_utl_storeCapsule)]
 unconstrained fn store_oracle<let N: u32>(contract_address: AztecAddress, slot: Field, values: [Field; N]) {}
 
 /// We need to pass in `array_len` (the value of N) as a parameter to tell the oracle how many fields the response must
@@ -43,17 +43,17 @@ unconstrained fn store_oracle<let N: u32>(contract_address: AztecAddress, slot: 
 /// require for the oracle resolver to know the shape of T (e.g. if T were a struct of 3 u32 values then the expected
 /// response shape would be 3 single items, whereas it were a struct containing `u32, [Field;10], u32` then the
 /// expected shape would be single, array, single.). Instead, we return the serialization and deserialize in Noir.
-#[oracle(utilityLoadCapsule)]
+#[oracle(aztec_utl_loadCapsule)]
 unconstrained fn load_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
     array_len: u32,
 ) -> Option<[Field; N]> {}
 
-#[oracle(utilityDeleteCapsule)]
+#[oracle(aztec_utl_deleteCapsule)]
 unconstrained fn delete_oracle(contract_address: AztecAddress, slot: Field) {}
 
-#[oracle(utilityCopyCapsule)]
+#[oracle(aztec_utl_copyCapsule)]
 unconstrained fn copy_oracle(contract_address: AztecAddress, src_slot: Field, dst_slot: Field, num_entries: u32) {}
 
 mod test {

@@ -126,6 +126,12 @@ bb::HonkProof create_mock_ipa_proof();
 bb::HonkProof create_mock_translator_proof();
 
 /**
+ * @brief Create a mock batched joint proof (Translator Oink + joint sumcheck + joint PCS).
+ * @details Matches the structure produced by BatchedHonkTranslatorProver::prove().
+ */
+bb::HonkProof create_mock_batched_joint_proof();
+
+/**
  * @brief Create a mock Chonk proof which has the correct structure but is not necessarily valid
  *
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints

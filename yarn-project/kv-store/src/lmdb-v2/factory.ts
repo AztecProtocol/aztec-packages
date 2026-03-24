@@ -1,12 +1,12 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { DataStoreConfig } from '../config.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
 const MAX_READERS = 16;

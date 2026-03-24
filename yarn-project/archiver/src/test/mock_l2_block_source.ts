@@ -18,7 +18,12 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  EmptyL1RollupConstants,
+  type L1RollupConstants,
+  getEpochAtSlot,
+  getSlotRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type BlockHeader, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -40,6 +45,12 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   /** Creates blocks grouped into single-block checkpoints. */
   public async createBlocks(numBlocks: number) {
     await this.createCheckpoints(numBlocks, 1);
+  }
+
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(
+      this.checkpointList.length === 0 ? CheckpointNumber.ZERO : CheckpointNumber(this.checkpointList.length),
+    );
   }
 
   /** Creates checkpoints, each containing `blocksPerCheckpoint` blocks. */
@@ -388,6 +399,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
             txEffect.transactionFee.toBigInt(),
             await block.hash(),
             block.number,
+            getEpochAtSlot(block.slot, EmptyL1RollupConstants),
           );
         }
       }
@@ -441,11 +453,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     };
   }
 
-  getL2EpochNumber(): Promise<EpochNumber> {
+  getSyncedL2EpochNumber(): Promise<EpochNumber> {
     throw new Error('Method not implemented.');
   }
 
-  getL2SlotNumber(): Promise<SlotNumber> {
+  getSyncedL2SlotNumber(): Promise<SlotNumber> {
     throw new Error('Method not implemented.');
   }
 

@@ -26,7 +26,7 @@ describe('CustomMessage - Multi-Log Pattern', () => {
       accounts: [account],
     } = await setup(1));
     await ensureAccountContractsPublished(wallet, [account]);
-    contract = await CustomMessageContract.deploy(wallet).send({ from: account });
+    ({ contract } = await CustomMessageContract.deploy(wallet).send({ from: account }));
   });
 
   afterAll(() => teardown());
@@ -34,7 +34,7 @@ describe('CustomMessage - Multi-Log Pattern', () => {
   it('reassembles a multi-log event from multiple private logs', async () => {
     const values = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
 
-    const tx = await contract.methods
+    const { receipt: tx } = await contract.methods
       .emit_multi_log_event(values[0], values[1], values[2], values[3], account)
       .send({ from: account });
 
@@ -56,7 +56,7 @@ describe('CustomMessage - Multi-Log Pattern', () => {
     const valuesA = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
     const valuesB = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
 
-    const tx = await new BatchCall(wallet, [
+    const { receipt: tx } = await new BatchCall(wallet, [
       contract.methods.emit_multi_log_event(valuesA[0], valuesA[1], valuesA[2], valuesA[3], account),
       contract.methods.emit_multi_log_event(valuesB[0], valuesB[1], valuesB[2], valuesB[3], account),
     ]).send({ from: account });

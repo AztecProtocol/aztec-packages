@@ -13,14 +13,9 @@ import type { ZodFor } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 /**
- * Configuration for the Validator HA Signer
- *
- * This config is used for distributed locking and slashing protection
- * when running multiple validator nodes in a high-availability setup.
+ * Base signing protection configuration shared by both HA (Postgres) and local (LMDB) signers.
  */
-export interface ValidatorHASignerConfig {
-  /** Whether HA signing / slashing protection is enabled */
-  haSigningEnabled: boolean;
+export interface BaseSignerConfig {
   /** L1 contract addresses (rollup address required) */
   l1Contracts: Pick<L1ContractAddresses, 'rollupAddress'>;
   /** Unique identifier for this node */
@@ -33,30 +28,9 @@ export interface ValidatorHASignerConfig {
   maxStuckDutiesAgeMs?: number;
   /** Optional: clean up old duties after this many hours (disabled if not set) */
   cleanupOldDutiesAfterHours?: number;
-  /**
-   * PostgreSQL connection string
-   * Format: postgresql://user:password@host:port/database
-   */
-  databaseUrl?: string;
-  /**
-   * PostgreSQL connection pool configuration
-   */
-  /** Maximum number of clients in the pool (default: 10) */
-  poolMaxCount?: number;
-  /** Minimum number of clients in the pool (default: 0) */
-  poolMinCount?: number;
-  /** Idle timeout in milliseconds (default: 10000) */
-  poolIdleTimeoutMs?: number;
-  /** Connection timeout in milliseconds (default: 0, no timeout) */
-  poolConnectionTimeoutMs?: number;
 }
 
-export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASignerConfig> = {
-  haSigningEnabled: {
-    env: 'VALIDATOR_HA_SIGNING_ENABLED',
-    description: 'Whether HA signing / slashing protection is enabled',
-    ...booleanConfigHelper(false),
-  },
+export const baseSignerConfigMappings: ConfigMappingsType<BaseSignerConfig> = {
   l1Contracts: {
     description: 'L1 contract addresses (rollup address required)',
     nested: {
@@ -90,6 +64,47 @@ export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASign
     env: 'VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H',
     description: 'Optional: clean up old duties after this many hours (disabled if not set)',
     ...optionalNumberConfigHelper(),
+  },
+};
+
+export const BaseSignerConfigSchema = z.object({
+  l1Contracts: z.object({ rollupAddress: z.instanceof(EthAddress) }),
+  nodeId: z.string(),
+  pollingIntervalMs: z.number().min(0),
+  signingTimeoutMs: z.number().min(0),
+  maxStuckDutiesAgeMs: z.number().min(0).optional(),
+  cleanupOldDutiesAfterHours: z.number().min(0).optional(),
+}) satisfies ZodFor<BaseSignerConfig>;
+
+/**
+ * Configuration for the Validator HA Signer.
+ *
+ * Extends BaseSignerConfig with a flag to enable HA mode and Postgres connection settings.
+ */
+export interface ValidatorHASignerConfig extends BaseSignerConfig {
+  /** Whether HA signing / slashing protection is enabled */
+  haSigningEnabled: boolean;
+  /**
+   * PostgreSQL connection string
+   * Format: postgresql://user:password@host:port/database
+   */
+  databaseUrl?: string;
+  /** Maximum number of clients in the pool (default: 10) */
+  poolMaxCount?: number;
+  /** Minimum number of clients in the pool (default: 0) */
+  poolMinCount?: number;
+  /** Idle timeout in milliseconds (default: 10000) */
+  poolIdleTimeoutMs?: number;
+  /** Connection timeout in milliseconds (default: 0, no timeout) */
+  poolConnectionTimeoutMs?: number;
+}
+
+export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASignerConfig> = {
+  ...baseSignerConfigMappings,
+  haSigningEnabled: {
+    env: 'VALIDATOR_HA_SIGNING_ENABLED',
+    description: 'Whether HA signing / slashing protection is enabled',
+    ...booleanConfigHelper(false),
   },
   databaseUrl: {
     env: 'VALIDATOR_HA_DATABASE_URL',
@@ -131,16 +146,8 @@ export function getConfigEnvVars(): ValidatorHASignerConfig {
   return getConfigFromMappings<ValidatorHASignerConfig>(validatorHASignerConfigMappings);
 }
 
-export const ValidatorHASignerConfigSchema = z.object({
+export const ValidatorHASignerConfigSchema = BaseSignerConfigSchema.extend({
   haSigningEnabled: z.boolean(),
-  l1Contracts: z.object({
-    rollupAddress: z.instanceof(EthAddress),
-  }),
-  nodeId: z.string(),
-  pollingIntervalMs: z.number().min(0),
-  signingTimeoutMs: z.number().min(0),
-  maxStuckDutiesAgeMs: z.number().min(0).optional(),
-  cleanupOldDutiesAfterHours: z.number().min(0).optional(),
   databaseUrl: z.string().optional(),
   poolMaxCount: z.number().min(0).optional(),
   poolMinCount: z.number().min(0).optional(),

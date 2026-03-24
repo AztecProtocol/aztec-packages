@@ -3,6 +3,14 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PublicEvent, PublicEventFilter } from '../wallet/wallet.js';
 
+/** Result of a paginated public event query. */
+export type GetPublicEventsResult<T> = {
+  /** The decoded events with metadata. */
+  events: PublicEvent<T>[];
+  /** Whether the log limit was reached, indicating more results may be available. */
+  maxLogsHit: boolean;
+};
+
 /**
  * Returns decoded public events given search parameters.
  * @param node - The node to request events from
@@ -12,21 +20,23 @@ import type { PublicEvent, PublicEventFilter } from '../wallet/wallet.js';
  *   - `txHash`: Transaction in which the events were emitted.
  *   - `fromBlock`: The block number from which to start fetching events (inclusive). Defaults to 1.
  *   - `toBlock`: The block number until which to fetch events (not inclusive). Defaults to latest + 1.
- * @returns - The decoded events with metadata.
+ *   - `afterLog`: Log id after which to start fetching logs. Used for pagination.
+ * @returns The decoded events with metadata and a flag indicating if more results are available.
  */
 export async function getPublicEvents<T>(
   node: AztecNode,
   eventMetadataDef: EventMetadataDefinition,
   filter: PublicEventFilter,
-): Promise<PublicEvent<T>[]> {
-  const { logs } = await node.getPublicLogs({
+): Promise<GetPublicEventsResult<T>> {
+  const { logs, maxLogsHit } = await node.getPublicLogs({
     fromBlock: filter.fromBlock ? Number(filter.fromBlock) : undefined,
     toBlock: filter.toBlock ? Number(filter.toBlock) : undefined,
     txHash: filter.txHash,
     contractAddress: filter.contractAddress,
+    afterLog: filter.afterLog,
   });
 
-  const decodedEvents: PublicEvent<T>[] = [];
+  const events: PublicEvent<T>[] = [];
 
   for (const log of logs) {
     const logFields = log.log.getEmittedFields();
@@ -37,7 +47,7 @@ export async function getPublicEvents<T>(
       continue;
     }
 
-    decodedEvents.push({
+    events.push({
       event: decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T,
       metadata: {
         l2BlockNumber: log.id.blockNumber,
@@ -48,5 +58,5 @@ export async function getPublicEvents<T>(
     });
   }
 
-  return decodedEvents;
+  return { events, maxLogsHit };
 }

@@ -1372,3 +1372,132 @@ TEST_F(LMDBStoreTest, can_read_data_from_multiple_threads)
         }
     }
 }
+
+TEST_F(LMDBStoreTest, has_returns_false_for_missing_key)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name);
+
+    KeyOptionalValuesVector entries = { { get_key(0), std::nullopt } };
+    std::vector<bool> results;
+    store->has(entries, results, name);
+
+    EXPECT_EQ(results.size(), 1UL);
+    EXPECT_FALSE(results[0]);
+}
+
+TEST_F(LMDBStoreTest, has_returns_true_for_existing_key)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name);
+    write_test_data({ name }, 3, 1, *store);
+
+    KeyOptionalValuesVector entries = { { get_key(0), std::nullopt }, { get_key(1), std::nullopt } };
+    std::vector<bool> results;
+    store->has(entries, results, name);
+
+    EXPECT_EQ(results.size(), 2UL);
+    EXPECT_TRUE(results[0]);
+    EXPECT_TRUE(results[1]);
+}
+
+TEST_F(LMDBStoreTest, has_returns_true_when_value_exists)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name, true);
+    write_test_data({ name }, 2, 3, *store);
+
+    // Check that key 0 has value (0, 0)
+    ValuesVector requested = { get_value(0, 0) };
+    KeyOptionalValuesVector entries = { { get_key(0), requested } };
+    std::vector<bool> results;
+    store->has(entries, results, name);
+
+    EXPECT_EQ(results.size(), 1UL);
+    EXPECT_TRUE(results[0]);
+}
+
+TEST_F(LMDBStoreTest, has_returns_false_when_value_missing)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name, true);
+    write_test_data({ name }, 2, 3, *store);
+
+    // Check for a value that doesn't exist under key 0
+    ValuesVector requested = { get_value(99, 99) };
+    KeyOptionalValuesVector entries = { { get_key(0), requested } };
+    std::vector<bool> results;
+    store->has(entries, results, name);
+
+    EXPECT_EQ(results.size(), 1UL);
+    EXPECT_FALSE(results[0]);
+}
+
+TEST_F(LMDBStoreTest, has_checks_all_requested_values)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name, true);
+    write_test_data({ name }, 1, 3, *store);
+
+    // All values present
+    ValuesVector all_present = { get_value(0, 0), get_value(0, 1), get_value(0, 2) };
+    KeyOptionalValuesVector entries_all = { { get_key(0), all_present } };
+    std::vector<bool> results_all;
+    store->has(entries_all, results_all, name);
+    EXPECT_TRUE(results_all[0]);
+
+    // One value missing
+    ValuesVector one_missing = { get_value(0, 0), get_value(99, 99) };
+    KeyOptionalValuesVector entries_missing = { { get_key(0), one_missing } };
+    std::vector<bool> results_missing;
+    store->has(entries_missing, results_missing, name);
+    EXPECT_FALSE(results_missing[0]);
+}
+
+TEST_F(LMDBStoreTest, has_handles_mixed_entries)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name, true);
+    write_test_data({ name }, 3, 2, *store);
+
+    KeyOptionalValuesVector entries = {
+        { get_key(0), std::nullopt },                      // key exists, no value check -> true
+        { get_key(99), std::nullopt },                     // key missing -> false
+        { get_key(1), ValuesVector{ get_value(1, 0) } },   // key exists, value present -> true
+        { get_key(2), ValuesVector{ get_value(99, 99) } }, // key exists, value missing -> false
+    };
+    std::vector<bool> results;
+    store->has(entries, results, name);
+
+    EXPECT_EQ(results.size(), 4UL);
+    EXPECT_TRUE(results[0]);
+    EXPECT_FALSE(results[1]);
+    EXPECT_TRUE(results[2]);
+    EXPECT_FALSE(results[3]);
+}
+
+TEST_F(LMDBStoreTest, has_deduplicates_keys)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name);
+    write_test_data({ name }, 2, 1, *store);
+
+    // Same key appearing twice with different value checks
+    KeyOptionalValuesVector entries = {
+        { get_key(0), std::nullopt },
+        { get_key(0), ValuesVector{ get_value(0, 0) } },
+    };
+    std::vector<bool> results;
+    store->has(entries, results, name);
+
+    EXPECT_EQ(results.size(), 2UL);
+    EXPECT_TRUE(results[0]);
+    EXPECT_TRUE(results[1]);
+}

@@ -1,19 +1,26 @@
-/// Decrypts a ciphertext, using AES128.
-///
-/// Returns a BoundedVec containing the plaintext.
-///
-/// It's up to the calling function to determine whether decryption succeeded or failed. See the tests below for an
-/// example of how.
-///
-/// Note that we accept ciphertext as a BoundedVec, not as an array. This is because this function is typically used
-/// when processing logs and at that point we don't have a comptime information about the length of the ciphertext as
-/// the log is not specific to any individual note.
-#[oracle(utilityAes128Decrypt)]
-pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
+#[oracle(aztec_utl_tryAes128Decrypt)]
+unconstrained fn try_aes128_decrypt_oracle<let N: u32>(
     ciphertext: BoundedVec<u8, N>,
     iv: [u8; 16],
     sym_key: [u8; 16],
-) -> BoundedVec<u8, N> {}
+) -> Option<BoundedVec<u8, N>> {}
+
+/// Attempts to decrypt a ciphertext using AES128.
+///
+/// Returns `Option::some(plaintext)` on success, or `Option::none()` if decryption fails (e.g. due to malformed
+/// ciphertext). Note that decryption with the wrong key will still return `Some` with garbage data, it's up to
+/// the calling function to verify correctness (e.g. via a MAC check).
+///
+/// Note that we accept ciphertext as a BoundedVec, not as an array. This is because this function is typically used
+/// when processing logs and at that point we don't have comptime information about the length of the ciphertext as
+/// the log is not specific to any individual note.
+pub unconstrained fn try_aes128_decrypt<let N: u32>(
+    ciphertext: BoundedVec<u8, N>,
+    iv: [u8; 16],
+    sym_key: [u8; 16],
+) -> Option<BoundedVec<u8, N>> {
+    try_aes128_decrypt_oracle(ciphertext, iv, sym_key)
+}
 
 mod test {
     use crate::{
@@ -21,7 +28,7 @@ mod test {
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::aes128_decrypt_oracle;
+    use super::try_aes128_decrypt;
     use poseidon::poseidon2::Poseidon2;
     use std::aes128::aes128_encrypt;
 
@@ -44,13 +51,9 @@ mod test {
 
             let ciphertext: [u8; TEST_CIPHERTEXT_LENGTH] = aes128_encrypt(plaintext, iv, sym_key);
 
-            // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
-            // work with logs with unknown length at compile time. This would not be necessary here as the header
-            // ciphertext length is fixed. But we do it anyway to not have to have duplicate oracles.
             let ciphertext_bvec = BoundedVec::<u8, TEST_CIPHERTEXT_LENGTH>::from_array(ciphertext);
 
-            let received_plaintext = aes128_decrypt_oracle(ciphertext_bvec, iv, sym_key);
-
+            let received_plaintext = try_aes128_decrypt(ciphertext_bvec, iv, sym_key).unwrap();
             assert_eq(received_plaintext.len(), TEST_PLAINTEXT_LENGTH);
             assert_eq(received_plaintext.max_len(), TEST_CIPHERTEXT_LENGTH);
             assert_eq(subarray::<_, _, TEST_PLAINTEXT_LENGTH>(received_plaintext.storage(), 0), plaintext);
@@ -68,21 +71,17 @@ mod test {
         let env = TestEnvironment::new();
 
         env.utility_context(|_| {
-            // The AES decryption oracle will not fail for any ciphertext; it will always return some data. As for
-            // whether the decryption was successful, it's up to the app to check this in a custom way.
+            // The AES decryption oracle will not fail for any valid ciphertext; it will always return
+            // `Some` with some data. Whether the decryption was successful is up to the app to check in a
+            // custom way.
             //
-            // E.g. if it's a note that's been encrypted, then upon decryption, the app can check to see if the note
-            // hash exists onchain. If it doesn't exist onchain, then that's a strong indicator that decryption has
-            // failed.
+            // E.g. if it's a note that's been encrypted, upon decryption the app can check whether the
+            // note hash exists onchain. If it doesn't, that's a strong indicator that decryption failed.
             //
             // E.g. for non-note messages, the plaintext could include a MAC
-            // (https://en.wikipedia.org/wiki/Message_authentication_code). We demonstrate what this could look like in
-            // this test.
-            //
-            // We compute a MAC and we include that MAC in the plaintext. We then encrypt this plaintext to get a
-            // ciphertext. We broadcast the [ciphertext, mac] tuple. The eventual decryptor will expect the mac in the
-            // decrypted plaintext to match the mac that was broadcast. If not, the recipient knows that decryption has
-            // failed.
+            // (https://en.wikipedia.org/wiki/Message_authentication_code). We demonstrate this approach in
+            // this test: we compute a MAC, include it in the plaintext, encrypt, and then verify that
+            // decryption with a bad key produces a MAC mismatch.
             let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
 
             let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
@@ -123,12 +122,12 @@ mod test {
             // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
             // work with logs of unknown length.
             let ciphertext_bvec = BoundedVec::<u8, 48>::from_array(ciphertext);
-            let received_plaintext = aes128_decrypt_oracle(ciphertext_bvec, iv, bad_sym_key);
+            // Decryption with wrong key still returns Some (with garbage).
+            let received_plaintext = try_aes128_decrypt(ciphertext_bvec, iv, bad_sym_key).unwrap();
 
             let extracted_mac_as_bytes: [u8; TEST_MAC_LENGTH] =
                 subarray(received_plaintext.storage(), TEST_PLAINTEXT_LENGTH);
 
-            // We expect this assertion to fail, because we used a bad sym key.
             assert_eq(mac_as_bytes, extracted_mac_as_bytes, "mac does not match");
         });
     }

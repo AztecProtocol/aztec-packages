@@ -24,7 +24,8 @@ template <typename LookupSettings> class LookupIntoPDecomposition : public Index
         }();
 
         const auto& [radix, limb_index, _] = tup;
-        return cumulative_p_limb_index.at(static_cast<size_t>(radix)) + static_cast<uint32_t>(limb_index);
+        return cumulative_p_limb_index.at(static_cast<size_t>(static_cast<uint64_t>(radix))) +
+               static_cast<uint32_t>(limb_index);
     }
 };
 

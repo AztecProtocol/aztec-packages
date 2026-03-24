@@ -1,0 +1,1 @@
+barretenberg_module(batched_honk_translator translator_vm ultra_honk sumcheck commitment_schemes goblin)

@@ -26,7 +26,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   });
 
   it('transfer less than balance', async () => {
-    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const balance0 = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     const tokenTransferInteraction = asset.methods.transfer(adminAddress, otherAddress, amount, 0);
@@ -35,7 +38,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   });
 
   it('transfer to self', async () => {
-    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const balance0 = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
@@ -44,7 +50,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   });
 
   it('transfer on behalf of other', async () => {
-    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const balance0 = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balance0 / 2n;
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
@@ -64,7 +73,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
 
   describe('failure cases', () => {
     it('transfer more than balance', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 + 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -74,7 +86,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     });
 
     it('transfer on behalf of self with non-zero nonce', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 - 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -86,8 +101,14 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     });
 
     it('transfer more than balance on behalf of other', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
-      const balance1 = await asset.methods.balance_of_private(otherAddress).simulate({ from: otherAddress });
+      const balance0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
+      const balance1 = await asset.methods
+        .balance_of_private(otherAddress)
+        .simulate({ from: otherAddress })
+        .then(r => r.result);
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -99,8 +120,18 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       await expect(
         simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
       ).rejects.toThrow('Assertion failed: Balance too low');
-      expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_private(otherAddress).simulate({ from: otherAddress })).toEqual(balance1);
+      expect(
+        await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result),
+      ).toEqual(balance0);
+      expect(
+        await asset.methods
+          .balance_of_private(otherAddress)
+          .simulate({ from: otherAddress })
+          .then(r => r.result),
+      ).toEqual(balance1);
     });
 
     it.skip('transfer into account to overflow', () => {
@@ -111,7 +142,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     });
 
     it('transfer on behalf of other without approval', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 / 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -130,7 +164,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 / 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -148,7 +185,12 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       await expect(
         simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
       ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-      expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
+      expect(
+        await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result),
+      ).toEqual(balance0);
     });
 
     it('transfer from a blacklisted account', async () => {

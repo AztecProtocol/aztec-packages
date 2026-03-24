@@ -242,4 +242,23 @@ TEST(OriginTag, RetaggingReflectsProtocolConstraints)
     EXPECT_NO_THROW(OriginTag(comm_times_challenge, eval_retagged));
 }
 
+// Test that unique per-object IDs are assigned
+TEST(OriginTag, UniqueTagIds)
+{
+    auto tag_a = OriginTag(0, 0, true);
+    auto tag_b = OriginTag(0, 0, true);
+
+    // Each constructed tag gets a unique ID
+    EXPECT_NE(tag_a.tag_id, tag_b.tag_id);
+
+    // Copy preserves the ID
+    auto tag_a_copy = tag_a;
+    EXPECT_EQ(tag_a_copy.tag_id, tag_a.tag_id);
+
+    // Merge produces a new ID
+    auto merged = OriginTag(tag_a, tag_b);
+    EXPECT_NE(merged.tag_id, tag_a.tag_id);
+    EXPECT_NE(merged.tag_id, tag_b.tag_id);
+}
+
 #endif // AZTEC_NO_ORIGIN_TAGS

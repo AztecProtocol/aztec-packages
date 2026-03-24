@@ -89,6 +89,9 @@ TEST(BN254Fr, SplitIntoEndomorphismScalars)
     k1.self_to_montgomery_form();
     k2.self_to_montgomery_form();
 
+    EXPECT_LT(uint256_t(k1).get_msb(), 128);
+    EXPECT_LT(uint256_t(k2).get_msb(), 128);
+
     fr lambda = fr::cube_root_of_unity();
     result = k2 * lambda;
     result = k1 - result;
@@ -106,10 +109,12 @@ TEST(BN254Fr, SplitIntoEndomorphismScalarsSimple)
     fr::__copy(input, k);
 
     fr::split_into_endomorphism_scalars(k, k1, k2);
-    // AUDITTODO: double check this test.
     fr result{ 0, 0, 0, 0 };
     k1.self_to_montgomery_form_reduced();
     k2.self_to_montgomery_form_reduced();
+
+    EXPECT_LT(uint256_t(k1).get_msb(), 128);
+    EXPECT_LT(uint256_t(k2).get_msb(), 128);
 
     fr lambda = fr::cube_root_of_unity();
     result = k2 * lambda;

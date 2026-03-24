@@ -323,22 +323,25 @@ using lookup_execution_get_max_limbs_relation = lookup_relation_base<FF_, lookup
 struct lookup_execution_check_written_storage_slot_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_CHECK_WRITTEN_STORAGE_SLOT";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_sstore;
-    static constexpr Column DST_SELECTOR = Column::written_public_data_slots_tree_check_sel;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_sel;
     static constexpr Column COUNTS = Column::lookup_execution_check_written_storage_slot_counts;
     static constexpr Column INVERSES = Column::lookup_execution_check_written_storage_slot_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_dynamic_da_gas_factor,
-        ColumnAndShifts::execution_prev_written_public_data_slots_tree_root
+        ColumnAndShifts::execution_register_1_,
+        ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
+        ColumnAndShifts::execution_written_slots_tree_height,
+        ColumnAndShifts::execution_sel_gas_sstore,
+        ColumnAndShifts::execution_written_slots_tree_siloing_separator,
+        ColumnAndShifts::execution_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::written_public_data_slots_tree_check_address,
-        ColumnAndShifts::written_public_data_slots_tree_check_slot,
-        ColumnAndShifts::written_public_data_slots_tree_check_leaf_not_exists,
-        ColumnAndShifts::written_public_data_slots_tree_check_root
+        ColumnAndShifts::indexed_tree_check_not_exists, ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,       ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_sel_silo,   ColumnAndShifts::indexed_tree_check_siloing_separator,
+        ColumnAndShifts::indexed_tree_check_address
     };
 };
 

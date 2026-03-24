@@ -4,12 +4,7 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import {
-  BBCircuitVerifier,
-  type ClientProtocolCircuitVerifier,
-  QueuedIVCVerifier,
-  TestCircuitVerifier,
-} from '@aztec/bb-prover';
+import type { ClientProtocolCircuitVerifier } from '@aztec/bb-prover';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -68,7 +63,10 @@ export class FullProverTest {
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
-  circuitProofVerifier?: ClientProtocolCircuitVerifier;
+  /** Returns the proof verifier from the prover node (for test assertions). */
+  get circuitProofVerifier(): ClientProtocolCircuitVerifier | undefined {
+    return this.proverAztecNode?.getProofVerifier();
+  }
   provenAsset!: TokenContract;
   context!: EndToEndContext;
   private proverAztecNode!: AztecNodeService;
@@ -106,7 +104,9 @@ export class FullProverTest {
     await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
 
     this.logger.info('Applying base setup: deploying token contract');
-    const { contract: asset, instance } = await TokenContract.deploy(
+    const {
+      receipt: { contract: asset, instance },
+    } = await TokenContract.deploy(
       this.wallet,
       this.accounts[0],
       FullProverTest.TOKEN_NAME,
@@ -121,7 +121,7 @@ export class FullProverTest {
 
     this.tokenSim = new TokenSimulator(this.fakeProofsAsset, this.wallet, this.accounts[0], this.logger, this.accounts);
 
-    expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).toBe(
+    expect((await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).result).toBe(
       this.accounts[0].toBigInt(),
     );
   }
@@ -168,9 +168,6 @@ export class FullProverTest {
 
       await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
 
-      const verifier = await BBCircuitVerifier.new(bbConfig);
-      this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
-
       this.logger.debug(`Configuring the node for real proofs...`);
       await this.aztecNodeAdmin.setConfig({
         realProofs: true,
@@ -178,7 +175,6 @@ export class FullProverTest {
       });
     } else {
       this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
-      this.circuitProofVerifier = new TestCircuitVerifier();
       await this.aztecNodeAdmin.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
@@ -310,16 +306,20 @@ export class FullProverTest {
     } = this;
     tokenSim.mintPublic(address, publicAmount);
 
-    const publicBalance = await fakeProofsAsset.methods.balance_of_public(address).simulate({ from: address });
+    const { result: publicBalance } = await fakeProofsAsset.methods
+      .balance_of_public(address)
+      .simulate({ from: address });
     this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
     expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
     tokenSim.mintPrivate(address, publicAmount);
-    const privateBalance = await fakeProofsAsset.methods.balance_of_private(address).simulate({ from: address });
+    const { result: privateBalance } = await fakeProofsAsset.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
     this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
     expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
-    const totalSupply = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
+    const { result: totalSupply } = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
     this.logger.verbose(`Total supply: ${totalSupply}`);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
   }

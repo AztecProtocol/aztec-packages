@@ -10,7 +10,9 @@ export interface L1ToL2MessageSource {
   /**
    * Gets new L1 to L2 message (to be) included in a given checkpoint.
    * @param checkpointNumber - Checkpoint number to get messages for.
-   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   * @returns The L1 to L2 messages/leaves of the messages subtree.
+   * @throws If the message tree for the given checkpoint has not yet been sealed on L1
+   * (i.e., checkpointNumber >= inbox treeInProgress).
    */
   getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]>;
 

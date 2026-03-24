@@ -253,6 +253,53 @@ class MegaFlavor {
         {
             return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
         }
+
+        // Entities masked in ZK mode: all witness except ECC op wires (masked via random ops)
+        // and calldata (left unmasked).
+        auto get_masked()
+        {
+            return RefArray{ this->w_l,
+                             this->w_r,
+                             this->w_o,
+                             this->w_4,
+                             this->z_perm,
+                             this->lookup_inverses,
+                             this->lookup_read_counts,
+                             this->lookup_read_tags,
+                             this->calldata_read_counts,
+                             this->calldata_read_tags,
+                             this->calldata_inverses,
+                             this->secondary_calldata,
+                             this->secondary_calldata_read_counts,
+                             this->secondary_calldata_read_tags,
+                             this->secondary_calldata_inverses,
+                             this->return_data,
+                             this->return_data_read_counts,
+                             this->return_data_read_tags,
+                             this->return_data_inverses };
+        }
+        auto get_masked() const
+        {
+            return RefArray{ this->w_l,
+                             this->w_r,
+                             this->w_o,
+                             this->w_4,
+                             this->z_perm,
+                             this->lookup_inverses,
+                             this->lookup_read_counts,
+                             this->lookup_read_tags,
+                             this->calldata_read_counts,
+                             this->calldata_read_tags,
+                             this->calldata_inverses,
+                             this->secondary_calldata,
+                             this->secondary_calldata_read_counts,
+                             this->secondary_calldata_read_tags,
+                             this->secondary_calldata_inverses,
+                             this->return_data,
+                             this->return_data_read_counts,
+                             this->return_data_read_tags,
+                             this->return_data_inverses };
+        }
     };
 
     // Default WitnessEntities alias
@@ -300,6 +347,7 @@ class MegaFlavor {
         auto get_witness() { return WitnessEntities_<DataType>::get_all(); };
         auto get_witness() const { return WitnessEntities_<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
     };
 
     // Default AllEntities alias (no ZK)

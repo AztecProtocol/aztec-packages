@@ -34,6 +34,7 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { BatchCall, type Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
@@ -72,7 +73,11 @@ import { TestWallet } from './test-wallet/test_wallet.js';
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
-const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
+
+const l1ContractsEnvVars = getL1ContractsConfigEnvVars();
+const ETHEREUM_SLOT_DURATION = l1ContractsEnvVars.ethereumSlotDuration;
+const AZTEC_SLOT_DURATION = l1ContractsEnvVars.aztecSlotDuration;
+
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -153,7 +158,7 @@ class TestVariant {
     await Promise.all(
       managers.map(async m => {
         const deployMethod = await m.getDeployMethod();
-        return deployMethod.send({ from: AztecAddress.ZERO });
+        return deployMethod.send({ from: NO_FROM });
       }),
     );
     return accounts.map(acc => acc.address);
@@ -203,7 +208,7 @@ class TestVariant {
         );
         this.contractAddresses.push(accountManager.address);
         const deployMethod = await accountManager.getDeployMethod();
-        const txHash = await deployMethod.send({
+        const { txHash } = await deployMethod.send({
           from: deployAccount,
           skipClassPublication: true,
           skipInstancePublication: true,
@@ -218,7 +223,9 @@ class TestVariant {
       for (let i = 0; i < this.txCount; i++) {
         const recipient = this.accounts[(i + 1) % this.txCount];
         const tk = TokenContract.at(this.token.address, this.wallet);
-        txHashes.push(await tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i], wait: NO_WAIT }));
+        txHashes.push(
+          (await tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i], wait: NO_WAIT })).txHash,
+        );
       }
       return txHashes;
     } else if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -229,7 +236,7 @@ class TestVariant {
         const recipient = this.accounts[(i + 1) % this.txCount];
         const tk = TokenContract.at(this.token.address, this.wallet);
         txHashes.push(
-          await tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender, wait: NO_WAIT }),
+          (await tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender, wait: NO_WAIT })).txHash,
         );
       }
       return txHashes;
@@ -247,7 +254,7 @@ class TestVariant {
         ]);
 
         this.seed += 100n;
-        txHashes.push(await batch.send({ from: this.accounts[0], wait: NO_WAIT }));
+        txHashes.push((await batch.send({ from: this.accounts[0], wait: NO_WAIT })).txHash);
       }
       return txHashes;
     } else {
@@ -340,10 +347,16 @@ describe('e2e_synching', () => {
       variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
-      const token = await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+      const { contract: token } = await TokenContract.deploy(
+        wallet,
+        defaultAccountAddress,
+        'TestToken',
+        'TST',
+        18n,
+      ).send({
         from: defaultAccountAddress,
       });
-      const spam = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress });
+      const { contract: spam } = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress });
 
       variant.setToken(token);
       variant.setSpam(spam);
@@ -434,6 +447,7 @@ describe('e2e_synching', () => {
       {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
       },
       {
         blobClient,
@@ -457,7 +471,7 @@ describe('e2e_synching', () => {
     for (const checkpoint of checkpoints) {
       const lastBlock = checkpoint.blocks.at(-1)!;
       const targetTime = Number(lastBlock.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
-      while ((await cheatCodes.eth.timestamp()) < targetTime) {
+      while ((await cheatCodes.eth.lastBlockTimestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
@@ -542,15 +556,21 @@ describe('e2e_synching', () => {
             const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
-              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
-                from: defaultAccountAddress,
-              }),
+              (
+                await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+                  from: defaultAccountAddress,
+                })
+              ).contract,
             );
-            contracts.push(await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress }));
             contracts.push(
-              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
-                from: defaultAccountAddress,
-              }),
+              (await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress })).contract,
+            );
+            contracts.push(
+              (
+                await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+                  from: defaultAccountAddress,
+                })
+              ).contract,
             );
 
             await watcher.stop();

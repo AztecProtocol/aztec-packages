@@ -3,7 +3,6 @@ id: high_availability_sequencers
 displayed_sidebar: operatorsSidebar
 title: High Availability Sequencers
 description: Learn how to run highly available sequencers across multiple nodes with database-backed coordination to prevent double-signing and ensure redundancy.
-draft: true
 ---
 
 ## Overview
@@ -145,6 +144,7 @@ Never transmit private keys over unencrypted channels or store them in version c
 Generate a base keystore with multiple publishers using the Aztec CLI. This will create one attester identity with multiple publisher keys that can be distributed across your nodes.
 
 #if(testnet)
+
 ```bash
 # Generate base keystore with one attester and 3 publishers
 aztec validator-keys new \
@@ -156,7 +156,9 @@ aztec validator-keys new \
   --publisher-count 3 \
   --data-dir ~/ha-keys-temp
 ```
+
 #else
+
 ```bash
 # Generate base keystore with one attester and 2 publishers
 aztec validator-keys new \
@@ -169,6 +171,7 @@ aztec validator-keys new \
   --publisher-count 2 \
   --data-dir ~/ha-keys-temp
 ```
+
 #endif
 
 This command generates:
@@ -416,13 +419,15 @@ export VALIDATOR_HA_SIGNING_TIMEOUT_MS=3000      # Default: 3000ms
 
 **Optional Tuning Variables:**
 
-| Variable                               | Description                      | Default            |
-| -------------------------------------- | -------------------------------- | ------------------ |
-| `VALIDATOR_HA_POLLING_INTERVAL_MS`     | How often to check duty status   | `100`              |
-| `VALIDATOR_HA_SIGNING_TIMEOUT_MS`      | Max wait for in-progress signing | `3000`             |
-| `VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS` | Max age before cleanup           | `2 * slotDuration` |
-| `VALIDATOR_HA_POOL_MAX`                | Max database connections         | `10`               |
-| `VALIDATOR_HA_POOL_MIN`                | Min database connections         | `0`                |
+| Variable                               | Description                                      | Default            |
+| -------------------------------------- | ------------------------------------------------ | ------------------ |
+| `VALIDATOR_HA_POLLING_INTERVAL_MS`     | How often to check duty status                   | `100`              |
+| `VALIDATOR_HA_SIGNING_TIMEOUT_MS`      | Max wait for in-progress signing                 | `3000`             |
+| `VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS` | Max age before cleanup                           | `2 * slotDuration` |
+| `VALIDATOR_HA_POOL_MAX`                | Max database connections                         | `10`               |
+| `VALIDATOR_HA_POOL_MIN`                | Min database connections                         | `0`                |
+| `VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H`    | Clean up old signed duties after this many hours | N/A                |
+
 
 When `VALIDATOR_HA_SIGNING_ENABLED=true`, the validator client automatically:
 

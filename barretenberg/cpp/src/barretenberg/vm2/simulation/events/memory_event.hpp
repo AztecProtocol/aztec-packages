@@ -12,11 +12,11 @@ enum class MemoryMode {
 };
 
 struct MemoryEvent {
-    uint32_t execution_clk;
-    MemoryMode mode;
-    MemoryAddress addr;
-    MemoryValue value;
-    uint16_t space_id;
+    uint32_t execution_clk = 0;
+    MemoryMode mode = MemoryMode::READ;
+    MemoryAddress addr = 0;
+    MemoryValue value = MemoryValue::from_tag(MemoryTag::FF, 0);
+    uint16_t space_id = 0;
 
     /**
      * @brief A comparator to be used by sorting algorithm (std::sort()). We sort first by

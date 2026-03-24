@@ -307,7 +307,7 @@ TEST(BitwiseConstrainingTest, NegativeGapCtr)
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_CTR_DECREMENT), "BITW_CTR_DECREMENT");
 }
 
-TEST(BitwiseConstrainingTest, NegativeLastSetBeforeEnd)
+TEST(BitwiseConstrainingTest, NegativeEndSetBeforeEnd)
 {
     TestTraceContainer trace({
         {
@@ -331,7 +331,7 @@ TEST(BitwiseConstrainingTest, NegativeLastSetBeforeEnd)
     });
 
     check_relation<bitwise>(trace, bitwise::SR_BITW_END_FOR_CTR_ONE);
-    trace.set(C::bitwise_end, 2, 1); // Mutate to wrong value (wrongly activate bitwise_last on last row)
+    trace.set(C::bitwise_end, 2, 1); // Mutate to wrong value (wrongly activate bitwise_end on last row)
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_END_FOR_CTR_ONE), "BITW_END_FOR_CTR_ONE");
 }
 
@@ -501,9 +501,9 @@ TEST(BitwiseConstrainingTest, NegativeResTagShouldMatchInput)
                               "RES_TAG_SHOULD_MATCH_INPUT");
 }
 
-// Verify that #[LAST_ON_ERROR] catches last=0 when err=1.
+// Verify that #[END_ON_ERROR] catches end=0 when err=1.
 // A malicious prover might try to continue computation after an error.
-TEST(BitwiseConstrainingTest, NegativeLastOnError)
+TEST(BitwiseConstrainingTest, NegativeEndOnError)
 {
     // Build a valid error trace
     TestTraceContainer trace;
@@ -517,12 +517,12 @@ TEST(BitwiseConstrainingTest, NegativeLastOnError)
     builder.process(events, trace);
 
     // Verify valid trace passes
-    check_relation<bitwise>(trace, bitwise::SR_LAST_ON_ERROR);
+    check_relation<bitwise>(trace, bitwise::SR_END_ON_ERROR);
 
-    // Mutate: set last=0 on the error row (row 1)
+    // Mutate: set end=0 on the error row (row 1)
     trace.set(C::bitwise_end, 1, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_LAST_ON_ERROR), "LAST_ON_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_END_ON_ERROR), "END_ON_ERROR");
 }
 
 // Verify that #[ERR_ONLY_ON_START] catches err=1 on non-start rows.

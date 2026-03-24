@@ -23,15 +23,15 @@ struct SrsInitSrs {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitSrsResponse";
         uint8_t dummy = 0; // Empty response needs a dummy field for msgpack
-        MSGPACK_FIELDS(dummy);
+        SERIALIZATION_FIELDS(dummy);
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> points_buf; // G1 points (64 bytes each)
+    std::vector<uint8_t> points_buf; // G1 points (32 bytes each, compressed)
     uint32_t num_points;
     std::vector<uint8_t> g2_point; // G2 point (128 bytes)
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(points_buf, num_points, g2_point);
+    SERIALIZATION_FIELDS(points_buf, num_points, g2_point);
     bool operator==(const SrsInitSrs&) const = default;
 };
 
@@ -45,14 +45,14 @@ struct SrsInitGrumpkinSrs {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitGrumpkinSrsResponse";
         uint8_t dummy = 0; // Empty response needs a dummy field for msgpack
-        MSGPACK_FIELDS(dummy);
+        SERIALIZATION_FIELDS(dummy);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> points_buf; // Grumpkin affine elements
     uint32_t num_points;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(points_buf, num_points);
+    SERIALIZATION_FIELDS(points_buf, num_points);
     bool operator==(const SrsInitGrumpkinSrs&) const = default;
 };
 

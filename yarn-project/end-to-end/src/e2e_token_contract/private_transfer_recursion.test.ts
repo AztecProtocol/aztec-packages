@@ -23,7 +23,9 @@ describe('e2e_token_contract private transfer recursion', () => {
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
     const totalNotes = 16;
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, Array(totalNotes).fill(10n));
-    const txReceipt = await asset.methods.transfer(account1Address, totalBalance).send({ from: adminAddress });
+    const { receipt: txReceipt } = await asset.methods
+      .transfer(account1Address, totalBalance)
+      .send({ from: adminAddress });
     const txEffects = await node.getTxEffect(txReceipt.txHash);
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
@@ -59,7 +61,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, noteAmounts);
     const toSend = totalBalance - expectedChange;
 
-    const txReceipt = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress });
+    const { receipt: txReceipt } = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress });
     const txEffects = await node.getTxEffect(txReceipt.txHash);
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
@@ -67,7 +69,9 @@ describe('e2e_token_contract private transfer recursion', () => {
     // We should have created two new notes, one for the recipient and one for the sender (with the change)
     expect(txEffects!.data.noteHashes.length).toBe(2);
 
-    const senderBalance = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: senderBalance } = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress });
     expect(senderBalance).toEqual(expectedChange);
 
     const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
@@ -93,7 +97,9 @@ describe('e2e_token_contract private transfer recursion', () => {
 
   describe('failure cases', () => {
     it('transfer more than balance', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
 
       const amount = balance0 + 1n;
       expect(amount).toBeGreaterThan(0n);

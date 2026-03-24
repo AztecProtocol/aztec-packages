@@ -32,10 +32,9 @@
 <pre><code>pub fn encode_partial_note_private_message&lt;PartialNotePrivateContent&gt;(
     partial_note_private_content: PartialNotePrivateContent,
     owner: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    storage_slot: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     randomness: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     note_completion_log_tag: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
-) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;PartialNotePrivateContent as Packable&gt;::N + 5]
+) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;PartialNotePrivateContent as Packable&gt;::N + 4]
 <div class="where-clause">where
     PartialNotePrivateContent: <a href="../../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     PartialNotePrivateContent: <a href="../../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></pre>

@@ -576,9 +576,8 @@ class MergeTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES_EVAL", frs_per_Fr);
         manifest_expected.add_entry(round, "SHPLONK_BATCHED_QUOTIENT", frs_per_G);
 
-        // Round 3: KZG masking challenge, then send W commitment
+        // Round 3: KZG:W commitment
         round++;
-        manifest_expected.add_challenge(round, "KZG:masking_challenge");
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
 
         return manifest_expected;

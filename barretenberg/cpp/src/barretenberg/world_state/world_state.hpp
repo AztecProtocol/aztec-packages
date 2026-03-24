@@ -38,14 +38,14 @@ template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
-    MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
+    SERIALIZATION_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
 
 template <typename LeafValueType> struct SequentialInsertionResult {
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
 
-    MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
+    SERIALIZATION_FIELDS(low_leaf_witness_data, insertion_witness_data);
 };
 
 const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
@@ -287,11 +287,11 @@ class WorldState {
                                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                                     const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
 
-    void checkpoint(const uint64_t& forkId);
+    uint32_t checkpoint(const uint64_t& forkId);
     void commit_checkpoint(const uint64_t& forkId);
     void revert_checkpoint(const uint64_t& forkId);
-    void commit_all_checkpoints(const uint64_t& forkId);
-    void revert_all_checkpoints(const uint64_t& forkId);
+    void commit_all_checkpoints_to(const uint64_t& forkId, uint32_t depth);
+    void revert_all_checkpoints_to(const uint64_t& forkId, uint32_t depth);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;

@@ -198,8 +198,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
               ROW_FIELD_EQ(memory_rw, 1),
               ROW_FIELD_EQ(memory_value, 1),
               ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U1)),
-              ROW_FIELD_EQ(memory_global_addr, (1ULL << 32) + 10),
-              ROW_FIELD_EQ(memory_timestamp, 2001),
               ROW_FIELD_EQ(memory_diff, 1), // (next timestamp - current timestamp - 1 (two writes)) 2003 - 2001 - 1
               ROW_FIELD_EQ(memory_limb_0_, 1),
               ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -219,8 +217,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 1),
                       ROW_FIELD_EQ(memory_value, 0),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U1)),
-                      ROW_FIELD_EQ(memory_global_addr, (1ULL << 32) + 10),
-                      ROW_FIELD_EQ(memory_timestamp, 2003),
                       ROW_FIELD_EQ(memory_diff, 1), // next address - current address (11 - 10)
                       ROW_FIELD_EQ(memory_limb_0_, 1),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -240,8 +236,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 0),
                       ROW_FIELD_EQ(memory_value, 0),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::FF)),
-                      ROW_FIELD_EQ(memory_global_addr, (1ULL << 32) + 11),
-                      ROW_FIELD_EQ(memory_timestamp, 2004),
                       ROW_FIELD_EQ(memory_diff, 1), // next timestamp - current timestamp = 2005 - 2004 = 1
                       ROW_FIELD_EQ(memory_limb_0_, 1),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -261,8 +255,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 1),
                       ROW_FIELD_EQ(memory_value, 5),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U128)),
-                      ROW_FIELD_EQ(memory_global_addr, (1ULL << 32) + 11),
-                      ROW_FIELD_EQ(memory_timestamp, 2005),
                       ROW_FIELD_EQ(memory_diff, 0xFFFELLU << 32), // next address - current address = 2^32 *(2^16 - 2
                       ROW_FIELD_EQ(memory_limb_0_, 0),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -282,8 +274,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 1),
                       ROW_FIELD_EQ(memory_value, 7),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
-                      ROW_FIELD_EQ(memory_global_addr, (0xFFFFULL << 32) + 11),
-                      ROW_FIELD_EQ(memory_timestamp, 3),
                       ROW_FIELD_EQ(memory_diff, 1), // next timestamp - current timestamp = 5 - 3 - 1 (two writes)
                       ROW_FIELD_EQ(memory_limb_0_, 1),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -303,8 +293,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 1),
                       ROW_FIELD_EQ(memory_value, 8),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U8)),
-                      ROW_FIELD_EQ(memory_global_addr, (0xFFFFULL << 32) + 11),
-                      ROW_FIELD_EQ(memory_timestamp, 5),
                       ROW_FIELD_EQ(memory_diff, 1), // next address - current address
                       ROW_FIELD_EQ(memory_limb_0_, 1),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -324,8 +312,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 1),
                       ROW_FIELD_EQ(memory_value, 9),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U16)),
-                      ROW_FIELD_EQ(memory_global_addr, (0xFFFFULL << 32) + 12),
-                      ROW_FIELD_EQ(memory_timestamp, 7),
                       ROW_FIELD_EQ(memory_diff, 1), // next timestamp - current timestamp = 9 - 7 - 1
                       ROW_FIELD_EQ(memory_limb_0_, 1),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -345,8 +331,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 1),
                       ROW_FIELD_EQ(memory_value, 10),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U32)),
-                      ROW_FIELD_EQ(memory_global_addr, (0xFFFFULL << 32) + 12),
-                      ROW_FIELD_EQ(memory_timestamp, 9),
                       ROW_FIELD_EQ(memory_diff, 9), // next timestamp - current timestamp = 18 - 9
                       ROW_FIELD_EQ(memory_limb_0_, 9),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -366,8 +350,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 0),
                       ROW_FIELD_EQ(memory_value, 10),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U32)),
-                      ROW_FIELD_EQ(memory_global_addr, (0xFFFFULL << 32) + 12),
-                      ROW_FIELD_EQ(memory_timestamp, 18),
                       ROW_FIELD_EQ(memory_diff, 0), // next timestamp - current timestamp = 18 - 18
                       ROW_FIELD_EQ(memory_limb_0_, 0),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -387,8 +369,6 @@ TEST(MemoryTraceGenTest, MultipleEntries)
                       ROW_FIELD_EQ(memory_rw, 0),
                       ROW_FIELD_EQ(memory_value, 10),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U32)),
-                      ROW_FIELD_EQ(memory_global_addr, (0xFFFFULL << 32) + 12),
-                      ROW_FIELD_EQ(memory_timestamp, 18),
                       ROW_FIELD_EQ(memory_diff, 0), // next timestamp - current timestamp = 18 - 0
                       ROW_FIELD_EQ(memory_limb_0_, 0),
                       ROW_FIELD_EQ(memory_limb_1_, 0),
@@ -431,8 +411,6 @@ TEST(MemoryTraceGenTest, SingleEntry)
                       ROW_FIELD_EQ(memory_rw, 1),
                       ROW_FIELD_EQ(memory_value, 12345),
                       ROW_FIELD_EQ(memory_tag, static_cast<uint8_t>(MemoryTag::U16)),
-                      ROW_FIELD_EQ(memory_global_addr, (17ULL << 32) + 10),
-                      ROW_FIELD_EQ(memory_timestamp, 275),
                       ROW_FIELD_EQ(memory_diff, 0),
                       ROW_FIELD_EQ(memory_limb_0_, 0),
                       ROW_FIELD_EQ(memory_limb_1_, 0),

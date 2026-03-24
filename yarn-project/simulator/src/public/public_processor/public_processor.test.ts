@@ -91,6 +91,7 @@ describe('public_processor', () => {
       new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO), /*nextKey=*/ Fr.ZERO, /*nextIndex=*/ 0n),
     );
     merkleTree.getStateReference.mockResolvedValue(stateReference);
+    merkleTree.createCheckpoint.mockResolvedValue(1);
 
     publicTxSimulator.simulate.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
@@ -158,7 +159,7 @@ describe('public_processor', () => {
       expect(failed[0].error).toEqual(new Error(`Failed`));
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(0);
     });
 
     it('if a tx errors with assertion failure, public processor returns failed tx with its assertion message', async function () {
@@ -173,7 +174,7 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Forced assertion failure/);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(0);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -186,6 +187,22 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
       expect(processed[1].hash).toEqual(txs[1].getTxHash());
       expect(failed).toEqual([]);
+    });
+
+    it('skips tx before processing if estimated blob fields would exceed limit', async function () {
+      const tx = await mockTxWithPublicCalls();
+      // Add note hashes to inflate the estimated blob fields size
+      for (let i = 0; i < 10; i++) {
+        tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes[i] = Fr.random();
+      }
+      // 3 overhead + 1 nullifier + 10 note hashes = 14 estimated fields
+      // Set a limit that is too small for even one tx
+      const [processed, failed] = await processor.process([tx], { maxBlobFields: 10, isBuildingProposal: true });
+
+      expect(processed).toEqual([]);
+      expect(failed).toEqual([]);
+      // The simulator should not have been called since the tx was skipped pre-processing
+      expect(publicTxSimulator.simulate).not.toHaveBeenCalled();
     });
 
     it('does not exceed max blob fields limit', async function () {
@@ -201,16 +218,13 @@ describe('public_processor', () => {
       const maxBlobFields = actualBlobFields * 2;
 
       // Process all 3 transactions with the blob field limit
-      const [processed, failed, _usedTxs, _returns, usedTxBlobFields] = await processor.process(txs, { maxBlobFields });
+      const [processed, failed] = await processor.process(txs, { maxBlobFields });
 
       // Should only process 2 transactions due to blob field limit
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
       expect(processed[1].hash).toEqual(txs[1].getTxHash());
       expect(failed).toEqual([]);
-
-      const expectedBlobFields = actualBlobFields * 2;
-      expect(usedTxBlobFields).toBe(expectedBlobFields);
     });
 
     it('does not send a transaction to the prover if pre validation fails', async function () {
@@ -301,8 +315,42 @@ describe('public_processor', () => {
       expect(failed[0].error.message).toMatch(/Not enough balance/i);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(0);
       expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  describe('checkpoint depth', () => {
+    it('calls revertAllCheckpointsTo with depth on tx failure', async function () {
+      merkleTree.createCheckpoint.mockResolvedValue(2);
+      publicTxSimulator.simulate.mockRejectedValue(new Error('Boom'));
+
+      const tx = await mockTxWithPublicCalls();
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toEqual([]);
+      expect(failed).toHaveLength(1);
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalledWith(1);
+      expect(merkleTree.commitCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('createCheckpoint is called for each tx', async function () {
+      const txs = await timesParallel(3, () => mockPrivateOnlyTx());
+
+      await processor.process(txs);
+
+      expect(merkleTree.createCheckpoint).toHaveBeenCalledTimes(3);
+    });
+
+    it('commits checkpoint on successful tx', async function () {
+      const tx = await mockTxWithPublicCalls();
+
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toHaveLength(1);
+      expect(failed).toEqual([]);
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.revertAllCheckpointsTo).not.toHaveBeenCalled();
     });
   });
 
@@ -313,8 +361,8 @@ describe('public_processor', () => {
     // we want to confirm that even non-revertibles get cleared
     const contractClassId = await mockContractClassForTx(tx, /*revertible=*/ false);
 
-    publicTxSimulator.simulate.mockImplementation(async (simulatedTx: Tx) => {
-      await contractsDB.addNewContracts(simulatedTx);
+    publicTxSimulator.simulate.mockImplementation((simulatedTx: Tx) => {
+      contractsDB.addNewContracts(simulatedTx);
       throw new Error('Uncaught error');
     });
 

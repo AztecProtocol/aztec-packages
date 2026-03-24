@@ -312,3 +312,140 @@ TYPED_TEST(MultiScalarMulTestsBothConstant, InvalidWitnesses)
     BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
 }
+
+// ============================================================
+// Infinity flag tests
+// ============================================================
+
+// ACIR convention for encoding a curve point: (x, y, is_infinite) as field values.
+using MsmGrumpkinPoint = bb::grumpkin::g1::affine_element;
+using MsmFF = bb::fr;
+
+struct MsmAcirPoint {
+    MsmFF x, y, inf;
+    static MsmAcirPoint from_native(const MsmGrumpkinPoint& p)
+    {
+        return { p.x, p.y, p.is_point_at_infinity() ? MsmFF(1) : MsmFF(0) };
+    }
+    static MsmAcirPoint infinity() { return { MsmFF(0), MsmFF(0), MsmFF(1) }; }
+};
+
+// Grumpkin scalar split into low 128-bit and high 128-bit field limbs.
+struct MsmScalar {
+    MsmFF lo, hi;
+    static MsmScalar zero() { return { MsmFF(0), MsmFF(0) }; }
+    static MsmScalar from_native(const bb::fq& s)
+    {
+        uint256_t u = uint256_t(s);
+        return { u.slice(0, 128), u.slice(128, 256) };
+    }
+};
+
+template <typename Builder> class MultiScalarMulInfinityTests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    // Push an MsmAcirPoint to witness; return [x, y, inf] indices.
+    static std::array<uint32_t, 3> push_point(WitnessVector& witness, const MsmAcirPoint& pt)
+    {
+        uint32_t xi = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(pt.x);
+        uint32_t yi = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(pt.y);
+        uint32_t ii = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(pt.inf);
+        return { xi, yi, ii };
+    }
+
+    // Push a scalar (lo, hi) to witness; return [lo_idx, hi_idx].
+    static std::array<uint32_t, 2> push_scalar(WitnessVector& witness, const MsmScalar& s)
+    {
+        uint32_t lo_idx = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(s.lo);
+        uint32_t hi_idx = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(s.hi);
+        return { lo_idx, hi_idx };
+    }
+
+    // Build a single-term MSM constraint (predicate=1) from a point, scalar, and expected result.
+    // Returns the constraint and the populated witness vector.
+    static std::pair<MultiScalarMul, WitnessVector> make_msm(MsmAcirPoint point, MsmScalar scalar, MsmAcirPoint result)
+    {
+        WitnessVector witness;
+        auto p = push_point(witness, point);
+        auto s = push_scalar(witness, scalar);
+        auto r = push_point(witness, result);
+        uint32_t pred_idx = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(MsmFF(1));
+
+        MultiScalarMul c{
+            .points = { WitnessOrConstant<MsmFF>::from_index(p[0]),
+                        WitnessOrConstant<MsmFF>::from_index(p[1]),
+                        WitnessOrConstant<MsmFF>::from_index(p[2]) },
+            .scalars = { WitnessOrConstant<MsmFF>::from_index(s[0]), WitnessOrConstant<MsmFF>::from_index(s[1]) },
+            .predicate = WitnessOrConstant<MsmFF>::from_index(pred_idx),
+            .out_point_x = r[0],
+            .out_point_y = r[1],
+            .out_point_is_infinite = r[2],
+        };
+        return { c, witness };
+    }
+
+    // Run the circuit and return (satisfied, error_string).
+    static std::pair<bool, std::string> run_circuit(MultiScalarMul constraint, WitnessVector witness)
+    {
+        AcirFormat cs = constraint_to_acir_format(constraint);
+        AcirProgram program{ cs, witness };
+        auto builder = create_circuit<Builder>(program, ProgramMetadata{});
+        bool ok = CircuitChecker::check(builder) && !builder.failed();
+        return { ok, builder.err() };
+    }
+};
+
+TYPED_TEST_SUITE(MultiScalarMulInfinityTests, BuilderTypes);
+
+// scalar=0 → result = ∞: valid proof with out_point_is_infinite=1.
+TYPED_TEST(MultiScalarMulInfinityTests, ResultIsInfinity)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
+    auto [constraint, witness] =
+        TestFixture::make_msm(MsmAcirPoint::from_native(point), MsmScalar::zero(), MsmAcirPoint::infinity());
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(ok) << "0 * P = infinity should produce a valid circuit";
+}
+
+// A finite result with out_point_is_infinite=1 (forged) must fail.
+TYPED_TEST(MultiScalarMulInfinityTests, ForgedInfinityFlagOnFiniteResultFails)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
+    bb::fq scalar_native = bb::fq::random_element();
+    while (scalar_native.is_zero()) {
+        scalar_native = bb::fq::random_element();
+    }
+    MsmGrumpkinPoint result = point * scalar_native;
+    ASSERT_FALSE(result.is_point_at_infinity());
+    auto [constraint, witness] = TestFixture::make_msm(
+        MsmAcirPoint::from_native(point), MsmScalar::from_native(scalar_native), MsmAcirPoint::from_native(result));
+    witness[constraint.out_point_is_infinite] = MsmFF(1); // forge: finite result claimed as infinite
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
+        << "Forged infinity flag on finite result should fail";
+}
+
+// An infinity result with out_point_is_infinite=0 (forged) must fail.
+TYPED_TEST(MultiScalarMulInfinityTests, ForgedFiniteFlagOnInfinityResultFails)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
+    // Forge result: (0,0) coordinates but is_infinite=0 (should be 1)
+    auto [constraint, witness] = TestFixture::make_msm(
+        MsmAcirPoint::from_native(point), MsmScalar::zero(), MsmAcirPoint{ MsmFF(0), MsmFF(0), MsmFF(0) });
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
+        << "Forged finite flag on infinity result should fail";
+}

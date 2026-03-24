@@ -117,6 +117,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
     privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount)] } },
+    gasLimits?: Gas,
   ): Promise<Tx> {
     const setupCallRequests = await asyncMap(setupCalls, call =>
       this.#createPubicCallRequestForCall(call, call.sender ?? sender),
@@ -142,6 +143,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
           )
         : new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD),
       defaultGlobals(),
+      gasLimits,
     );
   }
 
@@ -154,8 +156,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     /* need some unique first nullifier for note-nonce computations */
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
-    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions);
+    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, gasLimits);
 
     await this.setFeePayerBalance(feePayer);
 
@@ -200,8 +203,18 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
-    return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, txLabel);
+    return await this.simulateTx(
+      sender,
+      setupCalls,
+      appCalls,
+      teardownCall,
+      feePayer,
+      privateInsertions,
+      txLabel,
+      gasLimits,
+    );
   }
 
   /**
@@ -219,6 +232,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
     return await this.simulateTxWithLabel(
       txLabel,
@@ -228,6 +242,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       teardownCall,
       feePayer,
       privateInsertions,
+      gasLimits,
     );
   }
 

@@ -3,7 +3,7 @@ use crate::protocol::{
 };
 
 // NOTE: this is for use in private only
-#[oracle(utilityGetContractInstance)]
+#[oracle(aztec_utl_getContractInstance)]
 unconstrained fn get_contract_instance_oracle(_address: AztecAddress) -> ContractInstance {}
 
 // NOTE: this is for use in private only
@@ -27,11 +27,11 @@ struct GetContractInstanceResult {
 }
 
 // These oracles each return a ContractInstance member plus a boolean indicating whether the instance was found.
-#[oracle(avmOpcodeGetContractInstanceDeployer)]
+#[oracle(aztec_avm_getContractInstanceDeployer)]
 unconstrained fn get_contract_instance_deployer_oracle_avm(_address: AztecAddress) -> [GetContractInstanceResult; 1] {}
-#[oracle(avmOpcodeGetContractInstanceClassId)]
+#[oracle(aztec_avm_getContractInstanceClassId)]
 unconstrained fn get_contract_instance_class_id_oracle_avm(_address: AztecAddress) -> [GetContractInstanceResult; 1] {}
-#[oracle(avmOpcodeGetContractInstanceInitializationHash)]
+#[oracle(aztec_avm_getContractInstanceInitializationHash)]
 unconstrained fn get_contract_instance_initialization_hash_oracle_avm(
     _address: AztecAddress,
 ) -> [GetContractInstanceResult; 1] {}

@@ -24,7 +24,7 @@ struct lookup_public_data_squash_leaf_slot_increase_ff_gt_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_squash_leaf_slot_shift,
         ColumnAndShifts::public_data_squash_leaf_slot,
-        ColumnAndShifts::public_data_squash_sel
+        ColumnAndShifts::public_data_squash_leaf_slot_increase
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,

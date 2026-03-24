@@ -36,7 +36,7 @@ struct PrivateExecutionStepRaw {
     // Represents the function name.
     std::string function_name;
 
-    // Unrolled from MSGPACK_FIELDS for custom name for function_name.
+    // Unrolled from SERIALIZATION_FIELDS for custom name for function_name.
     void msgpack(auto pack_fn) { pack_fn(NVP(bytecode, witness, vk), "functionName", function_name); };
     void self_decompress();
     static std::vector<PrivateExecutionStepRaw> load_and_decompress(const std::filesystem::path& input_path);

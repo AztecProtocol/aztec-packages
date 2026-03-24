@@ -3,8 +3,8 @@
  *
  * Other field arithmetic tests (both compile-time and runtime) are in ecc/fields/generic_field.test.cpp and
  * ecc/fields/prime_field.test.cpp. This file contains only BN254-specific functionality:
+ * - Fixed compile-time tests with field-specific expected values
  * - Endomorphism scalar decomposition
- * - Buffer serialization (tests specific byte layout)
  * - Regression tests for specific values
  */
 
@@ -28,10 +28,9 @@ auto& engine = numeric::get_debug_randomness();
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
 TEST(BN254Fq, CompileTimeMultiplication)
 {
-    constexpr fq a = uint256_t{ 0xa9b879029c49e60eUL, 0x2517b72250caa7b3UL, 0x6b86c81105dae2d1UL, 0x3a81735d5aec0c3UL };
-    constexpr fq b = uint256_t{ 0x744fc10aec23e56aUL, 0x5dea4788a3b936a6UL, 0xa0a89f4a8af01df1UL, 0x72ae28836807df3UL };
-    constexpr fq expected =
-        uint256_t{ 0x6c0a789c0028fd09UL, 0xca9520d84c684efaUL, 0xcbf3f7b023a852b4UL, 0x1b2e4dac41400621UL };
+    constexpr fq a{ 0x83aa80986c4f06f8, 0xbd01cce5e3b3afc3, 0x1cba208cb70aa13b, 0x2a582eb35a932e0d };
+    constexpr fq b{ 0x348ea47f1840a528, 0x5e6eb8e57e1b246d, 0x10852d3d36002e53, 0x280130d2f6a97aba };
+    constexpr fq expected{ 0x67eaddc2ba233427, 0x3c4f7dfe46ef24a9, 0x8fecb77e2ff74d64, 0x275537b321138ee7 };
 
     constexpr fq result = a * b;
     static_assert(result == expected);
@@ -39,9 +38,8 @@ TEST(BN254Fq, CompileTimeMultiplication)
 
 TEST(BN254Fq, CompileTimeSquaring)
 {
-    constexpr fq a = uint256_t{ 0xa9b879029c49e60eUL, 0x2517b72250caa7b3UL, 0x6b86c81105dae2d1UL, 0x3a81735d5aec0c3UL };
-    constexpr fq expected =
-        uint256_t{ 0x41081a42fdaa7e23UL, 0x44d1140f756ed419UL, 0x53716b0a6f253e63UL, 0xb1a0b04044d75fUL };
+    constexpr fq a{ 0x83aa80986c4f06f8, 0xbd01cce5e3b3afc3, 0x1cba208cb70aa13b, 0x2a582eb35a932e0d };
+    constexpr fq expected{ 0xe441c0408a6fab60, 0xb94616ade6ed8752, 0x36cb53ba8e85397f, 0x17698305ec38b773 };
 
     constexpr fq result = a.sqr();
     static_assert(result == expected);
@@ -70,156 +68,10 @@ TEST(BN254Fq, CompileTimeSubtraction)
 
 TEST(BN254Fq, CompileTimeInversion)
 {
-    constexpr fq a = uint256_t{ 0xa9b879029c49e60eUL, 0x2517b72250caa7b3UL, 0x6b86c81105dae2d1UL, 0x3a81735d5aec0c3UL };
+    constexpr fq a{ 0x83aa80986c4f06f8, 0xbd01cce5e3b3afc3, 0x1cba208cb70aa13b, 0x2a582eb35a932e0d };
     constexpr fq inv = a.invert();
     // Verify a * a^-1 = 1
     static_assert(a * inv == fq::one());
-}
-
-// ================================
-// Montgomery Form
-// ================================
-
-TEST(BN254Fq, FromMontgomeryForm)
-{
-    constexpr fq t0 = fq::one();
-    constexpr fq result = t0.from_montgomery_form();
-    constexpr fq expected{ 0x01, 0x00, 0x00, 0x00 };
-    EXPECT_EQ(result, expected);
-}
-
-TEST(BN254Fq, MontgomeryConsistencyCheck)
-{
-    fq a = fq::random_element();
-    fq b = fq::random_element();
-    fq aR;
-    fq bR;
-    fq aRR;
-    fq bRR;
-    fq bRRR;
-    fq result_a;
-    fq result_b;
-    fq result_c;
-    fq result_d;
-    aR = a.to_montgomery_form();
-    aRR = aR.to_montgomery_form();
-    bR = b.to_montgomery_form();
-    bRR = bR.to_montgomery_form();
-    bRRR = bRR.to_montgomery_form();
-    result_a = aRR * bRR; // abRRR
-    result_b = aR * bRRR; // abRRR
-    result_c = aR * bR;   // abR
-    result_d = a * b;     // abR^-1
-    EXPECT_EQ((result_a == result_b), true);
-    result_a.self_from_montgomery_form(); // abRR
-    result_a.self_from_montgomery_form(); // abR
-    result_a.self_from_montgomery_form(); // ab
-    result_c.self_from_montgomery_form(); // ab
-    result_d.self_to_montgomery_form();   // ab
-    EXPECT_EQ((result_a == result_c), true);
-    EXPECT_EQ((result_a == result_d), true);
-}
-
-// ================================
-// Arithmetic Consistency
-// ================================
-
-TEST(BN254Fq, AddMulConsistency)
-{
-    fq multiplicand = { 0x09, 0, 0, 0 };
-    multiplicand.self_to_montgomery_form();
-
-    fq a = fq::random_element();
-    fq result;
-    result = a + a;   // 2
-    result += result; // 4
-    result += result; // 8
-    result += a;      // 9
-
-    fq expected;
-    expected = a * multiplicand;
-
-    EXPECT_EQ((result == expected), true);
-}
-
-TEST(BN254Fq, SubMulConsistency)
-{
-    fq multiplicand = { 0x05, 0, 0, 0 };
-    multiplicand.self_to_montgomery_form();
-
-    fq a = fq::random_element();
-    fq result;
-    result = a + a;   // 2
-    result += result; // 4
-    result += result; // 8
-    result -= a;      // 7
-    result -= a;      // 6
-    result -= a;      // 5
-
-    fq expected;
-    expected = a * multiplicand;
-
-    EXPECT_EQ((result == expected), true);
-}
-
-TEST(BN254Fq, Invert)
-{
-    fq input = fq::random_element();
-    fq inverse = input.invert();
-    fq result = input * inverse;
-    result = result.reduce_once();
-    result = result.reduce_once();
-    EXPECT_EQ(result, fq::one());
-}
-
-TEST(BN254Fq, InvertOneIsOne)
-{
-    fq result = fq::one();
-    result = result.invert();
-    EXPECT_EQ((result == fq::one()), true);
-}
-
-TEST(BN254Fq, Sqrt)
-{
-    fq input = fq::one();
-    auto [is_sqr, root] = input.sqrt();
-    fq result = root.sqr();
-    EXPECT_EQ(result, input);
-}
-
-TEST(BN254Fq, SqrtRandom)
-{
-    for (size_t i = 0; i < 1; ++i) {
-        fq input = fq::random_element().sqr();
-        auto [is_sqr, root] = input.sqrt();
-        fq root_test = root.sqr();
-        EXPECT_EQ(root_test, input);
-    }
-}
-
-TEST(BN254Fq, OneAndZero)
-{
-    fq result;
-    result = fq::one() - fq::one();
-    EXPECT_EQ((result == fq::zero()), true);
-}
-
-TEST(BN254Fq, Copy)
-{
-    fq result = fq::random_element();
-    fq expected;
-    fq::__copy(result, expected);
-    EXPECT_EQ((result == expected), true);
-}
-
-TEST(BN254Fq, Neg)
-{
-    fq a = fq::random_element();
-    fq b;
-    b = -a;
-    fq result;
-    result = a + b;
-    EXPECT_EQ((result == fq::zero()), true);
 }
 
 // ================================
@@ -335,77 +187,9 @@ TEST(BN254Fq, SplitIntoEndomorphismEdgeCase)
 }
 
 // ================================
-// Buffer Serialization
-// ================================
-
-TEST(BN254Fq, SerializeToBuffer)
-{
-    std::array<uint8_t, 32> buffer;
-    fq a = { 0x1234567876543210, 0x2345678987654321, 0x3456789a98765432, 0x006789abcba98765 };
-    a = a.to_montgomery_form();
-
-    fq::serialize_to_buffer(a, &buffer[0]);
-
-    EXPECT_EQ(buffer[31], 0x10);
-    EXPECT_EQ(buffer[30], 0x32);
-    EXPECT_EQ(buffer[29], 0x54);
-    EXPECT_EQ(buffer[28], 0x76);
-    EXPECT_EQ(buffer[27], 0x78);
-    EXPECT_EQ(buffer[26], 0x56);
-    EXPECT_EQ(buffer[25], 0x34);
-    EXPECT_EQ(buffer[24], 0x12);
-
-    EXPECT_EQ(buffer[23], 0x21);
-    EXPECT_EQ(buffer[22], 0x43);
-    EXPECT_EQ(buffer[21], 0x65);
-    EXPECT_EQ(buffer[20], 0x87);
-    EXPECT_EQ(buffer[19], 0x89);
-    EXPECT_EQ(buffer[18], 0x67);
-    EXPECT_EQ(buffer[17], 0x45);
-    EXPECT_EQ(buffer[16], 0x23);
-
-    EXPECT_EQ(buffer[15], 0x32);
-    EXPECT_EQ(buffer[14], 0x54);
-    EXPECT_EQ(buffer[13], 0x76);
-    EXPECT_EQ(buffer[12], 0x98);
-    EXPECT_EQ(buffer[11], 0x9a);
-    EXPECT_EQ(buffer[10], 0x78);
-    EXPECT_EQ(buffer[9], 0x56);
-    EXPECT_EQ(buffer[8], 0x34);
-
-    EXPECT_EQ(buffer[7], 0x65);
-    EXPECT_EQ(buffer[6], 0x87);
-    EXPECT_EQ(buffer[5], 0xa9);
-    EXPECT_EQ(buffer[4], 0xcb);
-    EXPECT_EQ(buffer[3], 0xab);
-    EXPECT_EQ(buffer[2], 0x89);
-    EXPECT_EQ(buffer[1], 0x67);
-    EXPECT_EQ(buffer[0], 0x00);
-}
-
-TEST(BN254Fq, SerializeFromBuffer)
-{
-    std::array<uint8_t, 32> buffer;
-    fq expected = { 0x1234567876543210, 0x2345678987654321, 0x3456789a98765432, 0x006789abcba98765 };
-
-    fq::serialize_to_buffer(expected, &buffer[0]);
-    fq result = fq::serialize_from_buffer(&buffer[0]);
-
-    EXPECT_EQ(result, expected);
-}
-
-// ================================
 // Regression Tests
 // ================================
-// TEST to check we don't have 0^0=0
-TEST(BN254Fq, PowRegressionCheck)
-{
-    fq zero = fq::zero();
-    fq one = fq::one();
-    EXPECT_EQ(zero.pow(uint256_t(0)), one);
-}
 
-// AUDITTODO: should we remove this test?
 TEST(BN254Fq, SqrRegression)
 {
     std::array<uint256_t, 7> values = {

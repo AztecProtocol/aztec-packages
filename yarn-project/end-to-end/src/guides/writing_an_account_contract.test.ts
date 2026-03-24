@@ -73,7 +73,7 @@ describe('guides/writing_an_account_contract', () => {
     const address = account.address;
     logger.info(`Deployed account contract at ${address}`);
 
-    const token = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18).send({
+    const { contract: token } = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18).send({
       from: fundedAccount,
     });
     logger.info(`Deployed token contract at ${token.address}`);
@@ -81,7 +81,7 @@ describe('guides/writing_an_account_contract', () => {
     const mintAmount = 50n;
     await token.methods.mint_to_private(address, mintAmount).send({ from: fundedAccount });
 
-    const balance = await token.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balance } = await token.methods.balance_of_private(address).simulate({ from: address });
     logger.info(`Balance of wallet is now ${balance}`);
     expect(balance).toEqual(50n);
 

@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0-nightly.20260305
-Generated: 2026-03-05T04:41:53.527Z
+Version: v5.0.0-nightly.20260320
+Generated: 2026-03-20T04:42:18.647Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -14,7 +14,7 @@ For detailed API documentation, see the individual package .md files.
   - Transaction creation and submission
   - Account management
   - RPC client for connecting to Aztec nodes
-Exports: 36 classes, 24 interfaces, 30 functions, 73 types
+Exports: 36 classes, 24 interfaces, 31 functions, 79 types
 Key: AccountManager, Contract, Fq, Fr
 
 **@aztec/accounts** - Sample account contract implementations
@@ -38,13 +38,13 @@ Exports: 4 classes, 2 interfaces, 1 functions, 5 types
 **@aztec/wallet-sdk** - Wallet SDK for browser and extension integrations
   - Browser wallet integration
   - Key management utilities
-Exports: 6 classes, 31 interfaces, 10 functions, 8 types
+Exports: 6 classes, 31 interfaces, 10 functions, 9 types
 
 **@aztec/wallets** - Embedded wallet for browser and Node.js environments
   - EmbeddedWallet with browser and Node.js flavors
   - Account creation and management
   - Transaction simulation and proving
-Exports: 2 classes, 2 functions, 2 types
+Exports: 3 classes, 2 functions, 2 types
 
 ### Core Libraries
 
@@ -53,7 +53,7 @@ Exports: 2 classes, 2 functions, 2 types
   - Proof types and verification
   - Kernel circuit types
   - Tree structures (note hash, nullifier, public data)
-Exports: 90 classes, 38 interfaces, 126 functions, 108 types
+Exports: 90 classes, 38 interfaces, 130 functions, 113 types
 Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
 
 **@aztec/foundation** - Low-level utilities and primitives
@@ -61,7 +61,7 @@ Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
   - Serialization utilities
   - Async helpers and collections
   - Logging infrastructure
-Exports: 19 classes, 6 interfaces, 135 functions, 30 types
+Exports: 19 classes, 6 interfaces, 136 functions, 30 types
 Key: EthAddress
 
 **@aztec/constants** - Protocol constants shared between TypeScript and Noir

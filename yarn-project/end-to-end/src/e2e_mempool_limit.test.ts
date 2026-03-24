@@ -31,9 +31,9 @@ describe('e2e_mempool_limit', () => {
       throw new Error('Aztec node admin API must be available for this test');
     }
 
-    token = await TokenContract.deploy(wallet, defaultAccountAddress, 'TEST', 'T', 18).send({
+    ({ contract: token } = await TokenContract.deploy(wallet, defaultAccountAddress, 'TEST', 'T', 18).send({
       from: defaultAccountAddress,
-    });
+    }));
     await token.methods.mint_to_public(defaultAccountAddress, 10n ** 18n).send({ from: defaultAccountAddress });
   });
 

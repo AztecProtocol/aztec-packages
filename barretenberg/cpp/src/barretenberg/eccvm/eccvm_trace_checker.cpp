@@ -21,8 +21,11 @@ bool ECCVMTraceChecker::check(Builder& builder,
     const FF beta = FF::random_element(engine_ptr);
     const FF beta_sqr = beta.sqr();
     const FF beta_cube = beta_sqr * beta;
-    auto eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
+    const FF beta_quartic = beta_sqr * beta_sqr;
+    auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
+    auto eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
+                                       (gamma + beta_sqr + beta_sqr + first_term_tag) *
+                                       (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
     bb::RelationParameters<typename Flavor::FF> params{
         .eta = 0,
@@ -31,6 +34,7 @@ bool ECCVMTraceChecker::check(Builder& builder,
         .public_input_delta = 0,
         .beta_sqr = beta_sqr,
         .beta_cube = beta_cube,
+        .beta_quartic = beta_quartic,
         .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
     };
 

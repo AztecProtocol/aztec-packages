@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Run rk.py locally for testing
 # This script sets up the environment to use local test data
 

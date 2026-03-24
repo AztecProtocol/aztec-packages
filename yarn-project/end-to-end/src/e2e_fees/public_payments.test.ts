@@ -59,12 +59,14 @@ describe('e2e_fees public_payment', () => {
 
   it('pays fees for tx that make public transfer', async () => {
     const bananasToSendToBob = 10n;
-    const tx = await bananaCoin.methods.transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0).send({
-      from: aliceAddress,
-      fee: {
-        paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
-      },
-    });
+    const { receipt: tx } = await bananaCoin.methods
+      .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
+      .send({
+        from: aliceAddress,
+        fee: {
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
+        },
+      });
 
     const feeAmount = tx.transactionFee!;
 

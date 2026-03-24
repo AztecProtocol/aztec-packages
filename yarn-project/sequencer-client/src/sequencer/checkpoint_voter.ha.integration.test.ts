@@ -67,6 +67,7 @@ describe('CheckpointVoter HA Integration', () => {
     l1GenesisTime: 1n,
     slotDuration: 24,
     ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
+    rollupManaLimit: Number.MAX_SAFE_INTEGER,
   };
 
   /**
@@ -256,6 +257,7 @@ describe('CheckpointVoter HA Integration', () => {
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       databaseUrl: 'postgresql://test',
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
     // Create HA signer with pglite pool
@@ -276,6 +278,7 @@ describe('CheckpointVoter HA Integration', () => {
       requiredConfirmations: 1,
       maxL1TxInclusionWaitPulseSeconds: 60,
       ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
+      aztecSlotDuration: TEST_L1_CONSTANTS.slotDuration,
       fishermanMode: false,
       l1ChainId: 1,
     };
@@ -290,6 +293,7 @@ describe('CheckpointVoter HA Integration', () => {
       ts: BigInt(Math.floor(Date.now() / 1000)),
       nowMs: BigInt(Date.now()),
     });
+    epochCache.getSlotNow.mockReturnValue(slot);
 
     const slashFactoryContract = mock<SlashFactoryContract>();
 

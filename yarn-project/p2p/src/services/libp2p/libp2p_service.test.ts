@@ -24,6 +24,8 @@ import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
+import type { ConnectionManager } from '@libp2p/interface-internal';
+import { multiaddr } from '@multiformats/multiaddr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type P2PConfig, p2pConfigMappings } from '../../config.js';
@@ -36,6 +38,8 @@ import type { MemPools } from '../../mem_pools/interface.js';
 import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { TransactionValidator } from '../../msg_validators/tx_validator/factory.js';
 import type { PubSubLibp2p } from '../../util.js';
+import { convertToMultiaddr } from '../../util.js';
+import { DummyPeerDiscoveryService } from '../dummy_service.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';
 import { BitVector } from '../reqresp/protocols/block_txs/bitvector.js';
@@ -568,7 +572,7 @@ describe('LibP2PService', () => {
     let blockReceivedCallback: jest.Mock;
     let duplicateProposalCallback: jest.Mock;
 
-    const currentSlot = SlotNumber(100);
+    const targetSlot = SlotNumber(100);
     const nextSlot = SlotNumber(101);
 
     beforeEach(() => {
@@ -578,14 +582,9 @@ describe('LibP2PService', () => {
       mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
-      mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
       mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
-      mockEpochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
-        ts: 1000n,
-        nowMs: 1000100n, // 100ms elapsed, within tolerance
-      });
+      mockEpochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot: targetSlot, nextSlot });
+      mockEpochCache.getTargetSlot.mockReturnValue(targetSlot);
 
       mockPeerManager = mock<PeerManagerInterface>();
       reportMessageValidationResultSpy = jest.fn();
@@ -605,7 +604,7 @@ describe('LibP2PService', () => {
     });
 
     it('processes valid block: invokes callback and marks txs non-evictable', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const proposal = await makeBlockProposal({ signer, blockHeader: header });
 
       await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
@@ -626,7 +625,7 @@ describe('LibP2PService', () => {
     });
 
     it('equivocated block: re-broadcasts but does NOT process', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
       // First proposal - should be processed normally
@@ -660,14 +659,14 @@ describe('LibP2PService', () => {
 
       // Verify duplicate callback was invoked
       expect(duplicateProposalCallback).toHaveBeenCalledWith({
-        slot: currentSlot,
+        slot: targetSlot,
         proposer: signer.address,
         type: 'block',
       });
     });
 
     it('duplicate exact block: returns Ignore, no processing', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const proposal = await makeBlockProposal({ signer, blockHeader: header });
 
       // First submission
@@ -693,7 +692,7 @@ describe('LibP2PService', () => {
     });
 
     it('cap exceeded: penalizes peer and rejects', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
       // Add MAX_BLOCK_PROPOSALS_PER_POSITION proposals
@@ -741,7 +740,7 @@ describe('LibP2PService', () => {
     });
 
     it('duplicateProposalCallback invoked exactly once per equivocation event', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
       // First proposal - callback NOT invoked
@@ -764,7 +763,7 @@ describe('LibP2PService', () => {
       await service.processBlockFromPeer(proposal2.toBuffer(), 'msg-2', mockPeerId);
       expect(duplicateProposalCallback).toHaveBeenCalledTimes(1);
       expect(duplicateProposalCallback).toHaveBeenCalledWith({
-        slot: currentSlot,
+        slot: targetSlot,
         proposer: signer.address,
         type: 'block',
       });
@@ -783,7 +782,7 @@ describe('LibP2PService', () => {
     });
 
     it('validation failure penalizes peer with correct severity', async () => {
-      const header = makeBlockHeader(1, { slotNumber: currentSlot });
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
       // Create block signed by wrong signer
       const wrongSigner = Secp256k1Signer.random();
       const proposal = await makeBlockProposal({ signer: wrongSigner, blockHeader: header });
@@ -807,7 +806,7 @@ describe('LibP2PService', () => {
     let checkpointReceivedCallback: jest.Mock;
     let duplicateProposalCallback: jest.Mock;
 
-    const currentSlot = SlotNumber(100);
+    const targetSlot = SlotNumber(100);
     const nextSlot = SlotNumber(101);
 
     beforeEach(() => {
@@ -817,14 +816,9 @@ describe('LibP2PService', () => {
       mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
-      mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
       mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
-      mockEpochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
-        ts: 1000n,
-        nowMs: 1000100n,
-      });
+      mockEpochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot, nextSlot });
+      mockEpochCache.getTargetSlot.mockReturnValue(targetSlot);
 
       mockPeerManager = mock<PeerManagerInterface>();
       reportMessageValidationResultSpy = jest.fn();
@@ -846,7 +840,7 @@ describe('LibP2PService', () => {
     });
 
     it('processes valid checkpoint: invokes callback and propagates attestations', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       const proposal = await makeCheckpointProposal({ signer, checkpointHeader });
 
       await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
@@ -864,7 +858,7 @@ describe('LibP2PService', () => {
     });
 
     it('equivocated checkpoint: re-broadcasts but does NOT process', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
 
       // First checkpoint
       const checkpoint1 = await makeCheckpointProposal({
@@ -882,7 +876,7 @@ describe('LibP2PService', () => {
       // Second checkpoint at same slot (equivocation)
       const checkpoint2 = await makeCheckpointProposal({
         signer,
-        checkpointHeader: makeCheckpointHeader(1, { slotNumber: currentSlot }),
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
         archiveRoot: Fr.random(),
       });
       await service.handleGossipedCheckpointProposal(checkpoint2.toBuffer(), 'msg-2', mockPeerId);
@@ -895,15 +889,15 @@ describe('LibP2PService', () => {
 
       // Verify duplicate callback was invoked
       expect(duplicateProposalCallback).toHaveBeenCalledWith({
-        slot: currentSlot,
+        slot: targetSlot,
         proposer: signer.address,
         type: 'checkpoint',
       });
     });
 
     it('checkpoint with lastBlock: processes both when valid', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
-      const blockHeader = makeBlockHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
       const proposal = await makeCheckpointProposal({
         signer,
         checkpointHeader,
@@ -928,8 +922,8 @@ describe('LibP2PService', () => {
     });
 
     it('lastBlock processed even when checkpoint cap exceeded', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
-      const blockHeader = makeBlockHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
 
       // Fill checkpoint slot to MAX_CHECKPOINT_PROPOSALS_PER_SLOT
       for (let i = 0; i < MAX_CHECKPOINT_PROPOSALS_PER_SLOT; i++) {
@@ -937,7 +931,7 @@ describe('LibP2PService', () => {
         mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(individualSigner.address);
         const proposal = await makeCheckpointProposal({
           signer: individualSigner,
-          checkpointHeader: makeCheckpointHeader(1, { slotNumber: currentSlot }),
+          checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
           archiveRoot: Fr.random(),
         });
         await service.handleGossipedCheckpointProposal(proposal.toBuffer(), `msg-${i}`, mockPeerId);
@@ -986,8 +980,8 @@ describe('LibP2PService', () => {
     });
 
     it('checkpoint rejected when lastBlock is equivocated', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
-      const blockHeader = makeBlockHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(4);
 
       // Pre-add a block at same position
@@ -1023,7 +1017,7 @@ describe('LibP2PService', () => {
     });
 
     it('validation failure penalizes peer with correct severity', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       // Create checkpoint signed by wrong signer
       const wrongSigner = Secp256k1Signer.random();
       const proposal = await makeCheckpointProposal({ signer: wrongSigner, checkpointHeader });
@@ -1035,6 +1029,148 @@ describe('LibP2PService', () => {
 
       // Verify message was rejected
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+    });
+  });
+
+  describe('discv5 ip:changed bridge (queryForIp)', () => {
+    const p2pPort = 40400;
+    const firstIp = '203.0.113.5';
+    const secondIp = '198.51.100.2';
+
+    function createQueryForIpService() {
+      const peerDiscovery = new DummyPeerDiscoveryService();
+      const addressManager = {
+        removeObservedAddr: jest.fn(),
+        addObservedAddr: jest.fn(),
+        confirmObservedAddr: jest.fn(),
+      };
+      const mockPeerId = mock<PeerId>({ toString: () => MOCK_PEER_ID });
+      const nodeState = { status: 'stopped' as string };
+      const mockNode = {
+        get status() {
+          return nodeState.status;
+        },
+        set status(v: string) {
+          nodeState.status = v;
+        },
+        peerId: mockPeerId,
+        start: jest.fn(() => {
+          nodeState.status = 'started';
+        }),
+        stop: jest.fn(() => {
+          nodeState.status = 'stopped';
+        }),
+        services: {
+          pubsub: {
+            subscribe: jest.fn(),
+            addEventListener: jest.fn(),
+            removeEventListener: jest.fn(),
+            getMeshPeers: jest.fn(() => []),
+          },
+          components: {
+            addressManager,
+            connectionManager: {} as unknown as ConnectionManager,
+          },
+        },
+      } as unknown as PubSubLibp2p;
+
+      const config: P2PConfig = {
+        ...getDefaultConfig(p2pConfigMappings),
+        seenMessageCacheSize: 1000,
+        debugP2PInstrumentMessages: false,
+        disableTransactions: true,
+        l1ChainId: 1,
+        rollupVersion: 1,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+        queryForIp: true,
+        p2pIp: undefined,
+        p2pPort,
+        p2pDiscoveryDisabled: true,
+        peerCheckIntervalMS: 60_000, // Long enough that heartbeat won't run during this unit test
+      };
+
+      const mockPeerManager = mock<PeerManagerInterface>();
+      mockPeerManager.initializePeers.mockResolvedValue(undefined);
+      mockPeerManager.stop.mockResolvedValue(undefined);
+      mockPeerManager.heartbeat.mockResolvedValue(undefined);
+
+      const mockReqResp = mock<ReqRespInterface>();
+      mockReqResp.start.mockResolvedValue(undefined);
+      mockReqResp.stop.mockResolvedValue(undefined);
+
+      const mempools = mock<MemPools>();
+      const archiver = mock<L2BlockSource & ContractDataSource>();
+      const epochCache = mock<EpochCacheInterface>();
+      const mockProofVerifier = mock<ClientProtocolCircuitVerifier>({
+        verifyProof: () => Promise.resolve({ valid: true, durationMs: 1, totalDurationMs: 1 }),
+      });
+      const mockWorldStateSynchronizer = mock<ServerWorldStateSynchronizer>();
+
+      const service = new LibP2PService(
+        config,
+        mockNode,
+        peerDiscovery,
+        mockReqResp,
+        mockPeerManager,
+        mempools,
+        archiver,
+        epochCache,
+        mockProofVerifier,
+        mockWorldStateSynchronizer,
+        getTelemetryClient(),
+        createLogger('p2p:test:queryForIp'),
+      );
+
+      return { service, peerDiscovery, addressManager, config };
+    }
+
+    it('registers observed announce address when discv5 emits ip:changed', async () => {
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
+      const expectedAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
+
+      await service.start();
+      peerDiscovery.emit('ip:changed', firstIp);
+
+      expect(addressManager.addObservedAddr).toHaveBeenCalledWith(expectedAddr);
+      expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(expectedAddr);
+      expect(addressManager.removeObservedAddr).not.toHaveBeenCalled();
+
+      await service.stop();
+    });
+
+    it('removes previous observed address when ip:changed fires again with a new IP', async () => {
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
+      const firstAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
+      const secondAddr = multiaddr(convertToMultiaddr(secondIp, p2pPort, 'tcp'));
+
+      await service.start();
+      peerDiscovery.emit('ip:changed', firstIp);
+      addressManager.removeObservedAddr.mockClear();
+      addressManager.addObservedAddr.mockClear();
+      addressManager.confirmObservedAddr.mockClear();
+
+      peerDiscovery.emit('ip:changed', secondIp);
+
+      expect(addressManager.removeObservedAddr).toHaveBeenCalledWith(firstAddr);
+      expect(addressManager.addObservedAddr).toHaveBeenCalledWith(secondAddr);
+      expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(secondAddr);
+
+      await service.stop();
+    });
+
+    it('unsubscribes from ip:changed on stop so later emits are ignored', async () => {
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
+
+      await service.start();
+      peerDiscovery.emit('ip:changed', firstIp);
+      addressManager.addObservedAddr.mockClear();
+      addressManager.confirmObservedAddr.mockClear();
+
+      await service.stop();
+      peerDiscovery.emit('ip:changed', secondIp);
+
+      expect(addressManager.addObservedAddr).not.toHaveBeenCalled();
+      expect(addressManager.confirmObservedAddr).not.toHaveBeenCalled();
     });
   });
 });

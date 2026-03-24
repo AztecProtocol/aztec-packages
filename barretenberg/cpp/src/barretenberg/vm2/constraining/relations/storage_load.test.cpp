@@ -14,10 +14,10 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -36,11 +36,11 @@ using simulation::EventEmitter;
 using simulation::MerkleDB;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
+using simulation::MockIndexedTreeCheck;
 using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
-using simulation::MockNullifierTreeCheck;
 using simulation::MockPoseidon2;
 using simulation::MockWrittenPublicDataSlotsTreeCheck;
 using simulation::PublicDataTreeCheck;
@@ -111,7 +111,7 @@ TEST(SLoadConstrainingTest, Interactions)
     NiceMock<MockExecutionIdManager> execution_id_manager;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> written_public_data_slots_tree_check;
     NiceMock<MockLowLevelMerkleDB> low_level_merkle_db;
-    NiceMock<MockNullifierTreeCheck> nullifier_tree_check;
+    NiceMock<MockIndexedTreeCheck> indexed_tree_check;
     NiceMock<MockNoteHashTreeCheck> note_hash_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> l1_to_l2_message_tree_check;
 
@@ -124,7 +124,7 @@ TEST(SLoadConstrainingTest, Interactions)
 
     MerkleDB merkle_db(low_level_merkle_db,
                        public_data_tree_check,
-                       nullifier_tree_check,
+                       indexed_tree_check,
                        note_hash_tree_check,
                        written_public_data_slots_tree_check,
                        l1_to_l2_message_tree_check);

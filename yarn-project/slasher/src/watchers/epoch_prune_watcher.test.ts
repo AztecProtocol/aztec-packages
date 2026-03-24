@@ -59,6 +59,7 @@ describe('EpochPruneWatcher', () => {
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 1,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     epochCache.getL1Constants.mockReturnValue(l1Constants);
@@ -185,7 +186,7 @@ describe('EpochPruneWatcher', () => {
       [tx],
       block.header.globalVariables.blockNumber,
       block.header.globalVariables.timestamp,
-      {},
+      { isBuildingProposal: false, minValidTxs: 0 },
     );
   });
 
@@ -245,7 +246,7 @@ describe('EpochPruneWatcher', () => {
       [tx],
       blockFromL1.header.globalVariables.blockNumber,
       blockFromL1.header.globalVariables.timestamp,
-      {},
+      { isBuildingProposal: false, minValidTxs: 0 },
     );
   });
 });

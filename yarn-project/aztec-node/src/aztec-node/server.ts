@@ -1,15 +1,17 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
+import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
-import { getPublicClient } from '@aztec/ethereum/client';
+import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray, pick, unique } from '@aztec/foundation/collection';
+import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -111,9 +113,10 @@ import {
   createBlockProposalHandler,
   createValidatorClient,
 } from '@aztec/validator-client';
+import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -150,7 +153,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
-    private proofVerifier: ClientProtocolCircuitVerifier,
+    private peerProofVerifier: ClientProtocolCircuitVerifier,
+    private rpcProofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
     private blobClient?: BlobClientInterface,
@@ -170,6 +174,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (debugLogStore.isEnabled && config.realProofs) {
       throw new Error('debugLogStore should never be enabled when realProofs are set');
     }
+  }
+
+  /** @internal Exposed for testing — returns the RPC proof verifier. */
+  public getProofVerifier(): ClientProtocolCircuitVerifier {
+    return this.rpcProofVerifier;
   }
 
   public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
@@ -195,6 +204,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       dateProvider?: DateProvider;
       p2pClientDeps?: P2PClientDeps;
       proverNodeDeps?: Partial<ProverNodeDeps>;
+      slashingProtectionDb?: SlashingProtectionDatabase;
     } = {},
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
@@ -257,7 +267,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
+      transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -271,10 +281,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
       rollupContract.getVersion(),
+      rollupContract.getManaLimit().then(Number),
     ] as const);
 
     config.rollupVersion ??= Number(rollupVersionFromRollup);
@@ -305,10 +316,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const circuitVerifier =
-      config.realProofs || config.debugForceTxProofVerification
-        ? await BBCircuitVerifier.new(config)
-        : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
+    let peerProofVerifier: ClientProtocolCircuitVerifier;
+    let rpcProofVerifier: ClientProtocolCircuitVerifier;
+    if (useRealVerifiers) {
+      peerProofVerifier = await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer');
+      const rpcVerifier = await BBCircuitVerifier.new(config);
+      rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, config.numConcurrentIVCVerifiers);
+    } else {
+      peerProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+      rpcProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    }
 
     let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
@@ -322,8 +340,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       debugLogStore = new NullDebugLogStore();
     }
 
-    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
-
     const proverOnly = config.enableProverNode && config.disableValidator;
     if (proverOnly) {
       log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
@@ -333,7 +349,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const p2pClient = await createP2PClient(
       config,
       archiver,
-      proofVerifier,
+      peerProofVerifier,
       worldStateSynchronizer,
       epochCache,
       packageVersion,
@@ -345,9 +361,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
-    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation
+    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation.
+    // Override maxTxsPerCheckpoint with the validator-specific limit if set.
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      {
+        ...config,
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupManaLimit,
+        maxTxsPerCheckpoint: config.validateMaxTxsPerCheckpoint,
+      },
       worldStateSynchronizer,
       archiver,
       dateProvider,
@@ -369,6 +392,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         l1ToL2MessageSource: archiver,
         keyStoreManager,
         blobClient,
+        slashingProtectionDb: deps.slashingProtectionDb,
       });
 
       // If we have a validator client, register it as a source of offenses for the slasher,
@@ -380,22 +404,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           await validatorClient.registerHandlers();
         }
       }
+    }
 
-      // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
-      // create a BlockProposalHandler to reexecute block proposals for monitoring
-      if (!validatorClient && config.alwaysReexecuteBlockProposals) {
-        log.info('Setting up block proposal reexecution for monitoring');
-        createBlockProposalHandler(config, {
-          checkpointsBuilder: validatorCheckpointsBuilder,
-          worldState: worldStateSynchronizer,
-          epochCache,
-          blockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          p2pClient,
-          dateProvider,
-          telemetry,
-        }).registerForReexecution(p2pClient);
-      }
+    // If there's no validator client, create a BlockProposalHandler to handle block proposals
+    // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
+    // while non-reexecution is used for validating the proposals and collecting their txs.
+    if (!validatorClient) {
+      const reexecute = !!config.alwaysReexecuteBlockProposals;
+      log.info(`Setting up block proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+      createBlockProposalHandler(config, {
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).register(p2pClient, reexecute);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -445,6 +471,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       })
       .catch(err => log.error('Failed to start p2p services after archiver sync', err));
 
+    const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, {
+      l1Contracts: config.l1Contracts,
+      ethereumSlotDuration: config.ethereumSlotDuration,
+      rollupVersion: BigInt(config.rollupVersion),
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+    });
+
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
@@ -482,9 +516,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
             { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           );
 
+      // Create a funder L1TxUtils from the keystore funding account (if configured)
+      const fundingSigner = keyStoreManager?.createFundingSigner();
+      let funderL1TxUtils: L1TxUtils | undefined;
+      if (fundingSigner) {
+        const [funder] = await createL1TxUtilsFromSigners(
+          publicClient,
+          [fundingSigner],
+          { ...config, scope: 'sequencer' },
+          { telemetry, logger: log.createChild('l1-tx-utils:funder'), dateProvider },
+        );
+        funderL1TxUtils = funder;
+      }
+
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
-        { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
         worldStateSynchronizer,
         archiver,
         dateProvider,
@@ -496,6 +543,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         ...deps,
         epochCache,
         l1TxUtils,
+        funderL1TxUtils,
         validatorClient,
         p2pClient,
         worldStateSynchronizer,
@@ -507,6 +555,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         blobClient,
         nodeKeyStore: keyStoreManager!,
+        globalVariableBuilder,
       });
     }
 
@@ -540,13 +589,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
-    const globalVariableBuilder = new GlobalVariableBuilder({
-      ...config,
-      rollupVersion: BigInt(config.rollupVersion),
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-    });
-
     const node = new AztecNodeService(
       config,
       p2pClient,
@@ -565,7 +607,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       globalVariableBuilder,
       epochCache,
       packageVersion,
-      proofVerifier,
+      peerProofVerifier,
+      rpcProofVerifier,
       telemetry,
       log,
       blobClient,
@@ -710,6 +753,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return (await this.blockSource.getCheckpointedBlocks(from, limit)) ?? [];
   }
 
+  public getCheckpointsDataForEpoch(epochNumber: EpochNumber) {
+    return this.blockSource.getCheckpointsDataForEpoch(epochNumber);
+  }
+
   /**
    * Method to fetch the current min L2 fees.
    * @returns The current min L2 fees.
@@ -740,6 +787,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
     return await this.blockSource.getCheckpointedL2BlockNumber();
+  }
+
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.blockSource.getCheckpointNumber();
   }
 
   /**
@@ -779,18 +830,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPrivateLogsByTags(tags, page);
+    return this.logsSource.getPrivateLogsByTags(tags, page, upToBlockNumber);
   }
 
   public async getPublicLogsByTagsFromContract(
@@ -799,18 +854,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
   }
 
   /**
@@ -896,7 +955,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
     await tryStop(this.slasherClient);
-    await tryStop(this.proofVerifier);
+    await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
     await tryStop(this.sequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
@@ -952,58 +1011,64 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
       leafValues.map(x => x.toBuffer()),
     );
-    // We filter out undefined values
-    const indices = maybeIndices.filter(x => x !== undefined) as bigint[];
+    // Filter out undefined values to query block numbers only for found leaves
+    const definedIndices = maybeIndices.filter(x => x !== undefined);
 
-    // Now we find the block numbers for the indices
-    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, indices);
+    // Now we find the block numbers for the defined indices
+    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, definedIndices);
 
-    // If any of the block numbers are undefined, we throw an error.
-    for (let i = 0; i < indices.length; i++) {
-      if (blockNumbers[i] === undefined) {
-        throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
+    // Build a map from leaf index to block number
+    const indexToBlockNumber = new Map<bigint, BlockNumber>();
+    for (let i = 0; i < definedIndices.length; i++) {
+      const blockNumber = blockNumbers[i];
+      if (blockNumber === undefined) {
+        throw new Error(
+          `Block number is undefined for leaf index ${definedIndices[i]} in tree ${MerkleTreeId[treeId]}`,
+        );
       }
+      indexToBlockNumber.set(definedIndices[i], blockNumber);
     }
 
     // Get unique block numbers in order to optimize num calls to getLeafValue function.
-    const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
+    const uniqueBlockNumbers = [...new Set(indexToBlockNumber.values())];
 
-    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
-    // (note that block number corresponds to the leaf index in the archive tree).
+    // Now we obtain the block hashes from the archive tree (block number = leaf index in archive tree).
     const blockHashes = await Promise.all(
       uniqueBlockNumbers.map(blockNumber => {
         return committedDb.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       }),
     );
 
-    // If any of the block hashes are undefined, we throw an error.
+    // Build a map from block number to block hash
+    const blockNumberToHash = new Map<BlockNumber, Fr>();
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
-      if (blockHashes[i] === undefined) {
+      const blockHash = blockHashes[i];
+      if (blockHash === undefined) {
         throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);
       }
+      blockNumberToHash.set(uniqueBlockNumbers[i], blockHash);
     }
 
     // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
-    return maybeIndices.map((index, i) => {
+    return maybeIndices.map(index => {
       if (index === undefined) {
         return undefined;
       }
-      const blockNumber = blockNumbers[i];
+      const blockNumber = indexToBlockNumber.get(index);
       if (blockNumber === undefined) {
-        return undefined;
+        throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
       }
-      const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
-      const blockHash = blockHashes[blockHashIndex];
-      if (!blockHash) {
-        return undefined;
+      const blockHash = blockNumberToHash.get(blockNumber);
+      if (blockHash === undefined) {
+        throw new Error(`Block hash not found for block number ${blockNumber}`);
       }
       return {
-        l2BlockNumber: BlockNumber(Number(blockNumber)),
+        l2BlockNumber: blockNumber,
         l2BlockHash: new BlockHash(blockHash),
         data: index,
       };
@@ -1014,7 +1079,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    // The Noir circuit checks the archive membership proof against `anchor_block_header.last_archive.root`,
+    // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
+    // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
+    const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
+    if (referenceBlockNumber === BlockNumber.ZERO) {
+      // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
+      return undefined;
+    }
+    const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
       ? undefined
@@ -1025,7 +1098,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
       MerkleTreeId.NOTE_HASH_TREE,
       [noteHash],
@@ -1039,7 +1112,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const db = await this.#getWorldState(referenceBlock);
+    const db = await this.getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
     if (!witness) {
       return undefined;
@@ -1049,11 +1122,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return [witness.index, witness.path];
   }
 
-  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+  public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex
-      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
-      : undefined;
+    return messageIndex ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
   }
 
   /**
@@ -1074,19 +1145,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
     // Assumes `getCheckpointedBlocksForEpoch` returns blocks in ascending order of block number.
     const checkpointedBlocks = await this.blockSource.getCheckpointedBlocksForEpoch(epoch);
-    const blocksInCheckpoints: L2Block[][] = [];
-    let previousSlotNumber = SlotNumber.ZERO;
-    let checkpointIndex = -1;
-    for (const checkpointedBlock of checkpointedBlocks) {
-      const block = checkpointedBlock.block;
-      const slotNumber = block.header.globalVariables.slotNumber;
-      if (slotNumber !== previousSlotNumber) {
-        checkpointIndex++;
-        blocksInCheckpoints.push([]);
-        previousSlotNumber = slotNumber;
-      }
-      blocksInCheckpoints[checkpointIndex].push(block);
-    }
+    const blocksInCheckpoints = chunkBy(checkpointedBlocks, cb => cb.block.header.globalVariables.slotNumber).map(
+      group => group.map(cb => cb.block),
+    );
     return blocksInCheckpoints.map(blocks =>
       blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
@@ -1096,7 +1157,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const db = await this.#getWorldState(referenceBlock);
+    const db = await this.getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
     if (!witness) {
       return undefined;
@@ -1111,33 +1172,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return new NullifierMembershipWitness(index, leafPreimage as NullifierLeafPreimage, path);
   }
 
-  /**
-   * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data
-   * (which contains the root of the nullifier tree in which we are searching for the nullifier).
-   * @param nullifier - Nullifier we try to find the low nullifier witness for.
-   * @returns The low nullifier membership witness (if found).
-   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
-   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
-   * we are trying to prove non-inclusion for.
-   *
-   * Note: This function returns the membership witness of the nullifier itself and not the low nullifier when
-   * the nullifier already exists in the tree. This is because the `getPreviousValueIndex` function returns the
-   * index of the nullifier itself when it already exists in the tree.
-   * TODO: This is a confusing behavior and we should eventually address that.
-   */
   public async getLowNullifierMembershipWitness(
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     if (!findResult) {
       return undefined;
     }
     const { index, alreadyPresent } = findResult;
     if (alreadyPresent) {
-      this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+      throw new Error(
+        `Cannot prove nullifier non-inclusion: nullifier ${nullifier.toBigInt()} already exists in the tree`,
+      );
     }
     const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
@@ -1146,7 +1194,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   async getPublicDataWitness(referenceBlock: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
       return undefined;
@@ -1161,7 +1209,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -1275,7 +1323,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, _usedTxs, returns, _blobFields, debugLogs] = await processor.process([tx]);
+      const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
@@ -1301,11 +1349,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
   ): Promise<TxValidationResult> {
     const db = this.worldStateSynchronizer.getCommitted();
-    const verifier = isSimulation ? undefined : this.proofVerifier;
+    const verifier = isSimulation ? undefined : this.rpcProofVerifier;
 
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+    const l1Constants = await this.blockSource.getL1Constants();
     const validator = createTxValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
@@ -1322,6 +1371,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,
+        rollupManaLimit: l1Constants.rollupManaLimit,
+        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
+        maxBlockDAGas: this.config.validateMaxDABlockGas,
       },
       this.log.getBindings(),
     );
@@ -1346,7 +1398,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver.updateConfig(config);
     }
     if (newConfig.realProofs !== this.config.realProofs) {
-      this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
+      await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
+      if (newConfig.realProofs) {
+        this.peerProofVerifier = await BatchChonkVerifier.new(newConfig, newConfig.bbChonkVerifyMaxBatch, 'peer');
+        const rpcVerifier = await BBCircuitVerifier.new(newConfig);
+        this.rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, newConfig.numConcurrentIVCVerifiers);
+      } else {
+        this.peerProofVerifier = new TestCircuitVerifier();
+        this.rpcProofVerifier = new TestCircuitVerifier();
+      }
     }
 
     this.config = newConfig;
@@ -1588,7 +1648,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @returns An instance of a committed MerkleTreeOperations
    */
-  async #getWorldState(block: BlockParameter) {
+  protected async getWorldState(block: BlockParameter) {
     let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
     try {
       // Attempt to sync the world state if necessary
@@ -1602,6 +1662,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
+    // Get the block number, either directly from the parameter or by quering the archiver with the block hash
+    let blockNumber: BlockNumber;
     if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
@@ -1615,22 +1677,50 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
-      const blockNumber = header.getBlockNumber();
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-      return this.worldStateSynchronizer.getSnapshot(blockNumber);
+
+      blockNumber = header.getBlockNumber();
+    } else {
+      blockNumber = block as BlockNumber;
     }
 
-    // Block number provided
-    {
-      const blockNumber = block as BlockNumber;
+    // Check it's within world state sync range
+    if (blockNumber > blockSyncedTo) {
+      throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+    }
+    this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
 
-      if (blockNumber > blockSyncedTo) {
-        throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+    const snapshot = this.worldStateSynchronizer.getSnapshot(blockNumber);
+
+    // Double-check world-state synced to the same block hash as was requested
+    if (BlockHash.isBlockHash(block)) {
+      const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
+      if (!blockHash || !new BlockHash(blockHash).equals(block)) {
+        throw new Error(
+          `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+        );
       }
-
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-      return this.worldStateSynchronizer.getSnapshot(blockNumber);
     }
+
+    return snapshot;
+  }
+
+  /** Resolves a block parameter to a block number. */
+  protected async resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
+    if (block === 'latest') {
+      return BlockNumber(await this.blockSource.getBlockNumber());
+    }
+    if (BlockHash.isBlockHash(block)) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (block.equals(initialBlockHash)) {
+        return BlockNumber.ZERO;
+      }
+      const header = await this.blockSource.getBlockHeaderByHash(block);
+      if (!header) {
+        throw new Error(`Block hash ${block.toString()} not found.`);
+      }
+      return header.getBlockNumber();
+    }
+    return block as BlockNumber;
   }
 
   /**

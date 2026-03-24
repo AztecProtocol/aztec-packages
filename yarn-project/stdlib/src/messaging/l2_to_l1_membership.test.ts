@@ -23,7 +23,7 @@ describe('L2 to L1 membership', () => {
   const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
 
   // This should match the implementation in Outbox.sol -> verifyMembership
-  const verifyMembership = (leaf: Fr, witness: L2ToL1MembershipWitness) => {
+  const verifyMembership = (leaf: Fr, witness: Pick<L2ToL1MembershipWitness, 'leafIndex' | 'siblingPath' | 'root'>) => {
     let subtreeRoot = leaf.toBuffer();
     let indexAtHeight = witness.leafIndex;
     const path = witness.siblingPath.toBufferArray();
@@ -35,24 +35,33 @@ describe('L2 to L1 membership', () => {
     expect(subtreeRoot).toEqual(witness.root.toBuffer());
   };
 
-  const verifyMembershipForMessagesInEpoch = (messagesInEpoch: Fr[][][][]): L2ToL1MembershipWitness[] => {
+  const verifyMembershipForMessagesInEpoch = (messagesInEpoch: Fr[][][][]) => {
     let root = Fr.ZERO;
-    const messages = messagesInEpoch.flat(3);
-    const witnesses = messages.map((msg, i) => {
-      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg);
-      const leafId = getL2ToL1MessageLeafId(witness);
-      expect(foundLeafIds.has(leafId)).toBe(false);
-      foundLeafIds.add(leafId);
-      verifyMembership(msg, witness);
+    const witnesses: ReturnType<typeof computeL2ToL1MembershipWitnessFromMessagesInEpoch>[] = [];
+    let isFirst = true;
+    for (let ci = 0; ci < messagesInEpoch.length; ci++) {
+      for (let bi = 0; bi < messagesInEpoch[ci].length; bi++) {
+        for (let ti = 0; ti < messagesInEpoch[ci][bi].length; ti++) {
+          for (let mi = 0; mi < messagesInEpoch[ci][bi][ti].length; mi++) {
+            const msg = messagesInEpoch[ci][bi][ti][mi];
+            const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, ci, bi, ti, mi);
+            const leafId = getL2ToL1MessageLeafId(witness);
+            expect(foundLeafIds.has(leafId)).toBe(false);
+            foundLeafIds.add(leafId);
+            verifyMembership(msg, witness);
 
-      if (i === 0) {
-        root = witness.root;
-      } else {
-        expect(witness.root).toEqual(root);
+            if (isFirst) {
+              root = witness.root;
+              isFirst = false;
+            } else {
+              expect(witness.root).toEqual(root);
+            }
+
+            witnesses.push(witness);
+          }
+        }
       }
-
-      return witness;
-    });
+    }
 
     const computedRoot = computeEpochOutHash(messagesInEpoch);
     expect(root).toEqual(computedRoot);
@@ -68,8 +77,35 @@ describe('L2 to L1 membership', () => {
     it('throws if the message is not found', () => {
       const messagesInEpoch = [[[msgHashes(3), msgHashes(1)]]];
       const targetMsg = Fr.random();
-      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, targetMsg)).toThrow(
+      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, targetMsg, 0, 0, 0)).toThrow(
         'The L2ToL1Message you are trying to prove inclusion of does not exist',
+      );
+    });
+
+    it('throws if duplicate messages exist in tx without explicit index', () => {
+      const msg = Fr.random();
+      const messagesInEpoch = [[[[msg, msg, Fr.random()]]]];
+      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0)).toThrow(
+        'Multiple messages with the same value',
+      );
+    });
+
+    it('succeeds with explicit index for duplicate messages', () => {
+      const msg = Fr.random();
+      const messagesInEpoch = [[[[msg, msg, Fr.random()]]]];
+      const witness0 = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0, 0);
+      const witness1 = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0, 1);
+      expect(witness0.leafIndex).not.toEqual(witness1.leafIndex);
+      verifyMembership(msg, witness0);
+      verifyMembership(msg, witness1);
+    });
+
+    it('throws if explicit index does not match the message', () => {
+      const msg = Fr.random();
+      const otherMsg = Fr.random();
+      const messagesInEpoch = [[[[otherMsg, msg]]]];
+      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0, 0)).toThrow(
+        'Message at index 0 in tx does not match the expected message',
       );
     });
 
@@ -802,7 +838,7 @@ describe('L2 to L1 membership', () => {
         [[[], []]],
         [[[], []], [[]], [[], [], []], [[], []]],
       ];
-      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg);
+      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 2, 2, 0, 0);
       expect(witness.leafIndex).toBe(2n); // The message is the root of the second checkpoint.
       expect(witness.siblingPath.pathSize).toBe(epochTopTreeDepth);
     });

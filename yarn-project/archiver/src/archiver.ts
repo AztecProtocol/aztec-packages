@@ -22,16 +22,15 @@ import {
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
-  getEpochNumberAtTimestamp,
+  getEpochAtSlot,
   getSlotAtNextL1Block,
-  getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
-import { NoBlobBodiesFoundError } from './errors.js';
+import { BlockAlreadyCheckpointedError, NoBlobBodiesFoundError } from './errors.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
@@ -96,7 +95,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
-   * @param epochCache - Cache for epoch-related data.
    * @param dateProvider - Provider for current date/time.
    * @param instrumentation - Instrumentation for metrics and tracing.
    * @param l1Constants - L1 rollup constants.
@@ -120,7 +118,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
-    protected override readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
+    protected override readonly l1Constants: L1RollupConstants & {
+      l1StartBlockHash: Buffer32;
+      genesisArchiveRoot: Fr;
+    },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
     l2TipsCache?: L2TipsCache,
@@ -133,7 +134,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.synchronizer = synchronizer;
     this.events = events;
     this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStore.blockStore);
-    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache);
+    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache, {
+      rollupManaLimit: l1Constants.rollupManaLimit,
+    });
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
@@ -238,10 +241,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
 
       try {
-        await this.updater.addProposedBlocks([block]);
+        await this.updater.addProposedBlock(block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {
+        if (err instanceof BlockAlreadyCheckpointedError) {
+          this.log.debug(`Proposed block ${block.number} matches already checkpointed block, ignoring late proposal`);
+          resolve();
+          continue;
+        }
         this.log.error(`Failed to add block ${block.number} to store: ${err.message}`);
         reject(err);
       }
@@ -333,16 +341,49 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     return Promise.resolve(this.synchronizer.getL1Timestamp());
   }
 
-  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
+  public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    // The synced L2 slot is the latest slot for which we have all L1 data,
+    // either because we have seen all L1 blocks for that slot, or because
+    // we have seen the corresponding checkpoint.
+
+    let slotFromL1Sync: SlotNumber | undefined;
     const l1Timestamp = this.synchronizer.getL1Timestamp();
-    return Promise.resolve(l1Timestamp === undefined ? undefined : getSlotAtTimestamp(l1Timestamp, this.l1Constants));
+    if (l1Timestamp !== undefined) {
+      const nextL1BlockSlot = getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
+      if (Number(nextL1BlockSlot) > 0) {
+        slotFromL1Sync = SlotNumber.add(nextL1BlockSlot, -1);
+      }
+    }
+
+    let slotFromCheckpoint: SlotNumber | undefined;
+    const latestCheckpointNumber = await this.store.getSynchedCheckpointNumber();
+    if (latestCheckpointNumber > 0) {
+      const checkpointData = await this.store.getCheckpointData(latestCheckpointNumber);
+      if (checkpointData) {
+        slotFromCheckpoint = checkpointData.header.slotNumber;
+      }
+    }
+
+    if (slotFromL1Sync === undefined && slotFromCheckpoint === undefined) {
+      return undefined;
+    }
+    return SlotNumber(Math.max(slotFromL1Sync ?? 0, slotFromCheckpoint ?? 0));
   }
 
-  public getL2EpochNumber(): Promise<EpochNumber | undefined> {
-    const l1Timestamp = this.synchronizer.getL1Timestamp();
-    return Promise.resolve(
-      l1Timestamp === undefined ? undefined : getEpochNumberAtTimestamp(l1Timestamp, this.l1Constants),
-    );
+  public async getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
+    const syncedSlot = await this.getSyncedL2SlotNumber();
+    if (syncedSlot === undefined) {
+      return undefined;
+    }
+    // An epoch is fully synced when all its slots are synced.
+    // We check if syncedSlot is the last slot of its epoch; if so, that epoch is fully synced.
+    // Otherwise, only the previous epoch is fully synced.
+    const epoch = getEpochAtSlot(syncedSlot, this.l1Constants);
+    const [, endSlot] = getSlotRangeForEpoch(epoch, this.l1Constants);
+    if (syncedSlot >= endSlot) {
+      return epoch;
+    }
+    return Number(epoch) > 0 ? EpochNumber(Number(epoch) - 1) : undefined;
   }
 
   public async isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
@@ -450,11 +491,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);
     }
-    // TODO(palla/reorg): Set the finalized block when we add support for it.
-    // const currentFinalizedBlock = currentBlocks.finalized.block.number;
-    // if (targetL2BlockNumber < currentFinalizedBlock) {
-    //   this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
-    //   await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
-    // }
+    const currentFinalizedBlock = currentBlocks.finalized.block.number;
+    if (targetL2BlockNumber < currentFinalizedBlock) {
+      this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
+      await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
+    }
   }
 }

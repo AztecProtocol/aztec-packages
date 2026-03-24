@@ -1,7 +1,7 @@
 /**
  * PostgreSQL implementation of SlashingProtectionDatabase
  */
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -20,7 +20,7 @@ import {
   UPDATE_DUTY_SIGNED,
 } from './schema.js';
 import type { CheckAndRecordParams, DutyRow, DutyType, InsertOrGetRow, ValidatorDutyRecord } from './types.js';
-import { getBlockIndexFromDutyIdentifier } from './types.js';
+import { getBlockIndexFromDutyIdentifier, recordFromFields } from './types.js';
 
 /**
  * Minimal pool interface for database operations.
@@ -220,14 +220,16 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
   }
 
   /**
-   * Convert a database row to a ValidatorDutyRecord
+   * Convert a database row to a ValidatorDutyRecord.
+   * Maps snake_case column names to StoredDutyRecord (camelCase, ms timestamps),
+   * then delegates to the shared recordFromFields() converter.
    */
   private rowToRecord(row: DutyRow): ValidatorDutyRecord {
-    return {
-      rollupAddress: EthAddress.fromString(row.rollup_address),
-      validatorAddress: EthAddress.fromString(row.validator_address),
-      slot: SlotNumber.fromString(row.slot),
-      blockNumber: BlockNumber.fromString(row.block_number),
+    return recordFromFields({
+      rollupAddress: row.rollup_address,
+      validatorAddress: row.validator_address,
+      slot: row.slot,
+      blockNumber: row.block_number,
       blockIndexWithinCheckpoint: row.block_index_within_checkpoint,
       dutyType: row.duty_type,
       status: row.status,
@@ -235,10 +237,10 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
       signature: row.signature ?? undefined,
       nodeId: row.node_id,
       lockToken: row.lock_token,
-      startedAt: row.started_at,
-      completedAt: row.completed_at ?? undefined,
+      startedAtMs: row.started_at.getTime(),
+      completedAtMs: row.completed_at?.getTime(),
       errorMessage: row.error_message ?? undefined,
-    };
+    });
   }
 
   /**

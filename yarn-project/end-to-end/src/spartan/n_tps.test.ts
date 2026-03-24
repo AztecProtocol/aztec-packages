@@ -2,7 +2,7 @@ import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { times, timesAsync } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -10,7 +10,7 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { GasFees } from '@aztec/stdlib/gas';
+import { type Gas, GasFees } from '@aztec/stdlib/gas';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -270,12 +270,17 @@ describe('sustained N TPS test', () => {
 
     await retryUntil(
       async () => {
-        const blockNumber = await aztecNode.getBlockNumber();
-        if (blockNumber > INITIAL_L2_BLOCK_NUM) {
-          return true;
+        try {
+          const blockNumber = await aztecNode.getBlockNumber();
+          if (blockNumber > INITIAL_L2_BLOCK_NUM) {
+            return true;
+          }
+          logger.info('Waiting for the first block to mine...', { blockNumber, threshold: INITIAL_L2_BLOCK_NUM });
+          return false;
+        } catch (err) {
+          logger.warn('Failed to get block number from RPC', { error: String(err) });
+          return false;
         }
-        logger.info('Waiting for the first block to mine...');
-        return false;
       },
       'get block number',
       60 * 60 * 3, // wait up to 3 hours
@@ -285,7 +290,7 @@ describe('sustained N TPS test', () => {
     const initialBlockNumber = await aztecNode.getBlockNumber();
     logger.info('Initial block mined', { blockNumber: initialBlockNumber });
 
-    testWallets = await timesAsync(lowValueAccounts + highValueAccounts, i => {
+    testWallets = await timesParallel(lowValueAccounts + highValueAccounts, i => {
       logger.info(`Creating wallet and pxe for wallet ${i + 1}/${lowValueAccounts + highValueAccounts}`);
       return createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
     });
@@ -293,7 +298,7 @@ describe('sustained N TPS test', () => {
 
     // this function creates n + 1 accounts. We only want one for each wallet
     const localTestAccounts = await Promise.all(
-      testWallets.map(lw => deploySponsoredTestAccounts(lw.wallet, aztecNode, logger, 0)),
+      testWallets.map(lw => deploySponsoredTestAccounts(lw.wallet, aztecNode, logger, 0, { estimateGas: true })),
     );
 
     lowValueWallets = localTestAccounts.slice(0, lowValueAccounts).map(({ wallet }) => wallet);
@@ -306,23 +311,44 @@ describe('sustained N TPS test', () => {
 
     logger.info('Deploying benchmark contract...');
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet).send({
+    const deployInteraction = BenchmarkingContract.deploy(localTestAccounts[0].wallet);
+    const deploySim = await deployInteraction.simulate({
       from: localTestAccounts[0].recipientAddress,
       fee: { paymentMethod: sponsor },
     });
+    logger.info('Benchmark contract deploy estimated gas', { gasLimits: deploySim.estimatedGas?.gasLimits });
+    ({ contract: benchmarkContract } = await deployInteraction.send({
+      from: localTestAccounts[0].recipientAddress,
+      fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
+    }));
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
     logger.info(`Test setup complete`);
   });
+
+  let benchmarkGasEstimate: { gasLimits: Gas; teardownGasLimits: Gas } | undefined;
 
   const submitProven = async (
     wallet: TestWallet,
     maxPriorityFeesPerGas: GasFees = GasFees.empty(),
   ): Promise<ProvenTx> => {
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+
+    if (!benchmarkGasEstimate) {
+      const sim = await benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)).simulate({
+        from: (await benchmarkContract.wallet.getAccounts())[0].item,
+        fee: { paymentMethod: sponsor, estimateGas: true },
+      });
+      benchmarkGasEstimate = sim.estimatedGas;
+      logger.info('Benchmark tx estimated gas', { gasLimits: benchmarkGasEstimate?.gasLimits });
+    }
+
     const tx = await proveInteraction(wallet, benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)), {
       from: (await wallet.getAccounts())[0].item,
-      fee: { paymentMethod: sponsor, gasSettings: { maxPriorityFeesPerGas } },
+      fee: {
+        paymentMethod: sponsor,
+        gasSettings: { maxPriorityFeesPerGas, ...benchmarkGasEstimate },
+      },
     });
 
     return tx;

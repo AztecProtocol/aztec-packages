@@ -11,17 +11,19 @@ HonkProof HypernovaDeciderProver::construct_proof(Accumulator& accumulator)
 {
     vinfo("HypernovaFoldingDecider: prove PCS...");
 
-    size_t actual_size = accumulator.non_shifted_polynomial.virtual_size();
-    CommitmentKey ck(actual_size);
+    size_t dyadic_size = accumulator.dyadic_size;
+    size_t actual_data_size =
+        std::max(accumulator.non_shifted_polynomial.end_index(), accumulator.shifted_polynomial.end_index());
+    CommitmentKey ck(actual_data_size);
 
     // Open the commitments with Shplemini
-    PolynomialBatcher polynomial_batcher(actual_size);
+    PolynomialBatcher polynomial_batcher(dyadic_size, actual_data_size);
     polynomial_batcher.set_unshifted(RefVector(accumulator.non_shifted_polynomial));
     polynomial_batcher.set_to_be_shifted_by_one(RefVector(accumulator.shifted_polynomial));
 
     OpeningClaim prover_opening_claim;
     prover_opening_claim =
-        ShpleminiProver::prove(actual_size, polynomial_batcher, accumulator.challenge, ck, transcript);
+        ShpleminiProver::prove(dyadic_size, polynomial_batcher, accumulator.challenge, ck, transcript);
 
     vinfo("HypernovaFoldingDecider: executed multivariate-to-univariate reduction");
 

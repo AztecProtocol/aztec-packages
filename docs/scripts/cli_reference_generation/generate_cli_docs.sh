@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Script to generate auto-generated CLI documentation
 # Usage: ./scripts/cli_reference_generation/generate_cli_docs.sh [OPTIONS] <cli_name> [target_version] [output_dir]
 #

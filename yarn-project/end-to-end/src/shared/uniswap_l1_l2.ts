@@ -130,7 +130,9 @@ export const uniswapL1L2TestSuite = (
         client: l1Client,
       });
       // deploy l2 uniswap contract and attach to portal
-      uniswapL2Contract = await UniswapContract.deploy(wallet, uniswapPortalAddress).send({ from: ownerAddress });
+      ({ contract: uniswapL2Contract } = await UniswapContract.deploy(wallet, uniswapPortalAddress).send({
+        from: ownerAddress,
+      }));
 
       const registryAddress = (await aztecNode.getNodeInfo()).l1ContractAddresses.registryAddress;
 
@@ -195,7 +197,7 @@ export const uniswapL1L2TestSuite = (
       logger.info('Withdrawing weth to L1 and sending message to swap to dai');
       const [secretForDepositingSwappedDai, secretHashForDepositingSwappedDai] = await generateClaimSecret();
 
-      const l2UniswapInteractionReceipt = await uniswapL2Contract.methods
+      const { receipt: l2UniswapInteractionReceipt } = await uniswapL2Contract.methods
         .swap_private(
           wethCrossChainHarness.l2Token.address,
           wethCrossChainHarness.l2Bridge.address,
@@ -250,8 +252,12 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(uniswapL2Contract.address, 0n);
 
       // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch.
-      const block = await aztecNode.getBlock(l2UniswapInteractionReceipt.blockNumber!);
-      const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
+      const swapResult = (await computeL2ToL1MembershipWitness(
+        aztecNode,
+        swapPrivateLeaf,
+        l2UniswapInteractionReceipt.txHash,
+      ))!;
+      const { epochNumber: epoch } = swapResult;
       await cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
       await waitForProven(aztecNode, l2UniswapInteractionReceipt, { provenTimeout: 300 });
 
@@ -260,14 +266,17 @@ export const uniswapL1L2TestSuite = (
       const daiL1BalanceOfPortalBeforeSwap = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
       );
-      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPrivateLeaf);
-      const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
+      const withdrawResult = (await computeL2ToL1MembershipWitness(
+        aztecNode,
+        withdrawLeaf,
+        l2UniswapInteractionReceipt.txHash,
+      ))!;
 
-      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
-      const swapPrivateSiblingPath = swapResult!.siblingPath;
+      const swapPrivateL2MessageIndex = swapResult.leafIndex;
+      const swapPrivateSiblingPath = swapResult.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
-      const withdrawSiblingPath = withdrawResult!.siblingPath;
+      const withdrawL2MessageIndex = withdrawResult.leafIndex;
+      const withdrawSiblingPath = withdrawResult.siblingPath;
 
       const withdrawMessageMetadata = {
         _epoch: BigInt(epoch),
@@ -787,7 +796,7 @@ export const uniswapL1L2TestSuite = (
       logger.info('Withdrawing weth to L1 and sending message to swap to dai');
 
       const [, secretHashForDepositingSwappedDai] = await generateClaimSecret();
-      const withdrawReceipt = await uniswapL2Contract.methods
+      const { receipt: withdrawReceipt } = await uniswapL2Contract.methods
         .swap_private(
           wethCrossChainHarness.l2Token.address,
           wethCrossChainHarness.l2Bridge.address,
@@ -838,16 +847,15 @@ export const uniswapL1L2TestSuite = (
         chainId: new Fr(l1Client.chain.id),
       });
 
-      const block = await aztecNode.getBlock(withdrawReceipt.blockNumber!);
-      const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
-      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPrivateLeaf);
-      const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
+      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, swapPrivateLeaf, withdrawReceipt.txHash))!;
+      const { epochNumber: epoch } = swapResult;
+      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, withdrawLeaf, withdrawReceipt.txHash))!;
 
-      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
-      const swapPrivateSiblingPath = swapResult!.siblingPath;
+      const swapPrivateL2MessageIndex = swapResult.leafIndex;
+      const swapPrivateSiblingPath = swapResult.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
-      const withdrawSiblingPath = withdrawResult!.siblingPath;
+      const withdrawL2MessageIndex = withdrawResult.leafIndex;
+      const withdrawSiblingPath = withdrawResult.siblingPath;
 
       const withdrawMessageMetadata = {
         _epoch: BigInt(epoch),
@@ -915,7 +923,7 @@ export const uniswapL1L2TestSuite = (
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
-      const withdrawReceipt = await uniswapL2Contract.methods
+      const { receipt: withdrawReceipt } = await uniswapL2Contract.methods
         .swap_public(
           ownerAddress,
           wethCrossChainHarness.l2Bridge.address,
@@ -971,16 +979,15 @@ export const uniswapL1L2TestSuite = (
         chainId: new Fr(l1Client.chain.id),
       });
 
-      const block = await aztecNode.getBlock(withdrawReceipt.blockNumber!);
-      const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
-      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPublicLeaf);
-      const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
+      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, swapPublicLeaf, withdrawReceipt.txHash))!;
+      const { epochNumber: epoch } = swapResult;
+      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, withdrawLeaf, withdrawReceipt.txHash))!;
 
-      const swapPublicL2MessageIndex = swapResult!.leafIndex;
-      const swapPublicSiblingPath = swapResult!.siblingPath;
+      const swapPublicL2MessageIndex = swapResult.leafIndex;
+      const swapPublicSiblingPath = swapResult.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
-      const withdrawSiblingPath = withdrawResult!.siblingPath;
+      const withdrawL2MessageIndex = withdrawResult.leafIndex;
+      const withdrawSiblingPath = withdrawResult.siblingPath;
 
       const withdrawMessageMetadata = {
         _epoch: BigInt(epoch),

@@ -52,6 +52,7 @@ export class ContractProviderForCpp implements ContractProvider {
     return serializeWithMessagePack(contractClass);
   };
 
+  // eslint-disable-next-line require-await
   public addContracts = async (contractDeploymentDataBuffer: Buffer): Promise<void> => {
     this.log.trace(`Contract provider callback: addContracts`);
 
@@ -62,7 +63,7 @@ export class ContractProviderForCpp implements ContractProvider {
 
     // Add contracts to the contracts DB
     this.log.trace(`Calling contractsDB.addContracts`);
-    await this.contractsDB.addContracts(contractDeploymentData);
+    this.contractsDB.addContracts(contractDeploymentData);
   };
 
   public getBytecodeCommitment = async (classId: string): Promise<Buffer | undefined> => {

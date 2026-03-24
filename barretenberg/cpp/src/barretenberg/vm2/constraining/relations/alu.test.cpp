@@ -838,11 +838,27 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                           { Column::alu_b_lo, b_decomp.lo },
                           { Column::alu_b_hi, b_decomp.hi } } });
 
-            range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
-                                          { .value = c_decomp.hi, .num_bits = 64 },
-                                          { .value = b_decomp.lo, .num_bits = 64 },
-                                          { .value = b_decomp.hi, .num_bits = 64 } },
-                                        trace);
+            // Combine remainder range check with U128 decomposition range checks in a single
+            // process call, since process() always starts from row 0.
+            if (!div_0_error) {
+                range_check_builder.process(
+                    { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) },
+                      { .value = c_decomp.lo, .num_bits = 64 },
+                      { .value = c_decomp.hi, .num_bits = 64 },
+                      { .value = b_decomp.lo, .num_bits = 64 },
+                      { .value = b_decomp.hi, .num_bits = 64 } },
+                    trace);
+            } else {
+                range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
+                                              { .value = c_decomp.hi, .num_bits = 64 },
+                                              { .value = b_decomp.lo, .num_bits = 64 },
+                                              { .value = b_decomp.hi, .num_bits = 64 } },
+                                            trace);
+            }
+        } else if (!div_0_error) {
+            // Range check the remainder fits within max_bits.
+            range_check_builder.process(
+                { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) } }, trace);
         }
 
         return trace;
@@ -870,11 +886,27 @@ class AluDivConstrainingTest : public AluConstrainingTest,
             auto c_decomp = simulation::decompose_128(static_cast<uint128_t>(c.as_ff()));
             auto b_decomp = simulation::decompose_128(static_cast<uint128_t>(b.as_ff()));
 
-            range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
-                                          { .value = c_decomp.hi, .num_bits = 64 },
-                                          { .value = b_decomp.lo, .num_bits = 64 },
-                                          { .value = b_decomp.hi, .num_bits = 64 } },
-                                        trace);
+            // Combine remainder range check with U128 decomposition range checks in a single
+            // process call, since process() always starts from row 0.
+            if (!div_0_error) {
+                range_check_builder.process(
+                    { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) },
+                      { .value = c_decomp.lo, .num_bits = 64 },
+                      { .value = c_decomp.hi, .num_bits = 64 },
+                      { .value = b_decomp.lo, .num_bits = 64 },
+                      { .value = b_decomp.hi, .num_bits = 64 } },
+                    trace);
+            } else {
+                range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
+                                              { .value = c_decomp.hi, .num_bits = 64 },
+                                              { .value = b_decomp.lo, .num_bits = 64 },
+                                              { .value = b_decomp.hi, .num_bits = 64 } },
+                                            trace);
+            }
+        } else if (!div_0_error) {
+            // Range check the remainder fits within max_bits.
+            range_check_builder.process(
+                { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) } }, trace);
         }
         precomputed_builder.process_misc(trace, NUM_OF_TAGS);
         precomputed_builder.process_tag_parameters(trace);
@@ -949,8 +981,13 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
 
     // All relations will pass...
     check_relation<alu>(trace);
-    // ... but now r > b, so the gt lookup will fail:
-    EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_INT_GT");
+    // ... but the remainder (p - 8) is not in range, so the range check fails:
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<AluTraceBuilder, lookup_alu_range_check_div_remainder_settings>(trace)),
+        "RANGE_CHECK_DIV_REMAINDER");
+    // ... and r > b, so the gt lookup also fails:
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
+                              "LOOKUP_ALU_INT_GT");
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)

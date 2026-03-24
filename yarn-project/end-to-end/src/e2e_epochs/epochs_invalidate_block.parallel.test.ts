@@ -238,7 +238,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Send a few transactions so the sequencer builds multiple blocks in the checkpoint
     // We'll later check that the first tx at least was picked up and mined
     logger.warn('Sending multiple transactions to trigger block building');
-    const [sentTx] = await timesAsync(8, i =>
+    const [{ txHash: sentTx }] = await timesAsync(8, i =>
       testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from: context.accounts[0], wait: NO_WAIT }),
     );
 

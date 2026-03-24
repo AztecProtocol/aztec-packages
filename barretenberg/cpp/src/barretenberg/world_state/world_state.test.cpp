@@ -492,9 +492,9 @@ TEST_F(WorldStateTest, NullifierBatchInsert)
     auto response = ws.batch_insert_indexed_leaves<NullifierLeafValue>(
         MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(150), NullifierLeafValue(142), NullifierLeafValue(180) }, 2);
 
-    std::vector<std::pair<NullifierLeafValue, size_t>> expected_sorted_leaves = { { NullifierLeafValue(180), 2 },
-                                                                                  { NullifierLeafValue(150), 0 },
-                                                                                  { NullifierLeafValue(142), 1 } };
+    std::vector<std::pair<NullifierLeafValue, index_t>> expected_sorted_leaves = { { NullifierLeafValue(180), 2 },
+                                                                                   { NullifierLeafValue(150), 0 },
+                                                                                   { NullifierLeafValue(142), 1 } };
     EXPECT_EQ(response.sorted_leaves, expected_sorted_leaves);
 
     {

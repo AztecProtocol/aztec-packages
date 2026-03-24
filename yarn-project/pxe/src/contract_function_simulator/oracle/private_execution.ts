@@ -76,12 +76,12 @@ export async function executePrivateFunction(
 
   const contractClassLogs = privateExecutionOracle.getContractClassLogs();
 
-  const rawReturnValues = await privateExecutionOracle.privateLoadFromExecutionCache(publicInputs.returnsHash);
+  const rawReturnValues = await privateExecutionOracle.loadFromExecutionCache(publicInputs.returnsHash);
 
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
-  const preTags = privateExecutionOracle.getUsedPreTags();
+  const taggingIndexRanges = privateExecutionOracle.getUsedTaggingIndexRanges();
   const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
   let timerSubtractionList = nestedExecutionResults;
@@ -103,8 +103,8 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
-    offchainEffects,
-    preTags,
+    offchainEffects.map(e => ({ data: e.data })),
+    taggingIndexRanges,
     nestedExecutionResults,
     contractClassLogs,
     {

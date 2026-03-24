@@ -23,7 +23,11 @@ This guide walks you through paying transaction fees on Aztec using various paym
 | Method              | Use Case                      | Privacy | Requirements               |
 | ------------------- | ----------------------------- | ------- | -------------------------- |
 | Fee Juice (default) | Account already has Fee Juice | Public  | Funded account             |
+#if(testnet)
+| Sponsored FPC       | Testing, free transactions    | Public  | None (not on testnet)      |
+#else
 | Sponsored FPC       | Testing, free transactions    | Public  | None                       |
+#endif
 | Private FPC         | Pay with tokens privately     | Private | Token balance, FPC address |
 | Public FPC          | Pay with tokens publicly      | Public  | Token balance, FPC address |
 | Bridge + Claim      | Bootstrap from L1             | Public  | L1 ETH for gas             |
@@ -114,7 +118,15 @@ Fee Payment Contracts (FPC) pay fees on your behalf, typically accepting a diffe
 
 ### Sponsored Fee Payment Contracts
 
-The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on both the local network and the testnet (deployed by Aztec Labs).
+#if(testnet)
+:::warning
+The Sponsored FPC is **not** deployed on testnet. To pay fees, you must either [bridge Fee Juice from L1](#bridge-fee-juice-from-l1) or deploy your own fee-paying contract.
+:::
+
+The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on the local network and devnet (deployed by Aztec Labs), but **not on testnet**.
+#else
+The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on both the local network and devnet (deployed by Aztec Labs).
+#endif
 
 You can derive the Sponsored FPC address from its deployment parameters, register it with your wallet, and use it to pay for transactions:
 

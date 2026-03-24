@@ -39,7 +39,7 @@ struct DBStats {
         , totalUsedSize(totalUsedSize)
     {}
 
-    MSGPACK_FIELDS(name, numDataItems, totalUsedSize)
+    SERIALIZATION_FIELDS(name, numDataItems, totalUsedSize)
 
     bool operator==(const DBStats& other) const
     {

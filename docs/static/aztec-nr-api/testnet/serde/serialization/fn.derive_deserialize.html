@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Function derive_deserialize documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">derive_deserialize</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">serde</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module serialization</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Deserialize.html">Deserialize</a></div></li>
+<li><a href="trait.Serialize.html">Serialize</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.derive_deserialize.html">derive_deserialize</a></div></li>
+<li><a href="fn.derive_serialize.html">derive_serialize</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">serde</a>::<a href="index.html">serialization</a></div>
+<h1>Function <span class="fn">derive_deserialize</span></h1>
+<pre><code>pub comptime fn derive_deserialize(s: <a href="../../std/primitive.TypeDefinition.html" class="primitive">TypeDefinition</a>) -> <a href="../../std/primitive.Quoted.html" class="primitive">Quoted</a></code></pre>
+
+<div class="comments">
+<p>Generates a <code>Deserialize</code> trait implementation for a given struct <code>s</code>.</p>
+<h2>Arguments</h2>
+<ul>
+<li><code>s</code> - The struct type definition to generate the implementation for</li>
+</ul>
+<h2>Returns</h2>
+<p>A <code>Quoted</code> block containing the generated trait implementation</p>
+<h2>Requirements</h2>
+<p>Each struct member type must implement the <code>Deserialize</code> trait (it gets used in the generated code).</p>
+<h2>Example</h2>
+<p>For a struct like:</p>
+<pre><code><span class="kw">struct</span> MyStruct {
+    x: AztecAddress,
+    y: Field,
+}</code></pre>
+<p>This generates:</p>
+<pre><code><span class="kw">impl</span> Deserialize <span class="kw">for</span> MyStruct {
+    <span class="kw">let</span> N: u32 = &lt;AztecAddress <span class="kw">as</span> Deserialize&gt;::N + &lt;Field <span class="kw">as</span> Deserialize&gt;::N;
+
+    <span class="kw">fn</span> deserialize(fields: [Field; Self::N]) -&gt; Self {
+        <span class="kw">let</span> <span class="kw">mut</span> reader = Reader::new(fields);
+        <span class="kw">let</span> result = Self::stream_deserialize(&<span class="kw">mut</span> reader);
+        reader.finish();
+        result
+    }
+
+    #[inline_always]
+    <span class="kw">fn</span> stream_deserialize&lt;<span class="kw">let</span> K: u32&gt;(reader: &<span class="kw">mut</span> Reader&lt;K&gt;) -&gt; Self {
+        <span class="kw">let</span> x = &lt;AztecAddress <span class="kw">as</span> Deserialize&gt;::stream_deserialize(reader);
+        <span class="kw">let</span> y = &lt;Field <span class="kw">as</span> Deserialize&gt;::stream_deserialize(reader);
+        Self { x, y }
+    }
+}</code></pre></div>
+</main>
+</span>
+</body>
+</html>

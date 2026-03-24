@@ -62,17 +62,13 @@ template <class base_field, class Params> struct alignas(32) field2 {
     static constexpr field2 zero() { return field2{ base_field::zero(), base_field::zero() }; }
     static constexpr field2 one() { return field2{ base_field::one(), base_field::zero() }; }
     static constexpr field2 twist_coeff_b() { return field2{ Params::twist_coeff_b_0, Params::twist_coeff_b_1 }; }
-    static constexpr field2 twist_mul_by_q_x()
+    static constexpr field2 frobenius_on_twisted_curve_x()
     {
-        return field2{ Params::twist_mul_by_q_x_0, Params::twist_mul_by_q_x_1 };
+        return field2{ Params::frobenius_on_twisted_curve_x_0, Params::frobenius_on_twisted_curve_x_1 };
     }
-    static constexpr field2 twist_mul_by_q_y()
+    static constexpr field2 frobenius_on_twisted_curve_y()
     {
-        return field2{ Params::twist_mul_by_q_y_0, Params::twist_mul_by_q_y_1 };
-    }
-    static constexpr field2 cube_root_of_unity()
-    {
-        return field2{ Params::twist_cube_root_0, Params::twist_cube_root_1 };
+        return field2{ Params::frobenius_on_twisted_curve_y_0, Params::frobenius_on_twisted_curve_y_1 };
     }
 
     constexpr field2 operator*(const field2& other) const noexcept;

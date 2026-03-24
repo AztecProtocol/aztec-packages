@@ -9,6 +9,8 @@ import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/Pending
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 
+import { jest } from '@jest/globals';
+
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -51,9 +53,9 @@ describe('Kernelless simulation', () => {
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
 
-    amm = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
+    ({ contract: amm } = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
       from: adminAddress,
-    });
+    }));
 
     await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress });
 
@@ -75,15 +77,15 @@ describe('Kernelless simulation', () => {
 
     async function getWalletBalances(lpAddress: AztecAddress): Promise<Balance> {
       return {
-        token0: await token0.methods.balance_of_private(lpAddress).simulate({ from: lpAddress }),
-        token1: await token1.methods.balance_of_private(lpAddress).simulate({ from: lpAddress }),
+        token0: (await token0.methods.balance_of_private(lpAddress).simulate({ from: lpAddress })).result,
+        token1: (await token1.methods.balance_of_private(lpAddress).simulate({ from: lpAddress })).result,
       };
     }
 
     async function getAmmBalances(): Promise<Balance> {
       return {
-        token0: await token0.methods.balance_of_public(amm.address).simulate({ from: adminAddress }),
-        token1: await token1.methods.balance_of_public(amm.address).simulate({ from: adminAddress }),
+        token0: (await token0.methods.balance_of_public(amm.address).simulate({ from: adminAddress })).result,
+        token1: (await token1.methods.balance_of_public(amm.address).simulate({ from: adminAddress })).result,
       };
     }
 
@@ -108,7 +110,7 @@ describe('Kernelless simulation', () => {
         nonceForAuthwits,
       );
 
-      wallet.enableSimulatedSimulations();
+      wallet.setSimulationMode('kernelless-override');
 
       const { offchainEffects } = await addLiquidityInteraction.simulate({
         from: liquidityProviderAddress,
@@ -123,14 +125,18 @@ describe('Kernelless simulation', () => {
       expect(token0AuthwitRequest.contractAddress).toEqual(token0.address);
       expect(token1AuthwitRequest.contractAddress).toEqual(token1.address);
 
-      // Authwit selector + inner_hash + msg_sender + function_selector + args_hash + args (4)
-      expect(token0AuthwitRequest.data).toHaveLength(9);
-      expect(token1AuthwitRequest.data).toHaveLength(9);
+      // Authwit selector + inner_hash + on_behalf_of + msg_sender + function_selector + args_hash + args (4)
+      expect(token0AuthwitRequest.data).toHaveLength(10);
+      expect(token1AuthwitRequest.data).toHaveLength(10);
 
       const token0CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
       const token1CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token1AuthwitRequest.data);
 
       expect(token0CallAuthorizationRequest.selector).toEqual(token1CallAuthorizationRequest.selector);
+      expect(token0CallAuthorizationRequest.onBehalfOf).toEqual(liquidityProviderAddress);
+      expect(token1CallAuthorizationRequest.onBehalfOf).toEqual(liquidityProviderAddress);
+      expect(token0CallAuthorizationRequest.msgSender).toEqual(amm.address);
+      expect(token1CallAuthorizationRequest.msgSender).toEqual(amm.address);
 
       const functionAbi = await getFunctionArtifact(
         TokenContractArtifact,
@@ -216,7 +222,7 @@ describe('Kernelless simulation', () => {
       ).resolves.toBeDefined();
     });
 
-    it('produces matching gas estimates between kernelless and with-kernels simulation', async () => {
+    it('produces matching gas estimates and fee payer between kernelless and with-kernels simulation', async () => {
       const swapperBalancesBefore = await getWalletBalances(swapperAddress);
       const ammBalancesBefore = await getAmmBalances();
 
@@ -224,7 +230,7 @@ describe('Kernelless simulation', () => {
 
       const nonceForAuthwits = Fr.random();
 
-      const amountOutMin = await amm.methods
+      const { result: amountOutMin } = await amm.methods
         .get_amount_out_for_exact_in(ammBalancesBefore.token0, ammBalancesBefore.token1, amountIn)
         .simulate({ from: swapperAddress });
 
@@ -236,23 +242,27 @@ describe('Kernelless simulation', () => {
         nonceForAuthwits,
       );
 
-      wallet.enableSimulatedSimulations();
-      const { estimatedGas: swapKernellessGas } = await swapExactTokensInteraction.simulate({
+      const simulateTxSpy = jest.spyOn(wallet, 'simulateTx');
+
+      wallet.setSimulationMode('kernelless-override');
+      const kernellessResult = await swapExactTokensInteraction.simulate({
         from: swapperAddress,
         includeMetadata: true,
       });
+      const swapKernellessGas = kernellessResult.estimatedGas!;
 
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
         action: token0.methods.transfer_to_public(swapperAddress, amm.address, amountIn, nonceForAuthwits),
       });
 
-      wallet.disableSimulatedSimulations();
-      const { estimatedGas: swapWithKernelsGas } = await swapExactTokensInteraction.simulate({
+      wallet.setSimulationMode('full');
+      const withKernelsResult = await swapExactTokensInteraction.simulate({
         from: swapperAddress,
         includeMetadata: true,
         authWitnesses: [swapAuthwit],
       });
+      const swapWithKernelsGas = withKernelsResult.estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${swapKernellessGas.gasLimits.l2Gas} DA=${swapKernellessGas.gasLimits.daGas}`);
       logger.info(
@@ -261,6 +271,16 @@ describe('Kernelless simulation', () => {
 
       expect(swapKernellessGas.gasLimits.daGas).toEqual(swapWithKernelsGas.gasLimits.daGas);
       expect(swapKernellessGas.gasLimits.l2Gas).toEqual(swapWithKernelsGas.gasLimits.l2Gas);
+
+      expect(simulateTxSpy).toHaveBeenCalledTimes(2);
+      const kernellessTxResult = await (simulateTxSpy.mock.results[0].value as ReturnType<typeof wallet.simulateTx>);
+      const withKernelsTxResult = await (simulateTxSpy.mock.results[1].value as ReturnType<typeof wallet.simulateTx>);
+      const kernellessFeePayer = kernellessTxResult.publicInputs.feePayer;
+      const withKernelsFeePayer = withKernelsTxResult.publicInputs.feePayer;
+      expect(kernellessFeePayer).toEqual(withKernelsFeePayer);
+      expect(kernellessFeePayer).toEqual(swapperAddress);
+
+      simulateTxSpy.mockRestore();
     });
   });
 
@@ -268,7 +288,9 @@ describe('Kernelless simulation', () => {
     let pendingNoteHashesContract: PendingNoteHashesContract;
 
     beforeAll(async () => {
-      pendingNoteHashesContract = await PendingNoteHashesContract.deploy(wallet).send({ from: adminAddress });
+      ({ contract: pendingNoteHashesContract } = await PendingNoteHashesContract.deploy(wallet).send({
+        from: adminAddress,
+      }));
     });
 
     it('squashing produces same gas estimates as with-kernels path', async () => {
@@ -282,17 +304,21 @@ describe('Kernelless simulation', () => {
         await pendingNoteHashesContract.methods.get_then_nullify_note.selector(),
       );
 
-      wallet.enableSimulatedSimulations();
-      const { estimatedGas: kernellessGas } = await interaction.simulate({
-        from: adminAddress,
-        includeMetadata: true,
-      });
+      wallet.setSimulationMode('kernelless-override');
+      const kernellessGas = (
+        await interaction.simulate({
+          from: adminAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
-      wallet.disableSimulatedSimulations();
-      const { estimatedGas: withKernelsGas } = await interaction.simulate({
-        from: adminAddress,
-        includeMetadata: true,
-      });
+      wallet.setSimulationMode('full');
+      const withKernelsGas = (
+        await interaction.simulate({
+          from: adminAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
       logger.info(`With kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`);
@@ -306,26 +332,32 @@ describe('Kernelless simulation', () => {
     let pendingNoteHashesContract: PendingNoteHashesContract;
 
     beforeAll(async () => {
-      pendingNoteHashesContract = await PendingNoteHashesContract.deploy(wallet).send({ from: adminAddress });
+      ({ contract: pendingNoteHashesContract } = await PendingNoteHashesContract.deploy(wallet).send({
+        from: adminAddress,
+      }));
     });
 
     it('verifies settled read requests against the note hash tree', async () => {
       const mintAmount = 100n;
 
       // Insert a note with real kernels so it lands on-chain
-      wallet.disableSimulatedSimulations();
+      wallet.setSimulationMode('full');
       await pendingNoteHashesContract.methods.insert_note(mintAmount, adminAddress, adminAddress).send({
         from: adminAddress,
       });
 
-      // Kernelless simulation of reading + nullifying that settled note produces a settled
-      // read request that gets verified against the note hash tree at the anchor block
-      wallet.enableSimulatedSimulations();
+      // Spy on the node API that generateSimulatedProvingResult uses to verify settled read requests
+      const noteHashMembershipWitnessSpy = jest.spyOn(aztecNode, 'getNoteHashMembershipWitness');
+
+      wallet.setSimulationMode('kernelless-override');
       await expect(
         pendingNoteHashesContract.methods.get_then_nullify_note(mintAmount, adminAddress).simulate({
           from: adminAddress,
         }),
       ).resolves.toBeDefined();
+
+      expect(noteHashMembershipWitnessSpy).toHaveBeenCalled();
+      noteHashMembershipWitnessSpy.mockRestore();
     });
   });
 });

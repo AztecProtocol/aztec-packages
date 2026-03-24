@@ -7,6 +7,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <cstddef>
@@ -82,56 +83,23 @@ class ProofCompressor {
     // =========================================================================
 
     /**
-     * @brief Walk a MegaZK proof (BN254, ZK sumcheck).
-     * @details Layout from MegaZKStructuredProofBase and sumcheck prover code.
+     * @brief Walk a MegaZK Oink-only proof (BN254).
+     * @details In the batched protocol, the MegaZK proof contains only the Oink phase:
+     * public inputs followed by witness commitments. Sumcheck and PCS are in the joint proof.
      */
     template <typename ScalarFn, typename CommitmentFn>
-    static void walk_mega_zk_proof(ScalarFn&& process_scalar,
-                                   CommitmentFn&& process_commitment,
-                                   size_t num_public_inputs)
+    static void walk_mega_zk_oink_proof(ScalarFn&& process_scalar,
+                                        CommitmentFn&& process_commitment,
+                                        size_t num_public_inputs)
     {
-        constexpr size_t log_n = MegaZKFlavor::VIRTUAL_LOG_N;
-
         // Public inputs
         for (size_t i = 0; i < num_public_inputs; i++) {
             process_scalar();
         }
-        // Witness commitments (hiding poly + 24 mega witness = NUM_WITNESS_ENTITIES total)
+        // Witness commitments (wires + lookup + databus + z_perm = NUM_WITNESS_ENTITIES)
         for (size_t i = 0; i < MegaZKFlavor::NUM_WITNESS_ENTITIES; i++) {
             process_commitment();
         }
-        // Libra concatenation commitment
-        process_commitment();
-        // Libra sum
-        process_scalar();
-        // Sumcheck round univariates
-        for (size_t i = 0; i < log_n * MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-            process_scalar();
-        }
-        // Sumcheck evaluations
-        for (size_t i = 0; i < MegaZKFlavor::NUM_ALL_ENTITIES; i++) {
-            process_scalar();
-        }
-        // Libra claimed evaluation
-        process_scalar();
-        // Libra grand sum + quotient commitments
-        process_commitment();
-        process_commitment();
-        // Gemini fold commitments
-        for (size_t i = 0; i < log_n - 1; i++) {
-            process_commitment();
-        }
-        // Gemini fold evaluations
-        for (size_t i = 0; i < log_n; i++) {
-            process_scalar();
-        }
-        // Small IPA evaluations (for ZK)
-        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
-            process_scalar();
-        }
-        // Shplonk Q + KZG W
-        process_commitment();
-        process_commitment();
     }
 
     /**
@@ -247,14 +215,17 @@ class ProofCompressor {
     }
 
     /**
-     * @brief Walk a Translator proof (all BN254).
-     * @details Layout from TranslatorFlavor::PROOF_LENGTH formula.
+     * @brief Walk the joint proof (translator oink + joint sumcheck + joint PCS, all BN254).
+     * @details Produced by BatchedHonkTranslatorProver::prove(). Contains the translator's
+     * pre-sumcheck commitments, a joint 17-round sumcheck over MegaZK + translator, and a
+     * joint Shplemini/KZG PCS reduction.
      */
     template <typename ScalarFn, typename CommitmentFn>
-    static void walk_translator_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
+    static void walk_joint_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
     {
-        constexpr size_t log_n = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-
+        constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
+        constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;            // 16
+        // --- Translator Oink ---
         // Gemini masking poly commitment
         process_commitment();
         // Wire commitments: concatenated + ordered range constraints
@@ -263,29 +234,57 @@ class ProofCompressor {
         }
         // Z_PERM commitment
         process_commitment();
+
+        // --- Joint Sumcheck (Libra header) ---
         // Libra concatenation commitment
         process_commitment();
         // Libra sum
         process_scalar();
-        // Sumcheck round univariates
-        for (size_t i = 0; i < log_n * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+
+        // Committed sumcheck rounds 0..MEGA_ZK_LOG_N-1 (commitment + 2 evals per round)
+        for (size_t round = 0; round < MEGA_ZK_LOG_N; round++) {
+            process_commitment(); // round univariate commitment
+            process_scalar();     // eval at 0
+            process_scalar();     // eval at 1
+            // Minicircuit evaluations sent at round LOG_MINI_CIRCUIT_SIZE - 1
+            if (round == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+                for (size_t j = 0; j < TranslatorFlavor::NUM_MINICIRCUIT_EVALUATIONS; j++) {
+                    process_scalar();
+                }
+            }
+        }
+
+        // MegaZK evaluations (sent after all real rounds, before virtual rounds)
+        for (size_t i = 0; i < MegaZKFlavor::NUM_ALL_ENTITIES; i++) {
             process_scalar();
         }
-        // Sumcheck evaluations (computable precomputed and concat evals excluded)
-        for (size_t i = 0; i < TranslatorFlavor::NUM_SENT_EVALUATIONS; i++) {
+
+        // Virtual committed sumcheck rounds MEGA_ZK_LOG_N..JOINT_LOG_N-1
+        for (size_t round = MEGA_ZK_LOG_N; round < JOINT_LOG_N; round++) {
+            process_commitment(); // round univariate commitment
+            process_scalar();     // eval at 0
+            process_scalar();     // eval at 1
+        }
+
+        // Translator evaluations (sent after all rounds)
+        for (size_t i = 0; i < TranslatorFlavor::NUM_FULL_CIRCUIT_EVALUATIONS; i++) {
             process_scalar();
         }
+
+        // --- Joint Sumcheck (Libra footer) ---
         // Libra claimed evaluation
         process_scalar();
         // Libra grand sum + quotient commitments
         process_commitment();
         process_commitment();
+
+        // --- Joint PCS ---
         // Gemini fold commitments
-        for (size_t i = 0; i < log_n - 1; i++) {
+        for (size_t i = 0; i < JOINT_LOG_N - 1; i++) {
             process_commitment();
         }
         // Gemini fold evaluations
-        for (size_t i = 0; i < log_n; i++) {
+        for (size_t i = 0; i < JOINT_LOG_N; i++) {
             process_scalar();
         }
         // Small IPA evaluations
@@ -299,6 +298,7 @@ class ProofCompressor {
 
     /**
      * @brief Walk a full Chonk proof (5 sub-proofs across two curves).
+     * @details Layout: hiding_oink (BN254) | merge (BN254) | eccvm (Grumpkin) | ipa (Grumpkin) | joint (BN254)
      */
     template <typename BN254ScalarFn, typename BN254CommFn, typename GrumpkinScalarFn, typename GrumpkinCommFn>
     static void walk_chonk_proof(BN254ScalarFn&& bn254_scalar,
@@ -307,11 +307,11 @@ class ProofCompressor {
                                  GrumpkinCommFn&& grumpkin_comm,
                                  size_t mega_num_public_inputs)
     {
-        walk_mega_zk_proof(bn254_scalar, bn254_comm, mega_num_public_inputs);
+        walk_mega_zk_oink_proof(bn254_scalar, bn254_comm, mega_num_public_inputs);
         walk_merge_proof(bn254_scalar, bn254_comm);
         walk_eccvm_proof(grumpkin_scalar, grumpkin_comm);
         walk_ipa_proof(grumpkin_scalar, grumpkin_comm);
-        walk_translator_proof(bn254_scalar, bn254_comm);
+        walk_joint_proof(bn254_scalar, bn254_comm);
     }
 
     // =========================================================================
@@ -327,20 +327,10 @@ class ProofCompressor {
     static constexpr size_t GRUMPKIN_FRS_PER_COMM = 2;   // Fr x,y coordinates
 
     // clang-format off
-    // MegaZK (without public inputs) — mirrors walk_mega_zk_proof with num_public_inputs=0
-    static constexpr size_t EXPECTED_MEGA_ZK_FRS =
-        MegaZKFlavor::NUM_WITNESS_ENTITIES * BN254_FRS_PER_COMM +                                           // witness comms
-        1 * BN254_FRS_PER_COMM +                                                                            // libra concat
-        1 * BN254_FRS_PER_SCALAR +                                                                          // libra sum
-        MegaZKFlavor::VIRTUAL_LOG_N * MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH * BN254_FRS_PER_SCALAR +// sumcheck univariates
-        MegaZKFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                             // sumcheck evals
-        1 * BN254_FRS_PER_SCALAR +                                                                          // libra claimed eval
-        2 * BN254_FRS_PER_COMM +                                                                            // libra grand sum + quotient
-        (MegaZKFlavor::VIRTUAL_LOG_N - 1) * BN254_FRS_PER_COMM +                                           // gemini folds
-        MegaZKFlavor::VIRTUAL_LOG_N * BN254_FRS_PER_SCALAR +                                                // gemini evals
-        NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                  // small IPA evals
-        2 * BN254_FRS_PER_COMM;                                                                             // shplonk Q + KZG W
-    static_assert(EXPECTED_MEGA_ZK_FRS == ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS);
+    // Hiding Oink (without public inputs) — mirrors walk_mega_zk_oink_proof with num_public_inputs=0
+    static constexpr size_t EXPECTED_HIDING_OINK_FRS =
+        MegaZKFlavor::NUM_WITNESS_ENTITIES * BN254_FRS_PER_COMM;                                                   // witness comms
+    static_assert(EXPECTED_HIDING_OINK_FRS == ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS);
 
     // Merge — mirrors walk_merge_proof
     static constexpr size_t EXPECTED_MERGE_FRS =
@@ -379,22 +369,38 @@ class ProofCompressor {
         1 * GRUMPKIN_FRS_PER_SCALAR;                    // a_0
     static_assert(EXPECTED_IPA_FRS == IPA_PROOF_LENGTH);
 
-    // Translator — mirrors walk_translator_proof
-    static constexpr size_t EXPECTED_TRANSLATOR_FRS =
+    // Joint proof — mirrors walk_joint_proof (translator oink + joint sumcheck + joint PCS)
+    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+    static constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;
+    static constexpr size_t EXPECTED_JOINT_FRS =
+        // Translator oink
         1 * BN254_FRS_PER_COMM +                                                                                   // gemini masking poly
-        TranslatorFlavor::NUM_COMMITMENTS_IN_PROOF * BN254_FRS_PER_COMM +                                          // wire comms (concat + ordered)
+        TranslatorFlavor::NUM_COMMITMENTS_IN_PROOF * BN254_FRS_PER_COMM +                                          // wire comms
         1 * BN254_FRS_PER_COMM +                                                                                   // z_perm
+        // Joint sumcheck (libra header)
         1 * BN254_FRS_PER_COMM +                                                                                   // libra concat
         1 * BN254_FRS_PER_SCALAR +                                                                                 // libra sum
-        TranslatorFlavor::CONST_TRANSLATOR_LOG_N * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH * BN254_FRS_PER_SCALAR + // sumcheck univariates
-        TranslatorFlavor::NUM_SENT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                            // sumcheck evals
+        // Committed sumcheck rounds (commitment + 2 evals per round)
+        JOINT_LOG_N * BN254_FRS_PER_COMM +                                                                         // round univariate comms
+        2 * JOINT_LOG_N * BN254_FRS_PER_SCALAR +                                                                   // round univariate evals
+        // Minicircuit evaluations (sent once at round LOG_MINI_CIRCUIT_SIZE - 1)
+        TranslatorFlavor::NUM_MINICIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                     // minicircuit evals
+        // MegaZK evaluations (sent after real rounds)
+        MegaZKFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                                    // mega_zk evals
+        // Translator evaluations (sent after all rounds)
+        TranslatorFlavor::NUM_FULL_CIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                    // translator evals
+        // Joint sumcheck (libra footer)
         1 * BN254_FRS_PER_SCALAR +                                                                                 // libra claimed eval
         2 * BN254_FRS_PER_COMM +                                                                                   // libra grand sum + quotient
-        (TranslatorFlavor::CONST_TRANSLATOR_LOG_N - 1) * BN254_FRS_PER_COMM +                                     // gemini folds
-        TranslatorFlavor::CONST_TRANSLATOR_LOG_N * BN254_FRS_PER_SCALAR +                                          // gemini evals
+        // Joint PCS
+        (JOINT_LOG_N - 1) * BN254_FRS_PER_COMM +                                                                  // gemini folds
+        JOINT_LOG_N * BN254_FRS_PER_SCALAR +                                                                       // gemini evals
         NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                         // small IPA evals
         2 * BN254_FRS_PER_COMM;                                                                                    // shplonk Q + KZG W
-    static_assert(EXPECTED_TRANSLATOR_FRS == TranslatorFlavor::PROOF_LENGTH);
+    // Cross-check: walk-based count must match ChonkProof's structural constants
+    static_assert(EXPECTED_HIDING_OINK_FRS + EXPECTED_MERGE_FRS + EXPECTED_ECCVM_FRS + EXPECTED_IPA_FRS +
+                      EXPECTED_JOINT_FRS ==
+                  ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // clang-format on
 
   public:
@@ -484,7 +490,7 @@ class ProofCompressor {
         };
 
         size_t mega_num_pub_inputs =
-            proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
+            proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
         walk_chonk_proof(bn254_scalar, bn254_comm, grumpkin_scalar, grumpkin_comm, mega_num_pub_inputs);
         BB_ASSERT(offset == flat.size());
         return out;

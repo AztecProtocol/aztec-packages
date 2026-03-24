@@ -128,6 +128,22 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
     return params;
 }
 
+/**
+ * @brief Find the first transcript no-op row: all selectors zero, not first/last row.
+ */
+size_t find_transcript_noop_row(const ProverPolynomials& polynomials)
+{
+    const size_t num_rows = polynomials.get_polynomial_size();
+    for (size_t i = 2; i < num_rows - 1; i++) {
+        if (polynomials.transcript_add[i] == FF(0) && polynomials.transcript_mul[i] == FF(0) &&
+            polynomials.transcript_eq[i] == FF(0) && polynomials.transcript_reset_accumulator[i] == FF(0) &&
+            polynomials.lagrange_first[i] == FF(0) && polynomials.lagrange_last[i] == FF(0)) {
+            return i;
+        }
+    }
+    return 0;
+}
+
 } // anonymous namespace
 
 class ECCVMRelationCorruptionTests : public ::testing::Test {
@@ -260,12 +276,11 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params, "ECCVMMSMRelation");
     EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
 
-    const size_t num_rows = polynomials.get_polynomial_size();
     auto msm_polys = get_msm_polynomials(polynomials);
 
-    // Shift every MSM column down by 1: p[k] = p[k-1] for k = num_rows-1 down to 2, then p[1] = 0
+    // Shift every MSM column down by 1: p[k] = p[k-1] for k = end-1 down to 2, then p[1] = 0
     for (auto* poly : msm_polys) {
-        for (size_t k = num_rows - 1; k >= 2; k--) {
+        for (size_t k = poly->end_index() - 1; k >= 2; k--) {
             poly->at(k) = (*poly)[k - 1];
         }
         poly->at(1) = FF(0);
@@ -329,4 +344,35 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     auto lookup_failures = RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
         polynomials, full_params, "ECCVMLookupRelation");
     EXPECT_TRUE(lookup_failures.empty()) << "ECCVMLookupRelation should still pass (inverse computed post-shift)";
+}
+
+/**
+ * @brief On a transcript no-op row, setting accumulator_not_empty=1 must be caught by subrelation 22.
+ *
+ * @details The `accumulator_infinity_from_noop` term in subrelation 22 forces
+ * is_accumulator_empty_shift = 1 whenever all selectors are zero. This test corrupts
+ * the shifted value (i.e. accumulator_not_empty at row+1) to 1 and verifies detection.
+ */
+TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    RelationParameters<FF> params{};
+
+    auto baseline =
+        RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(polynomials, params, "ECCVMTranscriptRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline transcript relation should pass";
+
+    size_t noop_row = find_transcript_noop_row(polynomials);
+    ASSERT_NE(noop_row, 0) << "Should find a transcript no-op row";
+
+    // The no-op constraint at row `noop_row` constrains is_accumulator_empty_shift,
+    // which reads from accumulator_not_empty at row `noop_row + 1`.
+    polynomials.transcript_accumulator_not_empty.at(noop_row + 1) = FF(1);
+    polynomials.set_shifted();
+
+    auto failures =
+        RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(polynomials, params, "ECCVMTranscriptRelation");
+    EXPECT_FALSE(failures.empty()) << "Transcript relation should fail after corrupting accumulator_not_empty on "
+                                      "the row following a no-op";
+    EXPECT_TRUE(failures.contains(22)) << "Subrelation 22 (accumulator_infinity) should catch the corruption";
 }

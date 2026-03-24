@@ -12,13 +12,13 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type BlockProposal, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeAztecAddress, makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
@@ -40,7 +40,7 @@ import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requ
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
-import { MissingTxsTracker } from '../services/tx_collection/missing_txs_tracker.js';
+import { RequestTracker } from '../services/tx_collection/request_tracker.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
@@ -273,10 +273,9 @@ async function runAggregatorBenchmark(
         noopTxValidator,
       );
       const fetchedTxs = await collector.collectTxs(
-        MissingTxsTracker.fromArray(txHashes),
+        RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
         blockProposal,
         pinnedPeer,
-        timeoutMs,
       );
       const durationMs = timer.ms();
       return {
@@ -293,10 +292,9 @@ async function runAggregatorBenchmark(
       BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
     );
     const fetchedTxs = await collector.collectTxs(
-      MissingTxsTracker.fromArray(txHashes),
+      RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
       blockProposal,
       pinnedPeer,
-      timeoutMs,
     );
     const durationMs = timer.ms();
     return {
@@ -340,6 +338,7 @@ process.on('message', async msg => {
       const config: P2PConfig = {
         ...rawConfig,
         peerIdPrivateKey: rawConfig.peerIdPrivateKey ? new SecretValue(rawConfig.peerIdPrivateKey) : undefined,
+        priceBumpPercentage: 10n,
       } as P2PConfig;
 
       workerConfig = config;

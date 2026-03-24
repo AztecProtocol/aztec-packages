@@ -59,7 +59,7 @@ export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
-  aztecProofSubmissionWindow: 640,
+  aztecProofSubmissionEpochs: 640,
 };
 
 export class P2PNetworkTest {
@@ -323,8 +323,9 @@ export class P2PNetworkTest {
       throw new Error('Call setupAccount before deploying spam contract');
     }
 
-    const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! });
-    this.spamContract = spamContract;
+    ({ contract: this.spamContract } = await SpamContract.deploy(this.wallet).send({
+      from: this.defaultAccountAddress!,
+    }));
   }
 
   async removeInitialNode() {

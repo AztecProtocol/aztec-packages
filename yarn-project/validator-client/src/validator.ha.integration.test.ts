@@ -5,7 +5,7 @@
  * rather than mocks to verify the HA coordination works correctly.
  */
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -90,6 +90,7 @@ describe('ValidatorClient HA Integration', () => {
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
@@ -139,6 +140,7 @@ describe('ValidatorClient HA Integration', () => {
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       databaseUrl: 'postgresql://test',
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
     // Create 5 validator nodes with unique node IDs
@@ -192,6 +194,7 @@ describe('ValidatorClient HA Integration', () => {
     const metrics = new ValidatorMetrics(getTelemetryClient());
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: true,
+      maxTxsPerBlock: undefined,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,

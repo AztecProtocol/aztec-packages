@@ -71,7 +71,7 @@ mod test {
         // partial address
         random_keys_and_partial_address[12] = 0x236703e2cb00a182e024e98e9f759231b556d25ff19f98896cebb69e9e678cc9;
 
-        let _ = OracleMock::mock("utilityTryGetPublicKeysAndPartialAddress").returns(Option::some(
+        let _ = OracleMock::mock("aztec_utl_tryGetPublicKeysAndPartialAddress").returns(Option::some(
             random_keys_and_partial_address,
         ));
         let _ = get_public_keys(account);

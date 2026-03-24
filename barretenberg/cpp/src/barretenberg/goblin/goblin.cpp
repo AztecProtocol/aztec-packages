@@ -35,18 +35,26 @@ void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const Me
 void Goblin::prove_eccvm()
 {
     BB_BENCH_NAME("Goblin::prove_eccvm");
-    ECCVMBuilder eccvm_builder(op_queue);
-    ECCVMProver eccvm_prover(eccvm_builder, transcript);
+    // Scope the builder so it (and any circuit data) is freed before proving
+    ECCVMProver eccvm_prover = [&]() {
+        ECCVMBuilder eccvm_builder(op_queue);
+        return ECCVMProver(eccvm_builder, transcript);
+    }();
     auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
     goblin_proof.eccvm_proof = std::move(eccvm_proof);
 
-    // Compute IPA proof for the opening claim
-    auto ipa_transcript = std::make_shared<NativeTranscript>();
-    IPA_PCS::compute_opening_proof(eccvm_prover.key->commitment_key, opening_claim, ipa_transcript);
-    goblin_proof.ipa_proof = ipa_transcript->export_proof();
-
+    // Extract what we need before freeing the prover
+    auto commitment_key = eccvm_prover.key->commitment_key;
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
     evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
+
+    // Free ECCVM polynomials (~118 MiB) before IPA proving; only the commitment key is needed for IPA
+    eccvm_prover.key.reset();
+
+    // Compute IPA proof for the opening claim
+    auto ipa_transcript = std::make_shared<NativeTranscript>();
+    IPA_PCS::compute_opening_proof(commitment_key, opening_claim, ipa_transcript);
+    goblin_proof.ipa_proof = ipa_transcript->export_proof();
 }
 
 void Goblin::prove_translator()

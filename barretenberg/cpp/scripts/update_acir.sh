@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # This script replaces std::array<T, N> with std::shared_ptr<std::array<T, N>>

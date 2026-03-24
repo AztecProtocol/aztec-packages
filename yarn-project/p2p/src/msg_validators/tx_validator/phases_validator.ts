@@ -1,5 +1,7 @@
+import { NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
@@ -7,6 +9,9 @@ import {
   TX_ERROR_DURING_VALIDATION,
   TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
   TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
+  TX_ERROR_SETUP_NULL_MSG_SENDER,
+  TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER,
+  TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -35,7 +40,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
       // We only need to create/revert checkpoint here because of this addNewContracts call.
-      await this.contractsDB.addNewContracts(tx);
+      this.contractsDB.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
         this.#log.debug(
@@ -84,6 +89,18 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     for (const entry of allowList) {
       if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
+          if (entry.calldataLength !== undefined && publicCall.calldata.length !== entry.calldataLength) {
+            return TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH;
+          }
+          if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+            return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+          }
+          if (
+            entry.rejectNullMsgSender &&
+            publicCall.request.msgSender.equals(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+          ) {
+            return TX_ERROR_SETUP_NULL_MSG_SENDER;
+          }
           return undefined;
         }
       }
@@ -105,10 +122,52 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       }
 
       if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
+        if (entry.calldataLength !== undefined && publicCall.calldata.length !== entry.calldataLength) {
+          return TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH;
+        }
+        if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+          return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+        }
+        if (
+          entry.rejectNullMsgSender &&
+          publicCall.request.msgSender.equals(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+        ) {
+          return TX_ERROR_SETUP_NULL_MSG_SENDER;
+        }
         return undefined;
       }
     }
 
     return TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED;
+  }
+}
+
+/** Structural interface for the allowed-setup-calls flag check. */
+export interface HasAllowedSetupCallsData {
+  txHash: { toString(): string };
+  allowedSetupCalls: boolean;
+}
+
+/**
+ * Validates that a transaction's setup-phase calls were allowed at receipt time.
+ *
+ * Checks the precomputed `allowedSetupCalls` flag on TxMetaData. The flag is
+ * computed by running the PhasesTxValidator on the full Tx when it first enters
+ * the pool. This lightweight validator is used during pending pool migration to
+ * reject txs whose setup calls are not on the allow list.
+ */
+export class AllowedSetupCallsMetaValidator<T extends HasAllowedSetupCallsData> implements TxValidator<T> {
+  #log: Logger;
+
+  constructor(bindings?: LoggerBindings) {
+    this.#log = createLogger('sequencer:tx_validator:tx_phases_meta', bindings);
+  }
+
+  validateTx(tx: T): Promise<TxValidationResult> {
+    if (!tx.allowedSetupCalls) {
+      this.#log.verbose(`Rejecting tx ${tx.txHash} because its setup calls are not on the allow list`);
+      return Promise.resolve({ result: 'invalid', reason: [TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED] });
+    }
+    return Promise.resolve({ result: 'valid' });
   }
 }

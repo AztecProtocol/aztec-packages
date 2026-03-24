@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
-source $ci3/source_redis
-source $ci3/source_cache
 
 # Ensure a command is passed
 if [ "$#" != 1 ]; then
@@ -34,10 +32,15 @@ function cleanup {
     wait $tail_pid
     tail_pid=
   fi
+  if [ -n "${dots_pid:-}" ]; then
+    kill $dots_pid &>/dev/null
+    wait $dots_pid
+    dots_pid=
+  fi
 }
 trap cleanup SIGINT SIGTERM
 # Remove file on exit, so we can publish even after SIGINT or SIGTERM.
-trap 'cleanup; rm -f $outfile' EXIT
+trap 'cleanup; rm -f $outfile $dots_fifo' EXIT
 
 dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
@@ -51,7 +54,7 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 [ -t 1 ] && realtime=1 || realtime=0
 
 key=$(uuid)
-url=http://ci.aztec-labs.com/$key
+url=$DASHBOARD_URL/$key
 outfile=/tmp/$key
 touch $outfile
 
@@ -60,6 +63,7 @@ function format_log_output {
     echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)"
   fi
   echo "Command: ${DENOISE_DISPLAY_NAME:-$cmd}"
+  echo "Working Dir: ${PWD:-}"
   echo "Date: $(date)"
   echo "Status: $status"
   echo "Took: ${time}"
@@ -92,25 +96,29 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_info="(${yellow}${url}${reset})"
 fi
 
-# Dot logging.
+# Dot logging via named pipe so we can track both PIDs.
 set +e
 display_cmd="${DENOISE_DISPLAY_NAME:-$cmd}"
 echo -e "Executing: $display_cmd ${log_info:-}"
 echo -n "   0 "
-tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
-  while IFS= read -r line; do
+dots_fifo=$(mktemp -u)
+mkfifo "$dots_fifo"
+
+tail --sleep-interval=0.2 -n +1 -f "$outfile" > "$dots_fifo" &
+tail_pid=$!
+
+while IFS= read -r line; do
     dot_count=$((dot_count+1))
     [ $realtime -eq 1 ] && printf "."
     if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
       [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
       printf "\n%4s " "$dot_count"
     fi
-  done
-) &
-tail_pid=$!
+done < "$dots_fifo" &
+dots_pid=$!
 
 # Execute the command in background.
-PARENT_LOG_ID=$key bash -c "$cmd" 2>&1 | redact > $outfile &
+PARENT_LOG_ID=$key bash -c "set -euo pipefail; $cmd" 2>&1 | redact > $outfile &
 job_pid=$!
 
 # Wait for the job to finish and get its exit status.
@@ -121,17 +129,27 @@ time="${SECONDS}s"
 [ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
 publish_log_final
 
+# Kill tail (source), EOF propagates through fifo, dots loop drains and exits.
+kill $tail_pid &>/dev/null
+wait $tail_pid 2>/dev/null
+tail_pid=
+wait $dots_pid 2>/dev/null
+dots_pid=
+
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
   # Print "interrupted" on SIGINT or SIGTERM.
   if [ "$status" -eq 143 ] || [ "$status" -eq 130 ]; then
     echo -e ". ${yellow}interrupted${reset} ($time)"
   else
-    if [ -t 1 ]; then
+    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ]; then
       echo -e "\nCommand exited with status $status. Dumping output:"
       cat $outfile
     fi
     echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
+    if [ "${CI:-0}" == "1" ]; then
+      post_github_status failure "${display_cmd:0:240}" "$url" "failed ($time)" 2>/dev/null || true
+    fi
   fi
 else
   echo -e ". ${green}done${reset} ($time)"
