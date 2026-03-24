@@ -580,7 +580,7 @@ export async function decryptWithPassphrase(
 }
 
 /**
- * Converts a Uint8Array to a base64 string (browser-safe, no atob dependency issues).
+ * Converts a Uint8Array to a base64 string.
  */
 export function uint8ToBase64(bytes: Uint8Array): string {
   let binary = '';

@@ -121,7 +121,6 @@ export class WalletManager {
       }
     };
 
-    // ── Extension wallet discovery ────────────────────────────────────────────
     if (this.config.extensions?.enabled) {
       pendingSources++;
       const extensionConfig = this.config.extensions;
@@ -139,7 +138,6 @@ export class WalletManager {
       }).then(sourceComplete);
     }
 
-    // ── Web wallet discovery ──────────────────────────────────────────────────
     if (this.config.webWallets?.urls && this.config.webWallets.urls.length > 0) {
       pendingSources++;
       const webSession = discoverWebWallets(this.config.webWallets.urls, chainInfo);
@@ -158,11 +156,9 @@ export class WalletManager {
         }
       })();
 
-      // Wire abort to cancel the web session too
       abortController.signal.addEventListener('abort', () => webSession.cancel(), { once: true });
     }
 
-    // If no sources were started, complete immediately
     if (pendingSources === 0) {
       markComplete();
     }

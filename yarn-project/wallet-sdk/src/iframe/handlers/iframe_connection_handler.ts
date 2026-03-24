@@ -174,8 +174,6 @@ export class IframeConnectionHandler {
     return Array.from(this.pendingSessions.values()).filter(s => s.status === 'pending');
   }
 
-  // ─── Message handler ────────────────────────────────────────────────────────
-
   private handleMessage = (event: MessageEvent): void => {
     void this.handleMessageAsync(event);
   };
