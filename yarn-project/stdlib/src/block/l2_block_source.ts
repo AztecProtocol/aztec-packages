@@ -175,8 +175,10 @@ export interface L2BlockSource {
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
-   * Returns the last L2 slot number that has been fully synchronized from L1.
-   * An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
+   * Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint.
+   * Determined by the max of two signals: L1 block sync progress and latest synced checkpoint slot.
+   * The checkpoint signal handles missed L1 blocks, since a published checkpoint seals the message tree
+   * for the next checkpoint via the inbox LAG mechanism.
    */
   getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 

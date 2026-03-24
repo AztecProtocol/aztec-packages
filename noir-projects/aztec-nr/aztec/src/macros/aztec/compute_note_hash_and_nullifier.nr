@@ -1,3 +1,4 @@
+use crate::logging;
 use crate::macros::{notes::NOTES, utils::get_trait_impl_method};
 
 /// Generates two contract library methods called `_compute_note_hash` and `_compute_note_nullifier`, plus a
@@ -64,8 +65,15 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
     } else {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
-        // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
+        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the note hash (non-siloed).
+
+        // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
+        // block below.
+        let warn_length_mismatch = logging::aztecnr_warn_log_format(
+            "Packed note length mismatch for note type id {0}: expected {1} fields, got {2}. Skipping note.",
+        );
+        let warn_unknown_note_type = logging::aztecnr_warn_log_format("Unknown note type id {0}. Skipping note.");
 
         let mut if_note_type_id_match_statements_list = @[];
         for i in 0..NOTES.len() {
@@ -103,10 +111,7 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
                         let expected_len = <$typ as $crate::protocol::traits::Packable>::N;
                         let actual_len = packed_note.len();
                         if actual_len != expected_len {
-                            aztec::protocol::logging::warn_log_format(
-                                "[aztec-nr] Packed note length mismatch for note type id {2}: expected {0} fields, got {1}. Skipping note.",
-                                [expected_len as Field, actual_len as Field, note_type_id],
-                            );
+                            $warn_length_mismatch([note_type_id, expected_len as Field, actual_len as Field]);
                             Option::none()
                         } else {
                             let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
@@ -137,10 +142,7 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
             ) -> Option<Field> {
                 $if_note_type_id_match_statements
                 else {
-                    aztec::protocol::logging::warn_log_format(
-                        "[aztec-nr] Unknown note type id {0}. Skipping note.",
-                        [note_type_id],
-                    );
+                    $warn_unknown_note_type([note_type_id]);
                     Option::none()
                 }
             }
@@ -172,8 +174,15 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
     } else {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
-        // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
+        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the inner nullifier (non-siloed).
+
+        // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
+        // block below.
+        let warn_length_mismatch = logging::aztecnr_warn_log_format(
+            "Packed note length mismatch for note type id {0}: expected {1} fields, got {2}. Skipping note.",
+        );
+        let warn_unknown_note_type = logging::aztecnr_warn_log_format("Unknown note type id {0}. Skipping note.");
 
         let mut if_note_type_id_match_statements_list = @[];
         for i in 0..NOTES.len() {
@@ -211,10 +220,7 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
                         let expected_len = <$typ as $crate::protocol::traits::Packable>::N;
                         let actual_len = packed_note.len();
                         if actual_len != expected_len {
-                            aztec::protocol::logging::warn_log_format(
-                                "[aztec-nr] Packed note length mismatch for note type id {2}: expected {0} fields, got {1}. Skipping note.",
-                                [expected_len as Field, actual_len as Field, note_type_id],
-                            );
+                            $warn_length_mismatch([note_type_id, expected_len as Field, actual_len as Field]);
                             Option::none()
                         } else {
                             let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
@@ -249,10 +255,7 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
             ) -> Option<Field> {
                 $if_note_type_id_match_statements
                 else {
-                    aztec::protocol::logging::warn_log_format(
-                        "[aztec-nr] Unknown note type id {0}. Skipping note.",
-                        [note_type_id],
-                    );
+                    $warn_unknown_note_type([note_type_id]);
                     Option::none()
                 }
             }

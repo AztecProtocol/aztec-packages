@@ -52,8 +52,8 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
                                                         /*l2GasOffset=*/OperandType::UINT16,
                                                         /*daGasOffset=*/OperandType::UINT16,
                                                         /*addrOffset=*/OperandType::UINT16,
-                                                        /*argsOffset=*/OperandType::UINT16,
-                                                        /*argsSizeOffset=*/OperandType::UINT16 };
+                                                        /*argsSizeOffset=*/OperandType::UINT16,
+                                                        /*argsOffset=*/OperandType::UINT16 };
 
 namespace {
 // Contrary to TS, the format does not contain the WireOpCode byte which prefixes any instruction.

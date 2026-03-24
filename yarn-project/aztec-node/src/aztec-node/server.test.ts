@@ -199,6 +199,7 @@ describe('aztec node', () => {
       epochCache,
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
+      new TestCircuitVerifier(),
     );
   });
 
@@ -740,6 +741,7 @@ describe('aztec node', () => {
           epochCache,
           getPackageVersion() ?? '',
           new TestCircuitVerifier(),
+          new TestCircuitVerifier(),
           undefined,
           undefined,
           undefined,
@@ -927,6 +929,7 @@ describe('aztec node', () => {
           globalVariablesBuilder,
           epochCache,
           getPackageVersion() ?? '',
+          new TestCircuitVerifier(),
           new TestCircuitVerifier(),
           undefined,
           undefined,

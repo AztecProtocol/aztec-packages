@@ -340,7 +340,7 @@ describe('NoteService', () => {
           txHash,
           recipient.address,
         ),
-      ).rejects.toThrow(/as of block number/);
+      ).rejects.toThrow(/Obtained a newer tx effect for .* for a note validation request than the anchor block/);
     });
 
     it('should nullify note if nullifier index is found', async () => {

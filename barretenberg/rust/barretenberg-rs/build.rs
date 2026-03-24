@@ -85,7 +85,7 @@ fn download_lib(out_dir: &PathBuf) {
     }
 
     let url = format!(
-        "https://github.com/AztecProtocol/aztec-packages/releases/download/v{}/barretenberg-static-{}.tar.gz",
+        "https://github.com/AztecProtocol/barretenberg/releases/download/v{}/barretenberg-static-{}.tar.gz",
         version, arch
     );
 
