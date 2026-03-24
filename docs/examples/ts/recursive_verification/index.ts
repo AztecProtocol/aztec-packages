@@ -37,7 +37,7 @@ export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
     // Create wallet with embedded PXE
     // The wallet manages accounts and connects to the node
-    let wallet = await EmbeddedWallet.create(NODE_URL);
+    let wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true });
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
