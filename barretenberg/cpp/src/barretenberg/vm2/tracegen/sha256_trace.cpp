@@ -421,6 +421,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_max_input_addr, max_input_addr },
                       { C::sha256_max_output_addr, max_output_addr },
                       { C::sha256_input_rounds_rem, 16 }, // Number of inputs
+                      { C::sha256_input_rounds_rem_inv, PRECOMPUTED_INVERSES[16] },
                       { C::sha256_sel_is_input_round, 1 },
                       { C::sha256_rounds_remaining, 64 }, // Number of Sha256 Rounds
                   } });

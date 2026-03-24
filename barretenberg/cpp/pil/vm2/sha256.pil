@@ -111,7 +111,7 @@ namespace sha256;
     // it is not referenced outside the SEL_NO_ERR guard).
     pol commit rounds_remaining_inv;
     // end == 1 iff rounds_remaining == 0 (zero-check with error support).
-    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
+    // See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#with-error-support.
     SEL_NO_ERR * (rounds_remaining * (end * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + end) = 0;
 
     pol commit two_pow_32; // Lookup constant support: Can be removed when we support constants in lookups.
