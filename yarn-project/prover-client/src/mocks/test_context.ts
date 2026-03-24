@@ -104,8 +104,10 @@ export class TestContext {
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
-        numConcurrentIVCVerifiers: 2,
+        numConcurrentIVCVerifiers: 8,
         bbIVCConcurrency: 1,
+        bbChonkVerifyMaxBatch: 16,
+        bbChonkVerifyConcurrency: 6,
       };
       localProver = await createProver(bbConfig);
     }

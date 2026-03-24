@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "examples/circuits/hello_circuit",
     "examples/contracts/counter_contract",
     "examples/contracts/bob_token_contract",
     "examples/contracts/nft",

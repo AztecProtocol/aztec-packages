@@ -7,7 +7,6 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
@@ -25,6 +24,7 @@ import {
 import { Checkpoint, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublic,
+  type ContractClassPublicWithCommitment,
   type ContractInstanceWithAddress,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
@@ -32,11 +32,7 @@ import {
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import { ContractClassLog, LogId } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import {
-  makeContractClassPublic,
-  makeExecutablePrivateFunctionWithMembershipProof,
-  makeUtilityFunctionWithMembershipProof,
-} from '@aztec/stdlib/testing';
+import { makeContractClassPublic } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -78,6 +74,13 @@ async function addProposedBlocks(
     result = (await store.addProposedBlock(block, opts)) && result;
   }
   return result;
+}
+
+async function withCommitment(contractClass: ContractClassPublic): Promise<ContractClassPublicWithCommitment> {
+  return {
+    ...contractClass,
+    publicBytecodeCommitment: await computePublicBytecodeCommitment(contractClass.packedBytecode),
+  };
 }
 
 describe('KVArchiverDataStore', () => {
@@ -2351,11 +2354,7 @@ describe('KVArchiverDataStore', () => {
 
     beforeEach(async () => {
       contractClass = await makeContractClassPublic();
-      await store.addContractClasses(
-        [contractClass],
-        [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
-        BlockNumber(blockNum),
-      );
+      await store.addContractClasses([await withCommitment(contractClass)], BlockNumber(blockNum));
     });
 
     it('returns previously stored contract class', async () => {
@@ -2367,48 +2366,19 @@ describe('KVArchiverDataStore', () => {
       await expect(store.getContractClass(contractClass.id)).resolves.toBeUndefined();
     });
 
-    it('returns contract class if later "deployment" class was deleted', async () => {
-      await store.addContractClasses(
-        [contractClass],
-        [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
-        BlockNumber(blockNum + 1),
-      );
+    it('throws if the same contract class is added again', async () => {
+      await expect(
+        store.addContractClasses([await withCommitment(contractClass)], BlockNumber(blockNum + 1)),
+      ).rejects.toThrow(/already exists/);
+    });
+
+    it('returns contract class if deleted at a later block number', async () => {
       await store.deleteContractClasses([contractClass], BlockNumber(blockNum + 1));
       await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
     });
 
     it('returns undefined if contract class is not found', async () => {
       await expect(store.getContractClass(Fr.random())).resolves.toBeUndefined();
-    });
-
-    it('adds new private functions', async () => {
-      const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, fns, []);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.privateFunctions).toEqual(fns);
-    });
-
-    it('does not duplicate private functions', async () => {
-      const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, fns.slice(0, 1), []);
-      await store.addFunctions(contractClass.id, fns, []);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.privateFunctions).toEqual(fns);
-    });
-
-    it('adds new utility functions', async () => {
-      const fns = times(3, makeUtilityFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, [], fns);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.utilityFunctions).toEqual(fns);
-    });
-
-    it('does not duplicate utility functions', async () => {
-      const fns = times(3, makeUtilityFunctionWithMembershipProof);
-      await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
-      await store.addFunctions(contractClass.id, [], fns);
-      const stored = await store.getContractClass(contractClass.id);
-      expect(stored?.utilityFunctions).toEqual(fns);
     });
   });
 
@@ -3431,28 +3401,19 @@ describe('KVArchiverDataStore', () => {
       expect(storedBlock?.archive.root.equals(provisionalBlock.archive.root)).toBe(true);
     });
 
-    it('does not throw when adding the same contract class twice', async () => {
+    it('throws when adding the same contract class twice', async () => {
       const contractClass = await makeContractClassPublic();
-      const commitment = await computePublicBytecodeCommitment(contractClass.packedBytecode);
+      const contractClassWithCommitment = await withCommitment(contractClass);
 
-      // Add contract class first time
-      await store.addContractClasses([contractClass], [commitment], BlockNumber(1));
-
-      // Add same contract class again - should not throw (uses setIfNotExists)
-      await store.addContractClasses([contractClass], [commitment], BlockNumber(2));
-
-      // Verify contract class exists
-      const retrieved = await store.getContractClass(contractClass.id);
-      expect(retrieved).toBeDefined();
+      await store.addContractClasses([contractClassWithCommitment], BlockNumber(1));
+      await expect(store.addContractClasses([contractClassWithCommitment], BlockNumber(2))).rejects.toThrow(
+        /already exists/,
+      );
     });
 
-    it('does not throw when adding the same contract instance twice', async () => {
+    it('throws when adding the same contract instance twice', async () => {
       const contractClass = await makeContractClassPublic();
-      await store.addContractClasses(
-        [contractClass],
-        [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
-        BlockNumber(1),
-      );
+      await store.addContractClasses([await withCommitment(contractClass)], BlockNumber(1));
 
       const instance = {
         ...(await SerializableContractInstance.random({
@@ -3462,16 +3423,8 @@ describe('KVArchiverDataStore', () => {
         address: await AztecAddress.random(),
       };
 
-      // Add contract instance first time
       await store.addContractInstances([instance], BlockNumber(1));
-
-      // Add same contract instance again - should not throw (uses set)
-      await store.addContractInstances([instance], BlockNumber(2));
-
-      // Verify instance exists
-      const retrieved = await store.getContractInstance(instance.address, 1000n);
-      expect(retrieved).toBeDefined();
-      expect(retrieved?.address.equals(instance.address)).toBe(true);
+      await expect(store.addContractInstances([instance], BlockNumber(2))).rejects.toThrow(/already exists/);
     });
 
     it('does not duplicate logs when addLogs is called twice with same block', async () => {
