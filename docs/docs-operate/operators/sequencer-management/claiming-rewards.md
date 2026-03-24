@@ -1,12 +1,12 @@
 ---
 displayed_sidebar: operatorsSidebar
 title: Claiming Rewards
-description: Learn how to claim your sequencer rewards from the Aztec Rollup contract using cast commands.
+description: Learn how to claim your sequencer rewards from the Aztec Economics contract using cast commands.
 ---
 
 ## Overview
 
-Sequencer rewards accumulate in the Rollup contract but are not automatically distributed. You must manually claim them by calling the Rollup contract. This guide shows you how to check pending rewards and claim them using Foundry's `cast` command.
+Sequencer rewards are tracked by the Economics contract for the epoch that accrued them and are not automatically distributed. You must manually claim them by calling the relevant Economics contract. This guide shows you how to resolve the active economics address from the Rollup contract, check pending rewards, and claim them using Foundry's `cast` command.
 
 ## Prerequisites
 
@@ -22,16 +22,16 @@ Before proceeding, you should:
 
 ### How Rewards Accumulate
 
-When your sequencer proposes blocks and participates in consensus, rewards accumulate in the Rollup contract under your coinbase address. These rewards come from:
+When your sequencer proposes blocks and participates in consensus, rewards accumulate under your coinbase address in the Economics contract that owns the relevant epoch. These rewards come from:
 
 - Block rewards distributed by the protocol
 - Transaction fees from processed transactions
 
-Rewards are tracked per coinbase address in the Rollup contract's storage but remain in the contract until you claim them.
+Rewards remain claimable on the owning Economics contract until you claim them.
 
 ### Manual vs Automatic
 
-Rewards are not automatically sent to your coinbase address. You must explicitly claim them by calling the `claimSequencerRewards` function on the Rollup contract.
+Rewards are not automatically sent to your coinbase address. You must explicitly claim them by calling the `claimSequencerRewards` function on the relevant Economics contract.
 
 ### Claim Requirements
 
@@ -53,12 +53,21 @@ export ROLLUP_ADDRESS="[YOUR_ROLLUP_CONTRACT_ADDRESS]"
 
 Replace `[YOUR_ROLLUP_CONTRACT_ADDRESS]` with your actual Rollup contract address.
 
+Resolve the active Economics contract for the current epoch:
+
+```bash
+export CURRENT_EPOCH=$(cast call $ROLLUP_ADDRESS "getCurrentEpoch()(uint256)" --rpc-url $RPC_URL)
+export ECONOMICS_ADDRESS=$(cast call $ROLLUP_ADDRESS "getEconomicsForEpoch(uint256)(address)" $CURRENT_EPOCH --rpc-url $RPC_URL)
+```
+
+Do not use `getEconomics()` for current-state reads. It returns the latest scheduled economics, which may point to a future contract that is not active yet.
+
 ### Query Your Pending Rewards
 
 Check accumulated rewards:
 
 ```bash
-cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rpc-url $RPC_URL
+cast call $ECONOMICS_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rpc-url $RPC_URL
 ```
 
 Replace `[COINBASE_ADDRESS]` with your sequencer's coinbase address.
@@ -66,20 +75,20 @@ Replace `[COINBASE_ADDRESS]` with your sequencer's coinbase address.
 **Example:**
 ```bash
 # Query and convert to decimal tokens (assuming 18 decimals)
-cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb --rpc-url $RPC_URL | cast --to-dec | cast --from-wei
+cast call $ECONOMICS_ADDRESS "getSequencerRewards(address)" 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb --rpc-url $RPC_URL | cast --to-dec | cast --from-wei
 # Output: 0.1
 ```
 
 ## Claiming Your Rewards
 
-The `claimSequencerRewards` function is permissionless - anyone can call it for any address. Rewards are always sent to the `coinbase` address, regardless of who submits the transaction.
+The `claimSequencerRewards` function is permissionless. Anyone can call it for any address, but rewards are always sent to the `coinbase` address you pass in, regardless of who submits the transaction.
 
 ### Basic Claim Command
 
 Use `cast send` to claim rewards:
 
 ```bash
-cast send $ROLLUP_ADDRESS \
+cast send $ECONOMICS_ADDRESS \
   "claimSequencerRewards(address)" \
   [COINBASE_ADDRESS] \
   --rpc-url $RPC_URL \
@@ -92,7 +101,7 @@ Replace:
 
 **Example:**
 ```bash
-cast send $ROLLUP_ADDRESS \
+cast send $ECONOMICS_ADDRESS \
   "claimSequencerRewards(address)" \
   0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb \
   --rpc-url $RPC_URL \
@@ -104,7 +113,7 @@ cast send $ROLLUP_ADDRESS \
 For better security, use a keystore file instead of exposing your private key:
 
 ```bash
-cast send $ROLLUP_ADDRESS \
+cast send $ECONOMICS_ADDRESS \
   "claimSequencerRewards(address)" \
   [COINBASE_ADDRESS] \
   --rpc-url $RPC_URL \
@@ -117,7 +126,7 @@ cast send $ROLLUP_ADDRESS \
 If you're using a Ledger wallet:
 
 ```bash
-cast send $ROLLUP_ADDRESS \
+cast send $ECONOMICS_ADDRESS \
   "claimSequencerRewards(address)" \
   [COINBASE_ADDRESS] \
   --rpc-url $RPC_URL \
@@ -125,6 +134,8 @@ cast send $ROLLUP_ADDRESS \
 ```
 
 This will prompt you to confirm the transaction on your Ledger device.
+
+If your rewards span an economics cutover, repeat this process for each relevant Economics contract. Rewards accrued before the cutover remain claimable on the older economics instance; they are not merged into the new one automatically.
 
 ## Verifying Your Claim
 
@@ -135,7 +146,7 @@ Check that the transaction succeeded and your pending rewards were reset to zero
 cast receipt [TRANSACTION_HASH] --rpc-url $RPC_URL
 
 # Verify pending rewards are now zero
-cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rpc-url $RPC_URL
+cast call $ECONOMICS_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rpc-url $RPC_URL
 ```
 
 ## Troubleshooting
@@ -146,14 +157,16 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 
 **Possible causes**:
 1. Your sequencer has not proposed any blocks yet
-2. You already claimed all available rewards
+2. You already claimed all available rewards on this economics instance
 3. Your coinbase address is configured incorrectly
+4. The rewards you expect were accrued under an older economics instance
 
 **Solutions**:
 1. Verify your sequencer is active and proposing blocks (check [monitoring](../monitoring/index.md))
 2. Check your sequencer logs for block proposals
 3. Verify the coinbase address in your sequencer configuration matches the address you're querying
 4. Check if blocks you proposed have been proven (rewards are distributed after proof submission)
+5. If the rollup recently changed economics, resolve the older economics contract for the epoch you are inspecting and query that contract instead
 
 ### Transaction Fails with "Out of Gas"
 
@@ -162,7 +175,7 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 **Solution**:
 1. Increase the gas limit when sending the transaction using `--gas-limit`:
    ```bash
-   cast send $ROLLUP_ADDRESS \
+   cast send $ECONOMICS_ADDRESS \
      "claimSequencerRewards(address)" \
      [COINBASE_ADDRESS] \
      --rpc-url $RPC_URL \
@@ -197,7 +210,7 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 
 ## Best Practices
 
-**Claim Regularly**: Claim rewards periodically to reduce accumulated balances in the Rollup contract. This minimizes risk and simplifies accounting.
+**Claim Regularly**: Claim rewards periodically to reduce accumulated balances in Economics. This minimizes risk and simplifies accounting.
 
 **Monitor Pending Rewards**: Set up automated scripts to query pending rewards and alert you when they exceed a threshold.
 

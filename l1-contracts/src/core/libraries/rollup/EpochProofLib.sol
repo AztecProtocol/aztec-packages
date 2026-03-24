@@ -3,20 +3,21 @@
 pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
+import {IEconomicsCore} from "@aztec/core/interfaces/IEconomicsCore.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {EpochSettlementPlan} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 /**
  * @title EpochProofLib
@@ -60,11 +61,11 @@ library EpochProofLib {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
-  using FeeHeaderLib for CompressedFeeHeader;
   using SafeCast for uint256;
   using ChainTipsLib for CompressedChainTips;
   using AttestationLib for CommitteeAttestations;
   using CompressedTimeMath for CompressedSlot;
+  using Checkpoints for Checkpoints.Trace160;
 
   /**
    * @notice Submit a validity proof for an epoch's state transitions, advancing the proven chain tip
@@ -132,7 +133,26 @@ library EpochProofLib {
       }
     }
 
-    RewardLib.handleRewardsAndFees(_args, endEpoch);
+    uint256 length = _args.end - _args.start + 1;
+    IEconomicsCore economics = IEconomicsCore(
+      address(rollupStore.economicsCheckpoints.upperLookupRecent(uint96(Timestamp.unwrap(endEpoch.toTimestamp()))))
+    );
+    EpochSettlementPlan memory settlementPlan = economics.getEpochSettlementPlan(length, _args.fees, endEpoch);
+
+    uint256 checkpointRewardsReceived = 0;
+    if (settlementPlan.checkpointRewardsToClaim > 0) {
+      checkpointRewardsReceived = settlementPlan.checkpointRewardsToClaim;
+      settlementPlan.rewardDistributor.claim(settlementPlan.rewardRecipient, checkpointRewardsReceived);
+    }
+
+    if (settlementPlan.portalFeesToDistribute > 0) {
+      rollupStore.config.feeAssetPortal
+        .distributeFees(settlementPlan.rewardRecipient, settlementPlan.portalFeesToDistribute);
+    }
+
+    economics.finalizeEpochSettlement(
+      _args.start, _args.end, _args.args.proverId, _args.fees, endEpoch, checkpointRewardsReceived
+    );
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }

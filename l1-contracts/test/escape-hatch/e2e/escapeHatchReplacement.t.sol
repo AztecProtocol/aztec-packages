@@ -78,7 +78,7 @@ contract EscapeHatchReplacementTest is EscapeHatchIntegrationBase {
     data.committee = rollup.getEpochCommittee(data.proposalEpoch);
 
     {
-      uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+      uint128 manaMinFee = SafeCast.toUint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 

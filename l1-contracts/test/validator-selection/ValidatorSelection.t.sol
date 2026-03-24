@@ -537,7 +537,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ree.sender = ree.proposer;
 
     {
-      uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+      uint128 manaMinFee = SafeCast.toUint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
       bytes32 inHash = inbox.getRoot(full.checkpoint.checkpointNumber);
       header.inHash = inHash;
       header.gasFees.feePerL2Gas = manaMinFee;

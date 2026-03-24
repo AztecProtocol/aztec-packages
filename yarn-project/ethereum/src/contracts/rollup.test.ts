@@ -65,43 +65,50 @@ describe('Rollup', () => {
       // Set storage directly using cheat codes
       // The storage slot stores both values: pending (high 128 bits) | proven (low 128 bits)
       const storageSlot = RollupContract.stfStorageSlot;
-      const packedValue = (BigInt(testPendingCheckpointNumber) << 128n) | BigInt(testProvenCheckpointNumber);
-      await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(storageSlot), packedValue);
+      const rollupEthAddress = EthAddress.fromString(rollupAddress);
+      const originalValue = await cheatCodes.load(rollupEthAddress, BigInt(storageSlot));
 
-      // Verify the values were set correctly by calling the getters directly
-      const provenCheckpointNumber = await rollup.getProvenCheckpointNumber();
-      const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+      try {
+        const packedValue = (BigInt(testPendingCheckpointNumber) << 128n) | BigInt(testProvenCheckpointNumber);
+        await cheatCodes.store(rollupEthAddress, BigInt(storageSlot), packedValue);
 
-      expect(provenCheckpointNumber).toBe(testProvenCheckpointNumber);
-      expect(pendingCheckpointNumber).toBe(testPendingCheckpointNumber);
+        // Verify the values were set correctly by calling the getters directly
+        const provenCheckpointNumber = await rollup.getProvenCheckpointNumber();
+        const pendingCheckpointNumber = await rollup.getCheckpointNumber();
 
-      // Create the override
-      const stateOverride = await rollup.makePendingCheckpointNumberOverride(newPendingCheckpointNumber);
+        expect(provenCheckpointNumber).toBe(testProvenCheckpointNumber);
+        expect(pendingCheckpointNumber).toBe(testPendingCheckpointNumber);
 
-      // Test the override using simulateContract
-      const { result: overriddenPendingCheckpointNumber } = await publicClient.simulateContract({
-        address: rollupAddress,
-        abi: RollupAbi as Abi,
-        functionName: 'getPendingCheckpointNumber',
-        stateOverride,
-      });
+        // Create the override
+        const stateOverride = await rollup.makePendingCheckpointNumberOverride(newPendingCheckpointNumber);
 
-      // The overridden value should be the new pending checkpoint number
-      expect(overriddenPendingCheckpointNumber).toBe(BigInt(newPendingCheckpointNumber));
+        // Test the override using simulateContract
+        const { result: overriddenPendingCheckpointNumber } = await publicClient.simulateContract({
+          address: rollupAddress,
+          abi: RollupAbi as Abi,
+          functionName: 'getPendingCheckpointNumber',
+          stateOverride,
+        });
 
-      // Verify that the proven checkpoint number is preserved in the override
-      const { result: overriddenProvenCheckpointNumber } = await publicClient.simulateContract({
-        address: rollupAddress,
-        abi: RollupAbi as Abi,
-        functionName: 'getProvenCheckpointNumber',
-        stateOverride,
-      });
+        // The overridden value should be the new pending checkpoint number
+        expect(overriddenPendingCheckpointNumber).toBe(BigInt(newPendingCheckpointNumber));
 
-      expect(CheckpointNumber.fromBigInt(overriddenProvenCheckpointNumber)).toBe(testProvenCheckpointNumber);
+        // Verify that the proven checkpoint number is preserved in the override
+        const { result: overriddenProvenCheckpointNumber } = await publicClient.simulateContract({
+          address: rollupAddress,
+          abi: RollupAbi as Abi,
+          functionName: 'getProvenCheckpointNumber',
+          stateOverride,
+        });
 
-      // Verify the actual storage hasn't changed
-      const actualPendingCheckpointNumber = await rollup.getCheckpointNumber();
-      expect(actualPendingCheckpointNumber).toBe(testPendingCheckpointNumber);
+        expect(CheckpointNumber.fromBigInt(overriddenProvenCheckpointNumber)).toBe(testProvenCheckpointNumber);
+
+        // Verify the actual storage hasn't changed
+        const actualPendingCheckpointNumber = await rollup.getCheckpointNumber();
+        expect(actualPendingCheckpointNumber).toBe(testPendingCheckpointNumber);
+      } finally {
+        await cheatCodes.store(rollupEthAddress, BigInt(storageSlot), originalValue, { silent: true });
+      }
     });
   });
 
@@ -121,6 +128,21 @@ describe('Rollup', () => {
     it('returns a slashing proposer', async () => {
       const slashingProposer = await rollup.getSlashingProposer();
       expect(slashingProposer).toBeDefined();
+    });
+  });
+
+  describe('getCheckpoint', () => {
+    it('returns the genesis checkpoint without reading an unavailable fee header', async () => {
+      const checkpoint = await rollup.getCheckpoint(CheckpointNumber(0));
+
+      expect(checkpoint.slotNumber).toBe(0);
+      expect(checkpoint.feeHeader).toEqual({
+        excessMana: 0n,
+        manaUsed: 0n,
+        ethPerFeeAsset: DefaultL1ContractsConfig.initialEthPerFeeAsset,
+        congestionCost: 0n,
+        proverCost: 0n,
+      });
     });
   });
 });

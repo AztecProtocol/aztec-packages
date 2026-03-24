@@ -11,10 +11,9 @@ import {
   EthPerFeeAssetE12
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {Bps, RewardBoostConfig} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Configuration, ProposeWithLockConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
@@ -84,10 +83,7 @@ library TestConstants {
 
   function getRewardConfig() internal pure returns (RewardConfig memory) {
     return RewardConfig({
-      rewardDistributor: IRewardDistributor(address(0)),
-      sequencerBps: Bps.wrap(5000),
-      booster: IBoosterCore(address(0)), // Will cause a deployment
-      checkpointReward: 50e18
+      rewardDistributor: IRewardDistributor(address(0)), sequencerBps: Bps.wrap(5000), checkpointReward: 50e18
     });
   }
 

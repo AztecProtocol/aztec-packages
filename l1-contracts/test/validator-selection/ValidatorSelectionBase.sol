@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 
@@ -16,7 +17,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
-import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
@@ -41,6 +42,7 @@ import {Math} from "@oz/utils/math/Math.sol";
 contract ValidatorSelectionTestBase is DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
+  using TimeLib for Timestamp;
 
   struct ProposeTestData {
     uint256 needed;
@@ -70,6 +72,19 @@ contract ValidatorSelectionTestBase is DecoderBase {
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
   mapping(address => bool) internal _seenValidators;
   mapping(address => bool) internal _seenCommittee;
+
+  function _economics() internal view returns (IEconomics) {
+    return IEconomics(address(rollup.getEconomicsForEpoch(rollup.getCurrentEpoch())));
+  }
+
+  function _checkpointOfInterest(Timestamp _timestamp) internal view returns (uint256) {
+    return rollup.canPruneAtTime(_timestamp) ? rollup.getProvenCheckpointNumber() : rollup.getPendingCheckpointNumber();
+  }
+
+  function _getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) internal view returns (uint256) {
+    IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(rollup.getEpochAt(_timestamp))));
+    return economics.getProposalFeeParameters(_checkpointOfInterest(_timestamp), _timestamp, _inFeeAsset).manaMinFee;
+  }
 
   /**
    * @notice Setup contracts needed for the tests with the a given number of validators

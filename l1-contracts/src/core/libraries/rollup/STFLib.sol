@@ -8,7 +8,6 @@ import {
   TempCheckpointLog,
   CompressedTempCheckpointLogLib
 } from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {CompressedFeeHeader, FeeHeaderLib, FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -69,12 +68,11 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
  *      - attestationsHash: Hash of committee member attestations validating the checkpoint
  *      - payloadDigest: Digest of the proposal payload that committee members attested to
  *      - slotNumber: The specific slot when this checkpoint was proposed (determines epoch assignment)
- *      - feeHeader: Compressed fee information including base fees and mana pricing
  *
  *      Storage Optimization:
  *      The struct is stored in compressed format (CompressedTempCheckpointLog) to minimize gas costs.
- *      Compression primarily affects the slotNumber (reduced from 256-bit to smaller representation)
- *      and feeHeader (packed fee components). Other fields remain as 32-byte hashes.
+ *      Compression primarily affects the slotNumber (reduced from 256-bit to smaller representation).
+ *      The remaining fields remain as 32-byte hashes.
  */
 library STFLib {
   using TimeLib for Slot;
@@ -86,7 +84,6 @@ library STFLib {
   using CompressedTempCheckpointLogLib for TempCheckpointLog;
   using CompressedTimeMath for Slot;
   using CompressedTimeMath for CompressedSlot;
-  using FeeHeaderLib for CompressedFeeHeader;
 
   // @note  This is also used in the cheatcodes, so if updating, please also update the cheatcode.
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
@@ -111,28 +108,6 @@ library STFLib {
   }
 
   /**
-   * @notice Writes the genesis fee header at checkpoint 0
-   * @dev This sets the initial ethPerFeeAsset value that will be used as the starting point
-   *      for the fee asset price oracle. Must be called during rollup initialization.
-   * @param _initialEthPerFeeAsset The initial ETH per fee asset price (with 1e12 precision)
-   */
-  function writeGenesisFeeHeader(uint256 _initialEthPerFeeAsset) internal {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    // Write to checkpoint 0's slot in the circular buffer
-    rollupStore.tempCheckpointLogs[0] = TempCheckpointLog({
-        headerHash: bytes32(0),
-        blobCommitmentsHash: bytes32(0),
-        outHash: bytes32(0),
-        attestationsHash: bytes32(0),
-        payloadDigest: bytes32(0),
-        slotNumber: Slot.wrap(0),
-        feeHeader: FeeHeader({
-          excessMana: 0, manaUsed: 0, ethPerFeeAsset: _initialEthPerFeeAsset, congestionCost: 0, proverCost: 0
-        })
-      }).compress();
-  }
-
-  /**
    * @notice Stores a temporary checkpoint log in the circular storage buffer
    * @dev Compresses and stores checkpoint data at the appropriate index in the circular buffer.
    *      The storage index is calculated as (pending checkpoint % roundaboutSize) to implement
@@ -140,7 +115,7 @@ library STFLib {
    *      Don't need to check if storage is stale as always writing to freshest.
    *
    * @param _tempCheckpointLog The temporary checkpoint log containing header hash, attestations,
-   *        blob commitments, payload digest, slot number, and fee information
+   *        blob commitments, payload digest, and slot number
    */
   function addTempCheckpointLog(TempCheckpointLog memory _tempCheckpointLog) internal {
     uint256 checkpointNumber = STFLib.getStorage().tips.getPending();
@@ -266,17 +241,6 @@ library STFLib {
    */
   function getHeaderHash(uint256 _checkpointNumber) internal view returns (bytes32) {
     return getStorageTempCheckpointLog(_checkpointNumber).headerHash;
-  }
-
-  /**
-   * @notice Retrieves the compressed fee header for a specific checkpoint number
-   * @dev Returns the fee information including base fee components and mana costs.
-   *      The data remains in compressed format for gas efficiency. Reverts if the checkpoint is stale.
-   * @param _checkpointNumber The checkpoint number to get the fee header for
-   * @return The compressed fee header containing fee-related data
-   */
-  function getFeeHeader(uint256 _checkpointNumber) internal view returns (CompressedFeeHeader) {
-    return getStorageTempCheckpointLog(_checkpointNumber).feeHeader;
   }
 
   /**

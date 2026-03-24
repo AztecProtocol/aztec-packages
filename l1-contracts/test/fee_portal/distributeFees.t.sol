@@ -2,19 +2,14 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {Registry} from "@aztec/governance/Registry.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {TestConstants} from "../harnesses/TestConstants.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract DistributeFees is Test {
@@ -24,7 +19,6 @@ contract DistributeFees is Test {
   TestERC20 internal token;
   FeeJuicePortal internal feeJuicePortal;
   Rollup internal rollup;
-  RewardDistributor internal rewardDistributor;
 
   function setUp() public {
     RollupBuilder builder = new RollupBuilder(address(this));

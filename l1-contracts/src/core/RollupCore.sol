@@ -10,6 +10,7 @@ import {
   SubmitEpochRootProofArgs,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
+import {IEconomicsCore} from "@aztec/core/interfaces/IEconomicsCore.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -22,9 +23,8 @@ import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperati
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
 import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
 import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
+import {EconomicsDeploymentExtLib} from "@aztec/core/libraries/rollup/EconomicsDeploymentExtLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
-import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
@@ -36,9 +36,8 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {RewardExtLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardExtLib.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
-import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
@@ -182,8 +181,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
-  using FeeConfigLib for CompressedFeeConfig;
   using ChainTipsLib for CompressedChainTips;
+  using Checkpoints for Checkpoints.Trace160;
 
   /**
    * @notice The L1 block number when this rollup was deployed
@@ -248,38 +247,44 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       _config.targetCommitteeSize, _config.lagInEpochsForValidatorSet, _config.lagInEpochsForRandao
     );
 
-    _initializeRewards(_config);
-
     L1_BLOCK_AT_GENESIS = block.number;
 
-    _initializeStore(_feeAsset, _epochProofVerifier, _genesisState, _config);
+    STFLib.initialize(_genesisState);
+    RollupStore storage rollupStore = STFLib.getStorage();
 
-    FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana, _config.initialEthPerFeeAsset);
+    rollupStore.config.feeAsset = _feeAsset;
+    rollupStore.config.epochProofVerifier = _epochProofVerifier;
+
+    uint32 version = _config.version;
+    rollupStore.config.version = version;
+
+    IInbox inbox = IInbox(
+      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag))
+    );
+
+    rollupStore.config.inbox = inbox;
+
+    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), version)));
+
+    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
+
+    IEconomicsCore economics =
+      EconomicsDeploymentExtLib.deployEconomics(address(this), _governance, _feeAsset, _config, block.timestamp);
+    _validateEconomics(economics, _feeAsset);
+    rollupStore.economicsCheckpoints
+      .push(uint96(Timestamp.unwrap(Epoch.wrap(0).toTimestamp())), uint160(address(economics)));
   }
 
-  /**
-   * @notice Updates the reward configuration for sequencers and provers
-   * @dev Only callable by the contract owner. Updates how rewards are calculated and distributed.
-   * @param _config The new reward configuration including rates and booster settings
-   */
-  function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
-    RewardExtLib.setConfig(_config);
-    emit RewardConfigUpdated(_config);
-  }
+  function setEconomics(IEconomicsCore _economics) external override(IRollupCore) onlyOwner {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    _validateEconomics(_economics, rollupStore.config.feeAsset);
 
-  /**
-   * @notice Updates the target mana (computational units) per slot
-   * @dev Only callable by owner. The new target must be greater than or equal to the current target
-   *      to avoid the ability for governance to use it directly to kill an old rollup.
-   *      Mana is the unit of computational work in Aztec.
-   * @param _manaTarget The new target mana per slot
-   */
-  function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
-    uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
-    require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
-    FeeLib.updateManaTarget(_manaTarget);
+    IEconomicsCore oldEconomics = IEconomicsCore(address(rollupStore.economicsCheckpoints.latest()));
+    Epoch activationEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp() + Epoch.wrap(1);
+    rollupStore.economicsCheckpoints
+      .push(uint96(Timestamp.unwrap(activationEpoch.toTimestamp())), uint160(address(_economics)));
 
-    emit IRollupCore.ManaTargetUpdated(_manaTarget);
+    emit EconomicsUpdated(address(oldEconomics), address(_economics), activationEpoch);
   }
 
   /**
@@ -302,15 +307,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Updates the cost of proving per unit of mana
-   * @dev Only callable by owner. This affects how proving costs are calculated in the fee model.
-   * @param _provingCostPerMana The cost in ETH per unit of mana for proving
-   */
-  function setProvingCostPerMana(EthValue _provingCostPerMana) external override(IRollupCore) onlyOwner {
-    FeeLib.updateProvingCostPerMana(_provingCostPerMana);
-  }
-
-  /**
    * @notice Updates the configuration for the staking entry queue
    * @dev Only callable by owner. Controls how validators enter the active set.
    * @param _config New configuration including queue size limits and timing parameters
@@ -328,32 +324,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   function updateEscapeHatch(address _escapeHatch) external override(IValidatorSelectionCore) onlyOwner {
     ValidatorOperationsExtLib.updateEscapeHatch(_escapeHatch);
     emit IValidatorSelectionCore.EscapeHatchUpdated(_escapeHatch);
-  }
-
-  /**
-   * @notice Claims accumulated rewards for a sequencer (checkpoint proposer)
-   * @dev Transfers all accumulated rewards to the recipient.
-   * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
-   * @return The amount of rewards claimed
-   */
-  function claimSequencerRewards(address _coinbase) external override(IRollupCore) returns (uint256) {
-    return RewardExtLib.claimSequencerRewards(_coinbase);
-  }
-
-  /**
-   * @notice Claims prover rewards for specified epochs
-   * @dev Provers earn rewards for successfully proving epoch transitions. Each epoch can only be claimed once per
-   *      prover.
-   * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
-   * @param _epochs Array of epochs to claim rewards for
-   * @return The total amount of rewards claimed
-   */
-  function claimProverRewards(address _coinbase, Epoch[] memory _epochs)
-    external
-    override(IRollupCore)
-    returns (uint256)
-  {
-    return RewardExtLib.claimProverRewards(_coinbase, _epochs);
   }
 
   /**
@@ -547,16 +517,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Updates the L1 gas fee oracle with current gas prices
-   * @dev Automatically called during checkpoint proposal but can be called manually.
-   *      Updates the fee model's view of L1 costs to ensure accurate L2 fee pricing.
-   *      Uses current L1 gas price and blob gas price for calculations.
-   */
-  function updateL1GasFeeOracle() public override(IRollupCore) {
-    FeeLib.updateL1GasFeeOracle();
-  }
-
-  /**
    * @notice Returns the maximum number of validators that can be added from the entry queue
    * @dev Based on queue configuration and current validator set size. Used by flushEntryQueue.
    * @return The number of validators that can be added in the next flush
@@ -589,37 +549,35 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     return EmpireSlasherDeploymentExtLib.deployEmpireSlasher(address(this), _governance, _config);
   }
 
-  function _initializeRewards(RollupConfigInput memory _config) internal {
-    RewardConfig memory rewardConfig = _config.rewardConfig;
-
-    if (address(rewardConfig.booster) == address(0)) {
-      rewardConfig.booster = RewardExtLib.deployRewardBooster(_config.rewardBoostConfig);
-    }
-
-    RewardExtLib.setConfig(rewardConfig);
-  }
-
-  function _initializeStore(
-    IERC20 _feeAsset,
-    IVerifier _epochProofVerifier,
-    GenesisState memory _genesisState,
-    RollupConfigInput memory _config
-  ) internal {
-    STFLib.initialize(_genesisState);
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    rollupStore.config.feeAsset = _feeAsset;
-    rollupStore.config.epochProofVerifier = _epochProofVerifier;
-    rollupStore.config.version = _config.version;
-
-    IInbox inbox = IInbox(
-      address(
-        new Inbox(address(this), _feeAsset, _config.version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag)
+  function _validateEconomics(IEconomicsCore _economics, IERC20 _feeAsset) internal view {
+    require(address(_economics) != address(0), Errors.Rollup__InvalidEconomics(address(_economics)));
+    require(
+      _economics.getRollup() == address(this),
+      Errors.Rollup__InvalidEconomicsRollup(address(this), _economics.getRollup())
+    );
+    require(
+      _economics.getFeeAsset() == _feeAsset,
+      Errors.Rollup__InvalidEconomicsFeeAsset(address(_feeAsset), address(_economics.getFeeAsset()))
+    );
+    require(
+      _economics.getGenesisTime() == Timestamp.wrap(TimeLib.getStorage().genesisTime),
+      Errors.Rollup__InvalidEconomicsGenesisTime(
+        Timestamp.wrap(TimeLib.getStorage().genesisTime), _economics.getGenesisTime()
       )
     );
-
-    rollupStore.config.inbox = inbox;
-    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), _config.version)));
-    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
+    require(
+      _economics.getSlotDuration() == TimeLib.getStorage().slotDuration,
+      Errors.Rollup__InvalidEconomicsSlotDuration(TimeLib.getStorage().slotDuration, _economics.getSlotDuration())
+    );
+    require(
+      _economics.getEpochDuration() == TimeLib.getStorage().epochDuration,
+      Errors.Rollup__InvalidEconomicsEpochDuration(TimeLib.getStorage().epochDuration, _economics.getEpochDuration())
+    );
+    require(
+      _economics.getProofSubmissionEpochs() == TimeLib.getStorage().proofSubmissionEpochs,
+      Errors.Rollup__InvalidEconomicsProofSubmissionEpochs(
+        TimeLib.getStorage().proofSubmissionEpochs, _economics.getProofSubmissionEpochs()
+      )
+    );
   }
 }

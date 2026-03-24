@@ -2,27 +2,25 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEconomicsCore} from "@aztec/core/interfaces/IEconomicsCore.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {CheckpointLog, CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {EthPerFeeAssetE12, EthValue, FeeAssetValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
-import {FeeHeader, L1FeeData} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {EthPerFeeAssetE12, EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {RewardBoostConfig, RewardConfig} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct PublicInputArgs {
   bytes32 previousArchive;
@@ -99,6 +97,7 @@ struct RollupStore {
   mapping(uint256 checkpointNumber => bytes32 archive) archives;
   // The following represents a circular buffer. Key is `checkpointNumber % size`.
   mapping(uint256 circularIndex => CompressedTempCheckpointLog temp) tempCheckpointLogs;
+  Checkpoints.Trace160 economicsCheckpoints;
   RollupConfig config;
 }
 
@@ -112,17 +111,10 @@ interface IRollupCore {
   );
   event L2ProofVerified(uint256 indexed checkpointNumber, address indexed proverId);
   event CheckpointInvalidated(uint256 indexed checkpointNumber);
-  event RewardConfigUpdated(RewardConfig rewardConfig);
-  event ManaTargetUpdated(uint256 indexed manaTarget);
+  event EconomicsUpdated(address indexed oldEconomics, address indexed newEconomics, Epoch activationEpoch);
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
 
-  function claimSequencerRewards(address _recipient) external returns (uint256);
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
-
   function prune() external;
-  function updateL1GasFeeOracle() external;
-
-  function setProvingCostPerMana(EthValue _provingCostPerMana) external;
 
   function propose(
     ProposeArgs calldata _args,
@@ -147,8 +139,7 @@ interface IRollupCore {
     address[] memory _committee
   ) external;
 
-  function setRewardConfig(RewardConfig memory _config) external;
-  function updateManaTarget(uint256 _manaTarget) external;
+  function setEconomics(IEconomicsCore _economics) external;
 
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
@@ -191,14 +182,6 @@ interface IRollup is IRollupCore, IHaveVersion {
 
   function validateBlobs(bytes calldata _blobsInputs) external view returns (bytes32[] memory, bytes32, bytes[] memory);
 
-  function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
-    external
-    view
-    returns (ManaMinFeeComponents memory);
-  function getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
-  function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
-  function getEthPerFeeAsset() external view returns (EthPerFeeAssetE12);
-
   function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
 
@@ -207,32 +190,16 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getProvenCheckpointNumber() external view returns (uint256);
   function getPendingCheckpointNumber() external view returns (uint256);
   function getCheckpoint(uint256 _checkpointNumber) external view returns (CheckpointLog memory);
-  function getFeeHeader(uint256 _checkpointNumber) external view returns (FeeHeader memory);
   function getBlobCommitmentsHash(uint256 _checkpointNumber) external view returns (bytes32);
   function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
-  function getSharesFor(address _prover) external view returns (uint256);
-  function getSequencerRewards(address _sequencer) external view returns (uint256);
-  function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);
-  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) external view returns (uint256);
-  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) external view returns (bool);
-  function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
-
   function getProofSubmissionEpochs() external view returns (uint256);
-  function getManaTarget() external view returns (uint256);
-  function getManaLimit() external view returns (uint256);
-  function getProvingCostPerManaInEth() external view returns (EthValue);
-
-  function getProvingCostPerManaInFeeAsset() external view returns (FeeAssetValue);
 
   function getFeeAsset() external view returns (IERC20);
   function getFeeAssetPortal() external view returns (IFeeJuicePortal);
-  function getRewardDistributor() external view returns (IRewardDistributor);
-  function getBurnAddress() external view returns (address);
+  function getEconomics() external view returns (IEconomicsCore);
+  function getEconomicsForEpoch(Epoch _epoch) external view returns (IEconomicsCore);
 
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
-
-  function getRewardConfig() external view returns (RewardConfig memory);
-  function getCheckpointReward() external view returns (uint256);
 }

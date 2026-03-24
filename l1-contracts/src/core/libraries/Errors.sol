@@ -89,6 +89,13 @@ library Errors {
   error Rollup__ManaLimitExceeded();
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
+  error Rollup__InvalidEconomics(address economics);
+  error Rollup__InvalidEconomicsRollup(address expected, address actual);
+  error Rollup__InvalidEconomicsFeeAsset(address expected, address actual);
+  error Rollup__InvalidEconomicsGenesisTime(Timestamp expected, Timestamp actual);
+  error Rollup__InvalidEconomicsSlotDuration(uint256 expected, uint256 actual);
+  error Rollup__InvalidEconomicsEpochDuration(uint256 expected, uint256 actual);
+  error Rollup__InvalidEconomicsProofSubmissionEpochs(uint256 expected, uint256 actual);
   error Rollup__UnavailableTempCheckpointLog(
     uint256 checkpointNumber, uint256 pendingCheckpointNumber, uint256 upperLimit
   );
@@ -178,12 +185,16 @@ library Errors {
   error ProofCommitmentEscrow__NotOwner(address caller); // 0x2ac332c1
   error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, Timestamp readyAt); // 0xb32ab8a7
 
-  // FeeLib
+  // Economics fee model
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
   error FeeLib__AlreadyPreheated();
   error FeeLib__InvalidManaTarget(uint256 minimum, uint256 provided);
   error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
   error FeeLib__InvalidInitialEthPerFeeAsset(uint256 provided, uint256 minimum, uint256 maximum);
+  error Economics__FeeBelowCongestionBurn(uint256 fee, uint256 burn);
+  error Economics__UnavailableFeeHeader(
+    uint256 checkpointNumber, uint256 firstRecordedCheckpoint, uint256 highestRecordedCheckpoint, uint256 upperLimit
+  );
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
@@ -195,10 +206,11 @@ library Errors {
   error AttestationLib__NotASignatureAtIndex(uint256 index);
   error AttestationLib__NotAnAddressAtIndex(uint256 index);
 
-  // RewardBooster
-  error RewardBooster__OnlyRollup(address caller);
+  // Economics runtime hooks
+  error Economics__OnlyRollup(address caller);
 
   error RewardLib__InvalidSequencerBps();
+  error RewardLib__InvalidRewardBoostConfig(uint256 minimum, uint256 k);
 
   // TallySlashingProposer
   error TallySlashingProposer__InvalidSignature();

@@ -11,19 +11,12 @@ import {
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
-import {
-  OracleInput,
-  FeeLib,
-  MAX_FEE_ASSET_PRICE_MODIFIER_BPS,
-  MINIMUM_CONGESTION_MULTIPLIER,
-  EthValue,
-  EthPerFeeAssetE12
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {Math} from "@oz/utils/math/Math.sol";
+import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {OracleInput} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
 contract MinimalFeeModelTest is FeeModelTestPoints {
-  using Math for uint256;
+  uint256 internal constant MAX_FEE_ASSET_PRICE_MODIFIER_BPS = 100;
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
@@ -123,7 +116,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         // 3 blobs because that can fit ~360 txs, or 10 tps.
         ManaMinFeeComponentsModel memory components = model.manaMinFeeComponents(false);
         ManaMinFeeComponentsModel memory componentsFeeAsset = model.manaMinFeeComponents(true);
-        FeeHeaderModel memory parentFeeHeader = model.getFeeHeader(point.checkpoint_header.slot_number - 1);
+        FeeHeaderModel memory parentFeeHeader = model.getPricingParentFeeHeader(point.checkpoint_header.slot_number - 1);
 
         model.addSlot(
           OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),

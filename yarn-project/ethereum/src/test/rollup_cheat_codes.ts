@@ -5,6 +5,7 @@ import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/bra
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
+import { EconomicsAbi } from '@aztec/l1-artifacts/EconomicsAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import {
@@ -296,7 +297,8 @@ export class RollupCheatCodes {
   /** Directly calls the L1 gas fee oracle. */
   public async updateL1GasFeeOracle() {
     await this.asOwner(async (account, rollup) => {
-      const hash = await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
+      const economics = await this.getCurrentEconomics(rollup);
+      const hash = await economics.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
       await this.client.waitForTransactionReceipt({ hash });
       this.logger.warn(`Updated L1 gas fee oracle`);
     });
@@ -307,7 +309,8 @@ export class RollupCheatCodes {
    * @param bumper - Callback to calculate the new proving cost per mana based on current value.
    */
   public async bumpProvingCostPerMana(bumper: (before: bigint) => bigint) {
-    const currentCost = await this.rollup.read.getProvingCostPerManaInEth();
+    const economics = await this.getCurrentEconomics(this.rollup);
+    const currentCost = (await economics.read.getFeeConfig()).provingCostPerMana;
     const newCost = bumper(currentCost);
     await this.setProvingCostPerMana(newCost);
   }
@@ -318,13 +321,25 @@ export class RollupCheatCodes {
    */
   public async setProvingCostPerMana(ethValue: bigint) {
     await this.asOwner(async (account, rollup) => {
-      const hash = await rollup.write.setProvingCostPerMana([ethValue], {
+      const economics = await this.getCurrentEconomics(rollup);
+      const hash = await economics.write.updateProvingCostPerMana([ethValue], {
         account,
         chain: this.client.chain,
         gasLimit: 1000000n,
       });
       await this.client.waitForTransactionReceipt({ hash });
       this.logger.warn(`Updated proving cost per mana to ${ethValue}`);
+    });
+  }
+
+  private async getCurrentEconomics(rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>) {
+    const timestamp = BigInt((await this.client.getBlock()).timestamp);
+    const currentEpoch = await rollup.read.getEpochAt([timestamp]);
+    const economicsAddress = await rollup.read.getEconomicsForEpoch([currentEpoch]);
+    return getContract({
+      abi: EconomicsAbi,
+      address: economicsAddress,
+      client: this.client,
     });
   }
 }

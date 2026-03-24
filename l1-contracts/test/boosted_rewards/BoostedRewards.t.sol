@@ -4,21 +4,15 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "../base/Base.sol";
-import {Math} from "@oz/utils/math/Math.sol";
-import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {TimeLib, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {
-  RewardBooster,
-  RewardBoostConfig,
-  ActivityScore,
-  CompressedActivityScore
-} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {EconomicsInitArgs, RewardBoostConfig, ActivityScore} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {BoostedHelper} from "./BoostRewardHelper.sol";
+import {EconomicsHarness} from "@test/harnesses/EconomicsHarness.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct TestDataActivityConfig {
   uint256 h;
@@ -51,18 +45,20 @@ contract BoostedRewardsTest is TestBase {
   TestDataActvityScore public activityScoreData;
   TestDataShares public sharesData;
 
-  BoostedHelper public helper;
+  EconomicsHarness public helper;
   TimeCheater public timeCheater;
   IValidatorSelection public rollup;
 
   constructor() {
     string memory root = vm.projectRoot();
     string memory path = string.concat(root, "/test/fixtures/boosted_rewards/activity_scores.json");
+    // forge-lint: disable-next-line(unsafe-cheatcode)
     string memory json = vm.readFile(path);
     bytes memory jsonBytes = vm.parseJson(json);
     activityScoreData = abi.decode(jsonBytes, (TestDataActvityScore));
 
     path = string.concat(root, "/test/fixtures/boosted_rewards/shares.json");
+    // forge-lint: disable-next-line(unsafe-cheatcode)
     json = vm.readFile(path);
     jsonBytes = vm.parseJson(json);
     sharesData = abi.decode(jsonBytes, (TestDataShares));
@@ -87,7 +83,22 @@ contract BoostedRewardsTest is TestBase {
       TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
     rollup = IValidatorSelection(address(timeCheater));
-    helper = new BoostedHelper(rollup, config);
+    helper = new EconomicsHarness(
+      address(this),
+      address(rollup),
+      IERC20(address(new TestERC20("Fee Asset", "FA", address(this)))),
+      EconomicsInitArgs({
+        manaTarget: TestConstants.AZTEC_MANA_TARGET,
+        provingCostPerMana: TestConstants.AZTEC_PROVING_COST_PER_MANA,
+        initialEthPerFeeAsset: TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET,
+        rewardConfig: TestConstants.getRewardConfig(),
+        rewardBoostConfig: config,
+        genesisTime: block.timestamp,
+        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
+        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
+        aztecProofSubmissionEpochs: TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      })
+    );
   }
 
   function test_activityDuplicateNoop() public {
@@ -96,12 +107,12 @@ contract BoostedRewardsTest is TestBase {
     Epoch epoch = timeCheater.getCurrentEpoch();
 
     vm.prank(address(rollup));
-    helper.updateAndGetShares(prover);
+    helper.applyBoosterUpdate(prover);
     uint256 score = helper.getActivityScore(prover).value;
 
     while (epoch == timeCheater.getCurrentEpoch()) {
       vm.prank(address(rollup));
-      helper.updateAndGetShares(prover);
+      helper.applyBoosterUpdate(prover);
       assertEq(helper.getActivityScore(prover).value, score);
       timeCheater.cheat__progressSlot();
     }
@@ -116,7 +127,7 @@ contract BoostedRewardsTest is TestBase {
 
       if (isProven) {
         vm.prank(address(rollup));
-        helper.updateAndGetShares(prover);
+        helper.applyBoosterUpdate(prover);
       }
 
       assertEq(helper.getActivityScore(prover).value, activityScore);

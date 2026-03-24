@@ -3,6 +3,7 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./DecoderBase.sol";
 
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {IRollup, CheckpointLog, SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -27,6 +28,8 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 contract RollupBase is DecoderBase {
+  using TimeLib for Timestamp;
+
   IInstance internal rollup;
   Inbox internal inbox;
   Outbox internal outbox;
@@ -37,6 +40,19 @@ contract RollupBase is DecoderBase {
   Signature internal attestationsAndSignersSignature;
 
   mapping(uint256 => uint256) internal checkpointFees;
+
+  function _economics() internal view returns (IEconomics) {
+    return IEconomics(address(rollup.getEconomicsForEpoch(rollup.getCurrentEpoch())));
+  }
+
+  function _checkpointOfInterest(Timestamp _timestamp) internal view returns (uint256) {
+    return rollup.canPruneAtTime(_timestamp) ? rollup.getProvenCheckpointNumber() : rollup.getPendingCheckpointNumber();
+  }
+
+  function _getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) internal view returns (uint256) {
+    IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(rollup.getEpochAt(_timestamp))));
+    return economics.getProposalFeeParameters(_checkpointOfInterest(_timestamp), _timestamp, _inFeeAsset).manaMinFee;
+  }
 
   function _proveCheckpoints(string memory _name, uint256 _start, uint256 _end, address _prover) internal {
     _proveCheckpoints(_name, _start, _end, _prover, "");
@@ -83,8 +99,7 @@ contract RollupBase is DecoderBase {
 
     uint256 size = endCheckpointNumber - startCheckpointNumber + 1;
     for (uint256 i = 0; i < size; i++) {
-      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer"))))); // Need the address to be left padded within the
-        // bytes32
+      fees[i * 2] = bytes32(uint256(uint160(makeAddr("sequencer"))));
       fees[i * 2 + 1] = bytes32(uint256(checkpointFees[startCheckpointNumber + i]));
     }
 
@@ -152,7 +167,7 @@ contract RollupBase is DecoderBase {
       full.checkpoint.header.slotNumber = slotNumber;
     }
 
-    uint128 minFee = SafeCast.toUint128(rollup.getManaMinFeeAt(full.checkpoint.header.timestamp, true));
+    uint128 minFee = SafeCast.toUint128(_getManaMinFeeAt(full.checkpoint.header.timestamp, true));
     full.checkpoint.header.gasFees.feePerL2Gas = minFee;
     full.checkpoint.header.totalManaUsed = _manaUsed;
 
@@ -190,8 +205,11 @@ contract RollupBase is DecoderBase {
       }
     }
 
-    ProposeArgs memory args =
-      ProposeArgs({header: full.checkpoint.header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: full.checkpoint.header,
+      archive: full.checkpoint.archive,
+      oracleInput: OracleInput({feeAssetPriceModifier: 0})
+    });
 
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);

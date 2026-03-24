@@ -3,18 +3,19 @@
 pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
+import {IEconomicsCore} from "@aztec/core/interfaces/IEconomicsCore.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {OracleInput, FeeLib, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {OracleInput, ProposalFeeParameters} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
@@ -44,6 +45,7 @@ struct InterimProposeValues {
   bool isEscapeHatch;
   address escapeHatchProposer;
   IEscapeHatch escapeHatch;
+  IEconomicsCore economics;
 }
 
 /**
@@ -56,6 +58,7 @@ struct InterimProposeValues {
 struct ValidateHeaderArgs {
   ProposedHeader header;
   bytes32 digest;
+  uint256 manaLimit;
   uint256 manaMinFee;
   bytes32 blobsHashesCommitment;
   CheckpointHeaderValidationFlags flags;
@@ -90,7 +93,7 @@ struct ValidateHeaderArgs {
  *
  *      Dependencies on other main libraries:
  *      - STFLib: State Transition Function library for chain state management, pruning, and storage access
- *      - FeeLib: Fee calculation library for mana pricing, L1 gas oracles, and fee header computation
+ *      - Economics: Runtime hook for proposal pricing, fee snapshots, and settlement
  *      - ValidatorSelectionLib: Validator and committee management for epoch setup and proposer verification
  *      - BlobLib: Blob commitment validation and hash calculation for data availability
  *      - ProposedHeaderLib: checkpoint header hashing and validation utilities
@@ -110,6 +113,7 @@ library ProposeLib {
   using TimeLib for Epoch;
   using CompressedTimeMath for CompressedSlot;
   using ChainTipsLib for CompressedChainTips;
+  using Checkpoints for Checkpoints.Trace160;
 
   /**
    * @notice  Publishes a new checkpoint to the pending chain.
@@ -166,6 +170,8 @@ library ProposeLib {
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
     // Prune unproven checkpoints if the proof submission window has passed
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
@@ -173,8 +179,6 @@ library ProposeLib {
 
     // Keep intermediate values in memory to avoid stack too deep errors
     InterimProposeValues memory v;
-
-    FeeLib.updateL1GasFeeOracle();
 
     // Validate blob commitments against actual blob data and extract hashes
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly
@@ -189,6 +193,12 @@ library ProposeLib {
     // Compute current epoch and check escape hatch BEFORE setupEpoch.
     // Uses epoch-stable lookup so mid-epoch governance changes don't affect current epoch proposals.
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    v.economics = IEconomicsCore(
+      address(
+        rollupStore.economicsCheckpoints.upperLookupRecent(uint96(Timestamp.unwrap(v.currentEpoch.toTimestamp())))
+      )
+    );
+    v.economics.updateL1GasFeeOracle();
     v.escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(v.currentEpoch);
     if (address(v.escapeHatch) != address(0)) {
       (v.isEscapeHatch, v.escapeHatchProposer) = v.escapeHatch.isHatchOpen(v.currentEpoch);
@@ -201,8 +211,12 @@ library ProposeLib {
       ValidatorSelectionLib.setupEpoch(v.currentEpoch);
     }
 
-    // Calculate mana min fee components for header validation
-    ManaMinFeeComponents memory components = getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+    ProposalFeeParameters memory proposalFees = v.economics
+      .getProposalFeeParameters(
+        STFLib.getEffectivePendingCheckpointNumber(Timestamp.wrap(block.timestamp)),
+        Timestamp.wrap(block.timestamp),
+        true
+      );
 
     // Create payload digest signed by the committee members
     v.payloadDigest =
@@ -213,13 +227,12 @@ library ProposeLib {
       ValidateHeaderArgs({
         header: v.header,
         digest: v.payloadDigest,
-        manaMinFee: FeeLib.summedMinFee(components),
+        manaLimit: proposalFees.manaLimit,
+        manaMinFee: proposalFees.manaMinFee,
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: CheckpointHeaderValidationFlags({ignoreDA: false})
       })
     );
-
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     if (v.isEscapeHatch) {
       // During escape hatch, only the designated proposer can propose
@@ -254,15 +267,6 @@ library ProposeLib {
       STFLib.getBlobCommitmentsHash(checkpointNumber - 1), v.blobCommitments, v.isFirstCheckpointOfEpoch
     );
 
-    // Compute fee header for checkpoint metadata
-    FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
-      checkpointNumber,
-      _args.oracleInput.feeAssetPriceModifier,
-      v.header.totalManaUsed,
-      components.congestionCost,
-      components.proverCost
-    );
-
     // Hash attestations for storage in checkpoint log
     // Compute attestationsHash from the attestations
     v.attestationsHash = keccak256(abi.encode(_attestations));
@@ -277,12 +281,19 @@ library ProposeLib {
         outHash: v.header.outHash,
         attestationsHash: v.attestationsHash,
         payloadDigest: v.payloadDigest,
-        slotNumber: v.header.slotNumber,
-        feeHeader: feeHeader
+        slotNumber: v.header.slotNumber
       })
     );
+    v.economics
+      .recordCheckpoint({
+        _checkpointNumber: checkpointNumber,
+        _feeAssetPriceModifier: _args.oracleInput.feeAssetPriceModifier,
+        _manaUsed: v.header.totalManaUsed,
+        _congestionCost: proposalFees.feeComponents.congestionCost,
+        _proverCost: proposalFees.feeComponents.proverCost
+      });
 
-    // Consume pending L1->L2 messages and validate against header commitment
+    // Consume pending L1->L2 messages and validate against header commitment.
     // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
     v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
     require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
@@ -318,11 +329,11 @@ library ProposeLib {
    * @param _args Validation arguments including header, digest, mana min fee, and flags
    */
   function validateHeader(ValidateHeaderArgs memory _args) internal view {
+    RollupStore storage rollupStore = STFLib.getStorage();
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
-    require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
+    require(_args.header.totalManaUsed <= _args.manaLimit, Errors.Rollup__ManaLimitExceeded());
 
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     uint256 pendingCheckpointNumber = STFLib.getEffectivePendingCheckpointNumber(currentTime);
 
@@ -354,25 +365,6 @@ library ProposeLib {
       _args.header.gasFees.feePerL2Gas == _args.manaMinFee,
       Errors.Rollup__InvalidManaMinFee(_args.manaMinFee, _args.header.gasFees.feePerL2Gas)
     );
-  }
-
-  /**
-   * @notice  Gets the mana min fee components
-   *          For more context, consult:
-   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
-   *
-   * @param _timestamp - The timestamp of the checkpoint
-   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
-   *
-   * @return The mana min fee components
-   */
-  function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
-    internal
-    view
-    returns (ManaMinFeeComponents memory)
-  {
-    uint256 checkpointOfInterest = STFLib.getEffectivePendingCheckpointNumber(_timestamp);
-    return FeeLib.getManaMinFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
   }
 
   function digest(ProposePayload memory _args) internal pure returns (bytes32) {

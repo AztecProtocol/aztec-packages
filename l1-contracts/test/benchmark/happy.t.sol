@@ -20,6 +20,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup, CheckpointLog} from "@aztec/core/Rollup.sol";
 import {
@@ -42,14 +43,8 @@ import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {
-  FeeLib,
-  EthPerFeeAssetE12,
-  EthValue,
-  FeeHeader,
-  L1FeeData,
-  ManaMinFeeComponents
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {ManaMinFeeComponents} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
@@ -107,8 +102,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
   using TimeLib for Slot;
   using TimeLib for Timestamp;
-  using FeeLib for uint256;
-  using FeeLib for ManaMinFeeComponents;
   // We need to build a checkpoint that we can submit. We will be using some values from
   // the empty checkpoints, but otherwise populate using the fee model test points.
 
@@ -134,6 +127,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   uint256 internal TARGET_COMMITTEE_SIZE;
   uint256 internal PROOFS_PER_EPOCH; // given as e2, for simple decimals, e.g., 200 = 2.00
   uint256 internal VOTING_ROUND_SIZE = 500;
+  uint256 internal constant FULL_BENCHMARK_STOP_AT_CHECKPOINT = 150;
+  uint256 internal constant PROFILE_BENCHMARK_STOP_AT_CHECKPOINT = 10;
 
   Rollup internal rollup;
   Slasher internal slasher;
@@ -152,6 +147,25 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   address internal slashingProposer;
   IPayload internal slashPayload;
+
+  function _economics() internal view returns (IEconomics) {
+    return IEconomics(address(rollup.getEconomicsForEpoch(rollup.getCurrentEpoch())));
+  }
+
+  function _checkpointOfInterest(Timestamp _timestamp) internal view returns (uint256) {
+    return rollup.canPruneAtTime(_timestamp) ? rollup.getProvenCheckpointNumber() : rollup.getPendingCheckpointNumber();
+  }
+
+  function _getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) internal view returns (uint256) {
+    IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(rollup.getEpochAt(_timestamp))));
+    return economics.getProposalFeeParameters(_checkpointOfInterest(_timestamp), _timestamp, _inFeeAsset).manaMinFee;
+  }
+
+  function _getFeeHeader(uint256 _checkpointNumber) internal view returns (FeeHeader memory) {
+    IEconomics economics =
+      IEconomics(address(rollup.getEconomicsForEpoch(rollup.getEpochForCheckpoint(_checkpointNumber))));
+    return economics.getFeeHeader(_checkpointNumber);
+  }
 
   modifier prepare(uint256 _validatorCount, bool _noValidators, TestSlash _slashing) {
     // We deploy a the rollup and sets the time and all to
@@ -207,7 +221,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
+    vm.label(_economics().getBurnAddress(), "BURN_ADDRESS");
 
     _;
   }
@@ -217,11 +231,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     SLOT_DURATION = 72;
     EPOCH_DURATION = 32;
-    MANA_TARGET = 1e8;
+    MANA_TARGET = 75e6;
     TARGET_COMMITTEE_SIZE = 48;
     PROOFS_PER_EPOCH = 200; // 2.00
-
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
   // We manipulate the metadata time here in order to not run "out" of data
@@ -239,15 +251,19 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function test_no_validators() public prepare(0, true, TestSlash.NONE) {
-    benchmark(TestSlash.NONE);
+    benchmark(TestSlash.NONE, FULL_BENCHMARK_STOP_AT_CHECKPOINT);
   }
 
   function test_100_validators() public prepare(100, false, TestSlash.NONE) {
-    benchmark(TestSlash.NONE);
+    benchmark(TestSlash.NONE, FULL_BENCHMARK_STOP_AT_CHECKPOINT);
   }
 
   function test_100_slashing_validators() public prepare(100, false, TestSlash.TALLY) {
-    benchmark(TestSlash.TALLY);
+    benchmark(TestSlash.TALLY, FULL_BENCHMARK_STOP_AT_CHECKPOINT);
+  }
+
+  function test_no_validators_profile() public prepare(0, true, TestSlash.NONE) {
+    benchmark(TestSlash.NONE, PROFILE_BENCHMARK_STOP_AT_CHECKPOINT);
   }
 
   /**
@@ -265,7 +281,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint128 manaMinFee = SafeCast.toUint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.checkpoint_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
@@ -452,17 +468,15 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     multicall.aggregate3(calls);
   }
 
-  function benchmark(TestSlash _slashing) public {
+  function benchmark(TestSlash _slashing, uint256 _stopAtCheckpoint) public {
     // Do nothing for the first epoch
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
     Epoch nextEpoch = Epoch.wrap(4);
     bool warmedUp = false;
 
-    uint256 stopAtCheckpoint = 150;
-
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
-      if (rollup.getPendingCheckpointNumber() >= stopAtCheckpoint) {
+      if (rollup.getPendingCheckpointNumber() >= _stopAtCheckpoint) {
         break;
       }
 
@@ -475,9 +489,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         warmedUp = true;
       }
 
-      // For every "new" slot we encounter, we construct a checkpoint using current L1 data and
-      // the decoded checkpoint fixture. The checkpoint cannot be proven, but it will be accepted
-      // as a proposal so it is useful for testing a long range of checkpoints.
+      // For every "new" slot we encounter, we construct a checkpoint using current L1 Data
+      // and part of the `empty_checkpoint_1.json` file. The checkpoint cannot be proven, but it
+      // will be accepted as a proposal so very useful for testing a long range of checkpoints.
       if (rollup.getCurrentSlot() == nextSlot) {
         rollup.setupEpoch();
 
@@ -561,8 +575,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
           // we need the minFee, and we cannot just take it from the point. Because it is different
           Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          uint256 manaMinFee = rollup.getManaMinFeeAt(ts, true);
-          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
+          uint256 manaMinFee = _getManaMinFeeAt(ts, true);
+          uint256 fee = _getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
 
           fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
           fees[feeIndex * 2 + 1] = bytes32(fee);

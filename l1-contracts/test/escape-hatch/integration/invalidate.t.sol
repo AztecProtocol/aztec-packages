@@ -135,7 +135,7 @@ contract invalidateTest is EscapeHatchIntegrationBase {
 
     // Update header with current values
     {
-      uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+      uint128 manaMinFee = SafeCast.toUint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 

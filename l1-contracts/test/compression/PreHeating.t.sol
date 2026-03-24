@@ -19,6 +19,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup, CheckpointLog} from "@aztec/core/Rollup.sol";
 import {
@@ -41,14 +42,8 @@ import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {
-  FeeLib,
-  EthPerFeeAssetE12,
-  EthValue,
-  FeeHeader,
-  L1FeeData,
-  ManaMinFeeComponents
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {ManaMinFeeComponents} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
@@ -105,9 +100,8 @@ contract FakeCanonical is IRewardDistributor {
  */
 contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
+  using TimeLib for Timestamp;
   using TimeLib for Slot;
-  using FeeLib for uint256;
-  using FeeLib for ManaMinFeeComponents;
   // We need to build a checkpoint that we can submit. We will be using some values from
   // the empty checkpoints, but otherwise populate using the fee model test points.
 
@@ -139,6 +133,25 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
   EmpireSlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
+
+  function _economics() internal view returns (IEconomics) {
+    return IEconomics(address(rollup.getEconomicsForEpoch(rollup.getCurrentEpoch())));
+  }
+
+  function _checkpointOfInterest(Timestamp _timestamp) internal view returns (uint256) {
+    return rollup.canPruneAtTime(_timestamp) ? rollup.getProvenCheckpointNumber() : rollup.getPendingCheckpointNumber();
+  }
+
+  function _getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) internal view returns (uint256) {
+    IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(rollup.getEpochAt(_timestamp))));
+    return economics.getProposalFeeParameters(_checkpointOfInterest(_timestamp), _timestamp, _inFeeAsset).manaMinFee;
+  }
+
+  function _getFeeHeader(uint256 _checkpointNumber) internal view returns (FeeHeader memory) {
+    IEconomics economics =
+      IEconomics(address(rollup.getEconomicsForEpoch(rollup.getEpochForCheckpoint(_checkpointNumber))));
+    return economics.getFeeHeader(_checkpointNumber);
+  }
 
   modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
@@ -183,13 +196,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
+    vm.label(_economics().getBurnAddress(), "BURN_ADDRESS");
 
     _;
-  }
-
-  constructor() {
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -266,8 +275,8 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
           // we need the minFee, and we cannot just take it from the point. Because it is different
           Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          uint256 manaMinFee = rollup.getManaMinFeeAt(ts, true);
-          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
+          uint256 manaMinFee = _getManaMinFeeAt(ts, true);
+          uint256 fee = _getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
 
           fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
           fees[feeIndex * 2 + 1] = bytes32(fee);
@@ -325,7 +334,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint128 manaMinFee = SafeCast.toUint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.checkpoint_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();

@@ -9,17 +9,16 @@ import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
-  IRollupCore,
   CheckpointLog,
   SubmitEpochRootProofArgs,
   EthValue,
-  FeeAssetValue,
   EthPerFeeAssetE12,
   PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
@@ -31,8 +30,11 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {PriceLib, ETH_PER_FEE_ASSET_PRECISION} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {
+  FeeAssetValue,
+  PriceLib,
+  ETH_PER_FEE_ASSET_PRECISION
+} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -42,6 +44,8 @@ import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollu
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 // solhint-disable comprehensive-interface
+
+uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 3_600_000;
 
 /**
  * Checkpoints are generated using the `integration_l1_publisher.test.ts` tests.
@@ -53,6 +57,13 @@ contract RollupTest is RollupBase {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
+
+  function _currentPricingEthPerFeeAsset() internal view returns (EthPerFeeAssetE12) {
+    uint256 checkpointNumber = rollup.getPendingCheckpointNumber();
+    return checkpointNumber == 0
+      ? TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET
+      : EthPerFeeAssetE12.wrap(_economics().getFeeHeader(checkpointNumber).ethPerFeeAsset);
+  }
 
   Registry internal registry;
   TestERC20 internal testERC20;
@@ -133,16 +144,17 @@ contract RollupTest is RollupBase {
 
     RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
-    address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
+    IEconomics economics = _economics();
+    address economicsOwner = Ownable(address(economics)).owner();
 
-    assertEq(rollup.getManaTarget(), initialManaTarget);
+    assertEq(economics.getFeeConfig().manaTarget, initialManaTarget);
 
     vm.expectEmit(true, true, true, true);
-    emit IRollupCore.ManaTargetUpdated(newManaTarget);
-    vm.prank(governance);
-    rollup.updateManaTarget(newManaTarget);
-    assertEq(rollup.getManaTarget(), newManaTarget);
+    emit IEconomics.ManaTargetUpdated(newManaTarget);
+    vm.prank(economicsOwner);
+    economics.updateManaTarget(newManaTarget);
+    assertEq(economics.getFeeConfig().manaTarget, newManaTarget);
   }
 
   function testSetManaTargetDecreasing(uint256 _initialManaTarget, uint256 _newManaTarget)
@@ -155,16 +167,23 @@ contract RollupTest is RollupBase {
 
     RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
-    address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
+    IEconomics economics = _economics();
+    address economicsOwner = Ownable(address(economics)).owner();
 
-    assertEq(rollup.getManaTarget(), initialManaTarget);
+    assertEq(economics.getFeeConfig().manaTarget, initialManaTarget);
 
     // Cannot decrease the mana target
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaTarget.selector, initialManaTarget, newManaTarget));
-    vm.prank(governance);
-    rollup.updateManaTarget(newManaTarget);
-    assertEq(rollup.getManaTarget(), initialManaTarget);
+    if (newManaTarget == 0) {
+      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaTarget.selector, 1, 0));
+    } else {
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.Rollup__InvalidManaTarget.selector, initialManaTarget, newManaTarget)
+      );
+    }
+    vm.prank(economicsOwner);
+    economics.updateManaTarget(newManaTarget);
+    assertEq(economics.getFeeConfig().manaTarget, initialManaTarget);
   }
 
   function testPrune() public setUpFor("mixed_checkpoint_1") {
@@ -348,7 +367,7 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    uint256 expectedFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
+    uint256 expectedFee = _getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
 
     // When not canonical, we expect the fee to be 0
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaMinFee.selector, expectedFee, 1));
@@ -365,13 +384,14 @@ contract RollupTest is RollupBase {
   function testProvingFeeUpdates() public setUpFor("mixed_checkpoint_1") {
     // We need to mint some fee asset to the portal to cover the 2M mana spent.
     deal(address(testERC20), address(feeJuicePortal), 2e6 * 1e18);
+    IEconomics economics = _economics();
 
-    vm.prank(Ownable(address(rollup)).owner());
-    rollup.setProvingCostPerMana(EthValue.wrap(1000));
+    vm.prank(Ownable(address(economics)).owner());
+    economics.updateProvingCostPerMana(EthValue.wrap(1000));
     _proposeCheckpoint("mixed_checkpoint_1", 1, 1e6);
 
-    vm.prank(Ownable(address(rollup)).owner());
-    rollup.setProvingCostPerMana(EthValue.wrap(2000));
+    vm.prank(Ownable(address(economics)).owner());
+    economics.updateProvingCostPerMana(EthValue.wrap(2000));
     _proposeCheckpoint("mixed_checkpoint_2", 2, 1e6);
 
     // At this point in time, we have had different proving costs for the two checkpoints. When we prove them
@@ -384,12 +404,12 @@ contract RollupTest is RollupBase {
     proverFees += (Math.mulDiv(
         Math.mulDiv(
           L1_GAS_PER_EPOCH_VERIFIED,
-          rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(1))).baseFee,
+          economics.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(1))).baseFee,
           rollup.getEpochDuration(),
           Math.Rounding.Ceil
         ),
         1,
-        rollup.getManaTarget(),
+        economics.getFeeConfig().manaTarget,
         Math.Rounding.Ceil
       )
       * 1e6);
@@ -397,23 +417,28 @@ contract RollupTest is RollupBase {
     proverFees += (Math.mulDiv(
         Math.mulDiv(
           L1_GAS_PER_EPOCH_VERIFIED,
-          rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(2))).baseFee,
+          economics.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(2))).baseFee,
           rollup.getEpochDuration(),
           Math.Rounding.Ceil
         ),
         1,
-        rollup.getManaTarget(),
+        economics.getFeeConfig().manaTarget,
         Math.Rounding.Ceil
       )
       * 1e6);
     // Convert ETH to fee asset using the price: feeAsset = eth * precision / ethPerFeeAsset
     proverFees = Math.mulDiv(
-      proverFees, ETH_PER_FEE_ASSET_PRECISION, EthPerFeeAssetE12.unwrap(rollup.getEthPerFeeAsset()), Math.Rounding.Ceil
+      proverFees,
+      ETH_PER_FEE_ASSET_PRECISION,
+      EthPerFeeAssetE12.unwrap(_currentPricingEthPerFeeAsset()),
+      Math.Rounding.Ceil
     );
 
-    uint256 expectedProverRewards = rollup.getCheckpointReward() / 2 * 2 + proverFees;
+    uint256 expectedProverRewards = economics.getRewardConfig().checkpointReward / 2 * 2 + proverFees;
 
-    assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), expectedProverRewards, "invalid prover rewards");
+    assertEq(
+      economics.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), expectedProverRewards, "invalid prover rewards"
+    );
   }
 
   struct TestCheckpointFeeStruct {
@@ -432,8 +457,9 @@ contract RollupTest is RollupBase {
     DecoderBase.Data memory data = load("mixed_checkpoint_1").checkpoint;
     ProposedHeader memory header = data.header;
     interim.portalBalance = testERC20.balanceOf(address(feeJuicePortal));
-    interim.provingCostPerManaInEth = rollup.getProvingCostPerManaInEth();
-    interim.provingCostPerManaInFeeAsset = rollup.getProvingCostPerManaInFeeAsset();
+    interim.provingCostPerManaInEth = _economics().getFeeConfig().provingCostPerMana;
+    interim.provingCostPerManaInFeeAsset =
+      PriceLib.toFeeAsset(interim.provingCostPerManaInEth, _currentPricingEthPerFeeAsset());
     interim.manaUsed = 1e6;
 
     // Progress time as necessary
@@ -451,7 +477,7 @@ contract RollupTest is RollupBase {
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
-      interim.minFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+      interim.minFee = SafeCast.toUint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 
       header.gasFees.feePerL2Gas = interim.minFee;
       header.totalManaUsed = interim.manaUsed;
@@ -499,9 +525,9 @@ contract RollupTest is RollupBase {
       );
     }
     assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
-    assertEq(rollup.getSequencerRewards(header.coinbase), 0, "invalid sequencer rewards");
+    assertEq(_economics().getSequencerRewards(header.coinbase), 0, "invalid sequencer rewards");
     assertEq(testERC20.balanceOf(prover), 0, "invalid prover balance");
-    assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), 0, "invalid prover rewards");
+    assertEq(_economics().getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), 0, "invalid prover rewards");
 
     {
       vm.prank(testERC20.owner());
@@ -521,23 +547,24 @@ contract RollupTest is RollupBase {
       );
 
       {
-        EthPerFeeAssetE12 price = rollup.getEthPerFeeAsset();
+        EthPerFeeAssetE12 price = _currentPricingEthPerFeeAsset();
         uint256 provingCosts =
           Math.mulDiv(EthValue.unwrap(interim.provingCostPerManaInEth), 1e12, EthPerFeeAssetE12.unwrap(price));
         assertEq(provingCosts, FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset), "invalid proving costs");
       }
 
       uint256 expectedProverReward =
-        rollup.getCheckpointReward() / 2 + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
+        _economics().getRewardConfig().checkpointReward / 2 + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset)
+        * interim.manaUsed;
       uint256 expectedSequencerReward =
-        rollup.getCheckpointReward() / 2 + interim.feeAmount
+        _economics().getRewardConfig().checkpointReward / 2 + interim.feeAmount
         - FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
 
-      assertEq(rollup.getSequencerRewards(header.coinbase), expectedSequencerReward, "invalid sequencer rewards");
+      assertEq(_economics().getSequencerRewards(header.coinbase), expectedSequencerReward, "invalid sequencer rewards");
 
       Epoch epoch = rollup.getCheckpoint(1).slotNumber.epochFromSlot();
 
-      assertEq(rollup.getCollectiveProverRewardsForEpoch(epoch), expectedProverReward, "invalid prover rewards");
+      assertEq(_economics().getCollectiveProverRewardsForEpoch(epoch), expectedProverReward, "invalid prover rewards");
     }
   }
 
@@ -781,7 +808,7 @@ contract RollupTest is RollupBase {
 
     vm.warp(max(block.timestamp, Timestamp.unwrap(realTs)));
 
-    header.gasFees.feePerL2Gas = uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+    header.gasFees.feePerL2Gas = uint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoBlobsInCheckpoint.selector));
     ProposeArgs memory args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});

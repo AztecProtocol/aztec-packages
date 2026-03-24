@@ -7,13 +7,11 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
-import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
-import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {Bps, RewardBoostConfig, RewardConfig} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 
 interface IRollupConfiguration {
   function loadConfig() external;
@@ -62,12 +60,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     checkpointReward = 500e18;
 
     return RewardConfig({
-      rewardDistributor: _rewardDistributor,
-      sequencerBps: Bps.wrap(sequencerBps),
-      // NOTE(AD): This matches the previous iteration of deployments that were in typescript. We always deploys a new
-      // reward booster.
-      booster: IBoosterCore(address(0)),
-      checkpointReward: checkpointReward
+      rewardDistributor: _rewardDistributor, sequencerBps: Bps.wrap(sequencerBps), checkpointReward: checkpointReward
     });
   }
 
@@ -139,6 +132,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   {
     bytes32 hash = keccak256(abi.encode(_config, _genesisState));
     // Extract first 4 bytes as uint32 (big-endian)
+    // forge-lint: disable-next-line(unsafe-typecast)
     return uint32(bytes4(hash));
   }
 

@@ -2,7 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {CompressedFeeHeader, FeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 
@@ -24,7 +23,6 @@ struct CheckpointLog {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Slot slotNumber;
-  FeeHeader feeHeader;
 }
 
 struct TempCheckpointLog {
@@ -34,7 +32,6 @@ struct TempCheckpointLog {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Slot slotNumber;
-  FeeHeader feeHeader;
 }
 
 struct CompressedTempCheckpointLog {
@@ -44,14 +41,11 @@ struct CompressedTempCheckpointLog {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   CompressedSlot slotNumber;
-  CompressedFeeHeader feeHeader;
 }
 
 library CompressedTempCheckpointLogLib {
   using CompressedTimeMath for Slot;
   using CompressedTimeMath for CompressedSlot;
-  using FeeHeaderLib for FeeHeader;
-  using FeeHeaderLib for CompressedFeeHeader;
 
   function compress(TempCheckpointLog memory _checkpoint) internal pure returns (CompressedTempCheckpointLog memory) {
     return CompressedTempCheckpointLog({
@@ -60,8 +54,7 @@ library CompressedTempCheckpointLogLib {
       outHash: _checkpoint.outHash,
       attestationsHash: _checkpoint.attestationsHash,
       payloadDigest: _checkpoint.payloadDigest,
-      slotNumber: _checkpoint.slotNumber.compress(),
-      feeHeader: _checkpoint.feeHeader.compress()
+      slotNumber: _checkpoint.slotNumber.compress()
     });
   }
 
@@ -76,8 +69,7 @@ library CompressedTempCheckpointLogLib {
       outHash: _compressedCheckpoint.outHash,
       attestationsHash: _compressedCheckpoint.attestationsHash,
       payloadDigest: _compressedCheckpoint.payloadDigest,
-      slotNumber: _compressedCheckpoint.slotNumber.decompress(),
-      feeHeader: _compressedCheckpoint.feeHeader.decompress()
+      slotNumber: _compressedCheckpoint.slotNumber.decompress()
     });
   }
 }

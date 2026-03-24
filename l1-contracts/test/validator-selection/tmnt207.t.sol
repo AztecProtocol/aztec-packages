@@ -19,7 +19,7 @@ import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/
 import {RollupBase, IInstance} from "../base/RollupBase.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
-import {Bps, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {Bps, BpsLib} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {
   AttestationLib,
   Signature,
@@ -74,7 +74,7 @@ contract Tmnt207Test is RollupBase {
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
   uint256 internal PROOF_SUBMISSION_EPOCHS;
-  uint256 internal MANA_TARGET = 1e6;
+  uint256 internal MANA_TARGET = TestConstants.AZTEC_MANA_TARGET;
   uint256 internal COMMITTEE_SIZE = 4;
 
   address internal sequencer = address(bytes20("sequencer"));
@@ -257,8 +257,12 @@ contract Tmnt207Test is RollupBase {
     header.timestamp = ts;
     header.coinbase = address(bytes20("coinbase"));
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
-    header.totalManaUsed = MANA_TARGET;
+    header.gasFees.feePerL2Gas = SafeCast.toUint128(_getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+    if (MANA_TARGET > 0) {
+      header.totalManaUsed = MANA_TARGET;
+    } else {
+      header.totalManaUsed = 0;
+    }
 
     ProposeArgs memory proposeArgs =
       ProposeArgs({header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0})});

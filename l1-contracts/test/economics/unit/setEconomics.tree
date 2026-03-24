@@ -1,0 +1,28 @@
+SetEconomicsTest
+├── when economics is address zero
+│   └── it should revert with {InvalidEconomics}
+└── when economics is not address zero
+    ├── when economics rollup differs from the rollup
+    │   └── it should revert with {InvalidEconomicsRollup}
+    └── when economics rollup matches the rollup
+        ├── when economics fee asset differs from the rollup fee asset
+        │   └── it should revert with {InvalidEconomicsFeeAsset}
+        └── when economics fee asset matches the rollup fee asset
+            ├── when economics genesis time differs from the rollup genesis time
+            │   └── it should revert with {InvalidEconomicsGenesisTime}
+            └── when economics genesis time matches the rollup genesis time
+                ├── when economics slot duration differs from the rollup slot duration
+                │   └── it should revert with {InvalidEconomicsSlotDuration}
+                └── when economics slot duration matches the rollup slot duration
+                    ├── when economics epoch duration differs from the rollup epoch duration
+                    │   └── it should revert with {InvalidEconomicsEpochDuration}
+                    └── when economics epoch duration matches the rollup epoch duration
+                        ├── when economics proof submission epochs differ from the rollup
+                        │   └── it should revert with {InvalidEconomicsProofSubmissionEpochs}
+                        └── when economics proof submission epochs match the rollup
+                            ├── when scheduling a valid replacement
+                            │   └── it should schedule the replacement for the next epoch
+                            ├── when the pending chain is still unproven
+                            │   └── it should still schedule the replacement
+                            └── when called multiple times for the same activation epoch
+                                └── it should let the last call win

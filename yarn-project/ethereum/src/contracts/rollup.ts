@@ -5,6 +5,7 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { EconomicsAbi } from '@aztec/l1-artifacts/EconomicsAbi';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
@@ -148,7 +149,6 @@ export type ManaMinFeeComponents = {
 export type RewardConfig = {
   rewardDistributor: EthAddress;
   sequencerBps: bigint;
-  booster: EthAddress;
   checkpointReward: bigint;
 };
 
@@ -357,24 +357,24 @@ export class RollupContract {
     return Number(await this.rollup.read.getExitDelay());
   }
 
-  @memoize
-  getManaTarget(): Promise<bigint> {
-    return this.rollup.read.getManaTarget();
+  async getManaTarget(): Promise<bigint> {
+    const economics = await this.getCurrentEconomics();
+    return (await economics.read.getFeeConfig()).manaTarget;
   }
 
-  @memoize
-  getProvingCostPerMana(): Promise<bigint> {
-    return this.rollup.read.getProvingCostPerManaInEth();
+  async getProvingCostPerMana(): Promise<bigint> {
+    const economics = await this.getCurrentEconomics();
+    return (await economics.read.getFeeConfig()).provingCostPerMana;
   }
 
-  @memoize
-  getProvingCostPerManaInFeeAsset(): Promise<bigint> {
-    return this.rollup.read.getProvingCostPerManaInFeeAsset();
+  async getProvingCostPerManaInFeeAsset(): Promise<bigint> {
+    const timestamp = BigInt((await this.client.getBlock()).timestamp);
+    const checkpointOfInterest = await this.getCheckpointOfInterest(timestamp);
+    return (await this.getEconomicsAt(timestamp)).read.getProvingCostPerManaInFeeAsset([checkpointOfInterest]);
   }
 
-  @memoize
-  getManaLimit(): Promise<bigint> {
-    return this.rollup.read.getManaLimit();
+  async getManaLimit(): Promise<bigint> {
+    return (await this.getCurrentEconomics()).read.getManaLimit();
   }
 
   @memoize
@@ -389,14 +389,14 @@ export class RollupContract {
 
   @memoize
   async getVkTreeRoot(): Promise<Fr> {
-    const slot = BigInt(RollupContract.stfStorageSlot) + 3n;
+    const slot = BigInt(RollupContract.stfStorageSlot) + 4n;
     const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
     return Fr.fromString(value ?? '0x0');
   }
 
   @memoize
   async getProtocolContractsHash(): Promise<Fr> {
-    const slot = BigInt(RollupContract.stfStorageSlot) + 4n;
+    const slot = BigInt(RollupContract.stfStorageSlot) + 5n;
     const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
     return Fr.fromString(value ?? '0x0');
   }
@@ -527,8 +527,8 @@ export class RollupContract {
     return await slasher.getProposer();
   }
 
-  getCheckpointReward(): Promise<bigint> {
-    return this.rollup.read.getCheckpointReward();
+  async getCheckpointReward(): Promise<bigint> {
+    return (await this.getRewardConfig()).checkpointReward;
   }
 
   async getCheckpointNumber(): Promise<CheckpointNumber> {
@@ -545,15 +545,47 @@ export class RollupContract {
   }
 
   async getL1FeesAt(timestamp: bigint): Promise<L1FeeData> {
-    const result = await this.rollup.read.getL1FeesAt([timestamp]);
+    const result = await (await this.getEconomicsAt(timestamp)).read.getL1FeesAt([timestamp]);
     return {
       baseFee: result.baseFee,
       blobFee: result.blobFee,
     };
   }
 
-  getEthPerFeeAsset(): Promise<bigint> {
-    return this.rollup.read.getEthPerFeeAsset();
+  async getEthPerFeeAsset(): Promise<bigint> {
+    const timestamp = BigInt((await this.client.getBlock()).timestamp);
+    const checkpointOfInterest = await this.getCheckpointOfInterest(timestamp);
+    return (await this.getEconomicsAt(timestamp)).read.getEthPerFeeAsset([checkpointOfInterest]);
+  }
+
+  private async getCurrentEconomics() {
+    return this.getEconomicsForEpoch(await this.rollup.read.getCurrentEpoch());
+  }
+
+  private async getEconomicsAt(timestamp: bigint) {
+    return getContract({
+      address: await this.getEconomicsAddressAt(timestamp),
+      abi: EconomicsAbi,
+      client: this.client,
+    });
+  }
+
+  private async getEconomicsForEpoch(epoch: bigint) {
+    return getContract({
+      address: await this.rollup.read.getEconomicsForEpoch([epoch]),
+      abi: EconomicsAbi,
+      client: this.client,
+    });
+  }
+
+  private async getEconomicsAddressAt(timestamp: bigint) {
+    const epoch = await this.rollup.read.getEpochAt([timestamp]);
+    return this.rollup.read.getEconomicsForEpoch([epoch]);
+  }
+
+  private async getCheckpointOfInterest(timestamp: bigint): Promise<bigint> {
+    const shouldPrune = await this.rollup.read.canPruneAtTime([timestamp]);
+    return shouldPrune ? this.rollup.read.getProvenCheckpointNumber() : this.rollup.read.getPendingCheckpointNumber();
   }
 
   async getCommitteeAt(timestamp: bigint): Promise<EthAddress[] | undefined> {
@@ -627,7 +659,23 @@ export class RollupContract {
   }
 
   async getCheckpoint(checkpointNumber: CheckpointNumber): Promise<CheckpointLog> {
-    const result = await this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
+    const checkpoint = BigInt(checkpointNumber);
+    const [result, epoch] = await Promise.all([
+      this.rollup.read.getCheckpoint([checkpoint]),
+      this.rollup.read.getEpochForCheckpoint([checkpoint]),
+    ]);
+    const economics = await this.getEconomicsForEpoch(epoch);
+    const feeHeader =
+      checkpoint === 0n
+        ? {
+            excessMana: 0n,
+            manaUsed: 0n,
+            ethPerFeeAsset: await economics.read.getEthPerFeeAsset([0n]),
+            congestionCost: 0n,
+            proverCost: 0n,
+          }
+        : await economics.read.getFeeHeader([checkpoint]);
+
     return {
       archive: Fr.fromString(result.archive),
       headerHash: Buffer32.fromString(result.headerHash),
@@ -636,11 +684,11 @@ export class RollupContract {
       payloadDigest: Buffer32.fromString(result.payloadDigest),
       slotNumber: SlotNumber.fromBigInt(result.slotNumber),
       feeHeader: {
-        excessMana: result.feeHeader.excessMana,
-        manaUsed: result.feeHeader.manaUsed,
-        ethPerFeeAsset: result.feeHeader.ethPerFeeAsset,
-        congestionCost: result.feeHeader.congestionCost,
-        proverCost: result.feeHeader.proverCost,
+        excessMana: feeHeader.excessMana,
+        manaUsed: feeHeader.manaUsed,
+        ethPerFeeAsset: feeHeader.ethPerFeeAsset,
+        congestionCost: feeHeader.congestionCost,
+        proverCost: feeHeader.proverCost,
       },
     };
   }
@@ -697,31 +745,29 @@ export class RollupContract {
       inboxAddress,
       outboxAddress,
       feeJuicePortalAddress,
-      rewardDistributorAddress,
       feeJuiceAddress,
       stakingAssetAddress,
       gseAddress,
-    ] = (
-      await Promise.all([
-        this.rollup.read.getInbox(),
-        this.rollup.read.getOutbox(),
-        this.rollup.read.getFeeAssetPortal(),
-        this.rollup.read.getRewardDistributor(),
-        this.rollup.read.getFeeAsset(),
-        this.rollup.read.getStakingAsset(),
-        this.rollup.read.getGSE(),
-      ] as const)
-    ).map(EthAddress.fromString);
+      rewardConfig,
+    ] = await Promise.all([
+      this.rollup.read.getInbox(),
+      this.rollup.read.getOutbox(),
+      this.rollup.read.getFeeAssetPortal(),
+      this.rollup.read.getFeeAsset(),
+      this.rollup.read.getStakingAsset(),
+      this.rollup.read.getGSE(),
+      this.getRewardConfig(),
+    ] as const);
 
     return {
       rollupAddress: EthAddress.fromString(this.address),
-      inboxAddress,
-      outboxAddress,
-      feeJuicePortalAddress,
-      feeJuiceAddress,
-      stakingAssetAddress,
-      rewardDistributorAddress,
-      gseAddress,
+      inboxAddress: EthAddress.fromString(inboxAddress),
+      outboxAddress: EthAddress.fromString(outboxAddress),
+      feeJuicePortalAddress: EthAddress.fromString(feeJuicePortalAddress),
+      feeJuiceAddress: EthAddress.fromString(feeJuiceAddress),
+      stakingAssetAddress: EthAddress.fromString(stakingAssetAddress),
+      rewardDistributorAddress: rewardConfig.rewardDistributor,
+      gseAddress: EthAddress.fromString(gseAddress),
     };
   }
 
@@ -873,19 +919,29 @@ export class RollupContract {
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
-  public getHasSubmittedProof(epochNumber: EpochNumber, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
+  public async getHasSubmittedProof(
+    epochNumber: EpochNumber,
+    numberOfCheckpointsInEpoch: number,
+    prover: Hex | EthAddress,
+  ) {
     if (prover instanceof EthAddress) {
       prover = prover.toString();
     }
-    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
+    const economics = await this.getEconomicsForEpoch(BigInt(epochNumber));
+    return economics.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
-    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset]);
+  async getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
+    const checkpointOfInterest = await this.getCheckpointOfInterest(timestamp);
+    const economics = await this.getEconomicsAt(timestamp);
+    const parameters = await economics.read.getProposalFeeParameters([checkpointOfInterest, timestamp, inFeeAsset]);
+    return parameters.manaMinFee;
   }
 
   async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {
-    const result = await this.rollup.read.getManaMinFeeComponentsAt([timestamp, inFeeAsset]);
+    const checkpointOfInterest = await this.getCheckpointOfInterest(timestamp);
+    const economics = await this.getEconomicsAt(timestamp);
+    const result = await economics.read.getManaMinFeeComponentsAt([checkpointOfInterest, timestamp, inFeeAsset]);
     return {
       sequencerCost: result.sequencerCost,
       proverCost: result.proverCost,
@@ -923,18 +979,19 @@ export class RollupContract {
     return Fr.fromString(await this.rollup.read.archiveAt([BigInt(checkpointNumber)]));
   }
 
-  getSequencerRewards(address: Hex | EthAddress): Promise<bigint> {
+  async getSequencerRewards(address: Hex | EthAddress): Promise<bigint> {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
-    return this.rollup.read.getSequencerRewards([address]);
+    return (await this.getCurrentEconomics()).read.getSequencerRewards([address]);
   }
 
-  getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress): Promise<bigint> {
+  async getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress): Promise<bigint> {
     if (prover instanceof EthAddress) {
       prover = prover.toString();
     }
-    return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
+    const economics = await this.getEconomicsForEpoch(epoch);
+    return economics.read.getSpecificProverRewardsForEpoch([epoch, prover]);
   }
 
   async getAttesters(timestamp?: bigint): Promise<EthAddress[]> {
@@ -994,11 +1051,10 @@ export class RollupContract {
   }
 
   async getRewardConfig(): Promise<RewardConfig> {
-    const result = await this.rollup.read.getRewardConfig();
+    const result = await (await this.getCurrentEconomics()).read.getRewardConfig();
     return {
       rewardDistributor: EthAddress.fromString(result.rewardDistributor),
       sequencerBps: BigInt(result.sequencerBps),
-      booster: EthAddress.fromString(result.booster),
       checkpointReward: result.checkpointReward,
     };
   }

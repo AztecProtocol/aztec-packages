@@ -180,6 +180,126 @@ Contract initialization now emits two separate nullifiers instead of one: a **pr
   }).deployed();
 ```
 
+### [L1 contracts] Economics-owned fee getters moved off `Rollup`
+
+Several fee-related reads now live on the `Economics` contract instead of the `Rollup` contract.
+
+- `getManaLimit()`
+- `getEthPerFeeAsset(uint256 checkpointOfInterest)`
+- `getProvingCostPerManaInFeeAsset(uint256 checkpointOfInterest)`
+- `getFeeConfig()` for `manaTarget` and `provingCostPerMana`
+
+Older rollup convenience getters such as `getManaTarget()` and `getProvingCostPerManaInEth()` should now
+be read through `economics.getFeeConfig()`.
+
+To read the active values, first resolve the active economics for the epoch you care about, then call
+the getter on that `Economics` contract.
+
+For the current epoch:
+
+```solidity
+IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(rollup.getCurrentEpoch())));
+```
+
+For a specific timestamp:
+
+```solidity
+Timestamp ts = ...;
+Epoch epoch = rollup.getEpochAt(ts);
+IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(epoch)));
+```
+
+Do not use `rollup.getEconomics()` for current-state reads. It now returns the latest scheduled
+economics, which may differ from the economics currently active for `block.timestamp`.
+
+If you need the effective pricing values used for the next proposal, derive `checkpointOfInterest`
+from the rollup first:
+
+- use `rollup.getPendingCheckpointNumber()` during normal operation
+- use `rollup.getProvenCheckpointNumber()` when `rollup.canPruneAtTime(ts)` is true
+
+This matches the same checkpoint-selection logic used by the rollup when quoting fees.
+
+`updateL1GasFeeOracle()` also now lives on `Economics` instead of `Rollup`.
+
+### [L1 contracts] Reward claims and reward getters moved off `Rollup`
+
+Reward claims and reward-related getters now live on `Economics` instead of `Rollup`.
+
+Moved claim functions:
+
+- `claimSequencerRewards(address)`
+- `claimProverRewards(address, Epoch[])`
+
+Moved reward getters:
+
+- `getSharesFor(address)`
+- `getSequencerRewards(address)`
+- `getCollectiveProverRewardsForEpoch(Epoch)`
+- `getSpecificProverRewardsForEpoch(Epoch, address)`
+- `getHasSubmitted(Epoch, uint256, address)`
+- `getHasClaimed(address, Epoch)`
+- `getRewardConfig()` for `rewardDistributor` and `checkpointReward`
+- `getRewardBoostConfig()`
+- `getBurnAddress()`
+
+Reward state is owned by the economics instance that owned the relevant epoch. For epoch-specific reads,
+resolve the economics for that epoch first:
+
+```solidity
+Epoch epoch = ...;
+IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(epoch)));
+uint256 rewards = economics.getSpecificProverRewardsForEpoch(epoch, prover);
+```
+
+For reward claims, do not assume one call spans all history across cutovers. If rewards were accrued under
+multiple economics instances, claim against each relevant `Economics` contract separately.
+
+### [L1 contracts] Economics config setters moved off `Rollup`
+
+Mutable economics configuration is now updated on `Economics` directly instead of through `Rollup`.
+
+Moved setters:
+
+- `setRewardConfig(RewardConfig)`
+- `setRewardBoostConfig(RewardBoostConfig)`
+- `updateManaTarget(uint256)`
+- `updateProvingCostPerMana(EthValue)`
+
+If you were previously calling `setProvingCostPerMana(...)` on `Rollup`, the replacement is
+`updateProvingCostPerMana(...)` on `Economics`.
+
+To change the currently active economics model, first resolve the economics instance you want to modify and
+call the setter on that contract:
+
+```solidity
+IEconomics economics = IEconomics(address(rollup.getEconomicsForEpoch(rollup.getCurrentEpoch())));
+economics.updateManaTarget(newManaTarget);
+```
+
+Do not replace these calls with `rollup.setEconomics(...)`. `setEconomics(...)` schedules a different
+economics contract for a future epoch; it does not mutate the config of the current economics instance.
+
+### [L1 contracts] Rollup now exposes economics discovery rather than economics internals
+
+`Rollup` now exposes economics routing helpers instead of forwarding most economics state directly:
+
+- `getEconomics()` returns the latest scheduled economics
+- `getEconomicsForEpoch(Epoch)` returns the economics active for a given epoch
+
+Use `getEconomicsForEpoch(...)` for current-state reads and epoch-specific reads. `getEconomics()` is useful
+for schedule inspection, but it may point at a future economics instance that is not yet active.
+
+### [L1 contracts] Standalone `RewardBooster` removed
+
+The standalone `RewardBooster` contract has been removed. Booster logic now lives inside `Economics`, and
+booster reads are exposed through `IEconomics`:
+
+- `getRewardBoostConfig()`
+- `getActivityScore(address)`
+- `getStoredActivityScore(address)`
+- `getSharesFor(address)`
+
 ### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
 
 This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous (constrained computation of nullifiers can be performed only on the `ConfirmedNote` type). If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.

@@ -167,5 +167,10 @@ library DeployRollupLib {
     if (rollup.owner() == input.deployer) {
       rollup.transferOwnership(address(input.governance));
     }
+
+    address economics = address(rollup.getEconomics());
+    if (Ownable(economics).owner() == input.deployer) {
+      Ownable(economics).transferOwnership(address(input.governance));
+    }
   }
 }

@@ -81,7 +81,6 @@ contract Inbox is IInbox {
     require(_recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION));
     require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
     require(uint256(_secretHash) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__SecretHashTooLarge(_secretHash));
-
     // Is this the best way to read a packed struct into local variables in a single SLOAD
     // without having to use assembly and manual unpacking?
     InboxState memory _state = state;
@@ -149,6 +148,7 @@ contract Inbox is IInbox {
       root = trees[_toConsume].root(forest, HEIGHT, SIZE);
     }
 
+    // If we are "catching up" we skip the tree creation as it is already there
     if (_toConsume + LAG == inProgress) {
       state.inProgress = inProgress + 1;
     }

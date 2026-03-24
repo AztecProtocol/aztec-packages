@@ -21,7 +21,7 @@ type FeeAssetValue is uint256;
  * 2. Higher precision allows representing very low prices (down to 1e-10 ETH)
  * 3. Reduces rounding errors during ETH <-> FeeAsset conversions
  *
- * See FeeLib.sol for the MIN/MAX bounds and detailed documentation.
+ * Runtime fee accounting now lives in Economics.sol.
  */
 type EthPerFeeAssetE12 is uint256;
 

@@ -3,19 +3,37 @@
 pragma solidity >=0.8.27;
 
 import {Rollup, GenesisState, RollupConfigInput} from "@aztec/core/Rollup.sol";
+import {Economics} from "@aztec/core/Economics.sol";
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {IERC20} from "@aztec/core/interfaces/IRollup.sol";
 import {IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {STFLib, RollupStore, RollupCore} from "@aztec/core/RollupCore.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {CompressedFeeHeader, FeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {
   CompressedTempCheckpointLogLib,
   TempCheckpointLog,
   CompressedTempCheckpointLog
 } from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
-import {Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {EconomicsInitArgs} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
+import {Epoch, Slot, TimeLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+
+contract PreheatedEconomics is Economics {
+  using FeeHeaderLib for CompressedFeeHeader;
+
+  constructor(address _governance, address _rollup, IERC20 _feeAsset, EconomicsInitArgs memory _init)
+    Economics(_governance, _rollup, _feeAsset, _init)
+  {
+    CompressedFeeHeader genesisFeeHeader = _getPricingParentFeeHeader(0);
+    uint256 size = TimeLib.maxPrunableCheckpoints() + 1;
+    for (uint256 checkpointNumber = 1; checkpointNumber <= size; checkpointNumber++) {
+      _writeFeeHeader(checkpointNumber, genesisFeeHeader.decompress());
+    }
+  }
+}
 
 /**
  * @title RollupWithPreheating
@@ -23,8 +41,11 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  * @notice Extension of the Rollup contract that includes preheating functionality for testing purposes.
  */
 contract RollupWithPreheating is Rollup {
+  using Checkpoints for Checkpoints.Trace160;
   using CompressedTempCheckpointLogLib for TempCheckpointLog;
   using FeeHeaderLib for CompressedFeeHeader;
+  using FeeHeaderLib for FeeHeader;
+  using TimeLib for Epoch;
 
   constructor(
     IERC20 _feeAsset,
@@ -35,22 +56,24 @@ contract RollupWithPreheating is Rollup {
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
   ) Rollup(_feeAsset, _stakingAsset, _gse, _epochProofVerifier, _governance, _genesisState, _config) {
-    preheatHeaders();
+    preheatHeaders(_feeAsset, _config);
+  }
+
+  function preheatHeaders(IERC20 _feeAsset, RollupConfigInput memory _config) internal {
+    _preheatTempCheckpointLogs();
+    _replaceWithPreheatedEconomics(_feeAsset, _config);
   }
 
   /**
    * @notice Preheats the temporary checkpoint log storage with non-zero values to optimize gas costs for accurate
-   * benchmarking
+   * benchmarking.
    * @dev Iterates through all slots in the circular storage and replaces zero values with 0x1
    *      to avoid expensive SSTORE operations when transitioning from zero to non-zero values.
-   *      This is a gas optimization technique used primarily for benchmarking and testing.
    *
    *      Special handling for slot 0: The slot number remains 0 for the first slot as it's
    *      used in "already in chain" checks where 0 has semantic meaning.
-   *
-   *      Reverts if storage has already been preheated to prevent double-initialization.
    */
-  function preheatHeaders() internal {
+  function _preheatTempCheckpointLogs() internal {
     // Need to ensure that we have not already heated everything!
     uint256 size = _roundaboutSize();
 
@@ -85,6 +108,34 @@ contract RollupWithPreheating is Rollup {
     }
   }
 
+  function _replaceWithPreheatedEconomics(IERC20 _feeAsset, RollupConfigInput memory _config) internal {
+    RollupStore storage store = STFLib.getStorage();
+    IEconomics economics = IEconomics(address(store.economicsCheckpoints.latest()));
+    IEconomics preheatedEconomics = IEconomics(
+      address(
+        new PreheatedEconomics(
+          owner(),
+          address(this),
+          _feeAsset,
+          EconomicsInitArgs({
+            manaTarget: economics.getFeeConfig().manaTarget,
+            provingCostPerMana: economics.getFeeConfig().provingCostPerMana,
+            initialEthPerFeeAsset: _config.initialEthPerFeeAsset,
+            rewardConfig: economics.getRewardConfig(),
+            rewardBoostConfig: economics.getRewardBoostConfig(),
+            genesisTime: Timestamp.unwrap(economics.getGenesisTime()),
+            aztecSlotDuration: economics.getSlotDuration(),
+            aztecEpochDuration: economics.getEpochDuration(),
+            aztecProofSubmissionEpochs: economics.getProofSubmissionEpochs()
+          })
+        )
+      )
+    );
+
+    store.economicsCheckpoints
+      .push(uint96(Timestamp.unwrap(Epoch.wrap(0).toTimestamp())), uint160(address(preheatedEconomics)));
+  }
+
   /**
    * @notice Calculates the size of the circular storage buffer for temporary checkpoint logs
    * @dev Internal helper function to access the roundabout size from STFLib
@@ -96,11 +147,12 @@ contract RollupWithPreheating is Rollup {
 
   /**
    * @notice Retrieves the compressed fee header for a specific checkpoint number
-   * @dev Internal helper function to access fee headers from STFLib
+   * @dev Internal helper function to access fee headers from the economics model active for that checkpoint's epoch.
    * @param _checkpointNumber The checkpoint number to get the fee header for
    * @return The compressed fee header containing fee-related data
    */
   function _getFeeHeader(uint256 _checkpointNumber) internal view returns (CompressedFeeHeader) {
-    return STFLib.getFeeHeader(_checkpointNumber);
+    IEconomics economics = IEconomics(address(this.getEconomicsForEpoch(this.getEpochForCheckpoint(_checkpointNumber))));
+    return economics.getFeeHeader(_checkpointNumber).compress();
   }
 }

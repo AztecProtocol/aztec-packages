@@ -4,13 +4,8 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "../base/Base.sol";
-import {OracleInput} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {
-  MAX_FEE_ASSET_PRICE_MODIFIER_BPS,
-  MINIMUM_CONGESTION_MULTIPLIER,
-  EthValue
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {Math} from "@oz/utils/math/Math.sol";
+import {OracleInput} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
+import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 
 // Remember that foundry json parsing is alphabetically done, so you MUST
 // sort the struct fields alphabetically or prepare for a headache.
@@ -92,6 +87,7 @@ contract FeeModelTestPoints is TestBase {
   constructor() {
     string memory root = vm.projectRoot();
     string memory path = string.concat(root, "/test/fixtures/fee_data_points.json");
+    // forge-lint: disable-next-line(unsafe-cheatcode)
     string memory json = vm.readFile(path);
     bytes memory jsonBytes = vm.parseJson(json);
     FullFeeData memory data = abi.decode(jsonBytes, (FullFeeData));

@@ -4,64 +4,38 @@ pragma solidity >=0.8.27;
 
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {
-  FeeLib,
-  FeeHeaderLib,
-  OracleInput,
-  L1_GAS_PER_CHECKPOINT_PROPOSED,
-  L1_GAS_PER_EPOCH_VERIFIED,
-  EthValue,
-  FeeAssetValue,
-  EthPerFeeAssetE12,
-  PriceLib,
-  FeeHeader,
-  L1FeeData,
-  ManaMinFeeComponents,
-  L1GasOracleValues,
-  CompressedFeeHeader,
-  CompressedL1FeeData,
-  FeeStructsLib
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {
   ManaMinFeeComponentsModel,
   L1FeesModel,
   L1GasOracleValuesModel,
   FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
-import {Math} from "@oz/utils/math/Math.sol";
-import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {Timestamp, TimeLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
-import {STFLib, TempCheckpointLog} from "@aztec/core/libraries/rollup/STFLib.sol";
-import {GenesisState, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
-import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
-// The data types are slightly messed up here, the reason is that
-// we just want to use the same structs from the test points making
-// is simpler to compare etc.
+import {Vm} from "forge-std/Vm.sol";
+import {Timestamp, Slot, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {
+  CompressedL1FeeData,
+  FeeHeader,
+  FeeStructsLib,
+  L1FeeData,
+  L1GasOracleValues
+} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {EconomicsInitArgs, ManaMinFeeComponents, OracleInput} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
+import {EconomicsHarness} from "@test/harnesses/EconomicsHarness.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 
 contract MinimalFeeModel {
-  using FeeLib for OracleInput;
-  using FeeLib for uint256;
-  using PriceLib for EthValue;
-  using TimeLib for Timestamp;
-  using FeeHeaderLib for CompressedFeeHeader;
-  using CompressedTimeMath for CompressedSlot;
-  using CompressedTimeMath for Slot;
+  using FeeStructsLib for L1GasOracleValues;
   using FeeStructsLib for CompressedL1FeeData;
-  using ChainTipsLib for CompressedChainTips;
+  using TimeLib for Timestamp;
 
-  // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
-  // with the block.blobbasefee value if using cheatcodes to alter it.
   Vm internal constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-
-  uint256 internal constant BLOB_GAS_PER_BLOB = 2 ** 17;
-  uint256 internal constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
 
   uint256 internal constant MANA_TARGET = TestConstants.AZTEC_MANA_TARGET;
 
-  Slot public constant LIFETIME = Slot.wrap(5);
-  Slot public constant LAG = Slot.wrap(2);
-
-  uint256 public populatedThrough = 0;
+  EthPerFeeAssetE12 internal immutable INITIAL_ETH_PER_FEE_ASSET;
+  uint256 public populatedThrough;
+  EconomicsHarness internal economics;
 
   constructor(
     uint256 _slotDuration,
@@ -69,26 +43,37 @@ contract MinimalFeeModel {
     uint256 _proofSubmissionEpochs,
     EthPerFeeAssetE12 _initialEthPerFeeAsset
   ) {
-    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), _initialEthPerFeeAsset);
-    STFLib.initialize(
-      GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})
+    INITIAL_ETH_PER_FEE_ASSET = _initialEthPerFeeAsset;
+    economics = new EconomicsHarness(
+      address(this),
+      address(this),
+      IERC20(address(0)),
+      EconomicsInitArgs({
+        manaTarget: MANA_TARGET,
+        provingCostPerMana: EthValue.wrap(100),
+        initialEthPerFeeAsset: _initialEthPerFeeAsset,
+        rewardConfig: TestConstants.getRewardConfig(),
+        rewardBoostConfig: TestConstants.getRewardBoostConfig(),
+        genesisTime: block.timestamp,
+        aztecSlotDuration: _slotDuration,
+        aztecEpochDuration: _epochDuration,
+        aztecProofSubmissionEpochs: _proofSubmissionEpochs
+      })
     );
   }
 
   function getL1GasOracleValues() public view returns (L1GasOracleValuesModel memory) {
-    L1GasOracleValues memory values = FeeLib.getStorage().l1GasOracleValues;
+    L1GasOracleValues memory values = economics.getL1GasOracleValues();
     return L1GasOracleValuesModel({
       pre: L1FeesModel({base_fee: values.pre.getBaseFee(), blob_fee: values.pre.getBlobFee()}),
       post: L1FeesModel({base_fee: values.post.getBaseFee(), blob_fee: values.post.getBlobFee()}),
-      slot_of_change: Slot.unwrap(values.slotOfChange.decompress())
+      slot_of_change: Slot.unwrap(CompressedTimeMath.decompress(values.slotOfChange))
     });
   }
 
-  // For all of the estimations we have been using `3` blobs.
   function manaMinFeeComponents(bool _inFeeAsset) public view returns (ManaMinFeeComponentsModel memory) {
     ManaMinFeeComponents memory components =
-      FeeLib.getManaMinFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
+      economics.getManaMinFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
 
     return ManaMinFeeComponentsModel({
       congestion_cost: components.congestionCost,
@@ -98,68 +83,62 @@ contract MinimalFeeModel {
     });
   }
 
-  function getFeeHeader(uint256 checkpoint_number) public view returns (FeeHeaderModel memory) {
-    FeeHeader memory feeHeader = STFLib.getFeeHeader(checkpoint_number).decompress();
+  function getFeeHeader(uint256 _checkpointNumber) public view returns (FeeHeaderModel memory) {
+    FeeHeader memory feeHeader = economics.getFeeHeader(_checkpointNumber);
     return FeeHeaderModel({
       eth_per_fee_asset: feeHeader.ethPerFeeAsset, excess_mana: feeHeader.excessMana, mana_used: feeHeader.manaUsed
     });
+  }
+
+  function getPricingParentFeeHeader(uint256 _checkpointNumber) public view returns (FeeHeaderModel memory) {
+    if (_checkpointNumber == 0) {
+      return FeeHeaderModel({
+        eth_per_fee_asset: EthPerFeeAssetE12.unwrap(INITIAL_ETH_PER_FEE_ASSET), excess_mana: 0, mana_used: 0
+      });
+    }
+
+    return getFeeHeader(_checkpointNumber);
   }
 
   function addSlot(OracleInput memory _oracleInput) public {
     addSlot(_oracleInput, 0);
   }
 
-  // The `_manaUsed` is all the data we needed to know to calculate the excess mana.
   function addSlot(OracleInput memory _oracleInput, uint256 _manaUsed) public {
     uint256 checkpointNumber = ++populatedThrough;
-
-    RollupStore storage rollupStore = STFLib.getStorage();
-    CompressedChainTips tips = rollupStore.tips;
-    rollupStore.tips = tips.updatePending(checkpointNumber);
-
-    STFLib.addTempCheckpointLog(
-      TempCheckpointLog({
-        headerHash: bytes32(0),
-        blobCommitmentsHash: bytes32(0),
-        outHash: bytes32(0),
-        attestationsHash: bytes32(0),
-        payloadDigest: bytes32(0),
-        slotNumber: Slot.wrap(0),
-        feeHeader: FeeLib.computeFeeHeader(checkpointNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0)
-      })
-    );
-    //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
+    economics.recordCheckpoint({
+      _checkpointNumber: checkpointNumber,
+      _feeAssetPriceModifier: _oracleInput.feeAssetPriceModifier,
+      _manaUsed: _manaUsed,
+      _congestionCost: 0,
+      _proverCost: 0
+    });
   }
 
   function setProvingCost(EthValue _provingCost) public {
-    FeeLib.updateProvingCostPerMana(_provingCost);
+    economics.updateProvingCostPerMana(_provingCost);
   }
 
-  /**
-   * @notice  Take a snapshot of the l1 fees
-   * @dev     Can only be called AFTER the scheduled change has passed.
-   *          This is to ensure that the checkpoint proposers have time to react and it will not change
-   *          under their feet, while also ensuring that the "queued" will not be waiting indefinitely.
-   */
   function photograph() public {
-    FeeLib.updateL1GasFeeOracle();
+    economics.updateL1GasFeeOracle();
   }
 
   function getEthPerFeeAsset() public view returns (EthPerFeeAssetE12) {
-    return FeeLib.getEthPerFeeAssetAtCheckpoint(populatedThrough);
+    return populatedThrough == 0
+      ? INITIAL_ETH_PER_FEE_ASSET
+      : EthPerFeeAssetE12.wrap(economics.getFeeHeader(populatedThrough).ethPerFeeAsset);
   }
 
   function getCurrentL1Fees() public view returns (L1FeesModel memory) {
-    L1FeeData memory fees = FeeLib.getL1FeesAt(Timestamp.wrap(block.timestamp));
+    L1FeeData memory fees = economics.getL1FeesAt(Timestamp.wrap(block.timestamp));
     return L1FeesModel({base_fee: fees.baseFee, blob_fee: fees.blobFee});
   }
 
   function getCurrentSlot() public view returns (Slot) {
-    return Timestamp.wrap(block.timestamp).slotFromTimestamp();
+    return economics.getCurrentSlot();
   }
 
   function _getBlobBaseFee() internal view returns (uint256) {
-    // This should really be `block.blobbasefee` but that does NOT play well with forge and cheatcodes :)
     return VM.getBlobBaseFee();
   }
 }

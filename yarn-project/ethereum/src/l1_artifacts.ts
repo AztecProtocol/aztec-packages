@@ -3,6 +3,8 @@ import {
   CoinIssuerBytecode,
   DateGatedRelayerAbi,
   DateGatedRelayerBytecode,
+  EconomicsDeploymentExtLibAbi,
+  EconomicsDeploymentExtLibBytecode,
   EmpireSlasherDeploymentExtLibAbi,
   EmpireSlasherDeploymentExtLibBytecode,
   EmpireSlashingProposerAbi,
@@ -35,8 +37,6 @@ import {
   RegistryBytecode,
   RewardDistributorAbi,
   RewardDistributorBytecode,
-  RewardExtLibAbi,
-  RewardExtLibBytecode,
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
@@ -56,8 +56,6 @@ import {
   TestERC20Bytecode,
   ValidatorOperationsExtLibAbi,
   ValidatorOperationsExtLibBytecode,
-  ValidatorSelectionLibAbi,
-  ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Hex } from 'viem';
@@ -87,11 +85,6 @@ export const RollupArtifact = {
   libraries: {
     linkReferences: RollupLinkReferences,
     libraryCode: {
-      ValidatorSelectionLib: {
-        name: 'ValidatorSelectionLib',
-        contractAbi: ValidatorSelectionLibAbi,
-        contractBytecode: ValidatorSelectionLibBytecode as Hex,
-      },
       RollupOperationsExtLib: {
         name: 'RollupOperationsExtLib',
         contractAbi: RollupOperationsExtLibAbi,
@@ -102,10 +95,10 @@ export const RollupArtifact = {
         contractAbi: ValidatorOperationsExtLibAbi,
         contractBytecode: ValidatorOperationsExtLibBytecode as Hex,
       },
-      RewardExtLib: {
-        name: 'RewardExtLib',
-        contractAbi: RewardExtLibAbi,
-        contractBytecode: RewardExtLibBytecode as Hex,
+      EconomicsDeploymentExtLib: {
+        name: 'EconomicsDeploymentExtLib',
+        contractAbi: EconomicsDeploymentExtLibAbi,
+        contractBytecode: EconomicsDeploymentExtLibBytecode as Hex,
       },
       TallySlasherDeploymentExtLib: {
         name: 'TallySlasherDeploymentExtLib',

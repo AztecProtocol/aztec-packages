@@ -20,6 +20,7 @@ import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 import {TestGov} from "@test/governance/helpers/TestGov.sol";
 
@@ -325,7 +326,8 @@ contract RollupBuilder is Test {
       vm.prank(config.testERC20.owner());
       config.testERC20.mint(feeAssetPortal, config.values.mintFeeAmount);
 
-      config.testERC20.mint(address(config.rewardDistributor), 1e6 * config.rollup.getCheckpointReward());
+      config.testERC20
+        .mint(address(config.rewardDistributor), 1e6 * config.rollupConfigInput.rewardConfig.checkpointReward);
 
       vm.prank(config.registry.owner());
       config.registry.addRollup(config.rollup);
@@ -356,6 +358,12 @@ contract RollupBuilder is Test {
       if (expGov != config.rollup.owner()) {
         vm.prank(config.rollup.owner());
         config.rollup.transferOwnership(expGov);
+      }
+
+      address economics = address(config.rollup.getEconomics());
+      if (expGov != Ownable(economics).owner()) {
+        vm.prank(Ownable(economics).owner());
+        Ownable(economics).transferOwnership(expGov);
       }
 
       if (expGov != config.gse.owner()) {

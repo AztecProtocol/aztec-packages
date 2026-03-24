@@ -8,6 +8,7 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {Proposal, Configuration, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -46,6 +47,15 @@ contract GovScript is Test {
   string[8] internal stateNames =
     ["Pending", "Active", "Queued", "Executable", "Rejected", "Executed", "Dropped", "Expired"];
 
+  function _economics(IRollup _rollup) internal view returns (IEconomics) {
+    return IEconomics(address(_rollup.getEconomics()));
+  }
+
+  function _checkpointOfInterest(IRollup _rollup, Timestamp _timestamp) internal view returns (uint256) {
+    return
+      _rollup.canPruneAtTime(_timestamp) ? _rollup.getProvenCheckpointNumber() : _rollup.getPendingCheckpointNumber();
+  }
+
   function setUp() public {
     emit log("# Chain");
     emit log_named_uint("\tChain ID    ", block.chainid);
@@ -70,7 +80,11 @@ contract GovScript is Test {
     emit log_named_address("\tRollup           ", address(stakingAssetHandler.getRollup()));
 
     emit log_named_address("# Rollup", address(rollup));
-    uint256 minFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
+    IEconomics economics = _economics(rollup);
+    uint256 minFee =
+      economics.getProposalFeeParameters(
+      _checkpointOfInterest(rollup, Timestamp.wrap(block.timestamp)), Timestamp.wrap(block.timestamp), true
+    ).manaMinFee;
     emit log_named_uint("\tMin fee", minFee);
     emit log_named_address("\tOwner", Ownable(address(rollup)).owner());
     emit log_named_uint("\tPending checkpoint number", rollup.getPendingCheckpointNumber());
@@ -173,7 +187,7 @@ contract GovScript is Test {
 
     TestERC20 asset = TestERC20(address(rewardDistributor.ASSET()));
     IRollup canonicalRollup = IRollup(address(registry.getCanonicalRollup()));
-    uint256 checkpointReward = canonicalRollup.getCheckpointReward();
+    uint256 checkpointReward = _economics(canonicalRollup).getRewardConfig().checkpointReward;
 
     emit log_named_decimal_uint("Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18);
 

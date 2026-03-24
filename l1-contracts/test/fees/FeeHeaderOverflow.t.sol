@@ -3,17 +3,19 @@
 pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
-import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {Config, RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
+import {IEconomics} from "@aztec/core/interfaces/IEconomics.sol";
 import {IRollup, RollupConfigInput, EthValue, EthPerFeeAssetE12} from "@aztec/core/interfaces/IRollup.sol";
 import {FeeHeader, FeeHeaderLib, CompressedFeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
-import {FeeLib, OracleInput, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {EconomicsInitArgs, ManaMinFeeComponents, OracleInput} from "@aztec/core/libraries/rollup/EconomicsTypes.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {CommitteeAttestation, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {EconomicsHarness} from "@test/harnesses/EconomicsHarness.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -49,6 +51,8 @@ import {console} from "forge-std/console.sol";
  *   cannot construct a valid header, causing the same liveness failure.
  */
 contract FeeHeaderOverflowTest is DecoderBase {
+  using TimeLib for Timestamp;
+
   using SafeCast for uint256;
   using FeeHeaderLib for CompressedFeeHeader;
 
@@ -58,21 +62,55 @@ contract FeeHeaderOverflowTest is DecoderBase {
   uint256 internal constant EPOCH_DURATION = 32;
   uint256 internal constant MANA_TARGET = 100_000_000;
 
-  address internal coinbase = address(bytes20("MONEY MAKER"));
+  address internal coinbase;
   uint256 internal constant MAX_PROVER_COST = (1 << 63) - 1;
   uint256 internal constant MAX_CONGESTION_COST = type(uint64).max;
+
+  function _economics(Rollup _rollup) internal view returns (IEconomics) {
+    return IEconomics(address(_rollup.getEconomicsForEpoch(_rollup.getCurrentEpoch())));
+  }
+
+  function _checkpointOfInterest(Rollup _rollup, Timestamp _timestamp) internal view returns (uint256) {
+    return
+      _rollup.canPruneAtTime(_timestamp) ? _rollup.getProvenCheckpointNumber() : _rollup.getPendingCheckpointNumber();
+  }
+
+  function _getManaMinFeeAt(Rollup _rollup, Timestamp _timestamp, bool _inFeeAsset) internal view returns (uint256) {
+    IEconomics economics = IEconomics(address(_rollup.getEconomicsForEpoch(_rollup.getEpochAt(_timestamp))));
+    return
+      economics.getProposalFeeParameters(_checkpointOfInterest(_rollup, _timestamp), _timestamp, _inFeeAsset).manaMinFee;
+  }
 
   function setUp() public {
     // Warp to a timestamp large enough so that setupEpoch's
     // stableEpochToValidatorSetSampleTime doesn't underflow when subtracting
     // lagInEpochsForValidatorSet * epochDurationInSeconds from genesis timestamp.
     vm.warp(SLOT_DURATION * EPOCH_DURATION * 5);
+    coinbase = makeAddr("MONEY MAKER");
   }
 
   function _deployRollup(RollupConfigInput memory _config) internal returns (Rollup) {
     RollupBuilder builder = new RollupBuilder(address(this)).setRollupConfigInput(_config).setMintFeeAmount(1e30);
     builder.deploy();
+    Config memory config = builder.getConfig();
     Rollup rollup = Rollup(address(builder.getConfig().rollup));
+    EconomicsHarness helper = new EconomicsHarness(
+      address(this),
+      address(rollup),
+      config.testERC20,
+      EconomicsInitArgs({
+        manaTarget: config.rollupConfigInput.manaTarget,
+        provingCostPerMana: config.rollupConfigInput.provingCostPerMana,
+        initialEthPerFeeAsset: config.rollupConfigInput.initialEthPerFeeAsset,
+        rewardConfig: config.rollupConfigInput.rewardConfig,
+        rewardBoostConfig: config.rollupConfigInput.rewardBoostConfig,
+        genesisTime: block.timestamp,
+        aztecSlotDuration: config.rollupConfigInput.aztecSlotDuration,
+        aztecEpochDuration: config.rollupConfigInput.aztecEpochDuration,
+        aztecProofSubmissionEpochs: config.rollupConfigInput.aztecProofSubmissionEpochs
+      })
+    );
+    vm.etch(address(_economics(rollup)), address(helper).code);
     vm.label(address(rollup), "ROLLUP");
     return rollup;
   }
@@ -94,7 +132,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     header.timestamp = _rollup.getTimestampForSlot(slotNumber);
     header.coinbase = coinbase;
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = uint128(_manaMinFee);
+    header.gasFees.feePerL2Gas = _manaMinFee.toUint128();
     header.gasFees.feePerDaGas = 0;
     header.totalManaUsed = 0;
 
@@ -108,19 +146,12 @@ contract FeeHeaderOverflowTest is DecoderBase {
     );
   }
 
-  /**
-   * @notice Compute the storage slot for a checkpoint's fee header in the circular buffer.
-   *         Layout: STF namespaced storage -> tempCheckpointLogs mapping (offset 2) ->
-   *         CompressedTempCheckpointLog struct -> feeHeader field (offset 6).
-   */
-  function _getFeeHeaderStorageSlot(uint256 _circularIndex) internal pure returns (bytes32) {
-    bytes32 stfBase = keccak256("aztec.stf.storage");
-    // tempCheckpointLogs mapping is at position 2 in RollupStore
-    uint256 mappingSlot = uint256(stfBase) + 2;
-    // Mapping key -> struct base slot
-    bytes32 structBase = keccak256(abi.encode(_circularIndex, mappingSlot));
-    // feeHeader is the 7th field (offset +6) of CompressedTempCheckpointLog
-    return bytes32(uint256(structBase) + 6);
+  function _proposeEmptyCheckpoint(Rollup _rollup, uint256 _manaMinFee) internal {
+    (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
+      _buildProposal(_rollup, _manaMinFee);
+
+    skipBlobCheck(address(_rollup));
+    _rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
   }
 
   // -----------------------------------------------------------------------
@@ -152,8 +183,11 @@ contract FeeHeaderOverflowTest is DecoderBase {
     vm.warp(block.timestamp + SLOT_DURATION);
 
     // The fee computation succeeds because intermediate values are uint256
-    ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
+    ManaMinFeeComponents memory components = _economics(rollup)
+      .getManaMinFeeComponentsAt(
+        _checkpointOfInterest(rollup, Timestamp.wrap(block.timestamp)), Timestamp.wrap(block.timestamp), true
+      );
+    uint256 manaMinFee = _getManaMinFeeAt(rollup, Timestamp.wrap(block.timestamp), true);
 
     assertTrue(components.proverCost > MAX_PROVER_COST, "proverCost should exceed 63-bit limit");
 
@@ -166,7 +200,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
 
     // Verify the stored fee header has capped proverCost
-    FeeHeader memory storedFeeHeader = rollup.getFeeHeader(1);
+    FeeHeader memory storedFeeHeader = _economics(rollup).getFeeHeader(1);
     assertEq(storedFeeHeader.proverCost, MAX_PROVER_COST, "stored proverCost should be capped at 63-bit max");
     assertEq(storedFeeHeader.congestionCost, 0, "congestionCost should be zero (no congestion)");
   }
@@ -199,40 +233,37 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     Rollup rollup = _deployRollup(config);
 
-    // Overwrite checkpoint 0's fee header with high excessMana and low ethPerFeeAsset
-    uint256 compressedValue = 0;
-    compressedValue |= excessMana << 32;
-    compressedValue |= uint256(100) << 80; // ethPerFeeAsset = 100 (minimum)
-    compressedValue |= uint256(1) << 255; // preHeat bit
+    vm.warp(block.timestamp + SLOT_DURATION);
+    _proposeEmptyCheckpoint(rollup, _getManaMinFeeAt(rollup, Timestamp.wrap(block.timestamp), true));
 
-    bytes32 feeHeaderSlot = _getFeeHeaderStorageSlot(0);
-    vm.store(address(rollup), feeHeaderSlot, bytes32(compressedValue));
+    EconomicsHarness(address(_economics(rollup)))
+      .setFeeHeader(
+        1, FeeHeader({excessMana: excessMana, manaUsed: 0, ethPerFeeAsset: 100, congestionCost: 0, proverCost: 0})
+      );
 
     // Verify the modification
-    FeeHeader memory modifiedFeeHeader = rollup.getFeeHeader(0);
+    FeeHeader memory modifiedFeeHeader = _economics(rollup).getFeeHeader(1);
     assertEq(modifiedFeeHeader.excessMana, excessMana, "excessMana not set correctly");
     assertEq(modifiedFeeHeader.ethPerFeeAsset, 100, "ethPerFeeAsset not set correctly");
 
-    // Warp to slot 1
+    // Warp to slot 2
     vm.warp(block.timestamp + SLOT_DURATION);
 
     // Fee computation succeeds (uint256 intermediates), but congestionCost exceeds uint64
-    ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
+    ManaMinFeeComponents memory components = _economics(rollup)
+      .getManaMinFeeComponentsAt(
+        _checkpointOfInterest(rollup, Timestamp.wrap(block.timestamp)), Timestamp.wrap(block.timestamp), true
+      );
+    uint256 manaMinFee = _getManaMinFeeAt(rollup, Timestamp.wrap(block.timestamp), true);
 
     assertTrue(components.congestionCost > MAX_CONGESTION_COST, "congestionCost should exceed 64-bit limit");
     assertTrue(components.proverCost <= MAX_PROVER_COST, "proverCost should still fit in 63 bits");
 
-    (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
-      _buildProposal(rollup, manaMinFee);
-
-    skipBlobCheck(address(rollup));
-
     // propose succeeds because compress() caps congestionCost at 64-bit max instead of reverting.
-    rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
+    _proposeEmptyCheckpoint(rollup, manaMinFee);
 
     // Verify the stored fee header has capped congestionCost
-    FeeHeader memory storedFeeHeader = rollup.getFeeHeader(1);
+    FeeHeader memory storedFeeHeader = _economics(rollup).getFeeHeader(2);
     assertEq(
       storedFeeHeader.congestionCost, MAX_CONGESTION_COST, "stored congestionCost should be capped at 64-bit max"
     );
@@ -264,34 +295,33 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     Rollup rollup = _deployRollup(config);
 
-    // Read the genesis fee header to get the ethPerFeeAsset value
-    FeeHeader memory genesisFeeHeader = rollup.getFeeHeader(0);
-    uint256 ethPerFeeAsset = genesisFeeHeader.ethPerFeeAsset;
+    vm.warp(block.timestamp + SLOT_DURATION);
+    _proposeEmptyCheckpoint(rollup, _getManaMinFeeAt(rollup, Timestamp.wrap(block.timestamp), true));
 
-    // Construct the modified CompressedFeeHeader with high excessMana.
-    // Bit layout: manaUsed(32) | excessMana(48) | ethPerFeeAsset(48) |
-    //             congestionCost(64) | proverCost(63) | preHeat(1)
-    uint256 compressedValue = 0;
-    compressedValue |= excessMana << 32;
-    compressedValue |= ethPerFeeAsset << 80;
-    compressedValue |= uint256(1) << 255; // preHeat bit
+    uint256 ethPerFeeAsset = EthPerFeeAssetE12.unwrap(config.initialEthPerFeeAsset);
 
-    // Overwrite checkpoint 0's fee header in the circular buffer via vm.store.
-    // Checkpoint 0 maps to circular index 0.
-    bytes32 feeHeaderSlot = _getFeeHeaderStorageSlot(0);
-    vm.store(address(rollup), feeHeaderSlot, bytes32(compressedValue));
+    EconomicsHarness(address(_economics(rollup)))
+      .setFeeHeader(
+        1,
+        FeeHeader({
+          excessMana: excessMana, manaUsed: 0, ethPerFeeAsset: ethPerFeeAsset, congestionCost: 0, proverCost: 0
+        })
+      );
 
     // Verify the modification
-    FeeHeader memory modifiedFeeHeader = rollup.getFeeHeader(0);
+    FeeHeader memory modifiedFeeHeader = _economics(rollup).getFeeHeader(1);
     assertEq(modifiedFeeHeader.excessMana, excessMana, "excessMana not set correctly");
     assertEq(modifiedFeeHeader.ethPerFeeAsset, ethPerFeeAsset, "ethPerFeeAsset changed unexpectedly");
 
-    // Warp to slot 1
+    // Warp to slot 2
     vm.warp(block.timestamp + SLOT_DURATION);
 
     // The congestionMultiplier is capped at e^100 instead of overflowing the Taylor series.
-    ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
+    ManaMinFeeComponents memory components = _economics(rollup)
+      .getManaMinFeeComponentsAt(
+        _checkpointOfInterest(rollup, Timestamp.wrap(block.timestamp)), Timestamp.wrap(block.timestamp), true
+      );
+    uint256 manaMinFee = _getManaMinFeeAt(rollup, Timestamp.wrap(block.timestamp), true);
 
     // The congestion multiplier is capped (excessMana > denominator * 100 threshold)
     assertTrue(components.congestionMultiplier > 0, "congestionMultiplier should be non-zero");
@@ -302,17 +332,12 @@ contract FeeHeaderOverflowTest is DecoderBase {
     assertEq(manaMinFee, type(uint128).max, "mana min fee should be capped at uint128 max");
 
     // Propose succeeds: all three caps work together
-    (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
-      _buildProposal(rollup, manaMinFee);
-
-    skipBlobCheck(address(rollup));
-
     // propose succeeds because congestionMultiplier is capped (no Taylor overflow),
     // summedMinFee is capped at uint128 max (valid header), and compress caps individual fields.
-    rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
+    _proposeEmptyCheckpoint(rollup, manaMinFee);
 
     // Verify the stored fee header has capped values
-    FeeHeader memory storedFeeHeader = rollup.getFeeHeader(1);
+    FeeHeader memory storedFeeHeader = _economics(rollup).getFeeHeader(2);
     assertEq(
       storedFeeHeader.congestionCost, MAX_CONGESTION_COST, "stored congestionCost should be capped at 64-bit max"
     );
@@ -356,24 +381,25 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     Rollup rollup = _deployRollup(config);
 
-    // Read genesis ethPerFeeAsset for the compressed header construction
-    FeeHeader memory genesisFeeHeader = rollup.getFeeHeader(0);
-    uint256 ethPerFeeAsset = genesisFeeHeader.ethPerFeeAsset;
+    vm.warp(block.timestamp + SLOT_DURATION);
+    _proposeEmptyCheckpoint(rollup, _getManaMinFeeAt(rollup, Timestamp.wrap(block.timestamp), true));
 
-    // Construct parent header with near-max excessMana and manaUsed > manaTarget.
-    // Bit layout: preHeat(1) | proverCost(63) | congestionCost(64) |
-    //             ethPerFeeAsset(48) | excessMana(48) | manaUsed(32)
-    uint256 compressedValue = 0;
-    compressedValue |= parentManaUsed; // bits 0-31
-    compressedValue |= parentExcessMana << 32; // bits 32-79
-    compressedValue |= ethPerFeeAsset << 80; // bits 80-127
-    compressedValue |= uint256(1) << 255; // preHeat bit
+    uint256 ethPerFeeAsset = EthPerFeeAssetE12.unwrap(config.initialEthPerFeeAsset);
 
-    bytes32 feeHeaderSlot = _getFeeHeaderStorageSlot(0);
-    vm.store(address(rollup), feeHeaderSlot, bytes32(compressedValue));
+    EconomicsHarness(address(_economics(rollup)))
+      .setFeeHeader(
+        1,
+        FeeHeader({
+          excessMana: parentExcessMana,
+          manaUsed: parentManaUsed,
+          ethPerFeeAsset: ethPerFeeAsset,
+          congestionCost: 0,
+          proverCost: 0
+        })
+      );
 
     // Verify the parent header was written correctly
-    FeeHeader memory modified = rollup.getFeeHeader(0);
+    FeeHeader memory modified = _economics(rollup).getFeeHeader(1);
     assertEq(modified.excessMana, parentExcessMana, "parent excessMana not set correctly");
     assertEq(modified.manaUsed, parentManaUsed, "parent manaUsed not set correctly");
 
@@ -384,22 +410,17 @@ contract FeeHeaderOverflowTest is DecoderBase {
     uint256 expectedExcess = parentExcessMana + parentManaUsed - MANA_TARGET;
     assertTrue(expectedExcess > maxUint48, "computed excessMana should overflow uint48");
 
-    // Warp to slot 1
+    // Warp to slot 2
     vm.warp(block.timestamp + SLOT_DURATION);
 
     // Fee queries still work (they operate on uint256 internally, no compression)
-    uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
-
-    (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
-      _buildProposal(rollup, manaMinFee);
-
-    skipBlobCheck(address(rollup));
+    uint256 manaMinFee = _getManaMinFeeAt(rollup, Timestamp.wrap(block.timestamp), true);
 
     // propose succeeds because compress() caps excessMana at uint48 max instead of reverting.
-    rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
+    _proposeEmptyCheckpoint(rollup, manaMinFee);
 
     // Verify the stored fee header has capped excessMana
-    FeeHeader memory storedFeeHeader = rollup.getFeeHeader(1);
+    FeeHeader memory storedFeeHeader = _economics(rollup).getFeeHeader(2);
     assertEq(storedFeeHeader.excessMana, type(uint48).max, "stored excessMana should be capped at 48-bit max");
   }
 }
