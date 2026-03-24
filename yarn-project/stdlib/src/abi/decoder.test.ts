@@ -3,7 +3,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { ABIParameterVisibility, FunctionArtifact } from './abi.js';
-import { decodeFromAbi, decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './decoder.js';
+import { decodeFromAbi } from './decoder.js';
+import { decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './function_signature_decoder.js';
 
 describe('abi/decoder', () => {
   // Copied from noir-contracts/contracts/test_contract/target/Test.json
