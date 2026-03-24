@@ -41,23 +41,6 @@ describe('e2e_offchain_effect', () => {
 
   afterAll(() => teardown());
 
-  async function forceEmptyBlock() {
-    const blockBefore = await aztecNode.getBlockNumber();
-    logger.info(`Forcing empty block. Current L2 block: ${blockBefore}`);
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
-    await retryUntil(
-      async () => {
-        const current = await aztecNode.getBlockNumber();
-        logger.info(`Waiting for new L2 block. Current: ${current}`);
-        return current > blockBefore;
-      },
-      'new L2 block',
-      30,
-      1,
-    );
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
-  }
-
   it('should return offchain effects from send()', async () => {
     const effects = Array(2)
       .fill(null)
@@ -138,9 +121,6 @@ describe('e2e_offchain_effect', () => {
       ])
       .simulate({ from: recipient });
 
-    // Force a block so PXE re-syncs and processes the offchain-delivered message
-    await forceEmptyBlock();
-
     // Get the event from PXE
     const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
       contractAddress: contract1.address,
@@ -190,9 +170,6 @@ describe('e2e_offchain_effect', () => {
         },
       ])
       .simulate({ from: recipient });
-
-    // Force a block so PXE re-syncs and processes the offchain-delivered message
-    await forceEmptyBlock();
 
     // Get the note value
     const { result: noteValue } = await contract1.methods
