@@ -68,6 +68,8 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
         // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the note hash (non-siloed).
 
+        // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
+        // block below.
         let warn_length_mismatch = logging::aztecnr_warn_log_format(
             "Packed note length mismatch for note type id {0}: expected {1} fields, got {2}. Skipping note.",
         );
@@ -175,6 +177,8 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
         // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the inner nullifier (non-siloed).
 
+        // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
+        // block below.
         let warn_length_mismatch = logging::aztecnr_warn_log_format(
             "Packed note length mismatch for note type id {0}: expected {1} fields, got {2}. Skipping note.",
         );
