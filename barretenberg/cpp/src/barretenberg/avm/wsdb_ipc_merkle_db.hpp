@@ -13,6 +13,7 @@
 #include "barretenberg/wsdb/wsdb_execute.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_client_generated.hpp"
 
+#include <optional>
 #include <stack>
 
 namespace bb::avm {
@@ -58,9 +59,14 @@ class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface
     template <typename T> static std::vector<uint8_t> serialize_to_msgpack(const T& value);
     template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_t>& bytes);
 
+    /** Invalidate the cached tree roots (call after any write operation). */
+    void invalidate_tree_roots_cache();
+
     wsdb::WsdbIpcClient& client_;
     world_state::WorldStateRevision revision_;
     std::stack<uint32_t> checkpoint_stack_{ { 0 } };
+    /** Cached tree roots — avoids 5 IPC round trips per get_tree_roots() call. */
+    mutable std::optional<avm2::TreeSnapshots> cached_tree_roots_;
 };
 
 } // namespace bb::avm

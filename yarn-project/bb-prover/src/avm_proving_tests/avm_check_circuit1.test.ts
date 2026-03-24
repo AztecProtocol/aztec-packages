@@ -14,10 +14,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-// IPC overhead adds ~10-15s vs NAPI for tests with many CDB round trips (e.g., public log emission).
-// "create too many public logs" takes ~34s with IPC vs ~15s with NAPI.
-// TODO: Optimize CDB round trips (batching/caching) to bring this back to 30s.
-const TIMEOUT = 45_000;
+const TIMEOUT = 30_000;
 
 describe('AVM check-circuit – unhappy paths 1', () => {
   let avmTestContractInstance: ContractInstanceWithAddress;

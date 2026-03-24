@@ -45,6 +45,10 @@ WsdbIpcMerkleDB::WsdbIpcMerkleDB(wsdb::WsdbIpcClient& client, world_state::World
 
 avm2::TreeSnapshots WsdbIpcMerkleDB::get_tree_roots() const
 {
+    if (cached_tree_roots_.has_value()) {
+        return cached_tree_roots_.value();
+    }
+
     auto l1_info = client_.get_tree_info(
         wsdb::WsdbGetTreeInfo{ .treeId = MerkleTreeId::L1_TO_L2_MESSAGE_TREE, .revision = revision_ });
     auto nh_info =
@@ -54,7 +58,7 @@ avm2::TreeSnapshots WsdbIpcMerkleDB::get_tree_roots() const
     auto pd_info =
         client_.get_tree_info(wsdb::WsdbGetTreeInfo{ .treeId = MerkleTreeId::PUBLIC_DATA_TREE, .revision = revision_ });
 
-    return avm2::TreeSnapshots{
+    avm2::TreeSnapshots snapshots{
         .l1_to_l2_message_tree =
             avm2::AppendOnlyTreeSnapshot{ .root = l1_info.root, .next_available_leaf_index = l1_info.size },
         .note_hash_tree =
@@ -64,6 +68,13 @@ avm2::TreeSnapshots WsdbIpcMerkleDB::get_tree_roots() const
         .public_data_tree =
             avm2::AppendOnlyTreeSnapshot{ .root = pd_info.root, .next_available_leaf_index = pd_info.size },
     };
+    cached_tree_roots_ = snapshots;
+    return snapshots;
+}
+
+void WsdbIpcMerkleDB::invalidate_tree_roots_cache()
+{
+    cached_tree_roots_ = std::nullopt;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +139,7 @@ SequentialInsertionResult<PublicDataLeafValue> WsdbIpcMerkleDB::insert_indexed_l
     std::vector<std::vector<uint8_t>> serialized_leaves = { serialize_to_msgpack(leaf_value) };
     auto resp = client_.sequential_insert(wsdb::WsdbSequentialInsert{
         .treeId = MerkleTreeId::PUBLIC_DATA_TREE, .leaves = std::move(serialized_leaves), .forkId = revision_.forkId });
+    invalidate_tree_roots_cache();
     return deserialize_from_msgpack<SequentialInsertionResult<PublicDataLeafValue>>(resp.result);
 }
 
@@ -137,6 +149,7 @@ SequentialInsertionResult<NullifierLeafValue> WsdbIpcMerkleDB::insert_indexed_le
     std::vector<std::vector<uint8_t>> serialized_leaves = { serialize_to_msgpack(leaf_value) };
     auto resp = client_.sequential_insert(wsdb::WsdbSequentialInsert{
         .treeId = MerkleTreeId::NULLIFIER_TREE, .leaves = std::move(serialized_leaves), .forkId = revision_.forkId });
+    invalidate_tree_roots_cache();
     return deserialize_from_msgpack<SequentialInsertionResult<NullifierLeafValue>>(resp.result);
 }
 
@@ -149,6 +162,7 @@ void WsdbIpcMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const avm2::
     }
     client_.append_leaves(wsdb::WsdbAppendLeaves{
         .treeId = tree_id, .leaves = std::move(serialized_leaves), .forkId = revision_.forkId });
+    invalidate_tree_roots_cache();
 }
 
 void WsdbIpcMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
@@ -181,6 +195,7 @@ void WsdbIpcMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
     default:
         throw std::runtime_error("Padding not supported for tree " + std::to_string(static_cast<uint64_t>(tree_id)));
     }
+    invalidate_tree_roots_cache();
 }
 
 // ---------------------------------------------------------------------------
@@ -197,12 +212,14 @@ void WsdbIpcMerkleDB::create_checkpoint()
 void WsdbIpcMerkleDB::commit_checkpoint()
 {
     client_.commit_checkpoint(wsdb::WsdbCommitCheckpoint{ .forkId = revision_.forkId });
+    invalidate_tree_roots_cache();
     checkpoint_stack_.pop();
 }
 
 void WsdbIpcMerkleDB::revert_checkpoint()
 {
     client_.revert_checkpoint(wsdb::WsdbRevertCheckpoint{ .forkId = revision_.forkId });
+    invalidate_tree_roots_cache();
     checkpoint_stack_.pop();
 }
 
