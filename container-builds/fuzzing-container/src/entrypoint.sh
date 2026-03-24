@@ -13,6 +13,7 @@ jobs_='4'
 workers='0'
 asm='on'
 show_only=0
+show_manifest=0
 avm='off'
 rss_limit='2048'
 
@@ -66,6 +67,7 @@ show_help() {
 	echo "  -r, --rss-limit <MB>        Set RSS limit in megabytes (default: 2048 MB)"
 	echo "  -h, --help                  Display this help and exit"
 	echo "  --show-fuzzers              Display the available fuzzers"
+	echo "  --show-manifest             Output the fuzzer manifest JSON"
 	echo ""
 	echo "This script handles fuzzing testing with specified parameters, managing crash reports,"
 	echo "and coverage testing based on the mode specified."
@@ -89,6 +91,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	--show-fuzzers)
 		show_only=1
+		shift
+		;;
+	--show-manifest)
+		show_manifest=1
 		shift
 		;;
 	-t | --timeout)
@@ -138,6 +144,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 set_main_fuzzer
+
+if [[ "$show_manifest" -eq 1 ]]; then
+	cat ./fuzzer_manifest.json
+	exit 0
+fi
 
 if [[ "$show_only" -eq 1 ]]; then
 	show_fuzzers

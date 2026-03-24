@@ -1,4 +1,5 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
@@ -89,7 +90,7 @@ export async function deploySponsoredTestAccountsWithTokens(
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const recipientDeployMethod = await recipientAccount.getDeployMethod();
   await recipientDeployMethod.send({
-    from: AztecAddress.ZERO,
+    from: NO_FROM,
     fee: { paymentMethod },
     wait: { timeout: 2400 },
   });
@@ -97,7 +98,7 @@ export async function deploySponsoredTestAccountsWithTokens(
     fundedAccounts.map(async a => {
       const deployMethod = await a.getDeployMethod();
       await deployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         fee: { paymentMethod },
         wait: { timeout: 2400 },
       }); // increase timeout on purpose in order to account for two empty epochs
@@ -137,12 +138,37 @@ async function deployAccountWithDiagnostics(
   estimateGas?: boolean,
 ): Promise<void> {
   const deployMethod = await account.getDeployMethod();
-
+  let txHash;
   let gasSettings: any;
-  if (estimateGas) {
-    const sim = await deployMethod.simulate({ from: AztecAddress.ZERO, fee: { paymentMethod } });
-    gasSettings = sim.estimatedGas;
-    logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
+  try {
+    if (estimateGas) {
+      const sim = await deployMethod.simulate({ from: NO_FROM, fee: { paymentMethod } });
+      gasSettings = sim.estimatedGas;
+      logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
+    }
+    const deployResult = await deployMethod.send({
+      from: NO_FROM,
+      fee: { paymentMethod, gasSettings },
+      wait: NO_WAIT,
+    });
+    txHash = deployResult.txHash;
+    await waitForTx(aztecNode, txHash, { timeout: 2400 });
+    logger.info(`${accountLabel} deployed at ${account.address}`);
+  } catch (error) {
+    const blockNumber = await aztecNode.getBlockNumber();
+    let receipt;
+    try {
+      receipt = await aztecNode.getTxReceipt(txHash);
+    } catch {
+      receipt = 'unavailable';
+    }
+    logger.error(`${accountLabel} deployment failed`, {
+      txHash: txHash.toString(),
+      receipt: JSON.stringify(receipt),
+      currentBlockNumber: blockNumber,
+      error: String(error),
+    });
+    throw error;
   }
 
   // Track the tx hash across retries so we don't re-send when the previous tx is still pending.
@@ -289,7 +315,7 @@ export async function deployTestAccountsWithTokens(
     fundedAccounts.map(async (a, i) => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.address, claims[i]);
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+      await deployMethod.send({ from: NO_FROM, fee: { paymentMethod } });
       logger.info(`Account deployed at ${a.address}`);
     }),
   );

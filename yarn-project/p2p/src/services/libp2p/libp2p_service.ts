@@ -51,9 +51,10 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
-import type { ConnectionManager } from '@libp2p/interface-internal';
+import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
+import { multiaddr } from '@multiformats/multiaddr';
 import { ENR } from '@nethermindeth/enr';
 import { createLibp2p } from 'libp2p';
 
@@ -174,6 +175,10 @@ export class LibP2PService extends WithTracer implements P2PService {
   private checkpointReceivedCallback: P2PCheckpointReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
+  private ipChangedHandler?: (ip: string) => void;
+
+  /** Discovered public IP address (set when queryForIp is enabled and no static IP was configured). */
+  private discoveredP2pIp?: string;
 
   private instrumentation: P2PInstrumentation;
 
@@ -442,8 +447,9 @@ export class LibP2PService extends WithTracer implements P2PService {
             topics: topicScoreParams,
           }),
         }) as (components: GossipSubComponents) => GossipSub,
-        components: (components: { connectionManager: ConnectionManager }) => ({
+        components: (components: { connectionManager: ConnectionManager; addressManager: AddressManager }) => ({
           connectionManager: components.connectionManager,
+          addressManager: components.addressManager,
         }),
       },
       logger: createLibp2pComponentLogger(logger.module, logger.getBindings()),
@@ -502,10 +508,10 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Get listen & announce addresses for logging
     const { p2pIp, p2pPort } = this.config;
-    if (!p2pIp) {
+    if (!p2pIp && !this.config.queryForIp) {
       throw new Error('Announce address not provided.');
     }
-    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
+    const announceTcpMultiaddr = p2pIp ? convertToMultiaddr(p2pIp, p2pPort, 'tcp') : undefined;
 
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
@@ -559,6 +565,31 @@ export class LibP2PService extends WithTracer implements P2PService {
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
     }
+
+    // When queryForIp is enabled and no static IP was configured, bridge discv5 IP discovery to libp2p.
+    // Discv5 discovers our public IP via peer WHOAREYOU exchanges (enrUpdate=true) and emits 'ip:changed'.
+    // We confirm the discovered address in the libp2p AddressManager so it appears in getMultiaddrs()
+    // and is pushed to all connected peers via the identify protocol.
+    if (this.config.queryForIp && !p2pIp) {
+      this.ipChangedHandler = (ip: string) => {
+        const addressManager = this.node.services.components.addressManager;
+        const newAddr = multiaddr(convertToMultiaddr(ip, this.config.p2pPort, 'tcp'));
+
+        // Remove old discovered IP if one exists
+        if (this.discoveredP2pIp) {
+          const oldAddr = multiaddr(convertToMultiaddr(this.discoveredP2pIp, this.config.p2pPort, 'tcp'));
+          addressManager.removeObservedAddr(oldAddr);
+        }
+
+        addressManager.addObservedAddr(newAddr);
+        addressManager.confirmObservedAddr(newAddr);
+        // Store discovered IP
+        this.discoveredP2pIp = ip;
+        this.logger.info('Public IP discovered via discv5', { ip });
+      };
+      this.peerDiscoveryService.on('ip:changed', this.ipChangedHandler);
+    }
+
     this.discoveryRunningPromise = new RunningPromise(
       async () => {
         await this.peerManager.heartbeat();
@@ -571,7 +602,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.logger.info(`Started P2P service`, {
       listen: this.config.listenAddress,
       port: this.config.p2pPort,
-      announce: announceTcpMultiaddr,
+      announce: announceTcpMultiaddr ?? 'pending (queryForIp=true)',
       peerId: this.node.peerId.toString(),
     });
   }
@@ -583,6 +614,12 @@ export class LibP2PService extends WithTracer implements P2PService {
   public async stop() {
     // Remove gossip sub listener
     this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
+
+    // Remove ip:changed listener if registered
+    if (this.ipChangedHandler) {
+      this.peerDiscoveryService.off('ip:changed', this.ipChangedHandler);
+      this.ipChangedHandler = undefined;
+    }
 
     // Stop peer manager
     this.logger.debug('Stopping peer manager...');
