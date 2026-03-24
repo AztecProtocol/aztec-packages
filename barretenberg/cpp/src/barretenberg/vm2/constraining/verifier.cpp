@@ -230,33 +230,43 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         auto lagrange = compute_interleaving_lagrange_basis<BS>(
             std::span<const FF>(interleaving_challenges.data(), interleaving_challenges.size()));
 
-        // Combine per-entity challenges into per-group challenges using Lagrange basis
-        auto combine_challenges = [&](std::span<const FF> entity_challenges, size_t num_groups) {
-            std::vector<FF> group_challenges(num_groups, FF(0));
+        // Combine per-entity values into per-group values using Lagrange basis.
+        // IMPORTANT: Must respect section boundaries. Entity counts may not be divisible by BS,
+        // so the last group in each section may have fewer than BS entities (zero-padded).
+        auto combine_section = [&](std::span<const FF> entity_values, size_t num_groups) {
+            std::vector<FF> group_values(num_groups, FF(0));
             for (size_t g = 0; g < num_groups; g++) {
-                for (size_t j = 0; j < BS && g * BS + j < entity_challenges.size(); j++) {
-                    group_challenges[g] += entity_challenges[g * BS + j] * lagrange[j];
+                for (size_t j = 0; j < BS && g * BS + j < entity_values.size(); j++) {
+                    group_values[g] += entity_values[g * BS + j] * lagrange[j];
                 }
             }
-            return group_challenges;
+            return group_values;
         };
 
-        auto group_unshifted_challenges = combine_challenges(unshifted_challenges, Flavor::NUM_UNSHIFTED_GROUPS);
-        auto group_shifted_challenges = combine_challenges(shifted_challenges, Flavor::NUM_SHIFTED_GROUPS);
-
-        // Combine evaluations into group evaluations using Lagrange basis
-        auto combine_evals = [&](std::span<const FF> evals, size_t num_groups) {
-            std::vector<FF> group_evals(num_groups, FF(0));
-            for (size_t g = 0; g < num_groups; g++) {
-                for (size_t j = 0; j < BS && g * BS + j < evals.size(); j++) {
-                    group_evals[g] += evals[g * BS + j] * lagrange[j];
-                }
-            }
-            return group_evals;
+        auto concat_vectors = [](auto&&... vecs) {
+            std::vector<FF> result;
+            (result.insert(result.end(), vecs.begin(), vecs.end()), ...);
+            return result;
         };
 
-        auto group_unshifted_evals = combine_evals(unshifted_evals, Flavor::NUM_UNSHIFTED_GROUPS);
-        auto group_shifted_evals = combine_evals(shifted_evals, Flavor::NUM_SHIFTED_GROUPS);
+        // Split unshifted challenges/evals by section to avoid cross-section boundary issues
+        constexpr size_t NUM_PRECOMPUTED = Flavor::NUM_PRECOMPUTED_ENTITIES;
+        constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
+        constexpr size_t NUM_DERIVED = Flavor::NUM_WITNESS_ENTITIES - Flavor::NUM_WIRES;
+
+        auto group_unshifted_challenges = concat_vectors(
+            combine_section(unshifted_challenges.subspan(0, NUM_PRECOMPUTED), Flavor::NUM_PRECOMPUTED_GROUPS),
+            combine_section(unshifted_challenges.subspan(NUM_PRECOMPUTED, NUM_WIRES), Flavor::NUM_WIRE_GROUPS),
+            combine_section(unshifted_challenges.subspan(NUM_PRECOMPUTED + NUM_WIRES, NUM_DERIVED),
+                            Flavor::NUM_DERIVED_GROUPS));
+        auto group_shifted_challenges = combine_section(shifted_challenges, Flavor::NUM_SHIFTED_GROUPS);
+
+        auto group_unshifted_evals = concat_vectors(
+            combine_section(unshifted_evals.subspan(0, NUM_PRECOMPUTED), Flavor::NUM_PRECOMPUTED_GROUPS),
+            combine_section(unshifted_evals.subspan(NUM_PRECOMPUTED, NUM_WIRES), Flavor::NUM_WIRE_GROUPS),
+            combine_section(unshifted_evals.subspan(NUM_PRECOMPUTED + NUM_WIRES, NUM_DERIVED),
+                            Flavor::NUM_DERIVED_GROUPS));
+        auto group_shifted_evals = combine_section(shifted_evals, Flavor::NUM_SHIFTED_GROUPS);
 
         // Collect all unshifted group commitments: precomputed (from VK) + wire + derived
         std::vector<Commitment> all_unshifted_group_comms;
@@ -273,8 +283,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         }
 
         // Shifted group commitments = subset of wire groups
-        constexpr size_t SHIFTED_WIRE_GROUP_START = WIRES_TO_BE_SHIFTED_START_IDX / BS;
-        constexpr size_t SHIFTED_WIRE_GROUP_END = (WIRES_TO_BE_SHIFTED_END_IDX + BS - 1) / BS;
+        // WIRES_TO_BE_SHIFTED_START_IDX is absolute (includes precomputed offset), convert to wire-relative
+        constexpr size_t SHIFTED_WIRE_OFFSET = WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX;
+        constexpr size_t SHIFTED_WIRE_END_OFFSET = WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX;
+        constexpr size_t SHIFTED_WIRE_GROUP_START = SHIFTED_WIRE_OFFSET / BS;
+        constexpr size_t SHIFTED_WIRE_GROUP_END = (SHIFTED_WIRE_END_OFFSET + BS - 1) / BS;
         std::vector<Commitment> shifted_group_comms;
         for (size_t g = SHIFTED_WIRE_GROUP_START; g < SHIFTED_WIRE_GROUP_END; g++) {
             shifted_group_comms.push_back(wire_group_comms[g]);
@@ -307,16 +320,57 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         FF batched_shifted_eval = std::inner_product(
             group_shifted_challenges.begin(), group_shifted_challenges.end(), group_shifted_evals.begin(), FF(0));
 
-        // Extend the multilinear challenge with interleaving challenges (same as prover).
-        // Interleaving variables correspond to the lowest bits of the group poly index,
-        // so they are appended (processed last by Gemini).
-        std::vector<FF> extended_challenge(output.challenge.begin(), output.challenge.end());
+        // Build extended multilinear challenge: interleaving challenges FIRST, then sumcheck challenges.
+        // Interleaving variables correspond to the LOWEST bits of the group poly index
+        // (they select position j within a BS-sized group), so they come FIRST.
+        std::vector<FF> extended_challenge;
+        extended_challenge.reserve(Flavor::INTERLEAVING_LOG_K + output.challenge.size());
         for (const auto& ic : interleaving_challenges) {
             extended_challenge.push_back(ic);
         }
+        extended_challenge.insert(extended_challenge.end(), output.challenge.begin(), output.challenge.end());
 
         // Extend padding indicator array for the extra interleaving rounds
         std::vector<FF> extended_padding(extended_challenge.size(), 1);
+
+        // Debug: check first few group challenges and commitments
+        for (size_t g = 0; g < std::min(size_t(3), (size_t)Flavor::NUM_PRECOMPUTED_GROUPS); g++) {
+            info("VERIFIER precomputed_group[",
+                 g,
+                 "] challenge=",
+                 group_unshifted_challenges[g],
+                 " comm=",
+                 all_unshifted_group_comms[g]);
+        }
+        for (size_t g = 0; g < std::min(size_t(3), (size_t)Flavor::NUM_WIRE_GROUPS); g++) {
+            info("VERIFIER wire_group[",
+                 g,
+                 "] challenge=",
+                 group_unshifted_challenges[Flavor::NUM_PRECOMPUTED_GROUPS + g],
+                 " comm=",
+                 wire_group_comms[g]);
+        }
+        for (size_t g = 0; g < std::min(size_t(3), (size_t)Flavor::NUM_SHIFTED_GROUPS); g++) {
+            info("VERIFIER shifted_group[",
+                 g,
+                 "] challenge=",
+                 group_shifted_challenges[g],
+                 " comm=",
+                 shifted_group_comms[g]);
+        }
+
+        info("VERIFIER DEBUG: batched_unshifted_eval=",
+             batched_unshifted_eval,
+             " batched_shifted_eval=",
+             batched_shifted_eval,
+             " extended_challenge_size=",
+             extended_challenge.size(),
+             " extended_padding_size=",
+             extended_padding.size(),
+             " batched_unshifted_group=",
+             batched_unshifted_group,
+             " batched_shifted_group=",
+             batched_shifted_group);
 
         ClaimBatcher batched_claim_batcher{ .shift_exponent = BS,
                                             .unshifted = ClaimBatch{ .commitments = RefVector(batched_unshifted_group),

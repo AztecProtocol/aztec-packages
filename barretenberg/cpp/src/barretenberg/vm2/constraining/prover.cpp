@@ -205,6 +205,9 @@ static std::vector<Flavor::Polynomial> build_interleaved_groups(std::span<Flavor
                                                                 bool shiftable = false)
 {
     using Polynomial = Flavor::Polynomial;
+    // The group polynomial virtual_size must be circuit_size * BS so that Gemini
+    // can fold over log2(circuit_size) + LOG_K rounds.
+    constexpr size_t group_virtual_size = MAX_AVM_TRACE_SIZE * BS;
     std::vector<Polynomial> result;
     result.reserve(num_groups);
     for (size_t g = 0; g < num_groups; g++) {
@@ -214,9 +217,8 @@ static std::vector<Flavor::Polynomial> build_interleaved_groups(std::span<Flavor
             max_end = std::max(max_end, polys[start + j].end_index());
         }
         const size_t interleaved_size = max_end * BS;
-        const size_t virtual_size = numeric::round_up_power_2(interleaved_size);
-        Polynomial interleaved =
-            shiftable ? Polynomial::shiftable(interleaved_size, virtual_size, BS) : Polynomial(interleaved_size);
+        Polynomial interleaved = shiftable ? Polynomial::shiftable(interleaved_size, group_virtual_size, BS)
+                                           : Polynomial(interleaved_size, group_virtual_size);
         for (size_t j = 0; j < BS && start + j < polys.size(); j++) {
             auto& p = polys[start + j];
             for (size_t i = p.start_index(); i < p.end_index(); i++) {
@@ -330,12 +332,13 @@ void AvmProver::execute_pcs_rounds()
         }
 
         // Shifted groups are a contiguous subset of wire groups (thanks to BS-alignment)
-        // The shifted wire range in individual entities: [WIRES_TO_BE_SHIFTED_START_IDX, WIRES_TO_BE_SHIFTED_END_IDX)
-        // In group space: [WIRES_TO_BE_SHIFTED_START_IDX/BS, (WIRES_TO_BE_SHIFTED_END_IDX+BS-1)/BS)
-        constexpr size_t SHIFTED_WIRE_GROUP_START = WIRES_TO_BE_SHIFTED_START_IDX / BS;
-        constexpr size_t SHIFTED_WIRE_GROUP_END = (WIRES_TO_BE_SHIFTED_END_IDX + BS - 1) / BS;
-        static_assert(SHIFTED_WIRE_GROUP_START * BS == WIRES_TO_BE_SHIFTED_START_IDX,
-                      "WIRES_TO_BE_SHIFTED_START_IDX must be BS-aligned");
+        // WIRES_TO_BE_SHIFTED_START_IDX is absolute (includes precomputed offset), convert to wire-relative
+        constexpr size_t SHIFTED_WIRE_OFFSET = WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX;
+        constexpr size_t SHIFTED_WIRE_END_OFFSET = WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX;
+        constexpr size_t SHIFTED_WIRE_GROUP_START = SHIFTED_WIRE_OFFSET / BS;
+        constexpr size_t SHIFTED_WIRE_GROUP_END = (SHIFTED_WIRE_END_OFFSET + BS - 1) / BS;
+        static_assert(SHIFTED_WIRE_GROUP_START * BS == SHIFTED_WIRE_OFFSET,
+                      "Wire-relative shifted start must be BS-aligned");
 
         // Batch unshifted groups with short scalars (one challenge per individual entity, combine BS per group)
         // Unshifted challenges are indexed per individual entity, not per group.
@@ -351,25 +354,51 @@ void AvmProver::execute_pcs_rounds()
                 transcript->template get_challenge<FF>("interleaving_challenge_" + std::to_string(i)));
         }
 
-        // Compute group-level challenges by combining per-entity challenges with Lagrange basis
+        // Compute group-level challenges by combining per-entity challenges with Lagrange basis.
+        // IMPORTANT: Must respect section boundaries. Entity counts may not be divisible by BS,
+        // so the last group in each section may have fewer than BS entities (zero-padded).
         auto lagrange = compute_interleaving_lagrange_basis<BS>(
             std::span<const FF>(interleaving_challenges.data(), interleaving_challenges.size()));
 
-        // For unshifted entities: combine per-entity challenges into per-group challenges
-        std::vector<FF> group_unshifted_challenges(Flavor::NUM_UNSHIFTED_GROUPS, FF(0));
-        for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
-            for (size_t j = 0; j < BS && g * BS + j < unshifted_challenges.size(); j++) {
-                group_unshifted_challenges[g] += unshifted_challenges[g * BS + j] * lagrange[j];
+        // Helper: combine per-entity challenges into per-group challenges for a section.
+        // entity_challenges: challenges for entities in this section only.
+        // num_groups: number of groups in this section (ceil(num_entities / BS)).
+        auto combine_section_challenges = [&](std::span<const FF> entity_challenges, size_t num_groups) {
+            std::vector<FF> group_challenges(num_groups, FF(0));
+            for (size_t g = 0; g < num_groups; g++) {
+                for (size_t j = 0; j < BS && g * BS + j < entity_challenges.size(); j++) {
+                    group_challenges[g] += entity_challenges[g * BS + j] * lagrange[j];
+                }
             }
-        }
+            return group_challenges;
+        };
+
+        // Combine per section, then concatenate for all unshifted groups.
+        auto precomputed_challenges_span = unshifted_challenges.subspan(0, Flavor::NUM_PRECOMPUTED_ENTITIES);
+        auto wire_challenges_span = unshifted_challenges.subspan(Flavor::NUM_PRECOMPUTED_ENTITIES, Flavor::NUM_WIRES);
+        auto derived_challenges_span = unshifted_challenges.subspan(
+            Flavor::NUM_PRECOMPUTED_ENTITIES + Flavor::NUM_WIRES, Flavor::NUM_WITNESS_ENTITIES - Flavor::NUM_WIRES);
+
+        auto precomputed_group_challenges =
+            combine_section_challenges(precomputed_challenges_span, Flavor::NUM_PRECOMPUTED_GROUPS);
+        auto wire_group_challenges = combine_section_challenges(wire_challenges_span, Flavor::NUM_WIRE_GROUPS);
+        auto derived_group_challenges = combine_section_challenges(derived_challenges_span, Flavor::NUM_DERIVED_GROUPS);
+
+        std::vector<FF> group_unshifted_challenges;
+        group_unshifted_challenges.reserve(Flavor::NUM_UNSHIFTED_GROUPS);
+        group_unshifted_challenges.insert(
+            group_unshifted_challenges.end(), precomputed_group_challenges.begin(), precomputed_group_challenges.end());
+        group_unshifted_challenges.insert(
+            group_unshifted_challenges.end(), wire_group_challenges.begin(), wire_group_challenges.end());
+        group_unshifted_challenges.insert(
+            group_unshifted_challenges.end(), derived_group_challenges.begin(), derived_group_challenges.end());
 
         // For shifted entities: combine per-entity challenges into per-group challenges
-        std::vector<FF> group_shifted_challenges(Flavor::NUM_SHIFTED_GROUPS, FF(0));
-        for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
-            for (size_t j = 0; j < BS && g * BS + j < shifted_challenges.size(); j++) {
-                group_shifted_challenges[g] += shifted_challenges[g * BS + j] * lagrange[j];
-            }
-        }
+        auto group_shifted_challenges = combine_section_challenges(shifted_challenges, Flavor::NUM_SHIFTED_GROUPS);
+
+        // The PCS circuit size for interleaved groups must be circuit_size * BS
+        // so that Gemini folds over log2(circuit_size) + LOG_K rounds, matching the extended challenge.
+        constexpr size_t group_circuit_size = MAX_AVM_TRACE_SIZE * BS;
 
         // Batch shifted groups into a shiftable polynomial (first BS coefficients are zero)
         // We need the shifted batch to be shiftable by BS for Gemini.
@@ -378,8 +407,7 @@ void AvmProver::execute_pcs_rounds()
         for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
             shifted_max_end = std::max(shifted_max_end, shifted_wire_groups[g].end_index());
         }
-        const size_t group_virtual_size = numeric::round_up_power_2(shifted_max_end);
-        Polynomial batched_shifted_group = Polynomial::shiftable(shifted_max_end, group_virtual_size, BS);
+        Polynomial batched_shifted_group = Polynomial::shiftable(shifted_max_end, group_circuit_size, BS);
         for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
             batched_shifted_group.add_scaled(shifted_wire_groups[g], group_shifted_challenges[g]);
         }
@@ -389,8 +417,7 @@ void AvmProver::execute_pcs_rounds()
         for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
             unshifted_max_end = std::max(unshifted_max_end, all_unshifted_groups[g]->end_index());
         }
-        const size_t unshifted_virtual_size = numeric::round_up_power_2(unshifted_max_end);
-        Polynomial batched_unshifted_group(unshifted_max_end, unshifted_virtual_size);
+        Polynomial batched_unshifted_group(unshifted_max_end, group_circuit_size);
         for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
             // Skip shifted wire groups since they'll be added via batched_shifted_group
             size_t wire_group_idx = g - Flavor::NUM_PRECOMPUTED_GROUPS;
@@ -404,24 +431,57 @@ void AvmProver::execute_pcs_rounds()
         // Add shifted contribution to unshifted batch (these wire groups overlap)
         batched_unshifted_group += batched_shifted_group;
 
-        // The circuit size for interleaved groups.
-        // Group polynomials have degree N*BS, so use the actual max end rounded up.
-        const size_t group_circuit_size = std::max(unshifted_virtual_size, group_virtual_size);
+        // Debug: check first few group challenges and commitments
+        for (size_t g = 0; g < std::min(size_t(3), Flavor::NUM_PRECOMPUTED_GROUPS); g++) {
+            auto comm = commitment_key.commit(precomputed_groups[g]);
+            info("PROVER precomputed_group[", g, "] challenge=", group_unshifted_challenges[g], " comm=", comm);
+        }
+        for (size_t g = 0; g < std::min(size_t(3), Flavor::NUM_WIRE_GROUPS); g++) {
+            auto comm = commitment_key.commit(wire_groups[g]);
+            info("PROVER wire_group[",
+                 g,
+                 "] challenge=",
+                 group_unshifted_challenges[Flavor::NUM_PRECOMPUTED_GROUPS + g],
+                 " comm=",
+                 comm);
+        }
+        for (size_t g = 0; g < std::min(size_t(3), Flavor::NUM_SHIFTED_GROUPS); g++) {
+            auto comm = commitment_key.commit(shifted_wire_groups[g]);
+            info("PROVER shifted_group[", g, "] challenge=", group_shifted_challenges[g], " comm=", comm);
+        }
+
+        info("PROVER DEBUG: group_circuit_size=",
+             group_circuit_size,
+             " unshifted_end=",
+             batched_unshifted_group.end_index(),
+             " shifted_end=",
+             batched_shifted_group.end_index(),
+             " shifted_start=",
+             batched_shifted_group.start_index(),
+             " extended_challenge_size=",
+             sumcheck_output.challenge.size() + Flavor::INTERLEAVING_LOG_K);
 
         PolynomialBatcher polynomial_batcher(group_circuit_size, /*actual_data_size=*/0, /*shift_exponent=*/BS);
         polynomial_batcher.set_unshifted(RefVector{ batched_unshifted_group });
         polynomial_batcher.set_to_be_shifted(RefVector{ batched_shifted_group });
 
-        // Extend the multilinear challenge with interleaving challenges.
-        // Gemini needs log2(N*BS) = log2(N) + LOG_K rounds. The sumcheck challenge provides
-        // log2(N) variables (for the original poly index). The interleaving challenges provide
-        // LOG_K additional variables (for the position within each group).
-        // Interleaving variables correspond to the LOWEST bits of the group poly index,
-        // so they are APPENDED (processed last by Gemini).
-        std::vector<FF> extended_challenge(sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
+        // Debug: compute commitment to the batched polynomials
+        auto dbg_unshifted_comm = commitment_key.commit(batched_unshifted_group);
+        auto dbg_shifted_comm = commitment_key.commit(batched_shifted_group);
+        info("PROVER DEBUG COMMS: unshifted=", dbg_unshifted_comm, " shifted=", dbg_shifted_comm);
+
+        // Build extended multilinear challenge: interleaving challenges FIRST, then sumcheck challenges.
+        // Gemini needs log2(N*BS) = log2(N) + LOG_K rounds.
+        // Interleaving variables correspond to the LOWEST bits of the group poly index
+        // (they select position j within a BS-sized group), so they come FIRST in the challenge vector.
+        // Sumcheck challenges correspond to the original polynomial index (higher bits).
+        std::vector<FF> extended_challenge;
+        extended_challenge.reserve(Flavor::INTERLEAVING_LOG_K + sumcheck_output.challenge.size());
         for (const auto& ic : interleaving_challenges) {
             extended_challenge.push_back(ic);
         }
+        extended_challenge.insert(
+            extended_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
         const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
             group_circuit_size, polynomial_batcher, extended_challenge, commitment_key, transcript);

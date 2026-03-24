@@ -95,7 +95,7 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_po
 }
 
 AvmFlavor::ProvingKey::ProvingKey()
-    : commitment_key(circuit_size) {
+    : commitment_key(circuit_size * INTERLEAVING_BATCH_SIZE) {
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
