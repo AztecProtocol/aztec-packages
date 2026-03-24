@@ -48,7 +48,7 @@ export class EventService {
       // We should never process a message from a tx past the anchor block. If we got here, a preprocessing step made
       // a mistake.
       throw new Error(
-        `Obtained a newer tx effect for ${txHash} for an event validation request than the anchor block ${anchorBlockNumber}. This is a bug as we should not ever be processing an event from a block newer than the anchor block.`,
+        `Obtained a newer tx effect for ${txHash} for an event validation request than the anchor block ${anchorBlockNumber}. This is a bug as smart contracts should not issue event validation requests for events from blocks newer than the anchor block.`,
       );
     }
 
