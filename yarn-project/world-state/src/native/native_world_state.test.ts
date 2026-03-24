@@ -219,8 +219,8 @@ describe('NativeWorldState', () => {
 
       await timesAsync(5, async i => {
         const fork = await ws.fork();
-        const { block, messages } = await mockBlock(BlockNumber(i + 1), 2, fork);
-        await ws.handleL2BlockAndMessages(block, messages);
+        const { block: b, messages: m } = await mockBlock(BlockNumber(i + 2), 2, fork);
+        await ws.handleL2BlockAndMessages(b, m);
         await fork.close();
       });
 
@@ -296,14 +296,22 @@ describe('NativeWorldState', () => {
         publicDataTreeMapSizeKb: 1024,
       };
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-      const initialFork = await ws.fork();
 
-      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 8, initialFork);
-      const { block: block2, messages: messages2 } = await mockBlock(BlockNumber(2), 8, initialFork);
-      const { block: block3, messages: messages3 } = await mockBlock(BlockNumber(3), 8, initialFork);
+      const fork1 = await ws.fork();
+      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 8, fork1);
+      await fork1.close();
 
       // The first block should succeed
       await expect(ws.handleL2BlockAndMessages(block1, messages1)).resolves.toBeDefined();
+
+      // Build blocks 2 and 3 on separate forks at the advanced tip
+      const fork2 = await ws.fork();
+      const { block: block2, messages: messages2 } = await mockBlock(BlockNumber(2), 16, fork2);
+      await fork2.close();
+
+      const fork3 = await ws.fork();
+      const { block: block3, messages: messages3 } = await mockBlock(BlockNumber(3), 16, fork3);
+      await fork3.close();
 
       // The trees should be synched at block 1
       const goodSummary = await ws.getStatusSummary();
@@ -1087,7 +1095,7 @@ describe('NativeWorldState', () => {
       const publicWrites: Buffer[] = [];
       for (let i = 0; i < numBlocks; i++) {
         const fork = await ws.fork();
-        ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
+        ({ block, messages } = await mockBlock(BlockNumber(i + 1), txsPerBlock, fork));
         noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
         nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
         publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
@@ -1150,7 +1158,7 @@ describe('NativeWorldState', () => {
       const txsPerBlock = 2;
       for (let i = 0; i < numBlocks; i++) {
         const fork = await ws.fork();
-        ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
+        ({ block, messages } = await mockBlock(BlockNumber(i + 1), txsPerBlock, fork));
         noteHashes = block.body.txEffects[0].noteHashes.length;
         nullifiers = block.body.txEffects[0].nullifiers.length;
         publicTree = block.body.txEffects[0].publicDataWrites.length;
@@ -1206,7 +1214,7 @@ describe('NativeWorldState', () => {
       const statuses = [];
       for (let i = 0; i < 2; i++) {
         const fork = await ws.fork();
-        ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
+        ({ block, messages } = await mockBlock(BlockNumber(i + 1), 2, fork));
         await fork.close();
         const status = await ws.handleL2BlockAndMessages(block, messages);
         statuses.push(status);
