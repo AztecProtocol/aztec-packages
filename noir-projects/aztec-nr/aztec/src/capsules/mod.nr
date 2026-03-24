@@ -10,9 +10,9 @@ pub struct CapsuleArray<T> {
     /// after the base slot. For example, with base slot 5: the length is at slot 5, the first element (index 0) is at
     /// slot 6, the second element (index 1) is at slot 7, and so on.
     base_slot: Field,
-    /// Optional scope for capsule isolation. When set, capsule operations are scoped to the given address, allowing
-    /// multiple independent namespaces within the same contract. `Option::none()` means global (unscoped).
-    scope: Option<AztecAddress>,
+    /// Scope for capsule isolation. Capsule operations are scoped to the given address, allowing multiple independent
+    /// namespaces within the same contract.
+    scope: AztecAddress,
 }
 
 impl<T> CapsuleArray<T> {
@@ -22,12 +22,7 @@ impl<T> CapsuleArray<T> {
     /// following the base slot, so there should be sufficient space between array base slots to accommodate elements.
     /// A reasonable strategy is to make the base slot a hash of a unique value.
     pub unconstrained fn at(contract_address: AztecAddress, base_slot: Field, scope: AztecAddress) -> Self {
-        Self { contract_address, base_slot, scope: Option::some(scope) }
-    }
-
-    /// Returns a CapsuleArray with global (unscoped) capsule access.
-    pub unconstrained fn at_global_scope(contract_address: AztecAddress, base_slot: Field) -> Self {
-        Self { contract_address, base_slot, scope: Option::none() }
+        Self { contract_address, base_slot, scope }
     }
 
     /// Returns the number of elements stored in the array.
@@ -159,6 +154,7 @@ mod test {
     use super::CapsuleArray;
 
     global SLOT: Field = 1230;
+    global SCOPE: AztecAddress = AztecAddress { inner: 0xface };
 
     #[test]
     unconstrained fn empty_array() {
@@ -166,7 +162,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array: CapsuleArray<Field> = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, SLOT, SCOPE);
             assert_eq(array.len(), 0);
         });
     }
@@ -177,7 +173,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
             let _: Field = array.get(0);
         });
     }
@@ -188,7 +184,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
             array.push(5);
 
             assert_eq(array.len(), 1);
@@ -202,7 +198,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
             array.push(5);
 
             let _ = array.get(1);
@@ -215,7 +211,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(5);
             array.remove(0);
@@ -230,7 +226,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(7);
             array.push(8);
@@ -255,7 +251,7 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(7);
             array.push(8);
@@ -274,7 +270,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -297,7 +293,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -320,7 +316,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -337,7 +333,7 @@ mod test {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            let array = CapsuleArray::at_global_scope(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT, SCOPE);
 
             array.push(4);
             array.push(5);
@@ -350,23 +346,6 @@ mod test {
             array.for_each(|index, _| { array.remove(index); });
 
             assert_eq(mock.times_called(), 0);
-        });
-    }
-
-    #[test]
-    unconstrained fn scoped_push_and_get() {
-        let env = TestEnvironment::new();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let scope = AztecAddress { inner: 0xcafe };
-            let array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            array.push(42);
-            array.push(43);
-
-            assert_eq(array.len(), 2);
-            assert_eq(array.get(0), 42);
-            assert_eq(array.get(1), 43);
         });
     }
 
@@ -391,49 +370,6 @@ mod test {
 
             assert_eq(array_b.len(), 1);
             assert_eq(array_b.get(0), 99);
-        });
-    }
-
-    #[test]
-    unconstrained fn scoped_and_global_are_isolated() {
-        let env = TestEnvironment::new();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let scope = AztecAddress { inner: 0xddd };
-
-            let global_array = CapsuleArray::at_global_scope(contract_address, SLOT);
-            let scoped_array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            global_array.push(1);
-            global_array.push(2);
-            scoped_array.push(100);
-
-            assert_eq(global_array.len(), 2);
-            assert_eq(global_array.get(0), 1);
-            assert_eq(global_array.get(1), 2);
-
-            assert_eq(scoped_array.len(), 1);
-            assert_eq(scoped_array.get(0), 100);
-        });
-    }
-
-    #[test]
-    unconstrained fn scoped_remove() {
-        let env = TestEnvironment::new();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let scope = AztecAddress { inner: 0xeee };
-            let array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            array.push(7);
-            array.push(8);
-            array.push(9);
-
-            array.remove(1);
-
-            assert_eq(array.len(), 2);
-            assert_eq(array.get(0), 7);
-            assert_eq(array.get(1), 9);
         });
     }
 }

@@ -25,6 +25,7 @@ pub contract ContractClassRegistry {
     use aztec::{
         oracle::capsules,
         protocol::{
+            address::AztecAddress,
             constants::{
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
                 MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
@@ -78,7 +79,7 @@ pub contract ContractClassRegistry {
             capsules::load(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-                Option::none(),
+                AztecAddress::zero(),
             )
                 .unwrap()
         };

@@ -2,7 +2,7 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `load`. If
 /// data was already stored at this slot, it is overwritten.
-pub unconstrained fn store<T>(contract_address: AztecAddress, slot: Field, value: T, scope: Option<AztecAddress>)
+pub unconstrained fn store<T>(contract_address: AztecAddress, slot: Field, value: T, scope: AztecAddress)
 where
     T: Serialize,
 {
@@ -12,7 +12,7 @@ where
 
 /// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns
 /// Option::none() if nothing was stored at the given slot.
-pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field, scope: Option<AztecAddress>) -> Option<T>
+pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field, scope: AztecAddress) -> Option<T>
 where
     T: Deserialize,
 {
@@ -21,7 +21,7 @@ where
 }
 
 /// Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
-pub unconstrained fn delete(contract_address: AztecAddress, slot: Field, scope: Option<AztecAddress>) {
+pub unconstrained fn delete(contract_address: AztecAddress, slot: Field, scope: AztecAddress) {
     delete_oracle(contract_address, slot, scope);
 }
 
@@ -34,7 +34,7 @@ pub unconstrained fn copy(
     src_slot: Field,
     dst_slot: Field,
     num_entries: u32,
-    scope: Option<AztecAddress>,
+    scope: AztecAddress,
 ) {
     copy_oracle(contract_address, src_slot, dst_slot, num_entries, scope);
 }
@@ -44,7 +44,7 @@ unconstrained fn store_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
     values: [Field; N],
-    scope: Option<AztecAddress>,
+    scope: AztecAddress,
 ) {}
 
 /// We need to pass in `array_len` (the value of N) as a parameter to tell the oracle how many fields the response must
@@ -59,11 +59,11 @@ unconstrained fn load_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
     array_len: u32,
-    scope: Option<AztecAddress>,
+    scope: AztecAddress,
 ) -> Option<[Field; N]> {}
 
 #[oracle(aztec_utl_deleteCapsule)]
-unconstrained fn delete_oracle(contract_address: AztecAddress, slot: Field, scope: Option<AztecAddress>) {}
+unconstrained fn delete_oracle(contract_address: AztecAddress, slot: Field, scope: AztecAddress) {}
 
 #[oracle(aztec_utl_copyCapsule)]
 unconstrained fn copy_oracle(
@@ -71,7 +71,7 @@ unconstrained fn copy_oracle(
     src_slot: Field,
     dst_slot: Field,
     num_entries: u32,
-    scope: Option<AztecAddress>,
+    scope: AztecAddress,
 ) {}
 
 mod test {
@@ -86,7 +86,7 @@ mod test {
     use crate::protocol::{address::AztecAddress, traits::{FromField, ToField}};
 
     global SLOT: Field = 1;
-    global SCOPE: Option<AztecAddress> = Option::none();
+    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
 
     #[test]
     unconstrained fn stores_and_loads() {
