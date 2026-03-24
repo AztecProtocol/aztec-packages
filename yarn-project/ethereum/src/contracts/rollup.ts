@@ -213,6 +213,7 @@ export type CheckpointProposedLog = L1EventLog<CheckpointProposedArgs>;
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
+  private readonly logger = createLogger('ethereum:rollup');
 
   private static cachedStfStorageSlot: Hex | undefined;
   private cachedEscapeHatch?: {
@@ -497,10 +498,10 @@ export class RollupContract {
       const [isOpen] = await escapeHatch.read.isHatchOpen([BigInt(epoch)]);
       return isOpen;
     } catch (err) {
-      createLogger('ethereum:rollup').warn(
-        'isEscapeHatchOpen failed (treating as closed); RPC or contract error may cause liveness risk',
-        { epoch: Number(epoch), error: err },
-      );
+      this.logger.warn('isEscapeHatchOpen failed (treating as closed); RPC or contract error may cause liveness risk', {
+        epoch: Number(epoch),
+        error: err,
+      });
       return false;
     }
   }
