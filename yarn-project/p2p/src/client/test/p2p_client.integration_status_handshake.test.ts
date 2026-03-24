@@ -110,7 +110,18 @@ describe('p2p client integration status handshake', () => {
     );
 
     await startTestP2PClients(clients);
-    await retryUntil(async () => (await client1.getPeers()).length == 1, 'peers discovered', 10, 0.5);
+    // Wait for peers to connect AND for all handshakes to have been called.
+    // exchangeStatusHandshake is fire-and-forget (via `void`), so peer discovery
+    // can resolve before the handshake finishes under CI load.
+    await retryUntil(
+      async () =>
+        (await client1.getPeers()).length == 1 && statusHandshakeSpies.every(spy => spy.mock.calls.length >= 1),
+      'peers discovered and handshakes called',
+      10,
+      0.5,
+    );
+    // Give handshakes time to settle — they're async and we need to verify no disconnects happened
+    await sleep(1000);
     logger.info(`Finished waiting for clients to connect`);
 
     for (const handshakeSpy of statusHandshakeSpies) {
@@ -141,8 +152,10 @@ describe('p2p client integration status handshake', () => {
     );
 
     await startTestP2PClients(clients);
-    await retryUntil(async () => (await client1.getPeers()).length == 1, 'peers discovered', 10, 0.5);
-    logger.info(`Finished waiting for clients to connect`);
+    // Wait for the disconnect to actually happen. The handshake is fire-and-forget,
+    // so the peer appears in getPeers() before the handshake completes and triggers disconnect.
+    await retryUntil(() => disconnectSpy.mock.calls.length > 0, 'disconnect called after wrong version', 10, 0.5);
+    logger.info(`Finished waiting for clients to connect and disconnect`);
 
     for (const handshakeSpy of statusHandshakeSpies) {
       expect(handshakeSpy).toHaveBeenCalled();
@@ -185,13 +198,23 @@ describe('p2p client integration status handshake', () => {
 
     await startTestP2PClients(clients);
     logger.info(`Started p2p clients`, { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
-    await retryUntil(async () => (await c1.getPeers()).length >= 1, 'peers discovered', 10, 0.5);
+
+    const expectedHandshakeCount = peerTestCount - 1;
+
+    // Wait for c1 to disconnect c0 (due to invalid status) AND for c2 to complete handshakes
+    // with both c0 and c1. Handshakes are fire-and-forget, so we must poll for completion.
+    await retryUntil(
+      () =>
+        disconnectSpies[1].mock.calls.length > 0 && statusHandshakeSpies[2].mock.calls.length >= expectedHandshakeCount,
+      'c1 disconnects c0 and c2 completes handshakes',
+      10,
+      0.5,
+    );
     logger.info(`Finished waiting for clients to connect`);
 
     expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 <> C0 disconnected
     expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1
 
-    const expectedHandshakeCount = peerTestCount - 1;
     // c2 established connection exactly once with both c0 and c1
     expect(statusHandshakeSpies[2]).toHaveBeenCalledTimes(expectedHandshakeCount);
 
