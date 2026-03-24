@@ -361,8 +361,8 @@ describe('public_processor', () => {
     // we want to confirm that even non-revertibles get cleared
     const contractClassId = await mockContractClassForTx(tx, /*revertible=*/ false);
 
-    publicTxSimulator.simulate.mockImplementation(async (simulatedTx: Tx) => {
-      await contractsDB.addNewContracts(simulatedTx);
+    publicTxSimulator.simulate.mockImplementation((simulatedTx: Tx) => {
+      contractsDB.addNewContracts(simulatedTx);
       throw new Error('Uncaught error');
     });
 

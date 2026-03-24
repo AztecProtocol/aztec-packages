@@ -178,6 +178,27 @@ endif()
 include(cmake/backward-cpp.cmake)
 
 add_subdirectory(src)
+
+# Generate fuzzer manifest after all modules have been processed
+if(FUZZING)
+    get_property(_manifest_entries GLOBAL PROPERTY BB_FUZZER_MANIFEST_ENTRIES)
+    file(WRITE "${CMAKE_BINARY_DIR}/fuzzer_entries.txt" "")
+    foreach(_entry ${_manifest_entries})
+        file(APPEND "${CMAKE_BINARY_DIR}/fuzzer_entries.txt" "${_entry}\n")
+    endforeach()
+
+    set(_preset_name "${FUZZER_PRESET_NAME}")
+
+    add_custom_target(fuzzer_manifest ALL
+        COMMAND ${CMAKE_COMMAND} -E env python3
+            ${CMAKE_SOURCE_DIR}/scripts/generate_fuzzer_manifest.py
+            ${CMAKE_BINARY_DIR}/fuzzer_entries.txt
+            ${CMAKE_BINARY_DIR}/bin/fuzzer_manifest.json
+            ${_preset_name}
+        COMMENT "Generating fuzzer manifest"
+    )
+endif()
+
 if (ENABLE_ASAN AND NOT(FUZZING))
     find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-20)
     if (NOT(LLVM_SYMBOLIZER_PATH))

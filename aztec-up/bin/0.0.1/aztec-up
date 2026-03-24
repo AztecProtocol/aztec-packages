@@ -376,7 +376,7 @@ function cmd_prune {
   done
   echo
 
-  read -p "Continue? (y/n) " -n 1 -r
+  read -p "Continue? (y/N) " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Aborted."
