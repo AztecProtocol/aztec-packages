@@ -717,7 +717,18 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
             throw std::runtime_error(result.second);
         }
     } catch (const std::exception& e) {
-        // We failed, rollback any uncommitted state before leaving
+        // Clear uncommitted state first (required by unwind_block)
+        rollback();
+        // If commit partially succeeded, some trees may have advanced their block height.
+        // Unwind to restore consistency. unwind_block is a no-op on trees that didn't advance.
+        try {
+            auto archiveMeta = get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+            if (archiveMeta.meta.unfinalizedBlockHeight > 0) {
+                WorldStateStatusFull unwindStatus;
+                unwind_block(archiveMeta.meta.unfinalizedBlockHeight, unwindStatus);
+            }
+        } catch (...) {
+        }
         rollback();
         throw;
     }
