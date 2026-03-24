@@ -45,12 +45,8 @@ export class EventService {
     }
 
     if (txEffect.l2BlockNumber > anchorBlockNumber) {
-      // If the message was delivered onchain, this would indicate a bug: log sync should never load logs from blocks
-      // newer than the anchor block. If the event came via an offchain message, it would likely also be a bug, since we
-      // sync a new anchor block before calling `process_message`. For this not to be a bug, the message would need to
-      // come from a newer block than the anchor served by the node, implying the node isn't properly synced.
-      //     We therefore error out here rather than assuming the offchain message was constructed by a malicious
-      // sender with the intention of bricking recipient's PXE (if we assumed that we would just ignore the message).
+      // We should never process a message from a tx past the anchor block. If we got here, a preprocessing step made
+      // a mistake.
       throw new Error(
         `Obtained a newer tx effect for ${txHash} for an event validation request than the anchor block ${anchorBlockNumber}. This is a bug as we should not ever be processing an event from a block newer than the anchor block.`,
       );
