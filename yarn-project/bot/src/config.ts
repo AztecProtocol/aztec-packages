@@ -69,9 +69,9 @@ export type BotConfig = {
   maxPendingTxs: number;
   /** Whether to flush after sending each 'setup' transaction */
   flushSetupTransactions: boolean;
-  /** L2 gas limit for the tx (empty to have the bot trigger an estimate gas). */
+  /** L2 gas limit for the tx (empty to use default gas limits). */
   l2GasLimit: number | undefined;
-  /** DA gas limit for the tx (empty to have the bot trigger an estimate gas). */
+  /** DA gas limit for the tx (empty to use default gas limits). */
   daGasLimit: number | undefined;
   /** Token contract to use */
   contract: SupportedTokenContracts;
@@ -243,12 +243,12 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   l2GasLimit: {
     env: 'BOT_L2_GAS_LIMIT',
-    description: 'L2 gas limit for the tx (empty to have the bot trigger an estimate gas).',
+    description: 'L2 gas limit for the tx (empty to use default gas limits).',
     ...optionalNumberConfigHelper(),
   },
   daGasLimit: {
     env: 'BOT_DA_GAS_LIMIT',
-    description: 'DA gas limit for the tx (empty to have the bot trigger an estimate gas).',
+    description: 'DA gas limit for the tx (empty to use default gas limits).',
     ...optionalNumberConfigHelper(),
   },
   contract: {
