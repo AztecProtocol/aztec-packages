@@ -11,6 +11,10 @@ export BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
 # Set parallel flags for concurrent validation
 export PARALLEL_FLAGS="-j${PARALLELISM:-4} --halt now,fail=1"
 
+# Ensure all yarn.lock files are empty on exit. The per-project cleanup trap
+# handles the normal case, but parallel's --halt can kill jobs before their trap runs.
+trap 'for lf in */yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
+
 # Validate config.yaml structure before processing
 validate_config() {
     local config_file=$1
