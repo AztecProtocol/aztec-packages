@@ -61,6 +61,7 @@ export class TXEStateMachine {
       new MockEpochCache(),
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
+      new TestCircuitVerifier(),
       undefined,
       log,
     );

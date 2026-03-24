@@ -34,9 +34,8 @@ describe('Storage proof benchmark', () => {
     await t.applyFPCSetup();
     await t.applyDeploySponsoredFPC();
 
-    const { receipt: deployed } = await StorageProofTestContract.deploy(t.adminWallet).send({
+    const deployed = await StorageProofTestContract.deploy(t.adminWallet).send({
       from: t.adminAddress,
-      wait: { returnReceipt: true },
     });
     storageProofContract = deployed.contract;
     storageProofInstance = deployed.instance;

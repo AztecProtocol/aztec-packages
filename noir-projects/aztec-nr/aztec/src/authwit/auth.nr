@@ -213,6 +213,7 @@ struct CallAuthorization {
 struct CallAuthorizationRequest {
     selector: AuthorizationSelector,
     inner_hash: Field,
+    on_behalf_of: AztecAddress,
     msg_sender: AztecAddress,
     fn_selector: FunctionSelector,
     args_hash: Field,
@@ -221,11 +222,13 @@ struct CallAuthorizationRequest {
 unconstrained fn emit_authorization_as_offchain_effect<let N: u32>(
     authorization: CallAuthorization,
     inner_hash: Field,
+    on_behalf_of: AztecAddress,
 ) {
     let args: [Field; N] = load(authorization.args_hash);
     let authorization_request = CallAuthorizationRequest {
         selector: authorization.get_authorization_selector(),
         inner_hash: inner_hash,
+        on_behalf_of: on_behalf_of,
         msg_sender: authorization.msg_sender,
         fn_selector: authorization.selector,
         args_hash: authorization.args_hash,
@@ -253,7 +256,7 @@ pub fn assert_current_call_valid_authwit<let N: u32>(context: &mut PrivateContex
     let inner_hash = compute_inner_authwit_hash(authorization.serialize());
     // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle which we don't use for
     // anything besides its side effects, therefore this is safe to call.
-    unsafe { emit_authorization_as_offchain_effect::<N>(authorization, inner_hash) };
+    unsafe { emit_authorization_as_offchain_effect::<N>(authorization, inner_hash, on_behalf_of) };
 
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }

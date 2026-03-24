@@ -147,7 +147,7 @@ git diff --name-only | grep -v '^yarn-project/' || true
 
 If changes exist outside yarn-project, run bootstrap from the repo root:
 ```bash
-BOOTSTRAP_TO=yarn-project ./bootstrap.sh
+./bootstrap.sh build yarn-project
 ```
 
 Fix any build errors that arise from the backport adaptation.

@@ -46,7 +46,9 @@ describe('p2p client integration reqresp', () => {
     logger = createLogger('p2p:test:integration-reqresp');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
-    epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) } as EpochAndSlot & { now: bigint });
+    epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) } as EpochAndSlot & {
+      nowSeconds: bigint;
+    });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
     epochCache.getL1Constants.mockReturnValue({
       l1StartBlock: 0n,

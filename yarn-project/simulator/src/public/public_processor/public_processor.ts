@@ -306,6 +306,9 @@ export class PublicProcessor implements Traceable {
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
         totalBlobFields += txBlobFields;
+
+        // Commit the tx-level contracts checkpoint on success
+        this.contractsDB.commitCheckpoint();
       } catch (err: any) {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
@@ -354,7 +357,6 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
-        this.contractsDB.commitCheckpointOkIfNone();
       }
     }
 
@@ -546,7 +548,7 @@ export class PublicProcessor implements Traceable {
     // Fee payment insertion has already been done. Do the rest.
     await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
-    await this.contractsDB.addNewContracts(tx);
+    this.contractsDB.addNewContracts(tx);
 
     return [processedTx, undefined, []];
   }

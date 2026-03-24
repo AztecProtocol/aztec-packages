@@ -5,7 +5,7 @@ tags: [functions]
 description: Overview of Aztec contract functions, including private, public, and utility function types.
 ---
 
-Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../../foundational-topics/pxe/index.md). Read more about how private functions work [here](./attributes.md#private-functions-private).
+Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../../foundational-topics/pxe/index.md). Read more about how private functions work [here](./attributes.md#private-functions-externalprivate).
 
 Currently, any function is "mutable" in the sense that it might alter state. However, we also support static calls, similarly to EVM. A static call is essentially a call that does not alter state (it keeps state static).
 
@@ -22,7 +22,7 @@ There are also special oracle functions, which can get data from outside of the 
 ## Learn more about functions
 
 - [How function visibility works in Aztec](./visibility.md)
-- How to write an [initializer function](./how_to_define_functions.md#initializer-functions)
+- How to write an [initializer function](./how_to_define_functions.md#define-initializer-functions)
 - [Oracles](../advanced/protocol_oracles.md) and how Aztec smart contracts might use them
 - [How functions work under the hood](./attributes.md)
 

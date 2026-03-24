@@ -126,10 +126,6 @@ describe('e2e_offchain_payment', () => {
       ])
       .simulate({ from: alice });
 
-    // TODO(F-383) Force an empty block so the PXE re-syncs and discovers the offchain-delivered notes.
-    // Remove this once we have F-383.
-    await forceEmptyBlock();
-
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
 
@@ -190,14 +186,6 @@ describe('e2e_offchain_payment', () => {
         },
       ])
       .simulate({ from: alice });
-
-    // TODO: revisit this. The call to offchain_receive is a utility and as such it causes the contract to sync, which,
-    // in combination with our caching policies, means subsequent utility calls won't trigger a re-sync.
-    // Given we're hooking the offchain sync process to the general sync process, this means we won't process any new
-    // offchain messages until at least one block passes.
-    // A potential escape hatch for this is to remove the check that forbids external invocation of `sync_state`.
-    // That would let users trigger syncs manually to circumvent caching issues like this.
-    await forceEmptyBlock();
 
     // Check that Bob got the payment before a re-org
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
