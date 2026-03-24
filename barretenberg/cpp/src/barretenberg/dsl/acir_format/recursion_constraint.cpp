@@ -251,6 +251,10 @@ void process_hn_recursion_constraints(
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
         auto mock_ivc = create_mock_chonk_from_constraints(hn_recursion_data.first);
+        // Suppress debug assertions when using mock IVC data for VK generation. The mock data has
+        // intentionally mismatched dummy values (e.g. calldata commitments) that trigger databus
+        // consistency checks in chonk.cpp. These checks are only meaningful with real witness data.
+        BB_DISABLE_ASSERTS();
         process_with_ivc(mock_ivc);
     } else {
         auto chonk = std::dynamic_pointer_cast<Chonk>(ivc_base);
