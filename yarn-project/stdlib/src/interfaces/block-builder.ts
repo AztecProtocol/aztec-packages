@@ -135,6 +135,9 @@ export interface ICheckpointBlockBuilder {
     timestamp: bigint,
     opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult>;
+
+  /** Replaces the fork used for subsequent block builds. */
+  setFork(fork: MerkleTreeWriteOperations): void;
 }
 
 /** Interface for creating checkpoint builders. */
