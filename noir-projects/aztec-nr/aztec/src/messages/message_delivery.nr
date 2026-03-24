@@ -7,11 +7,7 @@ use crate::{
     },
     utils::remove_constraints::remove_constraints_if,
 };
-use crate::protocol::{
-    address::AztecAddress,
-    constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG},
-    hash::compute_log_tag,
-};
+use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
 
 /// Placeholder struct until Noir adds `enum` support.
 ///
@@ -211,8 +207,7 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     // The following maps out the 3 dimensions across which we configure message delivery.
     let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
     let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
-    // TODO(#14565): Add constrained tagging
-    let constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
+    // TODO(#14565): Add constrained tagging (currently both modes use unconstrained tagging)
 
     let ciphertext = remove_constraints_if(
         !constrained_encryption,
@@ -222,15 +217,11 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     if deliver_as_offchain_message {
         deliver_offchain_message(ciphertext, recipient);
     } else {
-        // Safety: Currently unsafe. See description of ONCHAIN_CONSTRAINED in MessageDeliveryEnum. TODO(#14565):
-        // Implement proper constrained tag prefixing to make this truly ONCHAIN_CONSTRAINED
+        // TODO(#14565): constrained tagging is not yet implemented. Both modes currently use the unconstrained
+        // domain separator because the discovery tag always comes from an oracle. Once constrained tagging lands,
+        // this should branch on `constrained_tagging` to select the appropriate separator.
         let discovery_tag = compute_discovery_tag(recipient);
-        let tag_dom_sep = if constrained_tagging {
-            DOM_SEP__CONSTRAINED_MSG_LOG_TAG
-        } else {
-            DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG
-        };
-        let log_tag = compute_log_tag(discovery_tag, tag_dom_sep);
+        let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
 
         // We forbid this value not being constant to avoid predicating the context calls below, which might result in
         // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints

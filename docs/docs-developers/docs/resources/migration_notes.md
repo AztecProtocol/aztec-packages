@@ -14,7 +14,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 All logs emitted through the Aztec.nr framework now include a domain-separated tag at `fields[0]`. Each log category uses its own domain separator via `compute_log_tag(raw_tag, dom_sep)`:
 
 - **Events** (`DOM_SEP__EVENT_LOG_TAG`): the event type ID is the raw tag.
-- **Message delivery** (`DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG` / `DOM_SEP__CONSTRAINED_MSG_LOG_TAG`): the discovery tag is the raw tag.
+- **Message delivery** (`DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG`): the discovery tag is the raw tag.
 - **Partial note completion logs** (`DOM_SEP__NOTE_COMPLETION_LOG_TAG`): the partial note's `commitment` field is the raw tag.
 
 The low-level emit methods now take `tag` as an explicit first parameter and have been renamed with an `_unsafe` suffix:
