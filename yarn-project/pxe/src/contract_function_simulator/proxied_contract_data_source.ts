@@ -47,9 +47,8 @@ export class ProxiedContractStoreFactory {
                     return fn;
                   }
                 }
-              } else {
-                return target.getFunctionArtifact(contractAddress, selector);
               }
+              return target.getFunctionArtifact(contractAddress, selector);
             };
           }
           case 'getFunctionArtifactWithDebugMetadata': {
@@ -64,9 +63,8 @@ export class ProxiedContractStoreFactory {
                     return fn;
                   }
                 }
-              } else {
-                return target.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
               }
+              return target.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
             };
           }
           default: {
