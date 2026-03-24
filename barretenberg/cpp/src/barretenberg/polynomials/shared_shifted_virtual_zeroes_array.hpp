@@ -53,13 +53,14 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * memory-backed range.
      * @throws Fails in assert mode if the index is greater than or equal to `virtual_size_`.
      */
-    T get(size_t index, size_t virtual_padding = 0) const
+    const T& get(size_t index, size_t virtual_padding = 0) const
     {
+        static const T zero{};
         BB_ASSERT_DEBUG(index < virtual_size_ + virtual_padding);
         if (index >= start_ && index < end_) {
             return data()[index - start_];
         }
-        return T{}; // Return default element when index is out of the actual filled size
+        return zero; // Return default element when index is out of the actual filled size
     }
 
     /**
@@ -89,7 +90,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
         return data()[index - start_];
     }
     // get() is more useful, but for completeness with the non-const operator[]
-    T operator[](size_t index) const
+    const T& operator[](size_t index) const
     {
         BB_ASSERT_DEBUG(index >= start_);
         BB_ASSERT_DEBUG(index < end_);

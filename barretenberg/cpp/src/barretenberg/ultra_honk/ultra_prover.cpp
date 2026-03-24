@@ -75,9 +75,13 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     }
     commitment_key = CommitmentKey(key_size);
 
+    OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
+    oink_prover.prove();
+    vinfo("created oink proof");
+
     // Compress sigma/id polynomials to uint32_t representation to save ~7/8 memory.
     // These polynomials contain small index values that fit in 31 bits.
-    // Must happen after VK construction (which commits them) but before sumcheck.
+    // Must happen after oink (which uses get_row() on all polys) but before sumcheck.
     for (auto& sigma : prover_instance->polynomials.get_sigmas()) {
         if (!sigma.is_compact()) {
             sigma.compress_to_compact();
@@ -88,10 +92,6 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
             id.compress_to_compact();
         }
     }
-
-    OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
-    oink_prover.prove();
-    vinfo("created oink proof");
 
     generate_gate_challenges();
 

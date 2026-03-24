@@ -322,14 +322,22 @@ template <typename Fr> class Polynomial {
         BB_ASSERT(!compact_);
         return coefficients_[index];
     }
-    Fr at(size_t index) const
+    const Fr& at(size_t index) const
     {
         BB_ASSERT(!compact_);
         return coefficients_[index];
     }
 
+    // Non-const operator[] returns by value (not Fr&) because:
+    // 1. Compact polynomials decode on-the-fly
+    // 2. Virtual zero regions have no backing memory to reference
+    // All mutation must use at() which returns Fr&.
     Fr operator[](size_t i) { return get(i); }
-    Fr operator[](size_t i) const { return get(i); }
+    const Fr& operator[](size_t i) const
+    {
+        BB_ASSERT(!compact_);
+        return coefficients_.get(i);
+    }
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {

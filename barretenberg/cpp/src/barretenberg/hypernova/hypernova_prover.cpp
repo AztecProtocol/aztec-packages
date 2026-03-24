@@ -117,17 +117,17 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     // Complete the incoming instance
     auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
 
-    // Compress sigma/id polynomials to uint32_t to reduce memory during oink + sumcheck peak.
-    // VK is already built (precomputed), so sigma/id don't need raw data for commitment.
+    MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
+    oink_prover.prove();
+
+    // Compress sigma/id polynomials to uint32_t to reduce memory during sumcheck peak.
+    // Must happen after oink (which uses get_row() on all polys) but before sumcheck.
     for (auto& sigma : instance->polynomials.get_sigmas()) {
         sigma.compress_to_compact();
     }
     for (auto& id : instance->polynomials.get_ids()) {
         id.compress_to_compact();
     }
-
-    MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
-    oink_prover.prove();
 
     instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);

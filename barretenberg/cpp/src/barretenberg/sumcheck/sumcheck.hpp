@@ -694,7 +694,7 @@ template <typename Flavor> class SumcheckProver {
             const auto& poly = source_view[j];
             size_t limit = poly.end_index();
             for (size_t i = 0; i < limit; i += 2) {
-                dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+                dest_view[j].at(i >> 1) = poly.get(i) + round_challenge * (poly.get(i + 1) - poly.get(i));
             }
             dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
