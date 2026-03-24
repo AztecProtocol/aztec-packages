@@ -187,7 +187,7 @@ describe('Oracle Version Check test suite', () => {
   describe('oracle version mismatch error messages', () => {
     let oracle: UtilityExecutionOracle;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       oracle = new UtilityExecutionOracle({
         contractAddress,
         authWitnesses: [],
