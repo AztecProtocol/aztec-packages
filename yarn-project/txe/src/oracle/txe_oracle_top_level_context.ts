@@ -120,8 +120,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   assertCompatibleOracleVersion(version: number): void {
     if (version !== ORACLE_VERSION) {
+      const hint =
+        version > ORACLE_VERSION
+          ? 'The contract was compiled with a newer version of Aztec.nr than this TXE supports. Upgrade your TXE to a compatible version.'
+          : 'The contract was compiled with an older version of Aztec.nr than this TXE supports. Recompile the contract with a compatible version of Aztec.nr.';
       throw new Error(
-        `Incompatible oracle version. TXE is using version '${ORACLE_VERSION}', but got a request for '${version}'.`,
+        `Incompatible TXE version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
       );
     }
   }
