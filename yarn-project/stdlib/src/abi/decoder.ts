@@ -1,8 +1,15 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { ABIParameter, ABIVariable, AbiType } from './abi.js';
-import { isAztecAddressStruct, isOptionStruct, parseSignedInt } from './utils.js';
+import {
+  isAztecAddressStruct,
+  isEthAddressStruct,
+  isOptionStruct,
+  isWrappedFieldStruct,
+  parseSignedInt,
+} from './utils.js';
 
 /**
  * The type of our decoded ABI.
@@ -12,6 +19,8 @@ export type AbiDecoded =
   | boolean
   | string
   | AztecAddress
+  | EthAddress
+  | Fr
   | AbiDecoded[]
   | { [key: string]: AbiDecoded }
   | undefined;
@@ -57,6 +66,12 @@ class AbiDecoder {
         const struct: { [key: string]: AbiDecoded } = {};
         if (isAztecAddressStruct(abiType)) {
           return new AztecAddress(this.getNextField().toBuffer());
+        }
+        if (isEthAddressStruct(abiType)) {
+          return EthAddress.fromField(this.getNextField());
+        }
+        if (isWrappedFieldStruct(abiType)) {
+          return this.getNextField();
         }
         if (isOptionStruct(abiType)) {
           const isSome = this.decodeNext(abiType.fields[0].type);

@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { ABIParameterVisibility, FunctionArtifact } from './abi.js';
@@ -324,5 +325,69 @@ describe('decoder', () => {
     );
 
     expect(decoded).toBeUndefined();
+  });
+
+  it('decodes EthAddress struct as EthAddress instance', () => {
+    const field = new Fr(0xdeadbeefn);
+    const decoded = decodeFromAbi(
+      [
+        {
+          kind: 'struct',
+          path: 'aztec::protocol_types::address::EthAddress',
+          fields: [{ name: 'inner', type: { kind: 'field' } }],
+        },
+      ],
+      [field],
+    );
+
+    expect(decoded).toBeInstanceOf(EthAddress);
+    expect(decoded).toEqual(EthAddress.fromField(field));
+  });
+
+  it('decodes wrapped field struct as Fr', () => {
+    const field = new Fr(42n);
+    const decoded = decodeFromAbi(
+      [
+        {
+          kind: 'struct',
+          path: 'some::custom::WrappedType',
+          fields: [{ name: 'inner', type: { kind: 'field' } }],
+        },
+      ],
+      [field],
+    );
+
+    expect(decoded).toBeInstanceOf(Fr);
+    expect(decoded).toEqual(field);
+  });
+
+  it('decodes EthAddress inside a larger struct', () => {
+    const addressField = new Fr(0x1234n);
+    const amountField = new Fr(100n);
+    const decoded = decodeFromAbi(
+      [
+        {
+          kind: 'struct',
+          path: 'MyContract::MyEvent',
+          fields: [
+            {
+              name: 'recipient',
+              type: {
+                kind: 'struct',
+                path: 'aztec::protocol_types::address::EthAddress',
+                fields: [{ name: 'inner', type: { kind: 'field' } }],
+              },
+            },
+            { name: 'amount', type: { kind: 'field' } },
+          ],
+        },
+      ],
+      [addressField, amountField],
+    );
+
+    expect(decoded).toEqual({
+      recipient: EthAddress.fromField(addressField),
+      amount: 100n,
+    });
   });
 });
