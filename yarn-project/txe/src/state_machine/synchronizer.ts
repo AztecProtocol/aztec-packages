@@ -94,8 +94,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     throw new Error('TXE Synchronizer does not implement "status"');
   }
 
-  public stop(): Promise<void> {
-    throw new Error('TXE Synchronizer does not implement "stop"');
+  public async stop(): Promise<void> {
+    await this.closeIpc();
   }
 
   public stopSync(): Promise<void> {

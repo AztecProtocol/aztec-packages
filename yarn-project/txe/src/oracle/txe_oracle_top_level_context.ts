@@ -504,6 +504,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     if (isStaticCall) {
       await checkpoint!.revert();
 
+      cdbServer.unregisterFork(forkId);
       await forkedWorldTrees.close();
       return executionResult.returnValues ?? [];
     }
@@ -525,6 +526,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     await this.stateMachine.handleL2Block(l2Block);
 
+    cdbServer.unregisterFork(forkId);
     await forkedWorldTrees.close();
 
     return executionResult.returnValues ?? [];
@@ -662,6 +664,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     if (isStaticCall) {
       await checkpoint!.revert();
 
+      cdbServer2.unregisterFork(forkId2);
       await forkedWorldTrees.close();
 
       return returnValues ?? [];
@@ -684,6 +687,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     await this.stateMachine.handleL2Block(l2Block);
 
+    cdbServer2.unregisterFork(forkId2);
     await forkedWorldTrees.close();
 
     return returnValues ?? [];
