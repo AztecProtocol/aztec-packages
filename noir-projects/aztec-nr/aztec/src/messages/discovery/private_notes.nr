@@ -1,11 +1,13 @@
-use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
-use crate::messages::{
-    discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
-    encoding::MAX_MESSAGE_CONTENT_LEN,
-    logs::note::{decode_private_note_message, MAX_NOTE_PACKED_LEN},
-    processing::enqueue_note_for_validation,
+use crate::{
+    logging::{aztecnr_debug_log_format, aztecnr_warn_log_format},
+    messages::{
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
+        encoding::MAX_MESSAGE_CONTENT_LEN,
+        logs::note::{decode_private_note_message, MAX_NOTE_PACKED_LEN},
+        processing::enqueue_note_for_validation,
+    },
+    protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::ToField},
 };
-use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX};
 
 pub(crate) unconstrained fn process_private_note_msg(
     contract_address: AztecAddress,
@@ -75,7 +77,22 @@ pub unconstrained fn attempt_note_discovery(
         packed_note,
     );
 
-    aztecnr_debug_log_format!("Discovered {0} notes from a private message")([discovered_notes.len() as Field]);
+    if discovered_notes.len() == 0 {
+        // A private note message that results in no discovered notes means none of the computed note hashes matched
+        // any unique note hash in the transaction. This could indicate a malformed or malicious message (e.g. a sender
+        // providing bogus note content).
+        aztecnr_warn_log_format!(
+            "Discarding private note message from tx {0} for contract {1}: no matching note hash found in the tx",
+        )(
+            [tx_hash, contract_address.to_field()],
+        );
+    } else {
+        aztecnr_debug_log_format!(
+            "Discovered {0} notes from a private message for contract {1}",
+        )(
+            [discovered_notes.len() as Field, contract_address.to_field()],
+        );
+    }
 
     discovered_notes.for_each(|discovered_note| {
         enqueue_note_for_validation(
