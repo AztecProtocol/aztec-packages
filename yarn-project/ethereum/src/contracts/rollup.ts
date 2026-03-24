@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -495,7 +496,11 @@ export class RollupContract {
 
       const [isOpen] = await escapeHatch.read.isHatchOpen([BigInt(epoch)]);
       return isOpen;
-    } catch {
+    } catch (err) {
+      createLogger('ethereum:rollup').warn(
+        'isEscapeHatchOpen failed (treating as closed); RPC or contract error may cause liveness risk',
+        { epoch: Number(epoch), error: err },
+      );
       return false;
     }
   }

@@ -4,6 +4,7 @@ import { merge, pick } from '@aztec/foundation/collection';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { Semaphore } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -47,6 +48,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected txs: L1TxState[] = [];
   /** Last nonce successfully sent to the chain. Used as a lower bound when a fallback RPC node returns a stale count. */
   private lastSentNonce: number | undefined;
+  /** Mutex to prevent concurrent sendTransaction calls from racing on the same nonce. */
+  private readonly sendMutex = new Semaphore(1);
   /** Tx delayer for testing. Only set when enableDelayer config is true. */
   public delayer?: Delayer;
   /** KZG instance for blob operations. */
@@ -226,6 +229,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       throw new InterruptError(`Transaction sending is interrupted`);
     }
 
+    await this.sendMutex.acquire();
     try {
       const gasConfig = merge(this.config, gasConfigOverrides);
       const account = this.getSenderAddress().toString();
@@ -314,6 +318,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         request: pick(request, 'to', 'value'),
       });
       throw viemError;
+    } finally {
+      this.sendMutex.release();
     }
   }
 
