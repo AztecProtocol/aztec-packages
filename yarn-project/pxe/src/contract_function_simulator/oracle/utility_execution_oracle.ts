@@ -108,30 +108,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.scopes = args.scopes;
   }
 
-<<<<<<< HEAD
   public utilityAssertCompatibleOracleVersion(version: number): void {
-=======
-  public assertCompatibleOracleVersion(version: number): void {
-    // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
-    // Protocol contracts/canonical contracts shipped with committed bytecode that cannot be changed. Assert they use
-    // the expected pinned version or the current one. We want to allow for both the pinned and the current versions
-    // because we want this code to work with both the pinned and unpinned version since some branches do not have the
-    // pinned contracts (like e.g. next)
-    const LEGACY_ORACLE_VERSION = 12;
-    if (isProtocolContract(this.contractAddress)) {
-      if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
-        const hint =
-          version > ORACLE_VERSION
-            ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
-            : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
-        throw new Error(
-          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION}, got ${version})`,
-        );
-      }
-      return;
-    }
-
->>>>>>> 403e8f76d2 (feat: add error page mapping for incompatible oracles (#21943))
     if (version !== ORACLE_VERSION) {
       const hint =
         version > ORACLE_VERSION

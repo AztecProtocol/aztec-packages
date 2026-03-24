@@ -13,11 +13,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-<<<<<<< HEAD
-=======
-import type { MessageContextService } from '../../messages/message_context_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
->>>>>>> 403e8f76d2 (feat: add error page mapping for incompatible oracles (#21943))
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -205,7 +201,6 @@ describe('Oracle Version Check test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
-        messageContextService,
         contractSyncService,
         jobId: 'test',
         scopes: 'ALL_SCOPES',
@@ -214,20 +209,20 @@ describe('Oracle Version Check test suite', () => {
 
     it('suggests upgrading PXE when contract oracle version is newer', () => {
       const newerVersion = ORACLE_VERSION + 1;
-      expect(() => oracle.assertCompatibleOracleVersion(newerVersion)).toThrow(
+      expect(() => oracle.utilityAssertCompatibleOracleVersion(newerVersion)).toThrow(
         /Incompatible private environment version:.*Upgrade your private environment to a compatible version.*See https:\/\/docs\.aztec\.network\/errors\/8/,
       );
     });
 
     it('suggests recompiling the contract when contract oracle version is older', () => {
       const olderVersion = ORACLE_VERSION - 1;
-      expect(() => oracle.assertCompatibleOracleVersion(olderVersion)).toThrow(
+      expect(() => oracle.utilityAssertCompatibleOracleVersion(olderVersion)).toThrow(
         /Incompatible private environment version:.*Recompile the contract with a compatible version of Aztec\.nr.*See https:\/\/docs\.aztec\.network\/errors\/8/,
       );
     });
 
     it('does not throw when oracle version matches', () => {
-      expect(() => oracle.assertCompatibleOracleVersion(ORACLE_VERSION)).not.toThrow();
+      expect(() => oracle.utilityAssertCompatibleOracleVersion(ORACLE_VERSION)).not.toThrow();
     });
   });
 });
