@@ -11,6 +11,7 @@ use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{MAX_U32_VALUE, NULL_MSG_SENDER_CONTRACT_ADDRESS},
     traits::{Empty, FromField, Packable, Serialize, ToField},
+    utils::writer::Writer,
 };
 
 /// # PublicContext
@@ -110,9 +111,13 @@ impl PublicContext {
     where
         T: Serialize,
     {
-        let serialized = Serialize::serialize(log).as_vector();
+        // We use a Writer to serialize the log directly after the tag, avoiding an extra O(n) copy that would
+        // result from serializing first and then prepending the tag.
+        let mut writer: Writer<1 + <T as Serialize>::N> = Writer::new();
+        writer.write(tag);
+        Serialize::stream_serialize(log, &mut writer);
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::emit_public_log(serialized.push_front(tag)) };
+        unsafe { avm::emit_public_log(writer.finish().as_vector()) };
     }
 
     /// Checks if a given note hash exists in the note hash tree at a particular leaf_index.

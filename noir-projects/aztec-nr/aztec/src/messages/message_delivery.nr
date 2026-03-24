@@ -207,7 +207,8 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     // The following maps out the 3 dimensions across which we configure message delivery.
     let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
     let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
-    // TODO(#14565): Add constrained tagging (currently both modes use unconstrained tagging)
+    // TODO(#14565): Add constrained tagging
+    let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
 
     let ciphertext = remove_constraints_if(
         !constrained_encryption,
