@@ -94,13 +94,13 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
             return std::make_tuple(25476, 77);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(26605, 77);
+            return std::make_tuple(26629, 77);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(781918, 0);
+        return std::make_tuple(781933, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
