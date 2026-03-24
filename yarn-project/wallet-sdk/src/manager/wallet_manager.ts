@@ -2,6 +2,7 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { type DiscoveredWallet, ExtensionProvider, ExtensionWallet } from '../extension/provider/index.js';
+import { discoverWebWallets } from '../iframe/provider/iframe_discovery.js';
 import { WalletMessageType } from '../types.js';
 import type {
   DiscoverWalletsOptions,
@@ -88,6 +89,21 @@ export class WalletManager {
 
     const { promise: donePromise, resolve: resolveDone } = promiseWithResolvers<void>();
 
+    // Track how many discovery sources are still running
+    let pendingSources = 0;
+
+    const emit = (provider: WalletProvider) => {
+      options.onWalletDiscovered?.(provider);
+
+      if (pendingResolve) {
+        const resolve = pendingResolve;
+        pendingResolve = null;
+        resolve({ value: provider, done: false });
+      } else {
+        pendingProviders.push(provider);
+      }
+    };
+
     const markComplete = () => {
       completed = true;
       resolveDone();
@@ -98,7 +114,16 @@ export class WalletManager {
       }
     };
 
+    const sourceComplete = () => {
+      pendingSources--;
+      if (pendingSources <= 0) {
+        markComplete();
+      }
+    };
+
+    // ── Extension wallet discovery ────────────────────────────────────────────
     if (this.config.extensions?.enabled) {
+      pendingSources++;
       const extensionConfig = this.config.extensions;
 
       void ExtensionProvider.discoverWallets(chainInfo, {
@@ -107,24 +132,38 @@ export class WalletManager {
         signal: abortController.signal,
         onWalletDiscovered: discoveredWallet => {
           const provider = this.createProviderFromDiscoveredWallet(discoveredWallet, chainInfo, extensionConfig);
-          if (!provider) {
-            return;
-          }
-
-          // Call user's callback if provided
-          options.onWalletDiscovered?.(provider);
-
-          // Also queue for async iterator
-          if (pendingResolve) {
-            const resolve = pendingResolve;
-            pendingResolve = null;
-            resolve({ value: provider, done: false });
-          } else {
-            pendingProviders.push(provider);
+          if (provider) {
+            emit(provider);
           }
         },
-      }).then(markComplete);
-    } else {
+      }).then(sourceComplete);
+    }
+
+    // ── Web wallet discovery ──────────────────────────────────────────────────
+    if (this.config.webWallets?.urls && this.config.webWallets.urls.length > 0) {
+      pendingSources++;
+      const webSession = discoverWebWallets(this.config.webWallets.urls, chainInfo);
+
+      // Forward discovered web wallets into the shared iterator
+      void (async () => {
+        try {
+          for await (const provider of webSession.wallets) {
+            if (abortController.signal.aborted) {
+              break;
+            }
+            emit(provider);
+          }
+        } finally {
+          sourceComplete();
+        }
+      })();
+
+      // Wire abort to cancel the web session too
+      abortController.signal.addEventListener('abort', () => webSession.cancel(), { once: true });
+    }
+
+    // If no sources were started, complete immediately
+    if (pendingSources === 0) {
       markComplete();
     }
 
