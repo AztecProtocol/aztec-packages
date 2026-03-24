@@ -396,8 +396,9 @@ describe('public_processor', () => {
   describe('timeout cancellation', () => {
     it('calls cancel on simulation handle when deadline is exceeded', async function () {
       let cancelCalled = false;
-      const cancelFn = async () => {
+      const cancelFn = () => {
         cancelCalled = true;
+        return Promise.resolve();
       };
 
       // Simulate a slow simulation: resolves after 2000ms (will be killed by 100ms timeout)
@@ -412,7 +413,7 @@ describe('public_processor', () => {
       // Set deadline 100ms in the future — simulation takes 2s so timeout wins
       const deadline = new Date(Date.now() + 100);
 
-      const [processed, failed] = await processor.process([tx], { deadline });
+      const [processed] = await processor.process([tx], { deadline });
 
       // Simulation should have been cancelled via handle.cancel()
       expect(cancelCalled).toBe(true);
