@@ -85,10 +85,12 @@ export class EthCheatCodes {
   }
 
   /**
-   * Get the current timestamp
-   * @returns The current timestamp
+   * Get the timestamp of the latest mined L1 block.
+   * Note: this is NOT the current time — it's the discrete timestamp of the last block.
+   * Between blocks, the actual chain time advances but no new block reflects it.
+   * @returns The latest block timestamp in seconds
    */
-  public async timestamp(): Promise<number> {
+  public async lastBlockTimestamp(): Promise<number> {
     const res = await this.doRpcCall('eth_getBlockByNumber', ['latest', true]);
     return parseInt(res.timestamp, 16);
   }
@@ -552,7 +554,7 @@ export class EthCheatCodes {
   }
 
   public async syncDateProvider() {
-    const timestamp = await this.timestamp();
+    const timestamp = await this.lastBlockTimestamp();
     if ('setTime' in this.dateProvider) {
       this.dateProvider.setTime(timestamp * 1000);
     }

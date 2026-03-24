@@ -94,7 +94,6 @@
         "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a",
         "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
         "DISABLE_ASM": "OFF",
@@ -228,7 +227,8 @@
         "AVM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "MULTITHREADING": "OFF",
+        "FUZZER_PRESET_NAME": "${presetName}"
       }
     },
     {
@@ -290,6 +290,7 @@
         "FUZZING_AVM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
         "MULTITHREADING": "ON",
+        "FUZZER_PRESET_NAME": "${presetName}",
         "CMAKE_AR": null,
         "CMAKE_RANLIB": null
       }

@@ -4,6 +4,7 @@ import { publishContractClass, publishInstance } from '@aztec/aztec.js/deploymen
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { InitTestContract } from '@aztec/noir-test-contracts.js/InitTest';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { PrivateInitTestContract } from '@aztec/noir-test-contracts.js/PrivateInitTest';
@@ -222,6 +223,32 @@ describe('e2e_deploy_contract private initialization', () => {
     await expect(contract.methods.constructor(owner, 42).simulate({ from: defaultAccountAddress })).rejects.toThrow(
       /Initializer address is not the contract deployer/i,
     );
+  });
+
+  describe('initialization status', () => {
+    it('reports INITIALIZED when contract is registered and initialized', async () => {
+      const contract = await t.registerContract(wallet, PrivateInitTestContract, {
+        initArgs: [42],
+        constructorName: 'initialize',
+      });
+      await contract.methods.initialize(42).send({ from: defaultAccountAddress });
+      const metadata = await wallet.getContractMetadata(contract.address);
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.INITIALIZED);
+    });
+
+    it('reports UNINITIALIZED when contract is registered but not initialized', async () => {
+      const contract = await t.registerContract(wallet, PrivateInitTestContract, {
+        initArgs: [42],
+        constructorName: 'initialize',
+      });
+      const metadata = await wallet.getContractMetadata(contract.address);
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.UNINITIALIZED);
+    });
+
+    it('reports UNKNOWN when contract instance is not registered', async () => {
+      const metadata = await wallet.getContractMetadata(await AztecAddress.random());
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.UNKNOWN);
+    });
   });
 
   /** Registers a contract instance locally and publishes it on-chain (so sequencers can find public function's bytecode). */

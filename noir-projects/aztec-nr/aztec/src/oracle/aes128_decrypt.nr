@@ -1,5 +1,3 @@
-use crate::utils::array::assert_bounded_vec_trimmed;
-
 #[oracle(aztec_utl_tryAes128Decrypt)]
 unconstrained fn try_aes128_decrypt_oracle<let N: u32>(
     ciphertext: BoundedVec<u8, N>,
@@ -21,10 +19,7 @@ pub unconstrained fn try_aes128_decrypt<let N: u32>(
     iv: [u8; 16],
     sym_key: [u8; 16],
 ) -> Option<BoundedVec<u8, N>> {
-    try_aes128_decrypt_oracle(ciphertext, iv, sym_key).map(|result: BoundedVec<u8, N>| {
-        assert_bounded_vec_trimmed(result);
-        result
-    })
+    try_aes128_decrypt_oracle(ciphertext, iv, sym_key)
 }
 
 mod test {

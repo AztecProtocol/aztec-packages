@@ -39,7 +39,7 @@ import type {
   SimulateOptions,
   Wallet,
 } from './wallet.js';
-import { WalletSchema } from './wallet.js';
+import { ContractInitializationStatus, WalletSchema } from './wallet.js';
 
 describe('WalletSchema', () => {
   let handler: MockWallet;
@@ -107,7 +107,7 @@ describe('WalletSchema', () => {
     const result = await context.client.getContractMetadata(await AztecAddress.random());
     expect(result).toEqual({
       instance: undefined,
-      isContractInitialized: undefined,
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: expect.any(Boolean),
       isContractUpdated: expect.any(Boolean),
       updatedContractClassId: undefined,
@@ -181,7 +181,7 @@ describe('WalletSchema', () => {
       returnTypes: [],
     });
     const result = await context.client.executeUtility(call, {
-      scope: await AztecAddress.random(),
+      scopes: [await AztecAddress.random()],
       authWitnesses: [AuthWitness.random()],
     });
     expect(result).toBeInstanceOf(UtilityExecutionResult);
@@ -343,7 +343,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      { name: 'executeUtility', args: [call, { scope: address3, authWitnesses: [AuthWitness.random()] }] },
+      { name: 'executeUtility', args: [call, { scopes: [address3], authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -408,7 +408,7 @@ class MockWallet implements Wallet {
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
     return Promise.resolve({
       instance: undefined,
-      isContractInitialized: undefined,
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: false,
       isContractUpdated: false,
       updatedContractClassId: undefined,
@@ -453,7 +453,7 @@ class MockWallet implements Wallet {
 
   executeUtility(
     _call: any,
-    _opts: { scope: AztecAddress; authWitnesses?: AuthWitness[] },
+    _opts: { scopes: AztecAddress[]; authWitnesses?: AuthWitness[] },
   ): Promise<UtilityExecutionResult> {
     return Promise.resolve(UtilityExecutionResult.random());
   }
