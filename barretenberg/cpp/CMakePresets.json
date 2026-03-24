@@ -290,6 +290,7 @@
         "FUZZING_AVM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
         "MULTITHREADING": "ON",
+        "FUZZER_PRESET_NAME": "${presetName}",
         "CMAKE_AR": null,
         "CMAKE_RANLIB": null
       }

@@ -39,7 +39,7 @@ def main():
     bb_names = set(preset_fuzzers.get("fuzzing", {}).keys())
     avm_names = set(preset_fuzzers.get("fuzzing-avm", {}).keys())
     noasm_names = set(preset_fuzzers.get("fuzzing-noasm", {}).keys())
-    cov_names = set(preset_fuzzers.get("fuzzing-cov", {}).keys())
+    cov_names = set(preset_fuzzers.get("fuzzing-coverage", {}).keys())
 
     merged = []
     for name, source_path in sorted(all_names.items()):

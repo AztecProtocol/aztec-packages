@@ -1,4 +1,4 @@
-name: Build Fuzzing AVM Container
+name: Build Private Fuzzing AVM Container
 
 on:
   push:
@@ -12,9 +12,10 @@ on:
         default: ""
 jobs:
   build:
-    if: github.repository == 'AztecProtocol/aztec-packages'
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       packages: write
       id-token: write
 
@@ -38,17 +39,22 @@ jobs:
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: container-builds/avm-fuzzing-container/src/
+          file: container-builds/avm-fuzzing-container/src/Dockerfile.private
           push: true
           tags: |
-            ghcr.io/aztecprotocol/avm-fuzzing-container:latest
-            ghcr.io/aztecprotocol/avm-fuzzing-container:${{ github.sha }}
+            ghcr.io/aztecprotocol/avm-fuzzing-container-private:latest
+            ghcr.io/aztecprotocol/avm-fuzzing-container-private:${{ github.sha }}
           build-args: |
             COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}
+            BRANCH=${{ github.ref_name }}
+            REPO=${{ github.repository }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
           labels: |
             com.aztec.source-repo=${{ github.repository }}
             com.aztec.source-branch=${{ github.ref_name }}
             com.aztec.commit=${{ github.sha }}
-            com.aztec.visibility=public
+            com.aztec.visibility=private
 
       - name: Install cosign
         uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
@@ -57,5 +63,5 @@ jobs:
 
       - name: Sign image
         run: |
-          cosign sign --yes \
-            ghcr.io/aztecprotocol/avm-fuzzing-container@${{ steps.build.outputs.digest }}
+          cosign sign --yes --tlog-upload=false \
+            ghcr.io/aztecprotocol/avm-fuzzing-container-private@${{ steps.build.outputs.digest }}
