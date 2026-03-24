@@ -9,6 +9,7 @@ additonal
 addressnote
 airgapped
 analysed
+Aave
 Anoncast
 arithmetisation
 asymptotics
@@ -403,6 +404,9 @@ critesjosh
 mcpServers
 NethermindEth
 Windsurf
+remappings
+atoken
+wagmi
 Uniswap
 uniswap
 WETH

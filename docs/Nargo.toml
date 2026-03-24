@@ -6,5 +6,6 @@ members = [
     "examples/contracts/nft",
     "examples/contracts/nft_bridge",
     "examples/contracts/recursive_verification_contract",
+    "examples/contracts/aave_bridge",
     "examples/contracts/example_uniswap"
 ]
