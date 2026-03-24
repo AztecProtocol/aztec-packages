@@ -1,14 +1,11 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { AztecNode } from '@aztec/aztec.js/node';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import { getLogger, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
@@ -17,23 +14,17 @@ const TIMEOUT = 120_000;
 describe('e2e_offchain_effect', () => {
   let contract1: OffchainEffectContract;
   let contract2: OffchainEffectContract;
-  let aztecNode: AztecNode;
-  let aztecNodeAdmin: AztecNodeAdmin;
 
   jest.setTimeout(TIMEOUT);
 
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
-  const logger = getLogger();
-
   beforeAll(async () => {
     ({
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-      aztecNode,
-      aztecNodeAdmin,
     } = await setup(1));
     ({ contract: contract1 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contract2 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
