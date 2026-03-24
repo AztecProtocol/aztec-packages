@@ -1738,7 +1738,7 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
-    "@chainsafe/discv5": "npm:^11.0.0"
+    "@chainsafe/discv5": "patch:@chainsafe/discv5@npm%3A11.0.4#~/.yarn/patches/@chainsafe-discv5-npm-11.0.4-3954eeac20.patch"
     "@chainsafe/enr": "npm:^5.0.0"
     "@chainsafe/libp2p-gossipsub": "npm:14.1.2"
     "@chainsafe/libp2p-noise": "npm:^16.0.0"
@@ -2693,7 +2693,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@chainsafe/discv5@npm:^11.0.0":
+"@chainsafe/discv5@npm:11.0.4":
   version: 11.0.4
   resolution: "@chainsafe/discv5@npm:11.0.4"
   dependencies:
@@ -2708,6 +2708,24 @@ __metadata:
     lru-cache: "npm:^10.1.0"
     strict-event-emitter-types: "npm:^2.0.0"
   checksum: 10/a831f77dcbbaf4b0ecad184df179e9ce947de792d686b5e9305a3f9b910dbfa7dda168a7547b2012a9190322f9b5b7382e8b7c29b1fd8e9e9bf13adeee36c8de
+  languageName: node
+  linkType: hard
+
+"@chainsafe/discv5@patch:@chainsafe/discv5@npm%3A11.0.4#~/.yarn/patches/@chainsafe-discv5-npm-11.0.4-3954eeac20.patch":
+  version: 11.0.4
+  resolution: "@chainsafe/discv5@patch:@chainsafe/discv5@npm%3A11.0.4#~/.yarn/patches/@chainsafe-discv5-npm-11.0.4-3954eeac20.patch::version=11.0.4&hash=7af46f"
+  dependencies:
+    "@chainsafe/enr": "npm:^5.0.1"
+    "@ethereumjs/rlp": "npm:^5.0.2"
+    "@libp2p/crypto": "npm:^5.0.1"
+    "@libp2p/interface": "npm:^2.0.1"
+    "@multiformats/multiaddr": "npm:^12.1.10"
+    "@noble/hashes": "npm:^1.7.0"
+    "@noble/secp256k1": "npm:^2.2.2"
+    debug: "npm:^4.3.1"
+    lru-cache: "npm:^10.1.0"
+    strict-event-emitter-types: "npm:^2.0.0"
+  checksum: 10/19352c27cf317fbc275619d535629c30a492f838414dc0ca4148e3d2fceaaed630aedb78ca87340e45f7e2343d95408b6c17cfb7d5149987b5370059d80140ad
   languageName: node
   linkType: hard
 
