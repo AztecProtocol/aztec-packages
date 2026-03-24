@@ -3533,12 +3533,34 @@ describe('KVArchiverDataStore', () => {
   });
 
   describe('pendingCheckpointNumber', () => {
+    /** Adds proposed blocks to the store so setPendingCheckpoint can validate them.
+     *  Uses force: true to skip addProposedBlock's own chaining checks (we only want to test setPendingCheckpoint). */
+    async function addBlocksForPendingCheckpoint(
+      startBlock: number,
+      blockCount: number,
+      checkpointNumber: number,
+      previousArchive?: AppendOnlyTreeSnapshot,
+    ): Promise<void> {
+      for (let i = 0; i < blockCount; i++) {
+        const opts: Parameters<typeof L2Block.random>[1] = {
+          checkpointNumber: CheckpointNumber(checkpointNumber),
+          indexWithinCheckpoint: IndexWithinCheckpoint(i),
+        };
+        if (i === 0 && previousArchive) {
+          (opts as any).lastArchive = previousArchive;
+        }
+        const block = await L2Block.random(BlockNumber(startBlock + i), opts);
+        await store.addProposedBlock(block, { force: true });
+      }
+    }
+
     it('returns initial value when no pending checkpoint is set', async () => {
       const pending = await store.blockStore.getPendingCheckpointNumber();
       expect(pending).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
     });
 
     it('stores and retrieves pending checkpoint number', async () => {
+      await addBlocksForPendingCheckpoint(1, 1, 1);
       await store.blockStore.setPendingCheckpoint({
         checkpointNumber: CheckpointNumber(1),
         header: CheckpointHeader.empty(),
@@ -3552,6 +3574,7 @@ describe('KVArchiverDataStore', () => {
     });
 
     it('stores and retrieves pending checkpoint data with fee fields', async () => {
+      await addBlocksForPendingCheckpoint(1, 1, 1);
       await store.blockStore.setPendingCheckpoint({
         checkpointNumber: CheckpointNumber(1),
         header: CheckpointHeader.empty(),
@@ -3575,11 +3598,14 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1]);
 
+      // Add blocks for pending checkpoint 2, chaining from checkpoint 1's last block
+      await addBlocksForPendingCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
+
       // Set pending checkpoint to 2 (attested but not yet on L1)
       await store.blockStore.setPendingCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
-        startBlock: BlockNumber(1),
+        startBlock: BlockNumber(2),
         blockCount: 1,
         totalManaUsed: 100n,
         feeAssetPriceModifier: 50n,
@@ -3666,11 +3692,14 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1, checkpoint2]);
 
+      // Add blocks for pending checkpoint 3, chaining from checkpoint 2's last block
+      await addBlocksForPendingCheckpoint(3, 1, 3, checkpoint2.checkpoint.blocks[0].archive);
+
       // Set pending checkpoint to 3
       await store.blockStore.setPendingCheckpoint({
         checkpointNumber: CheckpointNumber(3),
         header: CheckpointHeader.empty(),
-        startBlock: BlockNumber(1),
+        startBlock: BlockNumber(3),
         blockCount: 1,
         totalManaUsed: 100n,
         feeAssetPriceModifier: 50n,
@@ -3699,11 +3728,14 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1, checkpoint2]);
 
+      // Add blocks for pending checkpoint 3, chaining from checkpoint 2's last block
+      await addBlocksForPendingCheckpoint(3, 1, 3, checkpoint2.checkpoint.blocks[0].archive);
+
       // Set pending to 3 (confirmed=2, 3===2+1 ✓)
       await store.blockStore.setPendingCheckpoint({
         checkpointNumber: CheckpointNumber(3),
         header: CheckpointHeader.empty(),
-        startBlock: BlockNumber(1),
+        startBlock: BlockNumber(3),
         blockCount: 1,
         totalManaUsed: 100n,
         feeAssetPriceModifier: 50n,
@@ -3723,26 +3755,29 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1]);
 
+      // Add blocks for pending checkpoint 2, chaining from checkpoint 1's last block
+      await addBlocksForPendingCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
+
       // Set pending checkpoint to 2 (attested but not on L1 yet)
       await store.blockStore.setPendingCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
-        startBlock: BlockNumber(1),
+        startBlock: BlockNumber(2),
         blockCount: 1,
         totalManaUsed: 100n,
         feeAssetPriceModifier: 50n,
       });
 
-      // Add a block for checkpoint 2 — this should succeed because
-      // confirmed checkpoint (1) matches expectedCheckpointNumber (2 - 1 = 1)
-      const lastBlockArchive = checkpoint1.checkpoint.blocks[0].archive;
-      const block2 = await L2Block.random(BlockNumber(2), {
-        checkpointNumber: CheckpointNumber(2),
+      // Add a block for checkpoint 3 — this should succeed because
+      // pending checkpoint (2) matches expectedCheckpointNumber (3 - 1 = 2)
+      const pendingBlock = await store.blockStore.getBlock(BlockNumber(2));
+      const block3 = await L2Block.random(BlockNumber(3), {
+        checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
-        lastArchive: lastBlockArchive,
+        lastArchive: pendingBlock!.archive,
       });
 
-      await expect(store.addProposedBlock(block2)).resolves.toBe(true);
+      await expect(store.addProposedBlock(block3)).resolves.toBe(true);
     });
 
     it('throws with pending checkpoint value when neither confirmed nor pending matches', async () => {
@@ -3753,25 +3788,28 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1]);
 
+      // Add blocks for pending checkpoint 2, chaining from checkpoint 1's last block
+      await addBlocksForPendingCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
+
       // Set pending checkpoint to 2
       await store.blockStore.setPendingCheckpoint({
         checkpointNumber: CheckpointNumber(2),
         header: CheckpointHeader.empty(),
-        startBlock: BlockNumber(1),
+        startBlock: BlockNumber(2),
         blockCount: 1,
         totalManaUsed: 100n,
         feeAssetPriceModifier: 50n,
       });
 
       // Try to add a block for checkpoint 4 (expected = 3, confirmed = 1, pending = 2 — neither matches)
-      const lastBlockArchive = checkpoint1.checkpoint.blocks[0].archive;
-      const block2 = await L2Block.random(BlockNumber(2), {
+      const pendingBlock = await store.blockStore.getBlock(BlockNumber(2));
+      const block3 = await L2Block.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(4),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
-        lastArchive: lastBlockArchive,
+        lastArchive: pendingBlock!.archive,
       });
 
-      await expect(store.addProposedBlock(block2)).rejects.toThrow(
+      await expect(store.addProposedBlock(block3)).rejects.toThrow(
         // Error should report the pending checkpoint number (2), not the confirmed one (1)
         'Cannot insert new checkpoint 4 given previous pending checkpoint number is 2',
       );
