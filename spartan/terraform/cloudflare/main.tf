@@ -37,6 +37,35 @@ resource "cloudflare_r2_custom_domain" "aztec_labs_snapshots_com" {
   enabled     = true
 }
 
+# Do not cache 404s
+resource "cloudflare_ruleset" "cache_settings" {
+  zone_id = var.R2_ZONE_ID
+  kind    = "zone"
+  name    = "R2 cache settings"
+  phase   = "http_request_cache_settings"
+
+  rules = [
+    {
+      ref         = "no_cache_404"
+      description = "Do not cache 404 responses for R2 custom domain"
+      expression  = "(http.host eq \"${var.DOMAIN}\")"
+      action      = "set_cache_settings"
+      action_parameters = {
+        cache = true
+        edge_ttl = {
+          mode = "respect_origin"
+          status_code_ttl = [
+            {
+              status_code = 404
+              value       = 0
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+
 locals {
   top_level_folders = toset([
     "devnet",
