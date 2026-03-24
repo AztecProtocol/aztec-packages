@@ -130,7 +130,7 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 
     PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size(), prover_instance->polynomials.max_end_index());
     polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(prover_instance->polynomials.get_to_be_shifted());
+    polynomial_batcher.set_to_be_shifted(prover_instance->polynomials.get_to_be_shifted());
 
     // For ZK: register masking tail polynomials with the batcher so PCS includes them
     if constexpr (Flavor::HasZK) {

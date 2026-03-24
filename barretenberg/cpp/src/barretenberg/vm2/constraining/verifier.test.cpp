@@ -19,6 +19,7 @@ class AvmVerifierTests : public ::testing::Test {
     struct NativeProofResult {
         typename Prover::Proof proof;
         std::vector<std::vector<FF>> public_inputs_cols;
+        std::shared_ptr<AvmFlavor::VerificationKey> vk;
     };
 
     // Helper function to create proof.
@@ -30,7 +31,14 @@ class AvmVerifierTests : public ::testing::Test {
         auto public_inputs_cols = public_inputs.to_columns();
         const auto proof = prover.prove(std::move(trace));
 
-        return { proof, public_inputs_cols };
+        return { proof, public_inputs_cols, prover.get_vk() };
+    }
+
+    static Verifier create_verifier(std::shared_ptr<AvmFlavor::VerificationKey> vk)
+    {
+        Verifier verifier;
+        verifier.key = std::move(vk);
+        return verifier;
     }
 };
 
@@ -40,9 +48,9 @@ TEST_F(AvmVerifierTests, GoodPublicInputs)
         GTEST_SKIP() << "Skipping slow test";
     }
 
-    auto [proof, public_inputs_cols] = create_proof();
+    auto [proof, public_inputs_cols, vk] = create_proof();
 
-    Verifier verifier;
+    auto verifier = create_verifier(vk);
     const bool verified = verifier.verify_proof(proof, public_inputs_cols);
 
     ASSERT_TRUE(verified) << "native proof verification failed";
@@ -54,10 +62,10 @@ TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
         GTEST_SKIP() << "Skipping slow test";
     }
 
-    auto [proof, public_inputs_cols] = create_proof();
+    auto [proof, public_inputs_cols, vk] = create_proof();
     auto verify_with_corrupt_pi_col = [&](size_t col_idx) {
         public_inputs_cols[col_idx][5] += FF::one();
-        Verifier verifier;
+        auto verifier = create_verifier(vk);
         const bool verified = verifier.verify_proof(proof, public_inputs_cols);
         ASSERT_FALSE(verified)
             << "native proof verification succeeded, but should have failed due to corruption of public inputs col "
@@ -67,7 +75,7 @@ TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
     for (size_t col_idx = 0; col_idx < 4; col_idx++) {
         verify_with_corrupt_pi_col(col_idx);
     }
-    Verifier verifier;
+    auto verifier = create_verifier(vk);
     const bool verified = verifier.verify_proof(proof, public_inputs_cols);
     ASSERT_TRUE(verified) << "native proof verification failed, but should have succeeded";
 }
@@ -75,7 +83,7 @@ TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
 // Verify that the actual proof size matches COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS
 TEST_F(AvmVerifierTests, ProofSizeMatchesComputedConstant)
 {
-    auto [proof, public_inputs_cols] = create_proof();
+    auto [proof, public_inputs_cols, vk] = create_proof();
 
     const size_t actual_proof_size = proof.size();
     const size_t computed_proof_size = AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;

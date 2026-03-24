@@ -42,6 +42,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
     generated_dir: Option<&str>,
     vm_name: &str,
     delete_dir: bool,
+    batch_size: usize,
 ) {
     println!("Going from AST to CPP...");
     let mut bb_files = BBFiles::new(&snake_case(&vm_name), generated_dir, None);
@@ -128,6 +129,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &to_be_shifted,
         &shifted,
         &all_cols_with_shifts,
+        batch_size,
     );
 
     println!("Done with generation.");

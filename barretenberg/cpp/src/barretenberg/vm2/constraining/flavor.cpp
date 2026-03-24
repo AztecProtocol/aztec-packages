@@ -37,11 +37,13 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
     sumcheck_evaluations =
         deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(Transcript::proof_data, num_frs_read);
 
-    for (size_t i = 0; i < log_circuit_size - 1; ++i) {
+    // Gemini has log_circuit_size + INTERLEAVING_LOG_K rounds (group polys have degree N * BS)
+    const size_t gemini_num_rounds = log_circuit_size + INTERLEAVING_LOG_K;
+    for (size_t i = 0; i < gemini_num_rounds - 1; ++i) {
         gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
     }
 
-    for (size_t i = 0; i < log_circuit_size; ++i) {
+    for (size_t i = 0; i < gemini_num_rounds; ++i) {
         gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
     }
 
@@ -66,11 +68,13 @@ void AvmFlavor::Transcript::serialize_full_transcript()
 
     serialize_to_buffer(sumcheck_evaluations, Transcript::proof_data);
 
-    for (size_t i = 0; i < log_circuit_size - 1; ++i) {
+    // Gemini has log_circuit_size + INTERLEAVING_LOG_K rounds
+    const size_t gemini_num_rounds = log_circuit_size + INTERLEAVING_LOG_K;
+    for (size_t i = 0; i < gemini_num_rounds - 1; ++i) {
         serialize_to_buffer(gemini_fold_comms[i], proof_data);
     }
 
-    for (size_t i = 0; i < log_circuit_size; ++i) {
+    for (size_t i = 0; i < gemini_num_rounds; ++i) {
         serialize_to_buffer(gemini_fold_evals[i], proof_data);
     }
 

@@ -116,6 +116,17 @@ template <typename Fr> class Polynomial {
     {
         return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
+    /**
+     * @brief Utility to create a polynomial shiftable by a given shift_exponent.
+     * @details The first `shift_exponent` coefficients are zero (start_index = shift_exponent).
+     */
+    static Polynomial shiftable(size_t size, size_t virtual_size, size_t shift_exponent)
+    {
+        if (shift_exponent <= 1) {
+            return shiftable(size, virtual_size);
+        }
+        return Polynomial(/*actual size*/ size - shift_exponent, virtual_size, /*shiftable offset*/ shift_exponent);
+    }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 
@@ -175,6 +186,7 @@ template <typename Fr> class Polynomial {
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
     Polynomial shifted() const;
+    Polynomial shifted(size_t amount) const;
 
     /**
      * @brief Returns the polynomial equal to the reverse of self
