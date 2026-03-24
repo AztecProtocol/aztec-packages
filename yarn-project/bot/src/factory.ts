@@ -337,9 +337,17 @@ export class BotFactory {
     const amm = AMMContract.at(instance.address, this.wallet);
 
     this.log.info(`AMM deployed at ${amm.address}`);
+<<<<<<< HEAD
     const { receipt: minterReceipt } = await lpToken.methods
       .set_minter(amm.address, true)
       .send({ from: deployer, wait: { timeout: this.config.txMinedWaitSeconds } });
+=======
+    const setMinterInteraction = lpToken.methods.set_minter(amm.address, true);
+    const { receipt: minterReceipt } = await setMinterInteraction.send({
+      from: deployer,
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
+>>>>>>> 81b641da59 (fix: bot gas estimations (#21945))
     this.log.info(`Set LP token minter to AMM txHash=${minterReceipt.txHash.toString()}`);
     this.log.info(`Liquidity token initialized`);
 
@@ -411,6 +419,7 @@ export class BotFactory {
     const { receipt: mintReceipt } = await new BatchCall(this.wallet, [
       token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
       token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
+<<<<<<< HEAD
     ]).send({ from: liquidityProvider, wait: { timeout: this.config.txMinedWaitSeconds } });
 
     this.log.info(`Sent mint tx: ${mintReceipt.txHash.toString()}`);
@@ -422,6 +431,28 @@ export class BotFactory {
         authWitnesses: [token0Authwit, token1Authwit],
         wait: { timeout: this.config.txMinedWaitSeconds },
       });
+=======
+    ]);
+    const { receipt: mintReceipt } = await mintBatch.send({
+      from: liquidityProvider,
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
+
+    this.log.info(`Sent mint tx: ${mintReceipt.txHash.toString()}`);
+
+    const addLiquidityInteraction = amm.methods.add_liquidity(
+      amount0Max,
+      amount1Max,
+      amount0Min,
+      amount1Min,
+      authwitNonce,
+    );
+    const { receipt: addLiquidityReceipt } = await addLiquidityInteraction.send({
+      from: liquidityProvider,
+      authWitnesses: [token0Authwit, token1Authwit],
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
+>>>>>>> 81b641da59 (fix: bot gas estimations (#21945))
 
     this.log.info(`Sent tx to add liquidity to the AMM: ${addLiquidityReceipt.txHash.toString()}`);
     this.log.info(`Liquidity added`);
@@ -490,6 +521,10 @@ export class BotFactory {
 
     // PrivateToken's mint accesses contract-level private storage vars (admin, total_supply).
     const additionalScopes = isStandardToken ? undefined : [token.address];
+<<<<<<< HEAD
+=======
+    const mintBatch = new BatchCall(token.wallet, calls);
+>>>>>>> 81b641da59 (fix: bot gas estimations (#21945))
     await this.withNoMinTxsPerBlock(async () => {
       const { txHash } = await new BatchCall(token.wallet, calls).send({
         from: minter,
