@@ -149,11 +149,12 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      publicTxSimulator.simulate.mockReturnValue({
-        result: Promise.resolve().then(() => {
+      publicTxSimulator.simulate.mockImplementation(() => {
+        const result = Promise.resolve().then(() => {
           throw new Error(`Failed`);
-        }),
-        cancel: async () => {},
+        });
+        void result.catch(() => {}); // Prevent unhandled rejection
+        return { result, cancel: async () => {} };
       });
 
       const tx = await mockTxWithPublicCalls();
@@ -332,11 +333,12 @@ describe('public_processor', () => {
   describe('checkpoint depth', () => {
     it('calls revertAllCheckpointsTo with depth on tx failure', async function () {
       merkleTree.createCheckpoint.mockResolvedValue(2);
-      publicTxSimulator.simulate.mockReturnValue({
-        result: Promise.resolve().then(() => {
+      publicTxSimulator.simulate.mockImplementation(() => {
+        const result = Promise.resolve().then(() => {
           throw new Error('Boom');
-        }),
-        cancel: async () => {},
+        });
+        void result.catch(() => {}); // Prevent unhandled rejection
+        return { result, cancel: async () => {} };
       });
 
       const tx = await mockTxWithPublicCalls();
