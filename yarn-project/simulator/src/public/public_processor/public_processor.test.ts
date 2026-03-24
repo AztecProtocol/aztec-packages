@@ -392,4 +392,34 @@ describe('public_processor', () => {
     // On uncaught error, the public processor clears the tx-level cache entirely
     expect(contractClass).toBeUndefined();
   });
+
+  describe('timeout cancellation', () => {
+    it('calls cancel on simulation handle when deadline is exceeded', async function () {
+      let cancelCalled = false;
+      const cancelFn = async () => {
+        cancelCalled = true;
+      };
+
+      // Simulate a slow simulation: resolves after 2000ms (will be killed by 100ms timeout)
+      publicTxSimulator.simulate.mockImplementation(() => {
+        const result = new Promise<typeof mockedEnqueuedCallsResult>(resolve => {
+          setTimeout(() => resolve(mockedEnqueuedCallsResult), 2000);
+        });
+        return { result, cancel: cancelFn };
+      });
+
+      const tx = await mockTxWithPublicCalls();
+      // Set deadline 100ms in the future — simulation takes 2s so timeout wins
+      const deadline = new Date(Date.now() + 100);
+
+      const [processed, failed] = await processor.process([tx], { deadline });
+
+      // Simulation should have been cancelled via handle.cancel()
+      expect(cancelCalled).toBe(true);
+      // Tx should be dropped (timeout stops processing)
+      expect(processed).toEqual([]);
+      // Checkpoints should have been reverted
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalled();
+    });
+  });
 });

@@ -482,54 +482,53 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       checkpoint = await ForkCheckpoint.new(forkedWorldTrees);
     }
 
-    const results = await processor.process([tx]);
+    try {
+      const results = await processor.process([tx]);
 
-    const [processedTx] = results[0];
-    const failedTxs = results[1];
+      const [processedTx] = results[0];
+      const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
-    } else if (!processedTx.revertCode.isOK()) {
-      if (processedTx.revertReason) {
-        try {
-          await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
-          // eslint-disable-next-line no-empty
-        } catch {}
-        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
-      } else {
-        throw new Error('Contract execution has reverted');
+      if (failedTxs.length !== 0) {
+        throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+      } else if (!processedTx.revertCode.isOK()) {
+        if (processedTx.revertReason) {
+          try {
+            await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
+            // eslint-disable-next-line no-empty
+          } catch {}
+          throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+        } else {
+          throw new Error('Contract execution has reverted');
+        }
       }
-    }
 
-    if (isStaticCall) {
-      await checkpoint!.revert();
+      if (isStaticCall) {
+        await checkpoint!.revert();
+        return executionResult.returnValues ?? [];
+      }
 
+      const txEffect = TxEffect.empty();
+
+      txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+      txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+      txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+      txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+      txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
+
+      txEffect.txHash = new TxHash(new Fr(blockNumber));
+
+      const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
+      await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+
+      const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
+
+      await this.stateMachine.handleL2Block(l2Block);
+
+      return executionResult.returnValues ?? [];
+    } finally {
       cdbServer.unregisterFork(forkId);
       await forkedWorldTrees.close();
-      return executionResult.returnValues ?? [];
     }
-
-    const txEffect = TxEffect.empty();
-
-    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
-
-    txEffect.txHash = new TxHash(new Fr(blockNumber));
-
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
-
-    const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
-
-    await this.stateMachine.handleL2Block(l2Block);
-
-    cdbServer.unregisterFork(forkId);
-    await forkedWorldTrees.close();
-
-    return executionResult.returnValues ?? [];
   }
 
   async publicCallNewFlow(
@@ -640,57 +639,55 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       checkpoint = await ForkCheckpoint.new(forkedWorldTrees);
     }
 
-    const results = await processor.process([tx]);
+    try {
+      const results = await processor.process([tx]);
 
-    const [processedTx] = results[0];
-    const failedTxs = results[1];
+      const [processedTx] = results[0];
+      const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
-    } else if (!processedTx.revertCode.isOK()) {
-      if (processedTx.revertReason) {
-        try {
-          await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
-          // eslint-disable-next-line no-empty
-        } catch {}
-        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
-      } else {
-        throw new Error('Contract execution has reverted');
+      if (failedTxs.length !== 0) {
+        throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+      } else if (!processedTx.revertCode.isOK()) {
+        if (processedTx.revertReason) {
+          try {
+            await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
+            // eslint-disable-next-line no-empty
+          } catch {}
+          throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+        } else {
+          throw new Error('Contract execution has reverted');
+        }
       }
-    }
 
-    const returnValues = results[3][0].values;
+      const returnValues = results[3][0].values;
 
-    if (isStaticCall) {
-      await checkpoint!.revert();
+      if (isStaticCall) {
+        await checkpoint!.revert();
+        return returnValues ?? [];
+      }
 
-      cdbServer2.unregisterFork(forkId2);
-      await forkedWorldTrees.close();
+      const txEffect = TxEffect.empty();
+
+      txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+      txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+      txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+      txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+      txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
+
+      txEffect.txHash = new TxHash(new Fr(blockNumber));
+
+      const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
+      await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+
+      const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
+
+      await this.stateMachine.handleL2Block(l2Block);
 
       return returnValues ?? [];
+    } finally {
+      cdbServer2.unregisterFork(forkId2);
+      await forkedWorldTrees.close();
     }
-
-    const txEffect = TxEffect.empty();
-
-    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
-
-    txEffect.txHash = new TxHash(new Fr(blockNumber));
-
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
-
-    const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
-
-    await this.stateMachine.handleL2Block(l2Block);
-
-    cdbServer2.unregisterFork(forkId2);
-    await forkedWorldTrees.close();
-
-    return returnValues ?? [];
   }
 
   async executeUtilityFunction(

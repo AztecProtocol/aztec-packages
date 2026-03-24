@@ -5,9 +5,7 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-// Skipped: these tests are specific to the C++ NAPI simulator path which has been removed.
-// They test C++ exception propagation which is not applicable to the TS simulator.
-describe.skip('C++ Exception Handling during Public Tx Simulation', () => {
+describe('AVM Error Propagation during Public Tx Simulation', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: PublicTxSimulationTester;
@@ -29,10 +27,10 @@ describe.skip('C++ Exception Handling during Public Tx Simulation', () => {
   });
 
   /**
-   * Call assertion_failure function during setup, and expect C++ simulator to throw.
+   * Call assertion_failure function during setup. The AVM should detect the assertion
+   * failure, revert the setup phase, and propagate the error back through IPC.
    */
-  it('assertion failure during setup - C++ simulator should throw and TS should handle gracefully', async () => {
-    // expect reject with SimulationError
+  it('assertion failure during setup propagates as simulation error', async () => {
     await expect(
       tester.simulateTx(
         sender,
@@ -45,6 +43,6 @@ describe.skip('C++ Exception Handling during Public Tx Simulation', () => {
         ],
         /*appCalls=*/ [],
       ),
-    ).rejects.toThrow(/C\+\+ simulation failed.*SETUP/);
+    ).rejects.toThrow(/simulation failed|AVM error|assertion/i);
   }, 30_000);
 });
