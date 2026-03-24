@@ -201,7 +201,6 @@ describe('Oracle Version Check test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
-        contractSyncService,
         jobId: 'test',
         scopes: 'ALL_SCOPES',
       });
