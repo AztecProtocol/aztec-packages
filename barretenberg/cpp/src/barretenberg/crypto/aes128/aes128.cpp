@@ -6,12 +6,11 @@
 
 #include "aes128.hpp"
 
+#include "barretenberg/crypto/hmac/hmac.hpp"
 #include "memory.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
-
-#include <iostream>
 
 namespace {
 
@@ -248,6 +247,7 @@ void aes128_encrypt_buffer_cbc(uint8_t* buffer, uint8_t* iv, const uint8_t* key,
         memcpy((void*)(buffer + (i * 16)), (void*)block_state, 16);
         memcpy((void*)iv, (void*)block_state, 16);
     }
+    secure_erase_bytes(round_key, sizeof(round_key));
 }
 
 void aes128_decrypt_buffer_cbc(uint8_t* buffer, uint8_t* iv, const uint8_t* key, const size_t length)
@@ -266,6 +266,7 @@ void aes128_decrypt_buffer_cbc(uint8_t* buffer, uint8_t* iv, const uint8_t* key,
         memcpy((void*)(buffer + (i * 16)), (void*)block_state, 16);
         memcpy((void*)iv, (void*)next_iv, 16);
     }
+    secure_erase_bytes(round_key, sizeof(round_key));
 }
 
 } // namespace bb::crypto

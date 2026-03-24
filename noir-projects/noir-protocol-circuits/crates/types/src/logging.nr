@@ -83,7 +83,7 @@ unconstrained fn log_oracle_wrapper<let M: u32, let N: u32>(
     log_oracle(log_level, msg, N, args);
 }
 
-#[oracle(utilityLog)]
+#[oracle(aztec_utl_log)]
 unconstrained fn log_oracle<let M: u32, let N: u32>(
     log_level: u8,
     msg: str<M>,

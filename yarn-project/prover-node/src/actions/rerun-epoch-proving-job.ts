@@ -1,10 +1,10 @@
 import { createArchiverStore } from '@aztec/archiver';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldState } from '@aztec/world-state';
 
@@ -30,7 +30,7 @@ export async function rerunEpochProvingJob(
   const telemetry = getTelemetryClient();
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
   const worldState = await createWorldState(config);
-  const archiver = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
+  const archiver = await createArchiverStore(config);
   const publicProcessorFactory = new PublicProcessorFactory(archiver, undefined, undefined, log.getBindings());
 
   const publisher = { submitEpochProof: () => Promise.resolve(true) };

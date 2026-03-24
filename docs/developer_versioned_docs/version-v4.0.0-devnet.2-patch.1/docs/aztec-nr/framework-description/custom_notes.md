@@ -174,6 +174,7 @@ With `#[custom_note]`, you must implement the `NoteHash` trait yourself:
 ```rust
 use aztec::{
     context::PrivateContext,
+    keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     note::note_interface::NoteHash,
     protocol::{
@@ -211,7 +212,7 @@ impl NoteHash for CustomHashNote {
         note_hash_for_nullification: Field,
     ) -> Field {
         // Standard nullifier using owner's nullifier hiding key
-        let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
+        let owner_npk_m = get_public_keys(owner).npk_m;
         let secret = context.request_nhk_app(owner_npk_m.hash());
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
@@ -223,16 +224,21 @@ impl NoteHash for CustomHashNote {
         self,
         owner: AztecAddress,
         note_hash_for_nullification: Field,
-    ) -> Field {
-        let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-        let secret = aztec::keys::getters::get_nhk_app(owner_npk_m.hash());
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullification, secret],
-            DOM_SEP__NOTE_NULLIFIER,
-        )
+    ) -> Option<Field> {
+        try_get_public_keys(owner).map(|public_keys| {
+            let secret = get_nhk_app(public_keys.npk_m.hash());
+            poseidon2_hash_with_separator(
+                [note_hash_for_nullification, secret],
+                DOM_SEP__NOTE_NULLIFIER,
+            )
+        })
     }
 }
 ```
+
+:::tip Naming note
+The secret returned by `request_nhk_app` is the **nullifier hiding key** (abbreviated `nhk`). Older docs and code comments may call it the "nullifier secret key" (`nsk`) — these refer to the same key. Always use `request_nhk_app()` rather than computing this key yourself.
+:::
 
 ## Viewing notes (unconstrained)
 

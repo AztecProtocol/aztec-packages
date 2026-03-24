@@ -16,6 +16,7 @@ environments/*
 !environments/devnet-avm-prover.env
 !environments/devnet-next.env
 !environments/devnet.env
+!environments/block-capacity.env
 !environments/ignition-fisherman.env
 !environments/next-net.env
 !environments/next-scenario.env

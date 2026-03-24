@@ -88,13 +88,14 @@ jobs:
           # Run via ci.sh which spins up an EC2 instance and runs ./bootstrap.sh ci-avm-check-circuit
           ./ci.sh avm-check-circuit
 
-      - name: Notify Slack on failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          curl -X POST https://slack.com/api/chat.postMessage \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            --data "{\"channel\": \"#team-bonobos\", \"text\": \"🚨 AVM check-circuit failed\\n<$WORKFLOW_URL|View Run>\"}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#team-bonobos" \
+            "🚨 AVM check-circuit failed. <${RUN_URL}|View Run> (🤖)" \
+            "AVM check-circuit failed. CI run: ${RUN_URL}. Investigate the failure, identify the root cause, and create a fix PR targeting next." \
+            --link "$RUN_URL"

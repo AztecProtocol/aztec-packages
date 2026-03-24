@@ -2,7 +2,7 @@
 title: "Bridge Your NFT to Aztec"
 sidebar_position: 1
 description: "Build a private NFT bridge between Ethereum and Aztec using custom notes, PrivateSet, and cross-chain messaging portals."
-references: ["docs/examples/tutorials/token_bridge_contract/*"]
+references: ["docs/examples/contracts/nft/*", "docs/examples/contracts/nft_bridge/*", "docs/examples/solidity/nft_bridge/*", "docs/examples/ts/token_bridge/*"]
 ---
 
 ## Why Bridge an NFT?
@@ -86,7 +86,7 @@ aztec new contracts/aztec/nft
 cd contracts/aztec/nft
 ```
 
-This creates a workspace with two crates: a `contract` crate for the smart contract code and a `test` crate for Noir tests. The `aztec` dependency is already configured in `contract/Nargo.toml`.
+This creates a workspace with two crates: an `nft_contract` crate for the smart contract code and an `nft_test` crate for Noir tests. The `aztec` dependency is already configured in `nft_contract/Nargo.toml`.
 
 :::tip Noir Language Server
 
@@ -96,10 +96,10 @@ If you're using VS Code, install the [Noir Language Support extension](https://m
 
 ### Create the NFT Note
 
-First, let's create a custom note type for private NFT ownership. In the `contract/src/` directory, create a new file called `nft.nr`:
+First, let's create a custom note type for private NFT ownership. In the `nft_contract/src/` directory, create a new file called `nft.nr`:
 
 ```bash
-touch contract/src/nft.nr
+touch nft_contract/src/nft.nr
 ```
 
 In this file, you're going to create a **private note** that represents NFT ownership. This is a struct with macros that indicate it is a note that can be compared and packed:
@@ -116,7 +116,7 @@ Notes are powerful concepts. Learn more about how to use them in the [state mana
 
 ### Define Storage
 
-Back in `contract/src/main.nr`, you can now build the contract storage. You need:
+Back in `nft_contract/src/main.nr`, you can now build the contract storage. You need:
 
 - **admin**: Who controls the contract (set once, never changes)
 - **minter**: The bridge address (set once by admin)
@@ -125,7 +125,7 @@ Back in `contract/src/main.nr`, you can now build the contract storage. You need
 
 One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../aztec-nr/framework-description/state_variables.md).
 
-Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `contract/src/main.nr` file:
+Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `nft_contract/src/main.nr` file:
 
 <!-- wrapped in a code block to add a "}" at the end -->
 
@@ -213,12 +213,12 @@ aztec new nft_bridge
 cd nft_bridge
 ```
 
-Now add the `NFTPunk` contract dependency to `contract/Nargo.toml`. The `aztec` dependency is already there:
+Now add the `NFTPunk` contract dependency to `nft_bridge_contract/Nargo.toml`. The `aztec` dependency is already there:
 
 ```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag = "#include_aztec_version", directory = "aztec" }
-NFTPunk = { path = "../../nft/contract" }
+NFTPunk = { path = "../../nft/nft_contract" }
 ```
 
 ### Understanding Bridges
@@ -232,7 +232,7 @@ This means having knowledge about the L2 NFT contract, and the bridge on the L1 
 
 ### Bridge Storage
 
-Clean up `contract/src/main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
+Clean up `nft_bridge_contract/src/main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
 
 <!-- wrapped in a code block to add a "}" at the end -->
 
@@ -469,6 +469,12 @@ A complete private NFT bridge with:
    - Claim on L2 → private NFT minted
    - Later: Burn on L2 → message to L1 → unlock
 
+## Going Further: The AIP-721 NFT Standard
+
+The NFTPunk contract you built in this tutorial implements a simplified NFT with private ownership. The **AIP-721** standard formalizes these patterns and adds partial-note transfers, commitment-based handoffs, all 7 cross-domain transfer patterns, and authwit-based authorization.
+
+Read the full [AIP-721 standard reference](../../aztec-nr/standards/aip-721.md) for details, or explore all [Aztec Contract Standards](../../aztec-nr/standards/index.md).
+
 ## Next Steps
 
 - Add a web frontend for easy bridging
@@ -476,9 +482,11 @@ A complete private NFT bridge with:
 - Add metadata bridging
 - Write comprehensive tests
 - Add proper access controls
+- Explore the [AIP-721 standard](../../aztec-nr/standards/aip-721.md) for production-grade NFT patterns
 
 :::tip Learn More
 
 - [State management page](../../foundational-topics/state_management.md)
 - [Cross-chain messaging](../../foundational-topics/ethereum-aztec-messaging/index.md)
+- [Aztec Contract Standards](../../aztec-nr/standards/index.md)
   :::

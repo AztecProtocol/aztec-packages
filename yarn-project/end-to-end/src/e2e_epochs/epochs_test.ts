@@ -28,6 +28,7 @@ import { type SequencerClient, type SequencerEvents, SequencerState } from '@azt
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import { join } from 'path';
 import type { Hex } from 'viem';
@@ -181,6 +182,7 @@ export class EpochsTestContext {
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
       targetCommitteeSize: await this.rollup.getTargetCommitteeSize(),
+      rollupManaLimit: Number(await this.rollup.getManaLimit()),
     };
 
     this.logger.info(
@@ -237,13 +239,21 @@ export class EpochsTestContext {
 
   public createValidatorNode(
     privateKeys: `0x${string}`[],
-    opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {},
+    opts: Partial<AztecNodeConfig> & {
+      dontStartSequencer?: boolean;
+      slashingProtectionDb?: SlashingProtectionDatabase;
+    } = {},
   ) {
     this.logger.warn('Creating and syncing a validator node...');
     return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
   }
 
-  private async createNode(opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {}) {
+  private async createNode(
+    opts: Partial<AztecNodeConfig> & {
+      dontStartSequencer?: boolean;
+      slashingProtectionDb?: SlashingProtectionDatabase;
+    } = {},
+  ) {
     const nodeIndex = this.nodes.length + 1;
     const actorPrefix = opts.disableValidator ? 'node' : 'validator';
     const { mockGossipSubNetwork } = this.context;
@@ -256,6 +266,7 @@ export class EpochsTestContext {
           ...resolvedConfig,
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
           validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
+          nodeId: resolvedConfig.nodeId || `${actorPrefix}-${nodeIndex}`,
           p2pEnabled,
           p2pIp,
         },
@@ -264,6 +275,7 @@ export class EpochsTestContext {
           p2pClientDeps: {
             p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
           },
+          slashingProtectionDb: opts.slashingProtectionDb,
         },
         {
           prefilledPublicData: this.context.prefilledPublicData,

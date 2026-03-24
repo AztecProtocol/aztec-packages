@@ -603,14 +603,14 @@ pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-pub global RECURSIVE_PROOF_LENGTH: u32 = 449;
+pub global RECURSIVE_PROOF_LENGTH: u32 = 410;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
 pub global IPA_PROOF_LENGTH: u32 = 64;
 pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for formula; based on root rollup log_n = 24
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1632;
+pub global CHONK_PROOF_LENGTH: u32 = 1330;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
@@ -634,16 +634,49 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // See ./constants_tests.nr for how the values are generated.
 // ---------------------------------------------------------------
 
-// Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
+/// Domain separator for note hashes.
+///
+/// This is not technically a protocol constant as note hashes are computed by each contract.
 pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
-pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
-pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+
+/// Domain separator for siloed note hashes.
+///
+/// Used by [`crate::hash::compute_siloed_note_hash`].
 pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3361878420;
 
+/// Domain separator for unique note hashes.
+///
+/// Used by [`crate::hash::compute_unique_note_hash`].
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+
+/// Domain separator for nonces.
+///
+/// Used by [`crate::hash::compute_note_hash_nonce`].
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
+
+/// Domain separator for `SingleUseClaim` nullifiers.
+///
+/// This is not technically a protocol constant as these nullifiers are computed by each contract.
+pub global DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER: u32 = 1465998995;
+
+/// Domain separator for note nullifiers.
+///
+/// This is not technically a protocol constant as note nullifiers are computed by each contract.
 pub global DOM_SEP__NOTE_NULLIFIER: u32 = 50789342;
-pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
+
+/// Domain separator for siloed nullifiers.
+///
+/// Used by [`crate::hash::compute_siloed_nullifier`].
 pub global DOM_SEP__SILOED_NULLIFIER: u32 = 57496191;
 
+/// Domain separator for L1 to L2 message nullifiers.
+///
+/// This is not technically a protocol constant as message nullifiers are computed by each contract.
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
+
+/// Domain separator for private log tags.
+///
+/// Used by [`crate::hash::compute_siloed_private_log_first_field`].
 pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 2769976252;
 
 pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 1247650290;
@@ -705,15 +738,36 @@ pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
 pub global DOM_SEP__SYMMETRIC_KEY: u32 = 3882206064;
 pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 4129434989;
+pub global DOM_SEP__CIPHERTEXT_FIELD_MASK: u32 = 1870492847;
 
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
 // ---------------------------------------------------------------
-// TODO: consider moving these to aztec-nr
+// TODO(F-397): move these to aztec-nr, along with note hash, note nullifier, message nullifier and single use claim
+// nullifier.
 
+/// Domain separator for state variable initialization.
+///
+/// Should not be reused for a given storage slot.
 pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
+pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
+pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
+
+/// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+
+/// Domain separator for transaction nullifiers.
+///
+/// Used to produce cancellable (replaceable) transactions.
+///
+/// This is not technically a protocol constant as cancellable transactions are an account contract feature.
 pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
+
+/// Domain separator for account contract payloads.
+///
+/// Used to check for authorization to execute a payload.
+///
+/// This is not technically a protocol constant as payload authorization is an account contract feature.
 pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
 
 // ---------------------------------------------------------------
@@ -1064,7 +1118,7 @@ pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
     GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
 // Default gas limits. Users should use gas estimation, or they will overpay gas fees.
-// TODO: consider moving to typescript
+// TODO: These are overridden in typescript-land. Remove them from here.
 pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
 pub global DEFAULT_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
 pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.

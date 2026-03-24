@@ -30,20 +30,20 @@ Your structure should look like this:
 ```tree
 .
 |-counter
-| |-Nargo.toml        <-- workspace root
-| |-contract
+| |-Nargo.toml              <-- workspace root
+| |-counter_contract
 | | |-src
 | | | |-main.nr
-| | |-Nargo.toml      <-- contract package config
-| |-test
+| | |-Nargo.toml            <-- contract package config
+| |-counter_test
 | | |-src
 | | | |-lib.nr
-| | |-Nargo.toml      <-- test package config
+| | |-Nargo.toml            <-- test package config
 ```
 
-The `aztec new` command creates a workspace with two crates: a `contract` crate for your smart contract code and a `test` crate for Noir tests. The file `contract/src/main.nr` will soon turn into our smart contract!
+The `aztec new` command creates a workspace with two crates: a `counter_contract` crate for your smart contract code and a `counter_test` crate for Noir tests. The file `counter_contract/src/main.nr` will soon turn into our smart contract!
 
-Add the following dependency to `contract/Nargo.toml` under the existing `aztec` dependency:
+Add the following dependency to `counter_contract/Nargo.toml` under the existing `aztec` dependency:
 
 ```toml
 [dependencies]
@@ -53,7 +53,7 @@ balance_set = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_
 
 ## Define the functions
 
-Go to `contract/src/main.nr`, and replace the boilerplate code with this contract initialization:
+Go to `counter_contract/src/main.nr`, and replace the boilerplate code with this contract initialization:
 
 ```rust
 #include_code setup /docs/examples/contracts/counter_contract/src/main.nr raw

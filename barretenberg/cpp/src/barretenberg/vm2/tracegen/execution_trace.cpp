@@ -522,6 +522,13 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
                               // Don't set dyn gas factor here since already set in process_gas
                           } });
+            } else if (*exec_opcode == ExecutionOpCode::SSTORE) {
+                trace.set(row,
+                          { {
+                              // SSTORE Dynamic Gas
+                              { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+                              { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
+                          } });
             }
         }
 
@@ -607,10 +614,12 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
-                              { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
+                              { C::execution_max_data_writes_reached, (remaining_data_writes == 0) ? 1 : 0 },
                               { C::execution_remaining_data_writes_inv,
                                 remaining_data_writes }, // Will be inverted in batch later.
-                              { C::execution_sel_write_public_data, !opcode_execution_failed },
+                              { C::execution_sel_write_public_data, opcode_execution_failed ? 0 : 1 },
+                              { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+                              { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
                           } });
             } else if (*exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();
@@ -619,7 +628,7 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
-                              { C::execution_note_hash_leaf_in_range, note_hash_leaf_in_range },
+                              { C::execution_note_hash_leaf_in_range, note_hash_leaf_in_range ? 1 : 0 },
                               { C::execution_note_hash_tree_leaf_count, FF(note_hash_tree_leaf_count) },
                           } });
             } else if (*exec_opcode == ExecutionOpCode::EMITNOTEHASH) {
@@ -628,10 +637,10 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
-                              { C::execution_sel_reached_max_note_hashes, remaining_note_hashes == 0 },
+                              { C::execution_sel_reached_max_note_hashes, (remaining_note_hashes == 0) ? 1 : 0 },
                               { C::execution_remaining_note_hashes_inv,
                                 remaining_note_hashes }, // Will be inverted in batch later.
-                              { C::execution_sel_write_note_hash, !opcode_execution_failed },
+                              { C::execution_sel_write_note_hash, opcode_execution_failed ? 0 : 1 },
                           } });
             } else if (*exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();
@@ -640,23 +649,29 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
-                              { C::execution_l1_to_l2_msg_leaf_in_range, l1_to_l2_msg_leaf_in_range },
+                              { C::execution_l1_to_l2_msg_leaf_in_range, l1_to_l2_msg_leaf_in_range ? 1 : 0 },
                               { C::execution_l1_to_l2_msg_tree_leaf_count, FF(l1_to_l2_msg_tree_leaf_count) },
                           } });
-                //} else if (exec_opcode == ExecutionOpCode::NULLIFIEREXISTS) {
-                // no custom columns!
+            } else if (exec_opcode == ExecutionOpCode::NULLIFIEREXISTS) {
+                trace.set(row,
+                          { {
+                              { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                          } });
             } else if (*exec_opcode == ExecutionOpCode::EMITNULLIFIER) {
                 uint32_t remaining_nullifiers =
                     MAX_NULLIFIERS_PER_TX - ex_event.before_context_event.tree_states.nullifier_tree.counter;
 
                 trace.set(row,
-                          { {
-                              { C::execution_sel_reached_max_nullifiers, remaining_nullifiers == 0 },
+                          { { { C::execution_sel_reached_max_nullifiers, (remaining_nullifiers == 0) ? 1 : 0 },
                               { C::execution_remaining_nullifiers_inv,
                                 remaining_nullifiers }, // Will be inverted in batch later.
                               { C::execution_sel_write_nullifier,
-                                remaining_nullifiers != 0 && !ex_event.before_context_event.is_static },
-                          } });
+                                (remaining_nullifiers != 0 && !ex_event.before_context_event.is_static) ? 1 : 0 },
+                              { C::execution_nullifier_pi_offset,
+                                AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX +
+                                    ex_event.before_context_event.tree_states.nullifier_tree.counter },
+                              { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                              { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER } } });
             } else if (*exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
                 uint32_t remaining_l2_to_l1_msgs =
                     MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.numL2ToL1Messages;
@@ -665,18 +680,19 @@ void ExecutionTraceBuilder::process(
                 bool sel_too_large_recipient_error =
                     static_cast<uint256_t>(recipient) > static_cast<uint256_t>(MAX_ETH_ADDRESS_VALUE);
 
-                trace.set(row,
-                          { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
-                              { C::execution_remaining_l2_to_l1_msgs_inv,
-                                remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
-                              { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
-                              { C::execution_sel_too_large_recipient_error, sel_too_large_recipient_error },
-                              { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !is_discarding() },
-                              {
-                                  C::execution_public_inputs_index,
-                                  AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
-                                      ex_event.before_context_event.numL2ToL1Messages,
-                              } } });
+                trace.set(
+                    row,
+                    { { { C::execution_sel_l2_to_l1_msg_limit_error, (remaining_l2_to_l1_msgs == 0) ? 1 : 0 },
+                        { C::execution_remaining_l2_to_l1_msgs_inv,
+                          remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
+                        { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
+                        { C::execution_sel_too_large_recipient_error, sel_too_large_recipient_error ? 1 : 0 },
+                        { C::execution_sel_write_l2_to_l1_msg, (!opcode_execution_failed && !is_discarding()) ? 1 : 0 },
+                        {
+                            C::execution_public_inputs_index,
+                            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
+                                ex_event.before_context_event.numL2ToL1Messages,
+                        } } });
             }
         }
 
@@ -1012,7 +1028,7 @@ void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
         C::execution_remaining_data_writes_inv,
         C::execution_remaining_note_hashes_inv,
         C::execution_remaining_nullifiers_inv,
-        // L1ToL2MsgExists.
+        // SendL2ToL1Msg.
         C::execution_remaining_l2_to_l1_msgs_inv,
         // Discard.
         C::execution_dying_context_id_inv,

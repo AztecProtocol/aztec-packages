@@ -6,6 +6,7 @@
 
 #include "merge_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -114,6 +115,7 @@ template <typename Curve>
 typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
     const Proof& proof, const InputCommitments& input_commitments)
 {
+    BB_BENCH_NAME("MergeVerifier::reduce");
     transcript->load_proof(proof);
 
     // Receive shift size from prover

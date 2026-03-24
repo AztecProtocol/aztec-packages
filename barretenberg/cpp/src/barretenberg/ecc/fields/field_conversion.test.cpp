@@ -271,4 +271,88 @@ TEST_F(FieldConversionTest, RejectPointNotOnCurve)
 }
 #endif
 
+// ============================================================================
+// U256Codec canonical checks
+// ============================================================================
+
+/**
+ * @brief Test that U256Codec accepts canonical field elements.
+ */
+TEST_F(FieldConversionTest, U256CodecAcceptsCanonicalFr)
+{
+    // Zero
+    {
+        std::vector<uint256_t> vec = { uint256_t(0) };
+        auto result = U256Codec::deserialize_from_fields<bb::fr>(vec);
+        EXPECT_EQ(result, bb::fr(0));
+    }
+    // One
+    {
+        std::vector<uint256_t> vec = { uint256_t(1) };
+        auto result = U256Codec::deserialize_from_fields<bb::fr>(vec);
+        EXPECT_EQ(result, bb::fr(1));
+    }
+    // modulus - 1 (largest canonical value)
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) - 1 };
+        auto result = U256Codec::deserialize_from_fields<bb::fr>(vec);
+        EXPECT_EQ(result, bb::fr(bb::fr::modulus - 1));
+    }
+}
+
+/**
+ * @brief Test that U256Codec accepts canonical fq elements.
+ */
+TEST_F(FieldConversionTest, U256CodecAcceptsCanonicalFq)
+{
+    using fq = grumpkin::fr;
+    std::vector<uint256_t> vec = { uint256_t(0) };
+    auto result = U256Codec::deserialize_from_fields<fq>(vec);
+    EXPECT_EQ(result, fq(0));
+
+    vec = { uint256_t(fq::modulus) - 1 };
+    result = U256Codec::deserialize_from_fields<fq>(vec);
+    EXPECT_EQ(result, fq(fq::modulus - 1));
+}
+
+/**
+ * @brief Test that U256Codec rejects non-canonical field elements (>= modulus).
+ * @details Security-critical: prevents Fiat-Shamir challenge grinding in Keccak transcript.
+ */
+#ifndef __wasm__
+TEST_F(FieldConversionTest, U256CodecRejectsNonCanonicalFr)
+{
+    // fr::modulus itself (v + 0*p where v=0 but encoded as p)
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<bb::fr>(vec), "Non-canonical");
+    }
+    // fr::modulus + 1
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) + 1 };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<bb::fr>(vec), "Non-canonical");
+    }
+    // 2 * fr::modulus (another alias for 0)
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) * 2 };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<bb::fr>(vec), "Non-canonical");
+    }
+}
+
+TEST_F(FieldConversionTest, U256CodecRejectsNonCanonicalFq)
+{
+    using fq = grumpkin::fr;
+    // fq::modulus itself
+    {
+        std::vector<uint256_t> vec = { uint256_t(fq::modulus) };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<fq>(vec), "Non-canonical");
+    }
+    // fq::modulus + 1
+    {
+        std::vector<uint256_t> vec = { uint256_t(fq::modulus) + 1 };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<fq>(vec), "Non-canonical");
+    }
+}
+#endif
+
 } // namespace bb::field_conversion_tests

@@ -11,9 +11,9 @@ import type { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import {
+  type BaseSignerConfig,
   DutyType,
   type HAProtectedSigningContext,
-  type ValidatorHASignerConfig,
   getBlockNumberFromSigningContext,
 } from '@aztec/stdlib/ha-signing';
 
@@ -56,18 +56,13 @@ export class ValidatorHASigner {
 
   constructor(
     db: SlashingProtectionDatabase,
-    private readonly config: ValidatorHASignerConfig,
+    private readonly config: BaseSignerConfig,
     deps: ValidatorHASignerDeps,
   ) {
     this.log = createLogger('validator-ha-signer');
 
     this.metrics = deps.metrics;
     this.dateProvider = deps.dateProvider;
-
-    if (!config.haSigningEnabled) {
-      // this shouldn't happen, the validator should use different signer for non-HA setups
-      throw new Error('Validator HA Signer is not enabled in config');
-    }
 
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');

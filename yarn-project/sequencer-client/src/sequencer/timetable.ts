@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   CHECKPOINT_ASSEMBLE_TIME,
   CHECKPOINT_INITIALIZATION_TIME,
@@ -80,7 +80,7 @@ export class SequencerTimetable {
       enforce: boolean;
     },
     private readonly metrics?: SequencerMetrics,
-    private readonly log = createLogger('sequencer:timetable'),
+    private readonly log?: Logger,
   ) {
     this.ethereumSlotDuration = opts.ethereumSlotDuration;
     this.aztecSlotDuration = opts.aztecSlotDuration;
@@ -132,7 +132,7 @@ export class SequencerTimetable {
     const initializeDeadline = this.aztecSlotDuration - minWorkToDo;
     this.initializeDeadline = initializeDeadline;
 
-    this.log.info(
+    this.log?.info(
       `Sequencer timetable initialized with ${this.maxNumberOfBlocks} blocks per slot (${this.enforce ? 'enforced' : 'not enforced'})`,
       {
         ethereumSlotDuration: this.ethereumSlotDuration,
@@ -206,7 +206,7 @@ export class SequencerTimetable {
     }
 
     this.metrics?.recordStateTransitionBufferMs(Math.floor(bufferSeconds * 1000), newState);
-    this.log.trace(`Enough time to transition to ${newState}`, { maxAllowedTime, secondsIntoSlot });
+    this.log?.trace(`Enough time to transition to ${newState}`, { maxAllowedTime, secondsIntoSlot });
   }
 
   /**
@@ -242,7 +242,7 @@ export class SequencerTimetable {
       const canStart = available >= this.minExecutionTime;
       const deadline = secondsIntoSlot + available;
 
-      this.log.verbose(
+      this.log?.verbose(
         `${canStart ? 'Can' : 'Cannot'} start single-block checkpoint at ${secondsIntoSlot}s into slot`,
         { secondsIntoSlot, maxAllowed, available, deadline },
       );
@@ -262,7 +262,7 @@ export class SequencerTimetable {
         // Found an available sub-slot! Is this the last one?
         const isLastBlock = subSlot === this.maxNumberOfBlocks;
 
-        this.log.verbose(
+        this.log?.verbose(
           `Can start ${isLastBlock ? 'last block' : 'block'} in sub-slot ${subSlot} with deadline ${deadline}s`,
           { secondsIntoSlot, deadline, timeUntilDeadline, subSlot, maxBlocks: this.maxNumberOfBlocks },
         );
@@ -272,7 +272,7 @@ export class SequencerTimetable {
     }
 
     // No sub-slots available with enough time
-    this.log.verbose(`No time left to start any more blocks`, {
+    this.log?.verbose(`No time left to start any more blocks`, {
       secondsIntoSlot,
       maxBlocks: this.maxNumberOfBlocks,
       initializationOffset: this.initializationOffset,

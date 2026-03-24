@@ -4,10 +4,10 @@ use crate::{
         leaf_preimage::IndexedTreeLeafPreimage,
         root::{root_from_sibling_path, root_from_sibling_path_with_hasher},
     },
-    traits::Empty,
+    traits::{Deserialize, Empty, Serialize},
 };
 
-#[derive(Eq)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct MembershipWitness<let N: u32> {
     pub leaf_index: Field,
     pub sibling_path: [Field; N],
@@ -126,12 +126,9 @@ where
 }
 
 mod tests {
-    use crate::{
-        merkle_tree::leaf_preimage::LeafPreimage,
-        tests::{
-            merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
-            types::test_leaf_preimage::TestLeafPreimage,
-        },
+    use crate::merkle_tree::{
+        leaf_preimage::LeafPreimage,
+        test_utils::{SingleSubtreeMerkleTree, TestLeafPreimage},
     };
     use super::{
         check_membership, check_non_membership, conditionally_check_membership, MembershipWitness,

@@ -51,8 +51,9 @@ function main {
         local head_branch
         head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "$pr_number" --json headRefName -q '.headRefName' 2>/dev/null || true)
         if [ "$head_branch" == "merge-train/spartan" ]; then
-          echo "Merge-train/spartan PR detected, using merge-queue-heavy mode" >&2
           ci_mode="merge-queue-heavy"
+        elif [ "$head_branch" == "merge-train/ci" ]; then
+          ci_mode="merge-queue-ci"
         fi
       fi
     fi

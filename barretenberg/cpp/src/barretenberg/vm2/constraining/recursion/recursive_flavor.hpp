@@ -172,9 +172,6 @@ class AvmRecursiveFlavor {
 
             [[maybe_unused]] auto _kzg_w = transcript->template receive_from_prover<StdlibCommitment>("KZG:W");
 
-            [[maybe_unused]] const FF _masking_challenge =
-                transcript->template get_challenge<FF>("KZG:masking_challenge");
-
             return transcript;
         };
 

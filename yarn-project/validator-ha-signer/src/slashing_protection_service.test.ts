@@ -3,7 +3,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { DutyType, type ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
+import { type BaseSignerConfig, DutyType } from '@aztec/stdlib/ha-signing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -36,7 +36,7 @@ describe('SlashingProtectionService', () => {
   let pool: Pool;
   let db: PostgresSlashingProtectionDatabase;
   let service: SlashingProtectionService;
-  let config: ValidatorHASignerConfig;
+  let config: BaseSignerConfig;
   let dateProvider: TestDateProvider;
   const telemetryClient = getTelemetryClient();
 
@@ -51,7 +51,6 @@ describe('SlashingProtectionService', () => {
     dateProvider = new TestDateProvider();
 
     config = {
-      haSigningEnabled: true,
       l1Contracts: { rollupAddress: ROLLUP_ADDRESS },
       nodeId: NODE_ID,
       pollingIntervalMs: 50,

@@ -1,10 +1,11 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, PrivateFeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsArgs } from '@aztec/ethereum/deploy-aztec-l1-contracts';
@@ -130,11 +131,14 @@ export class ClientFlowsBenchmark {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
+    // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
+    const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
       ...this.setupOptions,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
       l1ContractsArgs: this.setupOptions,
+      txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
     await this.applyBaseSetup();
 
@@ -162,11 +166,15 @@ export class ClientFlowsBenchmark {
 
   /** Admin mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balanceBefore } = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
 
     await mintTokensToPrivate(this.bananaCoin, this.adminAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balanceAfter } = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
@@ -242,13 +250,12 @@ export class ClientFlowsBenchmark {
 
   async applyDeployBananaToken() {
     this.logger.info('Applying banana token deployment');
-    const { contract: bananaCoin, instance: bananaCoinInstance } = await BananaCoin.deploy(
-      this.adminWallet,
-      this.adminAddress,
-      'BC',
-      'BC',
-      18n,
-    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
+    const {
+      receipt: { contract: bananaCoin, instance: bananaCoinInstance },
+    } = await BananaCoin.deploy(this.adminWallet, this.adminAddress, 'BC', 'BC', 18n).send({
+      from: this.adminAddress,
+      wait: { returnReceipt: true },
+    });
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
     this.bananaCoin = bananaCoin;
     this.bananaCoinInstance = bananaCoinInstance;
@@ -256,13 +263,12 @@ export class ClientFlowsBenchmark {
 
   async applyDeployCandyBarToken() {
     this.logger.info('Applying candy bar token deployment');
-    const { contract: candyBarCoin, instance: candyBarCoinInstance } = await TokenContract.deploy(
-      this.adminWallet,
-      this.adminAddress,
-      'CBC',
-      'CBC',
-      18n,
-    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
+    const {
+      receipt: { contract: candyBarCoin, instance: candyBarCoinInstance },
+    } = await TokenContract.deploy(this.adminWallet, this.adminAddress, 'CBC', 'CBC', 18n).send({
+      from: this.adminAddress,
+      wait: { returnReceipt: true },
+    });
     this.logger.info(`CandyBarCoin deployed at ${candyBarCoin.address}`);
     this.candyBarCoin = candyBarCoin;
     this.candyBarCoinInstance = candyBarCoinInstance;
@@ -274,11 +280,12 @@ export class ClientFlowsBenchmark {
     expect((await this.context.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
     const bananaCoin = this.bananaCoin;
-    const { contract: bananaFPC, instance: bananaFPCInstance } = await FPCContract.deploy(
-      this.adminWallet,
-      bananaCoin.address,
-      this.adminAddress,
-    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
+    const {
+      receipt: { contract: bananaFPC, instance: bananaFPCInstance },
+    } = await FPCContract.deploy(this.adminWallet, bananaCoin.address, this.adminAddress).send({
+      from: this.adminAddress,
+      wait: { returnReceipt: true },
+    });
 
     this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
@@ -327,7 +334,7 @@ export class ClientFlowsBenchmark {
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(benchysAddress);
     const behchysDeployMethod = await benchysAccountManager.getDeployMethod();
     await behchysDeployMethod.send({
-      from: AztecAddress.ZERO,
+      from: NO_FROM,
       fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(benchysAddress, claim) },
     });
     // Register benchy on the user's Wallet, where we're going to be interacting from
@@ -341,14 +348,15 @@ export class ClientFlowsBenchmark {
 
   public async applyDeployAmm() {
     this.logger.info('Applying AMM deployment');
-    const { contract: liquidityToken, instance: liquidityTokenInstance } = await TokenContract.deploy(
-      this.adminWallet,
-      this.adminAddress,
-      'LPT',
-      'LPT',
-      18n,
-    ).send({ from: this.adminAddress, wait: { returnReceipt: true } });
-    const { contract: amm, instance: ammInstance } = await AMMContract.deploy(
+    const {
+      receipt: { contract: liquidityToken, instance: liquidityTokenInstance },
+    } = await TokenContract.deploy(this.adminWallet, this.adminAddress, 'LPT', 'LPT', 18n).send({
+      from: this.adminAddress,
+      wait: { returnReceipt: true },
+    });
+    const {
+      receipt: { contract: amm, instance: ammInstance },
+    } = await AMMContract.deploy(
       this.adminWallet,
       this.bananaCoin.address,
       this.candyBarCoin.address,

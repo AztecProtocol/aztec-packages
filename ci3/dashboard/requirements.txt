@@ -1,6 +1,7 @@
 flask
 gunicorn
 redis
+boto3
 ansi2html
 Flask-Compress
 requests

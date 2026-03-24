@@ -101,23 +101,6 @@ export class CheckpointProposal extends Gossipable {
     return this.checkpointHeader.slotNumber;
   }
 
-  get blockNumber(): BlockNumber {
-    if (!this.lastBlock) {
-      throw new Error('Cannot get blockNumber without lastBlock');
-    }
-    return this.lastBlock.blockHeader.getBlockNumber();
-  }
-
-  /** Convenience getter for txHashes from lastBlock */
-  get txHashes(): TxHash[] {
-    return this.lastBlock?.txHashes ?? [];
-  }
-
-  /** Convenience getter for txs from lastBlock */
-  get txs(): Tx[] | undefined {
-    return this.lastBlock?.signedTxs?.txs;
-  }
-
   /**
    * Extract a BlockProposal from the last block info.
    * Uses inHash from checkpointHeader.contentCommitment.inHash
@@ -195,29 +178,32 @@ export class CheckpointProposal extends Gossipable {
       blockNumber: lastBlockInfo?.blockHeader?.globalVariables.blockNumber ?? BlockNumber(0),
       dutyType: DutyType.CHECKPOINT_PROPOSAL,
     };
-    const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
 
-    if (!lastBlockInfo) {
-      return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature);
+    if (lastBlockInfo) {
+      // Sign block proposal before signing checkpoint proposal to ensure HA protection
+      const lastBlockProposal = await BlockProposal.createProposalFromSigner(
+        lastBlockInfo.blockHeader,
+        lastBlockInfo.indexWithinCheckpoint,
+        checkpointHeader.inHash,
+        archiveRoot,
+        lastBlockInfo.txHashes,
+        lastBlockInfo.txs,
+        payloadSigner,
+      );
+
+      const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
+
+      return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature, {
+        blockHeader: lastBlockInfo.blockHeader,
+        indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
+        txHashes: lastBlockInfo.txHashes,
+        signature: lastBlockProposal.signature,
+        signedTxs: lastBlockProposal.signedTxs,
+      });
     }
 
-    const lastBlockProposal = await BlockProposal.createProposalFromSigner(
-      lastBlockInfo.blockHeader,
-      lastBlockInfo.indexWithinCheckpoint,
-      checkpointHeader.inHash,
-      archiveRoot,
-      lastBlockInfo.txHashes,
-      lastBlockInfo.txs,
-      payloadSigner,
-    );
-
-    return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature, {
-      blockHeader: lastBlockInfo.blockHeader,
-      indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-      txHashes: lastBlockInfo.txHashes,
-      signature: lastBlockProposal.signature,
-      signedTxs: lastBlockProposal.signedTxs,
-    });
+    const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
+    return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature);
   }
 
   /**

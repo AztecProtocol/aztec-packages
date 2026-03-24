@@ -138,6 +138,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       proverTestDelayMs: 100,
       proverTestDelayFactor: 1,
       cancelJobsOnStop: false,
+      enqueueConcurrency: 10,
       proverAgentCount: 1,
       coinbase: EthAddress.random(),
       maxPendingTxCount: 1000,
@@ -176,6 +177,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       pollingIntervalMs: 50,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
       l1Contracts: {
         rollupAddress: EthAddress.random(),
       },

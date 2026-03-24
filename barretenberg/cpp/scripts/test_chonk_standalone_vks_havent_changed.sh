@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
-export bb="$root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb"
+export bb="$root/barretenberg/cpp/$(./preset-build-dir)/bin/bb"
 
 # script path to auto update short hash
 script_path="$root/barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
@@ -16,7 +16,7 @@ script_path="$root/barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_cha
 # - Generate a hash for versioning: sha256sum bb-chonk-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="189f0026"
+pinned_short_hash="aafc0a7e"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
 function update_pinned_hash_in_script {
@@ -150,8 +150,12 @@ elif [[ "${1:-}" == "--update_inputs" ]]; then
     # Generate new inputs
     echo "Running bootstrap to generate new IVC inputs..."
 
-    BOOTSTRAP_TO=yarn-project ../../bootstrap.sh # bootstrap aztec-packages from root
-    ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
+    cd "$root"
+    ./bootstrap.sh pull_submodules
+    make yarn-project
+    cd yarn-project/end-to-end
+    ./bootstrap.sh build_bench # build bench to generate IVC inputs
+    cd "$root/barretenberg/cpp/scripts"
 
     compress_and_upload "$inputs_dir"
 

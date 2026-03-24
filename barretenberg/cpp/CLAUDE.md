@@ -57,6 +57,13 @@ Note: Once you enable AVM, subsequent `ninja` calls will include AVM targets unt
 - **dsl/** - ACIR definition in C++. This is dictated by the serialization in noir/, so refactor should generally not change the structure without confirming that the user is changing noir.
 - **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh). If working in vm2, use barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md
 
+## Code formatting
+
+All C++ files must be formatted with clang-format before committing:
+```bash
+clang-format-20 -i <files>
+```
+
 ## Benchmarking:
 
 **IMPORTANT**: In the barretenberg context, "bench" or "benchmark" almost always means running `benchmark_remote.sh` for the given target on a remote benchmarking machine.

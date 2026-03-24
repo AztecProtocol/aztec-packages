@@ -171,6 +171,9 @@ export function parsePaymentMethod(
       case 'fpc-public': {
         const fpc = getFpc();
         const asset = getAsset();
+        log(
+          `WARNING: fpc-public is deprecated and will not work on mainnet alpha. Use fee_juice or fpc-sponsored instead.`,
+        );
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PublicFeePaymentMethod(fpc, from, wallet, gasSettings);
@@ -178,6 +181,9 @@ export function parsePaymentMethod(
       case 'fpc-private': {
         const fpc = getFpc();
         const asset = getAsset();
+        log(
+          `WARNING: fpc-private is deprecated and will not work on mainnet alpha. Use fee_juice or fpc-sponsored instead.`,
+        );
         log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PrivateFeePaymentMethod(fpc, from, wallet, gasSettings);

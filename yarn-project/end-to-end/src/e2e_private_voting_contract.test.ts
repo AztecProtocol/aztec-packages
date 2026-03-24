@@ -25,7 +25,7 @@ describe('e2e_voting_contract', () => {
       accounts: [owner],
     } = await setup(1));
 
-    votingContract = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner });
+    ({ contract: votingContract } = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner }));
 
     logger.info(`Counter contract deployed at ${votingContract.address}`);
   });
@@ -40,7 +40,7 @@ describe('e2e_voting_contract', () => {
       await votingContract.methods.start_vote(electionId).send({ from: owner });
 
       await votingContract.methods.cast_vote(electionId, candidate).send({ from: owner });
-      expect(await votingContract.methods.get_tally(electionId, candidate).simulate({ from: owner })).toBe(1n);
+      expect((await votingContract.methods.get_tally(electionId, candidate).simulate({ from: owner })).result).toBe(1n);
 
       // We try voting again, but our TX is dropped due to trying to emit duplicate nullifiers
       // first confirm that it fails simulation

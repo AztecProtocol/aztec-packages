@@ -26,7 +26,9 @@ describe('e2e_token_contract transfer_to_public', () => {
   });
 
   it('on behalf of self', async () => {
-    const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: balancePriv } = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress });
     const amount = balancePriv / 2n;
     expect(amount).toBeGreaterThan(0n);
 
@@ -36,7 +38,9 @@ describe('e2e_token_contract transfer_to_public', () => {
   });
 
   it('on behalf of other', async () => {
-    const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: balancePriv0 } = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress });
     const amount = balancePriv0 / 2n;
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
@@ -56,7 +60,9 @@ describe('e2e_token_contract transfer_to_public', () => {
 
   describe('failure cases', () => {
     it('on behalf of self (more than balance)', async () => {
-      const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balancePriv } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balancePriv + 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -66,7 +72,9 @@ describe('e2e_token_contract transfer_to_public', () => {
     });
 
     it('on behalf of self (invalid authwit nonce)', async () => {
-      const balancePriv = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balancePriv } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balancePriv + 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -78,7 +86,9 @@ describe('e2e_token_contract transfer_to_public', () => {
     });
 
     it('on behalf of other (more than balance)', async () => {
-      const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balancePriv0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balancePriv0 + 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -93,7 +103,9 @@ describe('e2e_token_contract transfer_to_public', () => {
     });
 
     it('on behalf of other (invalid designated caller)', async () => {
-      const balancePriv0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balancePriv0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balancePriv0 + 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);

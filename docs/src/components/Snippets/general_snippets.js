@@ -64,6 +64,13 @@ export const General = {
       protocol to perform a transaction.
     </p>
   ),
+
+  AztecJSPrerequisites: ({ href = "how_to_connect_to_local_network" }) => (
+    <>
+      <a href={href}>Connected to a network</a>{" "}
+      with an <code>EmbeddedWallet</code> instance and funded accounts
+    </>
+  ),
 };
 
 export const Fees = {

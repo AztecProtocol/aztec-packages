@@ -94,7 +94,9 @@ export class LendingSimulator {
 
   async prepare() {
     this.accumulator = BASE;
-    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()) + BigInt(this.ethereumSlotDuration));
+    const slot = await this.rollup.getSlotAt(
+      BigInt(await this.cc.eth.lastBlockTimestamp()) + BigInt(this.ethereumSlotDuration),
+    );
     this.time = Number(await this.rollup.getTimestampForSlot(slot));
   }
 
@@ -103,7 +105,7 @@ export class LendingSimulator {
       return;
     }
 
-    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()));
+    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.lastBlockTimestamp()));
     const targetSlot = SlotNumber(slot + diff);
     const ts = Number(await this.rollup.getTimestampForSlot(targetSlot));
     const timeDiff = ts - this.time;
@@ -186,14 +188,16 @@ export class LendingSimulator {
 
     expect(this.borrowed).toEqual(this.stableCoin.totalSupply - this.mintedOutside);
 
-    const asset = await this.lendingContract.methods.get_asset(0).simulate({ from: this.account.address });
+    const { result: asset } = await this.lendingContract.methods.get_asset(0).simulate({ from: this.account.address });
 
     const interestAccumulator = asset['interest_accumulator'];
     expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
     for (const key of [this.account.address, AztecAddress.fromField(await this.account.key())]) {
-      const privatePos = await this.lendingContract.methods.get_position(key).simulate({ from: this.account.address });
+      const { result: privatePos } = await this.lendingContract.methods
+        .get_position(key)
+        .simulate({ from: this.account.address });
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);
       expect(privatePos['debt']).toEqual(

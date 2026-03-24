@@ -27,7 +27,7 @@ attesters:
     name: "" # if empty name will be generated based on Release.Name
 
 publishers:
-  perValidatorKey: 1
+  perReplica: 4
   mnemonicStartIndex: 5000
   keyStoreSecret:
     create: true

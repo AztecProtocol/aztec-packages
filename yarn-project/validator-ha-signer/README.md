@@ -36,7 +36,6 @@ import { createHASigner } from '@aztec/validator-ha-signer/factory';
 
 const { signer, db } = await createHASigner({
   databaseUrl: process.env.DATABASE_URL,
-  haSigningEnabled: true,
   nodeId: 'validator-node-1',
   pollingIntervalMs: 100,
   signingTimeoutMs: 3000,
@@ -81,7 +80,6 @@ const db = new PostgresSlashingProtectionDatabase(pool);
 await db.initialize();
 
 const signer = new ValidatorHASigner(db, {
-  haSigningEnabled: true,
   nodeId: 'validator-node-1',
   pollingIntervalMs: 100,
   signingTimeoutMs: 3000,

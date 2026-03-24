@@ -25,7 +25,7 @@ describe('e2e_token_contract transfer private', () => {
   });
 
   it('transfer on behalf of other', async () => {
-    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
@@ -45,7 +45,9 @@ describe('e2e_token_contract transfer private', () => {
 
   describe('failure cases', () => {
     it('transfer on behalf of self with non-zero nonce', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balance0 - 1n;
       expect(amount).toBeGreaterThan(0n);
       await expect(
@@ -61,8 +63,12 @@ describe('e2e_token_contract transfer private', () => {
     });
 
     it('transfer more than balance on behalf of other', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
-      const balance1 = await asset.methods.balance_of_private(account1Address).simulate({ from: account1Address });
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
+      const { result: balance1 } = await asset.methods
+        .balance_of_private(account1Address)
+        .simulate({ from: account1Address });
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -74,10 +80,12 @@ describe('e2e_token_contract transfer private', () => {
       await expect(
         simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
       ).rejects.toThrow('Assertion failed: Balance too low');
-      expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_private(account1Address).simulate({ from: account1Address })).toEqual(
-        balance1,
+      expect((await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).result).toEqual(
+        balance0,
       );
+      expect(
+        (await asset.methods.balance_of_private(account1Address).simulate({ from: account1Address })).result,
+      ).toEqual(balance1);
     });
 
     it.skip('transfer into account to overflow', () => {
@@ -88,7 +96,9 @@ describe('e2e_token_contract transfer private', () => {
     });
 
     it('transfer on behalf of other without approval', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balance0 / 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -107,7 +117,9 @@ describe('e2e_token_contract transfer private', () => {
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balance0 / 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -125,11 +137,15 @@ describe('e2e_token_contract transfer private', () => {
       await expect(
         simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
       ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-      expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
+      expect((await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).result).toEqual(
+        balance0,
+      );
     });
 
     it('transfer on behalf of other, cancelled authwit', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balance0 / 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);

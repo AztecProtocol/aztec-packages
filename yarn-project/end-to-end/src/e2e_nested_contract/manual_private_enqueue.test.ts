@@ -19,8 +19,8 @@ describe('e2e_nested_contract manual_enqueue', () => {
   });
 
   beforeEach(async () => {
-    parentContract = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress });
-    childContract = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: parentContract } = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress }));
+    ({ contract: childContract } = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(async () => {

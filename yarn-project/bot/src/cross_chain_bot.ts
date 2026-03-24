@@ -140,7 +140,8 @@ export class CrossChainBot extends BaseBot {
     const opts = await this.getSendMethodOpts(batch);
 
     this.log.verbose(`Sending cross-chain batch with ${calls.length} calls`, logCtx);
-    return batch.send({ ...opts, wait: NO_WAIT });
+    const { txHash } = await batch.send({ ...opts, wait: NO_WAIT });
+    return txHash;
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {
@@ -174,14 +175,7 @@ export class CrossChainBot extends BaseBot {
   ): Promise<PendingL1ToL2Message | undefined> {
     const now = Date.now();
     for (const msg of pendingMessages) {
-      const ready = await isL1ToL2MessageReady(this.node, Fr.fromHexString(msg.msgHash), {
-        // Use forPublicConsumption: false so we wait until blockNumber >= messageBlockNumber.
-        // With forPublicConsumption: true, the check returns true one block early (the sequencer
-        // includes L1→L2 messages before executing the block's txs), but gas estimation simulates
-        // against the current world state which doesn't yet have the message.
-        // See https://linear.app/aztec-labs/issue/A-548 for details.
-        forPublicConsumption: false,
-      });
+      const ready = await isL1ToL2MessageReady(this.node, Fr.fromHexString(msg.msgHash));
       if (ready) {
         return msg;
       }

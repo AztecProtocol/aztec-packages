@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
@@ -160,8 +161,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     // Get the witness commitments that the verifier needs to verify
     VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
-    // For ZK flavors: set gemini_masking_poly commitment from accumulator
-    if constexpr (Flavor::HasZK) {
+    // For ZK flavors with Gemini masking: set gemini_masking_poly commitment from accumulator
+    if constexpr (flavor_has_gemini_masking<Flavor>()) {
         commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
     }
 
@@ -231,6 +232,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
+    BB_BENCH_NAME("UltraVerifier::verify_proof");
     // Step 1: Split proof if needed
     Proof honk_proof;
     Proof ipa_proof;

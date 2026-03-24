@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 
 #include <gtest/gtest.h>
@@ -29,10 +30,10 @@ static_assert(TranslatorFlavor::PROOF_LENGTH == 483, "Translator proof size chan
 // Full proof lengths (used in Noir)
 static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-        UltraFlavor::VIRTUAL_LOG_N) == 449,
+        UltraFlavor::VIRTUAL_LOG_N) == 410,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::PROOF_LENGTH == 1632, "CHONK_PROOF_LENGTH changed - update constants.nr");
-static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,
+static_assert(ChonkProof::PROOF_LENGTH == 1330, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 136,
               "MultilinearBatching proof size changed - update constants.nr");
 
 /**

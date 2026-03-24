@@ -8,7 +8,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
+import type { BaseSignerConfig } from '@aztec/stdlib/ha-signing';
 
 import {
   type CheckAndRecordParams,
@@ -55,7 +55,7 @@ export class SlashingProtectionService {
 
   constructor(
     private readonly db: SlashingProtectionDatabase,
-    private readonly config: ValidatorHASignerConfig,
+    private readonly config: BaseSignerConfig,
     deps: SlashingProtectionServiceDeps,
   ) {
     this.log = createLogger('slashing-protection');
@@ -99,7 +99,7 @@ export class SlashingProtectionService {
 
       if (isNew) {
         // We successfully acquired the lock
-        this.log.info(`Acquired lock for duty ${dutyType} at slot ${slot}`, {
+        this.log.verbose(`Acquired lock for duty ${dutyType} at slot ${slot}`, {
           validatorAddress: validatorAddress.toString(),
           nodeId,
         });
@@ -177,7 +177,7 @@ export class SlashingProtectionService {
     );
 
     if (success) {
-      this.log.info(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
+      this.log.verbose(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
         validatorAddress: validatorAddress.toString(),
         nodeId,
       });

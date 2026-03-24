@@ -173,9 +173,9 @@ using lookup_tx_note_hash_append_relation = lookup_relation_base<FF_, lookup_tx_
 struct lookup_tx_nullifier_append_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_NULLIFIER_APPEND";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
     static constexpr Column SRC_SELECTOR = Column::tx_should_nullifier_append;
-    static constexpr Column DST_SELECTOR = Column::nullifier_check_write;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_tx_nullifier_append_counts;
     static constexpr Column INVERSES = Column::lookup_tx_nullifier_append_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -185,18 +185,20 @@ struct lookup_tx_nullifier_append_settings_ {
         ColumnAndShifts::tx_next_nullifier_tree_root,
         ColumnAndShifts::tx_prev_nullifier_tree_size,
         ColumnAndShifts::tx_discard,
-        ColumnAndShifts::tx_prev_num_nullifiers_emitted,
+        ColumnAndShifts::tx_write_nullifier_pi_offset,
+        ColumnAndShifts::tx_nullifier_tree_height,
         ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::nullifier_check_nullifier,
-        ColumnAndShifts::nullifier_check_root,
-        ColumnAndShifts::nullifier_check_exists,
-        ColumnAndShifts::nullifier_check_write_root,
-        ColumnAndShifts::nullifier_check_tree_size_before_write,
-        ColumnAndShifts::nullifier_check_discard,
-        ColumnAndShifts::nullifier_check_nullifier_index,
-        ColumnAndShifts::nullifier_check_sel_silo
+        ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,
+        ColumnAndShifts::indexed_tree_check_exists,
+        ColumnAndShifts::indexed_tree_check_write_root,
+        ColumnAndShifts::indexed_tree_check_tree_size_before_write,
+        ColumnAndShifts::indexed_tree_check_discard,
+        ColumnAndShifts::indexed_tree_check_public_inputs_index,
+        ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_sel_silo
     };
 };
 

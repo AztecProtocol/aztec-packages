@@ -19,6 +19,7 @@ import fs from 'fs';
 import path from 'path';
 // @ts-ignore
 import { PrivateVotingContract } from '../artifacts/PrivateVoting.ts';
+import { NO_FROM } from '@aztec/aztec.js/account';
 
 const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
 const WRITE_ENV_FILE = process.env.WRITE_ENV_FILE === 'false' ? false : true;
@@ -51,7 +52,7 @@ async function createAccount(wallet: EmbeddedWallet) {
   const deployMethod = await accountManager.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
   const deployOpts: DeployAccountOptions<InteractionWaitOptions> = {
-    from: AztecAddress.ZERO,
+    from: NO_FROM,
     fee: {
       paymentMethod: new SponsoredFeePaymentMethod(
         sponsoredPFCContract.address
@@ -71,7 +72,10 @@ async function deployContract(wallet: Wallet, deployer: AztecAddress) {
 
   const sponsoredPFCContract = await getSponsoredPFCContract();
 
-  const contract = await PrivateVotingContract.deploy(wallet, deployer).send({
+  const { contract } = await PrivateVotingContract.deploy(
+    wallet,
+    deployer
+  ).send({
     from: deployer,
     contractAddressSalt: salt,
     fee: {

@@ -14,9 +14,9 @@ using namespace bb::stdlib;
 
 /**
  * @brief Convert inputs representing a Grumpkin point into a cycle_group element.
- * @details Inputs x, y, and is_infinite are provided from the ACIR opcode, but only x and y are used to construct the
- * cycle_group element. The cycle_group constructor auto-detects infinity from (0,0) coordinates; the is_infinite flag
- * is not constrained against the coordinates and does not affect the output.
+ * @details Inputs x, y, and is_infinite are provided from the ACIR opcode. The cycle_group constructor
+ * auto-detects infinity from (0,0) coordinates; the is_infinite flag is constrained to agree with this
+ * auto-detected value, ensuring the external flag cannot be forged.
  *
  * We handle two special cases:
  *  1. write_vk scenario: we set the point to be the generator of Grumpkin to avoid circuit construction failures.
@@ -26,7 +26,7 @@ using namespace bb::stdlib;
  * @tparam Builder
  * @param input_x x-coordinate of the point
  * @param input_y y-coordinate of the point
- * @param input_infinite boolean from ACIR (unused; kept for ACIR format compatibility)
+ * @param input_infinite boolean from ACIR; constrained to agree with the infinity flag in cycle_group
  * @param predicate A relevant predicate used to conditionally assign the point to a valid value
  * @param builder
  * @return bb::stdlib::cycle_group<Builder>
@@ -72,6 +72,10 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typen
 
     // Use public constructor which auto-detects infinity from (0,0) coordinates.
     cycle_group<Builder> input_point(point_x, point_y, /*assert_on_curve=*/true);
+
+    // The external infinity flag must agree with the auto-detected infinity from coordinates.
+    infinite.assert_equal(input_point.is_point_at_infinity());
+
     return input_point;
 }
 

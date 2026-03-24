@@ -1,6 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
+
+if ! command -v doxygen &> /dev/null; then
+  echo "Doxygen not found - skipping API docs generation."
+  echo "Install doxygen to build API reference locally."
+  exit 0
+fi
 
 echo "Building Doxygen documentation..."
 cd "$(dirname "$0")/../../cpp"
@@ -13,11 +19,8 @@ if ! [ -d "docs/build" ]; then
   exit 1
 fi
 # First, clean the destination to avoid any leftover files
-rm -rf ../docs/static/api/*
-
-# Copy the built documentation
-mkdir -p ../docs/static/api/
-cp -R docs/build/* ../docs/static/api/
+rm -rf ../docs/static/api
+cp -R docs/build ../docs/static/api
 
 # NOTE(AD): hack - but was blocked and couldn't figure out why we had two examples for something called 'if' with different casing.
 rm -f ../docs/static/api/if-example.html

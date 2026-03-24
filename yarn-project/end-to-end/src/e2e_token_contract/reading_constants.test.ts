@@ -22,34 +22,40 @@ describe('e2e_token_contract reading constants', () => {
   });
 
   it('check name private', async () => {
-    const name = readFieldCompressedString(await t.asset.methods.private_get_name().simulate({ from: t.adminAddress }));
+    const name = readFieldCompressedString(
+      (await t.asset.methods.private_get_name().simulate({ from: t.adminAddress })).result,
+    );
     expect(name).toBe(TOKEN_NAME);
   });
 
   it('check name public', async () => {
-    const name = readFieldCompressedString(await t.asset.methods.public_get_name().simulate({ from: t.adminAddress }));
+    const name = readFieldCompressedString(
+      (await t.asset.methods.public_get_name().simulate({ from: t.adminAddress })).result,
+    );
     expect(name).toBe(TOKEN_NAME);
   });
 
   it('check symbol private', async () => {
     const sym = readFieldCompressedString(
-      await t.asset.methods.private_get_symbol().simulate({ from: t.adminAddress }),
+      (await t.asset.methods.private_get_symbol().simulate({ from: t.adminAddress })).result,
     );
     expect(sym).toBe(TOKEN_SYMBOL);
   });
 
   it('check symbol public', async () => {
-    const sym = readFieldCompressedString(await t.asset.methods.public_get_symbol().simulate({ from: t.adminAddress }));
+    const sym = readFieldCompressedString(
+      (await t.asset.methods.public_get_symbol().simulate({ from: t.adminAddress })).result,
+    );
     expect(sym).toBe(TOKEN_SYMBOL);
   });
 
   it('check decimals private', async () => {
-    const dec = await t.asset.methods.private_get_decimals().simulate({ from: t.adminAddress });
+    const { result: dec } = await t.asset.methods.private_get_decimals().simulate({ from: t.adminAddress });
     expect(dec).toBe(TOKEN_DECIMALS);
   });
 
   it('check decimals public', async () => {
-    const dec = await t.asset.methods.public_get_decimals().simulate({ from: t.adminAddress });
+    const { result: dec } = await t.asset.methods.public_get_decimals().simulate({ from: t.adminAddress });
     expect(dec).toBe(TOKEN_DECIMALS);
   });
 });

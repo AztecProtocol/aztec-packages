@@ -154,6 +154,10 @@ export class LightweightCheckpointBuilder {
     return this.blocks.length;
   }
 
+  public getBlocks() {
+    return this.blocks;
+  }
+
   /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.
@@ -215,6 +219,13 @@ export class LightweightCheckpointBuilder {
     const [msUpdateArchive, newArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
     timings.updateArchive = msUpdateArchive;
     this.lastArchives.push(newArchive);
+
+    const expectedNextLeafIndex = Number(globalVariables.blockNumber) + 1;
+    if (newArchive.nextAvailableLeafIndex !== expectedNextLeafIndex) {
+      throw new Error(
+        `Archive tree next leaf index mismatch after building block ${globalVariables.blockNumber} (expected ${expectedNextLeafIndex} but got ${newArchive.nextAvailableLeafIndex})`,
+      );
+    }
 
     const indexWithinCheckpoint = IndexWithinCheckpoint(this.blocks.length);
     const block = new L2Block(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);

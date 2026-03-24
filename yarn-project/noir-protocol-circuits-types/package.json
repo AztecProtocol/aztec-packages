@@ -76,7 +76,6 @@
   },
   "devDependencies": {
     "@aztec/kv-store": "workspace:^",
-    "@aztec/merkle-tree": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@swc/helpers": "^0.5.15",
     "@types/jest": "^30.0.0",

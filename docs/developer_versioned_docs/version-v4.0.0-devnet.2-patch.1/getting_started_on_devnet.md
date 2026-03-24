@@ -28,7 +28,7 @@ Before diving into the setup, it's important to understand the differences betwe
 - No automatic test accounts
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [local network guide](./docs/tutorials/local_network.md).
+If you're new to Aztec and want to understand local development first, check out the [local network guide](./getting_started_on_local_network.md).
 :::
 
 ## Prerequisites
@@ -189,7 +189,7 @@ For complete Devnet technical details including RPC endpoints, contract addresse
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [local network tutorial](./docs/tutorials/local_network.md) for faster development
+- **New to Aztec?** Start with the [local network guide](./getting_started_on_local_network.md) for faster development
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)

@@ -1,7 +1,13 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AbiType, FunctionAbi } from './abi.js';
-import { isAddressStruct, isBoundedVecStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
+import {
+  isAddressStruct,
+  isBoundedVecStruct,
+  isFunctionSelectorStruct,
+  isOptionStruct,
+  isWrappedFieldStruct,
+} from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -43,6 +49,32 @@ class ArgumentEncoder {
    * @param name - Name.
    */
   private encodeArgument(abiType: AbiType, arg: any, name?: string) {
+    if (isOptionStruct(abiType)) {
+      const optionType = abiType as Extract<AbiType, { kind: 'struct' }>;
+      const [isSomeField, valueField] = optionType.fields;
+
+      if (arg === undefined || arg === null) {
+        this.encodeArgument(isSomeField.type, false, `${name}._is_some`);
+        this.#encodeDefaultValue(valueField.type);
+        return;
+      }
+
+      if (typeof arg === 'object' && '_is_some' in arg) {
+        this.encodeArgument(isSomeField.type, arg._is_some, `${name}._is_some`);
+
+        if (arg._is_some) {
+          this.encodeArgument(valueField.type, arg._value, `${name}._value`);
+        } else {
+          this.#encodeDefaultValue(valueField.type);
+        }
+        return;
+      }
+
+      this.encodeArgument(isSomeField.type, true, `${name}._is_some`);
+      this.encodeArgument(valueField.type, arg, `${name}._value`);
+      return;
+    }
+
     if (arg === undefined || arg == null) {
       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
     }
@@ -226,6 +258,14 @@ class ArgumentEncoder {
       const lenField = (abiType as unknown as any).fields.find((f: any) => f.name === 'len')!;
       this.encodeArgument(lenField.type, arg.length, 'len');
     }
+  }
+
+  /**
+   * Appends the flattened zero value for an ABI type.
+   * Option::None still serializes the wrapped value, so we need to zero-fill its footprint.
+   */
+  #encodeDefaultValue(abiType: AbiType) {
+    this.flattened.push(...new Array(ArgumentEncoder.typeSize(abiType)).fill(Fr.ZERO));
   }
 }
 

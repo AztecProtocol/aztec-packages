@@ -4,12 +4,12 @@
 #include <ostream>
 #include <vector>
 
-#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
+#include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/world_state/world_state.hpp" // For MSGPACK_ADD_ENUM(MerkleTreeId)
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -178,7 +178,7 @@ struct DebugFunctionNameHint {
 
     bool operator==(const DebugFunctionNameHint& other) const = default;
 
-    MSGPACK_FIELDS(address, selector, name);
+    SERIALIZATION_FIELDS(address, selector, name);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -310,7 +310,7 @@ struct PublicCallRequestWithCalldata {
 
     bool operator==(const PublicCallRequestWithCalldata& other) const = default;
 
-    MSGPACK_FIELDS(request, calldata);
+    SERIALIZATION_FIELDS(request, calldata);
 };
 
 struct AccumulatedData {

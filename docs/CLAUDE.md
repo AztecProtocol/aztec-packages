@@ -120,7 +120,7 @@ Default content
 
 This site uses **Docusaurus multi-instance docs** with independent versioning:
 
-- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (devnet + nightly versions)
+- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (testnet + devnet + nightly versions)
 - **Network Guides** (`/network/`) - Node operation and network participation (testnet + ignition versions)
 
 ### Auto-Generated API Documentation
@@ -294,6 +294,7 @@ The description should:
 - ❌ Legal disclaimers or license text
 - ❌ Direct quotes from external sources
 - ❌ API endpoint URLs or configuration values
+- ❌ Existing migration notes in `resources/migration_notes.md` — never modify already-published migration entries. Instead, add new migration notes to the `## TBD` section at the top of the file.
 
 ## Review Output Format
 

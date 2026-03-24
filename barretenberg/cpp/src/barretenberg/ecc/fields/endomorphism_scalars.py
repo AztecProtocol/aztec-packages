@@ -5,10 +5,12 @@ GLV Endomorphism: Constants and Scalar Splitting for Multiple Curves
 This document explains the "splitting scalars" algorithm in Barretenberg for all curves
 that admit an efficient endomorphism. We cover:
 
-  Part 0   (§0):     Preliminaries — the GLV lattice and how to find a short basis
-  Part I   (§1–§5):  BN254 Fr  — the scalar field of BN254 (254-bit, uses 2^256 shift)
-  Part II  (§6–§9):  BN254 Fq  — the base field of BN254 (254-bit, uses 2^256 shift)
-  Part III (§10–§14): secp256k1 Fr — the scalar field of secp256k1 (256-bit, uses 2^384 shift)
+  Part 0   (§0):      Preliminaries — the GLV lattice and how to find a short basis
+  Part I   (§1–§5):   BN254 Fr  — the scalar field of BN254 (254-bit, uses 2^256 shift)
+  Part II  (§6–§9):   BN254 Fq  — the base field of BN254 (254-bit, uses 2^256 shift)
+  Part III (§10–§14):  secp256k1 Fr — the scalar field of secp256k1 (256-bit, now uses 2^256 shift)
+  Appendix (§16):      129-bit scalars for secp256k1
+  Appendix (§17):      Why the BN254 Fr and Fq lattice bases are nearly identical
 
 Reference: Gallant, Lambert, Vanstone, "Faster Point Multiplication on Elliptic Curves" (2001)
 
@@ -55,14 +57,20 @@ NOTATION:
 # down through √p and below.  We stop at the first remainder r_j < √p and read off
 # two short lattice vectors from the Bézout coefficients at steps j−1 and j.
 #
-# The resulting vector sizes depend on the specific λ and p:
+# The resulting vector sizes are generically ~√p, but the exact sizes determine
+# whether the split scalars k1, k2 fit in 128 bits:
 #
-#   • BN254 (Fr and Fq): the curve is constructed from a 63-bit parameter x, and the
-#     lattice vectors are a1 = b2 = 2x+1 (64 bits), |b1| = 6x²+2x (127 bits).
-#     This asymmetric 64/127-bit pattern is a consequence of the BN parametrisation.
+#   • BN254 (Fr and Fq): p is 254 bits, so √p ~ 127 bits.  The lattice vectors
+#     have |b1| ≤ 127 bits, |b2| ≤ 64 bits (the asymmetry comes from the explicit BN).
+#     Since k2 = f1·|b1| - f2·b2 with f1,f2 ∈ [0,1), we get |k2| < 2^127,
+#     which fits comfortably in 128 bits with 1 bit of headroom. Similarly,
+#     |a1|  = 64 bits and |a2| = 127 bits, so similar logic applies for k1.
 #
-#   • secp256k1 Fr: no small generating parameter; the lattice vectors are all in the
-#     generic ~126–129-bit range (roughly √p for a 256-bit prime).
+#   • secp256k1 Fr: p is 256 bits, so √p ~ 128 bits.  The lattice basis has
+#     |b1| = 128 bits and |b2| = 126 bits. However, |a1| = 126 bits and |a2|
+#     = 129 bits. This implies that the naive bound only gives that |k1|
+#     ≤ 129 bits. Indeed, k1 is 129 bits ~25% of the time. It turns out that |k2|
+#     is 129 bits roughly 0.3% of the time.
 #
 
 from math import isqrt
@@ -92,24 +100,24 @@ def find_short_lattice_basis(lambda_val, modulus):
     # prev_coeff - quot·coeff.  It follows that (-remainder, coeff) is always
     # a lattice vector: -remainder + λ·coeff ≡ -coeff·λ + coeff·λ ≡ 0.
     remainder, prev_remainder = lambda_val, modulus
-    coeff,     prev_coeff     = 1, 0
+    coeff, prev_coeff = 1, 0
 
     # Run until the remainder first drops below √p.
     while remainder >= approx_sqrt:
-        quot                      = prev_remainder // remainder
+        quot = prev_remainder // remainder
         prev_remainder, remainder = remainder, prev_remainder - quot * remainder
-        prev_coeff,     coeff     = coeff,     prev_coeff     - quot * coeff
+        prev_coeff, coeff = coeff, prev_coeff - quot * coeff
 
     # At this point:
-    #   vec_before = (-prev_remainder, prev_coeff)  — last step above √p
-    #   vec_cross  = (-remainder,      coeff)        — first step below √p
+    #   vec_before = (-prev_remainder, prev_coeff) — last step above √p
+    #   vec_cross = (-remainder, coeff) — first step below √p
     vec_before = (-prev_remainder, prev_coeff)
-    vec_cross  = (-remainder,      coeff)
+    vec_cross = (-remainder, coeff)
 
     # One more EEA step gives an independent candidate vector.
-    quot      = prev_remainder // remainder
-    r_after   = prev_remainder - quot * remainder
-    s_after   = prev_coeff     - quot * coeff
+    quot = prev_remainder // remainder
+    r_after = prev_remainder - quot * remainder
+    s_after = prev_coeff - quot * coeff
     vec_after = (-r_after, s_after)
 
     # First basis vector: vec_cross (shortest, by construction).
@@ -126,16 +134,61 @@ def find_short_lattice_basis(lambda_val, modulus):
     return a1, b1, a2, b2
 
 
+# ====================================================================================
+# § 0a. THE 256-BIT-SHIFT APPROXIMATION — ERROR BOUND PROOF
+# ====================================================================================
+#
+# CLAIM: For any prime r < 2^256 and any b with |b| < r, define g = floor(b * 2^256 / r).
+# Then for every k in [0, r):
+#
+#     floor(g * k / 2^256) ∈ { floor(b * k / r),  floor(b * k / r) - 1 }
+#
+# i.e., the approximation error is in {0, -1}.  This holds for ALL curves with
+# r < 2^256 — BN254, secp256k1, and any other.
+# (Note that we used to use a 384 bit shift for secp256k1.)
+#
+# PROOF:
+#
+# Write the Euclidean division of b * 2^256 by r:
+#
+#     b * 2^256 = g * r + ε        where  0 ≤ ε < r           ...(1)
+#
+# Rearranging:  g = (b * 2^256 - ε) / r.  Multiply both sides by k:
+#
+#     g * k = b * k * 2^256 / r  -  ε * k / r
+#
+# Dividing by 2^256:
+#
+#     g * k / 2^256 = b * k / r  -  ε * k / (r * 2^256)       ...(2)
+#
+# The correction term δ := ε * k / (r * 2^256) satisfies:
+#
+#     0 ≤ δ = ε * k / (r * 2^256) < r * r / (r * 2^256)
+#            = r / 2^256 < 1                                   ...(3)
+#
+# (using ε < r, k < r, and r < 2^256).
+#
+# From (2) and (3):
+#
+#     b*k/r - 1 < g*k/2^256 ≤ b*k/r                           ...(4)
+#
+# Taking floors of (4): if b*k/r = q + f where q = floor(b*k/r) and 0 ≤ f < 1,
+# then g*k/2^256 ∈ (q + f - 1, q + f], so floor(g*k/2^256) ∈ {q-1, q}.       ∎
+
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║              PART I: BN254 Fr (Scalar Field)                               ║
+# ║              PART I: BN254 Fr (Scalar Field)                                 ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 # ====================================================================================
 # § 1. BN254 Fr — FIELD PARAMETERS
 # ====================================================================================
 
+# The BN parameter x (see §17 for why the Fr and Fq lattice bases are nearly identical)
+x_bn = 4965661367192848881  # 0x44e992b44a6909f1, 63 bits
+
 # The scalar field modulus of BN254 (from bn254/fr.hpp)
 r = 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
+assert r == 36*x_bn**4 + 36*x_bn**3 + 18*x_bn**2 + 6*x_bn + 1, "r = 36x⁴ + 36x³ + 18x² + 6x + 1"
 
 # Montgomery parameter: R = 2^256 mod r
 # This is needed because fr.hpp stores values in Montgomery form
@@ -170,7 +223,13 @@ b1 = -0x6f4d8248eeb859fc8211bbeb7d4f1128  # 127 bits (negative)
 a2 = 0x6f4d8248eeb859fd0be4e1541221250b  # 127 bits
 b2 = 0x89d3256894d213e3                   # 64 bits
 
-# NOTE: a remarkable feature of this short basis is that a1 == b2, and indeed -b1 is rather close to a2.
+# NOTE: a1 == b2 (= 2x+1) and a2 ≈ |b1| (= 6x²+4x+1 vs 6x²+2x).
+# This is a structural consequence of the BN parameterization; see §17 for the full explanation.
+# In particular, we can verify these polynomial identities:
+assert a1 == 2 * x_bn + 1, "a1 = 2x + 1"
+assert b2 == 2 * x_bn + 1, "b2 = 2x + 1"
+assert a2 == 6 * x_bn**2 + 4 * x_bn + 1, "a2 = 6x^2 + 4x + 1"
+assert -b1 == 6 * x_bn**2 + 2 * x_bn, "|b1| = 6x^2 + 2x"
 
 # Verify that the vectors are in the lattice: ai + λ·bi ≡ 0 (mod r)
 assert (a1 + lambda_val * b1) % r == 0, "Lattice vector 1 must satisfy a1 + λ·b1 ≡ 0"
@@ -228,14 +287,14 @@ assert endo_b2 == expected_endo_b2, "endo_b2 must match fr.hpp"
 # ====================================================================================
 #
 # Computes (k1, k2) with k ≡ k1 - λ·k2 (mod r) and |k1|, |k2| < 2^128.
-# See §0 for the derivation (Babai's nearest plane).
 #
 # SUBTLETY — k2 CAN BE NEGATIVE:
 #
 # k2 = -δ1·|b1| + δ2·b2 where δ1, δ2 ∈ [0,1) are rounding errors. This is
 # negative when δ1·|b1| > δ2·b2. Since |b1|/b2 ≈ 2^63 for BN254, even tiny
 # δ1 can cause this. It happens at k ≈ ⌈m·2^256/endo_g2⌉ where c1 ticks up
-# to m. Frequency: ~2^{-64} of all inputs.
+# to m. Note that the ≈ means that it can happen for _many_ k around/slightly greater than that number.
+# Frequency: ~2^{-64} of all inputs.
 #
 # FIX: When t1 > 128 bits (i.e. k2 < 0 wrapped mod r), add |b1|. This shifts
 # along the lattice vector (a1, b1), making k2 positive:
@@ -333,7 +392,7 @@ for m in [1, 2, 3]:
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                      PART II: BN254 Fq (Base Field)                        ║
+# ║                      PART II: BN254 Fq (Base Field)                          ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 # ====================================================================================
@@ -345,6 +404,8 @@ for m in [1, 2, 3]:
 
 # The base field modulus of BN254 (from bn254/fq.hpp)
 fq_modulus = 0x30644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD47
+assert fq_modulus == 36*x_bn**4 + 36*x_bn**3 + 24*x_bn**2 + 6*x_bn + 1, "q = 36x⁴ + 36x³ + 24x² + 6x + 1"
+assert fq_modulus - r == 6 * x_bn**2, "q − r = 6x²"
 
 # Montgomery parameter for Fq: R = 2^256 mod q
 fq_R = pow(2, 256, fq_modulus)
@@ -381,6 +442,18 @@ assert (fq_a2 + fq_beta * fq_b2) % fq_modulus == 0, "Fq lattice vector 2"
 # Verify determinant
 fq_det = fq_a1 * fq_b2 - fq_a2 * fq_b1
 assert abs(fq_det) == fq_modulus, f"Fq lattice determinant must be ±q, got {fq_det}"
+
+# Verify polynomial structure and near-identity with Fr basis (see §17 for explanation):
+assert fq_a1 == 2 * x_bn, "Fq: a1 = 2x"
+assert fq_b2 == 2 * x_bn, "Fq: b2 = 2x"
+assert fq_a2 == 6 * x_bn**2 + 4 * x_bn + 1, "Fq: a2 = 6x² + 4x + 1 (same as Fr!)"
+assert -fq_b1 == 6 * x_bn**2 + 2 * x_bn + 1, "Fq: |b1| = 6x² + 2x + 1"
+
+# The Fr and Fq bases differ by at most 1 in each component:
+assert a1 - fq_a1 == 1, "a1: Fr has 2x+1, Fq has 2x"
+assert b2 - fq_b2 == 1, "b2: Fr has 2x+1, Fq has 2x"
+assert fq_a2 == a2, "a2: identical for both fields"
+assert (-fq_b1) - (-b1) == 1, "|b1|: Fq has 6x²+2x+1, Fr has 6x²+2x"
 
 
 # ====================================================================================
@@ -432,7 +505,7 @@ for m in [1, 2, 3]:
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║               PART III: secp256k1 Fr (Scalar Field)                        ║
+# ║               PART III: secp256k1 Fr (Scalar Field)                          ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 # ====================================================================================
@@ -440,11 +513,16 @@ for m in [1, 2, 3]:
 # ====================================================================================
 #
 # secp256k1's scalar field modulus is a full 256 bits (top limb = 0xFFFF...),
-# exceeding MODULUS_TOP_LIMB_LARGE_THRESHOLD (2^62). AUDITTODO: explain *exactly* the rounding issues that force this.
-# This requires:
-#   - 2^384 shift instead of 2^256 (a >>256 shift loses precision for 256-bit moduli)
-#   - 4-limb endo_g constants (lo/mid/hi/hihi)
-#   - Montgomery field multiplication in split_into_endomorphism_scalars_384
+# exceeding MODULUS_TOP_LIMB_LARGE_THRESHOLD (2^62). As proved in §0a, the
+# 256-bit shift approximation is sufficient for ANY prime r < 2^256 — the
+# error is bounded to {0, -1}. The old 384-bit path was only needed because
+# the 256-bit C++ code truncated outputs to 128 bits, clipping the 129th bit
+# that appears for ~25% of inputs (k1) and ~0.3% of inputs (k2).  With
+# full-width output, 256-bit shift works perfectly.
+#
+# For secp256k1, the large-modulus branch of split_into_endomorphism_scalars
+# returns full field elements (not truncated to 128 bits). The caller
+# (biggroup_nafs.hpp) handles signs by inspecting the MSB of k2.
 
 # The scalar field modulus of secp256k1 (from secp256k1.hpp, FrParams)
 secp_r = (
@@ -477,7 +555,8 @@ assert (pow(secp_lambda, 2, secp_r) + secp_lambda + 1) % secp_r == 0, "λ² + λ
 # § 11. secp256k1 Fr — LATTICE BASIS
 # ====================================================================================
 #
-# See §0 for why these vectors are ~126–129 bits (unlike BN254's 64/127 pattern).
+# See §0 for the component sizes: |a1| = 126, |b1| = 128, |a2| = 129, |b2| = 126 bits
+# (unlike BN254's asymmetric 64/127 pattern).
 
 secp_a1, secp_b1, secp_a2, secp_b2 = find_short_lattice_basis(secp_lambda, secp_r)
 
@@ -491,55 +570,26 @@ assert abs(secp_det) == secp_r, "secp256k1 lattice determinant must be ±r"
 
 
 # ====================================================================================
-# § 12. secp256k1 Fr — PRECOMPUTED CONSTANTS (384-bit shift)
+# § 12. secp256k1 Fr — PRECOMPUTED CONSTANTS (256-bit shift)
 # ====================================================================================
 #
-# In the 384-bit code, the naming is "cross-paired" — g1 is paired with minus_b1,
-# and g2 is paired with b2 (the opposite of what you might expect):
+# secp256k1 now uses the SAME 256-bit shift as BN254 (see §0a for the proof that
+# this is sufficient for any r < 2^256). The naming convention matches BN254:
 #
-#     endo_g1 = ⌈b2 · 2^384 / r⌉
-#     endo_g2 = ⌊(-b1) · 2^384 / r⌋
+#     endo_g1 = ⌊(-b1) · 2^256 / r⌋
+#     endo_g2 = ⌊b2 · 2^256 / r⌋
 #
-# Note: secp256k1_endo_notes.hpp uses the opposite naming convention for g1/g2,
-# but the STORED values in FrParams follow this cross-paired convention.
+# We reuse compute_splitting_constants() from §3 — same function, same shift.
 
-def compute_splitting_constants_384(modulus, b1, b2):
-    """
-    Compute the precomputed constants for the 384-bit shift variant.
-
-    Returns (endo_g1, endo_g2, endo_minus_b1, endo_b2) matching the hpp file.
-
-    Convention: endo_g1 is the b2-based approximation (cross-paired with minus_b1),
-                endo_g2 is the (-b1)-based approximation (cross-paired with b2).
-    """
-    shift = 1 << 384
-    # endo_g1 = ceil(b2 * 2^384 / r)  — cross-paired with minus_b1 in the algorithm
-    endo_g1 = -((-b2 * shift) // modulus)
-    # endo_g2 = floor((-b1) * 2^384 / r) — cross-paired with b2 in the algorithm
-    endo_g2 = ((-b1) * shift) // modulus
-    endo_minus_b1 = (-b1) % modulus
-    endo_b2 = b2 % modulus
-    return endo_g1, endo_g2, endo_minus_b1, endo_b2
-
-
-secp_endo_g1, secp_endo_g2, secp_endo_minus_b1, secp_endo_b2 = compute_splitting_constants_384(
+secp_endo_g1, secp_endo_g2, secp_endo_minus_b1, secp_endo_b2 = compute_splitting_constants(
     secp_r, secp_b1, secp_b2
 )
 
 # Verify these match the values in secp256k1.hpp (FrParams)
-# endo_g1 is stored as (lo, mid, hi, hihi) — 4 × 64-bit limbs
-secp_expected_endo_g1 = (
-    0xE893209A45DBB031 |
-    (0x3DAA8A1471E8CA7F << 64) |
-    (0xE86C90E49284EB15 << 128) |
-    (0x3086D221A7D46BCD << 192)
-)
-secp_expected_endo_g2 = (
-    0x1571B4AE8AC47F71 |
-    (0x221208AC9DF506C6 << 64) |
-    (0x6F547FA90ABFE4C4 << 128) |
-    (0xE4437ED6010E8828 << 192)
-)
+# endo_g1 is stored as (lo, mid, hi) — only 2 non-zero limbs for secp256k1
+# (hi = 0 because (-b1) * 2^256 / r fits in 128 bits for this curve)
+secp_expected_endo_g1 = 0x6F547FA90ABFE4C4 | (0xE4437ED6010E8828 << 64)
+secp_expected_endo_g2 = 0xE86C90E49284EB15 | (0x3086D221A7D46BCD << 64)
 secp_expected_endo_minus_b1 = 0x6F547FA90ABFE4C3 | (0xE4437ED6010E8828 << 64)
 secp_expected_endo_b2 = 0xe86c90e49284eb15 | (0x3086d221a7d46bcd << 64)
 
@@ -558,48 +608,54 @@ assert secp_endo_b2 == secp_expected_endo_b2, (
 
 
 # ====================================================================================
-# § 13. secp256k1 Fr — THE 384-BIT SPLITTING ALGORITHM
+# § 13. secp256k1 Fr — THE 256-BIT SPLITTING ALGORITHM
 # ====================================================================================
 #
-# Unlike the 256-bit variant, there is no explicit negative-k2 fix — field
-# subtraction handles signs. The c1, c2 values are converted to Montgomery form
-# and multiplied via field ops (which reduce mod r automatically).
+# secp256k1 uses the same core computation as BN254 (compute_endomorphism_k2 in
+# field_declarations.hpp), but WITHOUT the negative-k2 fix. Both k1 and k2 can
+# reach 129 bits (see §0 for why); the caller handles signs. This specifically means
+# that if k2 is (naively) negative, it will be returned as r - k2, a 256-bit number,
+# and the caller will then detect this and handle appropriately.
 #
-# ALGORITHM (split_into_endomorphism_scalars_384 in field_declarations.hpp):
+# ALGORITHM (the `else` branch of split_into_endomorphism_scalars in
+# field_declarations.hpp, for large moduli):
 #
-#   1. c1 = (endo_g1 · k) >> 384,  c2 = (endo_g2 · k) >> 384
-#   2. r2f = c1·(-b1) - c2·b2      (cross-products, computed as field elements)
-#   3. r1f = k - r2f·λ
-#   4. k1 = r1f, k2 = -r2f
+#   1. t1 = compute_endomorphism_k2(k)
+#      i.e. c1 = (endo_g2 · k) >> 256,  c2 = (endo_g1 · k) >> 256
+#           t1 = (c2·b2 - c1·(-b1)) mod r                             [= k2]
+#   2. k2 = t1
+#   3. k1 = (t1·λ + k) mod r
+#
+# No negative-k2 fix: unlike BN254, we do NOT check if t1 > 128 bits. The
+# biggroup code inspects the MSB of k2 to determine its sign.
 
-def split_scalar_384(k, modulus, lambda_val, endo_g1, endo_g2, endo_minus_b1, endo_b2):
+def split_scalar_secp256k1(k, modulus, lambda_val, endo_g1, endo_g2, endo_minus_b1, endo_b2):
     """
-    Split scalar k using the 384-bit shift variant.
+    Split scalar k using the 256-bit shift for secp256k1.
 
-    Implements split_into_endomorphism_scalars_384() in field_declarations.hpp.
+    Implements the large-modulus branch of split_into_endomorphism_scalars()
+    in field_declarations.hpp.
 
     Returns:
-        (k1, k2): The split scalars such that k ≡ k1 - λ·k2 (mod r)
+        (k1, k2): Full field elements such that k ≡ k1 - λ·k2 (mod r).
+                   Both k1 and k2 can reach ~129 bits (see §0).
     """
     input_val = k % modulus
 
-    # c1 ≈ k·b2/r,  c2 ≈ k·(-b1)/r
-    c1 = (endo_g1 * input_val) >> 384
-    c2 = (endo_g2 * input_val) >> 384
+    # c1 = (g2 * k) >> 256,  c2 = (g1 * k) >> 256
+    c1 = (endo_g2 * input_val) >> 256
+    c2 = (endo_g1 * input_val) >> 256
 
-    # Cross-products (computed as field elements in C++ via Montgomery)
-    c1_times_minus_b1 = (c1 * endo_minus_b1) % modulus
-    c2_times_b2 = (c2 * endo_b2) % modulus
+    # q1 = c1 * (-b1),  q2 = c2 * b2  (raw integer multiply, low 256 bits)
+    q1_lo = (c1 * endo_minus_b1) & ((1 << 256) - 1)
+    q2_lo = (c2 * endo_b2) & ((1 << 256) - 1)
 
-    # r2f = c1·(-b1) - c2·b2 (nearly cancels, leaving small lattice error)
-    r2f = (c1_times_minus_b1 - c2_times_b2) % modulus
+    # t1 = (q2 - q1) mod r  — this is k2
+    t1 = (q2_lo - q1_lo) % modulus
 
-    # r1f = k - r2f·λ
-    r1f = (input_val - r2f * lambda_val) % modulus
-
-    # k1 = r1f, k2 = -r2f;  invariant: k ≡ k1 - λ·k2 (mod r)
-    k1 = r1f
-    k2 = (-r2f) % modulus
+    # k1 = t1·λ + k  (mod r)
+    k1 = (t1 * lambda_val + input_val) % modulus
+    k2 = t1
 
     return k1, k2
 
@@ -608,8 +664,8 @@ def split_scalar_384(k, modulus, lambda_val, endo_g1, endo_g2, endo_minus_b1, en
 # § 14. secp256k1 Fr — SPLITTING VERIFICATION
 # ====================================================================================
 
-def verify_split_384(k, k1, k2, lambda_val, modulus):
-    """Verify correctness of the 384-bit scalar split."""
+def verify_split_secp256k1(k, k1, k2, lambda_val, modulus):
+    """Verify correctness of the secp256k1 scalar split."""
     # The invariant is k ≡ k1 - λ·k2 (mod r)
     reconstructed = (k1 - lambda_val * k2) % modulus
     assert reconstructed == k % modulus, (
@@ -617,10 +673,8 @@ def verify_split_384(k, k1, k2, lambda_val, modulus):
         f"  k1={hex(k1)}, k2={hex(k2)}\n"
         f"  reconstructed={hex(reconstructed)}, expected={hex(k % modulus)}"
     )
-    # For the 384-bit variant, k1 and k2 are field elements; they should be small
-    # enough that the decomposition is useful. We verify they fit in ~129 bits.
-    # (The C++ code does not explicitly truncate to 128 bits in this path;
-    # the values may be slightly larger than in the 256-bit path.)
+    # k1 and k2 are full field elements. We verify their effective magnitudes
+    # fit in ~129 bits (the decomposition halves the scalar bit-length).
     k1_eff = k1 if k1 <= modulus // 2 else modulus - k1
     k2_eff = k2 if k2 <= modulus // 2 else modulus - k2
     assert k1_eff.bit_length() <= 129, (
@@ -632,38 +686,10 @@ def verify_split_384(k, k1, k2, lambda_val, modulus):
 
 
 for k_test in [0, 1, 42, secp_lambda, secp_r - 1, secp_r // 2, secp_r // 3]:
-    k1, k2 = split_scalar_384(
+    k1, k2 = split_scalar_secp256k1(
         k_test, secp_r, secp_lambda, secp_endo_g1, secp_endo_g2, secp_endo_minus_b1, secp_endo_b2
     )
-    verify_split_384(k_test, k1, k2, secp_lambda, secp_r)
-
-
-# Also verify with the cube root of unity in the BASE field (secp256k1 Fq).
-# The base field Fq of secp256k1 has modulus p = 2^256 - 2^32 - 977, which also
-# has a cube root of unity β. This β is what gets multiplied with the x-coordinate
-# in the endomorphism φ(x,y) = (β·x, y). Let's verify it.
-
-secp_fq_modulus = (
-    0xFFFFFFFEFFFFFC2F |
-    (0xFFFFFFFFFFFFFFFF << 64) |
-    (0xFFFFFFFFFFFFFFFF << 128) |
-    (0xFFFFFFFFFFFFFFFF << 192)
-)
-
-secp_fq_R = pow(2, 256, secp_fq_modulus)
-secp_fq_R_inv = pow(secp_fq_R, -1, secp_fq_modulus)
-
-secp_fq_cube_root_montgomery = (
-    0x58a4361c8e81894e |
-    (0x03fde1631c4b80af << 64) |
-    (0xf8e98978d02e3905 << 128) |
-    (0x7a4a36aebcbb3d53 << 192)
-)
-
-secp_fq_beta = (secp_fq_cube_root_montgomery * secp_fq_R_inv) % secp_fq_modulus
-assert pow(secp_fq_beta, 3, secp_fq_modulus) == 1, "β³ ≡ 1 (mod p) for secp256k1 Fq"
-assert secp_fq_beta != 1, "β must be non-trivial"
-
+    verify_split_secp256k1(k_test, k1, k2, secp_lambda, secp_r)
 
 # ====================================================================================
 # § 15. SUMMARY
@@ -672,12 +698,83 @@ assert secp_fq_beta != 1, "β must be non-trivial"
 # Derived and verified GLV endomorphism constants for:
 #   - BN254 Fr     (§1–§5):   254-bit, 256-bit shift, constants match bn254/fr.hpp
 #   - BN254 Fq     (§6–§9):   254-bit, 256-bit shift, constants match bn254/fq.hpp
-#   - secp256k1 Fr  (§10–§14): 256-bit, 384-bit shift, constants match secp256k1.hpp
-#   - secp256k1 Fq cube root β also verified (end of Part III)
+#   - secp256k1 Fr  (§10–§14): 256-bit, 256-bit shift, constants match secp256k1.hpp
 #
-# Architectural split: MODULUS_TOP_LIMB_LARGE_THRESHOLD (2^62) determines whether
-# split_into_endomorphism_scalars (256-bit) or _384 (384-bit) is used.
+# ALL curves use the same 256-bit shift (see §0a for the proof that this is
+# sufficient for any r < 2^256). MODULUS_TOP_LIMB_LARGE_THRESHOLD (2^62)
+# determines whether the 128-bit pair path (with negative-k2 fix) or the
+# full-width path (no fix, caller handles signs) is used. The 128-bit path
+# works for BN254 because its 254-bit modulus gives √r ~ 127 bits, leaving
+# one bit of headroom below 128. For 256-bit moduli like secp256k1, √r ~ 128
+# bits leaves zero headroom: k1 exceeds 128 bits ~25% of the time (since
+# |a2| = 129 bits) and k2 exceeds 128 bits ~0.3% of the time (see §16).
 
+# ====================================================================================
+# § 16. APPENDIX: 129-BIT SCALARS FOR secp256k1
+# ====================================================================================
+#
+# Empirically verify the 129-bit overflow frequencies from §0 by calling
+# split_scalar_secp256k1 (§13) on random inputs.
+
+def measure_overflow_frequency(n_samples=500_000):
+    """Measure the fraction of random scalars whose k1 or k2 exceeds 128 bits."""
+    import random
+    rng = random.Random(42)
+
+    count_k1 = 0
+    count_k2 = 0
+    for _ in range(n_samples):
+        k = rng.randrange(1, secp_r)
+        k1, k2 = split_scalar_secp256k1(
+            k, secp_r, secp_lambda,
+            secp_endo_g1, secp_endo_g2, secp_endo_minus_b1, secp_endo_b2
+        )
+        if k1.bit_length() > 128:
+            count_k1 += 1
+        if k2 <= (secp_r - (1 << 127)) and k2.bit_length() > 128: # k2 is naively in the range (-2^127, 2^129). therefore we throw away when k2 is negative.
+            count_k2 += 1
+
+    pct_k1 = 100 * count_k1 / n_samples
+    pct_k2 = 100 * count_k2 / n_samples
+    print(f"  k1 > 128 bits: {count_k1}/{n_samples} ({pct_k1:.1f}%)")
+    print(f"  k2 positive and > 128 bits: {count_k2}/{n_samples} ({pct_k2:.2f}%)")
+    assert 20 < pct_k1 < 35, f"Expected ~25% for k1, got {pct_k1}%"
+    assert 0.1 < pct_k2 < 1.0, f"Expected ~0.3% for k2, got {pct_k2}%"
+
+# ====================================================================================
+# § 17. APPENDIX: WHY THE BN254 Fr AND Fq LATTICE BASES ARE NEARLY IDENTICAL
+# ====================================================================================
+#
+# BN254 is parameterized by a single integer x = 0x44e992b44a6909f1 (63 bits).
+# Both field primes are polynomials in x:
+#
+#     r = 36x⁴ + 36x³ + 18x² + 6x + 1    (scalar field, Fr)
+#     q = 36x⁴ + 36x³ + 24x² + 6x + 1    (base field, Fq)
+#
+# They differ by q − r = 6x² ≈ 2¹²⁷, tiny relative to the 254-bit primes.
+#
+# The GLV lattice basis vectors turn out to be simple polynomials in x:
+#
+#     Fr basis:  (a1, b1) = (2x+1, −(6x²+2x)),    (a2, b2) = (6x²+4x+1, 2x+1)
+#     Fq basis:  (a1, b1) = (2x,   −(6x²+2x+1)),  (a2, b2) = (6x²+4x+1, 2x  )
+#
+# These are verified by the determinant identities:
+#
+#     (2x+1)² + (6x²+4x+1)(6x²+2x)   = 36x⁴ + 36x³ + 18x² + 6x + 1 = r
+#     (2x)²   + (6x²+4x+1)(6x²+2x+1) = 36x⁴ + 36x³ + 24x² + 6x + 1 = q
+#
+# Notice a1 = b2 for both fields (the basis matrix is "almost symmetric"), and a2
+# is IDENTICAL for both. The only difference: Fr has the +1 on a1/b2, while Fq has
+# the +1 on |b1|. All four components differ by at most 1 between Fr and Fq.
+#
+# Reference: The BN prime parameterization is from Barreto–Naehrig (2006). The
+# polynomial structure of GLV short bases for CM curves is discussed in
+# B. Smith, "Easy scalar decompositions for efficient scalar multiplication
+# on elliptic curves and genus 2 Jacobians" (2013), eprint.iacr.org/2013/672.
+
+# ====================================================================================
+# § 18. Main function
+# ====================================================================================
 if __name__ == "__main__":
     print("=== Part I: BN254 Fr ===")
     print(f"  λ (cube root): {hex(lambda_val)}")
@@ -703,8 +800,7 @@ if __name__ == "__main__":
     print(f"  endo_b2:       {hex(secp_endo_b2)}")
     print("  -> Constants match secp256k1.hpp FrParams")
 
-    print("\n=== secp256k1 Fq (base field) ===")
-    print(f"  β (cube root): {hex(secp_fq_beta)}")
-    print("  -> Cube root verified")
+    print("\n=== Appendix: 129-bit overflow frequency (secp256k1) ===")
+    measure_overflow_frequency()
 
     print("\nAll verifications passed!")

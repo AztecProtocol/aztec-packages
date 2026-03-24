@@ -31,11 +31,14 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   });
 
   it('on behalf of self', async () => {
-    const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const balancePub = await asset.methods
+      .balance_of_public(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balancePub / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    const receipt = await asset.methods.shield(adminAddress, amount, secretHash, 0).send({ from: adminAddress });
+    const { receipt } = await asset.methods.shield(adminAddress, amount, secretHash, 0).send({ from: adminAddress });
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, receipt.txHash);
@@ -47,7 +50,10 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   });
 
   it('on behalf of other', async () => {
-    const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const balancePub = await asset.methods
+      .balance_of_public(adminAddress)
+      .simulate({ from: adminAddress })
+      .then(r => r.result);
     const amount = balancePub / 2n;
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
@@ -61,7 +67,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     );
     await validateActionInteraction.send();
 
-    const receipt = await action.send({ from: otherAddress });
+    const { receipt } = await action.send({ from: otherAddress });
 
     // Check that replaying the shield should fail!
     await expect(
@@ -79,7 +85,10 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
 
   describe('failure cases', () => {
     it('on behalf of self (more than balance)', async () => {
-      const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balancePub = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePub + 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -89,7 +98,10 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     });
 
     it('on behalf of self (invalid authwit nonce)', async () => {
-      const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balancePub = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePub + 1n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -101,7 +113,10 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     });
 
     it('on behalf of other (more than balance)', async () => {
-      const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balancePub = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePub + 1n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -119,7 +134,10 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     });
 
     it('on behalf of other (wrong designated caller)', async () => {
-      const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balancePub = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balancePub + 1n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -137,7 +155,10 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     });
 
     it('on behalf of other (without approval)', async () => {
-      const balance = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance / 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);

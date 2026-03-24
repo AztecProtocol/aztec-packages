@@ -362,18 +362,13 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
     const epochsForCommittees = getEpochsForRound(slashedRound, this.settings);
     const { slashMaxPayloadSize } = this.config;
-    const { votes, truncatedCount } = getSlashConsensusVotesFromOffenses(
+    const votes = getSlashConsensusVotesFromOffenses(
       offensesToSlash,
       committees,
       epochsForCommittees.map(e => BigInt(e)),
       { ...this.settings, maxSlashedValidators: slashMaxPayloadSize },
+      this.log,
     );
-    if (truncatedCount > 0) {
-      this.log.warn(
-        `Vote truncated: ${truncatedCount} validator-epoch pairs dropped to stay within gas limit of ${slashMaxPayloadSize}`,
-        { slotNumber, currentRound, slashedRound },
-      );
-    }
     if (votes.every(v => v === 0)) {
       this.log.warn(`Computed votes for offenses are all zero. Skipping vote.`, {
         slotNumber,

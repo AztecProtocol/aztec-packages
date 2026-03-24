@@ -171,6 +171,21 @@ function getNestedErrorData(error: unknown): string | undefined {
 }
 
 /**
+ * Truncates an error message to a safe length for log renderers.
+ * LogExplorer can only render up to 2500 characters in its summary view.
+ * We cap at 2000 to leave room for decorating context added by callers.
+ */
+function truncateErrorMessage(message: string): string {
+  const MAX = 2000;
+  const CHUNK = 950;
+  if (message.length <= MAX) {
+    return message;
+  }
+  const truncated = message.length - 2 * CHUNK;
+  return message.slice(0, CHUNK) + `...${truncated} characters truncated...` + message.slice(-CHUNK);
+}
+
+/**
  * Formats a Viem error into a FormattedViemError instance.
  * @param error - The error to format.
  * @param abi - The ABI to use for decoding.
@@ -232,22 +247,10 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   // If it's a regular Error instance, return it with its message
   if (error instanceof Error) {
-    return new FormattedViemError(error.message, (error as any)?.metaMessages);
+    return new FormattedViemError(truncateErrorMessage(error.message), (error as any)?.metaMessages);
   }
 
-  const body = String(error);
-  const length = body.length;
-  // LogExplorer can only render up to 2500 characters in it's summary view. Try to keep the whole message below this number
-  // Limit the error to 2000 chacaters in order to allow code higher up to decorate this error with extra details (up to 500 characters)
-  if (length > 2000) {
-    const chunk = 950;
-    const truncated = length - 2 * chunk;
-    return new FormattedViemError(
-      body.slice(0, chunk) + `...${truncated} characters truncated...` + body.slice(-1 * chunk),
-    );
-  }
-
-  return new FormattedViemError(body);
+  return new FormattedViemError(truncateErrorMessage(String(error)));
 }
 
 function stripAbis(obj: any) {

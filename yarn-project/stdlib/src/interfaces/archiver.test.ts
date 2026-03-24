@@ -81,6 +81,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual(BlockNumber(1));
   });
 
+  it('getCheckpointNumber', async () => {
+    const result = await context.client.getCheckpointNumber();
+    expect(result).toEqual(CheckpointNumber(1));
+  });
+
   it('getProvenBlockNumber', async () => {
     const result = await context.client.getProvenBlockNumber();
     expect(result).toEqual(BlockNumber(1));
@@ -180,13 +185,13 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBeInstanceOf(TxReceipt);
   });
 
-  it('getL2SlotNumber', async () => {
-    const result = await context.client.getL2SlotNumber();
+  it('getSyncedL2SlotNumber', async () => {
+    const result = await context.client.getSyncedL2SlotNumber();
     expect(result).toBe(SlotNumber(1));
   });
 
-  it('getL2EpochNumber', async () => {
-    const result = await context.client.getL2EpochNumber();
+  it('getSyncedL2EpochNumber', async () => {
+    const result = await context.client.getSyncedL2EpochNumber();
     expect(result).toBe(EpochNumber(1));
   });
 
@@ -284,11 +289,7 @@ describe('ArchiverApiSchema', () => {
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const result = await context.client.getContractClass(Fr.random());
-    expect(result).toEqual({
-      ...omit(contractClass, 'publicBytecodeCommitment'),
-      utilityFunctions: [],
-      privateFunctions: [],
-    });
+    expect(result).toEqual(omit(contractClass, 'publicBytecodeCommitment', 'privateFunctions'));
   });
 
   it('getDebugFunctionName', async () => {
@@ -405,6 +406,9 @@ class MockArchiver implements ArchiverApi {
   getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
   }
+  getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(CheckpointNumber(1));
+  }
   getFinalizedL2BlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(0));
   }
@@ -500,10 +504,10 @@ class MockArchiver implements ArchiverApi {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getL2SlotNumber(): Promise<SlotNumber> {
+  getSyncedL2SlotNumber(): Promise<SlotNumber> {
     return Promise.resolve(SlotNumber(1));
   }
-  getL2EpochNumber(): Promise<EpochNumber | undefined> {
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
     return Promise.resolve(EpochNumber(1));
   }
   async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
@@ -593,7 +597,7 @@ class MockArchiver implements ArchiverApi {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return Promise.resolve({ ...contractClass, utilityFunctions: [], privateFunctions: [] });
+    return Promise.resolve(contractClass);
   }
   async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
     expect(id).toBeInstanceOf(Fr);

@@ -6,7 +6,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { sum } from '@aztec/foundation/collection';
+import { pick, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -152,10 +152,12 @@ export class Checkpoint {
       startBlockNumber?: number;
       previousArchive?: AppendOnlyTreeSnapshot;
       feeAssetPriceModifier?: bigint;
+      archive?: AppendOnlyTreeSnapshot;
     } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
       Partial<Parameters<typeof L2Block.random>[1]> = {},
   ) {
-    const header = CheckpointHeader.random(options);
+    const headerOptions = previousArchive ? { lastArchiveRoot: previousArchive.root, ...options } : options;
+    const header = CheckpointHeader.random(headerOptions);
 
     // Create blocks sequentially to chain archive roots properly.
     // Each block's header.lastArchive must equal the previous block's archive.
@@ -166,11 +168,18 @@ export class Checkpoint {
         indexWithinCheckpoint: IndexWithinCheckpoint(i),
         ...options,
         ...(lastArchive ? { lastArchive } : {}),
+        ...pick(header, 'slotNumber', 'timestamp', 'coinbase', 'feeRecipient', 'gasFees'),
       });
       lastArchive = block.archive;
       blocks.push(block);
     }
 
-    return new Checkpoint(AppendOnlyTreeSnapshot.random(), header, blocks, checkpointNumber, feeAssetPriceModifier);
+    return new Checkpoint(
+      options.archive ?? AppendOnlyTreeSnapshot.random(),
+      header,
+      blocks,
+      checkpointNumber,
+      feeAssetPriceModifier,
+    );
   }
 }

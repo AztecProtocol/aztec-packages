@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v5.0.0-nightly.20260303
+Version: v5.0.0-nightly.20260320
 
 ## Quick Import Reference
 
@@ -108,7 +108,8 @@ new ContractSyncService(aztecNode: AztecNode, contractStore: ContractStore, note
 - `commit(jobId: string) => Promise<void>` - Commits staged data to main storage. Should be called within a transaction for atomicity.
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
 - `ensureContractSynced(contractAddress: AztecAddress, functionToInvokeAfterSync: FunctionSelector | null, utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<any>, anchorBlockHeader: BlockHeader, jobId: string, scopes: AccessScopes) => Promise<void>` - Ensures a contract's private state is synchronized and that the PXE holds the current class artifact. Uses a cache to avoid redundant sync operations - the cache is wiped when the anchor block changes.
-- `setOverriddenContracts(jobId: string, addresses: Set<string>) => void` - Sets contracts that should be skipped during sync for a specific job.
+- `invalidateContractForScopes(contractAddress: AztecAddress, scopes: AztecAddress[]) => void` - Clears sync cache entries for the given scopes of a contract. Also clears the ALL_SCOPES entry.
+- `setExcludedFromSync(jobId: string, addresses: Set<string>) => void` - Sets contracts that should be skipped during sync for a specific job.
 - `wipe() => void` - Clears sync cache. Called by BlockSynchronizer when anchor block changes.
 
 ### JobCoordinator
@@ -299,10 +300,11 @@ new SenderTaggingStore(store: AztecAsyncKVStore)
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
 - `dropPendingIndexes(txHashes: TxHash[], jobId: string) => Promise<void>` - Drops all pending indexes corresponding to the given transaction hashes.
 - `finalizePendingIndexes(txHashes: TxHash[], jobId: string) => Promise<void>` - Updates pending indexes corresponding to the given transaction hashes to be finalized and prunes any lower pending indexes.
+- `finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string) => Promise<void>` - Handles finalization of pending indexes for a transaction whose execution was partially reverted. Recomputes the siloed tags for each pending index of the given tx and checks which ones appear in the TxEffect's private logs (i.e., which ones made it onchain). Those that survived are finalized; those that didn't are dropped.
 - `getLastFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last (highest) finalized index for a given secret.
 - `getLastUsedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last used index for a given directional app tagging secret, considering both finalized and pending indexes.
-- `getTxHashesOfPendingIndexes(secret: ExtendedDirectionalAppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain indexes within a specified range for a given directional app tagging secret.
-- `storePendingIndexes(preTags: PreTag[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending indexes.
+- `getTxHashesOfPendingIndexes(secret: ExtendedDirectionalAppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant information for the caller of this function.
+- `storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending index ranges.
 
 ## Interfaces
 
@@ -407,7 +409,7 @@ A filter used to fetch notes.
 
 ### ORACLE_VERSION
 ```typescript
-type ORACLE_VERSION = 12
+type ORACLE_VERSION = 18
 ```
 
 ### PXEConfig
@@ -428,7 +430,7 @@ type PXECreationOptions = unknown
 
 ### PXE_DATA_SCHEMA_VERSION
 ```typescript
-type PXE_DATA_SCHEMA_VERSION = 3
+type PXE_DATA_SCHEMA_VERSION = 4
 ```
 
 ### PackedPrivateEvent
@@ -479,7 +481,7 @@ This package references types from other Aztec packages:
 - `BlockNumber`, `BufferReader`, `ConfigMappingsType`, `Fr`, `Logger`, `LoggerBindings`, `MembershipWitness`
 
 **@aztec/kv-store**
-- `AztecAsyncKVStore`, `DataStoreConfig`
+- `AztecAsyncKVStore`
 
 **@aztec/stdlib**
-- `AztecAddress`, `AztecNode`, `BlockHeader`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DebugLog`, `EventSelector`, `ExtendedDirectionalAppTaggingSecret`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `Note`, `NoteDao`, `NoteStatus`, `PreTag`, `SimulationError`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`
+- `AztecAddress`, `AztecNode`, `BlockHeader`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DataStoreConfig`, `DebugLog`, `EventSelector`, `ExtendedDirectionalAppTaggingSecret`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `Note`, `NoteDao`, `NoteStatus`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`

@@ -3,6 +3,9 @@ import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
+import type { AztecNode } from '../interfaces/aztec-node.js';
+import { TxHash } from '../tx/tx_hash.js';
+
 /**
  * # L2-to-L1 Message Tree Structure and Leaf IDs
  *
@@ -92,59 +95,94 @@ export function getL2ToL1MessageLeafId(
   return 2n ** BigInt(membershipWitness.siblingPath.pathSize) + membershipWitness.leafIndex;
 }
 
-export interface MessageRetrieval {
-  getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
-}
-
 export type L2ToL1MembershipWitness = {
   root: Fr;
   leafIndex: bigint;
   siblingPath: SiblingPath<number>;
+  epochNumber: EpochNumber;
 };
 
+/**
+ * Computes the L2 to L1 membership witness for a given message in a transaction.
+ *
+ * @param node - The Aztec node to query for block/tx/epoch data.
+ * @param message - The L2 to L1 message hash to prove membership of.
+ * @param txHash - The hash of the transaction that emitted the message.
+ * @param messageIndexInTx - Optional index of the message within the transaction's L2-to-L1 messages.
+ *   If not provided, the message is found by scanning the tx's messages (throws if duplicates exist).
+ * @returns The membership witness and epoch number, or undefined if the tx is not yet in a block/epoch.
+ */
 export async function computeL2ToL1MembershipWitness(
-  messageRetriever: MessageRetrieval,
-  epoch: EpochNumber,
+  node: Pick<
+    AztecNode,
+    'getL2ToL1Messages' | 'getTxReceipt' | 'getTxEffect' | 'getBlock' | 'getCheckpointsDataForEpoch'
+  >,
   message: Fr,
+  txHash: TxHash,
+  messageIndexInTx?: number,
 ): Promise<L2ToL1MembershipWitness | undefined> {
-  const messagesInEpoch = await messageRetriever.getL2ToL1Messages(epoch);
-  if (messagesInEpoch.length === 0) {
+  const { epochNumber, blockNumber } = await node.getTxReceipt(txHash);
+  if (epochNumber === undefined || blockNumber === undefined) {
     return undefined;
   }
 
-  return computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, message);
+  const [messagesInEpoch, block, txEffect, checkpointsData] = await Promise.all([
+    node.getL2ToL1Messages(epochNumber),
+    node.getBlock(blockNumber),
+    node.getTxEffect(txHash),
+    node.getCheckpointsDataForEpoch(epochNumber),
+  ]);
+
+  if (messagesInEpoch.length === 0 || !block || !txEffect) {
+    return undefined;
+  }
+
+  const checkpointIndex = checkpointsData.findIndex(c => c.checkpointNumber === block.checkpointNumber);
+  if (checkpointIndex === -1) {
+    return undefined;
+  }
+
+  const blockIndex = block.indexWithinCheckpoint;
+  const txIndex = txEffect.txIndexInBlock;
+
+  const { root, leafIndex, siblingPath } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(
+    messagesInEpoch,
+    message,
+    checkpointIndex,
+    blockIndex,
+    txIndex,
+    messageIndexInTx,
+  );
+  return { epochNumber, root, leafIndex, siblingPath };
 }
 
-// TODO: Allow to specify the message to consume by its index or by an offset, in case there are multiple messages with
-// the same value.
+/**
+ * Computes a membership witness for a message in the epoch's L2-to-L1 message tree, given explicit position indices.
+ *
+ * @param messagesInEpoch - All L2-to-L1 messages in the epoch, organized as checkpoints → blocks → txs → messages.
+ * @param message - The message hash to prove membership of.
+ * @param checkpointIndex - Index of the checkpoint within the epoch's message array.
+ * @param blockIndex - Index of the block within the checkpoint.
+ * @param txIndex - Index of the transaction within the block.
+ * @param messageIndexInTx - Optional index of the message within the transaction's messages.
+ *   If not provided, the message is found by scanning (throws if duplicates exist within the tx).
+ */
+/** @internal Exported for testing only. */
 export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
   messagesInEpoch: Fr[][][][],
   message: Fr,
-): L2ToL1MembershipWitness {
-  // Find the index of the message in the tx, index of the tx in the block, and index of the block in the epoch.
-  let messageIndexInTx = -1;
-  let txIndex = -1;
-  let blockIndex = -1;
-  const checkpointIndex = messagesInEpoch.findIndex(messagesInCheckpoint => {
-    blockIndex = messagesInCheckpoint.findIndex(messagesInBlock => {
-      txIndex = messagesInBlock.findIndex(messagesInTx => {
-        messageIndexInTx = messagesInTx.findIndex(msg => msg.equals(message));
-        return messageIndexInTx !== -1;
-      });
-      return txIndex !== -1;
-    });
-    return blockIndex !== -1;
-  });
-
-  if (checkpointIndex === -1) {
-    throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
-  }
+  checkpointIndex: number,
+  blockIndex: number,
+  txIndex: number,
+  messageIndexInTx?: number,
+): { root: Fr; leafIndex: bigint; siblingPath: SiblingPath<number> } {
+  const messagesInTx = messagesInEpoch[checkpointIndex][blockIndex][txIndex];
+  const resolvedMessageIndex = resolveMessageIndex(messagesInTx, message, messageIndexInTx);
 
   // Build the tx tree.
-  const messagesInTx = messagesInEpoch[checkpointIndex][blockIndex][txIndex];
   const txTree = UnbalancedMerkleTreeCalculator.create(messagesInTx.map(msg => msg.toBuffer()));
   // Get the sibling path of the target message in the tx tree.
-  const pathToMessageInTxSubtree = txTree.getSiblingPathByLeafIndex(messageIndexInTx);
+  const pathToMessageInTxSubtree = txTree.getSiblingPathByLeafIndex(resolvedMessageIndex);
 
   // Build the tree of the block containing the target message.
   const blockTree = buildBlockTree(messagesInEpoch[checkpointIndex][blockIndex]);
@@ -189,7 +227,7 @@ export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
   // Compute the combined index.
   // It is the index of the message in the balanced tree (by filling up the wonky tree with empty nodes) at its current
   // height. It's used to validate the membership proof.
-  const messageLeafPosition = txTree.getLeafLocation(messageIndexInTx);
+  const messageLeafPosition = txTree.getLeafLocation(resolvedMessageIndex);
   const txLeafPosition = blockTree.getLeafLocation(txIndex);
   const blockLeafPosition = checkpointTree.getLeafLocation(blockIndex);
   const checkpointLeafPosition = epochTree.getLeafLocation(checkpointIndex);
@@ -205,6 +243,33 @@ export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
     leafIndex: BigInt(combinedIndex),
     siblingPath: new SiblingPath(combinedPath.length, combinedPath),
   };
+}
+
+function resolveMessageIndex(messagesInTx: Fr[], message: Fr, messageIndexInTx?: number): number {
+  if (messageIndexInTx !== undefined) {
+    if (!messagesInTx[messageIndexInTx]?.equals(message)) {
+      throw new Error(`Message at index ${messageIndexInTx} in tx does not match the expected message ${message}`);
+    }
+    return messageIndexInTx;
+  }
+
+  const indices = messagesInTx.reduce<number[]>((acc, msg, i) => {
+    if (msg.equals(message)) {
+      acc.push(i);
+    }
+    return acc;
+  }, []);
+
+  if (indices.length === 0) {
+    throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
+  }
+  if (indices.length > 1) {
+    throw new Error(
+      `Multiple messages with the same value ${message} found in tx (indices: ${indices.join(', ')}). ` +
+        `Provide messageIndexInTx to disambiguate.`,
+    );
+  }
+  return indices[0];
 }
 
 function buildCheckpointTree(messagesInCheckpoint: Fr[][][]) {

@@ -34,7 +34,7 @@ describe('e2e_note_getter', () => {
     let contract: NoteGetterContract;
 
     beforeAll(async () => {
-      contract = await NoteGetterContract.deploy(wallet).send({ from: defaultAddress });
+      ({ contract } = await NoteGetterContract.deploy(wallet).send({ from: defaultAddress }));
     });
 
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
@@ -47,7 +47,14 @@ describe('e2e_note_getter', () => {
       // We insert a note with value 5 twice to better test the comparators
       await contract.methods.insert_note(5).send({ from: defaultAddress });
 
-      const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
+      const [
+        { result: returnEq },
+        { result: returnNeq },
+        { result: returnLt },
+        { result: returnGt },
+        { result: returnLte },
+        { result: returnGte },
+      ] = await Promise.all([
         contract.methods.read_note_values(defaultAddress, Comparator.EQ, 5).simulate({ from: defaultAddress }),
         contract.methods.read_note_values(defaultAddress, Comparator.NEQ, 5).simulate({ from: defaultAddress }),
         contract.methods.read_note_values(defaultAddress, Comparator.LT, 5).simulate({ from: defaultAddress }),
@@ -78,7 +85,7 @@ describe('e2e_note_getter', () => {
     const makeTxHybrid = false;
 
     beforeAll(async () => {
-      contract = await TestContract.deploy(wallet).send({ from: defaultAddress });
+      ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAddress }));
       owner = defaultAddress;
     });
 
@@ -93,10 +100,10 @@ describe('e2e_note_getter', () => {
     });
 
     async function assertNoteIsReturned(storageSlot: number, expectedValue: number, activeOrNullified: boolean) {
-      const viewNotesResult = await contract.methods
+      const { result: viewNotesResult } = await contract.methods
         .call_view_notes(owner, storageSlot, activeOrNullified)
         .simulate({ from: defaultAddress });
-      const getNotesResult = await contract.methods
+      const { result: getNotesResult } = await contract.methods
         .call_get_notes(owner, storageSlot, activeOrNullified)
         .simulate({ from: defaultAddress });
 
@@ -155,10 +162,10 @@ describe('e2e_note_getter', () => {
         await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress });
 
         // We now fetch multiple notes, and get both the active and the nullified one.
-        const viewNotesManyResult = await contract.methods
+        const { result: viewNotesManyResult } = await contract.methods
           .call_view_notes_many(owner, storageSlot, activeOrNullified)
           .simulate({ from: defaultAddress });
-        const getNotesManyResult = await contract.methods
+        const { result: getNotesManyResult } = await contract.methods
           .call_get_notes_many(owner, storageSlot, activeOrNullified)
           .simulate({ from: defaultAddress });
 

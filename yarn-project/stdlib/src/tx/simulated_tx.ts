@@ -12,9 +12,11 @@ import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
+import type { OffchainEffect } from './offchain_effect.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
+  collectOffchainEffects,
   collectSortedContractClassLogs,
 } from './private_execution_result.js';
 import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
@@ -84,6 +86,11 @@ export class TxSimulationResult {
     public stats?: SimulationStats,
   ) {}
 
+  /** Returns offchain effects collected from private execution. */
+  get offchainEffects(): OffchainEffect[] {
+    return collectOffchainEffects(this.privateExecutionResult);
+  }
+
   get gasUsed(): GasUsed {
     return (
       this.publicOutput?.gasUsed ?? {
@@ -106,7 +113,7 @@ export class TxSimulationResult {
       .transform(TxSimulationResult.from);
   }
 
-  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed'>) {
+  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed' | 'offchainEffects'>) {
     return new TxSimulationResult(
       fields.privateExecutionResult,
       fields.publicInputs,

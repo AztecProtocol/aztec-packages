@@ -18,7 +18,7 @@ MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path, size_t dyad
 {
     auto bn254_g1_data = get_bn254_g1_data(path, dyadic_circuit_size, allow_download);
     auto bn254_g2_data = srs::get_bn254_g2_crs_element();
-    return { bn254_g1_data, bn254_g2_data };
+    return { std::move(bn254_g1_data), bn254_g2_data };
 }
 
 /**
@@ -34,6 +34,6 @@ MemGrumpkinCrsFactory init_grumpkin_crs(const std::filesystem::path& path,
                                         bool allow_download)
 {
     auto grumpkin_g1_data = get_grumpkin_g1_data(path, eccvm_dyadic_circuit_size, allow_download);
-    return { grumpkin_g1_data };
+    return { std::move(grumpkin_g1_data) };
 }
 } // namespace bb::srs::factories

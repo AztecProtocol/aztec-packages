@@ -15,8 +15,8 @@ describe('e2e_nested_contract manual', () => {
   });
 
   beforeEach(async () => {
-    importerContract = await ImportTestContract.deploy(wallet).send({ from: defaultAccountAddress });
-    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: importerContract } = await ImportTestContract.deploy(wallet).send({ from: defaultAccountAddress }));
+    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(async () => {

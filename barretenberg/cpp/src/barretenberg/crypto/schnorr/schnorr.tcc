@@ -88,7 +88,6 @@ schnorr_signature schnorr_construct_signature(const std::string& message, const 
     // method is overloaded to utilise a suitable entropy source
     // (see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md)
     //
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/895): securely erase `k`
     Fr k = Fr::random_element();
 
     typename G1::affine_element R(G1::one * k);
@@ -97,6 +96,7 @@ schnorr_signature schnorr_construct_signature(const std::string& message, const 
     // the conversion from e_raw results in a biased field element e
     Fr e = Fr::serialize_from_buffer(&e_raw[0]);
     Fr s = k - (private_key * e);
+    secure_erase_bytes(&k, sizeof(k));
 
     // we serialize e_raw rather than e, so that no binary conversion needs to be
     // performed during verification.

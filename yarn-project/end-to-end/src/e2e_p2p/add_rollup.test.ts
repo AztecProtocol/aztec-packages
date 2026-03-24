@@ -1,6 +1,7 @@
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_FROM } from '@aztec/aztec.js/account';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -280,12 +281,12 @@ describe('e2e_p2p_add_rollup', () => {
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
       await aliceDeploymethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
       });
 
       const aliceAddress = aliceAccountManager.address;
 
-      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress });
+      const { contract: testContract } = await TestContract.deploy(wallet).send({ from: aliceAddress });
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -304,7 +305,7 @@ describe('e2e_p2p_add_rollup', () => {
         // We poll isL1ToL2MessageSynced endpoint until the message is available
         await retryUntil(async () => await node.isL1ToL2MessageSynced(msgHash), 'message sync', 10);
 
-        const receipt = await testContract.methods
+        const { receipt } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
           .send({ from: aliceAddress });
 
@@ -347,12 +348,9 @@ describe('e2e_p2p_add_rollup', () => {
           chainId: new Fr(l1Client.chain.id),
         });
 
-        const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
-        const block = await node.getBlock(l2OutgoingReceipt.blockNumber!);
-        const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
-
-        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, epoch, leaf))!;
-        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);
+        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, leaf, l2OutgoingReceipt.txHash))!;
+        const { epochNumber: epoch, ...l2ToL1MessageWitness } = l2ToL1MessageResult;
+        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageWitness);
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
@@ -374,8 +372,8 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(epoch),
-              BigInt(l2ToL1MessageResult!.leafIndex),
-              l2ToL1MessageResult!.siblingPath
+              BigInt(l2ToL1MessageWitness.leafIndex),
+              l2ToL1MessageWitness.siblingPath
                 .toBufferArray()
                 .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
             ],
@@ -520,7 +518,7 @@ describe('e2e_p2p_add_rollup', () => {
     const futureEpoch = EpochNumber.fromBigInt(500n + BigInt(await newRollup.getCurrentEpochNumber()));
     const futureSlot = SlotNumber.fromBigInt(BigInt(futureEpoch) * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
     const time = await newRollup.getTimestampForSlot(futureSlot);
-    if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
+    if (time > BigInt(await t.ctx.cheatCodes.eth.lastBlockTimestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));
       await waitL1Block();
     }

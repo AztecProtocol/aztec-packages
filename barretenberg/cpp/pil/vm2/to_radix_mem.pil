@@ -158,8 +158,8 @@ namespace to_radix_mem;
     pol commit write_addr_upper_bound;
     start * (write_addr_upper_bound - dst_addr - num_limbs) = 0;
 
-    // Both inputs (write_addr_upper_bound, max_mem_size) are smaller than 2^33 < 2^128 which
-    // satisfies the precondition of the gt gadget.
+    // gt gadget requires both inputs to be bounded by 2^128.
+    // Both inputs (write_addr_upper_bound, max_mem_size) are smaller than 2^33 < 2^128.
     #[CHECK_DST_ADDR_IN_RANGE]
     start { write_addr_upper_bound, max_mem_size, sel_dst_out_of_range_err }
     in gt.sel_others { gt.input_a, gt.input_b, gt.res };
@@ -178,12 +178,14 @@ namespace to_radix_mem;
     pol commit two_five_six;
     start * (two_five_six - 256) = 0;
 
-    // `radix` and `2` are bounded by 2^32 < 2^128 which satisfies the precondition of the gt gadget.
+    // gt gadget requires both inputs to be bounded by 2^128.
+    // `radix` and `2` are bounded by 2^32 < 2^128.
     #[CHECK_RADIX_LT_2]
     start { two, radix, sel_radix_lt_2_err }
     in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    // `radix` and `256` are bounded by 2^32 < 2^128 which satisfies the precondition of the gt gadget.
+    // gt gadget requires both inputs to be bounded by 2^128.
+    // `radix` and `256` are bounded by 2^32 < 2^128.
     #[CHECK_RADIX_GT_256]
     start { radix, two_five_six, sel_radix_gt_256_err }
     in gt.sel_others { gt.input_a, gt.input_b, gt.res };

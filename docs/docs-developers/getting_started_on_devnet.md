@@ -28,7 +28,7 @@ Before diving into the setup, it's important to understand the differences betwe
 - No automatic test accounts
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [local network guide](./docs/tutorials/local_network.md).
+If you're new to Aztec and want to understand local development first, check out the [local network guide](./getting_started_on_local_network.md).
 :::
 
 ## Prerequisites
@@ -42,6 +42,12 @@ VERSION=#include_devnet_version bash -i <(curl -sL https://install.aztec.network
 :::warning
 The devnet is version dependent. It is currently running version `#include_devnet_version`. Maintain version consistency when interacting with the devnet to reduce errors.
 :::
+
+#if(testnet)
+:::warning
+The Sponsored FPC is **not** deployed on testnet. The `SPONSORED_FPC_ADDRESS` and sponsored fee payment commands in this guide only apply to devnet. On testnet, you must [bridge Fee Juice from L1](./docs/aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1) to pay fees.
+:::
+#endif
 
 ## Getting Started on Devnet
 
@@ -189,7 +195,7 @@ For complete Devnet technical details including RPC endpoints, contract addresse
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [local network tutorial](./docs/tutorials/local_network.md) for faster development
+- **New to Aztec?** Start with the [local network guide](./getting_started_on_local_network.md) for faster development
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)

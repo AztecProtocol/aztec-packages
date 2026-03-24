@@ -94,6 +94,7 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 | `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
 | `Unknown contract 0x0`                                   | Call `wallet.registerContract(...)` to register contract                                                                                                        |
 | `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |
+| `Direct invocation of ... functions is not supported`    | Use `self.call()`, `self.view()`, or `self.enqueue()` to [call contract functions](framework-description/calling_contracts.md) |
 | `Failed to solve brillig function`                       | Check function parameters and note validity                                                                                                                     |
 
 ### Circuit Errors

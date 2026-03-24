@@ -11,10 +11,12 @@ This guide shows you how to deploy compiled contracts to Aztec using the generat
 
 Deploying a contract to Aztec involves publishing the contract class (the bytecode) and creating a contract instance at a specific address. The generated TypeScript classes handle this process through an API: you call `deploy()` with constructor arguments and `send()` with transaction options to deploy and get the contract instance. The contract address is deterministically computed from the contract class, constructor arguments, salt, and deployer address.
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
 ## Prerequisites
 
 - Compiled contract artifacts (see [How to Compile](../aztec-nr/compiling_contracts.md))
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
+- <General.AztecJSPrerequisites />
 - TypeScript project set up
 
 ## Generate TypeScript bindings

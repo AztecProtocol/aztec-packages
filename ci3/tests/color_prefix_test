@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+# Tests for color_prefix script.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CP="$SCRIPT_DIR/../color_prefix"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+pass() { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() {
+  echo "${RED}✗${NC} $1: $2"
+  ((TESTS_FAILED++)) || true
+}
+
+# Strip ANSI escape codes for content matching.
+strip_ansi() { sed 's/\x1b\[[0-9;]*m//g'; }
+
+echo "=== Color Prefix Test Suite ==="
+
+# --- 1. Basic output prefixing ---
+echo "--- 1. Basic Output ---"
+
+output=$("$CP" "myjob" "echo hello" 2>&1)
+plain=$(echo "$output" | strip_ansi)
+if [[ "$plain" == "[myjob] hello" ]]; then
+  pass "single line prefixed"
+else
+  fail "single line prefixed" "got: $plain"
+fi
+
+# --- 2. Multiple lines ---
+output=$("$CP" "multi" "echo line1; echo line2; echo line3" 2>&1)
+count=$(echo "$output" | wc -l)
+if [[ "$count" -eq 3 ]]; then
+  pass "multiple lines all prefixed ($count lines)"
+else
+  fail "multiple lines all prefixed" "expected 3 lines, got $count"
+fi
+
+# Every line should have the prefix.
+bad=$(echo "$output" | strip_ansi | grep -cv '^\[multi\]' || true)
+if [[ "$bad" -eq 0 ]]; then
+  pass "every line has prefix"
+else
+  fail "every line has prefix" "$bad lines missing prefix"
+fi
+
+# --- 3. Exit code propagation ---
+echo "--- 2. Exit Codes ---"
+
+code=0
+"$CP" "ok" "exit 0" &>/dev/null || code=$?
+if [[ "$code" -eq 0 ]]; then
+  pass "exit 0 propagated"
+else
+  fail "exit 0 propagated" "got $code"
+fi
+
+code=0
+"$CP" "fail1" "exit 1" &>/dev/null || code=$?
+if [[ "$code" -eq 1 ]]; then
+  pass "exit 1 propagated"
+else
+  fail "exit 1 propagated" "got $code"
+fi
+
+code=0
+"$CP" "fail42" "exit 42" &>/dev/null || code=$?
+if [[ "$code" -eq 42 ]]; then
+  pass "exit 42 propagated"
+else
+  fail "exit 42 propagated" "got $code"
+fi
+
+# --- 4. stderr is captured and prefixed ---
+echo "--- 3. Stderr Handling ---"
+
+output=$("$CP" "err" "echo on-stdout; echo on-stderr >&2" 2>&1)
+plain=$(echo "$output" | strip_ansi)
+if echo "$plain" | grep -q '\[err\] on-stderr'; then
+  pass "stderr lines are prefixed"
+else
+  fail "stderr lines are prefixed" "got: $plain"
+fi
+
+# --- 5. No leaked processes ---
+echo "--- 4. Process Cleanup ---"
+
+"$CP" "clean" "echo done" &>/dev/null
+sleep 0.3
+leaked_awk=$(pgrep -f "awk.*clean.*fflush" 2>/dev/null || true)
+leaked_fifo=$(ls /tmp/tmp.* 2>/dev/null | head -5 || true)
+if [[ -z "$leaked_awk" ]]; then
+  pass "no leaked awk process"
+else
+  fail "no leaked awk process" "pids: $leaked_awk"
+  kill $leaked_awk 2>/dev/null || true
+fi
+
+# --- 6. No leaked fifo ---
+# Run several times and check /tmp doesn't accumulate fifos.
+before=$(find /tmp -maxdepth 1 -type p 2>/dev/null | wc -l)
+for i in $(seq 1 5); do
+  "$CP" "fifo$i" "echo hi" &>/dev/null
+done
+after=$(find /tmp -maxdepth 1 -type p 2>/dev/null | wc -l)
+if [[ "$after" -le "$before" ]]; then
+  pass "no leaked fifos after 5 runs"
+else
+  fail "no leaked fifos after 5 runs" "before=$before after=$after"
+fi
+
+# --- 7. SIGTERM kills cleanly ---
+echo "--- 5. Signal Handling ---"
+
+# Use setsid to put color_prefix in its own session so SIGTERM doesn't reach us.
+setsid "$CP" "sig" "sleep 60" &>/dev/null &
+cp_pid=$!
+sleep 0.5
+# Send SIGTERM to color_prefix only (not the whole group).
+kill -TERM $cp_pid 2>/dev/null
+code=0
+wait $cp_pid 2>/dev/null || code=$?
+# 130 (from on_signal handler) or 143 (SIGTERM default)
+if [[ "$code" -eq 130 ]] || [[ "$code" -eq 143 ]]; then
+  pass "SIGTERM exits with $code"
+else
+  fail "SIGTERM exits cleanly" "got exit code $code"
+fi
+
+# Ensure the sleep child was also killed.
+sleep 0.5
+if ! pgrep -f "sleep 60" &>/dev/null; then
+  pass "child process killed on SIGTERM"
+else
+  fail "child process killed on SIGTERM" "sleep 60 still running"
+  pkill -f "sleep 60" 2>/dev/null || true
+fi
+
+# --- 8. Background children don't block exit ---
+echo "--- 6. Fd Leak Prevention ---"
+
+start=$SECONDS
+code=0
+timeout 10 "$CP" "bg" "echo before; sleep 999 </dev/null >/dev/null 2>&1 & disown; echo after" &>/dev/null || code=$?
+elapsed=$((SECONDS - start))
+
+if [[ "$elapsed" -lt 8 ]]; then
+  pass "exits promptly despite background child (${elapsed}s)"
+else
+  fail "exits promptly despite background child" "took ${elapsed}s"
+fi
+pkill -f "sleep 999" 2>/dev/null || true
+
+# --- 9. Large output is fully flushed ---
+echo "--- 7. Output Flushing ---"
+
+output=$("$CP" "flush" "seq 1 500" 2>&1)
+count=$(echo "$output" | wc -l)
+if [[ "$count" -eq 500 ]]; then
+  pass "all 500 lines flushed"
+else
+  fail "all 500 lines flushed" "got $count lines"
+fi
+
+# Verify last line is correct.
+last=$(echo "$output" | tail -1 | strip_ansi)
+if [[ "$last" == "[flush] 500" ]]; then
+  pass "last line is correct"
+else
+  fail "last line is correct" "got: $last"
+fi
+
+# --- 10. Special characters in output ---
+echo "--- 8. Special Characters ---"
+
+output=$("$CP" "special" "echo 'hello \"world\" \$PATH \\backslash'" 2>&1)
+plain=$(echo "$output" | strip_ansi)
+if echo "$plain" | grep -q 'hello "world"'; then
+  pass "quotes preserved"
+else
+  fail "quotes preserved" "got: $plain"
+fi
+
+# --- 11. Empty output ---
+echo "--- 9. Edge Cases ---"
+
+output=$("$CP" "empty" "true" 2>&1)
+if [[ -z "$output" ]]; then
+  pass "no output for silent command"
+else
+  fail "no output for silent command" "got: $output"
+fi
+
+# --- 12. Rapid successive runs ---
+pids=()
+for i in $(seq 1 5); do
+  "$CP" "rapid$i" "echo run$i" &>/dev/null &
+  pids+=($!)
+done
+all_ok=1
+for pid in "${pids[@]}"; do
+  wait $pid 2>/dev/null || all_ok=0
+done
+if [[ "$all_ok" -eq 1 ]]; then
+  pass "5 concurrent runs all succeed"
+else
+  fail "5 concurrent runs all succeed" "some exited non-zero"
+fi
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"
+  exit 1
+fi

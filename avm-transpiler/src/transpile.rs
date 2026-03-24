@@ -538,38 +538,38 @@ fn handle_foreign_call(
     inputs: &[ValueOrArray],
 ) {
     match function {
-        "avmOpcodeCall" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
-        "avmOpcodeStaticCall" => {
+        "aztec_avm_call" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
+        "aztec_avm_staticCall" => {
             handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL);
         }
-        "avmOpcodeEmitPublicLog" => {
+        "aztec_avm_emitPublicLog" => {
             handle_emit_public_log(avm_instrs, destinations, inputs);
         }
-        "avmOpcodeNoteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
-        "avmOpcodeEmitNoteHash" | "avmOpcodeEmitNullifier" => handle_emit_note_hash_or_nullifier(
-            function == "avmOpcodeEmitNullifier",
+        "aztec_avm_noteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
+        "aztec_avm_emitNoteHash" | "aztec_avm_emitNullifier" => handle_emit_note_hash_or_nullifier(
+            function == "aztec_avm_emitNullifier",
             avm_instrs,
             destinations,
             inputs,
         ),
-        "avmOpcodeNullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
-        "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
-        "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
-        "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
-        "avmOpcodeSuccessCopy" => handle_success_copy(avm_instrs, destinations, inputs),
-        "avmOpcodeReturndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
-        "avmOpcodeReturndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
-        "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
-        "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
-        "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
-        "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "utilityLog" => handle_debug_log(avm_instrs, destinations, inputs),
+        "aztec_avm_nullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
+        "aztec_avm_l1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
+        "aztec_avm_sendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
+        "aztec_avm_calldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
+        "aztec_avm_successCopy" => handle_success_copy(avm_instrs, destinations, inputs),
+        "aztec_avm_returndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
+        "aztec_avm_returndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
+        "aztec_avm_return" => handle_return(avm_instrs, destinations, inputs),
+        "aztec_avm_revert" => handle_revert(avm_instrs, destinations, inputs),
+        "aztec_avm_storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
+        "aztec_avm_storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
+        "aztec_utl_log" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
         }
         // Get contract instance variations.
-        _ if function.starts_with("avmOpcodeGetContractInstance") => {
+        _ if function.starts_with("aztec_avm_getContractInstance") => {
             handle_get_contract_instance(avm_instrs, function, destinations, inputs);
         }
         // Anything else.
@@ -580,7 +580,7 @@ fn handle_foreign_call(
 /// Handle an AVM CALL
 /// (an external 'call' brillig foreign call was encountered)
 /// Adds the new instruction to the avm instructions list.
-// #[oracle(avmOpcodeCall)]
+// #[oracle(aztec_avm_call)]
 // unconstrained fn call_opcode<let N: u32>(
 //     l2_gas_allocation: u32,
 //     da_gas_allocation: u32,
@@ -947,18 +947,18 @@ fn handle_getter_instruction(
     };
 
     let var_idx = match function {
-        "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
-        "avmOpcodeSender" => EnvironmentVariable::SENDER,
-        "avmOpcodeMinFeePerL2Gas" => EnvironmentVariable::MINFEEPERL2GAS,
-        "avmOpcodeMinFeePerDaGas" => EnvironmentVariable::MINFEEPERDAGAS,
-        "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
-        "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
-        "avmOpcodeVersion" => EnvironmentVariable::VERSION,
-        "avmOpcodeBlockNumber" => EnvironmentVariable::BLOCKNUMBER,
-        "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
-        "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
-        "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
-        "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
+        "aztec_avm_address" => EnvironmentVariable::ADDRESS,
+        "aztec_avm_sender" => EnvironmentVariable::SENDER,
+        "aztec_avm_minFeePerL2Gas" => EnvironmentVariable::MINFEEPERL2GAS,
+        "aztec_avm_minFeePerDaGas" => EnvironmentVariable::MINFEEPERDAGAS,
+        "aztec_avm_transactionFee" => EnvironmentVariable::TRANSACTIONFEE,
+        "aztec_avm_chainId" => EnvironmentVariable::CHAINID,
+        "aztec_avm_version" => EnvironmentVariable::VERSION,
+        "aztec_avm_blockNumber" => EnvironmentVariable::BLOCKNUMBER,
+        "aztec_avm_timestamp" => EnvironmentVariable::TIMESTAMP,
+        "aztec_avm_l2GasLeft" => EnvironmentVariable::L2GASLEFT,
+        "aztec_avm_daGasLeft" => EnvironmentVariable::DAGASLEFT,
+        "aztec_avm_isStaticCall" => EnvironmentVariable::ISSTATICCALL,
         _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
 
@@ -1348,7 +1348,7 @@ fn handle_debug_log(
 ) {
     // We need to handle two flavors here:
     //
-    // #[oracle(utilityLog)]
+    // #[oracle(aztec_utl_log)]
     // unconstrained fn log_oracle<let M: u32, let N: u32>(
     //     log_level: u8,
     //     msg: str<M>,
@@ -1358,7 +1358,7 @@ fn handle_debug_log(
     //
     // and
     //
-    //#[oracle(utilityLog)]
+    //#[oracle(aztec_utl_log)]
     // unconstrained fn log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
     //
     // Luckily, these two flavors have both 4 arguments, since noir inserts a length field for slices before the slice.
@@ -1420,7 +1420,7 @@ fn handle_debug_log(
     });
 }
 
-// #[oracle(avmOpcodeCalldataCopy)]
+// #[oracle(aztec_avm_calldataCopy)]
 // unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: Field) -> [Field; N] {}
 fn handle_calldata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1463,7 +1463,7 @@ fn handle_calldata_copy(
     });
 }
 
-// #[oracle(avmOpcodeReturndataSize)]
+// #[oracle(aztec_avm_returndataSize)]
 // unconstrained fn returndata_size_opcode() -> u32 {}
 fn handle_returndata_size(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1488,7 +1488,7 @@ fn handle_returndata_size(
     });
 }
 
-// #[oracle(avmOpcodeReturndataCopy)]
+// #[oracle(aztec_avm_returndataCopy)]
 // unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
 fn handle_returndata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1546,7 +1546,7 @@ fn handle_returndata_copy(
     ]);
 }
 
-// #[oracle(avmOpcodeReturn)]
+// #[oracle(aztec_avm_return)]
 // unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 fn handle_return(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1565,7 +1565,7 @@ fn handle_return(
     generate_return_instruction(avm_instrs, &return_data_offset, &return_data_size);
 }
 
-// #[oracle(avmOpcodeRevert)]
+// #[oracle(aztec_avm_revert)]
 // unconstrained fn revert_opcode(revertdata: [Field]) {}
 fn handle_revert(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1640,9 +1640,9 @@ fn handle_get_contract_instance(
     assert_eq!(destinations.len(), 1);
 
     let member_idx = match function {
-        "avmOpcodeGetContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
-        "avmOpcodeGetContractInstanceClassId" => ContractInstanceMember::CLASS_ID,
-        "avmOpcodeGetContractInstanceInitializationHash" => ContractInstanceMember::INIT_HASH,
+        "aztec_avm_getContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
+        "aztec_avm_getContractInstanceClassId" => ContractInstanceMember::CLASS_ID,
+        "aztec_avm_getContractInstanceInitializationHash" => ContractInstanceMember::INIT_HASH,
         _ => panic!("Transpiler doesn't know how to process function {:?}", function),
     };
 
@@ -1767,7 +1767,7 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     }
 }
 
-/// #[oracle(avmOpcodeSuccessCopy)]
+/// #[oracle(aztec_avm_successCopy)]
 /// unconstrained fn success_copy_opcode() -> bool {}
 fn handle_success_copy(
     avm_instrs: &mut Vec<AvmInstruction>,

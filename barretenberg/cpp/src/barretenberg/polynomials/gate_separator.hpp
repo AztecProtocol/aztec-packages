@@ -168,7 +168,7 @@ template <typename FF> struct GateSeparatorPolynomial {
         }
 
         BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
-        size_t pow_size = 1 << log_num_monomials;
+        size_t pow_size = static_cast<size_t>(1) << log_num_monomials;
         Polynomial<FF> beta_products(pow_size, Polynomial<FF>::DontZeroMemory::FLAG);
 
         // Explanations of the algorithm:

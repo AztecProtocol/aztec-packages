@@ -65,9 +65,11 @@ export class NestedContractTest {
 
   async applyManual() {
     this.logger.info('Deploying parent and child contracts');
-    const parentContract = await ParentContract.deploy(this.wallet).send({ from: this.defaultAccountAddress });
-    const childContract = await ChildContract.deploy(this.wallet).send({ from: this.defaultAccountAddress });
-    this.parentContract = parentContract;
-    this.childContract = childContract;
+    ({ contract: this.parentContract } = await ParentContract.deploy(this.wallet).send({
+      from: this.defaultAccountAddress,
+    }));
+    ({ contract: this.childContract } = await ChildContract.deploy(this.wallet).send({
+      from: this.defaultAccountAddress,
+    }));
   }
 }

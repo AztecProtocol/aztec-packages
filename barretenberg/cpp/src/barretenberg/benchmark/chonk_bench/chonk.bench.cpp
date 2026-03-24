@@ -10,6 +10,7 @@
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -40,6 +41,7 @@ BENCHMARK_DEFINE_F(ChonkBench, VerificationOnly)(benchmark::State& state)
     auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
     for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
         ChonkNativeVerifier verifier(vk_and_hash);
         benchmark::DoNotOptimize(verifier.verify(proof));
     }
@@ -83,10 +85,30 @@ BENCHMARK_DEFINE_F(ChonkBench, ProofDecompress)(benchmark::State& state)
     auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
     auto compressed = ProofCompressor::compress_chonk_proof(proof);
-    size_t mega_num_pub_inputs = proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
+    size_t mega_num_pub_inputs =
+        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
 
     for (auto _ : state) {
         benchmark::DoNotOptimize(ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs));
+    }
+}
+
+/**
+ * @brief Benchmark N individual Chonk verifications (sequential). Baseline for batch comparison.
+ */
+BENCHMARK_DEFINE_F(ChonkBench, VerifyIndividual)(benchmark::State& state)
+{
+    const size_t num_proofs = static_cast<size_t>(state.range(0));
+    auto precomputed_vks = precompute_vks(1);
+
+    // Generate a single proof and reuse it N times
+    auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(1, precomputed_vks);
+
+    for (auto _ : state) {
+        for (size_t i = 0; i < num_proofs; i++) {
+            ChonkNativeVerifier verifier(vk_and_hash);
+            benchmark::DoNotOptimize(verifier.verify(proof));
+        }
     }
 }
 
@@ -96,6 +118,7 @@ BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ChonkBench, VerificationOnly)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, ProofCompress)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, ProofDecompress)->Unit(benchmark::kMillisecond);
+BENCHMARK_REGISTER_F(ChonkBench, VerifyIndividual)->Unit(benchmark::kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
 } // namespace
 

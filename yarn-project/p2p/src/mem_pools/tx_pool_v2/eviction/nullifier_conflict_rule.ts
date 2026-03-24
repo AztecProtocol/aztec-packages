@@ -15,11 +15,12 @@ export class NullifierConflictRule implements PreAddRule {
 
   private log = createLogger('p2p:tx_pool_v2:nullifier_conflict_rule');
 
-  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, _context?: PreAddContext): Promise<PreAddResult> {
+  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, context?: PreAddContext): Promise<PreAddResult> {
     const result = checkNullifierConflict(
       incomingMeta,
       nullifier => poolAccess.getTxHashByNullifier(nullifier),
       txHash => poolAccess.getMetadata(txHash),
+      context?.priceBumpPercentage,
     );
 
     if (result.shouldIgnore) {

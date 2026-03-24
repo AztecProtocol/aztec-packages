@@ -2,12 +2,19 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { ABIParameter, ABIVariable, AbiType } from './abi.js';
-import { isAztecAddressStruct, parseSignedInt } from './utils.js';
+import { isAztecAddressStruct, isOptionStruct, parseSignedInt } from './utils.js';
 
 /**
  * The type of our decoded ABI.
  */
-export type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | { [key: string]: AbiDecoded };
+export type AbiDecoded =
+  | bigint
+  | boolean
+  | string
+  | AztecAddress
+  | AbiDecoded[]
+  | { [key: string]: AbiDecoded }
+  | undefined;
 
 /**
  * Decodes values using a provided ABI.
@@ -50,6 +57,11 @@ class AbiDecoder {
         const struct: { [key: string]: AbiDecoded } = {};
         if (isAztecAddressStruct(abiType)) {
           return new AztecAddress(this.getNextField().toBuffer());
+        }
+        if (isOptionStruct(abiType)) {
+          const isSome = this.decodeNext(abiType.fields[0].type);
+          const value = this.decodeNext(abiType.fields[1].type);
+          return isSome ? value : undefined;
         }
 
         for (const field of abiType.fields) {

@@ -18,17 +18,19 @@ describe('e2e_token_contract access control', () => {
 
   it('Set admin', async () => {
     await t.asset.methods.set_admin(t.account1Address).send({ from: t.adminAddress });
-    expect(await t.asset.methods.get_admin().simulate({ from: t.adminAddress })).toBe(t.account1Address.toBigInt());
+    expect((await t.asset.methods.get_admin().simulate({ from: t.adminAddress })).result).toBe(
+      t.account1Address.toBigInt(),
+    );
   });
 
   it('Add minter as admin', async () => {
     await t.asset.methods.set_minter(t.account1Address, true).send({ from: t.account1Address });
-    expect(await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).toBe(true);
+    expect((await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).result).toBe(true);
   });
 
   it('Revoke minter as admin', async () => {
     await t.asset.methods.set_minter(t.account1Address, false).send({ from: t.account1Address });
-    expect(await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).toBe(false);
+    expect((await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).result).toBe(false);
   });
 
   describe('failure cases', () => {

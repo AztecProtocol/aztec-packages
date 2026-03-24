@@ -1,6 +1,7 @@
 import { sumBigint } from '@aztec/foundation/bigint';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { PartialBy } from '@aztec/foundation/types';
 
 import { getEpochForOffense } from './helpers.js';
@@ -13,7 +14,8 @@ import type { Offense, ValidatorSlashVote } from './types.js';
  * @param epochsForCommittees - Array of epochs corresponding to each committee
  * @param settings - Settings including slashingAmounts and optional validator override lists
  * @param settings.maxSlashedValidators - If set, limits the total number of [validator, epoch] pairs
- *   with non-zero votes.
+ *   with non-zero votes. The lowest-vote pairs are zeroed out to stay within the limit.
+ * @param logger - Logger, logs which validators were dropped.
  * @returns Array of ValidatorSlashVote, where each vote is how many slash units the validator in that position should be slashed
  */
 export function getSlashConsensusVotesFromOffenses(
@@ -26,7 +28,8 @@ export function getSlashConsensusVotesFromOffenses(
     targetCommitteeSize: number;
     maxSlashedValidators?: number;
   },
-): { votes: ValidatorSlashVote[]; truncatedCount: number } {
+  logger: Logger = createLogger('slasher:tally'),
+): ValidatorSlashVote[] {
   const { slashingAmounts, targetCommitteeSize, maxSlashedValidators } = settings;
 
   if (committees.length !== epochsForCommittees.length) {
@@ -58,7 +61,7 @@ export function getSlashConsensusVotesFromOffenses(
 
   // if a cap is set, zero out the lowest-vote [validator, epoch] pairs so that the most severe slashes stay.
   if (maxSlashedValidators === undefined) {
-    return { votes, truncatedCount: 0 };
+    return votes;
   }
 
   const nonZeroByDescendingVote = [...votes.entries()].filter(([, vote]) => vote > 0).sort(([, a], [, b]) => b - a);
@@ -68,7 +71,22 @@ export function getSlashConsensusVotesFromOffenses(
     votes[idx] = 0;
   }
 
-  return { votes, truncatedCount: toTruncate.length };
+  if (toTruncate.length > 0) {
+    const truncated = toTruncate.map(([idx]) => {
+      const committeeIndex = Math.floor(idx / targetCommitteeSize);
+      const positionInCommittee = idx % targetCommitteeSize;
+      return {
+        validator: committees[committeeIndex][positionInCommittee].toString(),
+        epoch: epochsForCommittees[committeeIndex],
+      };
+    });
+    logger.warn(
+      `Truncated ${toTruncate.length} validator-epoch pairs to stay within limit of ${maxSlashedValidators}`,
+      { truncated },
+    );
+  }
+
+  return votes;
 }
 
 /** Returns the slash vote for the given amount to slash. */

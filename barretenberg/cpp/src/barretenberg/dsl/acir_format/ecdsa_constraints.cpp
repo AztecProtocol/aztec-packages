@@ -42,9 +42,9 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const Ecd
 {
     using Builder = Curve::Builder;
 
-    using Fq = Curve::fq_ct;
-    using Fr = Curve::bigfr_ct;
-    using G1 = Curve::g1_bigfr_ct;
+    using Fq = Curve::BaseField;
+    using Fr = Curve::ScalarField;
+    using G1 = Curve::Group;
 
     using field_ct = bb::stdlib::field_t<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
@@ -80,11 +80,11 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const Ecd
         // or (-G). For secp256r1, the batch multiplication requires that the two points do not have the same x
         // coordinate (so as to create a valid lookup table).
         // Compute as native type to get byte representation
-        typename Curve::AffineElementNative default_point_native(Curve::g1::one + Curve::g1::one);
+        typename Curve::AffineElementNative default_point_native(Curve::GroupNative::one + Curve::GroupNative::one);
         std::array<uint8_t, 32> default_x_bytes;
         std::array<uint8_t, 32> default_y_bytes;
-        Curve::fq::serialize_to_buffer(default_point_native.x, default_x_bytes.data());
-        Curve::fq::serialize_to_buffer(default_point_native.y, default_y_bytes.data());
+        Curve::BaseFieldNative::serialize_to_buffer(default_point_native.x, default_x_bytes.data());
+        Curve::BaseFieldNative::serialize_to_buffer(default_point_native.y, default_y_bytes.data());
 
         for (size_t i = 0; i < 32; ++i) {
             pub_x_fields[i] = field_ct::conditional_assign(predicate, pub_x_fields[i], field_ct(default_x_bytes[i]));
@@ -132,8 +132,8 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
                                    const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_y_fields,
                                    const stdlib::field_t<typename Curve::Builder>& result_field)
 {
-    using FqNative = Curve::fq;
-    using G1Native = Curve::g1;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
 
     // Vector of 32 copies of bb::fr::zero()
     std::vector<bb::fr> mock_zeros(32, bb::fr::zero());

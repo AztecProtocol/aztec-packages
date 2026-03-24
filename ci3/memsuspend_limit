@@ -4,9 +4,13 @@ set -eu
 # This informs the --memsuspend flag for GNU parallel.
 # Per the documentation:
 # --memsuspend size
-#   If the available memory falls below 2 * size, GNU parallel will suspend some of the running jobs. If the available memory  falls  below  size,
-#   only one job will be running.
-# We aim for one fourth of the total memory, to take at most half the memory when running tests (2 * size).
+#   If the available memory falls below 2 * size, GNU parallel will suspend some of the running jobs.
+#   If the available memory falls below size, only one job will be running.
+# We set memsuspend value to 1/4 the total memory.
+# So suspension will start when we exceed 1/2 available memory.
+# Only 1 job will be running when we exceed 3/4 available memory.
+# If the system has >= 256GB, we act like we have 256GB (set to 64GB).
+
 if [ -n "${MEMSUSPEND:-}" ]; then
   echo $MEMSUSPEND
   exit

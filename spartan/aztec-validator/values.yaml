@@ -14,7 +14,7 @@ validator:
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 2000
   validatorsPerNode: 1
-  publishersPerValidatorKey: 2
+  publishersPerReplica: 4
   publisherMnemonicStartIndex: 7000
 
   persistence:

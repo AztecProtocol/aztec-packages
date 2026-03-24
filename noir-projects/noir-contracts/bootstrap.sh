@@ -191,8 +191,17 @@ function compile {
   # .[0] is the original json (at $json_path)
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
-  jq -c '.functions[]' $json_path | \
-    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
+  # Write each function to a separate temp file to avoid pipe/stdin issues with large JSON
+  local func_dir=$(mktemp -d -p $tmp_dir)
+  local i=0
+  while IFS= read -r func_json; do
+    echo "$func_json" > "$func_dir/$i.json"
+    ((i++)) || true
+  done < <(jq -c '.functions[]' $json_path)
+
+  # Process each function file in parallel
+  ls "$func_dir"/*.json | sort -V | \
+    parallel $PARALLEL_FLAGS --keep-order 'cat {} | process_function '"$contract_hash" | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -251,7 +260,7 @@ function test {
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     check_port $((txe_base_port + i)) || echo "WARNING: port $((txe_base_port + i)) is in use, TXE $i may fail to start"
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((txe_base_port + i)) yarn start) >/dev/null &
+    (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$((txe_base_port + i)) yarn start) >/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do

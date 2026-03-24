@@ -72,6 +72,11 @@ export -f build_image
 function build {
   echo_header "release-image build"
 
+  if ! command -v docker &>/dev/null; then
+    echo "Docker is required to build the release image. Skipping."
+    exit 0
+  fi
+
   if ! cache_download release-image-base-$hash.zst; then
     denoise "cd .. && docker build -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
     docker save aztecprotocol/release-image-base:latest > release-image-base
@@ -88,6 +93,10 @@ function build {
 }
 
 function test_cmds {
+  if ! command -v docker &>/dev/null; then
+    exit 0
+  fi
+
   # Very simple sanity test.
   echo "$hash docker run --rm aztecprotocol/aztec --version"
 }

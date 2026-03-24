@@ -48,6 +48,8 @@ export { ContractFunctionInteraction } from '../contract/contract_function_inter
 export {
   NO_WAIT,
   type NoWait,
+  type OffchainMessage,
+  type OffchainOutput,
   type RequestInteractionOptions,
   type SendInteractionOptions,
   type ProfileInteractionOptions,
@@ -56,7 +58,10 @@ export {
   type InteractionWaitOptions,
   type GasSettingsOption,
   type SendReturn,
-  type SimulationReturn,
+  type SimulationResult,
+  type TxSendResultImmediate,
+  type TxSendResultMined,
+  extractOffchainOutput,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,
@@ -67,6 +72,7 @@ export { ContractBase, type ContractMethod, type ContractStorageLayout } from '.
 export { BatchCall } from '../contract/batch_call.js';
 export {
   type DeployOptions,
+  type DeployResultMined,
   type DeployReturn,
   type DeployTxReceipt,
   type DeployWaitOptions,

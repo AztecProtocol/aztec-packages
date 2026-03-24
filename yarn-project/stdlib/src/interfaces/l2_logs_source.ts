@@ -16,10 +16,11 @@ export interface L2LogsSource {
    * array implies no logs match that tag.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
    * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, upToBlockNumber?: BlockNumber): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
@@ -27,6 +28,7 @@ export interface L2LogsSource {
    * @param contractAddress - The contract address to search logs for.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination.
+   * @param upToBlockNumber - If set, only return logs from blocks up to and including this block number.
    * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
    * for a tag, the caller should fetch the next page to check for more logs.
    */
@@ -34,6 +36,7 @@ export interface L2LogsSource {
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]>;
 
   /**

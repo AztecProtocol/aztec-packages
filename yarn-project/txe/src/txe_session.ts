@@ -9,6 +9,7 @@ import {
   AnchorBlockStore,
   CapsuleStore,
   ContractStore,
+  ContractSyncService,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -150,6 +151,7 @@ export class TXESession implements TXESessionStateHandler {
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
+    private contractSyncService: ContractSyncService,
   ) {}
 
   static async init(contractStore: ContractStore) {
@@ -185,6 +187,9 @@ export class TXESession implements TXESessionStateHandler {
 
     const initialJobId = jobCoordinator.beginJob();
 
+    const logger = createLogger('txe:session');
+    const contractSyncService = new ContractSyncService(stateMachine.node, contractStore, noteStore, logger);
+
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
       contractStore,
@@ -201,11 +206,12 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
+      contractSyncService,
     );
-    await topLevelOracleHandler.txeAdvanceBlocksBy(1);
+    await topLevelOracleHandler.advanceBlocksBy(1);
 
     return new TXESession(
-      createLogger('txe:session'),
+      logger,
       stateMachine,
       topLevelOracleHandler,
       contractStore,
@@ -223,6 +229,7 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       nextBlockTimestamp,
+      contractSyncService,
     );
   }
 
@@ -309,6 +316,7 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
+      this.contractSyncService,
     );
 
     this.state = { name: 'TOP_LEVEL' };
@@ -369,6 +377,7 @@ export class TXESession implements TXESessionStateHandler {
       contractSyncService: this.stateMachine.contractSyncService,
       jobId: this.currentJobId,
       scopes: 'ALL_SCOPES',
+      messageContextService: this.stateMachine.messageContextService,
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -437,6 +446,8 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      messageContextService: this.stateMachine.messageContextService,
+      contractSyncService: this.contractSyncService,
       jobId: this.currentJobId,
       scopes: 'ALL_SCOPES',
     });
@@ -452,8 +463,8 @@ export class TXESession implements TXESessionStateHandler {
 
     // Note that while all public and private contexts do is build a single block that we then process when exiting
     // those, the top level context performs a large number of actions not captured in the following 'close' call. Among
-    // others, it will create empty blocks (via `txeAdvanceBlocksBy` and `deploy`), create blocks with transactions via
-    // `txePrivateCallNewFlow` and `txePublicCallNewFlow`, add accounts to PXE via `txeAddAccount`, etc. This is a
+    // others, it will create empty blocks (via `advanceBlocksBy` and `deploy`), create blocks with transactions via
+    // `privateCallNewFlow` and `publicCallNewFlow`, add accounts to PXE via `addAccount`, etc. This is a
     // slight inconsistency in the working model of this class, but is not too bad.
     // TODO: it's quite unfortunate that we need to capture the authwits created to later pass them again when the top
     // level context is re-created. This is because authwits create a temporary utility context that'd otherwise reset
@@ -528,6 +539,8 @@ export class TXESession implements TXESessionStateHandler {
           senderAddressBookStore: this.senderAddressBookStore,
           capsuleStore: this.capsuleStore,
           privateEventStore: this.privateEventStore,
+          messageContextService: this.stateMachine.messageContextService,
+          contractSyncService: this.contractSyncService,
           jobId: this.currentJobId,
           scopes,
         });

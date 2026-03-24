@@ -73,22 +73,26 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({ from: owner });
+  const { contract: token } = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({
+    from: owner,
+  });
 
   // deploy l2 token bridge and attach to the portal
-  const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({ from: owner });
+  const { contract: bridge } = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({
+    from: owner,
+  });
 
-  if ((await token.methods.get_admin().simulate({ from: owner })) !== owner.toBigInt()) {
+  if ((await token.methods.get_admin().simulate({ from: owner })).result !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_config().simulate({ from: owner })).token.equals(token.address)) {
+  if (!(await bridge.methods.get_config().simulate({ from: owner })).result.token.equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 
   // make the bridge a minter on the token:
   await token.methods.set_minter(bridge.address, true).send({ from: owner });
-  if ((await token.methods.is_minter(bridge.address).simulate({ from: owner })) === 1n) {
+  if ((await token.methods.is_minter(bridge.address).simulate({ from: owner })).result === 1n) {
     throw new Error(`Bridge is not a minter`);
   }
 
@@ -269,7 +273,7 @@ export class CrossChainTestHarness {
     authwitNonce: Fr = Fr.ZERO,
     authWitness: AuthWitness,
   ): Promise<TxReceipt> {
-    const withdrawReceipt = await this.l2Bridge.methods
+    const { receipt: withdrawReceipt } = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ authWitnesses: [authWitness], from: this.ownerAddress });
 
@@ -277,7 +281,7 @@ export class CrossChainTestHarness {
   }
 
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, authwitNonce: Fr = Fr.ZERO): Promise<TxReceipt> {
-    const withdrawReceipt = await this.l2Bridge.methods
+    const { receipt: withdrawReceipt } = await this.l2Bridge.methods
       .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ from: this.ownerAddress });
 
@@ -285,7 +289,7 @@ export class CrossChainTestHarness {
   }
 
   async getL2PrivateBalanceOf(owner: AztecAddress) {
-    return await this.l2Token.methods.balance_of_private(owner).simulate({ from: owner });
+    return (await this.l2Token.methods.balance_of_private(owner).simulate({ from: owner })).result;
   }
 
   async expectPrivateBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -295,7 +299,7 @@ export class CrossChainTestHarness {
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.l2Token.methods.balance_of_public(owner).simulate({ from: this.ownerAddress });
+    return (await this.l2Token.methods.balance_of_public(owner).simulate({ from: this.ownerAddress })).result;
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {

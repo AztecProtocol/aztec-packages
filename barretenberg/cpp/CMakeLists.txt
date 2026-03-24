@@ -9,6 +9,13 @@ project(
     LANGUAGES CXX C
 )
 
+# === Platform Guard Reference ===
+# __wasm__  : Compiler-defined for WebAssembly. Guards threading, file I/O, networking.
+# _WIN32    : Compiler-defined for Windows. Guards POSIX APIs (mmap, signals, IPC).
+# BB_LITE   : CMake option. Excludes server-side subsystems (lmdb, world_state, ipc, nodejs_module).
+#             Enabled for: iOS, Android, Windows cross-compiles.
+# WASM      : CMake variable mirroring __wasm__ for CMake-level logic.
+
 # Add doxygen build command
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
@@ -38,7 +45,7 @@ option(ENABLE_PIC "Builds with position independent code" OFF)
 option(SYNTAX_ONLY "only check syntax (-fsyntax-only)" OFF)
 option(ENABLE_WASM_BENCH "Enable BB_BENCH benchmarking support in WASM builds (dev only, not for releases)" OFF)
 option(AVM "enable building of vm2 module and bb-avm" ON)
-option(MOBILE "Build for mobile (excludes lmdb, world_state, vm2, nodejs_module)" OFF)
+option(BB_LITE "Exclude server-side subsystems: lmdb, world_state, ipc, nodejs_module" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -108,6 +115,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
     endif()
 endif()
 
+if(WIN32)
+    message(STATUS "Cross-compiling for Windows (MinGW)")
+    link_libraries(ws2_32 bcrypt psapi)
+endif()
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_CXX_STANDARD 20)
@@ -155,7 +167,7 @@ include(cmake/nlohmann_json.cmake)
 include(cmake/httplib.cmake)
 include(cmake/libdeflate.cmake)
 
-if (NOT WASM AND NOT MOBILE)
+if (NOT WASM AND NOT BB_LITE)
     include(cmake/lmdb.cmake)
 endif()
 
@@ -166,6 +178,27 @@ endif()
 include(cmake/backward-cpp.cmake)
 
 add_subdirectory(src)
+
+# Generate fuzzer manifest after all modules have been processed
+if(FUZZING)
+    get_property(_manifest_entries GLOBAL PROPERTY BB_FUZZER_MANIFEST_ENTRIES)
+    file(WRITE "${CMAKE_BINARY_DIR}/fuzzer_entries.txt" "")
+    foreach(_entry ${_manifest_entries})
+        file(APPEND "${CMAKE_BINARY_DIR}/fuzzer_entries.txt" "${_entry}\n")
+    endforeach()
+
+    set(_preset_name "${FUZZER_PRESET_NAME}")
+
+    add_custom_target(fuzzer_manifest ALL
+        COMMAND ${CMAKE_COMMAND} -E env python3
+            ${CMAKE_SOURCE_DIR}/scripts/generate_fuzzer_manifest.py
+            ${CMAKE_BINARY_DIR}/fuzzer_entries.txt
+            ${CMAKE_BINARY_DIR}/bin/fuzzer_manifest.json
+            ${_preset_name}
+        COMMENT "Generating fuzzer manifest"
+    )
+endif()
+
 if (ENABLE_ASAN AND NOT(FUZZING))
     find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-20)
     if (NOT(LLVM_SYMBOLIZER_PATH))

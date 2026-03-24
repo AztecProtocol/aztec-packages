@@ -143,7 +143,7 @@ where
         self.compute_initialization_nullifier(secret)
     }
 
-    /// Returns whether this PrivateImmutable has been initialized.
+    /// Returns `true` if this PrivateImmutable has been initialized.
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.get_initialization_nullifier();
         check_nullifier_exists(nullifier)

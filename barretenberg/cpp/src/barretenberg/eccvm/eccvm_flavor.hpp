@@ -29,6 +29,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
+#include "barretenberg/sumcheck/masking_tail_data.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
@@ -335,6 +336,9 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        // All witness entities are masked in ZK mode
+        auto get_masked() { return get_all(); }
+        auto get_masked() const { return get_all(); }
     };
 
     /**
@@ -430,7 +434,9 @@ class ECCVMFlavor {
                                WitnessEntities<DataType>::get_all());
         };
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
+        auto get_to_be_shifted() const { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
@@ -513,7 +519,7 @@ class ECCVMFlavor {
          *          transcript_op: input transcript opcode value
          *          transcript_z1: input transcript scalar multiplier (low component, 128 bits max)
          *          transcript_z2: input transcript scalar multipplier (high component, 128 bits max)
-         * N.B. scalar multiplier = transcript_z1 + \lambda * transcript_z2. \lambda = cube root of unity in scalar
+         * N.B. scalar multiplier = transcript_z1 - \lambda * transcript_z2. \lambda = cube root of unity in scalar
          field
          *          transcript_z1zero: if 1, transcript_z1 must equal 0
          *          transcript_z2zero: if 1, transcript_z2 must equal 0
@@ -521,12 +527,12 @@ class ECCVMFlavor {
          *          transcript_accumulator_y: y-coordinate of eccvm accumulator register
          *          transcript_msm_x: x-coordinate of MSM output
          *          transcript_msm_y: y-coordinate of MSM output
-         *          transcript_accumulator_not_empty: if 1, transcript_accumulator = point at infinity
+         *          transcript_accumulator_not_empty: if 1, transcript_accumulator is NOT the point at infinity
          *          transcript_base_infinity: if 1, transcript_Px, transcript_Py is a point at infinity
          *          transcript_add_x_equal: if adding a point into the accumulator, is 1 if x-coordinates are equal
          *          transcript_add_y_equal: if adding a point into the accumulator, is 1 if y-coordinates are equal
          *          transcript_base_x_inverse: to check transcript_add_x_equal (if x-vals not equal inverse exists)
-         *          transcript_base_y_inverse: to check transcript_add_x_equal (if y-vals not equal inverse exists)
+         *          transcript_base_y_inverse: to check transcript_add_y_equal (if y-vals not equal inverse exists)
          *          transcript_add_lambda: if adding a point into the accumulator, contains the lambda gradient
          *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output - offset_generator
          *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output - offset_generator
@@ -545,7 +551,7 @@ class ECCVMFlavor {
          *          precompute_skew: Straus WNAF skew parameter for a single scalar multiplier
          *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
-         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
+         *          precompute_ty: y-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
          *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
          *          precompute_dy: y-coordinate of D
@@ -625,12 +631,23 @@ class ECCVMFlavor {
 #endif
             size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
-            for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
-                                   /*largest possible index*/ dyadic_num_rows,
-                                   /* offset */ 1 };
+            // 1. Wire non-shifted polys: allocate to actual trace size
+            for (auto& poly : WireNonShiftedEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows, dyadic_num_rows);
             }
-            // allocate polynomials; define lagrange and lookup read count polynomials
+
+            // 2. Wire to-be-shifted polys: allocate to actual trace size, shiftable
+            for (auto& poly : WireToBeShiftedWithoutAccumulatorsEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows - 1, dyadic_num_rows, 1);
+            }
+            for (auto& poly : WireToBeShiftedAccumulatorEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows - 1, dyadic_num_rows, 1);
+            }
+
+            // 3. z_perm: must stay full-size (grand product computed over unmasked_witness_size)
+            z_perm = Polynomial(dyadic_num_rows - 1, dyadic_num_rows, 1);
+
+            // 4. Catch-all: precomputed, lookup_inverses, gemini_masking_poly → full size
             for (auto& poly : get_all()) {
                 if (poly.is_empty()) {
                     poly = Polynomial(dyadic_num_rows);
@@ -786,11 +803,15 @@ class ECCVMFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
         CommitmentKey commitment_key;
 
+        MaskingTailData<ECCVMFlavor> masking_tail_data; // ZK: stores masking values for witness polys
+
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
             : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
-        {}
+        {
+            masking_tail_data.dyadic_size = circuit_size;
+        }
     };
 
     /**

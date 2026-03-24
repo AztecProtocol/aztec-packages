@@ -358,8 +358,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
-                             const bool with_edgecases = false,
-                             const Fr& masking_scalar = Fr(1));
+                             const bool with_edgecases = false);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
@@ -464,8 +463,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static element batch_mul_internal(const std::vector<element>& points,
                                       const std::vector<Fr>& scalars,
                                       const size_t max_num_bits = 0,
-                                      const bool with_edgecases = false,
-                                      const Fr& masking_scalar = Fr(1));
+                                      const bool with_edgecases = false);
 
     /**
      * @brief Compute both add and subtract (a + b, a - b) results simultaneously
@@ -477,14 +475,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @brief Mask points for batch multiplication to handle edge cases
      * @param _points The points to be masked
      * @param _scalars The corresponding scalars
-     * @param masking_scalar The masking scalar used to randomise the points
      * @return A pair of vectors containing the masked points and scalars
      *
      * @details Only used internally in biggroup_edgecase_handling.hpp
      */
     static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
-                                                                        const std::vector<Fr>& _scalars,
-                                                                        const Fr& masking_scalar);
+                                                                        const std::vector<Fr>& _scalars);
 
     /**
      * @brief Handle points at infinity in batch operations, replaces (∞, scalar) pairs by (G, 0)

@@ -71,7 +71,8 @@ describe('reqresp effectiveness under tx drop', () => {
     testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
     recipient = testAccounts.recipientAddress;
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
   });

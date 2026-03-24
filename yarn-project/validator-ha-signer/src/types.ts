@@ -71,6 +71,11 @@ export interface CreateHASignerDeps {
 }
 
 /**
+ * deps for creating a local signing protection signer
+ */
+export type CreateLocalSignerWithProtectionDeps = Omit<CreateHASignerDeps, 'pool'>;
+
+/**
  * Database interface for slashing protection operations
  * This abstraction allows for different database implementations (PostgreSQL, SQLite, etc.)
  *

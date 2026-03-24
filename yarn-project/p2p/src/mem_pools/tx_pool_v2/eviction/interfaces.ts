@@ -100,7 +100,15 @@ export type TxPoolRejectionError =
       availableBalance: bigint;
       feeLimit: bigint;
     }
-  | { code: typeof TxPoolRejectionCode.NULLIFIER_CONFLICT; message: string; conflictingTxHash: string }
+  | {
+      code: typeof TxPoolRejectionCode.NULLIFIER_CONFLICT;
+      message: string;
+      conflictingTxHash: string;
+      /** Minimum fee needed to replace the conflicting tx (only set when price bump applies). */
+      minimumPriceBumpFee?: bigint;
+      /** Incoming tx's priority fee. */
+      txPriorityFee?: bigint;
+    }
   | { code: typeof TxPoolRejectionCode.INTERNAL_ERROR; message: string };
 
 /**
@@ -121,6 +129,8 @@ export interface PreAddResult {
 export interface PreAddContext {
   /** If true, compare priority fee only (no tx hash tiebreaker). Used for RPC submissions. */
   feeComparisonOnly?: boolean;
+  /** Percentage-based price bump required for tx replacement. Only set for RPC submissions. */
+  priceBumpPercentage?: bigint;
 }
 
 /**

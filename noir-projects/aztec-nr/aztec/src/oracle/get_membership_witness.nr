@@ -1,33 +1,21 @@
 use crate::protocol::{
     abis::block_header::BlockHeader,
     constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
-    traits::{Deserialize, Hash, Serialize},
+    merkle_tree::MembershipWitness,
+    traits::Hash,
 };
 
-// Note: We have M here because we need to somehow set it when calling get_membership_witness function and one way to
-// do it is to set M here and then set type of the return param, e.g.:
-//
-// `let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> = get_membership_witness(...);`
-//
-// Another way to do it would be to add "type_hint: [Field; T]" as argument to `get_membership_witness` but that's a
-// bit too boilerplatey for my taste.
-#[derive(Deserialize, Eq, Serialize)]
-pub struct MembershipWitness<let N: u32, let M: u32> {
-    pub index: Field,
-    pub path: [Field; N],
-}
-
-#[oracle(utilityGetNoteHashMembershipWitness)]
+#[oracle(aztec_utl_getNoteHashMembershipWitness)]
 unconstrained fn get_note_hash_membership_witness_oracle(
     anchor_block_hash: Field,
     note_hash: Field,
-) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {}
+) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT> {}
 
-#[oracle(utilityGetBlockHashMembershipWitness)]
+#[oracle(aztec_utl_getBlockHashMembershipWitness)]
 unconstrained fn get_block_hash_membership_witness_oracle(
     anchor_block_hash: Field,
     block_hash: Field,
-) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {}
+) -> MembershipWitness<ARCHIVE_HEIGHT> {}
 
 // Note: get_nullifier_membership_witness function is implemented in get_nullifier_membership_witness.nr
 
@@ -36,7 +24,7 @@ unconstrained fn get_block_hash_membership_witness_oracle(
 pub unconstrained fn get_note_hash_membership_witness(
     anchor_block_header: BlockHeader,
     note_hash: Field,
-) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
+) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT> {
     let anchor_block_hash = anchor_block_header.hash();
     get_note_hash_membership_witness_oracle(anchor_block_hash, note_hash)
 }
@@ -48,7 +36,7 @@ pub unconstrained fn get_note_hash_membership_witness(
 pub unconstrained fn get_block_hash_membership_witness(
     anchor_block_header: BlockHeader,
     block_hash: Field,
-) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {
+) -> MembershipWitness<ARCHIVE_HEIGHT> {
     let anchor_block_hash = anchor_block_header.hash();
     get_block_hash_membership_witness_oracle(anchor_block_hash, block_hash)
 }

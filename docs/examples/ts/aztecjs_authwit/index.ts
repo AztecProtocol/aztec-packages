@@ -25,7 +25,7 @@ const [aliceAddress, bobAddress] = await Promise.all(
   }),
 );
 
-const tokenContract = await TokenContract.deploy(
+const { contract: tokenContract } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "TestToken",

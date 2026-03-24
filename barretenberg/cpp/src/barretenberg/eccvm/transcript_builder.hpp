@@ -102,11 +102,6 @@ class ECCVMTranscriptBuilder {
             AffineElement(Element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
         return result;
     }
-    static AffineElement remove_offset_generator(const AffineElement& other)
-    {
-        return AffineElement(Element(other) - offset_generator());
-    }
-
     // maintains the state of the VM at any given "time" (i.e., at any given value of pc).
     struct VMState {
         uint32_t pc = 0;    // decreasing point counter that tracks the total number of multiplications that our virtual
@@ -253,11 +248,8 @@ class ECCVMTranscriptBuilder {
 
             if (msm_transition) {
                 process_msm_transition(row, updated_state, state);
-            } else {
-                msm_accumulator_trace[i] = Element::infinity();
-                intermediate_accumulator_trace[i] = Element::infinity();
             }
-
+            // else, these will be set to the neutral element further below.
             if (is_add) {
                 process_add(entry, updated_state, state);
             }
@@ -321,6 +313,8 @@ class ECCVMTranscriptBuilder {
                 add_lambda_denominator[i] = 0;
                 inverse_trace_x[i] = 0;
                 inverse_trace_y[i] = 0;
+                transcript_msm_x_inverse_trace[i] = 0;
+                msm_count_at_transition_inverse_trace[i] = 0;
             }
         }
 
@@ -542,7 +536,9 @@ class ECCVMTranscriptBuilder {
         const bool msm_output_infinity = msm_output.is_point_at_infinity();
         const bool row_msm_infinity = row.transcript_msm_infinity;
 
-        transcript_msm_x_inverse_trace = row_msm_infinity ? 0 : (msm_accumulator_trace.x - offset_generator().x);
+        transcript_msm_x_inverse_trace = (row_msm_infinity || msm_accumulator_trace.is_point_at_infinity())
+                                             ? 0
+                                             : (msm_accumulator_trace.x - offset_generator().x);
 
         FF lhsx;
         FF lhsy;
@@ -560,8 +556,9 @@ class ECCVMTranscriptBuilder {
     }
 
     /**
-     * @brief If entry is not a point at infinity, compute the slope between the VM entry point and current accumulator,
-     * else compute the slope between the accumulators.
+     * @brief Compute the slope between the VM entry point and the current accumulator for a point addition or
+     * doubling. In degenerate cases (either point is at infinity, or x-coords are equal with different y-coords),
+     * the numerator and denominator are not modified.
 
      * @details   `transcript_add_lambda` represents the slope (\f$ \lambda \f$) of the line connecting two points
      * on the elliptic curve during the point addition process or the tangent line at a point during point doubling.

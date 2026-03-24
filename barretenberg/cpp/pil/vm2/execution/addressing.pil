@@ -243,9 +243,12 @@ sel_op_do_overflow_check[6] = SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * (1 - sel_base_ad
 
 // Helper columns for overflow range check.
 pol commit highest_address;
-// TODO: remove when we support constants in a lookup tuple.
+// Lookup constant support: remove when we support constants in a lookup tuple.
 SEL_SHOULD_RESOLVE_ADDRESS * (highest_address - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 // sel_relative_overflow[i] == 1 iff op_after_relative[i] > highest_address.
+// Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+// `op_after_relative[i]` is bounded by 2^128 because it is the sum of a base address (U32 tag checked in #[BASE_ADDRESS_CHECK])
+// and a relative address, both bounded by `highest_address == 2^32`.
 #[RELATIVE_OVERFLOW_RESULT_0]
 sel_op_do_overflow_check[0] { op_after_relative[0], highest_address, sel_relative_overflow[0] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_1]

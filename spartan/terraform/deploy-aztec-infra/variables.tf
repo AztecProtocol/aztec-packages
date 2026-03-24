@@ -81,6 +81,18 @@ variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
   default     = 10
 }
 
+variable "BB_CHONK_VERIFY_MAX_BATCH" {
+  description = "Upper bound on proofs per batch for the peer chonk batch verifier"
+  type        = number
+  default     = 16
+}
+
+variable "BB_CHONK_VERIFY_BATCH_CONCURRENCY" {
+  description = "Thread count for the peer batch verifier parallel reduce (0 = auto)"
+  type        = number
+  default     = 6
+}
+
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -191,10 +203,10 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
-variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
-  description = "Number of publisher EOAs per validator key"
+variable "VALIDATOR_PUBLISHERS_PER_REPLICA" {
+  description = "Number of publisher EOAs per validator replica (pod)"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
@@ -227,6 +239,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
   type        = number
   default     = 0
+}
+
+variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
+  description = "Clean up old signed HA duties after this many hours (prevents unbounded DB growth)"
+  type        = number
+  default     = 24
 }
 
 variable "ADMIN_API_KEY_HASH" {
@@ -340,13 +358,19 @@ variable "TEST_ACCOUNTS" {
 variable "SEQ_MIN_TX_PER_BLOCK" {
   description = "Minimum number of sequencer transactions per block"
   type        = string
-  default     = "0"
+  default     = "1"
 }
 
 variable "SEQ_MAX_TX_PER_BLOCK" {
   description = "Maximum number of sequencer transactions per block"
   type        = string
   default     = "8"
+}
+
+variable "SEQ_MAX_TX_PER_CHECKPOINT" {
+  description = "Maximum number of sequencer transactions per checkpoint"
+  type        = string
+  default     = null
 }
 
 variable "SEQ_ENFORCE_TIME_TABLE" {
@@ -380,6 +404,12 @@ variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
   description = "Have sequencer build and publish an empty checkpoint if there are no txs"
   type        = string
   nullable    = true
+  default     = null
+}
+
+variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
+  description = "Per-block gas budget multiplier for both L2 and DA gas."
+  type        = string
   default     = null
 }
 
@@ -637,6 +667,18 @@ variable "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP" {
   default     = "checkpointed"
 }
 
+variable "BOT_DA_GAS_LIMIT" {
+  description = "DA gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_L2_GAS_LIMIT" {
+  description = "L2 gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
 # RPC ingress configuration (GKE-specific)
 variable "RPC_INGRESS_ENABLED" {
   description = "Enable GKE ingress for RPC nodes"
@@ -664,6 +706,13 @@ variable "RPC_INGRESS_SSL_CERT_NAMES" {
 
 variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "L1_TX_FAILED_STORE" {
+  description = "Optional GCS/URI to store failed L1 transaction inputs (e.g. gs://bucket/path)"
   type        = string
   nullable    = false
   default     = ""
@@ -765,7 +814,7 @@ variable "FISHERMAN_MODE" {
 variable "P2P_GOSSIPSUB_D" {
   description = "The P2P Gossipsub D parameter"
   type        = string
-  default     = "6"
+  default     = "8"
 }
 
 variable "P2P_GOSSIPSUB_DLO" {

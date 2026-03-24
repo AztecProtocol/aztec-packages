@@ -39,6 +39,7 @@ import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { EpochTestSettler } from '../testing/epoch_test_settler.js';
+import { getTokenAllowedSetupFunctions } from '../testing/token_allowed_setup.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
@@ -102,9 +103,14 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     logger.warn(`Multiple L1 RPC URLs provided. Local networks will only use the first one: ${l1RpcUrl}`);
   }
 
+  // The local network deploys a banana FPC with Token contracts, so include Token entries
+  // in the setup allowlist so FPC-based fee payments work out of the box.
+  const tokenAllowList = await getTokenAllowedSetupFunctions();
+
   const aztecNodeConfig: AztecNodeConfig = {
     ...getConfigEnvVars(),
     ...config,
+    txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
   };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (

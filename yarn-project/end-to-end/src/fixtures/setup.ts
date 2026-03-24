@@ -1,6 +1,7 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -185,6 +186,11 @@ export type SetupOptions = {
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
   anvilPort?: number;
+  /**
+   * Number of slots per epoch for Anvil's finality simulation.
+   * Anvil reports `finalized = latest - slotsInAnEpoch * 2`.
+   */
+  anvilSlotsInAnEpoch?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
   /** ZkPassport configuration (domain, scope, mock verifier) */
@@ -297,6 +303,8 @@ export async function setup(
       config.dataDirectory = directoryToCleanup;
     }
 
+    const dateProvider = new TestDateProvider();
+
     if (!config.l1RpcUrls?.length) {
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
@@ -305,6 +313,8 @@ export async function setup(
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
+        slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
+        dateProvider,
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
@@ -316,8 +326,6 @@ export async function setup(
       logger.info(`Logging metrics to ${filename}`);
       setupMetricsLogger(filename);
     }
-
-    const dateProvider = new TestDateProvider();
     const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
 
     if (opts.stateLoad) {
@@ -413,11 +421,12 @@ export async function setup(
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
     }
 
-    // Always sync dateProvider to L1 time after deploying L1 contracts, regardless of mining mode.
-    // In compose mode, L1 time may have drifted ahead of system time due to the local-network watcher
-    // warping time forward on each filled slot. Without this sync, the sequencer computes the wrong
-    // slot from its dateProvider and cannot propose blocks.
-    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
+    // In compose mode (no local anvil), sync dateProvider to L1 time since it may have drifted
+    // ahead of system time due to the local-network watcher warping time forward on each filled slot.
+    // When running with a local anvil, the dateProvider is kept in sync via the stdout listener.
+    if (!anvil) {
+      dateProvider.setTime((await ethCheatCodes.lastBlockTimestamp()) * 1000);
+    }
 
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
@@ -753,7 +762,9 @@ export function getBalancesFn(
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate({ from: address })));
+    const b = await Promise.all(
+      addresses.map(async address => (await method(address).simulate({ from: address })).result),
+    );
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;
@@ -839,7 +850,7 @@ export const deployAccounts =
       );
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
       });
     }
@@ -871,7 +882,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(wallet, calls);
 
-  const txReceipt = await batch.send({ from: accountsToDeploy[0] });
+  const { receipt: txReceipt } = await batch.send({ from: accountsToDeploy[0] });
   if (waitUntilProven) {
     if (!node) {
       throw new Error('Need to provide an AztecNode to wait for proven.');

@@ -21,8 +21,8 @@ describe('e2e_static_calls', () => {
       accounts: [owner],
     } = await setup());
     sender = owner;
-    parentContract = await StaticParentContract.deploy(wallet).send({ from: owner });
-    childContract = await StaticChildContract.deploy(wallet).send({ from: owner });
+    ({ contract: parentContract } = await StaticParentContract.deploy(wallet).send({ from: owner }));
+    ({ contract: childContract } = await StaticChildContract.deploy(wallet).send({ from: owner }));
 
     // We create a note in the set, such that later reads doesn't fail due to get_notes returning 0 notes
     await childContract.methods.private_set_value(42n, owner, sender).send({ from: owner });

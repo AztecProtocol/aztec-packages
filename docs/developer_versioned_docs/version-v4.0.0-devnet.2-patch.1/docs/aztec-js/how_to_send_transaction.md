@@ -11,9 +11,11 @@ This guide shows you how to send transactions to smart contracts on Aztec.
 
 Transactions on Aztec execute contract functions that modify state. Unlike simple reads, transactions go through private execution on your device, proving, and then submission to the network for inclusion in a block. You can send single transactions, batch multiple calls atomically, and query transaction status after submission.
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
+- <General.AztecJSPrerequisites />
 - Deployed contract with its address and ABI (see [How to Deploy](./how_to_deploy_contract.md))
 - Understanding of [contract interactions](../aztec-nr/framework-description/calling_contracts.md)
 

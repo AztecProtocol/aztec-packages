@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 
 namespace bb {
 
@@ -75,6 +76,7 @@ template <typename Curve_> class PairingPoints {
      */
     bool check() const
     {
+        BB_BENCH_NAME("PairingPoints::check");
         VerifierCK vck{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1423): Rename to verifier_pcs_key or vckey or
         // something. Issue exists in many places besides just here.

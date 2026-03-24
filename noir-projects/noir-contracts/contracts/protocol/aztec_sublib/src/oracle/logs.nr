@@ -10,7 +10,7 @@ pub unconstrained fn notify_created_contract_class_log<let N: u32>(
     notify_created_contract_class_log_private_oracle(contract_address, message, length, counter)
 }
 
-#[oracle(privateNotifyCreatedContractClassLog)]
+#[oracle(aztec_prv_notifyCreatedContractClassLog)]
 unconstrained fn notify_created_contract_class_log_private_oracle<let N: u32>(
     contract_address: AztecAddress,
     message: [Field; N],

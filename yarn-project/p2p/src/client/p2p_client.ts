@@ -18,7 +18,6 @@ import {
   type L2TipsStore,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -110,27 +109,6 @@ export class P2PClient extends WithTracer implements P2P {
       this.log.createChild('tx-provider'),
       this.telemetry,
     );
-
-    // Default to collecting all txs when we see a valid proposal
-    // This can be overridden by the validator client to validate, and it will call getTxsForBlockProposal on its own
-    // Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
-    // TODO(palla/txs): We should not trigger a request for txs on a proposal before fully validating it. We need to bring
-    // validator-client code into here so we can validate a proposal is reasonable.
-    this.registerBlockProposalHandler(async (block, sender) => {
-      this.log.debug(`Received block proposal from ${sender.toString()}`);
-      // TODO(palla/txs): Need to subtract validatorReexecuteDeadlineMs from this deadline (see ValidatorClient.getReexecutionDeadline)
-      const constants = this.txCollection.getConstants();
-      const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(block.slotNumber + 1), constants));
-      const deadline = new Date(nextSlotTimestampSeconds * 1000);
-      const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.blockHeader.lastArchive.root);
-      if (!parentBlock) {
-        this.log.debug(`Cannot collect txs for proposal as parent block not found`);
-        return false;
-      }
-      const blockNumber = BlockNumber(parentBlock.getBlockNumber() + 1);
-      await this.txProvider.getTxsForBlockProposal(block, blockNumber, { pinnedPeer: sender, deadline });
-      return true;
-    });
 
     this.l2Tips = new L2TipsKVStore(store, 'p2p_client');
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
@@ -691,31 +669,41 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   /**
-   * Returns true if the prune crossed a checkpoint boundary.
-   * If the old and new checkpoint numbers are the same, the prune is within a single checkpoint.
-   * If they differ, the prune spans across checkpoints (epoch prune).
+   * Returns true if the prune is an epoch prune (new checkpoint number is less than old).
+   * If the checkpoint number stays the same or increases, the prune is within a checkpoint.
    */
   private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
     const tips = await this.l2Tips.getL2Tips();
     const oldCheckpointNumber = tips.checkpointed.checkpoint.number;
-    if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
+    if (oldCheckpointNumber <= CheckpointNumber.INITIAL) {
       return false;
     }
-    const isEpochPrune = oldCheckpointNumber !== newCheckpoint.number;
-    this.log.info(
-      `Detected epoch prune: ${isEpochPrune}. Old checkpoint: ${oldCheckpointNumber}, new checkpoint: ${newCheckpoint.number}`,
-    );
+    const newCheckpointNumber = newCheckpoint.number;
+    // We check that the new checkpoint number is less than the old checkpoint number in order to consider it an epoch prune.
+    // To be more certain that it is an epoch prune, we will check that at least 2 checkpoints were removed.
+    // This means we should avoid thinking checkpoints removed by L1 re-orgs are epoch prunes
+    const thresholdForEpochPrune = CheckpointNumber(oldCheckpointNumber - 2);
+    const isEpochPrune = newCheckpointNumber <= thresholdForEpochPrune;
+    if (isEpochPrune) {
+      this.log.info(`Detected epoch prune to ${newCheckpointNumber}`, {
+        oldCheckpointNumber,
+        newCheckpointNumber,
+        thresholdForEpochPrune,
+      });
+    }
     return isEpochPrune;
   }
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */
   private async maybeCallPrepareForSlot(): Promise<void> {
-    const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
-    if (currentSlot <= this.lastSlotProcessed) {
+    // If we have a pending checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
+    // Knowledege of pending checkpoints is in the PR above
+    const { targetSlot } = this.epochCache.getTargetAndNextSlot();
+    if (targetSlot <= this.lastSlotProcessed) {
       return;
     }
-    this.lastSlotProcessed = currentSlot;
-    await this.txPool.prepareForSlot(currentSlot);
+    this.lastSlotProcessed = targetSlot;
+    await this.txPool.prepareForSlot(targetSlot);
   }
 
   private async startServiceIfSynched() {

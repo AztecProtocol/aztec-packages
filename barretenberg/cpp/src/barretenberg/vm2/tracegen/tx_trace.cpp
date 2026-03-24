@@ -9,6 +9,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -370,13 +371,15 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
 {
     uint32_t remaining_nullifiers = MAX_NULLIFIERS_PER_TX - state_before.tree_states.nullifier_tree.counter;
 
-    return {
-        { C::tx_leaf_value, event.leaf_value },
-        { C::tx_nullifier_limit_error, remaining_nullifiers > 0 ? 0 : 1 },
-        { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
-        { C::tx_should_try_nullifier_append, 1 },
-        { C::tx_should_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },
-    };
+    return { { C::tx_leaf_value, event.leaf_value },
+             { C::tx_nullifier_limit_error, remaining_nullifiers > 0 ? 0 : 1 },
+             { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
+             { C::tx_should_try_nullifier_append, 1 },
+             { C::tx_should_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },
+             { C::tx_write_nullifier_pi_offset,
+               AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX +
+                   state_before.tree_states.nullifier_tree.counter },
+             { C::tx_nullifier_tree_height, NULLIFIER_TREE_HEIGHT } };
 }
 
 /**

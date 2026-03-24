@@ -3,8 +3,8 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { type BlobClientConfig, blobClientConfigMapping, createBlobClient } from '@aztec/blob-client/client';
 import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';

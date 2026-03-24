@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Post a GitHub commit status (pending/success/failure/error) with a target URL.
+# No-op when not in CI (CI!=1) or when required env vars are missing.
+#
+# Usage: post_github_status <state> <context> <target_url> [description]
+#
+# Examples:
+#   post_github_status pending "ci/build" "http://ci.aztec-labs.com/abc123"
+#   post_github_status failure "ci/x1-full" "http://ci.aztec-labs.com/abc123" "bootstrap failed"
+#
+# Environment:
+#   CI             - must be 1 (otherwise no-op)
+#   GITHUB_TOKEN   - GitHub API token
+#   GITHUB_REPOSITORY - owner/repo (e.g. AztecProtocol/aztec-packages)
+#   COMMIT_HASH    - the SHA to post status on
+set -euo pipefail
+
+# No-op outside CI.
+[ "${CI:-0}" != "1" ] && exit 0
+
+state=${1:?usage: post_github_status <state> <context> <target_url> [description]}
+context=${2:?usage: post_github_status <state> <context> <target_url> [description]}
+target_url=${3:?usage: post_github_status <state> <context> <target_url> [description]}
+description=${4:-}
+
+token="${GITHUB_TOKEN:-}"
+repo="${GITHUB_REPOSITORY:-}"
+sha="${COMMIT_HASH:-}"
+
+# Silently no-op if credentials are missing.
+[[ -z "$token" || -z "$repo" || -z "$sha" ]] && exit 0
+
+# Truncate to GitHub API limits.
+context="${context:0:255}"
+description="${description:0:140}"
+
+body=$(jq -n \
+  --arg state "$state" \
+  --arg target_url "$target_url" \
+  --arg description "$description" \
+  --arg context "$context" \
+  '{state: $state, target_url: $target_url, description: $description, context: $context}')
+
+# Post asynchronously — don't block the caller.
+curl -s -o /dev/null -X POST \
+  -H "Authorization: token $token" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/${repo}/statuses/${sha}" \
+  -d "$body" &

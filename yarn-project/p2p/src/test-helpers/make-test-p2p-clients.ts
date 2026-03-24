@@ -4,9 +4,9 @@ import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { createP2PClient } from '../client/index.js';
 import type { P2PClient } from '../client/p2p_client.js';

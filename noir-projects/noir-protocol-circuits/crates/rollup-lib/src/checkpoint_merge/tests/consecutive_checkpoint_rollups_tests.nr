@@ -1,7 +1,8 @@
 use super::TestBuilder;
+use protocol_test_utils::pad_end;
 use types::{
     abis::fee_recipient::FeeRecipient, address::EthAddress,
-    constants::CHECKPOINT_MERGE_ROLLUP_VK_INDEX, tests::utils::pad_end, traits::Empty,
+    constants::CHECKPOINT_MERGE_ROLLUP_VK_INDEX, traits::Empty,
 };
 
 // -- checkpoint header hashes ---

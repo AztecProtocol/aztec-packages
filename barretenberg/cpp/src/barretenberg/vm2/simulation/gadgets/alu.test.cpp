@@ -241,6 +241,7 @@ TEST(AvmSimulationAluTest, Div)
     auto b = MemoryValue::from<uint32_t>(3);
 
     EXPECT_CALL(gt, gt(b, MemoryValue::from<uint32_t>(0))).WillOnce(Return(true));
+    EXPECT_CALL(range_check, assert_range(0, 32)).Times(1);
 
     auto c = alu.div(a, b);
 
@@ -265,6 +266,8 @@ TEST(AvmSimulationAluTest, DivU128)
 
     EXPECT_CALL(gt, gt(b, MemoryValue::from<uint128_t>(1))).WillOnce(Return(true));
 
+    // Range check the remainder (1) fits within 128 bits:
+    EXPECT_CALL(range_check, assert_range(1, 128)).Times(1);
     // For u128s, we range check c_lo, c_hi, b_lo, b_hi:
     EXPECT_CALL(range_check, assert_range(_, 64)).Times(4);
 

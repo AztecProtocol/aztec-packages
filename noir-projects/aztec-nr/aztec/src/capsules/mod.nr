@@ -312,8 +312,9 @@ mod test {
             array.push(5);
             array.push(6);
 
-            // We test that the utilityCopyCapsule was never called, which is the expensive operation we want to avoid.
-            let mock = std::test::OracleMock::mock("utilityCopyCapsule");
+            // We test that the aztec_utl_copyCapsule was never called, which is the expensive operation we want to
+            // avoid.
+            let mock = std::test::OracleMock::mock("aztec_utl_copyCapsule");
 
             array.for_each(|index, _| { array.remove(index); });
 
