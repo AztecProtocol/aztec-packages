@@ -3,6 +3,9 @@
 # This script installs aztec-up and then delegates to it for version installation.
 # Usage: bash -i <(curl -s https://install.aztec.network)
 #    or: VERSION=0.85.0 bash -i <(curl -s https://install.aztec.network)
+
+# Guard against truncated curl downloads: bash must parse the entire {} block before executing any of it.
+{
 set -euo pipefail
 
 # Colors (truecolor with 256-color fallback)
@@ -250,3 +253,7 @@ function main {
 }
 
 main "$@"
+
+# Explicit exit prevents bash from reading past the closing brace.
+exit
+}
