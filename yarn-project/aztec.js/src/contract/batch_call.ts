@@ -43,8 +43,7 @@ export class BatchCall extends BaseContractInteraction {
       : undefined;
     const { authWitnesses, capsules } = options;
 
-    // Propagates the included authwitnesses, capsules, and extraHashedArgs
-    // potentially baked into the interaction
+    // Propagates the included authwitnesses, capsules, and extraHashedArgs potentially baked into the interaction
     const initialExecutionPayload = new ExecutionPayload(
       [],
       this.authWitnesses.concat(authWitnesses ?? []),
