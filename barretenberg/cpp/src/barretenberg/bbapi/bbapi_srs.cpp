@@ -17,13 +17,13 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
     const size_t required_buf_size = static_cast<size_t>(num_points) * 32;
     if (points_buf.size() < required_buf_size) {
-        throw std::runtime_error("SrsInitSrs: points_buf too small (" + std::to_string(points_buf.size()) +
-                                 " bytes) for " + std::to_string(num_points) + " compressed points (" +
-                                 std::to_string(required_buf_size) + " bytes needed)");
+        throw_or_abort("SrsInitSrs: points_buf too small (" + std::to_string(points_buf.size()) + " bytes) for " +
+                       std::to_string(num_points) + " compressed points (" + std::to_string(required_buf_size) +
+                       " bytes needed)");
     }
     if (g2_point.size() < 128) {
-        throw std::runtime_error("SrsInitSrs: g2_point too small (" + std::to_string(g2_point.size()) +
-                                 " bytes), need 128 bytes");
+        throw_or_abort("SrsInitSrs: g2_point too small (" + std::to_string(g2_point.size()) +
+                       " bytes), need 128 bytes");
     }
 
     // Decompress 32-byte compressed points in parallel using native field arithmetic
