@@ -4,12 +4,7 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import {
-  BBCircuitVerifier,
-  type ClientProtocolCircuitVerifier,
-  QueuedIVCVerifier,
-  TestCircuitVerifier,
-} from '@aztec/bb-prover';
+import type { ClientProtocolCircuitVerifier } from '@aztec/bb-prover';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -68,7 +63,10 @@ export class FullProverTest {
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
-  circuitProofVerifier?: ClientProtocolCircuitVerifier;
+  /** Returns the proof verifier from the prover node (for test assertions). */
+  get circuitProofVerifier(): ClientProtocolCircuitVerifier | undefined {
+    return this.proverAztecNode?.getProofVerifier();
+  }
   provenAsset!: TokenContract;
   context!: EndToEndContext;
   private proverAztecNode!: AztecNodeService;
@@ -106,15 +104,13 @@ export class FullProverTest {
     await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
 
     this.logger.info('Applying base setup: deploying token contract');
-    const {
-      receipt: { contract: asset, instance },
-    } = await TokenContract.deploy(
+    const { contract: asset, instance } = await TokenContract.deploy(
       this.wallet,
       this.accounts[0],
       FullProverTest.TOKEN_NAME,
       FullProverTest.TOKEN_SYMBOL,
       FullProverTest.TOKEN_DECIMALS,
-    ).send({ from: this.accounts[0], wait: { returnReceipt: true } });
+    ).send({ from: this.accounts[0] });
     this.logger.verbose(`Token deployed to ${asset.address}`);
 
     this.fakeProofsAsset = asset;
@@ -170,9 +166,6 @@ export class FullProverTest {
 
       await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
 
-      const verifier = await BBCircuitVerifier.new(bbConfig);
-      this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
-
       this.logger.debug(`Configuring the node for real proofs...`);
       await this.aztecNodeAdmin.setConfig({
         realProofs: true,
@@ -180,7 +173,6 @@ export class FullProverTest {
       });
     } else {
       this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
-      this.circuitProofVerifier = new TestCircuitVerifier();
       await this.aztecNodeAdmin.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });

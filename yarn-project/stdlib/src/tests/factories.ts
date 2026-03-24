@@ -92,10 +92,8 @@ import {
   type ContractClassPublic,
   ContractDeploymentData,
   type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   SerializableContractInstance,
-  type UtilityFunctionWithMembershipProof,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
@@ -1183,35 +1181,6 @@ export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
   });
 }
 
-export function makeExecutablePrivateFunctionWithMembershipProof(
-  seed = 0,
-): ExecutablePrivateFunctionWithMembershipProof {
-  return {
-    selector: makeSelector(seed),
-    bytecode: makeBytes(100, seed + 1),
-    artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
-    artifactTreeLeafIndex: seed + 2,
-    privateFunctionTreeSiblingPath: makeTuple(3, fr, seed + 3),
-    privateFunctionTreeLeafIndex: seed + 3,
-    artifactMetadataHash: fr(seed + 4),
-    functionMetadataHash: fr(seed + 5),
-    utilityFunctionsTreeRoot: fr(seed + 6),
-    vkHash: fr(seed + 7),
-  };
-}
-
-export function makeUtilityFunctionWithMembershipProof(seed = 0): UtilityFunctionWithMembershipProof {
-  return {
-    selector: makeSelector(seed),
-    bytecode: makeBytes(100, seed + 1),
-    artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
-    artifactTreeLeafIndex: seed + 2,
-    artifactMetadataHash: fr(seed + 4),
-    functionMetadataHash: fr(seed + 5),
-    privateFunctionsArtifactTreeRoot: fr(seed + 6),
-  };
-}
-
 export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer): Promise<ContractClassPublic> {
   const artifactHash = fr(seed + 1);
   const privateFunctionsRoot = fr(seed + 3);
@@ -1223,8 +1192,6 @@ export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer)
     artifactHash,
     packedBytecode,
     privateFunctionsRoot,
-    privateFunctions: [],
-    utilityFunctions: [],
     version: 1,
   };
 }

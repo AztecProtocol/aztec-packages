@@ -14,7 +14,7 @@ template <typename FF_> class address_derivationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,9 +34,15 @@ template <typename FF> class address_derivation : public Relation<address_deriva
   public:
     static constexpr const std::string_view NAME = "address_derivation";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_IVK_ON_CURVE_CHECK = 10;
+
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case SR_IVK_ON_CURVE_CHECK:
+            return "IVK_ON_CURVE_CHECK";
+        }
         return std::to_string(index);
     }
 };

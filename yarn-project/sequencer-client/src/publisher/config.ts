@@ -4,6 +4,8 @@ import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from '@aztec/ethereum/l
 import { type ConfigMappingsType, SecretValue, booleanConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
+import { parseEther } from 'viem';
+
 /** Configuration of the transaction publisher. */
 export type TxSenderConfig = L1ReaderConfig & {
   /** The private key to be used by the publisher. */
@@ -50,13 +52,37 @@ export type PublisherConfig = L1TxUtilsConfig &
     publisherForwarderAddress?: EthAddress;
     /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
     l1TxFailedStore?: string;
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
+    publisherFundingThreshold?: bigint;
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
+    publisherFundingAmount?: bigint;
   };
+
+/** Shared config mappings for publisher funding, used by both sequencer and prover publisher configs. */
+const publisherFundingConfigMappings = {
+  publisherFundingThreshold: {
+    env: 'PUBLISHER_FUNDING_THRESHOLD' as const,
+    description:
+      'Min ETH balance below which a publisher gets funded. Specified in ether (e.g. 0.1). Unset = funding disabled.',
+    parseEnv: (val: string) => parseEther(val),
+  },
+  publisherFundingAmount: {
+    env: 'PUBLISHER_FUNDING_AMOUNT' as const,
+    description:
+      'Amount of ETH to send when funding a publisher. Specified in ether (e.g. 0.5). Unset = funding disabled.',
+    parseEnv: (val: string) => parseEther(val),
+  },
+};
 
 export type ProverPublisherConfig = L1TxUtilsConfig &
   BlobClientConfig & {
     fishermanMode?: boolean;
     proverPublisherAllowInvalidStates?: boolean;
     proverPublisherForwarderAddress?: EthAddress;
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
+    publisherFundingThreshold?: bigint;
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
+    publisherFundingAmount?: bigint;
   };
 
 export type SequencerPublisherConfig = L1TxUtilsConfig &
@@ -66,6 +92,10 @@ export type SequencerPublisherConfig = L1TxUtilsConfig &
     sequencerPublisherForwarderAddress?: EthAddress;
     /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
     l1TxFailedStore?: string;
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
+    publisherFundingThreshold?: bigint;
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
+    publisherFundingAmount?: bigint;
   };
 
 export function getPublisherConfigFromProverConfig(config: ProverPublisherConfig): PublisherConfig {
@@ -142,6 +172,7 @@ export const sequencerPublisherConfigMappings: ConfigMappingsType<SequencerPubli
     env: 'L1_TX_FAILED_STORE',
     description: 'Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path',
   },
+  ...publisherFundingConfigMappings,
 };
 
 export const proverPublisherConfigMappings: ConfigMappingsType<ProverPublisherConfig & L1TxUtilsConfig> = {
@@ -163,4 +194,5 @@ export const proverPublisherConfigMappings: ConfigMappingsType<ProverPublisherCo
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
     parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
   },
+  ...publisherFundingConfigMappings,
 };

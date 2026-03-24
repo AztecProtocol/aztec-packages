@@ -31,13 +31,14 @@ export class ProposalValidator {
   /** Validates header-level fields: slot, signature, and proposer. */
   public async validate(proposal: BlockProposal | CheckpointProposalCore): Promise<ValidationResult> {
     try {
-      // Slot check
-      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
+      // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining)
+      const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
+
       const slotNumber = proposal.slotNumber;
-      if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
+      if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance
-        if (!isWithinClockTolerance(slotNumber, currentSlot, this.epochCache)) {
-          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
+        if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
+          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { targetSlot, nextSlot });
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
         }
         this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);

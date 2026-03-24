@@ -5,6 +5,7 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { NO_FROM } from '../contract/interaction_options.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { FeePaymentMethod } from './fee_payment_method.js';
 
@@ -75,11 +76,11 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       const executionPayload = await interaction.request();
       this.assetPromise = this.wallet
         .simulateTx(executionPayload, {
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           skipFeeEnforcement: true,
         })
         .then(simulationResult => {
-          const rawReturnValues = simulationResult.getPrivateReturnValues().nested[0].values;
+          const rawReturnValues = simulationResult.getPrivateReturnValues().values;
           return decodeFromAbi(abi.returnTypes, rawReturnValues!);
         }) as Promise<AztecAddress>;
     }

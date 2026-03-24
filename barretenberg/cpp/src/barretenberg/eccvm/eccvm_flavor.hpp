@@ -29,6 +29,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
+#include "barretenberg/sumcheck/masking_tail_data.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
@@ -335,6 +336,9 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        // All witness entities are masked in ZK mode
+        auto get_masked() { return get_all(); }
+        auto get_masked() const { return get_all(); }
     };
 
     /**
@@ -430,7 +434,9 @@ class ECCVMFlavor {
                                WitnessEntities<DataType>::get_all());
         };
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
+        auto get_to_be_shifted() const { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
@@ -625,12 +631,23 @@ class ECCVMFlavor {
 #endif
             size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
-            for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
-                                   /*largest possible index*/ dyadic_num_rows,
-                                   /* offset */ 1 };
+            // 1. Wire non-shifted polys: allocate to actual trace size
+            for (auto& poly : WireNonShiftedEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows, dyadic_num_rows);
             }
-            // allocate polynomials; define lagrange and lookup read count polynomials
+
+            // 2. Wire to-be-shifted polys: allocate to actual trace size, shiftable
+            for (auto& poly : WireToBeShiftedWithoutAccumulatorsEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows - 1, dyadic_num_rows, 1);
+            }
+            for (auto& poly : WireToBeShiftedAccumulatorEntities<Polynomial>::get_all()) {
+                poly = Polynomial(num_rows - 1, dyadic_num_rows, 1);
+            }
+
+            // 3. z_perm: must stay full-size (grand product computed over unmasked_witness_size)
+            z_perm = Polynomial(dyadic_num_rows - 1, dyadic_num_rows, 1);
+
+            // 4. Catch-all: precomputed, lookup_inverses, gemini_masking_poly → full size
             for (auto& poly : get_all()) {
                 if (poly.is_empty()) {
                     poly = Polynomial(dyadic_num_rows);
@@ -786,11 +803,15 @@ class ECCVMFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
         CommitmentKey commitment_key;
 
+        MaskingTailData<ECCVMFlavor> masking_tail_data; // ZK: stores masking values for witness polys
+
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
             : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
-        {}
+        {
+            masking_tail_data.dyadic_size = circuit_size;
+        }
     };
 
     /**

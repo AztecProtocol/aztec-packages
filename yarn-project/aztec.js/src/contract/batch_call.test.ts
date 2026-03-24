@@ -1,8 +1,11 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  Capsule,
   ExecutionPayload,
+  HashedValues,
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
   TxSimulationResult,
@@ -146,7 +149,7 @@ describe('BatchCall', () => {
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       // Verify wallet.batch was called once with both utility calls AND simulateTx
       expect(wallet.batch).toHaveBeenCalledTimes(1);
@@ -155,14 +158,14 @@ describe('BatchCall', () => {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'getBalance', to: contractAddress1 }),
-            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+            expect.objectContaining({ scopes: expect.any(Array) }),
           ],
         },
         {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }),
-            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+            expect.objectContaining({ scopes: expect.any(Array) }),
           ],
         },
         {
@@ -212,7 +215,7 @@ describe('BatchCall', () => {
         { name: 'executeUtility', result: utilityResult2 },
       ] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
@@ -220,14 +223,14 @@ describe('BatchCall', () => {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view1', to: contractAddress1 }),
-            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+            expect.objectContaining({ scopes: expect.any(Array) }),
           ],
         },
         {
           name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view2', to: contractAddress2 }),
-            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+            expect.objectContaining({ scopes: expect.any(Array) }),
           ],
         },
       ]);
@@ -247,7 +250,7 @@ describe('BatchCall', () => {
       const utilityResult = UtilityExecutionResult.random();
       wallet.batch.mockResolvedValue([{ name: 'executeUtility', result: utilityResult }] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(results).toHaveLength(1);
       expect(results[0].offchainEffects).toEqual([]);
@@ -307,7 +310,7 @@ describe('BatchCall', () => {
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
       expect(results).toHaveLength(3);
 
       expect(results[0].offchainMessages).toEqual([
@@ -349,7 +352,7 @@ describe('BatchCall', () => {
 
       wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
@@ -376,7 +379,7 @@ describe('BatchCall', () => {
     it('should handle empty batch', async () => {
       batchCall = new BatchCall(wallet, []);
 
-      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+      const { result: results } = await batchCall.simulate({ from: await AztecAddress.random() });
 
       expect(wallet.batch).not.toHaveBeenCalled();
       expect(results).toEqual([]);
@@ -404,6 +407,28 @@ describe('BatchCall', () => {
       expect(result.calls[0]).toEqual(feePayload.calls[0]);
       expect(result.calls[1]).toEqual(payload.calls[0]);
       expect(mockPaymentMethod.getExecutionPayload).toHaveBeenCalledTimes(1);
+    });
+
+    it('should propagate authWitnesses, capsules, and extraHashedArgs into the execution payload', async () => {
+      const contractAddress = await AztecAddress.random();
+      const payload = createPrivateExecutionPayload('func', [Fr.random()], contractAddress);
+
+      const authWitness = AuthWitness.random();
+      const capsule = new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random()]);
+      const extraHashedArgs = [HashedValues.random()];
+
+      batchCall = new BatchCall(wallet, [payload], extraHashedArgs);
+      // Inject authWitnesses and capsules into the interaction (as BaseContractInteraction exposes these)
+      (batchCall as any).authWitnesses = [authWitness];
+      (batchCall as any).capsules = [capsule];
+
+      const result = await batchCall.request();
+
+      expect(result.calls).toHaveLength(1);
+      expect(result.calls[0]).toEqual(payload.calls[0]);
+      expect(result.authWitnesses).toContainEqual(authWitness);
+      expect(result.capsules).toContainEqual(capsule);
+      expect(result.extraHashedArgs).toContainEqual(extraHashedArgs[0]);
     });
   });
 });

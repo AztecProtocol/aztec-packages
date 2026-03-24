@@ -9,41 +9,104 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [Aztec.nr] Capsule operations now require a scope param
+### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
 
-All capsule oracle functions (`store`, `load`, `delete`, `copy`) now take an additional `scope: Option<AztecAddress>`
-parameter. This enables multiple independent namespaces within the same contract's capsule storage. If you need to keep
-the previous (global) behavior, call said methods with `Option::none()` as scope.
+The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
 
-`CapsuleArray::at` now requires a `scope: AztecAddress` argument that isolates the array's data to that scope. For the previous (global) behavior, use the new `CapsuleArray::at_global_scope` constructor.
+The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
 
 **Migration:**
 
 ```diff
-// Oracle functions now require a scope parameter
-- capsules::store(contract_address, slot, value);
-+ capsules::store(contract_address, slot, value, Option::none());
+- const {
+-   receipt: { contract, instance },
+- } = await MyContract.deploy(wallet, ...args).send({
+-   from: address,
+-   wait: { returnReceipt: true },
+- });
 
-- capsules::load(contract_address, slot);
-+ capsules::load(contract_address, slot, Option::none());
-
-- capsules::delete(contract_address, slot);
-+ capsules::delete(contract_address, slot, Option::none());
-
-- capsules::copy(contract_address, src_slot, dst_slot, num_entries);
-+ capsules::copy(contract_address, src_slot, dst_slot, num_entries, Option::none());
++ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
++   from: address,
++ });
 ```
+
+### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
+
+`ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.
+
+- `INITIALIZED`: the contract has been initialized (initialization nullifier found)
+- `UNINITIALIZED`: the contract instance is registered but has not been initialized
+- `UNKNOWN`: the instance is not registered and no public initialization nullifier was found
+
+When the instance is not registered, the wallet now attempts to check the public initialization nullifier (computed from address alone) before returning `UNKNOWN`. Previously this case returned `undefined`.
+
+**Migration:**
 
 ```diff
-// CapsuleArray: use at_global_scope for the old behavior
-- let array = CapsuleArray::at(contract_address, base_slot);
-+ let array = CapsuleArray::at_global_scope(contract_address, base_slot);
++ import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 
-// Or scope to a specific address for isolated namespaces
-+ let array = CapsuleArray::at(contract_address, base_slot, scope_address);
+  const metadata = await wallet.getContractMetadata(address);
+- if (metadata.isContractInitialized) {
++ if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
+    // contract is initialized
+  }
 ```
 
-**Impact**: All code using capsule oracles directly or `CapsuleArray::at` must be updated. Pass `Option::none()` to oracle functions for the previous global behavior, or replace `CapsuleArray::at` with `CapsuleArray::at_global_scope`.
+### [Aztec.js] Use `NO_FROM` instead of `AztecAddress.ZERO` to bypass account contract entrypoint
+
+When sending transactions that should not be mediated by an account contract (e.g., account contract self-deployments), use the explicit `NO_FROM` sentinel instead of `AztecAddress.ZERO`.
+
+`NO_FROM` signals that the transaction should be executed directly via the `DefaultEntrypoint`. This replaces the brittle convention of passing `AztecAddress.ZERO` as the `from` field.
+
+**Migration:**
+
+```diff
+- import { AztecAddress } from '@aztec/aztec.js';
++ import { NO_FROM } from '@aztec/aztec.js/account';
+
+  await contract.methods.my_method().send({
+-   from: AztecAddress.ZERO,
++   from: NO_FROM,
+  });
+```
+
+Note that `DefaultEntrypoint` only accepts a single call. If you need to execute multiple calls without account contract mediation (e.g., deploying an account contract and paying a fee in the same transaction), wrap them through `DefaultMultiCallEntrypoint` on the app side before sending:
+
+```typescript
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { DefaultMultiCallEntrypoint } from "@aztec/entrypoints/multicall";
+import { mergeExecutionPayloads } from "@aztec/stdlib/tx";
+
+// Merge multiple execution payloads into one
+const merged = mergeExecutionPayloads([deployPayload, feePayload]);
+
+// Wrap through multicall so it becomes a single call for DefaultEntrypoint
+const multicall = new DefaultMultiCallEntrypoint();
+const chainInfo = await wallet.getChainInfo();
+const wrappedPayload = await multicall.wrapExecutionPayload(merged, chainInfo);
+
+// Send without account contract mediation
+await wallet.sendTx(wrappedPayload, { from: NO_FROM });
+```
+
+Using other contracts for wrapping (for example, supporting more calls) is also supported, as long as the contract is registered in the wallet. This opens the door to different flows that do not use account entrypoints as the first call in the chain, including app sponsored FPCs.
+
+**Impact**: Any code that passes `AztecAddress.ZERO` as the `from` option in `.send()`, `.simulate()`, or deploy options must switch to `NO_FROM`. Wallets use `DefaultEntrypoint` directly for `NO_FROM` transactions, instead of the `DefaultMultiCallEntrypoint` that was used internally before when specifying `AztecAddress.ZERO`.
+
+### [Aztec.js] `ExecuteUtilityOptions.scope` renamed to `scopes` and type changed to `AztecAddress[]`
+
+The `scope` field in `ExecuteUtilityOptions` has been renamed to `scopes` and changed from a single `AztecAddress` to `AztecAddress[]`. This aligns the wallet's `executeUtility` API with the PXE API and `sendTx` in `Wallet`, which both accept an array of scopes.
+
+**Migration:**
+
+```diff
+  wallet.executeUtility(call, {
+-   scope: myAddress,
++   scopes: [myAddress],
+  });
+```
+
+**Impact**: Any code that calls `wallet.executeUtility` directly must update the options object. Wallets must update to adapt to the new interface
 
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
@@ -163,6 +226,8 @@ The `maxLogsHit` flag indicates whether the log limit was reached, meaning more 
 ### [Aztec.nr] Removed `get_random_bytes`
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
+
+## 4.1.0-rc.2
 
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 

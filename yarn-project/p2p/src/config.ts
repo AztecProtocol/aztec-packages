@@ -43,6 +43,9 @@ export interface P2PConfig
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;
 
+  /** Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set. */
+  validateMaxTxsPerCheckpoint?: number;
+
   /** Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected. */
   validateMaxL2BlockGas?: number;
 
@@ -66,6 +69,9 @@ export interface P2PConfig
 
   /** The frequency in which to check for new peers. */
   peerCheckIntervalMS: number;
+
+  /** How long to ban a peer after it fails MAX_DIAL_ATTEMPTS dials. */
+  peerFailedBanTimeMs: number;
 
   /** Size of queue of L2 blocks to store. */
   l2QueueSize: number;
@@ -214,6 +220,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
+  validateMaxTxsPerCheckpoint: {
+    env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
+    description:
+      'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
@@ -253,6 +265,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new peers.',
     ...numberConfigHelper(30_000),
+  },
+  peerFailedBanTimeMs: {
+    env: 'P2P_PEER_FAILED_BAN_TIME_MS',
+    description: 'How long to ban a peer after it fails maximum dial attempts.',
+    ...numberConfigHelper(5 * 60 * 1000),
   },
   l2QueueSize: {
     env: 'P2P_L2_QUEUE_SIZE',

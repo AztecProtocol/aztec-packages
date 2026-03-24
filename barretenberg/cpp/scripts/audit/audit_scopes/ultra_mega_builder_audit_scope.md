@@ -2,7 +2,7 @@
 
 Repository: https://github.com/AztecProtocol/aztec-packages
 
-Commit hash: [6d14241271ad07c72937498b66f28df630662c2c](https://github.com/AztecProtocol/aztec-packages/tree/6d14241271ad07c72937498b66f28df630662c2c)
+Commit hash: Most recent commit on branch 'next'
 
 Status: Planned, [Luke, Raju]
 

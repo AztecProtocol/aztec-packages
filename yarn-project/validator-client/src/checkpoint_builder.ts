@@ -20,6 +20,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
+  type BlockBuilderOptions,
   type BuildBlockInCheckpointResult,
   type FullNodeBlockBuilderConfig,
   FullNodeBlockBuilderConfigKeys,
@@ -46,6 +47,9 @@ export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/serv
 export class CheckpointBuilder implements ICheckpointBlockBuilder {
   private log: Logger;
 
+  /** Persistent contracts DB shared across all blocks in this checkpoint. */
+  protected contractsDB: PublicContractsDB;
+
   constructor(
     private checkpointBuilder: LightweightCheckpointBuilder,
     private fork: MerkleTreeWriteOperations,
@@ -60,6 +64,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...bindings,
       instanceId: `checkpoint-${checkpointBuilder.checkpointNumber}`,
     });
+    this.contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
   }
 
   getConstantData(): CheckpointGlobalVariables {
@@ -74,7 +79,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits & { expectedEndState?: StateReference; minValidTxs?: number } = {},
+    opts: BlockBuilderOptions & { expectedEndState?: StateReference },
   ): Promise<BuildBlockInCheckpointResult> {
     const slot = this.checkpointBuilder.constants.slotNumber;
 
@@ -104,6 +109,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...this.capLimitsByCheckpointBudgets(opts),
     };
 
+    // Create a block-level checkpoint on the contracts DB so we can roll back on failure
+    this.contractsDB.createCheckpoint();
     // We execute all merkle tree operations on a world state fork checkpoint
     // This enables us to discard all modifications in the event that we fail to successfully process sufficient transactions
     const forkCheckpoint = await ForkCheckpoint.new(this.fork);
@@ -112,6 +119,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, cappedOpts, validator),
       );
+
       // Throw before updating state if we don't have enough valid txs
       const minValidTxs = opts.minValidTxs ?? 0;
       if (processedTxs.length < minValidTxs) {
@@ -125,6 +133,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
         expectedEndState: opts.expectedEndState,
       });
+
+      this.contractsDB.commitCheckpoint();
 
       this.log.debug('Built block within checkpoint', {
         header: block.header.toInspect(),
@@ -140,6 +150,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
         usedTxs,
       };
     } catch (err) {
+      // Revert all changes to contracts db
+      this.contractsDB.revertCheckpoint();
       // If we reached the point of committing the checkpoint, this does nothing
       // Otherwise it reverts any changes made to the fork for this failed block
       await forkCheckpoint.revert();
@@ -167,11 +179,12 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
 
   /**
    * Caps per-block gas and blob field limits by remaining checkpoint-level budgets.
-   * Computes remaining L2 gas (mana), DA gas, and blob fields from blocks already added to the checkpoint,
-   * then returns opts with maxBlockGas and maxBlobFields capped accordingly.
+   * When building a proposal (isBuildingProposal=true), computes a fair share of remaining budget
+   * across remaining blocks scaled by the multiplier. When validating, only caps by per-block limit
+   * and remaining checkpoint budget (no redistribution or multiplier).
    */
   protected capLimitsByCheckpointBudgets(
-    opts: PublicProcessorLimits,
+    opts: BlockBuilderOptions,
   ): Pick<PublicProcessorLimits, 'maxBlockGas' | 'maxBlobFields' | 'maxTransactions'> {
     const existingBlocks = this.checkpointBuilder.getBlocks();
 
@@ -192,39 +205,31 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const blockEndOverhead = getNumBlockEndBlobFields(isFirstBlock);
     const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
 
-    // When redistributeCheckpointBudget is enabled (default), compute a fair share of remaining budget
-    // across remaining blocks scaled by the multiplier, instead of letting one block consume it all.
-    const redistribute = this.config.redistributeCheckpointBudget !== false;
-    const remainingBlocks = Math.max(1, (this.config.maxBlocksPerCheckpoint ?? 1) - existingBlocks.length);
-    const multiplier = this.config.perBlockAllocationMultiplier ?? 1.2;
+    // Remaining txs
+    const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
+    const remainingTxs = Math.max(0, (this.config.maxTxsPerCheckpoint ?? Infinity) - usedTxs);
 
-    // Cap L2 gas by remaining checkpoint mana (with fair share when redistributing)
-    const fairShareL2 = redistribute ? Math.ceil((remainingMana / remainingBlocks) * multiplier) : Infinity;
-    const cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? Infinity, fairShareL2, remainingMana);
+    // Cap by per-block limit + remaining checkpoint budget
+    let cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? Infinity, remainingMana);
+    let cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? Infinity, remainingDAGas);
+    let cappedBlobFields = Math.min(opts.maxBlobFields ?? Infinity, maxBlobFieldsForTxs);
+    let cappedMaxTransactions = Math.min(opts.maxTransactions ?? Infinity, remainingTxs);
 
-    // Cap DA gas by remaining checkpoint DA gas budget (with fair share when redistributing)
-    const fairShareDA = redistribute ? Math.ceil((remainingDAGas / remainingBlocks) * multiplier) : Infinity;
-    const cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? remainingDAGas, fairShareDA, remainingDAGas);
+    // Proposer mode: further cap by fair share of remaining budget across remaining blocks
+    if (opts.isBuildingProposal) {
+      const remainingBlocks = Math.max(1, opts.maxBlocksPerCheckpoint - existingBlocks.length);
+      const multiplier = opts.perBlockAllocationMultiplier;
 
-    // Cap blob fields by remaining checkpoint blob capacity (with fair share when redistributing)
-    const fairShareBlobs = redistribute ? Math.ceil((maxBlobFieldsForTxs / remainingBlocks) * multiplier) : Infinity;
-    const cappedBlobFields = Math.min(opts.maxBlobFields ?? Infinity, fairShareBlobs, maxBlobFieldsForTxs);
-
-    // Cap transaction count by remaining checkpoint tx budget (with fair share when redistributing)
-    let cappedMaxTransactions: number | undefined;
-    if (this.config.maxTxsPerCheckpoint !== undefined) {
-      const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
-      const remainingTxs = Math.max(0, this.config.maxTxsPerCheckpoint - usedTxs);
-      const fairShareTxs = redistribute ? Math.ceil((remainingTxs / remainingBlocks) * multiplier) : Infinity;
-      cappedMaxTransactions = Math.min(opts.maxTransactions ?? Infinity, fairShareTxs, remainingTxs);
-    } else {
-      cappedMaxTransactions = opts.maxTransactions;
+      cappedL2Gas = Math.min(cappedL2Gas, Math.ceil((remainingMana / remainingBlocks) * multiplier));
+      cappedDAGas = Math.min(cappedDAGas, Math.ceil((remainingDAGas / remainingBlocks) * multiplier));
+      cappedBlobFields = Math.min(cappedBlobFields, Math.ceil((maxBlobFieldsForTxs / remainingBlocks) * multiplier));
+      cappedMaxTransactions = Math.min(cappedMaxTransactions, Math.ceil((remainingTxs / remainingBlocks) * multiplier));
     }
 
     return {
       maxBlockGas: new Gas(cappedDAGas, cappedL2Gas),
       maxBlobFields: cappedBlobFields,
-      maxTransactions: cappedMaxTransactions,
+      maxTransactions: Number.isFinite(cappedMaxTransactions) ? cappedMaxTransactions : undefined,
     };
   }
 
@@ -233,7 +238,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       ...(await getDefaultAllowedSetupFunctions()),
       ...(this.config.txPublicSetupAllowListExtend ?? []),
     ];
-    const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
+    const contractsDB = this.contractsDB;
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
     const collectDebugLogs = this.debugLogStore.isEnabled;

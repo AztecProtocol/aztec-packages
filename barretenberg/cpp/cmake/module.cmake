@@ -237,6 +237,14 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 ${MODULE_DEPENDENCIES}
             )
 
+            # Record fuzzer metadata for manifest generation
+            get_filename_component(_fuzzer_dir "${FUZZER_SOURCE_FILE}" DIRECTORY)
+            file(RELATIVE_PATH _source_path
+                "${CMAKE_SOURCE_DIR}/src/barretenberg"
+                "${_fuzzer_dir}")
+            set_property(GLOBAL APPEND PROPERTY BB_FUZZER_MANIFEST_ENTRIES
+                "${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer|${_source_path}")
+
             if(ENABLE_STACKTRACES)
                 target_link_libraries(
                     ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer

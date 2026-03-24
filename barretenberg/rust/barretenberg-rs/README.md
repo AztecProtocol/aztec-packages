@@ -25,7 +25,7 @@ barretenberg-rs = "0.1"
 
 ### PipeBackend (default)
 
-Requires the `bb` binary to be available. Download from [Barretenberg releases](https://github.com/AztecProtocol/aztec-packages/releases).
+Requires the `bb` binary to be available. Download from [Barretenberg releases](https://github.com/AztecProtocol/barretenberg/releases).
 
 ```rust
 use barretenberg_rs::{BarretenbergApi, backends::PipeBackend};
