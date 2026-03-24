@@ -43,7 +43,7 @@ Both modes produce the same `Wallet` interface, so the rest of your app doesn't 
 
 ## Embedded wallet (local development)
 
-For local development, the app uses an `EmbeddedWallet` class that extends `BaseWallet` from the Aztec wallet SDK. `BaseWallet` provides account abstraction, transaction signing, and fee handling — the subclass supplies initialization logic, account management, and a fee payment strategy.
+For local development, the app uses a custom `EmbeddedWallet` class that extends the official `EmbeddedWallet` from `@aztec/wallets/embedded`. The official wallet already provides account creation and persistence, transaction sending with gas estimation, automatic authwitness generation, and stub-account simulation. The tutorial subclass adds one thing: **SponsoredFPC fee payment** so users don't need to hold fee tokens.
 
 Open `src/embedded-wallet.ts`:
 
@@ -55,11 +55,11 @@ Open `src/embedded-wallet.ts`:
 
 #include_code initialize /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
-This is similar to `createLocalPXE` from `config.ts`, but additionally registers the SponsoredFPC contract with PXE so that fee payment works out of the box.
+The `initialize` factory calls the inherited `create()` method, which sets up an in-browser PXE and account storage. It then registers the SponsoredFPC contract with PXE so that fee payment works out of the box.
 
 ### Connecting a test account
 
-The local network ships with pre-deployed test accounts. These are Schnorr-signature accounts that are already registered and funded, so you can use them immediately without deploying a new account contract. You select one by index (0, 1, 2, etc.).
+The local network ships with pre-deployed test accounts. These are Schnorr-signature accounts that are already registered and funded, so you can use them immediately without deploying a new account contract. The inherited `createSchnorrAccount` handles account creation, contract registration with PXE, and persistence in the wallet database. You select one by index (0, 1, 2, etc.).
 
 #include_code connect-test-account /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
@@ -75,7 +75,7 @@ SponsoredFPC only works on the local network and devnet. Production Aztec networ
 
 ### Full class
 
-The complete `EmbeddedWallet` puts these pieces together:
+The complete `EmbeddedWallet` — most of the heavy lifting (simulation, proving, gas estimation) is inherited from the official wallet:
 
 #include_code embedded-wallet-class /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 

@@ -20,7 +20,7 @@ The `deployContract` function calls `PodRacingContract.deploy()` to construct a 
 
 ### Attaching to an existing contract
 
-When joining someone else's game, you didn't deploy the contract, so your PXE doesn't know about it. `attachToContract` first registers the contract with your PXE by fetching the on-chain instance from the node and providing the compiled artifact — this is required for private function execution, since PXE needs the contract bytecode locally to generate proofs. It then calls `PodRacingContract.at()` to create a typed contract handle bound to the existing contract address and wallet.
+When joining someone else's game, you didn't deploy the contract, so your PXE doesn't know about it. `attachToContract` first registers the contract with your PXE by fetching the onchain instance from the node and providing the compiled artifact — this is required for private function execution, since PXE needs the contract bytecode locally to generate proofs. It then calls `PodRacingContract.at()` to create a typed contract handle bound to the existing contract address and wallet.
 
 ### Game actions
 
