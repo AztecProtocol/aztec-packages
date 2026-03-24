@@ -1,6 +1,8 @@
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 
+import { Multicall3 } from './contracts/multicall.js';
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 
 // Defines the order in which we prioritise publishers based on their state (first is better)
@@ -27,24 +29,72 @@ const busyStates: TxUtilsState[] = [
 
 export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) => boolean;
 
+/** Config accepted by PublisherManager. */
+type PublisherManagerConfig = {
+  publisherAllowInvalidStates?: boolean;
+  publisherFundingThreshold?: bigint;
+  publisherFundingAmount?: bigint;
+};
+
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log: Logger;
-  private config: { publisherAllowInvalidStates?: boolean };
+  private config: PublisherManagerConfig;
+  private static readonly FUNDING_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+  private funder?: UtilsType;
+  private fundingPromise?: RunningPromise;
 
   constructor(
     private publishers: UtilsType[],
-    config: { publisherAllowInvalidStates?: boolean },
-    bindings?: LoggerBindings,
+    config: PublisherManagerConfig,
+    opts?: { bindings?: LoggerBindings; funder?: UtilsType },
   ) {
-    this.log = createLogger('publisher:manager', bindings);
+    this.funder = opts?.funder;
+    this.log = createLogger('publisher:manager', opts?.bindings);
     this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
     this.publishers = publishers;
-    this.config = pick(config, 'publisherAllowInvalidStates');
+    this.config = pick(config, 'publisherAllowInvalidStates', 'publisherFundingThreshold', 'publisherFundingAmount');
+
+    const hasThreshold = this.config.publisherFundingThreshold !== undefined;
+    const hasAmount = this.config.publisherFundingAmount !== undefined;
+    if (hasThreshold !== hasAmount) {
+      this.log.warn(`Incomplete funding config: both publisherFundingThreshold and publisherFundingAmount must be set`);
+    }
+
+    if (this.funder) {
+      const funderAddress = this.funder.getSenderAddress();
+      if (publishers.some(p => p.getSenderAddress().equals(funderAddress))) {
+        this.log.error(`Funding account ${funderAddress} is also a publisher, disabling funding to avoid self-funding`);
+        this.funder = undefined;
+      }
+    }
   }
 
-  /** Loads the state of all publishers and resumes monitoring any pending txs */
-  public async loadState(): Promise<void> {
-    await Promise.all(this.publishers.map(pub => pub.loadStateAndResumeMonitoring()));
+  /** Loads the state of all publishers and the funder, and starts periodic funding checks. */
+  public async start(): Promise<void> {
+    await Promise.all([
+      ...this.publishers.map(pub => pub.loadStateAndResumeMonitoring()),
+      this.funder?.loadStateAndResumeMonitoring(),
+    ]);
+
+    if (
+      this.funder &&
+      this.config.publisherFundingThreshold !== undefined &&
+      this.config.publisherFundingAmount !== undefined
+    ) {
+      this.fundingPromise = new RunningPromise(
+        () => this.triggerFundingIfNeeded(),
+        this.log,
+        PublisherManager.FUNDING_CHECK_INTERVAL_MS,
+      );
+      this.fundingPromise.start();
+    }
+  }
+
+  /** Stops the funding loop and interrupts all publishers. */
+  public async stop(): Promise<void> {
+    await this.fundingPromise?.stop();
+    this.publishers.forEach(pub => pub.interrupt());
+    this.funder?.interrupt();
   }
 
   // Finds and prioritises available publishers based on
@@ -102,7 +152,52 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     return sortedPublishers[0].publisher;
   }
 
-  public interrupt() {
-    this.publishers.forEach(pub => pub.interrupt());
+  /** Check all publisher balances and fund those below threshold. */
+  private async triggerFundingIfNeeded(): Promise<void> {
+    const { funder, config } = this;
+    if (!funder || config.publisherFundingThreshold === undefined || config.publisherFundingAmount === undefined) {
+      return;
+    }
+
+    const allBalances = await Promise.all(
+      this.publishers.map(async pub => ({ balance: await pub.getSenderBalance(), publisher: pub })),
+    );
+    const lowBalance = allBalances.filter(p => p.balance < config.publisherFundingThreshold!);
+    if (lowBalance.length === 0) {
+      return;
+    }
+
+    const fundingAmount = config.publisherFundingAmount!;
+    const funderBalance = await funder.getSenderBalance();
+
+    if (funderBalance < 10n * fundingAmount) {
+      this.log.warn(`Funding account balance is low`, { funderBalance, threshold: 10n * fundingAmount });
+    }
+    const affordableCount = Number(funderBalance / fundingAmount);
+    if (affordableCount === 0) {
+      this.log.error(`Funding account balance too low to fund any publisher`, { funderBalance, fundingAmount });
+      return;
+    }
+    if (affordableCount < lowBalance.length) {
+      this.log.warn(`Funder can only afford ${affordableCount}/${lowBalance.length} publishers`, {
+        funderBalance,
+        fundingAmount,
+      });
+    }
+
+    const toFund = lowBalance.slice(0, affordableCount).map(p => p.publisher);
+    await this.fundPublishers(toFund);
+  }
+
+  /** Fund publishers via a single Multicall3 aggregate3Value transaction. */
+  private async fundPublishers(publishers: UtilsType[]): Promise<void> {
+    const fundingAmount = this.config.publisherFundingAmount!;
+    const calls = publishers.map(pub => ({
+      to: pub.getSenderAddress().toString(),
+      value: fundingAmount,
+    }));
+
+    await Multicall3.forwardValue(calls, this.funder!, this.log);
+    this.log.info(`Funded ${publishers.length} publishers`);
   }
 }

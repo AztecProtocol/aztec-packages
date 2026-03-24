@@ -2617,6 +2617,11 @@ TYPED_TEST(stdlib_bigfield, less_than_works)
 
     // c_ct > modulus fails comparison but doesn't make the circuit fail
     std::vector<uint8_t> c_bytes(32, 0xff);
+    if constexpr (std::is_same_v<TypeParam, typename bb::stdlib::bn254<UltraCircuitBuilder>::BaseField>) {
+        // For bn254, NUM_LAST_LIMB_BITS = 50, so we need to set the first byte to something bigger than 0x30 (the first
+        // byte of the modulus) that still fits in 50 bits
+        c_bytes[0] = 0x31;
+    }
     byte_array_ct c_byte_array = byte_array_ct(&builder, c_bytes);
     fq_ct reconstructed_from_bytes(c_byte_array);
     auto is_not_ok_larger_than_modulus = reconstructed_from_bytes.is_less_than(fq_ct::modulus);

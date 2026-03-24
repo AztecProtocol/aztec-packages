@@ -1,5 +1,4 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { DeployTxReceipt } from '@aztec/aztec.js/contracts';
 import { type FeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -186,7 +185,6 @@ describe('e2e_fees gas_estimation', () => {
         from: aliceAddress,
         fee: { gasSettings: limits ? { ...gasSettings, ...limits } : gasSettings },
         skipClassPublication: true,
-        wait: { returnReceipt: true },
       };
     };
 
@@ -201,10 +199,10 @@ describe('e2e_fees gas_estimation', () => {
     const estimatedGas = sim3.estimatedGas!;
     logGasEstimate(estimatedGas);
 
-    const [{ receipt: withEstimate }, { receipt: withoutEstimate }] = (await Promise.all([
+    const [{ receipt: withEstimate }, { receipt: withoutEstimate }] = await Promise.all([
       deployMethod().send(deployOpts(estimatedGas)),
       deployMethod().send(deployOpts()),
-    ])) as unknown as { receipt: DeployTxReceipt }[];
+    ]);
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown
     expect(withEstimate.transactionFee!).toEqual(withoutEstimate.transactionFee!);

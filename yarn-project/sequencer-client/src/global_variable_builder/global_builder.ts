@@ -1,15 +1,13 @@
-import { createEthereumChain } from '@aztec/ethereum/chain';
-import { makeL1HttpTransport } from '@aztec/ethereum/client';
-import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import type { L1ReaderConfig } from '@aztec/ethereum/l1-reader';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getNextL1SlotTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
   CheckpointGlobalVariables,
@@ -17,7 +15,12 @@ import type {
 } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
-import { createPublicClient } from 'viem';
+/** Configuration for the GlobalVariableBuilder (excludes L1 client config). */
+export type GlobalVariableBuilderConfig = {
+  l1Contracts: Pick<L1ContractAddresses, 'rollupAddress'>;
+  ethereumSlotDuration: number;
+  rollupVersion: bigint;
+} & Pick<L1RollupConstants, 'slotDuration' | 'l1GenesisTime'>;
 
 /**
  * Simple global variables builder.
@@ -28,7 +31,6 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
-  private readonly publicClient: ViemPublicClient;
   private readonly ethereumSlotDuration: number;
   private readonly aztecSlotDuration: number;
   private readonly l1GenesisTime: bigint;
@@ -37,28 +39,18 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private version: Fr;
 
   constructor(
-    config: L1ReaderConfig &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
-      Pick<L1RollupConstants, 'slotDuration' | 'l1GenesisTime'> & { rollupVersion: bigint },
+    private readonly dateProvider: DateProvider,
+    private readonly publicClient: ViemPublicClient,
+    config: GlobalVariableBuilderConfig,
   ) {
-    const { l1RpcUrls, l1ChainId: chainId, l1Contracts } = config;
-
-    const chain = createEthereumChain(l1RpcUrls, chainId);
-
     this.version = new Fr(config.rollupVersion);
-    this.chainId = new Fr(chainId);
+    this.chainId = new Fr(this.publicClient.chain!.id);
 
     this.ethereumSlotDuration = config.ethereumSlotDuration;
     this.aztecSlotDuration = config.slotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
 
-    this.publicClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: makeL1HttpTransport(chain.rpcUrls, { timeout: config.l1HttpTimeoutMS }),
-      pollingInterval: config.viemPollingIntervalMS,
-    });
-
-    this.rollupContract = new RollupContract(this.publicClient, l1Contracts.rollupAddress);
+    this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
   }
 
   /**
@@ -74,7 +66,10 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const earliestTimestamp = await this.rollupContract.getTimestampForSlot(
       SlotNumber.fromBigInt(BigInt(lastCheckpoint.slotNumber) + 1n),
     );
-    const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
+    const nextEthTimestamp = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), {
+      l1GenesisTime: this.l1GenesisTime,
+      ethereumSlotDuration: this.ethereumSlotDuration,
+    });
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
     return new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
@@ -109,7 +104,10 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const slot: SlotNumber =
       maybeSlot ??
       (await this.rollupContract.getSlotAt(
-        BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration)),
+        getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), {
+          l1GenesisTime: this.l1GenesisTime,
+          ethereumSlotDuration: this.ethereumSlotDuration,
+        }),
       ));
 
     const checkpointGlobalVariables = await this.buildCheckpointGlobalVariables(coinbase, feeRecipient, slot);

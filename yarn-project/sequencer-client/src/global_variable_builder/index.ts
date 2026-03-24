@@ -1,1 +1,1 @@
-export { GlobalVariableBuilder } from './global_builder.js';
+export { GlobalVariableBuilder, type GlobalVariableBuilderConfig } from './global_builder.js';
