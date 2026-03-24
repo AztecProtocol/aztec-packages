@@ -522,7 +522,7 @@ export async function deriveKeyFromPassphrase(
     'deriveKey',
   ]);
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -548,7 +548,9 @@ export async function encryptWithPassphrase(
   const salt = crypto.getRandomValues(new Uint8Array(PBKDF2_SALT_BYTES));
   const iv = crypto.getRandomValues(new Uint8Array(PBKDF2_IV_BYTES));
   const key = await deriveKeyFromPassphrase(passphrase, salt, iterations);
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext as BufferSource),
+  );
   const result = new Uint8Array(PBKDF2_SALT_BYTES + PBKDF2_IV_BYTES + ciphertext.length);
   result.set(salt, 0);
   result.set(iv, PBKDF2_SALT_BYTES);
@@ -574,7 +576,7 @@ export async function decryptWithPassphrase(
   const iv = data.slice(PBKDF2_SALT_BYTES, PBKDF2_SALT_BYTES + PBKDF2_IV_BYTES);
   const ciphertext = data.slice(PBKDF2_SALT_BYTES + PBKDF2_IV_BYTES);
   const key = await deriveKeyFromPassphrase(passphrase, salt, iterations);
-  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext));
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext as BufferSource));
 }
 
 /**
