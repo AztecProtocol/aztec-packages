@@ -124,12 +124,20 @@ export class LogService {
     // Determine recipients: use scopes if provided, otherwise get all accounts
     const recipients = scopes !== 'ALL_SCOPES' && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
 
+    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
+    // (recipient = us, sender = us)
+    const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
+    // We deduplicate the senders by adding them to a set and then converting the set back to an array
+    const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
+      AztecAddress.fromString(sender),
+    );
+
     // For each recipient, fetch secrets, load logs, and store them.
     // We run these per-recipient tasks in parallel so that logs are loaded for all recipients concurrently.
     await Promise.all(
       recipients.map(async recipient => {
         // Get all secrets for this recipient (one per sender)
-        const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
+        const secrets = await this.#getSecretsForSenders(contractAddress, recipient, deduplicatedSenders);
 
         // Load logs for all sender-recipient pairs in parallel
         const logArrays = await Promise.all(
@@ -159,6 +167,7 @@ export class LogService {
   async #getSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
+    senders: AztecAddress[],
   ): Promise<ExtendedDirectionalAppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
     if (!recipientCompleteAddress) {
@@ -166,17 +175,8 @@ export class LogService {
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
-    // (recipient = us, sender = us)
-    const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
-
-    // We deduplicate the senders by adding them to a set and then converting the set back to an array
-    const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
-      AztecAddress.fromString(sender),
-    );
-
     return Promise.all(
-      deduplicatedSenders.map(sender => {
+      senders.map(sender => {
         return ExtendedDirectionalAppTaggingSecret.compute(
           recipientCompleteAddress,
           recipientIvsk,
