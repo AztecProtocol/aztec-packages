@@ -387,6 +387,7 @@ if [ -z "$owners" ]; then
 else
   failure_log_key=$log_key
   failure_log_info=$log_info
+  failure_seconds=$SECONDS
   rotate_log $((60 * 60 * 24 * 7 * 12))
 
   echo -e "${yellow}RETRYING${reset}${log_info}: $test_cmd"
@@ -400,6 +401,7 @@ else
     fi
     log_key=$failure_log_key
     log_info=$failure_log_info
+    SECONDS=$failure_seconds
     flake
   fi
 
