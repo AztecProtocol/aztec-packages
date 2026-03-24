@@ -5,19 +5,18 @@ include "constants_gen.pil";
 include "sha256_mem.pil";
 
 /**
+ * SHA-256 Compression Subtrace
+ *
+ * Virtual sub-trace to sha256_mem.pil
+ *
  * This subtrace performs the Sha256 Compression function on a set of given inputs.
  * All input values are assumed to be range checked to 32-bits by the calling function
  * (i.e. inputs come from the sha256_mem.pil). Outputs values are guaranteed to be 32-bits
  * by this subtrace. To simulate modulo operations we use the convention lhs_a and rhs_a to
- * indicate the big-endian decomposition of a value `a`, there lhs_a is the MSB while rhs_a is the LSB.
+ * indicate the big-endian decomposition of a value `a`, there lhs_a is the MSB while
+ * rhs_a is the LSB.
  *
- * TRACE SHAPE:
- * The number of rows per event depends on whether an error occurs:
- * - Normal execution: 65 rows (64 compression rounds + 1 final output row).
- * - Address out-of-range error: 1 row (latch immediately on the start row).
- * - Invalid state tag error: 1 row (latch on the start row after state is loaded).
- * - Invalid input tag error: 1..16 rows (one row per input loaded, latch on the row
- *   with the first invalid tag).
+ * TRACE SHAPE, ERROR HANDLING, ETC..:
  * See sha256_mem.pil header for detailed error handling, trace diagrams, and temporality groups.
  *
  * INTERACTIONS:

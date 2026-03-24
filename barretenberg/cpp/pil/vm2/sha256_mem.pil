@@ -5,6 +5,10 @@ include "precomputed.pil";
 include "sha256.pil";
 
 /**
+ * SHA-256 Memory Subtrace
+ *
+ * Virtual sub-trace to sha256.pil
+ *
  * This handles the memory accesses for the SHA256Compression opcode and is virtual to the sha256_compression subtrace.
  * The sha256 compression is computed across 65 rows (64 rounds + 1 final output row). Each row represents
  * a round of sha256 compression, where the input[i] is used for the i-th round. The 1st row contains the previous hash state
@@ -14,6 +18,9 @@ include "sha256.pil";
  * sel_exec_dispatch_sha256_compression { clk, space_id, output_addr, state_addr, input_addr, err }
  * is
  * sha256.start { sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err };
+ *
+ * PRECONDITIONS:
+ * - output_addr, state_addr, input_addr are resolved addresses in the valid range of the AVM memory.
  *
  * This trace reads and writes the following:
  * (1) Read State: From { state_addr, state_addr + 1, ..., state_addr + 7 }
@@ -32,18 +39,12 @@ include "sha256.pil";
  * - rop[2]: input_addr
  *
  * Memory I/O, all operations are slice reads or writes:
- * - M[rop[0]]: M[output_addr] aka output[0] (the first value of the hash output array)
+ * - M[rop[0] + i]: for 0 <= i < 8, M[output_addr + i] aka output[i] (the i-th value of the hash output array)
  *     - guaranteed by this gadget to be U32.
- * - M[rop[0] + 7]: M[output_addr + 7] aka output[7] (the last value of the hash output array)
- *     - guaranteed by this gadget to be U32
- * - M[rop[1]]: M[state_addr] aka state[0] (the first value of the hash state array)
- *     - guaranteed by this gadget to be U32
- * - M[rop[1] + 7]: M[state_addr + 7] aka state[7] (the last value of the hash state array)
- *     - guaranteed by this gadget to be U32
- * - M[rop[2]]: M[input_addr] aka input[0] (the first value of the hash input array)
+ * - M[rop[1] + i]: for 0 <= i < 8, M[state_addr + i] aka state[i] (the i-th value of the hash state array)
  *     - guaranteed by this gadget to be U32.
- * - M[rop[2] + 15]: M[input_addr + 15] aka input[15] (the last value of the hash input array)
- *     - guaranteed by this gadget to be U32
+ * - M[rop[2] + i]: for 0 <= i < 16, M[input_addr + i] aka input[i] (the i-th value of the hash input array)
+ *     - guaranteed by this gadget to be U32.
 *
  * INTERACTIONS (as source):
  * - gt.sel_others: address range checks for state/input/output address bounds.
@@ -59,11 +60,23 @@ include "sha256.pil";
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS). This utilises the gt gadget
  *     to compare the max value of each read/write slice against AVM_HIGHEST_MEM_ADDRESS.
  * (2) INVALID_STATE_READ_TAG: If any of the state values retrieved from memory are NOT U32.
- *     This utilises the batched zero check method (https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers)
+ *     This utilises the batched zero check method
+ *     (see https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers)
  * (3) INVALID_INPUT_READ_TAG: If any of the input values retrieved from memory are NOT U32.
  *     See table below for how this is propagated
  *
- * These form the error temporality groups for Sha256 Compression
+ * These form the error temporality groups for Sha256 Compression. We emphasize that group (3) is not an
+ * atomic temporality group but applies a per-input granularity, i.e., each input load is effectively a
+ * temporality group. As soon as an invalid input tag is detected, the computation stops and the error is
+ * propagated to the start row.
+ *
+ * TRACE SHAPE:
+ * The number of rows per event depends on whether an error occurs:
+ * - Normal execution: 65 rows (64 compression rounds + 1 final output row).
+ * - Address out-of-range error: 1 row (latch immediately on the start row).
+ * - Invalid state tag error: 1 row (latch on the start row after state is loaded).
+ * - Invalid input tag error: 1..16 rows (one row per input loaded, latch on the row
+ *   with the first invalid tag).
  *
  * EXAMPLE TRACE OVERVIEW
  * Notes:
