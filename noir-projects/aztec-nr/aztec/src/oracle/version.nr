@@ -30,7 +30,7 @@ mod test {
         assert_compatible_oracle_version_oracle(ORACLE_VERSION);
     }
 
-    #[test(should_fail_with = "Incompatible TXE version:")]
+    #[test(should_fail_with = "Incompatible aztec cli version:")]
     unconstrained fn incompatible_oracle_version() {
         let arbitrary_incorrect_version = 318183437;
         assert_compatible_oracle_version_oracle(arbitrary_incorrect_version);

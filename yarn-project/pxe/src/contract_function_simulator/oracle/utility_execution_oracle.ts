@@ -130,10 +130,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
         const hint =
           version > ORACLE_VERSION
-            ? 'The contract was compiled with a newer version of Aztec.nr than this PXE supports. Upgrade your PXE to a compatible version.'
-            : 'The contract was compiled with an older version of Aztec.nr than this PXE supports. Recompile the contract with a compatible version of Aztec.nr.';
+            ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
+            : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
         throw new Error(
-          `Incompatible PXE version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION}, got ${version})`,
+          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION}, got ${version})`,
         );
       }
       return;
@@ -142,10 +142,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (version !== ORACLE_VERSION) {
       const hint =
         version > ORACLE_VERSION
-          ? 'The contract was compiled with a newer version of Aztec.nr than this PXE supports. Upgrade your PXE to a compatible version.'
-          : 'The contract was compiled with an older version of Aztec.nr than this PXE supports. Recompile the contract with a compatible version of Aztec.nr.';
+          ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
+          : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
       throw new Error(
-        `Incompatible PXE version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
+        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
       );
     }
   }

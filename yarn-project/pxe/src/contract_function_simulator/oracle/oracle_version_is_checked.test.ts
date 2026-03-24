@@ -210,9 +210,11 @@ describe('Oracle Version Check test suite', () => {
 
     it('suggests upgrading PXE when contract oracle version is newer', () => {
       const newerVersion = ORACLE_VERSION + 1;
-      expect(() => oracle.assertCompatibleOracleVersion(newerVersion)).toThrow(/Incompatible PXE version:/);
       expect(() => oracle.assertCompatibleOracleVersion(newerVersion)).toThrow(
-        /Upgrade your PXE to a compatible version/,
+        /Incompatible private environment version:/,
+      );
+      expect(() => oracle.assertCompatibleOracleVersion(newerVersion)).toThrow(
+        /Upgrade your private environment to a compatible version/,
       );
       expect(() => oracle.assertCompatibleOracleVersion(newerVersion)).toThrow(
         /See https:\/\/docs\.aztec\.network\/errors\/8/,
@@ -221,7 +223,9 @@ describe('Oracle Version Check test suite', () => {
 
     it('suggests recompiling the contract when contract oracle version is older', () => {
       const olderVersion = ORACLE_VERSION - 1;
-      expect(() => oracle.assertCompatibleOracleVersion(olderVersion)).toThrow(/Incompatible PXE version:/);
+      expect(() => oracle.assertCompatibleOracleVersion(olderVersion)).toThrow(
+        /Incompatible private environment version:/,
+      );
       expect(() => oracle.assertCompatibleOracleVersion(olderVersion)).toThrow(
         /Recompile the contract with a compatible version of Aztec\.nr/,
       );
