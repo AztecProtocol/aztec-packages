@@ -36,7 +36,7 @@ export function validateCheckpoint(
 ): void {
   validateCheckpointStructure(checkpoint);
   validateCheckpointLimits(checkpoint, opts);
-  validateCheckpointBlocksGasLimits(checkpoint, opts);
+  validateCheckpointBlocksLimits(checkpoint, opts);
 }
 
 /**
@@ -125,7 +125,7 @@ export function validateCheckpointStructure(checkpoint: Checkpoint): void {
 }
 
 /** Validates checkpoint blocks gas limits */
-function validateCheckpointBlocksGasLimits(
+function validateCheckpointBlocksLimits(
   checkpoint: Checkpoint,
   opts: {
     maxL2BlockGas?: number;

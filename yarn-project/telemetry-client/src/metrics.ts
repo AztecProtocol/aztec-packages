@@ -504,6 +504,16 @@ export const SEQUENCER_CHECKPOINT_SUCCESS_COUNT: MetricDefinition = {
   description: 'The number of times checkpoint publishing succeeded',
   valueType: ValueType.INT,
 };
+export const SEQUENCER_PIPELINE_DEPTH: MetricDefinition = {
+  name: 'aztec.sequencer.pipeline.depth',
+  description: 'Current pipeline depth when builder pipelining is enabled',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_PIPELINE_DISCARDS_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.pipeline.discards_count',
+  description: 'The number of times a pipeline was discarded',
+  valueType: ValueType.INT,
+};
 
 // Fisherman fee analysis metrics
 export const FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED: MetricDefinition = {

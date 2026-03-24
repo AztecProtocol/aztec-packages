@@ -7,7 +7,7 @@ else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
-export native_build_dir=$(scripts/preset-build-dir)
+export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -39,7 +39,7 @@ function inject_version {
   # Re-sign after modifying the binary.
   if [[ "$(os)" == "macos" ]]; then
     codesign -s - -f "$binary" 2>/dev/null || true
-  elif llvm-objdump --macho --private-header "$binary" &>/dev/null; then
+  elif llvm-objdump-20 --macho --private-header "$binary" 2>/dev/null | grep -q "Mach header"; then
     ldid -S "$binary"
   fi
 }
@@ -198,9 +198,7 @@ function build_release_dir {
 
   # Wasm.
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
-  tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
-  tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
   # bb cross-compiles.
   tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-arm64-linux/bin bb
@@ -208,7 +206,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-amd64-macos/bin bb
   tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-amd64-windows/bin bb.exe
 
-  # Package static libraries for FFI bindings.
+  # Package static libraries for FFI bindings (stripped at build time via CMake POST_BUILD).
   tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
   tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-arm64-linux/lib libbb-external.a
   tar -czf build-release/barretenberg-static-amd64-darwin.tar.gz -C build-amd64-macos/lib libbb-external.a
@@ -325,10 +323,10 @@ function bench {
   bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
-# Upload assets to release.
+# Upload assets to release in AztecProtocol/barretenberg.
 function release {
   echo_header "bb cpp release"
-  do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
+  do_or_dryrun gh release upload $REF_NAME build-release/* --repo AztecProtocol/barretenberg --clobber
 }
 
 function bench_ivc {

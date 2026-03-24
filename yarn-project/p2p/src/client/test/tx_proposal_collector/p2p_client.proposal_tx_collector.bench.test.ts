@@ -95,6 +95,7 @@ describe('ProposalTxCollector Benchmarks', () => {
       bootstrapNodesAsFullPeers: true,
       maxPeerCount: PEERS_PER_RUN + 1,
       peerCheckIntervalMS: 1000,
+      peerFailedBanTimeMs: 5_000,
       dialTimeoutMs: 10_000,
       individualRequestTimeoutMs: 30_000,
     };

@@ -10,7 +10,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1317)
 class TranslatorProvingKey {
   public:
     using Flavor = TranslatorFlavor;
@@ -54,20 +53,18 @@ class TranslatorProvingKey {
 
         proving_key = std::make_shared<ProvingKey>();
         auto wires = proving_key->polynomials.get_wires();
-        for (auto [wire_poly_, wire_] : zip_view(wires, circuit.wires)) {
-            auto& wire_poly = wire_poly_;
-            const auto& wire = wire_;
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
-            parallel_for_range(circuit.num_gates(), [&](size_t start, size_t end) {
-                for (size_t i = start; i < end; i++) {
-                    if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
-                        wire_poly.at(i) = circuit.get_variable(wire[i]);
-                    } else {
-                        BB_ASSERT_EQ(circuit.get_variable(wire[i]), 0);
-                    }
+        // Distribute wires across threads (one task per wire) rather than multithreading within each wire.
+        parallel_for(wires.size(), [&](size_t wire_idx) {
+            auto& wire_poly = wires[wire_idx];
+            const auto& wire = circuit.wires[wire_idx];
+            for (size_t i = 0; i < circuit.num_gates(); i++) {
+                if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
+                    wire_poly.at(i) = circuit.get_variable(wire[i]);
+                } else {
+                    BB_ASSERT_EQ(circuit.get_variable(wire[i]), 0);
                 }
-            });
-        }
+            }
+        });
 
         // Iterate over all circuit wire polynomials, except the ones representing the op queue, and add random values
         // at the end.

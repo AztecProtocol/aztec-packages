@@ -9,6 +9,129 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
+
+`ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.
+
+- `INITIALIZED`: the contract has been initialized (initialization nullifier found)
+- `UNINITIALIZED`: the contract instance is registered but has not been initialized
+- `UNKNOWN`: the instance is not registered and no public initialization nullifier was found
+
+When the instance is not registered, the wallet now attempts to check the public initialization nullifier (computed from address alone) before returning `UNKNOWN`. Previously this case returned `undefined`.
+
+**Migration:**
+
+```diff
++ import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
+
+  const metadata = await wallet.getContractMetadata(address);
+- if (metadata.isContractInitialized) {
++ if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
+    // contract is initialized
+  }
+```
+
+### [Aztec.js] Use `NO_FROM` instead of `AztecAddress.ZERO` to bypass account contract entrypoint
+
+When sending transactions that should not be mediated by an account contract (e.g., account contract self-deployments), use the explicit `NO_FROM` sentinel instead of `AztecAddress.ZERO`.
+
+`NO_FROM` signals that the transaction should be executed directly via the `DefaultEntrypoint`. This replaces the brittle convention of passing `AztecAddress.ZERO` as the `from` field.
+
+**Migration:**
+
+```diff
+- import { AztecAddress } from '@aztec/aztec.js';
++ import { NO_FROM } from '@aztec/aztec.js/account';
+
+  await contract.methods.my_method().send({
+-   from: AztecAddress.ZERO,
++   from: NO_FROM,
+  });
+```
+
+Note that `DefaultEntrypoint` only accepts a single call. If you need to execute multiple calls without account contract mediation (e.g., deploying an account contract and paying a fee in the same transaction), wrap them through `DefaultMultiCallEntrypoint` on the app side before sending:
+
+```typescript
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { DefaultMultiCallEntrypoint } from "@aztec/entrypoints/multicall";
+import { mergeExecutionPayloads } from "@aztec/stdlib/tx";
+
+// Merge multiple execution payloads into one
+const merged = mergeExecutionPayloads([deployPayload, feePayload]);
+
+// Wrap through multicall so it becomes a single call for DefaultEntrypoint
+const multicall = new DefaultMultiCallEntrypoint();
+const chainInfo = await wallet.getChainInfo();
+const wrappedPayload = await multicall.wrapExecutionPayload(merged, chainInfo);
+
+// Send without account contract mediation
+await wallet.sendTx(wrappedPayload, { from: NO_FROM });
+```
+
+Using other contracts for wrapping (for example, supporting more calls) is also supported, as long as the contract is registered in the wallet. This opens the door to different flows that do not use account entrypoints as the first call in the chain, including app sponsored FPCs.
+
+**Impact**: Any code that passes `AztecAddress.ZERO` as the `from` option in `.send()`, `.simulate()`, or deploy options must switch to `NO_FROM`. Wallets use `DefaultEntrypoint` directly for `NO_FROM` transactions, instead of the `DefaultMultiCallEntrypoint` that was used internally before when specifying `AztecAddress.ZERO`.
+
+### [Aztec.js] `ExecuteUtilityOptions.scope` renamed to `scopes` and type changed to `AztecAddress[]`
+
+The `scope` field in `ExecuteUtilityOptions` has been renamed to `scopes` and changed from a single `AztecAddress` to `AztecAddress[]`. This aligns the wallet's `executeUtility` API with the PXE API and `sendTx` in `Wallet`, which both accept an array of scopes.
+
+**Migration:**
+
+```diff
+  wallet.executeUtility(call, {
+-   scope: myAddress,
++   scopes: [myAddress],
+  });
+```
+
+**Impact**: Any code that calls `wallet.executeUtility` directly must update the options object. Wallets must update to adapt to the new interface
+### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
+
+The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
+
+This split improves performance during nonce discovery: the note hash only needs to be computed once, while the old combined function recomputed it for every candidate nonce.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle this automatically. Only contracts that call `attempt_note_discovery` directly need to update.
+
+**Migration:**
+
+```diff
+  attempt_note_discovery(
+      contract_address,
+      tx_hash,
+      unique_note_hashes_in_tx,
+      first_nullifier_in_tx,
+      recipient,
+-     _compute_note_hash_and_nullifier,
++     _compute_note_hash,
++     _compute_note_nullifier,
+      owner,
+      storage_slot,
+      randomness,
+      note_type_id,
+      packed_note,
+  );
+```
+
+**Impact**: Contracts that call `attempt_note_discovery` or related discovery functions directly with a custom `_compute_note_hash_and_nullifier` argument. The old combined function is still generated (deprecated) but is no longer used by the framework. Additionally, if you had a custom `_compute_note_hash_and_nullifier` function then compilation will now fail as you'll need to also produce the corresponding `_compute_note_hash` and `_compute_note_nullifier` functions.
+
+### Private initialization nullifier now includes `init_hash`
+
+The private initialization nullifier is no longer derived from just the contract address. It is now computed as a Poseidon2 hash of `[address, init_hash]` using a dedicated domain separator. This prevents observers from determining whether a fully private contract has been initialized by simply knowing its address.
+
+Note that `Wallet.getContractMetadata` now returns `isContractInitialized: undefined` when the wallet does not have the contract instance registered, since `init_hash` is needed to compute the nullifier and initialization status cannot be determined. Previously, this check worked for any address. Callers should check for `undefined` before branching on the boolean value.
+
+If you use `assert_contract_was_initialized_by` or `assert_contract_was_not_initialized_by` from `aztec::history::deployment`, these now require an additional `init_hash: Field` parameter:
+
+```diff
++ let instance = get_contract_instance(contract_address);
+  assert_contract_was_initialized_by(
+      block_header,
+      contract_address,
++     instance.initialization_hash,
+  );
+```
 
 ### [Aztec.js] `TxReceipt` now includes `epochNumber`
 
@@ -82,6 +205,8 @@ The `maxLogsHit` flag indicates whether the log limit was reached, meaning more 
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
 
+## 4.1.0-rc.2
+
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 
 All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
@@ -134,9 +259,14 @@ When using `NO_WAIT`, returns `{ txHash, offchainEffects, offchainMessages }` in
 Offchain messages emitted by the transaction are available on the result:
 
 ```typescript
-const { receipt, offchainMessages } = await contract.methods.foo(args).send({ from: sender });
+const { receipt, offchainMessages } = await contract.methods
+  .foo(args)
+  .send({ from: sender });
 for (const msg of offchainMessages) {
-  console.log(`Message for ${msg.recipient} from contract ${msg.contractAddress}:`, msg.payload);
+  console.log(
+    `Message for ${msg.recipient} from contract ${msg.contractAddress}:`,
+    msg.payload,
+  );
 }
 ```
 
@@ -191,6 +321,7 @@ counter/
 This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
 
 **What changed:**
+
 - Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
 - Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
 - Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
@@ -250,6 +381,7 @@ my_project/
 ```
 
 **What changed:**
+
 - The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
 - Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
 - The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
@@ -275,7 +407,7 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
 
 2. **Operations that access another contract's private state** (e.g., withdrawing from an escrow contract that nullifies the contract's own token notes).
 
-```
+````
 
 **Example: deploying a contract with private storage (e.g., `PrivateToken`)**
 
@@ -289,7 +421,7 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
     from: sender,
 +   additionalScopes: [tokenInstance.address],
   });
-```
+````
 
 **Example: withdrawing from an escrow contract**
 
@@ -338,22 +470,26 @@ The `include_by_timestamp` field has been renamed to `expiration_timestamp` acro
 The Aztec CLI is now installed without Docker. The installation command has changed:
 
 **Old installation (deprecated):**
+
 ```bash
 bash -i <(curl -sL https://install.aztec.network)
 aztec-up <version>
 ```
 
 **New installation:**
+
 ```bash
 VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
 ```
 
 For example, to install version `#include_version_without_prefix`:
+
 ```bash
 VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 ```
 
 **Key changes:**
+
 - Docker is no longer required to run the Aztec CLI tools
 - The `VERSION` environment variable must be set in the installation command
 - The version must also be included in the URL path
@@ -362,12 +498,13 @@ VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec
 
 After installation, `aztec-up` functions as a version manager with the following commands:
 
-| Command | Description |
-|---------|-------------|
+| Command                      | Description                                 |
+| ---------------------------- | ------------------------------------------- |
 | `aztec-up install <version>` | Install a specific version and switch to it |
-| `aztec-up use <version>` | Switch to an already installed version |
-| `aztec-up list` | List all installed versions |
-| `aztec-up self-update` | Update aztec-up itself |
+| `aztec-up use <version>`     | Switch to an already installed version      |
+| `aztec-up list`              | List all installed versions                 |
+| `aztec-up self-update`       | Update aztec-up itself                      |
+
 ### `@aztec/test-wallet` replaced by `@aztec/wallets`
 
 The `@aztec/test-wallet` package has been removed. Use `@aztec/wallets` instead, which provides `EmbeddedWallet` with a `static create()` factory:

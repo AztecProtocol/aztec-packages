@@ -66,6 +66,9 @@ using Command = NamedUnion<CircuitProve,
                            EcdsaSecp256k1VerifySignature,
                            EcdsaSecp256r1VerifySignature,
                            SrsInitSrs,
+                           ChonkBatchVerifierStart,
+                           ChonkBatchVerifierQueue,
+                           ChonkBatchVerifierStop,
                            SrsInitGrumpkinSrs,
                            Shutdown>;
 
@@ -123,6 +126,9 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    EcdsaSecp256k1VerifySignature::Response,
                                    EcdsaSecp256r1VerifySignature::Response,
                                    SrsInitSrs::Response,
+                                   ChonkBatchVerifierStart::Response,
+                                   ChonkBatchVerifierQueue::Response,
+                                   ChonkBatchVerifierStop::Response,
                                    SrsInitGrumpkinSrs::Response,
                                    Shutdown::Response>;
 

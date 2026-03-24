@@ -1,6 +1,7 @@
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_FROM } from '@aztec/aztec.js/account';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -280,7 +281,7 @@ describe('e2e_p2p_add_rollup', () => {
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
       await aliceDeploymethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
       });
 
       const aliceAddress = aliceAccountManager.address;
@@ -517,7 +518,7 @@ describe('e2e_p2p_add_rollup', () => {
     const futureEpoch = EpochNumber.fromBigInt(500n + BigInt(await newRollup.getCurrentEpochNumber()));
     const futureSlot = SlotNumber.fromBigInt(BigInt(futureEpoch) * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
     const time = await newRollup.getTimestampForSlot(futureSlot);
-    if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
+    if (time > BigInt(await t.ctx.cheatCodes.eth.lastBlockTimestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));
       await waitL1Block();
     }

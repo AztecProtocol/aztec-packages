@@ -28,7 +28,6 @@ version = "1.0.0-beta.19"
 dependencies = [
  "ark-bn254",
  "ark-ff",
- "ark-std",
  "cfg-if",
  "hex",
  "num-bigint",
@@ -43,6 +42,7 @@ dependencies = [
  "acvm_blackbox_solver",
  "brillig_vm",
  "indexmap 2.13.0",
+ "itertools 0.14.0",
  "rustc-hash",
  "serde",
  "thiserror",
@@ -200,7 +200,7 @@ dependencies = [
  "educe",
  "fnv",
  "hashbrown 0.15.5",
- "itertools",
+ "itertools 0.13.0",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -220,7 +220,7 @@ dependencies = [
  "arrayvec",
  "digest 0.10.7",
  "educe",
- "itertools",
+ "itertools 0.13.0",
  "num-bigint",
  "num-traits",
  "paste",
@@ -446,6 +446,7 @@ dependencies = [
  "ark-ff",
  "ark-grumpkin",
  "hex",
+ "itertools 0.14.0",
 ]
 
 [[package]]
@@ -462,6 +463,7 @@ name = "brillig"
 version = "1.0.0-beta.19"
 dependencies = [
  "acir_field",
+ "itertools 0.14.0",
  "serde",
 ]
 
@@ -471,6 +473,7 @@ version = "1.0.0-beta.19"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
+ "itertools 0.14.0",
  "num-bigint",
  "num-traits",
  "thiserror",
@@ -905,6 +908,7 @@ version = "1.0.0-beta.19"
 dependencies = [
  "codespan-reporting",
  "iter-extended",
+ "itertools 0.14.0",
  "serde",
 ]
 
@@ -1120,6 +1124,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1227,6 +1240,7 @@ version = "1.0.0-beta.19"
 dependencies = [
  "acvm",
  "iter-extended",
+ "itertools 0.14.0",
  "noirc_printable_type",
  "num-bigint",
  "num-traits",
@@ -1266,6 +1280,7 @@ dependencies = [
  "codespan-reporting",
  "fm",
  "noirc_span",
+ "rangemap",
  "rustc-hash",
  "serde",
 ]
@@ -1282,6 +1297,7 @@ dependencies = [
  "im",
  "indexmap 2.13.0",
  "iter-extended",
+ "itertools 0.14.0",
  "noirc_artifacts",
  "noirc_errors",
  "noirc_frontend",
@@ -1312,6 +1328,7 @@ dependencies = [
  "fm",
  "im",
  "iter-extended",
+ "itertools 0.14.0",
  "noirc_arena",
  "noirc_artifacts",
  "noirc_errors",
@@ -1337,6 +1354,7 @@ version = "1.0.0-beta.19"
 dependencies = [
  "acvm",
  "iter-extended",
+ "itertools 0.14.0",
  "serde",
  "serde_json",
 ]

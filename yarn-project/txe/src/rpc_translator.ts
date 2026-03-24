@@ -878,9 +878,8 @@ export class RPCTranslator {
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
-  // TODO(F-452): Return Option and wrap in try/catch so BB exceptions don't crash TXE.
   // eslint-disable-next-line camelcase
-  async aztec_utl_aes128Decrypt(
+  async aztec_utl_tryAes128Decrypt(
     foreignCiphertextBVecStorage: ForeignCallArray,
     foreignCiphertextLength: ForeignCallSingle,
     foreignIv: ForeignCallArray,
@@ -890,11 +889,18 @@ export class RPCTranslator {
     const iv = fromUintArray(foreignIv, 8);
     const symKey = fromUintArray(foreignSymKey, 8);
 
-    const plaintextBuffer = await this.handlerAsUtility().aes128Decrypt(ciphertext, iv, symKey);
-
-    return toForeignCallResult(
-      arrayToBoundedVec(bufferToU8Array(plaintextBuffer), foreignCiphertextBVecStorage.length),
-    );
+    // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
+    try {
+      const plaintextBuffer = await this.handlerAsUtility().aes128Decrypt(ciphertext, iv, symKey);
+      const [storage, length] = arrayToBoundedVec(
+        bufferToU8Array(plaintextBuffer),
+        foreignCiphertextBVecStorage.length,
+      );
+      return toForeignCallResult([toSingle(new Fr(1)), storage, length]);
+    } catch {
+      const zeroStorage = toArray(Array(foreignCiphertextBVecStorage.length).fill(new Fr(0)));
+      return toForeignCallResult([toSingle(new Fr(0)), zeroStorage, toSingle(new Fr(0))]);
+    }
   }
 
   // eslint-disable-next-line camelcase
@@ -914,6 +920,23 @@ export class RPCTranslator {
     const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK);
 
     return toForeignCallResult(secret.toFields().map(toSingle));
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_invalidateContractSyncCache(
+    foreignContractAddress: ForeignCallSingle,
+    foreignScopes: ForeignCallArray,
+    foreignScopeCount: ForeignCallSingle,
+  ) {
+    const contractAddress = addressFromSingle(foreignContractAddress);
+    const count = fromSingle(foreignScopeCount).toNumber();
+    const scopes = fromArray(foreignScopes)
+      .slice(0, count)
+      .map(f => new AztecAddress(f));
+
+    this.handlerAsUtility().invalidateContractSyncCache(contractAddress, scopes);
+
+    return Promise.resolve(toForeignCallResult([]));
   }
 
   // eslint-disable-next-line camelcase
