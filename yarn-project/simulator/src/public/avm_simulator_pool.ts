@@ -25,7 +25,7 @@ export interface AvmSimulatorPoolOptions {
 export class AvmSimulatorPool implements AvmIpcBackend {
   private slots: Array<AvmIpcBackend | null> = [];
   private available: number[] = [];
-  private waiters: Array<(backend: AvmIpcBackend) => void> = [];
+  private waiters: Array<{ resolve: (backend: AvmIpcBackend) => void; reject: (error: Error) => void }> = [];
   private createdCount = 0;
   private log: Logger;
   private maxSize: number;
@@ -48,7 +48,7 @@ export class AvmSimulatorPool implements AvmIpcBackend {
   /** Destroy all AVM processes in the pool. */
   async destroy(): Promise<void> {
     for (const waiter of this.waiters) {
-      waiter(null as any);
+      waiter.reject(new Error('AVM simulator pool destroyed'));
     }
     this.waiters = [];
 
@@ -78,8 +78,8 @@ export class AvmSimulatorPool implements AvmIpcBackend {
       return await this.createSlot(idx);
     }
 
-    return new Promise<AvmIpcBackend>(resolve => {
-      this.waiters.push(resolve);
+    return new Promise<AvmIpcBackend>((resolve, reject) => {
+      this.waiters.push({ resolve, reject });
     });
   }
 
@@ -87,7 +87,7 @@ export class AvmSimulatorPool implements AvmIpcBackend {
   return(backend: AvmIpcBackend): void {
     const waiter = this.waiters.shift();
     if (waiter) {
-      waiter(backend);
+      waiter.resolve(backend);
     } else {
       const idx = this.slots.indexOf(backend);
       if (idx >= 0) {
