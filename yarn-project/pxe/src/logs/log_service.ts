@@ -113,16 +113,19 @@ export class LogService {
     );
   }
 
-  public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
+  public async fetchTaggedLogs(
+    contractAddress: AztecAddress,
+    pendingTaggedLogArrayBaseSlot: Fr,
+    recipient: AztecAddress,
+  ) {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     // We only load logs from block up to and including the anchor block number
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    // In this context, scope corresponds to a tagged logs recipient. We fetch secrets, load logs, and store them.
     // Get all secrets for this recipient (one per sender)
-    const secrets = await this.#getSecretsForSenders(contractAddress, scope);
+    const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
     // Load logs for all sender-recipient pairs in parallel
     const logArrays = await Promise.all(
@@ -141,9 +144,8 @@ export class LogService {
     // Flatten all logs from all secrets
     const allLogs = logArrays.flat();
 
-    // Store the logs for the scoped recipient
     if (allLogs.length > 0) {
-      await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, scope, allLogs);
+      await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
     }
   }
 
