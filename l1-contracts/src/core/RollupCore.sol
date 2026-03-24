@@ -234,41 +234,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
 
-    // Deploy slasher based on flavor
-    ISlasher slasher;
-
-    // We call one external library or another based on the slasher flavor
-    // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
-    // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
-    if (_config.targetCommitteeSize == 0 || _config.slasherFlavor == SlasherFlavor.NONE) {
-      slasher = ISlasher(address(0));
-    } else if (_config.slasherFlavor == SlasherFlavor.TALLY) {
-      slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
-        address(this),
-        _config.slashingVetoer,
-        _governance,
-        _config.slashingQuorum,
-        _config.slashingRoundSize,
-        _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds,
-        _config.slashAmounts,
-        _config.targetCommitteeSize,
-        _config.aztecEpochDuration,
-        _config.slashingOffsetInRounds,
-        _config.slashingDisableDuration
-      );
-    } else {
-      slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
-        address(this),
-        _config.slashingVetoer,
-        _governance,
-        _config.slashingQuorum,
-        _config.slashingRoundSize,
-        _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds,
-        _config.slashingDisableDuration
-      );
-    }
+    ISlasher slasher = _deploySlasher(_config, _governance);
 
     StakingLib.initialize(
       _stakingAsset,
@@ -282,34 +248,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       _config.targetCommitteeSize, _config.lagInEpochsForValidatorSet, _config.lagInEpochsForRandao
     );
 
-    // If no booster is specifically provided, deploy one.
-    if (address(_config.rewardConfig.booster) == address(0)) {
-      _config.rewardConfig.booster = RewardExtLib.deployRewardBooster(_config.rewardBoostConfig);
-    }
-
-    RewardExtLib.initialize(_config.earliestRewardsClaimableTimestamp);
-    RewardExtLib.setConfig(_config.rewardConfig);
+    _initializeRewards(_config);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
-    STFLib.initialize(_genesisState);
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    rollupStore.config.feeAsset = _feeAsset;
-    rollupStore.config.epochProofVerifier = _epochProofVerifier;
-
-    uint32 version = _config.version;
-    rollupStore.config.version = version;
-
-    IInbox inbox = IInbox(
-      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag))
-    );
-
-    rollupStore.config.inbox = inbox;
-
-    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), version)));
-
-    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
+    _initializeStore(_feeAsset, _epochProofVerifier, _genesisState, _config);
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana, _config.initialEthPerFeeAsset);
   }
@@ -646,5 +589,55 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function getActiveAttesterCount() public view override(IStakingCore) returns (uint256) {
     return StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+  }
+
+  function _deploySlasher(RollupConfigInput memory _config, address _governance) internal returns (ISlasher slasher) {
+    // We call one external library or another based on the slasher flavor
+    // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
+    // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
+    if (_config.targetCommitteeSize == 0 || _config.slasherFlavor == SlasherFlavor.NONE) {
+      return ISlasher(address(0));
+    }
+
+    if (_config.slasherFlavor == SlasherFlavor.TALLY) {
+      return TallySlasherDeploymentExtLib.deployTallySlasher(address(this), _governance, _config);
+    }
+
+    return EmpireSlasherDeploymentExtLib.deployEmpireSlasher(address(this), _governance, _config);
+  }
+
+  function _initializeRewards(RollupConfigInput memory _config) internal {
+    RewardConfig memory rewardConfig = _config.rewardConfig;
+
+    if (address(rewardConfig.booster) == address(0)) {
+      rewardConfig.booster = RewardExtLib.deployRewardBooster(_config.rewardBoostConfig);
+    }
+
+    RewardExtLib.initialize(_config.earliestRewardsClaimableTimestamp);
+    RewardExtLib.setConfig(rewardConfig);
+  }
+
+  function _initializeStore(
+    IERC20 _feeAsset,
+    IVerifier _epochProofVerifier,
+    GenesisState memory _genesisState,
+    RollupConfigInput memory _config
+  ) internal {
+    STFLib.initialize(_genesisState);
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    rollupStore.config.feeAsset = _feeAsset;
+    rollupStore.config.epochProofVerifier = _epochProofVerifier;
+    rollupStore.config.version = _config.version;
+
+    IInbox inbox = IInbox(
+      address(
+        new Inbox(address(this), _feeAsset, _config.version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag)
+      )
+    );
+
+    rollupStore.config.inbox = inbox;
+    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), _config.version)));
+    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
   }
 }

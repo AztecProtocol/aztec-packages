@@ -3,6 +3,7 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 
@@ -17,22 +18,21 @@ import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingPropose
  *      initialization to resolve circular dependency between Slasher and EmpireSlashingProposer.
  */
 library EmpireSlasherDeploymentExtLib {
-  function deployEmpireSlasher(
-    address _rollup,
-    address _vetoer,
-    address _governance,
-    uint256 _quorumSize,
-    uint256 _roundSize,
-    uint256 _lifetimeInRounds,
-    uint256 _executionDelayInRounds,
-    uint256 _slashingDisableDuration
-  ) external returns (ISlasher) {
+  function deployEmpireSlasher(address _rollup, address _governance, RollupConfigInput memory _config)
+    external
+    returns (ISlasher)
+  {
     // Deploy slasher first
-    Slasher slasher = new Slasher(_vetoer, _governance, _slashingDisableDuration);
+    Slasher slasher = new Slasher(_config.slashingVetoer, _governance, _config.slashingDisableDuration);
 
     // Deploy proposer with slasher address
     EmpireSlashingProposer proposer = new EmpireSlashingProposer(
-      _rollup, ISlasher(address(slasher)), _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds
+      _rollup,
+      ISlasher(address(slasher)),
+      _config.slashingQuorum,
+      _config.slashingRoundSize,
+      _config.slashingLifetimeInRounds,
+      _config.slashingExecutionDelayInRounds
     );
 
     // Initialize the slasher with the proposer address

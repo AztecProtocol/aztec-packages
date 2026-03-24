@@ -181,6 +181,71 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     });
   }
 
+  function _getEpochSize(uint256 _start, uint256 _pendingCheckpointNumber) internal view returns (uint256 epochSize) {
+    while (
+      _start + epochSize <= _pendingCheckpointNumber
+        && rollup.getEpochForCheckpoint(_start) == rollup.getEpochForCheckpoint(_start + epochSize)
+    ) {
+      epochSize++;
+    }
+  }
+
+  function _getExpectedCheckpointFees(uint256 _checkpointNumber)
+    internal
+    view
+    returns (uint256 fee, uint256 burn, uint256 proverFee)
+  {
+    TestPoint memory point = points[_checkpointNumber - 1];
+    uint256 minFee =
+      point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
+      + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
+      + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
+    uint256 manaUsed = rollup.getFeeHeader(_checkpointNumber).manaUsed;
+
+    fee = manaUsed * minFee;
+    burn = manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
+    proverFee = Math.min(manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.prover_cost, fee - burn);
+  }
+
+  function _buildEpochFees(uint256 _start, uint256 _epochSize)
+    internal
+    view
+    returns (bytes32[] memory fees, uint256 burnSum, uint256 proverFees, uint256 sequencerFees)
+  {
+    fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
+
+    for (uint256 feeIndex = 0; feeIndex < _epochSize; feeIndex++) {
+      (uint256 fee, uint256 burn, uint256 proverFee) = _getExpectedCheckpointFees(_start + feeIndex);
+      burnSum += burn;
+      proverFees += proverFee;
+      sequencerFees += (fee - burn - proverFee);
+      fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
+      fees[feeIndex * 2 + 1] = bytes32(fee);
+    }
+  }
+
+  function _submitEpochProof(uint256 _start, uint256 _epochSize, bytes32[] memory _fees) internal {
+    CheckpointLog memory endCheckpoint = rollup.getCheckpoint(_start + _epochSize - 1);
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: rollup.getCheckpoint(_start).archive,
+      endArchive: endCheckpoint.archive,
+      outHash: endCheckpoint.outHash,
+      proverId: address(0)
+    });
+
+    rollup.submitEpochRootProof(
+      SubmitEpochRootProofArgs({
+        start: _start,
+        end: _start + _epochSize - 1,
+        args: args,
+        fees: _fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
+        blobInputs: full.checkpoint.batchedBlobInputs,
+        proof: ""
+      })
+    );
+  }
+
   function test__FeeModelPrune() public {
     // Submit a few checkpoints, then compute what the fees would be with/without a potential prune
     // and ensure that they match what happens.
@@ -325,68 +390,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         nextEpoch = nextEpoch + Epoch.wrap(1);
         uint256 pendingCheckpointNumber = rollup.getPendingCheckpointNumber();
         uint256 start = rollup.getProvenCheckpointNumber() + 1;
-        uint256 epochSize = 0;
-        while (
-          start + epochSize <= pendingCheckpointNumber
-            && rollup.getEpochForCheckpoint(start) == rollup.getEpochForCheckpoint(start + epochSize)
-        ) {
-          epochSize++;
-        }
-
-        uint256 proverFees = 0;
-        uint256 sequencerFees = 0;
-        uint256 burnSum = 0;
-        bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-
-        for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
-          TestPoint memory point = points[start + feeIndex - 1];
-
-          // We assume that everyone PERFECTLY pays their fees with 0 priority fees and no
-          // overpaying on teardown.
-          uint256 minFee =
-            point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
-            + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
-            + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
-
-          uint256 manaUsed = rollup.getFeeHeader(start + feeIndex).manaUsed;
-          uint256 fee = manaUsed * minFee;
-          uint256 burn = manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
-          burnSum += burn;
-
-          uint256 proverFee =
-            Math.min(manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.prover_cost, fee - burn);
-          proverFees += proverFee;
-          sequencerFees += (fee - burn - proverFee);
-
-          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
-          fees[feeIndex * 2 + 1] = bytes32(fee);
-        }
+        uint256 epochSize = _getEpochSize(start, pendingCheckpointNumber);
+        (bytes32[] memory fees, uint256 burnSum, uint256 proverFees, uint256 sequencerFees) =
+          _buildEpochFees(start, epochSize);
 
         uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getBurnAddress());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
-
-        CheckpointLog memory endCheckpoint = rollup.getCheckpoint(start + epochSize - 1);
-
-        PublicInputArgs memory args = PublicInputArgs({
-          previousArchive: rollup.getCheckpoint(start).archive,
-          endArchive: endCheckpoint.archive,
-          outHash: endCheckpoint.outHash,
-          proverId: address(0)
-        });
-
-        {
-          rollup.submitEpochRootProof(
-            SubmitEpochRootProofArgs({
-              start: start,
-              end: start + epochSize - 1,
-              args: args,
-              fees: fees,
-              attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
-              blobInputs: full.checkpoint.batchedBlobInputs,
-              proof: ""
-            })
-          );
-        }
+        _submitEpochProof(start, epochSize, fees);
 
         uint256 burned = asset.balanceOf(rollup.getBurnAddress()) - burnAddressBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
