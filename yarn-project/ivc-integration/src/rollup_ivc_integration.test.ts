@@ -74,7 +74,7 @@ describe('Rollup IVC Integration', () => {
     clientIVCPublicInputs = tailPublicInputs;
 
     const backend = new AztecClientBackend(bytecodes, barretenberg);
-    const [proofAsFields, , vkBytes] = await backend.prove(witnessStack, vks);
+    const { proofFields: proofAsFields, vk: vkBytes } = await backend.prove(witnessStack, vks);
     chonkProof = await proofBytesToRecursiveProof(proofAsFields, vkBytes);
 
     // Create an AVM proof
