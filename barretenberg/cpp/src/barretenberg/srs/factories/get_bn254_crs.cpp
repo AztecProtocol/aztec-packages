@@ -9,6 +9,7 @@
 #include "bn254_crs_data.hpp"
 #include "bn254_g1_chunk_hashes.hpp"
 #include "http_download.hpp"
+#include <algorithm>
 #include <atomic>
 #include <span>
 
@@ -152,6 +153,9 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
     return data;
 }
 
+// Legacy uncompressed point size (64 bytes = two 256-bit field elements x, y)
+constexpr size_t LEGACY_POINT_SIZE = 64;
+
 } // namespace
 
 namespace bb {
@@ -167,10 +171,12 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     std::filesystem::create_directories(path);
 
     auto compressed_path = path / "bn254_g1_compressed.dat";
+    auto legacy_path = path / "bn254_g1.dat";
     auto lock_path = path / "crs.lock";
     // Acquire exclusive lock to prevent simultaneous downloads
     FileLockGuard lock(lock_path.string());
 
+    // Try compressed format first (new format: 32 bytes per point)
     size_t compressed_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
     if (compressed_points >= num_points) {
         vinfo("using cached bn254 crs with ", std::to_string(compressed_points), " points at ", compressed_path);
@@ -178,13 +184,27 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
         return decompress_g1_points(data, num_points);
     }
 
-    if (!allow_download && compressed_points == 0) {
+    // Fall back to legacy uncompressed format (bn254_g1.dat, 64 bytes per point)
+    size_t legacy_points = get_file_size(legacy_path) / LEGACY_POINT_SIZE;
+    if (legacy_points >= num_points) {
+        vinfo("using legacy cached bn254 crs with ", std::to_string(legacy_points), " points at ", legacy_path);
+        auto data = read_file(legacy_path, num_points * LEGACY_POINT_SIZE);
+        std::vector<g1::affine_element> points(num_points);
+        parallel_for([&](ThreadChunk chunk) {
+            for (auto i : chunk.range(num_points)) {
+                points[i] = from_buffer<g1::affine_element>(data, i * LEGACY_POINT_SIZE);
+            }
+        });
+        return points;
+    }
+
+    if (!allow_download && compressed_points == 0 && legacy_points == 0) {
         throw_or_abort("bn254 g1 compressed data not found at " + compressed_path.string() +
                        " and bb does not automatically download in this context." +
                        " Run barretenberg/crs/bootstrap.sh to download.");
     } else if (!allow_download) {
         throw_or_abort(format("bn254 g1 data had ",
-                              compressed_points,
+                              std::max(compressed_points, legacy_points),
                               " points and ",
                               num_points,
                               " were requested but download not allowed in this context"));

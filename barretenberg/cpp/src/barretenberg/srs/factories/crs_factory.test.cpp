@@ -25,12 +25,21 @@ void check_bn254_consistency(const fs::path& crs_download_path, size_t num_point
 {
     NativeBn254CrsFactory file_crs(crs_download_path, allow_download);
 
-    // read compressed G1 and decompress
-    auto g1_compressed = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", num_points * sizeof(uint256_t));
+    // Read G1 points: try compressed format first, fall back to legacy uncompressed
     std::vector<g1::affine_element> g1_points(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        auto c = from_buffer<uint256_t>(g1_compressed, i * sizeof(uint256_t));
-        g1_points[i] = g1::affine_element::from_compressed(c);
+    auto compressed_path = bb::srs::bb_crs_path() / "bn254_g1_compressed.dat";
+    auto legacy_path = bb::srs::bb_crs_path() / "bn254_g1.dat";
+    if (fs::exists(compressed_path)) {
+        auto g1_compressed = read_file(compressed_path, num_points * sizeof(uint256_t));
+        for (size_t i = 0; i < num_points; ++i) {
+            auto c = from_buffer<uint256_t>(g1_compressed, i * sizeof(uint256_t));
+            g1_points[i] = g1::affine_element::from_compressed(c);
+        }
+    } else {
+        auto g1_data = read_file(legacy_path, num_points * sizeof(g1::affine_element));
+        for (size_t i = 0; i < num_points; ++i) {
+            g1_points[i] = from_buffer<g1::affine_element>(g1_data, i * sizeof(g1::affine_element));
+        }
     }
 
     // read G2
@@ -129,8 +138,12 @@ TEST(CrsFactory, DISABLED_Bn254Fallback)
 
 TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
 {
+    auto compressed_path = bb::srs::bb_crs_path() / "bn254_g1_compressed.dat";
+    if (!fs::exists(compressed_path)) {
+        GTEST_SKIP() << "bn254_g1_compressed.dat not found (legacy bn254_g1.dat format in use)";
+    }
     // Verify that the first 4MB chunk of the compressed CRS matches the embedded hash
-    auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
+    auto data = read_file(compressed_path, bb::srs::SRS_CHUNK_SIZE_BYTES);
     auto chunk = std::span<const uint8_t>(data.data(), data.size());
     auto hash = bb::crypto::sha256(chunk);
     EXPECT_EQ(hash, bb::srs::BN254_G1_CHUNK_HASHES[0]);
@@ -138,8 +151,12 @@ TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
 
 TEST(CrsFactory, Bn254CompressedChunkHashCorruptionDetected)
 {
+    auto compressed_path = bb::srs::bb_crs_path() / "bn254_g1_compressed.dat";
+    if (!fs::exists(compressed_path)) {
+        GTEST_SKIP() << "bn254_g1_compressed.dat not found (legacy bn254_g1.dat format in use)";
+    }
     // Verify that corrupted data fails chunk hash verification
-    auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
+    auto data = read_file(compressed_path, bb::srs::SRS_CHUNK_SIZE_BYTES);
 
     data[bb::srs::SRS_CHUNK_SIZE_BYTES / 2] ^= 0xFF;
     auto chunk = std::span<const uint8_t>(data.data(), data.size());
