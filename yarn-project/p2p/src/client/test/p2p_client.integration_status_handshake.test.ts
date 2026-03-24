@@ -201,12 +201,18 @@ describe('p2p client integration status handshake', () => {
 
     const expectedHandshakeCount = peerTestCount - 1;
 
-    // Wait for c1 to disconnect c0 (due to invalid status) AND for c2 to complete handshakes
-    // with both c0 and c1. Handshakes are fire-and-forget, so we must poll for completion.
+    // Wait for c1 to disconnect c0 (due to invalid status) AND for ALL clients to complete
+    // their handshakes. Handshakes are fire-and-forget, so we must poll for completion.
+    // We must wait for spy[0] and spy[1] too — not just spy[2] — because the inbound side
+    // of a connection can fire its peer:connect event 50-100ms after the outbound side,
+    // which is enough for the retryUntil to resolve before the handshake call is recorded.
     await retryUntil(
       () =>
-        disconnectSpies[1].mock.calls.length > 0 && statusHandshakeSpies[2].mock.calls.length >= expectedHandshakeCount,
-      'c1 disconnects c0 and c2 completes handshakes',
+        disconnectSpies[1].mock.calls.length > 0 &&
+        statusHandshakeSpies[0].mock.calls.length >= expectedHandshakeCount &&
+        statusHandshakeSpies[1].mock.calls.length >= expectedHandshakeCount &&
+        statusHandshakeSpies[2].mock.calls.length >= expectedHandshakeCount,
+      'c1 disconnects c0 and all clients complete handshakes',
       10,
       0.5,
     );
