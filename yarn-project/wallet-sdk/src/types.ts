@@ -17,9 +17,9 @@ export enum WalletMessageType {
   KEY_EXCHANGE_REQUEST = 'aztec-wallet-key-exchange-request',
   /** Key exchange response sent over MessageChannel */
   KEY_EXCHANGE_RESPONSE = 'aztec-wallet-key-exchange-response',
-  /** Wallet ready signal (wallet announces it has loaded and can accept connections) */
+  /** Wallet ready signal */
   WALLET_READY = 'aztec-wallet-ready',
-  /** Encrypted wallet message wrapper (for transports that need envelope framing) */
+  /** Encrypted wallet message wrapper */
   SECURE_MESSAGE = 'aztec-wallet-secure-message',
   /** Encrypted wallet response wrapper */
   SECURE_RESPONSE = 'aztec-wallet-secure-response',
