@@ -128,15 +128,25 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const LEGACY_ORACLE_VERSION = 12;
     if (isProtocolContract(this.contractAddress)) {
       if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
+        const hint =
+          version > ORACLE_VERSION
+            ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
+            : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
         throw new Error(
-          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} or current oracle version ${ORACLE_VERSION} for alpha payload contract at ${this.contractAddress}, got ${version}.`,
+          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION}, got ${version})`,
         );
       }
       return;
     }
 
     if (version !== ORACLE_VERSION) {
-      throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
+      const hint =
+        version > ORACLE_VERSION
+          ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
+          : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
+      throw new Error(
+        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
+      );
     }
   }
 
