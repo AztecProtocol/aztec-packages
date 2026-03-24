@@ -73,9 +73,9 @@ include "sha256.pil";
  * TRACE SHAPE:
  * The number of rows per event depends on whether an error occurs:
  * - Normal execution: 65 rows (64 compression rounds + 1 final output row).
- * - Address out-of-range error: 1 row (latch immediately on the start row).
- * - Invalid state tag error: 1 row (latch on the start row after state is loaded).
- * - Invalid input tag error: 1..16 rows (one row per input loaded, latch on the row
+ * - Address out-of-range error: 1 row (end immediately on the start row).
+ * - Invalid state tag error: 1 row (end on the start row after state is loaded).
+ * - Invalid input tag error: 1..16 rows (one row per input loaded, end on the row
  *   with the first invalid tag).
  *
  * EXAMPLE TRACE OVERVIEW
@@ -101,12 +101,12 @@ include "sha256.pil";
  * Notes:
  * (1) err flag has to be toggled on for all rows to unconstrain the actual SHA256 Compression computation
  * +-----+--------------+---------------+-------------------+-----------------+-------+------------------------+-------------------------+-------------------------+--------+
- * | row | state addr   |  output addr  |   input addr      |  input mem tag  |  err  |  Mem Out of Range Err  |  Invalid Input Tag Err  |  Invalid Input Tag Row  |  latch |
+ * | row | state addr   |  output addr  |   input addr      |  input mem tag  |  err  |  Mem Out of Range Err  |  Invalid Input Tag Err  |  Invalid Input Tag Row  |  end   |
  * +-----+--------------+---------------+-------------------+-----------------+-------+------------------------+-------------------------+-------------------------+--------+
  * | 1   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad      |     U32         |    1  |             0          |                1        |             0           |    0   | <-- Tag Error Propagated to top
  * | 2   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad + 1  |     U32         |    1  |             0          |                1        |             0           |    0   |
  * | 3   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad + 2  |     U32         |    1  |             0          |                1        |             0           |    0   |
- * | 4   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad + 3  |     U8          |    1  |             0          |                1        |             1           |    1   | <-- latch only on row error
+ * | 4   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad + 3  |     U8          |    1  |             0          |                1        |             1           |    1   | <-- end only on row error
  * +-----+--------------+---------------+-------------------+-----------------+-------+------------------------+-------------------------+-------------------------+--------+
  *
  */
@@ -119,9 +119,6 @@ namespace sha256;
     #[skippable_if]
     sel = 0;
 
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
-
     // Inputs
     pol commit execution_clk;
     pol commit space_id;
@@ -132,28 +129,31 @@ namespace sha256;
     ////////////////////////////////////////////////
     // Control flow
     ////////////////////////////////////////////////
-    pol commit start; // @boolean (by definition)
-    // start * (1 - sel) = 0; means that start != 0 ==> sel == 1 or equivalently sel == 0 ==> start == 0
-    // And from #[START_AFTER_LAST], we have sel == 1 ==> start is boolean.
-    // Together, we have the guarantee that start is boolean.
-    start * (1 - sel) = 0;
+    // Multi-row computation selectors.
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
-    // Selector to indicate end of this chunk of sha256
-    pol commit latch;
-    latch * (1 - latch) = 0;
+    pol commit start; // @boolean
+    start * (1 - start) = 0;
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
 
-    #[LATCH_HAS_SEL_ON] // sel = 1 when latch = 1, sel = 0 at first row because of shift relations
-    latch * (1 - sel) = 0;
-    // This is now guaranteed to be mututally exclusive because of the above condition and since sel = 0 at row = 0 (since it has shifts)
-    pol LATCH_CONDITION = latch + precomputed.first_row;
+    pol LATCH_CONDITION = end + precomputed.first_row;
 
-    #[START_AFTER_LAST]
+    // If start or end is active, sel must be active.
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    // sel is continuous within a computation block: it cannot change except at a latch.
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    // A new computation block must start immediately after a latch.
+    #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
-    pol NOT_LAST = sel * (1 - LATCH_CONDITION);
 
-    // Since start == 1 and latch == 1 both imply `sel == 1`, the trace continuity
-    // #[TRACE_CONTINUITY] guarantees that `sel = 1` on all rows between the start and latch rows.
-    // Furthermore, it enforces that a non-emtpy subtrace must have `start == 1` just after the first row.
+    // `sel * (1 - end) = sel - end * sel` and since `end == 1 ==> sel == 1` we have `end * sel = end`.
+    // Note that this is equivalent to sel * (1 - LATCH_CONDITION) because sel == 0 on the first row.
+    pol NOT_END = sel - end; // @boolean
 
     #[CONTINUITY_EXEC_CLK] // Propagate exec clk
     (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
@@ -218,7 +218,7 @@ namespace sha256;
     // Memory Operations: State and Output
     ////////////////////////////////////////////////////////
     // Since reading the hash state and writing the hash outputs have similar "shapes" (i.e. 8 columns)
-    // and occur at different "times" (the start and end (latch) respectively), we define a set of
+    // and occur at different "times" (the start and end respectively), we define a set of
     // shared columns that we can re-use between the two. This saves us ~24 columns and 8 permutations.
 
     pol commit memory_address[8]; // Addresses to read from or write to
@@ -231,14 +231,14 @@ namespace sha256;
     pol commit sel_mem_state_or_output;
     // Activate the memory columns if
     // (1) start && (1 - mem_out_of_range_err)
-    // (2) last && (1 - err), this uses err as it needs to capture later errors as well (i.e. mem tags or loading inputs)
+    // (2) end && (1 - err), this uses err as it needs to capture later errors as well (i.e. mem tags or loading inputs)
     pol STATE_READ_CONDITION = start * (1 - mem_out_of_range_err);
-    pol OUTPUT_WRITE_CONDITION = latch * (1 - err);
+    pol OUTPUT_WRITE_CONDITION = end * (1 - err);
 
-    // We activate these memory columns if the start or last conditions are met. Note that the two
+    // We activate these memory columns if the start or end conditions are met. Note that the two
     // conditions are mutually exclusive due to the presence of (1 - err) in OUTPUT_WRITE_CONDITION since
-    // start && latch = 1 only during an error (since errors imply latch)
-    #[START_OR_LAST_MEM]
+    // start && end = 1 only during an error (since errors imply end)
+    #[START_OR_END_MEM]
     sel_mem_state_or_output = STATE_READ_CONDITION + OUTPUT_WRITE_CONDITION;
 
     // Mem address depends on whether we are reading or writing
@@ -264,9 +264,9 @@ namespace sha256;
     sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[7] - init_h) + OUTPUT_WRITE_CONDITION * (memory_register[7] - output_h_rhs)) = 0;
 
 
-    // Cannot just rely on latch. If we error after reading the state, latch will be 1 and start will be 1
+    // Cannot just rely on end. If we error after reading the state, end will be 1 and start will be 1.
     // This will cause the reads to be interpreted as writes in the memory permutations below. We define a rw
-    // flag that accounts for this
+    // flag that accounts for this.
     pol commit rw;
     rw = OUTPUT_WRITE_CONDITION;
     #[MEM_OP_0]
@@ -428,7 +428,7 @@ namespace sha256;
     start * (input_rounds_rem - 16) = 0;
     // Decrement the counter if we are in an input round row
     #[INPUT_ROUND_CTR_DECR_COND]
-    sel * (1 - LATCH_CONDITION) * (input_rounds_rem' - (input_rounds_rem - sel_is_input_round)) = 0;
+    NOT_END * (input_rounds_rem' - (input_rounds_rem - sel_is_input_round)) = 0;
 
     // Read input if we have not had an error from the previous temporality groups and this is an input round
     pol commit sel_read_input_from_memory;
@@ -473,10 +473,10 @@ namespace sha256;
     #[INPUT_TAG_DIFF_CHECK]
     INPUT_TAG_DIFF * ((1 - sel_invalid_input_row_tag_err) * (1 - input_tag_diff_inv) + input_tag_diff_inv) - sel_invalid_input_row_tag_err = 0;
 
-    // We latch on rows that have a memory error, state tag error or the row that has an invalid input tag error
-    // We cannot simply latch on error because we do not want to latch on the propagated sel_invalid_input_tag_err
-    pol LATCH_ON_ERROR = 1 - (1 - mem_out_of_range_err) * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_row_tag_err);
-    LATCH_ON_ERROR * (latch - 1) = 0; // No need to gate by `sel`, our tracegen never sets an error on an inactive row.
+    // We end on rows that have a memory error, state tag error or the row that has an invalid input tag error.
+    // We cannot simply end on error because we do not want to end on the propagated sel_invalid_input_tag_err.
+    pol END_ON_ERROR = 1 - (1 - mem_out_of_range_err) * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_row_tag_err);
+    END_ON_ERROR * (end - 1) = 0; // No need to gate by `sel`, our tracegen never sets an error on an inactive row.
 
     // Based on the above, if sel_invalid_input_row_tag_err = 1, LATCH_CONDITION = 1.
     // If we latched BECAUSE sel_invalid_input_row_tag_err = 1, we set the propagated sel_invalid_input_tag_err = 1

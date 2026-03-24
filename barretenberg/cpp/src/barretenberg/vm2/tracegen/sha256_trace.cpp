@@ -441,8 +441,8 @@ void Sha256TraceBuilder::process(
                           { C::sha256_sel_input_out_of_range_err, input_out_of_range ? 1 : 0 },
                           { C::sha256_sel_output_out_of_range_err, output_out_of_range ? 1 : 0 },
                           { C::sha256_mem_out_of_range_err, 1 },
-                          { C::sha256_err, 1 },   // Set the error flag
-                          { C::sha256_latch, 1 }, // Latch is set on error
+                          { C::sha256_err, 1 }, // Set the error flag
+                          { C::sha256_end, 1 }, // End is set on error
                       } });
             row++;
             continue; // Skip to the next event if we have an out of range error
@@ -523,7 +523,7 @@ void Sha256TraceBuilder::process(
                           // Inline inversion (not batched): this is an error path that should not often occur in
                           // production. Guaranteed non-zero (so inversion is safe) since we have an invalid tag.
                           { C::sha256_batch_tag_inv, batched_tag_check.invert() },
-                          { C::sha256_latch, 1 },
+                          { C::sha256_end, 1 },
                           { C::sha256_err, 1 }, // Set the error flag
                       } });
 
@@ -582,7 +582,7 @@ void Sha256TraceBuilder::process(
                           // Invalid Row Tag Error Columns
                           { C::sha256_sel_invalid_input_row_tag_err, (is_last && invalid_tag_err) ? 1 : 0 },
                           { C::sha256_err, invalid_tag_err ? 1 : 0 },
-                          { C::sha256_latch, (is_last && invalid_tag_err) ? 1 : 0 },
+                          { C::sha256_end, (is_last && invalid_tag_err) ? 1 : 0 },
                       } });
         }
 
@@ -670,7 +670,7 @@ void Sha256TraceBuilder::process(
         // input_addr stays constant at input_addr + 16 (satisfies CONTINUITY_INPUT_ADDR from row 63)
         trace.set(row,
                   { {
-                      { C::sha256_latch, 1 },
+                      { C::sha256_end, 1 },
                       { C::sha256_last, 1 },
                       { C::sha256_sel, 1 },
                       { C::sha256_round_count, 64 },

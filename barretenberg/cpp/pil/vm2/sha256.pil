@@ -95,12 +95,12 @@ namespace sha256;
     pol commit perform_round;
     perform_round = (1 - LATCH_CONDITION) * SEL_NO_ERR;
     pol commit last;
-    last = SEL_NO_ERR * latch;
+    last = SEL_NO_ERR * end;
 
     // Counter — tracks how many compression rounds remain.
     // The constraint below is a compound: on the start row it forces rounds_remaining = 64,
     // and on every perform_round row it decrements by 1 (rounds_remaining' = rounds_remaining - 1).
-    // Both terms are mutually exclusive (start implies first row, perform_round excludes start/latch).
+    // Both terms are mutually exclusive (start implies first row, perform_round excludes start/end).
     pol NUM_ROUNDS = 64;
     pol commit rounds_remaining;
     start * (rounds_remaining - NUM_ROUNDS) + perform_round * (rounds_remaining - rounds_remaining' - 1) = 0;
@@ -110,9 +110,9 @@ namespace sha256;
     // It is only constrained when SEL_NO_ERR = 1; on error/inactive rows it is free (safe since
     // it is not referenced outside the SEL_NO_ERR guard).
     pol commit rounds_remaining_inv;
-    // latch == 1 iff rounds_remaining == 0 (zero-check with error support).
+    // end == 1 iff rounds_remaining == 0 (zero-check with error support).
     // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
-    SEL_NO_ERR * (rounds_remaining * (latch * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + latch) = 0;
+    SEL_NO_ERR * (rounds_remaining * (end * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + end) = 0;
 
     pol commit two_pow_32; // Lookup constant support: Can be removed when we support constants in lookups.
     SEL_NO_ERR * (two_pow_32 - 2**32) = 0;
