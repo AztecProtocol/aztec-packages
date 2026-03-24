@@ -33,9 +33,9 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
-    scope: AztecAddress,
+    recipient: AztecAddress,
 ) {
-    let message_plaintext_option = AES128::decrypt(message_ciphertext, scope);
+    let message_plaintext_option = AES128::decrypt(message_ciphertext, recipient);
 
     if message_plaintext_option.is_some() {
         process_message_plaintext(
@@ -45,7 +45,7 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
             process_custom_message,
             message_plaintext_option.unwrap(),
             message_context,
-            scope,
+            recipient,
         );
     } else {
         aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([message_context.tx_hash]);
@@ -59,7 +59,7 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
     message_context: MessageContext,
-    scope: AztecAddress,
+    recipient: AztecAddress,
 ) {
     // The first thing to do after decrypting the message is to determine what type of message we're processing. We
     // have 3 message types: private notes, partial notes and events.
@@ -82,7 +82,7 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 compute_note_nullifier,
                 msg_metadata,
                 msg_content,
-                scope,
+                recipient,
             );
         } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
             aztecnr_debug_log!("Processing partial note private msg");
@@ -92,7 +92,7 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 msg_metadata,
                 msg_content,
                 message_context.tx_hash,
-                scope,
+                recipient,
             );
         } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
             aztecnr_debug_log!("Processing private event msg");
@@ -102,7 +102,7 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 msg_metadata,
                 msg_content,
                 message_context.tx_hash,
-                scope,
+                recipient,
             );
         } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
             // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.
@@ -120,7 +120,7 @@ pub(crate) unconstrained fn process_message_plaintext<CustomMessageHandlerEnv>(
                 msg_metadata,
                 msg_content,
                 message_context,
-                scope,
+                recipient,
             );
         } else {
             // A custom message was received but no handler is configured. This likely means the contract emits custom
