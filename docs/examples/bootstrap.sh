@@ -16,6 +16,11 @@ export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
 # these files, and their per-project cleanup may not run if processes are killed.
 trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
 
+hash=$(hash_str \
+  $BB_HASH \
+  $NOIR_HASH \
+  $(cache_content_hash .rebuild_patterns))
+
 function compile-circuits {
   echo_header "Compiling vanilla Noir circuits"
   local CIRCUITS_DIR="$REPO_ROOT/docs/examples/circuits"
@@ -120,6 +125,15 @@ function execute-examples {
   echo_header "Executing TypeScript documentation examples"
   local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
   run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+}
+
+function test_cmds {
+  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
+}
+
+function test {
+  echo_header "docs examples test"
+  test_cmds | filter_test_cmds | parallelize
 }
 
 ##############################################################################
@@ -249,7 +263,6 @@ case "$cmd" in
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
-    run_step "Execute examples" execute-examples
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
@@ -281,6 +294,9 @@ case "$cmd" in
         exit 1
       fi
     fi
+    ;;
+  "hash")
+    echo "$hash"
     ;;
   compile-circuits)
     compile-circuits
