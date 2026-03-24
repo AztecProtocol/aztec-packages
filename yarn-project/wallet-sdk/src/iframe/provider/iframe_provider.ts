@@ -20,6 +20,7 @@ import {
   importPublicKey,
 } from '../../crypto.js';
 import type { PendingConnection, ProviderDisconnectionCallback, WalletProvider } from '../../manager/types.js';
+import type { WalletInfo } from '../../types.js';
 import { WalletMessageType } from '../../types.js';
 import { IframeWallet } from './iframe_wallet.js';
 
@@ -53,8 +54,11 @@ export class IframeWalletProvider implements WalletProvider {
   private disconnectCallbacks: ProviderDisconnectionCallback[] = [];
 
   constructor(
+    /** Unique wallet identifier. */
     public readonly id: string,
+    /** Display name for the wallet. */
     public readonly name: string,
+    /** Optional wallet icon URL. */
     public readonly icon: string | undefined,
     private readonly walletUrl: string,
     private readonly chainInfo: ChainInfo,
@@ -90,10 +94,8 @@ export class IframeWalletProvider implements WalletProvider {
       iframe.contentWindow.postMessage(msg, walletOrigin);
     };
 
-    // Wait for WALLET_READY
     await waitForMessage(msg => msg.type === WalletMessageType.WALLET_READY, READY_TIMEOUT_MS, walletOrigin);
 
-    // Discovery request → response
     const requestId = globalThis.crypto.randomUUID();
     post({ type: WalletMessageType.DISCOVERY, requestId, appId });
 
@@ -103,9 +105,8 @@ export class IframeWalletProvider implements WalletProvider {
       walletOrigin,
     );
 
-    const walletInfo = discoveryResp.walletInfo as { id: string; name: string; version: string; icon?: string };
+    const walletInfo = discoveryResp.walletInfo as WalletInfo;
 
-    // Key exchange
     const keyPair = await generateKeyPair();
     const dAppPublicKey = await exportPublicKey(keyPair.publicKey);
     post({ type: WalletMessageType.KEY_EXCHANGE_REQUEST, requestId, publicKey: dAppPublicKey });
@@ -147,11 +148,11 @@ export class IframeWalletProvider implements WalletProvider {
 
     return {
       verificationHash,
-      confirm: async (): Promise<Wallet> => {
+      confirm: (): Promise<Wallet> => {
         if (cancelled) {
           throw new Error('Connection was cancelled');
         }
-        return iframeWallet.asWallet();
+        return Promise.resolve(iframeWallet.asWallet());
       },
       cancel: () => {
         cancelled = true;
@@ -160,11 +161,12 @@ export class IframeWalletProvider implements WalletProvider {
     };
   }
 
-  async disconnect(): Promise<void> {
+  disconnect(): Promise<void> {
     if (this.wallet && !this.wallet.isDisconnected()) {
-      await this.wallet.disconnect();
+      this.wallet.disconnect();
     }
     this.cleanup();
+    return Promise.resolve();
   }
 
   onDisconnect(callback: ProviderDisconnectionCallback): () => void {
@@ -215,7 +217,6 @@ export class IframeWalletProvider implements WalletProvider {
     document.body.appendChild(container);
     this._container = container;
 
-    // Drag logic
     let dragging = false;
     let dragOffsetX = 0,
       dragOffsetY = 0;
@@ -230,7 +231,6 @@ export class IframeWalletProvider implements WalletProvider {
       e.preventDefault();
     });
 
-    // Resize logic
     let resizing = false;
     let resizeStartX = 0,
       resizeStartY = 0;
@@ -281,8 +281,6 @@ export class IframeWalletProvider implements WalletProvider {
     };
   }
 
-  // ── Cleanup ───────────────────────────────────────────────────────────────
-
   private cleanup(): void {
     this._dragCleanup?.();
     this._dragCleanup = null;
@@ -300,8 +298,6 @@ export class IframeWalletProvider implements WalletProvider {
   }
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 /** @internal */
 function waitForMessage(
   predicate: (msg: Record<string, unknown>) => boolean,
@@ -314,6 +310,7 @@ function waitForMessage(
       reject(new Error(`Iframe wallet: timed out waiting for message (${timeoutMs}ms)`));
     }, timeoutMs);
 
+    /** Handles incoming postMessage events, filtering by origin and predicate. */
     function handler(event: MessageEvent) {
       if (event.origin !== expectedOrigin) {
         return;

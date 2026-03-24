@@ -138,3 +138,8 @@ export interface KeyExchangeResponse {
   /** Wallet's ECDH public key for deriving shared secret */
   publicKey: ExportedPublicKey;
 }
+
+/**
+ * Callback invoked when a wallet connection is disconnected.
+ */
+export type DisconnectCallback = () => void;

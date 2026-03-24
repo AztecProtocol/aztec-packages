@@ -12,7 +12,7 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import type { DiscoverySession, WalletProvider } from '../../manager/types.js';
-import { WalletMessageType } from '../../types.js';
+import { type WalletInfo, WalletMessageType } from '../../types.js';
 import { IframeWalletProvider } from './iframe_provider.js';
 
 const PROBE_TIMEOUT_MS = 10_000;
@@ -36,6 +36,7 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
   let pendingResolve: ((result: IteratorResult<WalletProvider>) => void) | null = null;
   let completed = false;
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   function emit(provider: WalletProvider) {
     if (pendingResolve) {
       const resolve = pendingResolve;
@@ -46,6 +47,7 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
     }
   }
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   function markComplete() {
     completed = true;
     resolveDone();
@@ -77,22 +79,25 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
   });
 
   const wallets: AsyncIterable<WalletProvider> = {
-    [Symbol.asyncIterator]() {
+    // eslint-disable-next-line jsdoc/require-jsdoc
+    [Symbol.asyncIterator](): AsyncIterator<WalletProvider> {
       return {
-        async next(): Promise<IteratorResult<WalletProvider>> {
+        // eslint-disable-next-line jsdoc/require-jsdoc
+        next(): Promise<IteratorResult<WalletProvider>> {
           if (completed && pendingProviders.length === 0) {
-            return { value: undefined as unknown as WalletProvider, done: true };
+            return Promise.resolve({ value: undefined as unknown as WalletProvider, done: true });
           }
           if (pendingProviders.length > 0) {
-            return { value: pendingProviders.shift()!, done: false };
+            return Promise.resolve({ value: pendingProviders.shift()!, done: false });
           }
           return new Promise(resolve => {
             pendingResolve = resolve;
           });
         },
-        async return() {
+        // eslint-disable-next-line jsdoc/require-jsdoc
+        return(): Promise<IteratorResult<WalletProvider>> {
           markComplete();
-          return { value: undefined as unknown as WalletProvider, done: true };
+          return Promise.resolve({ value: undefined as unknown as WalletProvider, done: true });
         },
       };
     },
@@ -114,21 +119,16 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
  * Returns an IframeWalletProvider on success, null on timeout/failure.
  * @internal
  */
-async function probeWallet(
-  walletUrl: string,
-  chainInfo: ChainInfo,
-  timeoutMs: number,
-): Promise<IframeWalletProvider | null> {
+function probeWallet(walletUrl: string, chainInfo: ChainInfo, timeoutMs: number): Promise<IframeWalletProvider | null> {
   const walletOrigin = new URL(walletUrl).origin;
   const iframe = document.createElement('iframe');
   iframe.src = walletUrl;
   iframe.style.cssText = 'display:none;width:0;height:0;border:none;position:absolute;top:-9999px;';
   iframe.allow = 'storage-access; cross-origin-isolated';
-  document.body.appendChild(iframe);
+  let timer: ReturnType<typeof setTimeout>;
 
-  return new Promise(resolve => {
-    let timer: ReturnType<typeof setTimeout>;
-
+  // Register listener BEFORE appending to DOM to avoid race with WALLET_READY
+  const result = new Promise<IframeWalletProvider | null>(resolve => {
     const cleanup = () => {
       if (iframe.parentNode) {
         iframe.parentNode.removeChild(iframe);
@@ -145,6 +145,7 @@ async function probeWallet(
     let step: 'waiting-ready' | 'waiting-discovery' = 'waiting-ready';
     const requestId = globalThis.crypto.randomUUID();
 
+    // eslint-disable-next-line jsdoc/require-jsdoc
     function handler(event: MessageEvent) {
       if (event.origin !== walletOrigin) {
         return;
@@ -165,7 +166,7 @@ async function probeWallet(
         msg.type === WalletMessageType.DISCOVERY_RESPONSE &&
         msg.requestId === requestId
       ) {
-        const info = msg.walletInfo as { id: string; name: string; version: string; icon?: string };
+        const info = msg.walletInfo as WalletInfo;
         cleanup();
         resolve(new IframeWalletProvider(info.id, info.name, info.icon, walletUrl, chainInfo));
       }
@@ -173,4 +174,8 @@ async function probeWallet(
 
     window.addEventListener('message', handler);
   });
+
+  document.body.appendChild(iframe);
+
+  return result;
 }

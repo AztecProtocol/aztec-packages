@@ -18,7 +18,7 @@ import { createLogger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { WalletSchema } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { schemaHasMethod } from '@aztec/foundation/schemas';
+import { parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
 
 import {
   type EncryptedPayload,
@@ -124,21 +124,16 @@ export class IframeConnectionHandler {
     private callbacks: IframeConnectionCallbacks,
   ) {}
 
-  /** Start listening for messages and announce WALLET_READY. */
   start(): void {
     window.addEventListener('message', this.handleMessage);
     this.postToParent({ type: WalletMessageType.WALLET_READY });
     this.log.info('IframeConnectionHandler started, posted WALLET_READY');
   }
 
-  /** Stop listening for messages. */
   stop(): void {
     window.removeEventListener('message', this.handleMessage);
   }
 
-  // ─── Approval API (called by wallet UI) ────────────────────────────────────
-
-  /** Approve a pending discovery request and send wallet info to the dApp. */
   approveDiscovery(requestId: string): void {
     const pending = this.pendingSessions.get(requestId);
     if (!pending || pending.status !== 'pending') {
@@ -159,12 +154,10 @@ export class IframeConnectionHandler {
     this.log.info(`Discovery approved for requestId=${requestId}`);
   }
 
-  /** Reject a pending discovery request. */
   rejectDiscovery(requestId: string): void {
     this.pendingSessions.delete(requestId);
   }
 
-  /** Terminate an active session and notify the dApp. */
   terminateSession(sessionId: string): void {
     const session = this.activeSessions.get(sessionId);
     if (session) {
@@ -177,14 +170,17 @@ export class IframeConnectionHandler {
     }
   }
 
-  /** Returns all sessions that are awaiting user approval. */
   getPendingSessions(): PendingSession[] {
     return Array.from(this.pendingSessions.values()).filter(s => s.status === 'pending');
   }
 
   // ─── Message handler ────────────────────────────────────────────────────────
 
-  private handleMessage = async (event: MessageEvent): Promise<void> => {
+  private handleMessage = (event: MessageEvent): void => {
+    void this.handleMessageAsync(event);
+  };
+
+  private async handleMessageAsync(event: MessageEvent): Promise<void> {
     if (this.config.allowedOrigins && this.config.allowedOrigins.length > 0) {
       if (!this.config.allowedOrigins.includes(event.origin)) {
         return;
@@ -210,9 +206,10 @@ export class IframeConnectionHandler {
         this.terminateSession(msg.sessionId);
         break;
     }
-  };
+  }
 
   private handleDiscoveryRequest(msg: Record<string, unknown>, origin: string): void {
+    // eslint-disable-next-line jsdoc/require-jsdoc
     const { requestId, appId } = msg as { requestId: string; appId: string };
     const pending: PendingSession = { requestId, appId, origin, status: 'pending' };
     this.pendingSessions.set(requestId, pending);
@@ -222,7 +219,9 @@ export class IframeConnectionHandler {
 
   private async handleKeyExchangeRequest(msg: Record<string, unknown>, origin: string): Promise<void> {
     const { requestId, publicKey: appPublicKeyRaw } = msg as {
+      // eslint-disable-next-line jsdoc/require-jsdoc
       requestId: string;
+      // eslint-disable-next-line jsdoc/require-jsdoc
       publicKey: { kty: string; crv: string; x: string; y: string };
     };
     const pending = this.pendingSessions.get(requestId);
@@ -264,6 +263,7 @@ export class IframeConnectionHandler {
   }
 
   private async handleSecureMessage(msg: Record<string, unknown>): Promise<void> {
+    // eslint-disable-next-line jsdoc/require-jsdoc
     const { sessionId, encrypted } = msg as { sessionId: string; encrypted: EncryptedPayload };
     const session = this.activeSessions.get(sessionId);
     if (!session) {
@@ -289,7 +289,8 @@ export class IframeConnectionHandler {
       if (!schemaHasMethod(WalletSchema, type)) {
         throw new Error(`Unknown wallet method: ${type}`);
       }
-      result = await (wallet as Record<string, (...a: unknown[]) => Promise<unknown>>)[type](...args);
+      const sanitizedArgs = await parseWithOptionals(args, (WalletSchema as any)[type].parameters());
+      result = await (wallet as Record<string, (...a: unknown[]) => Promise<unknown>>)[type](...sanitizedArgs);
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : String(err);
       this.log.error(`Error handling ${type}: ${error}`);
@@ -313,8 +314,6 @@ export class IframeConnectionHandler {
       this.log.error(`Encryption of response failed: ${err}`);
     }
   }
-
-  // ─── Transport helpers ──────────────────────────────────────────────────────
 
   private postToParent(msg: object): void {
     if (window.parent !== window) {
