@@ -273,7 +273,7 @@ describe('public_tx_simulator', () => {
     await merkleTrees.close();
     await merkleTreesCopy.close();
     await worldStateService.close();
-  }, 60_000);
+  });
 
   it('runs a tx with enqueued public calls in setup phase only', async () => {
     const tx = await mockTxWithPublicCalls({
