@@ -1,8 +1,27 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-# export bb as it is needed when using exported functions
-export bb="$root/barretenberg/cpp/$(./preset-build-dir)/bin/bb"
+# Resolve bb from an explicit preset when provided, and fall back to known build dirs.
+script_dir="$root/barretenberg/cpp/scripts"
+bb_preset="${BB_BUILD_PRESET:-${NATIVE_PRESET:-clang20}}"
+bb_build_dir="$root/barretenberg/cpp/$($script_dir/preset-build-dir "$bb_preset")"
+
+export bb_preset
+
+if [[ -x "$bb_build_dir/bin/bb" ]]; then
+  export bb="$bb_build_dir/bin/bb"
+elif [[ -x "$root/barretenberg/cpp/build-debug/bin/bb" ]]; then
+  export bb="$root/barretenberg/cpp/build-debug/bin/bb"
+elif [[ -x "$root/barretenberg/cpp/build/bin/bb" ]]; then
+  export bb="$root/barretenberg/cpp/build/bin/bb"
+else
+  echo_stderr "Error: Could not find bb binary. Tried:"
+  echo_stderr "  $bb_build_dir/bin/bb (preset: $bb_preset)"
+  echo_stderr "  $root/barretenberg/cpp/build-debug/bin/bb"
+  echo_stderr "  $root/barretenberg/cpp/build/bin/bb"
+  echo_stderr "Set BB_BUILD_PRESET or NATIVE_PRESET to the preset used for your build."
+  exit 1
+fi
 
 # script path to auto update short hash
 script_path="$root/barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
@@ -55,8 +74,13 @@ function check_circuit_vks {
   local flow_folder="$inputs_dir/$1"
   local output
   local exit_code=0
+  local -a bb_check_args=(check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack")
 
-  output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack") || exit_code=$?
+  if [[ "$bb_preset" == "debug" ]]; then
+    bb_check_args+=(--disable_asserts)
+  fi
+
+  output=$($bb "${bb_check_args[@]}") || exit_code=$?
 
   if [[ $exit_code -ne 0 ]]; then
     # Check if this is actually a VK change
