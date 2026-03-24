@@ -322,11 +322,10 @@ describe('NativeWorldState', () => {
         treesAreSynched: true,
       } as WorldStateStatusSummary);
 
-      // The second block should fail
+      // The second block should fail (DB too small)
       await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow();
 
-      // The summary should indicate that the unfinalized block number (that of the archive tree) is 2
-      // But it should also tell us that the trees are not synched
+      // The archive tree committed (small) but other trees failed → permanently out of sync
       const badSummary = await ws.getStatusSummary();
       expect(badSummary).toEqual({
         unfinalizedBlockNumber: BlockNumber(2),
@@ -335,11 +334,10 @@ describe('NativeWorldState', () => {
         treesAreSynched: false,
       } as WorldStateStatusSummary);
 
-      // Commits should always fail now, the trees are in an inconsistent state
+      // Further syncs fail because trees are out of sync
       await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow('World state trees are out of sync');
       await expect(ws.handleL2BlockAndMessages(block3, messages3)).rejects.toThrow('World state trees are out of sync');
 
-      // Creating another world state instance should fail
       await ws.close();
     });
 
@@ -960,13 +958,13 @@ describe('NativeWorldState', () => {
     });
 
     it('handles invalid blocks', async () => {
-      const fork = await ws.fork();
-
-      // Insert a few blocks
+      // Insert a few blocks, each on its own fork
       for (let i = 0; i < 4; i++) {
         const blockNumber = i + 1;
         const provenBlock = blockNumber - 2;
+        const fork = await ws.fork();
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
+        await fork.close();
         const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
@@ -984,7 +982,9 @@ describe('NativeWorldState', () => {
 
       // Now build an invalid block, see that it is rejected and that we can then insert the correct block
       {
-        const { block: block, messages } = await mockBlock(BlockNumber(5), 1, fork);
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(5), 1, fork);
+        await fork.close();
         const invalidBlock = L2Block.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
@@ -1003,7 +1003,9 @@ describe('NativeWorldState', () => {
 
       // Now we push another invalid block, see that it is rejected and check we can unwind to the last proven block
       {
-        const { block: block, messages } = await mockBlock(BlockNumber(6), 1, fork);
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(6), 1, fork);
+        await fork.close();
         const invalidBlock = L2Block.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 

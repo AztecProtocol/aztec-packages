@@ -209,9 +209,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    // Skip if this block is already persisted (e.g. via COMMIT_FORK)
+    // Skip if this block is already persisted (e.g. via COMMIT_FORK).
+    // Don't skip if trees are out of sync — partial commits need to be detected.
     const currentStatus = await this.getStatusSummary();
-    if (l2Block.number <= currentStatus.unfinalizedBlockNumber) {
+    if (l2Block.number <= currentStatus.unfinalizedBlockNumber && currentStatus.treesAreSynched) {
       this.log.debug(
         `Skipping SYNC_BLOCK for block ${l2Block.number} — already at tip ${currentStatus.unfinalizedBlockNumber}`,
       );
