@@ -80,7 +80,7 @@ console.log(`L2 Bridge: ${l2Bridge.address.toString()}\n`);
 console.log("Initializing portal...");
 
 // Initialize the portal contract
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+
 const initHash = await l1Client.writeContract({
   address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
@@ -109,7 +109,7 @@ console.log("Bridge configured\n");
 // docs:start:mint_nft_l1
 console.log("Minting NFT on L1...");
 
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+
 const mintHash = await l1Client.writeContract({
   address: nftAddress.toString() as `0x${string}`,
   abi: SimpleNFT.abi,
@@ -131,7 +131,7 @@ const secret = Fr.random();
 const secretHash = await computeSecretHash(secret);
 
 // Approve portal to transfer the NFT
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+
 const approveHash = await l1Client.writeContract({
   address: nftAddress.toString() as `0x${string}`,
   abi: SimpleNFT.abi,
@@ -141,7 +141,7 @@ const approveHash = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: approveHash });
 
 // Deposit to Aztec
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+
 const depositHash = await l1Client.writeContract({
   address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
@@ -268,7 +268,7 @@ const recipientBuffer = Buffer.from(
 const content = sha256ToField([tokenIdBuffer, recipientBuffer]);
 
 // Get rollup version from the portal contract (it stores it during initialize)
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+
 const version = (await l1Client.readContract({
   address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
@@ -314,7 +314,7 @@ const siblingPathHex = witness!.siblingPath
 
 // docs:start:withdraw_on_l1
 console.log("Withdrawing NFT on L1...");
-// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+
 const withdrawHash = await l1Client.writeContract({
   address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
