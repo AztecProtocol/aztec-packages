@@ -54,16 +54,22 @@ fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Op
 }
 
 fn check_notes_order<let N: u32>(fields_0: [Field; N], fields_1: [Field; N], sorts: BoundedVec<Option<Sort>, N>) {
+    let mut order_determined_as_valid = false;
     for i in 0..sorts.len() {
-        let sort = sorts.get_unchecked(i).unwrap_unchecked();
-        let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
-        let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
-        let eq = field_0 == field_1;
-        let lt = field_0.lt(field_1);
-        if sort.order == SortOrder.ASC {
-            assert(eq | lt, "Return notes not sorted in ascending order.");
-        } else if !eq {
-            assert(!lt, "Return notes not sorted in descending order.");
+        if !order_determined_as_valid {
+            let sort = sorts.get_unchecked(i).unwrap_unchecked();
+            let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
+            let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
+            if field_0 != field_1 {
+                let lt = field_0.lt(field_1);
+                if sort.order == SortOrder.ASC {
+                    assert(lt, "Return notes not sorted in ascending order.");
+                } else {
+                    assert(!lt, "Return notes not sorted in descending order.");
+                }
+                // If we got here, then the order is valid and remaining sort keys can be skipped.
+                order_determined_as_valid = true;
+            }
         }
     }
 }
