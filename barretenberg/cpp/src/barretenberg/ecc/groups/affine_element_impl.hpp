@@ -250,11 +250,7 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(con
     if (result.has_value()) {
         return result.value();
     }
-    // attempt_count is uint8_t: P(count > 255) ≈ 2^-255, so overflow cannot occur in practice.
-    // (See derive_generators in group.hpp for the justification.)
-    // NOTE: BB_ASSERT_LT cannot be used here because hash_to_curve is constexpr and BB_ASSERT_LT
-    // uses std::ostringstream, which is not a literal type.
-    return hash_to_curve(seed, static_cast<uint8_t>(attempt_count + 1));
+    return hash_to_curve(seed, attempt_count + 1);
 }
 
 template <typename Fq, typename Fr, typename T>
