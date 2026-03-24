@@ -335,11 +335,30 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
 
-    it('clear() deletes data directory and shuts down WSDB', async () => {
+    it('clear() resets world state to genesis', async () => {
       const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+
+      // Verify initial state: archive has 1 entry (genesis header)
+      const committed = ws.getCommitted();
+      const archiveBefore = await committed.getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(archiveBefore.size).toBe(1n);
+
+      // Sync a block to modify state
+      const fork = await ws.fork();
+      await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [Fr.random()]);
+      await fork.close();
+
+      // Clear and verify state is back to genesis
       await ws.clear();
-      // After clear, the data directory is deleted and the WSDB process is stopped.
-      // The node must restart to recreate the world state.
+      const committedAfter = ws.getCommitted();
+      const archiveAfter = await committedAfter.getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(archiveAfter.size).toBe(1n);
+
+      // World state is functional after clear
+      const status = await ws.getStatusSummary();
+      expect(status.treesAreSynched).toBe(true);
+
+      await ws.close();
     });
   });
 
