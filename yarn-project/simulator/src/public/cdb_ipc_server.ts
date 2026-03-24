@@ -162,6 +162,11 @@ export class CdbIpcServer {
     let messageBuffer: Buffer | null = null;
     let messageBytesRead = 0;
 
+    // Per-connection response chain ensures responses are sent in the same order
+    // as requests were received, even if dispatch completes out of order.
+    // This makes the server robust to pipelined requests from the C++ client.
+    let responseChain: Promise<void> = Promise.resolve();
+
     socket.on('data', (chunk: Buffer) => {
       let offset = 0;
 
@@ -187,14 +192,26 @@ export class CdbIpcServer {
           offset += bytesToCopy;
 
           if (messageBytesRead === messageLength) {
-            // Process the complete message
             const msg = messageBuffer!;
-            // Reset state for next message
             readingLength = true;
             lengthBytesRead = 0;
             messageBuffer = null;
 
-            void this.processMessage(msg, socket);
+            // Start dispatch immediately (allows concurrent processing),
+            // but chain the response sending to preserve request order.
+            const dispatchResult = this.dispatchMessage(msg);
+            const prev = responseChain;
+            responseChain = (async () => {
+              await prev;
+              try {
+                const [name, payload] = await dispatchResult;
+                this.sendResponse(socket, name, payload);
+              } catch (err: any) {
+                this.log.error(`CDB command error: ${err.message}`, { err });
+                this.sendResponse(socket, 'CdbErrorResponse', { message: err.message ?? 'Unknown error' });
+              }
+            })();
+            void responseChain.catch(() => {});
           }
         }
       }
@@ -205,18 +222,10 @@ export class CdbIpcServer {
     });
   }
 
-  private async processMessage(data: Buffer, socket: net.Socket): Promise<void> {
-    try {
-      // Decode the NamedUnion command: [["CommandName", {fields}]]
-      const parsed = decoder.decode(data);
-      const [commandName, payload] = parsed[0];
-
-      const [responseName, responsePayload] = await this.dispatch(commandName, payload ?? {});
-      this.sendResponse(socket, responseName, responsePayload);
-    } catch (err: any) {
-      this.log.error(`CDB command error: ${err.message}`, { err });
-      this.sendResponse(socket, 'CdbErrorResponse', { message: err.message ?? 'Unknown error' });
-    }
+  private dispatchMessage(data: Buffer): Promise<[string, Record<string, unknown>]> {
+    const parsed = decoder.decode(data);
+    const [commandName, payload] = parsed[0];
+    return this.dispatch(commandName, payload ?? {});
   }
 
   private sendResponse(socket: net.Socket, responseName: string, payload: Record<string, unknown>): void {

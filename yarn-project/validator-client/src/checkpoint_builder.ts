@@ -255,9 +255,9 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       throw new Error('AVM IPC backend is required for block building. Ensure aztec-avm is running.');
     }
     // Extract the WSDB fork ID so the C++ AVM can modify the same fork in-place.
-    const wsdbForkId = 'getForkId' in fork ? (fork as { getForkId(): number }).getForkId() : undefined;
+    const wsdbForkId = fork.getRevision().forkId;
     // Register this fork's contracts DB on the CDB server for fork-ID routing.
-    if (this.cdbServer && wsdbForkId !== undefined) {
+    if (this.cdbServer) {
       this.cdbServer.registerFork(wsdbForkId, contractsDB, globalVariables.timestamp);
     }
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(

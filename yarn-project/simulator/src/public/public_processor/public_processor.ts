@@ -581,6 +581,7 @@ export class PublicProcessor implements Traceable {
     const handle = this.publicTxSimulator.simulate(tx);
     this.currentSimulationHandle = handle;
     const result = await handle.result;
+    this.currentSimulationHandle = undefined;
     // TODO: use the callStackMetadata here to extract more data about public execution
     const { hints, publicInputs, publicTxEffect, gasUsed, revertCode /*callStackMetadata*/ } = result;
 
