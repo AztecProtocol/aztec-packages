@@ -8,9 +8,6 @@ import { join } from 'path';
 
 /**
  * Generic CRS finder utility class.
- * Downloads compressed CRS (32 bytes/point) but stores uncompressed (64 bytes/point) on disk
- * so the C++ native path can read it directly without decompression.
- * For WASM init, reads uncompressed from disk and passes as-is (bbapi accepts uncompressed).
  */
 export class Crs {
   constructor(
@@ -32,18 +29,17 @@ export class Crs {
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    const g1FileSize = await stat(this.path + '/bn254_g1.dat')
+    const compressedFileSize = await stat(this.path + '/bn254_g1_compressed.dat')
       .then(stats => stats.size)
       .catch(() => 0);
     const g2FileSize = await stat(this.path + '/bn254_g2.dat')
       .then(stats => stats.size)
       .catch(() => 0);
 
-    // On-disk format is uncompressed: 64 bytes per point
-    const hasEnoughPoints = g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0;
+    const hasCompressed = compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0;
 
-    if (hasEnoughPoints && g2FileSize == 128) {
-      this.logger(`Using cached CRS of size ${g1FileSize / 64}`);
+    if (hasCompressed && g2FileSize == 128) {
+      this.logger(`Using cached compressed CRS of size ${compressedFileSize / 32}`);
       return;
     }
 
@@ -53,24 +49,23 @@ export class Crs {
     const g2Stream = await crs.streamG2Data();
 
     await Promise.all([
-      finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + '/bn254_g1.dat'))),
+      finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + '/bn254_g1_compressed.dat'))),
       finished(Readable.fromWeb(g2Stream as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
     ]);
   }
 
   /**
-   * G1 points data for prover key.
-   * Returns compressed format (32 bytes/point) for WASM SrsInitSrs.
-   * Reads from the compressed download stream cache or from disk.
+   * G1 points data for prover key (compressed, 32 bytes/point).
+   * Decompression happens in C++ via SrsInitSrs.
    */
   getG1Data(): Uint8Array {
     const numPoints = Math.max(this.numPoints, 1);
-    const g1Length = numPoints * 64;
-    const fd = openSync(this.path + '/bn254_g1.dat', 'r');
-    const data = new Uint8Array(g1Length);
-    readSync(fd, data, 0, g1Length, 0);
+    const compressedLength = numPoints * 32;
+    const fd = openSync(this.path + '/bn254_g1_compressed.dat', 'r');
+    const compressed = new Uint8Array(compressedLength);
+    readSync(fd, compressed, 0, compressedLength, 0);
     closeSync(fd);
-    return data;
+    return compressed;
   }
 
   /**

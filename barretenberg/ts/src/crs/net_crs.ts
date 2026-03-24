@@ -27,7 +27,7 @@ export async function fetchWithFallback(
 
 /**
  * Downloader for CRS from the web or local.
- * Downloads uncompressed format (64 bytes/point).
+ * Downloads compressed format (32 bytes/point). Decompression happens in C++ via SrsInitSrs.
  */
 export class NetCrs {
   private data!: Uint8Array;
@@ -48,7 +48,7 @@ export class NetCrs {
   }
 
   /**
-   * Opens up a ReadableStream to the G1 points data.
+   * Opens up a ReadableStream to the compressed G1 points data (32 bytes/point).
    */
   async streamG1Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG1Data();
@@ -64,7 +64,8 @@ export class NetCrs {
   }
 
   /**
-   * Download G1 data (64 bytes/point, uncompressed).
+   * Download compressed G1 data (32 bytes/point).
+   * Decompression happens in C++ via SrsInitSrs.
    */
   async downloadG1Data() {
     const response = await this.fetchG1Data();
@@ -80,7 +81,7 @@ export class NetCrs {
   }
 
   /**
-   * G1 points data for prover key (64 bytes/point).
+   * G1 points data for prover key (compressed, 32 bytes/point).
    */
   getG1Data(): Uint8Array {
     return this.data;
@@ -95,21 +96,21 @@ export class NetCrs {
   }
 
   /**
-   * Download G1 data from CDN with S3 fallback.
+   * Download compressed G1 data from CDN with S3 fallback.
    */
   private async fetchG1Data(): Promise<Response> {
     if (this.numPoints === 0) {
       return new Response(new Uint8Array([]));
     }
 
-    const g1End = this.numPoints * 64 - 1;
+    const g1End = this.numPoints * 32 - 1;
     const options: RequestInit = {
       headers: { Range: `bytes=0-${g1End}` },
       cache: 'force-cache',
     };
     return await fetchWithFallback(
-      `${CRS_PRIMARY_HOST}/g1.dat`,
-      `${CRS_FALLBACK_HOST}/g1.dat`,
+      `${CRS_PRIMARY_HOST}/g1_compressed.dat`,
+      `${CRS_FALLBACK_HOST}/g1_compressed.dat`,
       options,
     );
   }
