@@ -188,7 +188,13 @@ export class TXESession implements TXESessionStateHandler {
     const initialJobId = jobCoordinator.beginJob();
 
     const logger = createLogger('txe:session');
-    const contractSyncService = new ContractSyncService(stateMachine.node, contractStore, noteStore, logger);
+    const contractSyncService = new ContractSyncService(
+      stateMachine.node,
+      contractStore,
+      noteStore,
+      () => keyStore.getAccounts(),
+      logger,
+    );
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
