@@ -99,6 +99,13 @@ export async function runReqrespTxTest(params: {
   t.logger.info('Waiting for nodes to connect');
   await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
+  // Advance to next slot so the proposer gets a full slot window.
+  // Without this, the proposer for the current slot may find itself too far into the slot
+  // (due to node creation latency) and skip block building, wasting the slot.
+  t.logger.info('Advancing to fresh slot after node creation');
+  const [freshSlotTimestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+  t.ctx.dateProvider.setTime(Number(freshSlotTimestamp) * 1000);
+
   await t.setupAccount();
 
   const targetBlockNumber = await t.ctx.aztecNodeService.getBlockNumber();
