@@ -3,9 +3,11 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { ABIParameter, ABIVariable, AbiType } from './abi.js';
+import { FunctionSelector } from './function_selector.js';
 import {
   isAztecAddressStruct,
   isEthAddressStruct,
+  isFunctionSelectorStruct,
   isOptionStruct,
   isWrappedFieldStruct,
   parseSignedInt,
@@ -20,6 +22,7 @@ export type AbiDecoded =
   | string
   | AztecAddress
   | EthAddress
+  | FunctionSelector
   | Fr
   | AbiDecoded[]
   | { [key: string]: AbiDecoded }
@@ -69,6 +72,9 @@ class AbiDecoder {
         }
         if (isEthAddressStruct(abiType)) {
           return EthAddress.fromField(this.getNextField());
+        }
+        if (isFunctionSelectorStruct(abiType)) {
+          return FunctionSelector.fromField(this.getNextField());
         }
         if (isWrappedFieldStruct(abiType)) {
           return this.getNextField();
