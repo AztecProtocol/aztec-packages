@@ -59,7 +59,7 @@ import { ENR } from '@nethermindeth/enr';
 import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';
-import { CheckpointProposalRecievedCallbackNotRegisteredError } from '../../errors/p2p-service.error.js';
+import { CheckpointProposalReceivedCallbackNotRegisteredError } from '../../errors/p2p-service.error.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import {
   BlockProposalValidator,
@@ -258,7 +258,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.allNodesCheckpointReceivedCallback = (
       _checkpoint: CheckpointProposalCore,
     ): Promise<CheckpointAttestation[] | undefined> => {
-      throw new CheckpointProposalRecievedCallbackNotRegisteredError();
+      throw new CheckpointProposalReceivedCallbackNotRegisteredError();
     };
 
     this.validatorCheckpointReceivedCallback = (

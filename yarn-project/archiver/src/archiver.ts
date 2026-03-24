@@ -213,10 +213,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.dataStore.blockStore.setPendingCheckpoint(pending);
   }
 
-  public setPipeliningTreeInProgress(value: bigint): Promise<void> {
-    return this.store.setPipeliningTreeInProgress(value);
-  }
-
   /**
    * Processes all queued blocks, adding them to the store.
    * Called at the beginning of each sync iteration.

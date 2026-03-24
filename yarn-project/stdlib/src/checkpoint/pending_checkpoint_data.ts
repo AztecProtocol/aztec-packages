@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { schemas } from '../schemas/schemas.js';
 
-/** Lightweight data for a pending checkpoint (attested but not yet L1-confirmed).
+/** Lightweight data for a pending checkpoint (proposed but not yet L1-confirmed).
  *  Includes fee-relevant fields used during pipelining to compute the fee header override. */
 export type PendingCheckpointData = {
   checkpointNumber: CheckpointNumber;

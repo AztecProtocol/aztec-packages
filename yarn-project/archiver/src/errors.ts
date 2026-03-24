@@ -108,6 +108,30 @@ export class L1ToL2MessagesNotReadyError extends Error {
   }
 }
 
+/** Thrown when a pending checkpoint number is stale (already processed). */
+export class PendingCheckpointStaleError extends Error {
+  constructor(
+    public readonly pendingCheckpointNumber: number,
+    public readonly currentPendingNumber: number,
+  ) {
+    super(`Stale pending checkpoint ${pendingCheckpointNumber}: current pending is ${currentPendingNumber}`);
+    this.name = 'PendingCheckpointStaleError';
+  }
+}
+
+/** Thrown when a pending checkpoint number is not the expected confirmed + 1. */
+export class PendingCheckpointNotSequentialError extends Error {
+  constructor(
+    public readonly pendingCheckpointNumber: number,
+    public readonly confirmedCheckpointNumber: number,
+  ) {
+    super(
+      `Pending checkpoint ${pendingCheckpointNumber} is not sequential: expected ${confirmedCheckpointNumber + 1} (confirmed + 1)`,
+    );
+    this.name = 'PendingCheckpointNotSequentialError';
+  }
+}
+
 /** Thrown when a proposed block conflicts with an already checkpointed block (different content). */
 export class CannotOverwriteCheckpointedBlockError extends Error {
   constructor(

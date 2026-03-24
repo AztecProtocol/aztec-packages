@@ -3602,7 +3602,7 @@ describe('KVArchiverDataStore', () => {
       expect(pending).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
     });
 
-    it('ignores pending checkpoint that is more than 1 ahead of confirmed', async () => {
+    it('throws on pending checkpoint that is more than 1 ahead of confirmed', async () => {
       // Add checkpoint 1
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
@@ -3611,20 +3611,22 @@ describe('KVArchiverDataStore', () => {
       await store.addCheckpoints([checkpoint1]);
 
       // Try to set pending checkpoint to 3 (confirmed=1, expected=2)
-      await store.blockStore.setPendingCheckpoint({
-        checkpointNumber: CheckpointNumber(3),
-        header: CheckpointHeader.empty(),
-        startBlock: BlockNumber(1),
-        blockCount: 1,
-        totalManaUsed: 100n,
-        feeAssetPriceModifier: 50n,
-      });
+      await expect(
+        store.blockStore.setPendingCheckpoint({
+          checkpointNumber: CheckpointNumber(3),
+          header: CheckpointHeader.empty(),
+          startBlock: BlockNumber(1),
+          blockCount: 1,
+          totalManaUsed: 100n,
+          feeAssetPriceModifier: 50n,
+        }),
+      ).rejects.toThrow('not sequential');
 
       // Pending checkpoint should remain unset (3 !== 1 + 1)
       expect(await store.blockStore.getPendingCheckpointNumber()).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
     });
 
-    it('ignores pending checkpoint that equals the confirmed checkpoint', async () => {
+    it('throws on pending checkpoint that equals the confirmed checkpoint', async () => {
       // Add checkpoint 1
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
@@ -3633,14 +3635,16 @@ describe('KVArchiverDataStore', () => {
       await store.addCheckpoints([checkpoint1]);
 
       // Try to set pending checkpoint to 1 (confirmed=1, expected=2)
-      await store.blockStore.setPendingCheckpoint({
-        checkpointNumber: CheckpointNumber(1),
-        header: CheckpointHeader.empty(),
-        startBlock: BlockNumber(1),
-        blockCount: 1,
-        totalManaUsed: 100n,
-        feeAssetPriceModifier: 50n,
-      });
+      await expect(
+        store.blockStore.setPendingCheckpoint({
+          checkpointNumber: CheckpointNumber(1),
+          header: CheckpointHeader.empty(),
+          startBlock: BlockNumber(1),
+          blockCount: 1,
+          totalManaUsed: 100n,
+          feeAssetPriceModifier: 50n,
+        }),
+      ).rejects.toThrow('not sequential');
 
       // Pending checkpoint should remain unset (1 !== 1 + 1)
       expect(await store.blockStore.getPendingCheckpointNumber()).toBe(INITIAL_CHECKPOINT_NUMBER - 1);

@@ -81,6 +81,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       l1PublishingTime: 2,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: 3,
+      inboxLag: 2,
       ...setupOpts,
       pxeOpts: { syncChainTip },
     });

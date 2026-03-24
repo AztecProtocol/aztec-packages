@@ -16,7 +16,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -26,7 +25,6 @@ import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from 
 import {
   type P2P,
   type P2PClientDeps,
-  type PeerId,
   createP2PClient,
   createTxValidatorForAcceptingTxsOverRPC,
   getDefaultAllowedSetupFunctions,
@@ -83,7 +81,6 @@ import {
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -114,6 +111,7 @@ import {
   NodeKeystoreAdapter,
   ValidatorClient,
   createProposalHandler,
+  createCheckpointProposalHandler,
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
@@ -622,16 +620,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       debugLogStore,
     );
 
-    // Register a callback for all nodes to set the pending checkpoint number when a checkpoint proposal is received.
-    // This runs before the validator callback so the archiver knows about the pending checkpoint.
-    p2pClient.registerAllNodesCheckpointProposalHandler(async (checkpoint: CheckpointProposalCore, _sender: PeerId) => {
-      try {
-        await node.handleCheckpointProposalForPendingCheckpoint(checkpoint, archiver);
-      } catch (err) {
-        log.warn(`Failed to set pending checkpoint number on checkpoint proposal received`, { err });
-      }
-      return undefined;
-    });
+    // Register checkpoint proposal handler for all nodes.
+    // Validates proposals before setting pending checkpoint on archiver.
+    const getValidatorAddresses = validatorClient
+      ? () => validatorClient.getValidatorAddresses().map(a => a.toString())
+      : undefined;
+    createCheckpointProposalHandler(config, {
+      checkpointsBuilder: validatorCheckpointsBuilder,
+      blockSource: archiver,
+      l1ToL2MessageSource: archiver,
+      epochCache,
+      dateProvider,
+      telemetry,
+    }).register(p2pClient, archiver, getValidatorAddresses);
 
     return node;
   }
@@ -1737,54 +1738,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return header.getBlockNumber();
     }
     return block as BlockNumber;
-  }
-
-  /** Derives the pending checkpoint data from a checkpoint proposal's archive and sets it on the archiver. */
-  protected async handleCheckpointProposalForPendingCheckpoint(
-    checkpoint: CheckpointProposalCore,
-    archiver: Pick<
-      Archiver,
-      'getBlockDataByArchive' | 'setPendingCheckpoint' | 'setPipeliningTreeInProgress' | 'syncImmediate'
-    >,
-  ): Promise<void> {
-    if (this.epochCache.isProposerPipeliningEnabled()) {
-      let blockData = await archiver.getBlockDataByArchive(checkpoint.archive);
-
-      // The checkpoint proposal often arrives before the last block finishes re-execution.
-      // Trigger syncs to flush any queued blocks, retrying until we find the data or give up.
-      if (!blockData) {
-        blockData = await retryUntil(
-          async () => {
-            await archiver.syncImmediate();
-            return await archiver.getBlockDataByArchive(checkpoint.archive);
-          },
-          'block data for checkpoint proposal',
-          3,
-          0.1,
-        ).catch(() => undefined);
-      }
-
-      if (blockData) {
-        await Promise.all([
-          archiver.setPendingCheckpoint({
-            header: checkpoint.checkpointHeader,
-            checkpointNumber: blockData.checkpointNumber,
-            startBlock: BlockNumber(blockData.header.getBlockNumber() - blockData.indexWithinCheckpoint),
-            blockCount: blockData.indexWithinCheckpoint + 1,
-            totalManaUsed: checkpoint.checkpointHeader.totalManaUsed.toBigInt(),
-            feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
-          }),
-          // Advance the pipelining tree-in-progress boundary so the next pipelined checkpoint
-          // can read L1-to-L2 messages. This mirrors L1's inProgress = N + LAG after consume(N-1),
-          // where LAG=2 in production. Using +2 conservatively allows reading checkpoint N+1.
-          archiver.setPipeliningTreeInProgress(BigInt(blockData.checkpointNumber) + 2n),
-        ]);
-      } else {
-        this.log.debug(`Block data not found for checkpoint proposal archive, cannot set pending checkpoint`, {
-          archive: checkpoint.archive.toString(),
-        });
-      }
-    }
   }
 
   /**

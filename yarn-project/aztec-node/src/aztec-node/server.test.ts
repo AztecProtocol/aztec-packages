@@ -1,14 +1,7 @@
-import type { Archiver } from '@aztec/archiver';
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
-import {
-  BlockNumber,
-  CheckpointNumber,
-  EpochNumber,
-  IndexWithinCheckpoint,
-  SlotNumber,
-} from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -30,13 +23,8 @@ import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { makeCheckpointProposal, mockTx } from '@aztec/stdlib/testing';
-import {
-  AppendOnlyTreeSnapshot,
-  MerkleTreeId,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-} from '@aztec/stdlib/trees';
+import { mockTx } from '@aztec/stdlib/testing';
+import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   GlobalVariables,
@@ -1018,99 +1006,5 @@ describe('aztec node', () => {
       // Second checkpoint (slot 1): 1 block with 1 tx with 1 message
       expect(result).toEqual([[[[msg1]]], [[[msg2]]]]);
     });
-  });
-
-  describe('handleCheckpointProposalForPendingCheckpoint', () => {
-    let mockArchiver: MockProxy<
-      Pick<Archiver, 'getBlockDataByArchive' | 'setPendingCheckpoint' | 'setPipeliningTreeInProgress' | 'syncImmediate'>
-    >;
-
-    beforeEach(() => {
-      mockArchiver = mock();
-      jest.spyOn(epochCache, 'isProposerPipeliningEnabled').mockReturnValue(true);
-    });
-
-    afterEach(() => {
-      jest.restoreAllMocks();
-    });
-
-    it('sets pending checkpoint from proposal archive', async () => {
-      const archive = Fr.random();
-      const checkpoint = (await makeCheckpointProposal({ archiveRoot: archive })).toCore();
-
-      const blockData = {
-        checkpointNumber: CheckpointNumber(5),
-        header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(3) }) }),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        indexWithinCheckpoint: IndexWithinCheckpoint(2),
-      } as any;
-      mockArchiver.getBlockDataByArchive.mockResolvedValue(blockData);
-
-      await (node as any).handleCheckpointProposalForPendingCheckpoint(checkpoint, mockArchiver);
-
-      expect(mockArchiver.getBlockDataByArchive).toHaveBeenCalledWith(archive);
-      expect(mockArchiver.setPendingCheckpoint).toHaveBeenCalledWith(
-        expect.objectContaining({
-          checkpointNumber: CheckpointNumber(5),
-          header: checkpoint.checkpointHeader,
-          startBlock: BlockNumber(1),
-          blockCount: 3,
-          totalManaUsed: checkpoint.checkpointHeader.totalManaUsed.toBigInt(),
-          feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
-        }),
-      );
-      expect(mockArchiver.setPipeliningTreeInProgress).toHaveBeenCalledWith(7n);
-    });
-
-    it('uses the proposal archive to look up block data', async () => {
-      const proposalArchive = Fr.random();
-      const checkpoint = (await makeCheckpointProposal({ archiveRoot: proposalArchive })).toCore();
-
-      mockArchiver.getBlockDataByArchive.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(3),
-        header: BlockHeader.empty(),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        indexWithinCheckpoint: IndexWithinCheckpoint(0),
-      } as any);
-
-      await (node as any).handleCheckpointProposalForPendingCheckpoint(checkpoint, mockArchiver);
-
-      expect(mockArchiver.getBlockDataByArchive).toHaveBeenCalledTimes(1);
-      expect(mockArchiver.getBlockDataByArchive).toHaveBeenCalledWith(proposalArchive);
-    });
-
-    it('calls syncImmediate and retries when block data is not found initially', async () => {
-      const archive = Fr.random();
-      const checkpoint = (await makeCheckpointProposal({ archiveRoot: archive })).toCore();
-
-      const blockData = {
-        checkpointNumber: CheckpointNumber(3),
-        header: BlockHeader.empty(),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        indexWithinCheckpoint: IndexWithinCheckpoint(0),
-      } as any;
-
-      // First call returns undefined, second call succeeds
-      mockArchiver.getBlockDataByArchive.mockResolvedValueOnce(undefined).mockResolvedValueOnce(blockData);
-
-      await (node as any).handleCheckpointProposalForPendingCheckpoint(checkpoint, mockArchiver);
-
-      expect(mockArchiver.syncImmediate).toHaveBeenCalledTimes(1);
-      expect(mockArchiver.getBlockDataByArchive).toHaveBeenCalledTimes(2);
-      expect(mockArchiver.setPendingCheckpoint).toHaveBeenCalled();
-      expect(mockArchiver.setPipeliningTreeInProgress).toHaveBeenCalled();
-    });
-
-    it('does not set pending checkpoint when block data is not found after retry', async () => {
-      const checkpoint = (await makeCheckpointProposal()).toCore();
-
-      mockArchiver.getBlockDataByArchive.mockResolvedValue(undefined);
-
-      await (node as any).handleCheckpointProposalForPendingCheckpoint(checkpoint, mockArchiver);
-
-      expect(mockArchiver.syncImmediate).toHaveBeenCalled();
-      expect(mockArchiver.setPendingCheckpoint).not.toHaveBeenCalled();
-      expect(mockArchiver.setPipeliningTreeInProgress).not.toHaveBeenCalled();
-    }, 15_000);
   });
 });

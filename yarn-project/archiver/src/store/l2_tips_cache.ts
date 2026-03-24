@@ -33,7 +33,7 @@ export class L2TipsCache {
       checkpointedBlockNumber,
       finalizedBlockNumber,
     ] = await Promise.all([
-      this.blockStore.getLatestBlockNumber(),
+      this.blockStore.getLatestL2BlockNumber(),
       this.blockStore.getProvenBlockNumber(),
       this.blockStore.getPendingCheckpointL2BlockNumber(),
       this.blockStore.getCheckpointedL2BlockNumber(),
