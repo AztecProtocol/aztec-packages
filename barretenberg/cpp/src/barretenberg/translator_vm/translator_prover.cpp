@@ -189,7 +189,7 @@ void TranslatorProver::execute_pcs_rounds()
     // Unshifted for PCS (excludes computable precomputed — verifier computes them locally)
     polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_pcs_unshifted());
     // Shifted for PCS (base to-be-shifted + concatenated)
-    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_pcs_to_be_shifted());
+    polynomial_batcher.set_to_be_shifted(key->proving_key->polynomials.get_pcs_to_be_shifted());
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,

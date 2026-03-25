@@ -186,7 +186,7 @@ template <typename Flavor> struct MaskingTailData {
     /**
      * @brief Register tail polynomials with the PCS batcher.
      * @details Iterates only masked (unshifted) entities. For each, registers the tail with both
-     * batcher.unshifted and batcher.to_be_shifted_by_one if the source poly appears there.
+     * batcher.unshifted and batcher.to_be_shifted if the source poly appears there.
      * The batcher's shift mechanism handles producing the shifted version.
      */
     template <typename ProverPolynomials, typename PolynomialBatcher>
@@ -205,8 +205,8 @@ template <typename Flavor> struct MaskingTailData {
                     break;
                 }
             }
-            for (size_t s = 0; s < batcher.to_be_shifted_by_one.size(); s++) {
-                if (batcher.to_be_shifted_by_one[s].data() == poly.data()) {
+            for (size_t s = 0; s < batcher.to_be_shifted.size(); s++) {
+                if (batcher.to_be_shifted[s].data() == poly.data()) {
                     batcher.add_shifted_tail(s, Polynomial(tail));
                     break;
                 }

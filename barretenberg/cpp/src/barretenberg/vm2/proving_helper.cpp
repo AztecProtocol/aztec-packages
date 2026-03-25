@@ -25,10 +25,25 @@ AvmProvingHelper::Proof AvmProvingHelper::prove(tracegen::TraceContainer&& trace
     auto proving_key =
         AVM_TRACK_TIME_V("proving/prove:proving_key", constraining::proving_key_from_polynomials(polynomials));
 
-    auto verification_key = std::make_shared<AvmVerifier::VerificationKey>();
+    vk_ = std::make_shared<AvmVerifier::VerificationKey>();
 
-    auto prover = AVM_TRACK_TIME_V("proving/prove:construct_prover",
-                                   AvmProver(proving_key, verification_key, proving_key->commitment_key));
+    // Compute precomputed group commitments for the VK.
+    // For BS=1, commit_interleaved<1> degenerates to commit().
+    constexpr size_t BS = AvmFlavor::INTERLEAVING_BATCH_SIZE;
+    auto precomputed = proving_key->get_precomputed();
+    for (size_t g = 0; g < AvmFlavor::NUM_PRECOMPUTED_GROUPS; g++) {
+        size_t start = g * BS;
+        size_t count = std::min(BS, precomputed.size() - start);
+        std::vector<PolynomialSpan<const AvmFlavor::FF>> chunks;
+        chunks.reserve(count);
+        for (size_t j = 0; j < count; j++) {
+            chunks.push_back(precomputed[start + j]);
+        }
+        vk_->precomputed_group_commitments[g] = proving_key->commitment_key.commit_interleaved<BS>(chunks);
+    }
+
+    auto prover =
+        AVM_TRACK_TIME_V("proving/prove:construct_prover", AvmProver(proving_key, vk_, proving_key->commitment_key));
 
     auto proof = AVM_TRACK_TIME_V("proving/construct_proof", prover.construct_proof());
 
@@ -65,9 +80,18 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
 
 bool AvmProvingHelper::verify(const AvmProvingHelper::Proof& proof, const PublicInputs& pi)
 {
-    auto vk =
-        AVM_TRACK_TIME_V("proving/verify:create_verification_key", std::make_shared<AvmFlavor::VerificationKey>());
+    // Use stored VK if available (has precomputed group commitments from prove()).
+    // Otherwise create a default one (works for BS=1 only).
+    if (!vk_) {
+        vk_ = std::make_shared<AvmFlavor::VerificationKey>();
+        // For BS=1, group commitments = individual commitments
+        auto precomputed_comms = vk_->get_all();
+        for (size_t i = 0; i < AvmFlavor::NUM_PRECOMPUTED_GROUPS; i++) {
+            vk_->precomputed_group_commitments[i] = precomputed_comms[i];
+        }
+    }
     auto verifier = AVM_TRACK_TIME_V("proving/verify:construct_verifier", AvmVerifier());
+    verifier.key = vk_;
     return AVM_TRACK_TIME_V("proving/verify_proof", verifier.verify_proof(proof, pi.to_columns()));
 }
 

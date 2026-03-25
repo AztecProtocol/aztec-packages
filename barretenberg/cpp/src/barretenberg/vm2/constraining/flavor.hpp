@@ -64,6 +64,17 @@ class AvmFlavor {
     static constexpr size_t NUM_WIRES = AvmFlavorVariables::NUM_WIRES;
     static constexpr size_t NUM_ALL_ENTITIES = AvmFlavorVariables::NUM_ALL_ENTITIES;
 
+    // Interleaving constants for multipcs
+    static constexpr size_t INTERLEAVING_BATCH_SIZE = bb::avm2::INTERLEAVING_BATCH_SIZE;
+    static constexpr size_t INTERLEAVING_LOG_K = bb::avm2::INTERLEAVING_LOG_K;
+    static constexpr size_t NUM_PRECOMPUTED_GROUPS = bb::avm2::NUM_PRECOMPUTED_GROUPS;
+    static constexpr size_t NUM_WIRE_GROUPS = bb::avm2::NUM_WIRE_GROUPS;
+    static constexpr size_t NUM_DERIVED_GROUPS = bb::avm2::NUM_DERIVED_GROUPS;
+    static constexpr size_t NUM_WITNESS_GROUPS = bb::avm2::NUM_WITNESS_GROUPS;
+    static constexpr size_t NUM_UNSHIFTED_GROUPS = bb::avm2::NUM_UNSHIFTED_GROUPS;
+    static constexpr size_t NUM_SHIFTED_GROUPS = bb::avm2::NUM_SHIFTED_GROUPS;
+    static constexpr size_t NUM_SHIFT_ALIGNMENT_PADDING = bb::avm2::NUM_SHIFT_ALIGNMENT_PADDING;
+
     // Need to be templated for recursive verifier
     template <typename FF_> using MainRelations_ = AvmFlavorVariables::MainRelations_<FF_>;
 
@@ -96,12 +107,15 @@ class AvmFlavor {
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
     // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
     // This formula must match the serialization in Transcript::serialize_full_transcript().
+    // Group polynomials have degree N * BS, so Gemini needs log2(N * BS) = log2(N) + LOG_K rounds.
+    // That's LOG_K more fold commitments and evaluations than before.
+    // Interleaving challenges are Fiat-Shamir (derived from transcript hash), not proof elements.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
-        NUM_WITNESS_ENTITIES * NUM_FRS_COM +                                    // witness commitments
-        NUM_ALL_ENTITIES * NUM_FRS_FR +                                         // sumcheck evaluations
-        MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH + // sumcheck univariates
-        (MAX_AVM_TRACE_LOG_SIZE - 1) * NUM_FRS_COM +                            // gemini fold comms
-        MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR +                                   // gemini fold evals
+        NUM_WITNESS_GROUPS * NUM_FRS_COM +                                      // witness group commitments
+        NUM_ALL_ENTITIES * NUM_FRS_FR +                                         // sumcheck evaluations (unchanged)
+        MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH + // sumcheck univariates (unchanged)
+        (MAX_AVM_TRACE_LOG_SIZE + INTERLEAVING_LOG_K - 1) * NUM_FRS_COM +       // gemini fold comms (+LOG_K)
+        (MAX_AVM_TRACE_LOG_SIZE + INTERLEAVING_LOG_K) * NUM_FRS_FR +            // gemini fold evals (+LOG_K)
         2 * NUM_FRS_COM;                                                        // shplonk + kzg
 
     static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
@@ -178,7 +192,7 @@ class AvmFlavor {
       public:
         size_t log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
 
-        std::array<Commitment, NUM_WITNESS_ENTITIES> commitments;
+        std::array<Commitment, NUM_WITNESS_GROUPS> commitments;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -220,10 +234,18 @@ class AvmFlavor {
 
     /**
      * @brief Verification key of the AVM. It is fixed and reconstructed from precomputed values.
-     *
+     * @details For BS>1, also stores precomputed group commitments (committed via commit_interleaved).
      */
-    using VerificationKey =
-        FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, typename constraining::AvmHardCodedVKAndHash>;
+    class VerificationKey
+        : public FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, typename constraining::AvmHardCodedVKAndHash> {
+      public:
+        using Base = FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, typename constraining::AvmHardCodedVKAndHash>;
+        using Base::Base;
+
+        // For BS>1, precomputed group commitments (one per group, committed via commit_interleaved).
+        // For BS=1, these are identical to individual precomputed commitments.
+        std::array<Commitment, NUM_PRECOMPUTED_GROUPS> precomputed_group_commitments{};
+    };
 
     // Used by sumcheck.
     using AllValues = AllEntities<FF>;

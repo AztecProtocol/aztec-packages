@@ -137,7 +137,7 @@ class ShpleminiConcatenatedTest : public CommitmentTest<curve::BN254> {
 
         std::vector<Polynomial> polys_vec(concat_polys.begin(), concat_polys.end());
         polynomial_batcher.set_unshifted(RefVector<Polynomial>(polys_vec));
-        polynomial_batcher.set_to_be_shifted_by_one(RefVector<Polynomial>(polys_vec));
+        polynomial_batcher.set_to_be_shifted(RefVector<Polynomial>(polys_vec));
 
         auto prover_opening_claim =
             ShpleminiProver_<Curve>::prove(n, polynomial_batcher, challenge, ck, prover_transcript);

@@ -321,7 +321,7 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
     auto mega_zk_shifted = mega_zk_inst->polynomials.get_to_be_shifted();
     auto trans_shifted = translator_key->proving_key->polynomials.get_pcs_to_be_shifted();
     auto joint_shifted = concatenate(mega_zk_shifted, trans_shifted);
-    polynomial_batcher.set_to_be_shifted_by_one(joint_shifted);
+    polynomial_batcher.set_to_be_shifted(joint_shifted);
 
     // Register MegaZK masking tails with the joint batcher
     if (mega_zk_inst->masking_tail_data.is_active()) {

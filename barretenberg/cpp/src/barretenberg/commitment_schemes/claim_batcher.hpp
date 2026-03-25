@@ -34,8 +34,10 @@ template <typename Curve> struct ClaimBatcher_ {
         Fr scalar = 0;
     };
 
+    size_t shift_exponent = 1; // shift depth k: default 1 for standard polys, BS for interleaved groups
+
     std::optional<Batch> unshifted; // commitments and evaluations of unshifted polynomials
-    std::optional<Batch> shifted;   // commitments of to-be-shifted-by-1 polys, evals of their shifts
+    std::optional<Batch> shifted;   // commitments of to-be-shifted polys, evals of their shifts
 
     Batch get_unshifted() { return (unshifted) ? *unshifted : Batch{}; }
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
@@ -77,9 +79,18 @@ template <typename Curve> struct ClaimBatcher_ {
             unshifted->scalar = inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg;
         }
         if (shifted) {
-            // r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
+            // r⁻ᵏ ⋅ (1/(z−r) + (-1)^k · ν/(z+r)), where k = shift_exponent
+            // For odd k (default k=1): r⁻ᵏ ⋅ (1/(z−r) − ν/(z+r))
+            // For even k: r⁻ᵏ ⋅ (1/(z−r) + ν/(z+r))
+            // Compute r^(-k) where k = shift_exponent
+            Fr r_inv = r_challenge.invert();
+            Fr r_inv_shift = r_inv;
+            for (size_t k = 1; k < shift_exponent; ++k) {
+                r_inv_shift *= r_inv;
+            }
+            Fr sign = (shift_exponent % 2 == 1) ? -Fr(1) : Fr(1);
             shifted->scalar =
-                r_challenge.invert() * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
+                r_inv_shift * (inverse_vanishing_eval_pos + sign * nu_challenge * inverse_vanishing_eval_neg);
         }
     }
     /**

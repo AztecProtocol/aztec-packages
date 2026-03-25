@@ -24,6 +24,10 @@ struct Cli {
     #[arg(short, long)]
     #[arg(default_value_t = false)]
     yes: bool,
+
+    /// Interleaving batch size for multipcs (1 = no interleaving, 2, 4, ...)
+    #[arg(long, default_value_t = 1)]
+    batch_size: usize,
 }
 
 fn main() -> Result<(), io::Error> {
@@ -38,7 +42,7 @@ fn main() -> Result<(), io::Error> {
         panic!("Error: {}", e);
     }
 
-    analyzed_to_cpp(&analyzed, args.output_directory.as_deref(), &name, args.yes);
+    analyzed_to_cpp(&analyzed, args.output_directory.as_deref(), &name, args.yes, args.batch_size);
 
     Ok(())
 }

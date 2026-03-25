@@ -34,6 +34,7 @@ pub trait FlavorBuilder {
         to_be_shifted: &[String],
         shifted: &[String],
         all_cols_and_shifts: &[String],
+        batch_size: usize,
     );
 }
 
@@ -103,7 +104,11 @@ impl FlavorBuilder for BBFiles {
         to_be_shifted: &[String],
         shifted: &[String],
         all_cols_and_shifts: &[String],
+        batch_size: usize,
     ) {
+        assert!(batch_size.is_power_of_two(), "batch_size must be a power of 2");
+        let log2_batch_size = batch_size.trailing_zeros() as usize;
+
         let mut handlebars = Handlebars::new();
 
         let data = &json!({
@@ -117,6 +122,8 @@ impl FlavorBuilder for BBFiles {
             "shifted": shifted,
             "all_cols_and_shifts": all_cols_and_shifts,
             "witness_without_inverses": witness_without_inverses,
+            "batch_size": batch_size,
+            "log2_batch_size": log2_batch_size,
         });
 
         handlebars_helper!(join: |*args|
