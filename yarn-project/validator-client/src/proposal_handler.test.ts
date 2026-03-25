@@ -1,14 +1,15 @@
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { FieldsOf } from '@aztec/foundation/types';
+import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import type { ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
+import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -20,7 +21,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import { CheckpointProposalHandler } from './checkpoint_proposal_handler.js';
+import { ProposalHandler } from './proposal_handler.js';
 
 /** Creates a checkpoint proposal core with the given overrides. */
 async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>[0] = {}) {
@@ -32,14 +33,16 @@ async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>
   ).toCore();
 }
 
-describe('CheckpointProposalHandler', () => {
-  let handler: CheckpointProposalHandler;
+describe('ProposalHandler checkpoint validation', () => {
+  let handler: ProposalHandler;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let dateProvider: TestDateProvider;
   let config: ValidatorClientFullConfig;
+
+  const proposalInfo = {};
 
   beforeEach(() => {
     blockSource = mock<L2BlockSource & L2BlockSink>();
@@ -69,14 +72,18 @@ describe('CheckpointProposalHandler', () => {
 
     config = {} as ValidatorClientFullConfig;
 
-    handler = new CheckpointProposalHandler(
+    handler = new ProposalHandler(
       checkpointsBuilder,
+      mock<WorldStateSynchronizer>(),
       blockSource,
       l1ToL2MessageSource,
+      mock<ITxProvider>(),
+      mock<BlockProposalValidator>(),
       epochCache,
       config,
+      mock<BlobClientInterface>(),
+      undefined, // metrics
       dateProvider,
-      createLogger('test:checkpoint-proposal-handler'),
     );
   });
 
@@ -85,28 +92,28 @@ describe('CheckpointProposalHandler', () => {
       const proposal = await makeProposal();
       jest.spyOn(proposal, 'getSender').mockReturnValue(undefined);
 
-      const result = await handler.handleCheckpointProposal(proposal);
-      expect(result).toEqual({ isValid: false, reason: 'invalid_proposal' });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'invalid_signature' });
     });
 
     it('rejects proposals with invalid feeAssetPriceModifier (too negative)', async () => {
       const proposal = await makeProposal({ feeAssetPriceModifier: -MAX_FEE_ASSET_PRICE_MODIFIER_BPS - 1n });
 
-      const result = await handler.handleCheckpointProposal(proposal);
-      expect(result).toEqual({ isValid: false, reason: 'invalid_proposal' });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'invalid_fee_asset_price_modifier' });
     });
 
     it('rejects proposals with invalid feeAssetPriceModifier (too positive)', async () => {
       const proposal = await makeProposal({ feeAssetPriceModifier: MAX_FEE_ASSET_PRICE_MODIFIER_BPS + 1n });
 
-      const result = await handler.handleCheckpointProposal(proposal);
-      expect(result).toEqual({ isValid: false, reason: 'invalid_proposal' });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'invalid_fee_asset_price_modifier' });
     });
 
     it('returns last_block_not_found when block is not found before timeout', async () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
 
-      const result = await handler.handleCheckpointProposal(await makeProposal());
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
     });
 
@@ -114,7 +121,7 @@ describe('CheckpointProposalHandler', () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
       blockSource.getBlocksForSlot.mockResolvedValue([]);
 
-      const result = await handler.handleCheckpointProposal(await makeProposal());
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot' });
     });
 
@@ -128,7 +135,7 @@ describe('CheckpointProposalHandler', () => {
 
       const proposal = await makeProposal({ archiveRoot: Fr.random() });
 
-      const result = await handler.handleCheckpointProposal(proposal);
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'last_block_archive_mismatch' });
     });
 
@@ -136,14 +143,14 @@ describe('CheckpointProposalHandler', () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
       const proposal = await makeProposal();
 
-      const result1 = await handler.handleCheckpointProposal(proposal);
+      const result1 = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result1.isValid).toBe(false);
 
       // Reset mocks to verify they're NOT called again
       blockSource.getBlockHeaderByArchive.mockClear();
       blockSource.syncImmediate.mockClear();
 
-      const result2 = await handler.handleCheckpointProposal(proposal);
+      const result2 = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result2).toEqual(result1);
       expect(blockSource.syncImmediate).not.toHaveBeenCalled();
     });
@@ -151,17 +158,17 @@ describe('CheckpointProposalHandler', () => {
     it('does not use cache for a different proposal', async () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
 
-      await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }));
+      await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }), proposalInfo);
       blockSource.syncImmediate.mockClear();
 
-      await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }));
+      await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }), proposalInfo);
       expect(blockSource.syncImmediate).toHaveBeenCalled();
     });
 
     it('returns block_fetch_error when getBlockHeaderByArchive throws', async () => {
       blockSource.getBlockHeaderByArchive.mockRejectedValue(new Error('db connection failed'));
 
-      const result = await handler.handleCheckpointProposal(await makeProposal());
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'block_fetch_error' });
     });
   });
@@ -170,7 +177,7 @@ describe('CheckpointProposalHandler', () => {
     const archiveRoot = Fr.random();
     const checkpointOutHash = Fr.random();
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
-    let mockFork: { close: jest.Mock };
+    let mockDispose: jest.Mock;
 
     /** Sets up mocks so the handler passes all early checks and reaches the checkpoint rebuild path. */
     function setupDeepValidationMocks(computedCheckpoint: Partial<Checkpoint>) {
@@ -185,8 +192,8 @@ describe('CheckpointProposalHandler', () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
       blockSource.getBlocksForSlot.mockResolvedValue([block]);
 
-      mockFork = { close: jest.fn() };
-      checkpointsBuilder.getFork.mockResolvedValue(mockFork as any);
+      mockDispose = jest.fn();
+      checkpointsBuilder.getFork.mockResolvedValue({ [Symbol.asyncDispose]: mockDispose } as any);
 
       mockCheckpointBuilder = mock<CheckpointBuilder>();
       mockCheckpointBuilder.completeCheckpoint.mockResolvedValue({
@@ -219,9 +226,9 @@ describe('CheckpointProposalHandler', () => {
       setupDeepValidationMocks({ header: computedHeader });
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: proposalHeader });
-      const result = await handler.handleCheckpointProposal(proposal);
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'checkpoint_header_mismatch' });
-      expect(mockFork.close).toHaveBeenCalled();
+      expect(mockDispose).toHaveBeenCalled();
     });
 
     it('returns archive_mismatch when computed archive differs from proposal', async () => {
@@ -233,7 +240,7 @@ describe('CheckpointProposalHandler', () => {
       });
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
-      const result = await handler.handleCheckpointProposal(proposal);
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'archive_mismatch' });
     });
 
@@ -246,7 +253,7 @@ describe('CheckpointProposalHandler', () => {
       });
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
-      const result = await handler.handleCheckpointProposal(proposal);
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch' });
     });
 
@@ -261,7 +268,7 @@ describe('CheckpointProposalHandler', () => {
       });
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
-      const result = await handler.handleCheckpointProposal(proposal);
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'checkpoint_validation_failed' });
     });
 
@@ -301,17 +308,17 @@ describe('CheckpointProposalHandler', () => {
       });
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
-      const result = await handler.handleCheckpointProposal(proposal);
-      expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
-      expect(mockFork.close).toHaveBeenCalled();
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: true });
+      expect(mockDispose).toHaveBeenCalled();
     });
 
-    it('closes the fork even when validation fails', async () => {
+    it('disposes fork even when validation fails', async () => {
       setupDeepValidationMocks({ header: CheckpointHeader.empty() });
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
-      await handler.handleCheckpointProposal(proposal);
-      expect(mockFork.close).toHaveBeenCalled();
+      await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(mockDispose).toHaveBeenCalled();
     });
   });
 });

@@ -1,6 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import { BlockProposalValidator, type P2PClient } from '@aztec/p2p';
@@ -11,7 +10,6 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import { CheckpointProposalHandler } from './checkpoint_proposal_handler.js';
 import { ValidatorMetrics } from './metrics.js';
 import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -48,28 +46,6 @@ export function createProposalHandler(
     metrics,
     deps.dateProvider,
     deps.telemetry,
-  );
-}
-
-export function createCheckpointProposalHandler(
-  config: ValidatorClientFullConfig,
-  deps: {
-    checkpointsBuilder: FullNodeCheckpointsBuilder;
-    blockSource: L2BlockSource & L2BlockSink;
-    l1ToL2MessageSource: L1ToL2MessageSource;
-    epochCache: EpochCache;
-    dateProvider: DateProvider;
-    telemetry: TelemetryClient;
-  },
-) {
-  return new CheckpointProposalHandler(
-    deps.checkpointsBuilder,
-    deps.blockSource,
-    deps.l1ToL2MessageSource,
-    deps.epochCache,
-    config,
-    deps.dateProvider,
-    createLogger('validator:checkpoint-proposal-handler'),
   );
 }
 

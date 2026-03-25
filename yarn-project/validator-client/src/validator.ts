@@ -1,4 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockNumber,
@@ -53,7 +54,6 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import { CheckpointProposalHandler } from './checkpoint_proposal_handler.js';
 import { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -103,7 +103,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private proposalHandler: ProposalHandler,
-    private checkpointProposalHandler: CheckpointProposalHandler,
     private blockSource: L2BlockSource,
     private checkpointsBuilder: FullNodeCheckpointsBuilder,
     private worldState: WorldStateSynchronizer,
@@ -220,16 +219,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
-    const checkpointProposalHandler = new CheckpointProposalHandler(
-      checkpointsBuilder,
-      blockSource,
-      l1ToL2MessageSource,
-      epochCache,
-      config,
-      dateProvider,
-      createLogger('validator:checkpoint-proposal-handler'),
-    );
-
     const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
     let slashingProtectionSigner: ValidatorHASigner;
     if (slashingProtectionDb) {
@@ -264,7 +253,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       epochCache,
       p2pClient,
       proposalHandler,
-      checkpointProposalHandler,
       blockSource,
       checkpointsBuilder,
       worldState,
@@ -524,24 +512,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       fishermanMode: this.config.fishermanMode || false,
     });
 
-    // WORKTODO: consolidate functionality here
-    // Validate the checkpoint proposal and upload blobs (unless skipCheckpointProposalValidation is set)
-    if (this.config.skipCheckpointProposalValidation) {
-      this.log.warn(`Skipping checkpoint proposal validation for slot ${proposalSlotNumber}`, proposalInfo);
-    } else {
-      const validationResult = await this.proposalHandler.handleCheckpointProposal(proposal, proposalInfo);
-      if (!validationResult.isValid) {
-        this.log.warn(`Checkpoint proposal validation failed: ${validationResult.reason}`, proposalInfo);
-        return undefined;
-      }
-    }
-
-    // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set)
+    // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set).
     // Uses the cached result from the all-nodes callback if available (avoids double validation).
     if (this.config.skipCheckpointProposalValidation) {
       this.log.warn(`Skipping checkpoint proposal validation for slot ${proposalSlotNumber}`, proposalInfo);
     } else {
-      const validationResult = await this.checkpointProposalHandler.handleCheckpointProposal(proposal);
+      const validationResult = await this.proposalHandler.handleCheckpointProposal(proposal, proposalInfo);
       if (!validationResult.isValid) {
         this.log.warn(`Checkpoint proposal validation failed: ${validationResult.reason}`, proposalInfo);
         return undefined;

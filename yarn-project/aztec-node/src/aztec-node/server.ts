@@ -111,7 +111,6 @@ import {
   NodeKeystoreAdapter,
   ValidatorClient,
   createProposalHandler,
-  createCheckpointProposalHandler,
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
@@ -410,7 +409,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // If there's no validator client, create a ProposalHandler to handle block and checkpoint proposals
     // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
     // while non-reexecution is used for validating the proposals and collecting their txs.
-    // Checkpoint proposals are handled if the blob client can upload blobs.
+    // Checkpoint proposals rebuild blobs if the blob client can upload blobs.
     if (!validatorClient) {
       const reexecute = !!config.alwaysReexecuteBlockProposals;
       log.info(`Setting up proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
@@ -424,7 +423,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         blobClient,
         dateProvider,
         telemetry,
-      }).register(p2pClient, reexecute);
+      }).register(p2pClient, reexecute, archiver);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -620,19 +619,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       debugLogStore,
     );
 
-    // Register checkpoint proposal handler for all nodes.
-    // Validates proposals before setting proposed checkpoint on archiver.
-    const getValidatorAddresses = validatorClient
-      ? () => validatorClient.getValidatorAddresses().map(a => a.toString())
-      : undefined;
-    createCheckpointProposalHandler(config, {
-      checkpointsBuilder: validatorCheckpointsBuilder,
-      blockSource: archiver,
-      l1ToL2MessageSource: archiver,
-      epochCache,
-      dateProvider,
-      telemetry,
-    }).register(p2pClient, archiver, getValidatorAddresses);
+    // For validator nodes, register the all-nodes checkpoint proposal handler via the ProposalHandler.
+    // Non-validator nodes already registered via ProposalHandler.register() above.
+    if (validatorClient) {
+      const getValidatorAddresses = () => validatorClient.getValidatorAddresses().map(a => a.toString());
+      validatorClient.getProposalHandler().register(p2pClient, false, archiver, getValidatorAddresses);
+    }
 
     return node;
   }

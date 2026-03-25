@@ -35,7 +35,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import { CheckpointProposalHandler } from './checkpoint_proposal_handler.js';
 import type { ValidatorClientConfig } from './config.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -213,21 +212,11 @@ describe('ValidatorClient HA Integration', () => {
       getTelemetryClient(),
     );
 
-    const checkpointProposalHandler = new CheckpointProposalHandler(
-      checkpointsBuilder,
-      blockSource,
-      l1ToL2MessageSource,
-      epochCache,
-      config,
-      dateProvider,
-    );
-
     const validator = new TestValidatorClient(
       haKeyStore,
       epochCache,
       p2pClient,
       proposalHandler,
-      checkpointProposalHandler,
       blockSource,
       checkpointsBuilder,
       worldState,
@@ -250,7 +239,6 @@ describe('ValidatorClient HA Integration', () => {
       epochCache: EpochCache,
       p2pClient: P2P,
       proposalHandler: ProposalHandler,
-      checkpointProposalHandler: CheckpointProposalHandler,
       blockSource: L2BlockSource,
       checkpointsBuilder: FullNodeCheckpointsBuilder,
       worldState: WorldStateSynchronizer,
@@ -266,7 +254,6 @@ describe('ValidatorClient HA Integration', () => {
         epochCache,
         p2pClient,
         proposalHandler,
-        checkpointProposalHandler,
         blockSource,
         checkpointsBuilder,
         worldState,
