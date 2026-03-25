@@ -6,8 +6,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds
 # with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
 # that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
+# Hash depends on codegen generation hash (which transitively depends on cpp hash)
+# plus our own source files, release status, and AVM transpiler setting.
 hash=$(hash_str \
-  $(../cpp/bootstrap.sh hash) \
+  $(../codegen/bootstrap.sh generate_hash) \
   $(cache_content_hash .rebuild_patterns) \
   $(semver check $REF_NAME && echo 1 || echo 0) \
   ${AVM_TRANSPILER:-1})
@@ -19,7 +21,9 @@ function build {
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
-    yarn generate
+    # Note: yarn generate is no longer called here.
+    # Generated files are produced by barretenberg/codegen/bootstrap.sh generate
+    # which runs as the bb-generate Makefile target before bb-ts.
     yarn build:wasm
     yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser

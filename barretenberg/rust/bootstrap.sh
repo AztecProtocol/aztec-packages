@@ -2,15 +2,15 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Hash depends on ts because ts generates the Rust bindings
-hash=$(hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+# Hash depends on codegen generation hash (which transitively depends on cpp hash)
+hash=$(hash_str $(../codegen/bootstrap.sh generate_hash) $(cache_content_hash .rebuild_patterns))
 
 function build {
   echo_header "barretenberg-rs build"
 
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
-    # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
-    (cd ../ts && yarn generate)
+    # Generated Rust bindings are produced by barretenberg/codegen/bootstrap.sh generate
+    # which runs as the bb-generate Makefile target before bb-rs.
 
     # Build all targets
     # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
@@ -56,8 +56,8 @@ function release {
 
   # Generated files must exist (created during build step, or generate now)
   if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
-    echo "Generated files not found, running yarn generate..."
-    (cd ../ts && yarn generate)
+    echo "Generated files not found, running codegen..."
+    (cd ../codegen && ./bootstrap.sh generate)
   fi
 
   # Check if this version is already published on crates.io (idempotent re-runs).

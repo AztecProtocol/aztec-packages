@@ -207,16 +207,24 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
-# BB TypeScript - TypeScript bindings
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
+# BB Codegen - standalone code generation tool
+bb-codegen:
+	$(call build,$@,barretenberg/codegen)
+
+# BB Generate - run codegen to produce bindings for all consumers
+bb-generate: bb-codegen bb-cpp-native
+	$(call build,$@,barretenberg/codegen,generate)
+
+# BB TypeScript - TypeScript bindings (generated files from bb-generate)
+bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native bb-generate
 	$(call build,$@,barretenberg/ts)
 
 # Copies the cross-compiles into bb.js.
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy)
 
-# BB Rust - barretenberg-rs FFI crate
-bb-rs: bb-ts bb-cpp-native
+# BB Rust - barretenberg-rs FFI crate (generated files from bb-generate)
+bb-rs: bb-generate bb-cpp-native
 	$(call build,$@,barretenberg/rust)
 
 # BB ACIR Tests - ACIR compatibility tests
