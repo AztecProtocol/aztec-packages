@@ -757,6 +757,10 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                             af.chonk_recursion_constraints.push_back(c);
                             af.original_opcode_indices.chonk_recursion_constraints.push_back(opcode_index);
                             break;
+                        case ULTRA_GOBLIN:
+                            af.honk_recursion_constraints.push_back(c);
+                            af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
+                            break;
                         default:
                             bb::assert_failure(
                                 "acir_format::handle_black_box_fun_call: Invalid PROOF_TYPE in RecursionConstraint.");

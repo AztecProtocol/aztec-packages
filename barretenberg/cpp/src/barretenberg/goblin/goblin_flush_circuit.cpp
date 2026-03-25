@@ -13,7 +13,7 @@ UltraCircuitBuilder build_goblin_flush_circuit(const GoblinProof& native_proof,
     using RecursiveCommitment = Curve::AffineElement;
     using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeCommitments;
     using Transcript = UltraStdlibTranscript;
-    using GoblinFlushIO = stdlib::recursion::honk::GoblinFlushIO;
+    using GoblinFlushIO = stdlib::recursion::honk::GoblinFlushIO<Builder>;
 
     Builder builder;
 

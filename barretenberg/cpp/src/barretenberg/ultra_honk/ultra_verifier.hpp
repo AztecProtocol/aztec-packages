@@ -27,12 +27,16 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     using FF = typename Curve::ScalarField;
     using G1 = typename Curve::Group;
 
+    using TableCommitments = std::array<G1, MEGA_EXECUTION_TRACE_NUM_WIRES>;
+
     PairingPoints<Curve> points_accumulator;
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
     G1 kernel_return_data;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments (HidingKernel/Chonk only)
-    FF transcript_hash; // The final state of the transcript of the AVM recursive verifier (GoblinAvm only)
+    FF transcript_hash;            // The final state of the transcript of the AVM recursive verifier (GoblinAvm only)
+    TableCommitments T_prev_flush; // Merge T_prev commitments (GoblinFlush only)
+    TableCommitments t_flush;      // Merge subtable commitments (GoblinFlush only)
 
     UltraRecursiveVerifierOutput() = default;
 
@@ -45,6 +49,10 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
             ecc_op_tables = inputs.ecc_op_tables;
         } else if constexpr (std::is_same_v<IO, GoblinAvmIO<Builder>>) {
             transcript_hash = inputs.transcript_hash;
+        } else if constexpr (std::is_same_v<IO, GoblinFlushIO<Builder>>) {
+            ipa_claim = inputs.ipa_claim;
+            T_prev_flush = inputs.T_prev;
+            t_flush = inputs.t;
         } else if constexpr (!std::is_same_v<IO, DefaultIO<Builder>>) {
             throw_or_abort("Invalid public input type.");
         }
