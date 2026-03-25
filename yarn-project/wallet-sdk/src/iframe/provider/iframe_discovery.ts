@@ -31,16 +31,23 @@ const PROBE_TIMEOUT_MS = 10_000;
 export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): DiscoverySession {
   const { promise: donePromise, resolve: resolveDone } = promiseWithResolvers<void>();
 
-  let cancelled = false;
+  /* eslint-disable jsdoc/require-jsdoc */
+  type IteratorState =
+    | { status: 'discovering'; resolve: ((result: IteratorResult<WalletProvider>) => void) | null }
+    | { status: 'done' };
+  /* eslint-enable jsdoc/require-jsdoc */
+
+  let state: IteratorState = { status: 'discovering', resolve: null };
   const pendingProviders: WalletProvider[] = [];
-  let pendingResolve: ((result: IteratorResult<WalletProvider>) => void) | null = null;
-  let completed = false;
 
   // eslint-disable-next-line jsdoc/require-jsdoc
   function emit(provider: WalletProvider) {
-    if (pendingResolve) {
-      const resolve = pendingResolve;
-      pendingResolve = null;
+    if (state.status !== 'discovering') {
+      return;
+    }
+    if (state.resolve) {
+      const resolve = state.resolve;
+      state.resolve = null;
       resolve({ value: provider, done: false });
     } else {
       pendingProviders.push(provider);
@@ -49,12 +56,14 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
 
   // eslint-disable-next-line jsdoc/require-jsdoc
   function markComplete() {
-    completed = true;
+    if (state.status !== 'discovering') {
+      return;
+    }
+    const pendingResolve = state.resolve;
+    state = { status: 'done' };
     resolveDone();
     if (pendingResolve) {
-      const resolve = pendingResolve;
-      pendingResolve = null;
-      resolve({ value: undefined as unknown as WalletProvider, done: true });
+      pendingResolve({ value: undefined as unknown as WalletProvider, done: true });
     }
   }
 
@@ -62,7 +71,7 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
   const probes = walletUrls.map(url =>
     probeWallet(url, chainInfo, PROBE_TIMEOUT_MS).then(
       provider => {
-        if (!cancelled && provider) {
+        if (provider) {
           emit(provider);
         }
       },
@@ -72,11 +81,7 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
     ),
   );
 
-  void Promise.all(probes).then(() => {
-    if (!cancelled) {
-      markComplete();
-    }
-  });
+  void Promise.all(probes).then(markComplete);
 
   const wallets: AsyncIterable<WalletProvider> = {
     // eslint-disable-next-line jsdoc/require-jsdoc
@@ -84,14 +89,16 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
       return {
         // eslint-disable-next-line jsdoc/require-jsdoc
         next(): Promise<IteratorResult<WalletProvider>> {
-          if (completed && pendingProviders.length === 0) {
-            return Promise.resolve({ value: undefined as unknown as WalletProvider, done: true });
-          }
           if (pendingProviders.length > 0) {
             return Promise.resolve({ value: pendingProviders.shift()!, done: false });
           }
+          if (state.status === 'done') {
+            return Promise.resolve({ value: undefined as unknown as WalletProvider, done: true });
+          }
           return new Promise(resolve => {
-            pendingResolve = resolve;
+            if (state.status === 'discovering') {
+              state.resolve = resolve;
+            }
           });
         },
         // eslint-disable-next-line jsdoc/require-jsdoc
@@ -106,10 +113,7 @@ export function discoverWebWallets(walletUrls: string[], chainInfo: ChainInfo): 
   return {
     wallets,
     done: donePromise,
-    cancel: () => {
-      cancelled = true;
-      markComplete();
-    },
+    cancel: markComplete,
   };
 }
 

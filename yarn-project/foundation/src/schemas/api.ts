@@ -37,7 +37,10 @@ export type ApiSchema = {
 };
 
 /** Return whether an API schema defines a valid function schema for a given method name. */
-export function schemaHasMethod(schema: ApiSchema, methodName: string) {
+export function schemaHasMethod<T extends ApiSchema>(
+  schema: T,
+  methodName: string,
+): methodName is Extract<keyof T, string> {
   return (
     typeof methodName === 'string' &&
     Object.hasOwn(schema, methodName) &&

@@ -287,7 +287,8 @@ export class IframeConnectionHandler {
       if (!schemaHasMethod(WalletSchema, type)) {
         throw new Error(`Unknown wallet method: ${type}`);
       }
-      const sanitizedArgs = await parseWithOptionals(args, (WalletSchema as any)[type].parameters());
+      // Zod's AnyZodTuple rejects optional tuple items typed as `T | undefined`
+      const sanitizedArgs = await parseWithOptionals(args, WalletSchema[type].parameters() as any);
       result = await (wallet as Record<string, (...a: unknown[]) => Promise<unknown>>)[type](...sanitizedArgs);
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : String(err);

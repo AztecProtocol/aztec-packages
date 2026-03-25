@@ -89,8 +89,7 @@ export class WalletManager {
 
     const { promise: donePromise, resolve: resolveDone } = promiseWithResolvers<void>();
 
-    // Track how many discovery sources are still running
-    let pendingSources = 0;
+    const pendingSources = new Set<string>();
 
     const emit = (provider: WalletProvider) => {
       options.onWalletDiscovered?.(provider);
@@ -114,15 +113,15 @@ export class WalletManager {
       }
     };
 
-    const sourceComplete = () => {
-      pendingSources--;
-      if (pendingSources <= 0) {
+    const sourceComplete = (source: string) => {
+      pendingSources.delete(source);
+      if (pendingSources.size === 0) {
         markComplete();
       }
     };
 
     if (this.config.extensions?.enabled) {
-      pendingSources++;
+      pendingSources.add('extensions');
       const extensionConfig = this.config.extensions;
 
       void ExtensionProvider.discoverWallets(chainInfo, {
@@ -135,11 +134,11 @@ export class WalletManager {
             emit(provider);
           }
         },
-      }).then(sourceComplete);
+      }).then(() => sourceComplete('extensions'));
     }
 
     if (this.config.webWallets?.urls && this.config.webWallets.urls.length > 0) {
-      pendingSources++;
+      pendingSources.add('webWallets');
       const webSession = discoverWebWallets(this.config.webWallets.urls, chainInfo);
 
       // Forward discovered web wallets into the shared iterator
@@ -152,14 +151,14 @@ export class WalletManager {
             emit(provider);
           }
         } finally {
-          sourceComplete();
+          sourceComplete('webWallets');
         }
       })();
 
       abortController.signal.addEventListener('abort', () => webSession.cancel(), { once: true });
     }
 
-    if (pendingSources === 0) {
+    if (pendingSources.size === 0) {
       markComplete();
     }
 
