@@ -1,26 +1,28 @@
 /**
- * Echo IPC client (C++) — connects, sends test commands, verifies responses.
+ * Echo IPC client (C++) — uses GENERATED types for serialization.
  * Usage: echo_client --socket /tmp/echo.sock
  * Exits 0 on success, 1 on failure.
- *
- * Standalone — uses raw msgpack-c and UDS, no barretenberg deps.
  */
 
+#include "generated/echo_types.hpp"
 #include "echo_common.hpp"
 #include <iostream>
 #include <cassert>
 #include <string_view>
 
-// Send a command and receive a NamedUnion response
+using namespace echo;
+
+// Send a command using GENERATED types and receive a NamedUnion response
+template <typename Cmd>
 static std::pair<std::string, msgpack::object_handle>
-send_recv(int fd, const std::string& cmd_name, const auto& fields) {
-    // Serialize as [[cmdName, fields]]
+send_recv(int fd, const std::string& cmd_name, const Cmd& cmd) {
+    // Serialize as [[cmdName, fields]] using generated MSGPACK_DEFINE_MAP
     msgpack::sbuffer buf;
     msgpack::packer<msgpack::sbuffer> pk(buf);
     pk.pack_array(1);
     pk.pack_array(2);
     pk.pack(cmd_name);
-    pk.pack(fields);
+    pk.pack(cmd);  // Uses generated MSGPACK_DEFINE_MAP
 
     send_framed(fd, buf.data(), buf.size());
 
@@ -28,7 +30,6 @@ send_recv(int fd, const std::string& cmd_name, const auto& fields) {
     auto oh = msgpack::unpack(reinterpret_cast<const char*>(resp.data()), resp.size());
     auto obj = oh.get();
     std::string resp_name(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
-    // Return the handle to keep the object alive
     return { resp_name, std::move(oh) };
 }
 
@@ -46,27 +47,23 @@ int main(int argc, char** argv) {
 
     int fd = connect_socket(socket_path);
 
-    // Test 1: EchoBytes
+    // Test 1: EchoBytes — using GENERATED type
     {
-        EchoBytes cmd;
-        cmd.data = { 0xDE, 0xAD, 0xBE, 0xEF, 0x42 };
+        EchoBytes cmd{ .data = { 0xDE, 0xAD, 0xBE, 0xEF, 0x42 } };
         auto [name, oh] = send_recv(fd, "EchoBytes", cmd);
         assert(name == "EchoBytesResponse");
-        EchoBytes resp;
-        oh.get().via.array.ptr[1].convert(resp);
+        EchoBytesResponse resp;
+        oh.get().via.array.ptr[1].convert(resp);  // Deserialize using GENERATED type
         assert(resp.data == cmd.data);
         std::cerr << "echo_client(cpp): EchoBytes OK\n";
     }
 
-    // Test 2: EchoFields
+    // Test 2: EchoFields — using GENERATED type
     {
-        EchoFields cmd;
-        cmd.a = 42;
-        cmd.b = 999999;
-        cmd.name = "hello wire compat";
+        EchoFields cmd{ .a = 42, .b = 999999, .name = "hello wire compat" };
         auto [name, oh] = send_recv(fd, "EchoFields", cmd);
         assert(name == "EchoFieldsResponse");
-        EchoFields resp;
+        EchoFieldsResponse resp;
         oh.get().via.array.ptr[1].convert(resp);
         assert(resp.a == 42);
         assert(resp.b == 999999);
@@ -74,14 +71,14 @@ int main(int argc, char** argv) {
         std::cerr << "echo_client(cpp): EchoFields OK\n";
     }
 
-    // Test 3: EchoNested
+    // Test 3: EchoNested — using GENERATED type
     {
         EchoNested cmd;
         cmd.inner.values = { {1, 2, 3}, {4, 5} };
         cmd.inner.flag = true;
         auto [name, oh] = send_recv(fd, "EchoNested", cmd);
         assert(name == "EchoNestedResponse");
-        EchoNested resp;
+        EchoNestedResponse resp;
         oh.get().via.array.ptr[1].convert(resp);
         assert(resp.inner.values == cmd.inner.values);
         assert(resp.inner.flag == cmd.inner.flag);
@@ -90,18 +87,14 @@ int main(int argc, char** argv) {
 
     // Shutdown
     {
-        msgpack::sbuffer empty;
-        msgpack::packer<msgpack::sbuffer> pk(empty);
-        pk.pack_map(0);
-
+        EchoShutdown cmd;
         msgpack::sbuffer buf;
-        msgpack::packer<msgpack::sbuffer> pk2(buf);
-        pk2.pack_array(1);
-        pk2.pack_array(2);
-        pk2.pack(std::string("EchoShutdown"));
-        pk2.pack_map(0);
+        msgpack::packer<msgpack::sbuffer> pk(buf);
+        pk.pack_array(1);
+        pk.pack_array(2);
+        pk.pack(std::string("EchoShutdown"));
+        pk.pack(cmd);
         send_framed(fd, buf.data(), buf.size());
-        // Read shutdown response (may or may not arrive)
         try { recv_framed(fd); } catch (...) {}
     }
 

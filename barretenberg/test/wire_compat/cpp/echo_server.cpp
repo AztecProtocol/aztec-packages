@@ -1,13 +1,14 @@
 /**
- * Echo IPC server (C++) — echoes commands back as responses.
+ * Echo IPC server (C++) — uses GENERATED types for serialization.
  * Usage: echo_server --socket /tmp/echo.sock
- *
- * Standalone — uses raw msgpack-c and UDS, no barretenberg deps.
  */
 
+#include "generated/echo_types.hpp"
 #include "echo_common.hpp"
 #include <iostream>
 #include <string_view>
+
+using namespace echo;
 
 int main(int argc, char** argv) {
     const char* socket_path = nullptr;
@@ -38,38 +39,38 @@ int main(int argc, char** argv) {
         // Deserialize: [[commandName, {fields}]]
         auto oh = msgpack::unpack(reinterpret_cast<const char*>(payload.data()), payload.size());
         auto obj = oh.get();
-
-        // Outer array (tuple wrapper)
         auto& inner = obj.via.array.ptr[0];
-        // NamedUnion: [name, payload]
         std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
         auto& cmd_payload = inner.via.array.ptr[1];
 
         msgpack::sbuffer resp_buf;
         bool is_shutdown = false;
 
+        // Dispatch using GENERATED types for deserialization/serialization
         if (cmd_name == "EchoBytes") {
             EchoBytes cmd;
             cmd_payload.convert(cmd);
-            // Response: ["EchoBytesResponse", {data}]
+            EchoBytesResponse resp{ .data = cmd.data };
             msgpack::packer<msgpack::sbuffer> pk(resp_buf);
             pk.pack_array(2);
             pk.pack(std::string("EchoBytesResponse"));
-            pk.pack(cmd); // Echo back
+            pk.pack(resp);
         } else if (cmd_name == "EchoFields") {
             EchoFields cmd;
             cmd_payload.convert(cmd);
+            EchoFieldsResponse resp{ .a = cmd.a, .b = cmd.b, .name = cmd.name };
             msgpack::packer<msgpack::sbuffer> pk(resp_buf);
             pk.pack_array(2);
             pk.pack(std::string("EchoFieldsResponse"));
-            pk.pack(cmd);
+            pk.pack(resp);
         } else if (cmd_name == "EchoNested") {
             EchoNested cmd;
             cmd_payload.convert(cmd);
+            EchoNestedResponse resp{ .inner = cmd.inner };
             msgpack::packer<msgpack::sbuffer> pk(resp_buf);
             pk.pack_array(2);
             pk.pack(std::string("EchoNestedResponse"));
-            pk.pack(cmd);
+            pk.pack(resp);
         } else if (cmd_name == "EchoShutdown") {
             msgpack::packer<msgpack::sbuffer> pk(resp_buf);
             pk.pack_array(2);
@@ -77,16 +78,14 @@ int main(int argc, char** argv) {
             pk.pack_map(0);
             is_shutdown = true;
         } else {
+            EchoErrorResponse err{ .message = "Unknown command: " + cmd_name };
             msgpack::packer<msgpack::sbuffer> pk(resp_buf);
             pk.pack_array(2);
             pk.pack(std::string("EchoErrorResponse"));
-            pk.pack_map(1);
-            pk.pack(std::string("message"));
-            pk.pack(std::string("Unknown command: ") + cmd_name);
+            pk.pack(err);
         }
 
         send_framed(client_fd, resp_buf.data(), resp_buf.size());
-
         if (is_shutdown) break;
     }
 

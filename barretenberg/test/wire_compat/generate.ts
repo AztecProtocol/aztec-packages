@@ -1,16 +1,17 @@
 /**
  * Generate echo service bindings in all four languages from schema.json.
  *
- * Run: npx tsx generate.ts
+ * Run: node --experimental-strip-types --experimental-transform-types generate.ts
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { SchemaVisitor } from '../../ts/src/cbind/schema_visitor.js';
-import { TypeScriptCodegen } from '../../ts/src/cbind/typescript_codegen.js';
-import { RustCodegen } from '../../ts/src/cbind/rust_codegen.js';
-import { ZigCodegen } from '../../ts/src/cbind/zig_codegen.js';
+import { SchemaVisitor } from '../../codegen/src/schema_visitor.ts';
+import { TypeScriptCodegen } from '../../codegen/src/typescript_codegen.ts';
+import { RustCodegen } from '../../codegen/src/rust_codegen.ts';
+import { ZigCodegen } from '../../codegen/src/zig_codegen.ts';
+import { CppCodegen } from '../../codegen/src/cpp_codegen.ts';
 
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -50,11 +51,22 @@ writeFile('rust/src/generated_types.rs', rustGen.generateTypes(compiled));
 writeFile('rust/src/api.rs', rustGen.generateApi(compiled));
 writeFile('rust/src/server.rs', rustGen.generateServer(compiled));
 
+// --- C++ ---
+console.log('C++:');
+const cppGen = new CppCodegen({
+  namespace: 'echo',
+  prefix: 'Echo',
+  executeHeader: 'echo_execute.hpp',
+  commandsHeader: 'echo_commands.hpp',
+});
+// Standalone types — no barretenberg dependencies, just msgpack-c
+writeFile('cpp/generated/echo_types.hpp', cppGen.generateStandaloneTypes(compiled));
+
 // --- Zig ---
 console.log('Zig:');
 const zigGen = new ZigCodegen({ prefix: 'Echo', clientName: 'EchoClient' });
-writeFile('zig/generated_types.zig', zigGen.generateTypes(compiled));
-writeFile('zig/client.zig', zigGen.generateClient(compiled));
-writeFile('zig/server.zig', zigGen.generateServer(compiled));
+writeFile('zig/generated/generated_types.zig', zigGen.generateTypes(compiled));
+writeFile('zig/generated/client.zig', zigGen.generateClient(compiled));
+writeFile('zig/generated/server.zig', zigGen.generateServer(compiled));
 
 console.log('\nDone.');

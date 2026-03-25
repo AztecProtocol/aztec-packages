@@ -1,7 +1,7 @@
 #pragma once
 /**
- * Standalone echo IPC types and helpers for wire compat testing.
- * Uses raw msgpack-c, no barretenberg dependencies.
+ * UDS socket helpers for wire compat testing.
+ * Types are in generated/echo_types.hpp (produced by codegen).
  */
 
 // The Aztec fork of msgpack-c uses THROW/RETHROW macros instead of throw
@@ -14,48 +14,18 @@
 
 #include <msgpack.hpp>
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <vector>
-#include <array>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <cstring>
 #include <stdexcept>
 
-// NamedUnion encoding: [name, payload] as a 2-element array
-// For requests: [[name, payload]]
-// For responses: [name, payload]
-
-struct EchoInner {
-    std::vector<std::vector<uint8_t>> values;
-    std::optional<bool> flag;
-    MSGPACK_DEFINE_MAP(values, flag)
-};
-
-struct EchoBytes {
-    std::vector<uint8_t> data;
-    MSGPACK_DEFINE_MAP(data)
-};
-
-struct EchoFields {
-    uint32_t a;
-    uint64_t b;
-    std::string name;
-    MSGPACK_DEFINE_MAP(a, b, name)
-};
-
-struct EchoNested {
-    EchoInner inner;
-    MSGPACK_DEFINE_MAP(inner)
-};
-
 // --- Framing helpers ---
 
 inline void send_framed(int fd, const char* data, size_t len) {
     uint32_t net_len = static_cast<uint32_t>(len);
-    // Little-endian
     uint8_t header[4] = {
         static_cast<uint8_t>(net_len & 0xFF),
         static_cast<uint8_t>((net_len >> 8) & 0xFF),
