@@ -293,6 +293,11 @@ tests:
     owners:
       - *palla
 
+  - regex: "src/e2e_offchain_payment\\.test\\.ts"
+    error_regex: "reprocesses an offchain-delivered payment after an L1 reorg"
+    owners:
+      - *martin
+
   - regex: "bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
     error_regex: "core dumped"
     owners:
