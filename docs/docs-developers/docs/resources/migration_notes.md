@@ -17,7 +17,7 @@ All logs emitted through the Aztec.nr framework now include a domain-separated t
 - **Message delivery** (`DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG`): the discovery tag is the raw tag.
 - **Partial note completion logs** (`DOM_SEP__NOTE_COMPLETION_LOG_TAG`): the partial note's `commitment` field is the raw tag.
 
-The low-level emit methods now take `tag` as an explicit first parameter and have been renamed with an `_unsafe` suffix:
+The low-level emit methods now take `tag` as an explicit first parameter and have been renamed with an `_unsafe` suffix. Previously the tag was included as `log[0]` — it has now been extracted into its own parameter, and `log` no longer contains it:
 
 ```diff
 - context.emit_private_log(log, length);
@@ -34,7 +34,7 @@ Prefer the higher-level APIs (`emit` for events, `MessageDelivery` for messages)
 
 `emit_event_in_public` previously appended the event type selector as the last field. It now prepends a domain-separated tag at `fields[0]` instead. The payload after the tag contains only the serialized event fields.
 
-If you were reading public event logs manually (not via `getPublicEvents`), update your parsing:
+If you were reading public event directly from node logs (i.e. via `node.getPublicLogs` and not via `wallet.getPublicEvents`), update your parsing:
 
 ```diff
 - // Old: fields = [serialized_event..., event_type_selector]

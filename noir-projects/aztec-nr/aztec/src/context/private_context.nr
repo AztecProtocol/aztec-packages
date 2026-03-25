@@ -902,9 +902,8 @@ impl PrivateContext {
     pub fn emit_private_log_unsafe(&mut self, tag: Field, log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32) {
         let counter = self.next_counter();
         let full_log = [tag].concat(log);
-        let private_log =
-            PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }.count(counter);
-        self.private_logs.push(private_log);
+        self.private_logs.push(PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }
+            .count(counter));
     }
 
     // TODO: rename.
