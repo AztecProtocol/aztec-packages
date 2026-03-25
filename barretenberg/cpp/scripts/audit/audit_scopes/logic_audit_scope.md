@@ -1,6 +1,6 @@
 # External Audit Scope: Logic
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 
 Commit hash: Most recent commit on branch 'next'
 

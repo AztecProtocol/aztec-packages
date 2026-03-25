@@ -1,6 +1,6 @@
 # External Audit Scope: translator_vm
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 
 Commit hash: Most recent commit on branch 'next'
 
