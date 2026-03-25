@@ -437,14 +437,15 @@ namespace sha256;
     input_rounds_rem * ((1 - sel_is_input_round) * (1 - input_rounds_rem_inv) + input_rounds_rem_inv) - sel_is_input_round = 0;
 
     // Read input if we have not had an error from the previous temporality groups and this is an input round
+    // The errors are mutually exclusive (see explanations at END_ON_ERROR below).
     pol commit sel_read_input_from_memory;
-    sel_read_input_from_memory = sel * (1 - mem_out_of_range_err) * sel_is_input_round * (1 - sel_invalid_state_tag_err);
+    sel_read_input_from_memory = sel * (1 - mem_out_of_range_err - sel_invalid_state_tag_err) * sel_is_input_round;
 
     // Put the result of the input loads in to the corresponding w value
     // The w values contain the message schedule of the sha256 compression function
     // The first 16 values correspond to the 16 input values loaded here.
     pol commit input;
-    sel_is_input_round * (input - w) = 0;
+    sel_read_input_from_memory * (input - w) = 0;
     pol commit input_tag;
 
     #[MEM_INPUT_READ]
