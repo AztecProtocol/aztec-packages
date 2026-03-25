@@ -128,10 +128,7 @@ function execute-examples {
 }
 
 function test_cmds {
-  # Disabled: timing out on merge queue (~600s), blocked on proving block 64.
-  # See http://ci.aztec-labs.com/aabf2c7e271636a0
-  # echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
-  echo ""
+  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
 }
 
 function test {
