@@ -20,6 +20,7 @@ import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
 import { TypeScriptCodegen } from './typescript_codegen.js';
 import { RustCodegen, type RustCodegenOptions } from './rust_codegen.js';
 import { CppCodegen, type CppCodegenOptions } from './cpp_codegen.js';
+import { ZigCodegen, type ZigCodegenOptions } from './zig_codegen.js';
 
 const execAsync = promisify(exec);
 
@@ -195,8 +196,28 @@ function rustTarget(outputDir: string, opts?: RustCodegenOptions): LanguageTarge
 }
 
 // ---------------------------------------------------------------------------
+// Helper: create Zig target
+// ---------------------------------------------------------------------------
+function zigTarget(outputDir: string, opts?: ZigCodegenOptions): LanguageTarget {
+  return {
+    name: 'Zig',
+    enabled: true,
+    generate: (compiled, schemaHash) => {
+      const zigGen = new ZigCodegen(opts);
+      return [
+        { path: `${outputDir}/generated_types.zig`, content: zigGen.generateTypes(compiled, schemaHash) },
+        { path: `${outputDir}/client.zig`, content: zigGen.generateClient(compiled, schemaHash) },
+      ];
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Service definitions
 // ---------------------------------------------------------------------------
+
+/** Zig output base for IPC clients */
+const ZIG_IPC_BASE = '../../../zig/aztec-ipc/src';
 
 /** The main bb binary — used for general barretenberg API */
 const BB_SERVICE: ServiceConfig = {
@@ -239,6 +260,7 @@ const WSDB_SERVICE: ServiceConfig = {
       typesDocComment: 'Generated types for aztec-wsdb IPC protocol',
       apiDocComment: 'WSDB IPC client API',
     }),
+    zigTarget(`${ZIG_IPC_BASE}/wsdb`, { prefix: 'Wsdb', clientName: 'WsdbClient' }),
   ],
 };
 
@@ -268,6 +290,7 @@ const CDB_SERVICE: ServiceConfig = {
       typesDocComment: 'Generated types for aztec-cdb IPC protocol',
       apiDocComment: 'CDB IPC client API',
     }),
+    zigTarget(`${ZIG_IPC_BASE}/cdb`, { prefix: 'Cdb', clientName: 'CdbClient' }),
   ],
 };
 
@@ -288,6 +311,7 @@ const AVM_SERVICE: ServiceConfig = {
       typesDocComment: 'Generated types for aztec-avm IPC protocol',
       apiDocComment: 'AVM IPC client API',
     }),
+    zigTarget(`${ZIG_IPC_BASE}/avm`, { prefix: 'Avm', clientName: 'AvmClient' }),
   ],
 };
 
