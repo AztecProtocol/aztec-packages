@@ -41,4 +41,36 @@ if(NOT(FUZZING) AND NOT(WASM))
             -ldw -lelf
         )
     endif()
+
+    # Wire-format compatibility tests
+    # Uses the same pattern as barretenberg_module() for ABI compatibility with gtest.
+    add_library(
+        wsdb_wire_compat_test_objects
+        OBJECT
+        wsdb_wire_compat.test.cpp
+    )
+    target_link_libraries(
+        wsdb_wire_compat_test_objects
+        PRIVATE
+        barretenberg
+        world_state
+        GTest::gtest
+        GTest::gtest_main
+        GTest::gmock_main
+    )
+
+    add_executable(
+        wsdb_wire_compat_tests
+        $<TARGET_OBJECTS:wsdb_wire_compat_test_objects>
+    )
+    target_link_libraries(
+        wsdb_wire_compat_tests
+        PRIVATE
+        barretenberg
+        world_state
+        GTest::gtest
+        GTest::gtest_main
+        GTest::gmock_main
+    )
+    gtest_discover_tests(wsdb_wire_compat_tests)
 endif()
