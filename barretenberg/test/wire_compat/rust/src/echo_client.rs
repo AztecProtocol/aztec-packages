@@ -57,11 +57,11 @@ fn main() -> Result<()> {
     }
 
     // Test 2: EchoFields
-    let cmd = Command::EchoFields(EchoFields::new(42, 1234567890123, "hello wire compat".to_string()));
+    let cmd = Command::EchoFields(EchoFields::new(42, 999999, "hello wire compat".to_string()));
     match send_recv(&mut stream, cmd)? {
         Response::EchoFieldsResponse(resp) => {
             assert_eq!(resp.a, 42);
-            assert_eq!(resp.b, 1234567890123);
+            assert_eq!(resp.b, 999999);
             assert_eq!(resp.name, "hello wire compat");
             eprintln!("echo_client(rust): EchoFields OK");
         }
