@@ -10,8 +10,5 @@ dest
 package.tgz
 package
 
-# Generated files
-src/cbind/generated/
-src/aztec-cdb/generated/
-src/aztec-wsdb/generated/
-src/aztec-avm/generated/
+# Generated files are committed to git as baseline.
+# yarn generate overwrites them when C++ binaries are available.
