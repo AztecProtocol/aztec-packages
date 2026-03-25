@@ -101,7 +101,7 @@ TEST_F(GoblinFlushCircuitTests, IpaClaimConsistency)
     ASSERT_FALSE(builder.failed()) << builder.err();
 
     // Reconstruct GoblinFlushIO from the circuit's public inputs
-    using GoblinFlushIO = stdlib::recursion::honk::GoblinFlushIO;
+    using GoblinFlushIO = stdlib::recursion::honk::GoblinFlushIO<UltraCircuitBuilder>;
     using FF = stdlib::bn254<UltraCircuitBuilder>::ScalarField;
 
     std::vector<FF> public_inputs;

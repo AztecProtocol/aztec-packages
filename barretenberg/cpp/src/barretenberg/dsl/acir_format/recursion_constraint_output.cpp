@@ -24,6 +24,16 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
         this->nested_ipa_proofs.push_back(other.ipa_proof);
         this->nested_ipa_claims.push_back(other.ipa_claim);
     }
+
+    // Capture Goblin flush data if present (non-default T_prev indicates flush output)
+    if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        if (!this->has_goblin_flush) {
+            this->T_prev_flush = other.T_prev_flush;
+            this->t_flush = other.t_flush;
+        } else {
+            bb::assert_failure("Multiple GoblinFlush when only when is expected.");
+        }
+    }
 }
 
 template <typename Builder>
@@ -165,20 +175,36 @@ void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::finalize(MegaCircuitBui
                                                                   [[maybe_unused]] bool is_hn_recursion_constraints,
                                                                   [[maybe_unused]] bool has_ipa_claim)
 {
-    using IO = stdlib::recursion::honk::AppIO;
-
-    BB_ASSERT_EQ(
-        nested_ipa_claims.size(), static_cast<size_t>(0), "IPA claims present when not expected in MegaBuilder.");
-
     // If the recursion constraints from HN, the public inputs have already been set. Otherwise, we need to propagate
-    // the pairing points
+    // the pairing points (and flush data if present)
     if (!is_hn_recursion_constraints) {
-        if (points_accumulator.is_populated()) {
-            IO inputs;
-            inputs.pairing_inputs = points_accumulator;
+        if (has_goblin_flush) {
+            // A_G: propagate full GoblinFlushIO (pairing points + IPA claim + merge table commitments)
+            using FlushIO = stdlib::recursion::honk::GoblinFlushIO<MegaCircuitBuilder>;
+            BB_ASSERT_EQ(
+                nested_ipa_claims.size(), static_cast<size_t>(1), "Goblin flush must produce exactly one IPA claim.");
+            FlushIO inputs;
+            inputs.pairing_inputs =
+                points_accumulator.is_populated()
+                    ? points_accumulator
+                    : stdlib::recursion::PairingPoints<stdlib::bn254<MegaCircuitBuilder>>::construct_default();
+            inputs.ipa_claim = nested_ipa_claims[0];
+            inputs.T_prev = T_prev_flush;
+            inputs.t = t_flush;
             inputs.set_public();
+            builder.ipa_proof = nested_ipa_proofs[0].get_value();
         } else {
-            IO::add_default(builder);
+            using IO = stdlib::recursion::honk::AppIO;
+            BB_ASSERT_EQ(nested_ipa_claims.size(),
+                         static_cast<size_t>(0),
+                         "IPA claims present when not expected in MegaBuilder.");
+            if (points_accumulator.is_populated()) {
+                IO inputs;
+                inputs.pairing_inputs = points_accumulator;
+                inputs.set_public();
+            } else {
+                IO::add_default(builder);
+            }
         }
     }
 }

@@ -7,6 +7,7 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
+#include "barretenberg/dsl/acir_format/goblin_flush_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -56,12 +57,16 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
                                                                                                           constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
+        } else if (constraint.proof_type == ULTRA_GOBLIN) {
+            honk_recursion_constraint = create_goblin_flush_recursion_constraints(builder, constraint, ivc_base);
         } else {
             bb::assert_failure("Invalid Honk proof type");
         }
 
-        output.update(honk_recursion_constraint, /*update_ipa_data=*/false); // Update output
-        gate_counter.track_diff(gates_per_opcode, opcode_idx);               // Track gate count
+        bool is_goblin_flush = constraint.proof_type == ULTRA_GOBLIN;
+        output.update(honk_recursion_constraint, /*update_ipa_data=*/is_goblin_flush);
+        output.has_goblin_flush = output.has_goblin_flush || is_goblin_flush;
+        gate_counter.track_diff(gates_per_opcode, opcode_idx); // Track gate count
     }
 
     if (has_hn_recursion_constraints) {

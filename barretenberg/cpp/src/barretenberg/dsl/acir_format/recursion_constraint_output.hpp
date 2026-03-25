@@ -28,10 +28,16 @@ using HonkRecursionConstraintOutput = bb::stdlib::recursion::honk::UltraRecursiv
  * @brief Container for the output of multiple recursive verifications
  */
 template <typename Builder> struct HonkRecursionConstraintsOutput {
+    using G1 = typename stdlib::bn254<Builder>::Group;
+    using TableCommitments = std::array<G1, MEGA_EXECUTION_TRACE_NUM_WIRES>;
+
     stdlib::recursion::PairingPoints<stdlib::bn254<Builder>> points_accumulator;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
     bool is_root_rollup = false;
+    bool has_goblin_flush = false; // Set when ULTRA_GOBLIN constraint was processed
+    TableCommitments T_prev_flush; // Merge T_prev commitments from Goblin flush
+    TableCommitments t_flush;      // Merge subtable commitments from Goblin flush
 
     /**
      * @brief Update the current output with another recursion constraint output

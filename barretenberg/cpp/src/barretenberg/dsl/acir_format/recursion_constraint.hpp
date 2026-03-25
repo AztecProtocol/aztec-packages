@@ -30,7 +30,19 @@ using namespace stdlib;
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, HN_TAIL, CHONK };
+enum PROOF_TYPE : uint8_t {
+    HONK,
+    OINK,
+    HN,
+    AVM,
+    ROLLUP_HONK,
+    ROOT_ROLLUP_HONK,
+    HONK_ZK,
+    HN_FINAL,
+    HN_TAIL,
+    CHONK,
+    ULTRA_GOBLIN,
+};
 
 // Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_TAIL, HN_FINAL)
 constexpr bool is_hypernova_proof_type(uint32_t proof_type)

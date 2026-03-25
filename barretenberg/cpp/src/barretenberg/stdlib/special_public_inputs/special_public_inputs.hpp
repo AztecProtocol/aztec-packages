@@ -379,9 +379,9 @@ template <class Builder_> class HidingKernelIO {
  *   - T_prev: merge table commitments to the circuit before the last kernel
  *   - t: subtable commitments to the operations performed by the last kernel
  */
-class GoblinFlushIO {
+template <class Builder_> class GoblinFlushIO {
   public:
-    using Builder = UltraCircuitBuilder;  // Circuit C is always Ultra
+    using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
