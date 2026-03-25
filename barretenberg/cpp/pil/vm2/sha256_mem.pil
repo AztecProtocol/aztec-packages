@@ -187,21 +187,21 @@ namespace sha256;
     // `max_state_addr`, `max_input_addr`, `max_output_addr` are sums of an address (< 2^32 by
     // addressing resolution) and a small constant, so each is < 2^33.
     // `max_mem_addr` = AVM_HIGHEST_MEM_ADDRESS which is < 2^32.
-    pol commit max_state_addr;
+    pol commit max_state_addr; // Lookup alias support: No commit required with lookup argument aliasing.
     max_state_addr = start * (state_addr + 7); // We read 8 elements for the state
     #[CHECK_STATE_ADDR_IN_RANGE]
     start { max_state_addr, max_mem_addr, sel_state_out_of_range_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    pol commit max_input_addr;
+    pol commit max_input_addr; // Lookup alias support: No commit required with lookup argument aliasing.
     max_input_addr = start * (input_addr + 15); // We read 16 elements for inputs
     #[CHECK_INPUT_ADDR_IN_RANGE]
     start { max_input_addr, max_mem_addr, sel_input_out_of_range_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    pol commit max_output_addr;
+    pol commit max_output_addr;// Lookup alias support: No commit required with lookup argument aliasing.
     max_output_addr = start * (output_addr + 7); // We write 8 elements for the output
     #[CHECK_OUTPUT_ADDR_IN_RANGE]
     start { max_output_addr, max_mem_addr, sel_output_out_of_range_err }
