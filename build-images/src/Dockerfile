@@ -235,7 +235,8 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packag
 RUN npm install -g @withgraphite/graphite-cli@stable
 
 # Install ldid for mac cross-compile signing.
-RUN curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o /usr/local/bin/ldid \
+RUN LDID_ARCH=$(uname -m) && \
+    curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_${LDID_ARCH} -o /usr/local/bin/ldid \
     && chmod +x /usr/local/bin/ldid
 
 # fzf seems to not install this file for some reason.

@@ -199,7 +199,8 @@ curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dp
 # =============================================================================
 log_info "Installing ldid..."
 
-curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 \
+LDID_ARCH=$(uname -m)
+curl -sL "https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_${LDID_ARCH}" \
     -o /usr/local/bin/ldid && chmod +x /usr/local/bin/ldid
 
 # =============================================================================
