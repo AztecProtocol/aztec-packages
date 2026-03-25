@@ -70,7 +70,8 @@ template <typename Flavor> struct UltraVerifierOutput {
         if constexpr (std::is_same_v<IO, HidingKernelIO>) {
             kernel_return_data = inputs.kernel_return_data;
             ecc_op_tables = inputs.ecc_op_tables;
-        } else if constexpr (!std::is_same_v<IO, DefaultIO> && !std::is_same_v<IO, RollupIO>) {
+        } else if constexpr (!std::is_same_v<IO, DefaultIO> && !std::is_same_v<IO, RollupIO> &&
+                             !std::is_same_v<IO, GoblinFlushIO>) {
             throw_or_abort("Invalid public input type.");
         }
     }

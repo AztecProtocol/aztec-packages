@@ -153,4 +153,62 @@ class RollupIO {
     }
 };
 
+/**
+ * @brief Native version of GoblinFlushIO for the Goblin flush circuit (Circuit C)
+ */
+class GoblinFlushIO {
+  public:
+    using FF = curve::BN254::ScalarField;
+    using G1 = curve::BN254::AffineElement;
+    using TableCommitments = std::array<G1, MEGA_EXECUTION_TRACE_NUM_WIRES>;
+    using IpaClaim = OpeningClaim<curve::Grumpkin>;
+
+    using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
+    using PublicPoint = PublicInputComponent<G1>;
+    using PublicIpaClaim = PublicInputComponent<IpaClaim>;
+
+    static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_FLUSH_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
+
+    PairingPoints<curve::BN254> pairing_inputs;
+    IpaClaim ipa_claim;
+    TableCommitments T_prev;
+    TableCommitments t;
+
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
+    {
+        BB_ASSERT_GTE(public_inputs.size(),
+                      PUBLIC_INPUTS_SIZE,
+                      "Public inputs too small for GoblinFlushIO reconstruction. Got " +
+                          std::to_string(public_inputs.size()) + " but need at least " +
+                          std::to_string(PUBLIC_INPUTS_SIZE));
+        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
+        ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += IpaClaim::PUBLIC_INPUTS_SIZE;
+        for (auto& commitment : T_prev) {
+            commitment = PublicPoint::reconstruct(public_inputs, { index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
+        for (auto& commitment : t) {
+            commitment = PublicPoint::reconstruct(public_inputs, { index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
+    }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     */
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        // GoblinFlushIO doesn't have a stdlib add_default yet; not needed for native verification
+        (void)builder;
+    }
+};
+
 } // namespace bb

@@ -299,7 +299,8 @@ template class UltraVerifier_<UltraFlavor, DefaultIO>;
 template class UltraVerifier_<UltraZKFlavor, DefaultIO>;
 template class UltraVerifier_<UltraKeccakFlavor, DefaultIO>;
 template class UltraVerifier_<UltraKeccakZKFlavor, DefaultIO>;
-template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor + RollupIO
+template class UltraVerifier_<UltraFlavor, RollupIO>;      // Rollup uses UltraFlavor + RollupIO
+template class UltraVerifier_<UltraFlavor, GoblinFlushIO>; // Goblin flush circuit (Circuit C)
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk

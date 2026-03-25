@@ -363,6 +363,81 @@ template <class Builder_> class HidingKernelIO {
 };
 
 /**
+ * @brief Manages the data that is propagated on the public inputs of the Goblin flush circuit (Circuit C)
+ *
+ * @details Circuit C recursively verifies a Goblin proof (Merge + ECCVM + Translator) and exposes:
+ *   - pairing_inputs: aggregated KZG pairing points from Merge and Translator verification
+ *   - ipa_claim: IPA opening claim from ECCVM verification (Grumpkin curve)
+ *   - T_prev: merge table commitments to the circuit before the last kernel
+ *   - t: subtable commitments to the operations performed by the last kernel
+ */
+class GoblinFlushIO {
+  public:
+    using Builder = UltraCircuitBuilder;  // Circuit C is always Ultra
+    using Curve = stdlib::bn254<Builder>; // curve is always bn254
+    using G1 = Curve::Group;
+    using FF = Curve::ScalarField;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
+    using TableCommitments = std::array<G1, MEGA_EXECUTION_TRACE_NUM_WIRES>;
+    using GrumpkinCurve = stdlib::grumpkin<Builder>;
+    using IpaClaim = OpeningClaim<GrumpkinCurve>;
+
+    using PublicPoint = stdlib::PublicInputComponent<G1>;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+    using PublicIpaClaim = stdlib::PublicInputComponent<IpaClaim>;
+
+    PairingInputs pairing_inputs; // Aggregated KZG pairing points from Merge + Translator
+    IpaClaim ipa_claim;           // IPA opening claim from ECCVM recursive verifier
+    TableCommitments T_prev;      // Merged table commitments from Merge verification
+    TableCommitments t;           // Subtable commitments (previous kernel's ECC ops)
+
+    // Total size of the Goblin flush IO public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_FLUSH_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
+
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
+    {
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
+
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += PairingInputs::PUBLIC_INPUTS_SIZE;
+        ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += IpaClaim::PUBLIC_INPUTS_SIZE;
+        for (auto& commitment : T_prev) {
+            commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
+        for (auto& commitment : t) {
+            commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
+    }
+
+    /**
+     * @brief Set each IO component to be a public input of the underlying circuit.
+     */
+    void set_public()
+    {
+        Builder* builder = ipa_claim.commitment.get_context();
+
+        pairing_inputs.set_public(builder);
+        ipa_claim.set_public();
+        for (auto& commitment : T_prev) {
+            commitment.set_public();
+        }
+        for (auto& commitment : t) {
+            commitment.set_public();
+        }
+
+        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
+        builder->finalize_public_inputs();
+    }
+};
+
+/**
  * @brief The data that is propagated on the public inputs of a rollup circuit
  */
 class RollupIO {
