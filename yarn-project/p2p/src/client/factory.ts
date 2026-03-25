@@ -18,9 +18,14 @@ import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
 import {
+<<<<<<< HEAD
   createCheckAllowedSetupCalls,
   createTxValidatorForTransactionsEnteringPendingTxPool,
   getDefaultAllowedSetupFunctions,
+=======
+  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForTransactionsEnteringPendingTxPool,
+>>>>>>> origin/v4
 } from '../msg_validators/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
@@ -147,9 +152,12 @@ export async function createP2PClient(
     telemetry,
   );
 
+  const txValidatorForTxCollection = createTxValidatorForReqResponseReceivedTxs(proofVerifier, config);
   const nodeSources = [
-    ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, config),
-    ...(deps.rpcTxProviders ?? []).map((node, i) => new NodeRpcTxSource(node, `node-rpc-provider-${i}`)),
+    ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, txValidatorForTxCollection, config),
+    ...(deps.rpcTxProviders ?? []).map(
+      (node, i) => new NodeRpcTxSource(node, txValidatorForTxCollection, `node-rpc-provider-${i}`),
+    ),
     ...(deps.txCollectionNodeSources ?? []),
   ];
   if (nodeSources.length > 0) {
@@ -161,6 +169,7 @@ export async function createP2PClient(
   const fileStoreSources = await createFileStoreTxSources(
     config.txCollectionFileStoreUrls,
     txFileStoreBasePath,
+    txValidatorForTxCollection,
     logger.createChild('file-store-tx-source'),
     telemetry,
   );

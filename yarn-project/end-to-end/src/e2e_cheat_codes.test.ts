@@ -1,10 +1,10 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
+import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { DateProvider } from '@aztec/foundation/timer';
 
-import type { Anvil } from '@viem/anvil';
 import { parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
