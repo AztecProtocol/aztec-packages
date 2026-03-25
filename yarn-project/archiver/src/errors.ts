@@ -29,7 +29,7 @@ export class CheckpointNumberNotSequentialError extends Error {
   constructor(
     newCheckpointNumber: number,
     previous: number | undefined,
-    source: 'confirmed' | 'pending' = 'confirmed',
+    source: 'confirmed' | 'proposed' = 'confirmed',
   ) {
     super(
       `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${source} checkpoint number is ${previous ?? 'undefined'}`,

@@ -36,6 +36,7 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -637,6 +638,8 @@ describe('CheckpointProposalJob', () => {
     const pendingData: ProposedCheckpointData = {
       checkpointNumber: CheckpointNumber(1),
       header: CheckpointHeader.empty(),
+      archive: AppendOnlyTreeSnapshot.empty(),
+      checkpointOutHash: Fr.ZERO,
       startBlock: BlockNumber(1),
       blockCount: 1,
       totalManaUsed: 5000n,

@@ -20,12 +20,15 @@ import {
   serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import {
+  Checkpoint,
   type CheckpointData,
   L1PublishedData,
   type ProposedCheckpointData,
+  type ProposedCheckpointInput,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -65,25 +68,23 @@ type BlockStorage = {
   indexWithinCheckpoint: number;
 };
 
-type CheckpointStorage = {
+/** Checkpoint Storage shared between Checkpoints + Proposed Checkpoints */
+type CommonCheckpointStorage = {
   header: Buffer;
   archive: Buffer;
   checkpointOutHash: Buffer;
   checkpointNumber: number;
   startBlock: number;
   blockCount: number;
+};
+
+type CheckpointStorage = CommonCheckpointStorage & {
   l1: Buffer;
   attestations: Buffer[];
 };
 
 /** Storage format for a proposed checkpoint (attested but not yet L1-confirmed). */
-type ProposedCheckpointStorage = {
-  header: Buffer;
-  // archive: Buffer;
-  // checkpointOutHash: Buffer;
-  checkpointNumber: number;
-  startBlock: number;
-  blockCount: number;
+type ProposedCheckpointStorage = CommonCheckpointStorage & {
   totalManaUsed: string;
   feeAssetPriceModifier: string;
 };
@@ -210,9 +211,9 @@ export class BlockStore {
         previousCheckpointNumber !== expectedCheckpointNumber &&
         proposedCheckpointNumber !== expectedCheckpointNumber
       ) {
-        const [reported, source]: [CheckpointNumber, 'confirmed' | 'pending'] =
+        const [reported, source]: [CheckpointNumber, 'confirmed' | 'proposed'] =
           proposedCheckpointNumber > previousCheckpointNumber
-            ? [proposedCheckpointNumber, 'pending']
+            ? [proposedCheckpointNumber, 'proposed']
             : [previousCheckpointNumber, 'confirmed'];
         throw new CheckpointNumberNotSequentialError(blockCheckpointNumber, reported, source);
       }
@@ -634,10 +635,10 @@ export class BlockStore {
       return undefined;
     }
     return {
-      // archive: stored.archive,
-      // checkpointOutHash: stored.checkpointOutHash,
       checkpointNumber: CheckpointNumber(stored.checkpointNumber),
       header: CheckpointHeader.fromBuffer(stored.header),
+      archive: AppendOnlyTreeSnapshot.fromBuffer(stored.archive),
+      checkpointOutHash: Fr.fromBuffer(stored.checkpointOutHash),
       startBlock: BlockNumber(stored.startBlock),
       blockCount: stored.blockCount,
       totalManaUsed: BigInt(stored.totalManaUsed ?? '0'),
@@ -1036,8 +1037,9 @@ export class BlockStore {
     return this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
-  /** Sets the proposed checkpoint (not yet L1-confirmed). Only accepts confirmed + 1. */
-  async setProposedCheckpoint(pending: ProposedCheckpointData) {
+  /** Sets the proposed checkpoint (not yet L1-confirmed). Only accepts confirmed + 1.
+   *  Computes archive and checkpointOutHash from the stored blocks. */
+  async setProposedCheckpoint(pending: ProposedCheckpointInput) {
     return await this.db.transactionAsync(async () => {
       const current = await this.getProposedCheckpointNumber();
       if (pending.checkpointNumber <= current) {
@@ -1062,10 +1064,13 @@ export class BlockStore {
       }
       this.validateCheckpointBlocks(blocks, previousBlock);
 
+      const archive = blocks[blocks.length - 1].archive;
+      const checkpointOutHash = Checkpoint.getCheckpointOutHash(blocks);
+
       await this.#proposedCheckpoint.set({
         header: pending.header.toBuffer(),
-        // archive: pending.archive,
-        // checkpointOutHash: pending.checkpointOutHash,
+        archive: archive.toBuffer(),
+        checkpointOutHash: checkpointOutHash.toBuffer(),
         checkpointNumber: pending.checkpointNumber,
         startBlock: pending.startBlock,
         blockCount: pending.blockCount,

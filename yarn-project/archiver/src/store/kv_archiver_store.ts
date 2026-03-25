@@ -13,7 +13,12 @@ import {
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { CheckpointData, ProposedCheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type {
+  CheckpointData,
+  ProposedCheckpointData,
+  ProposedCheckpointInput,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractClassPublicWithCommitment,
@@ -633,7 +638,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param proposedCheckpoint
    * @returns
    */
-  public setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointData): Promise<void> {
+  public setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
     return this.#blockStore.setProposedCheckpoint(proposedCheckpoint);
   }
 

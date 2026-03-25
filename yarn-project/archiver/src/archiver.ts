@@ -19,7 +19,7 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { type ProposedCheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -209,7 +209,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     });
   }
 
-  public async setProposedCheckpoint(pending: ProposedCheckpointData): Promise<void> {
+  public async setProposedCheckpoint(pending: ProposedCheckpointInput): Promise<void> {
     await this.updater.setProposedCheckpoint(pending);
   }
 

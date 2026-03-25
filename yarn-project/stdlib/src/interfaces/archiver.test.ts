@@ -34,6 +34,7 @@ import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -363,6 +364,8 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       checkpointNumber: 1,
       header: expect.any(CheckpointHeader),
+      archive: expect.any(AppendOnlyTreeSnapshot),
+      checkpointOutHash: expect.any(Fr),
       blockCount: 1,
       startBlock: 1,
       totalManaUsed: 1n,
@@ -407,6 +410,8 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       checkpointNumber: CheckpointNumber(1),
       header: CheckpointHeader.random(),
+      archive: AppendOnlyTreeSnapshot.random(),
+      checkpointOutHash: Fr.random(),
       blockCount: 1,
       startBlock: BlockNumber(1),
       totalManaUsed: 1n,
