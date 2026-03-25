@@ -120,8 +120,12 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         quote { Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none() }
     };
 
+    let offchain_inbox_sync_option = quote {
+        Option::some(aztec::messages::processing::offchain::sync_inbox)
+    };
+
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
-        generate_sync_state(process_custom_message_option)
+        generate_sync_state(process_custom_message_option, offchain_inbox_sync_option)
     } else {
         quote {}
     };
@@ -215,7 +219,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 }
 
 /// Generates the `sync_state` utility function that performs message discovery.
-comptime fn generate_sync_state(process_custom_message_option: Quoted) -> Quoted {
+comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_inbox_sync_option: Quoted) -> Quoted {
     quote {
         pub struct sync_state_parameters {
             pub scope: aztec::protocol::address::AztecAddress,
