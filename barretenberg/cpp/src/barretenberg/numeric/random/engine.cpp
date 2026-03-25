@@ -22,6 +22,10 @@ extern "C" int getentropy(void* buffer, size_t length); // getentropy on iOS
 // Android API 24 doesn't have getrandom/getentropy, use /dev/urandom
 #include <fcntl.h>
 #include <unistd.h>
+#elif defined(_WIN32)
+#define NOMINMAX
+#include <bcrypt.h>
+#include <windows.h>
 #else
 #include <sys/random.h>
 #endif
@@ -30,9 +34,9 @@ namespace bb::numeric {
 
 namespace {
 
-#if defined(__wasm__) || defined(__APPLE__) || defined(__ANDROID__)
+#if defined(__wasm__) || defined(__APPLE__) || defined(__ANDROID__) || defined(_WIN32)
 
-// In wasm, on mac os, and on Android the API we are using can only give 256 bytes per call,
+// In wasm, on mac os, on Android, and on Windows the API we are using can only give 256 bytes per call,
 // so there is no point in creating a larger buffer
 constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
@@ -84,6 +88,13 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
                 urandom_fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
             }
             ssize_t read_bytes = ::read(urandom_fd, current_offset, BYTES_PER_GETENTROPY_READ);
+#elif defined(_WIN32)
+            // Windows: use BCryptGenRandom (available since Vista)
+            NTSTATUS status = BCryptGenRandom(nullptr,
+                                              current_offset,
+                                              static_cast<ULONG>(BYTES_PER_GETENTROPY_READ),
+                                              BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+            ssize_t read_bytes = (status == 0) ? static_cast<ssize_t>(BYTES_PER_GETENTROPY_READ) : -1;
 #else
             // Sample from urandom on native
             auto read_bytes = getrandom(current_offset, bytes_left, 0);

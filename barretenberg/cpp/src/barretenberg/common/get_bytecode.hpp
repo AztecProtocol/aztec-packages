@@ -16,3 +16,12 @@ std::vector<uint8_t> gunzip(const std::string& path);
 
 // Get bytecode from various file formats
 std::vector<uint8_t> get_bytecode(const std::string& bytecode_path);
+
+#ifdef _WIN32
+// Overload accepting std::filesystem::path (implicit conversion path->string is
+// deleted on MinGW/libstdc++).
+inline std::vector<uint8_t> get_bytecode(const std::filesystem::path& bytecode_path)
+{
+    return get_bytecode(bytecode_path.string());
+}
+#endif
