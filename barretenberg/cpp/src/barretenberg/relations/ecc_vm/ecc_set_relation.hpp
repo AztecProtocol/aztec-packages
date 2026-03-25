@@ -26,6 +26,12 @@ template <typename FF_> class ECCVMSetRelationImpl {
     static constexpr uint64_t SECOND_TERM_TAG = 2; // (pc, P.x, P.y, scalar)
     static constexpr uint64_t THIRD_TERM_TAG = 3;  // (pc, P.x, P.y, msm_size)
 
+    // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
+    enum SubrelationIndex : size_t {
+        GRAND_PRODUCT = 0,
+        LEFT_SHIFTABLE = 1,
+    };
+
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         22, // grand product construction sub-relation
         3   // left-shiftable polynomial sub-relation

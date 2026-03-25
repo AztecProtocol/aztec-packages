@@ -36,6 +36,71 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
   public:
     using FF = FF_;
 
+    // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
+    enum SubrelationIndex : size_t {
+        // z1/z2 zero checks: if z_zero flag is set, scalar must be 0
+        Z1_ZERO_CHECK = 0,
+        Z2_ZERO_CHECK = 1,
+        // Opcode encoding: op = q_reset + 2*q_eq + 4*q_mul + 8*q_add
+        OPCODE_WELL_FORMED = 2,
+        // Point counter update: pc decrements by number of muls
+        PC_UPDATE = 3,
+        // MSM count zero at transition: witnesses correct msm_count_zero_at_transition
+        MSM_COUNT_ZERO_AT_TRANSITION = 4,
+        // MSM transition: msm_transition = q_mul * (1 - q_mul_shift) * (1 - msm_count_zero_at_transition)
+        MSM_TRANSITION = 5,
+        // MSM count reset: msm_count = 0 when not at a mul op
+        MSM_COUNT_RESET = 6,
+        // MSM count update: msm_count increments correctly during mul ops
+        MSM_COUNT_UPDATE = 7,
+        // Opcode exclusion: q_mul and q_add are mutually exclusive with other opcodes
+        OPCODE_EXCLUSION = 8,
+        // Equality check x-coordinate
+        EQ_X_DIFF = 9,
+        // Equality check y-coordinate
+        EQ_Y_DIFF = 10,
+        // Boundary: is_accumulator_empty = 1 at third row
+        BOUNDARY_ACCUMULATOR_EMPTY = 11,
+        // Boundary: msm_count = 0 at third row, pc = 0 at last row
+        BOUNDARY_MSM_COUNT_AND_PC = 12,
+        // On-curve check for input points
+        ON_CURVE_CHECK = 13,
+        // Lambda relation for add/msm group operations
+        LAMBDA_RELATION = 14,
+        // Accumulator x-coordinate update
+        ACCUMULATOR_X_UPDATE = 15,
+        // Accumulator y-coordinate update
+        ACCUMULATOR_Y_UPDATE = 16,
+        // MSM offset generator subtraction: x-coordinate
+        OFFSET_GENERATOR_X = 17,
+        // MSM offset generator subtraction: y-coordinate
+        OFFSET_GENERATOR_Y = 18,
+        // MSM infinity x-diff check
+        MSM_INFINITY_X_DIFF = 19,
+        // MSM infinity y-sum check
+        MSM_INFINITY_Y_SUM = 20,
+        // MSM infinity inverse check
+        MSM_INFINITY_INVERSE = 21,
+        // Accumulator empty flag update
+        ACCUMULATOR_EMPTY_UPDATE = 22,
+        // x-equal flag validation
+        ADD_X_EQUAL_CHECK = 23,
+        // y-equal flag validation
+        ADD_Y_EQUAL_CHECK = 24,
+        // Hiding op row: q_eq must be 1
+        HIDING_ROW_EQ = 25,
+        // Hiding op row: q_reset must be 1
+        HIDING_ROW_RESET = 26,
+        // Infinity flag consistency: Px = 0 when base infinity
+        INFINITY_BASE_PX = 27,
+        // Infinity flag consistency: Py = 0 when base infinity
+        INFINITY_BASE_PY = 28,
+        // Infinity flag consistency: acc_x = 0 when accumulator empty
+        INFINITY_ACC_X = 29,
+        // Infinity flag consistency: acc_y = 0 when accumulator empty
+        INFINITY_ACC_Y = 30,
+    };
+
     static constexpr std::array<size_t, 31> SUBRELATION_PARTIAL_LENGTHS{
         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };

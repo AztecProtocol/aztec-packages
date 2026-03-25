@@ -44,6 +44,49 @@ template <typename FF_> class ECCVMWnafRelationImpl {
   public:
     using FF = FF_;
 
+    // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
+    enum SubrelationIndex : size_t {
+        // Range checks: each 2-bit slice is in {0, 1, 2, 3}
+        RANGE_S1HI = 0,
+        RANGE_S1LO = 1,
+        RANGE_S2HI = 2,
+        RANGE_S2LO = 3,
+        RANGE_S3HI = 4,
+        RANGE_S3LO = 5,
+        RANGE_S4HI = 6,
+        RANGE_S4LO = 7,
+        // Scalar sum accumulation: check slice consistency across rows
+        SCALAR_SUM_CHECK = 8,
+        // Round transition: combined round increment / round==7 check
+        ROUND_CHECK = 9,
+        // Round shift must be 0 at transition or first row
+        ROUND_SHIFT_ZERO = 10,
+        // Scalar sum shift must be 0 at transition or first row
+        SCALAR_SUM_SHIFT_ZERO = 11,
+        // PC transition: combined pc decrement / pc propagation
+        PC_CHECK = 12,
+        // Skew is 0 or 7
+        SKEW_RANGE = 13,
+        // When precompute_select == 0: force slices to zero (w0)
+        INACTIVE_SLICE_W0 = 14,
+        // When precompute_select == 0: force slices to zero (w1)
+        INACTIVE_SLICE_W1 = 15,
+        // When precompute_select == 0: force slices to zero (w2)
+        INACTIVE_SLICE_W2 = 16,
+        // When precompute_select == 0: force slices to zero (w3)
+        INACTIVE_SLICE_W3 = 17,
+        // When precompute_select == 0: force round to zero
+        INACTIVE_ROUND = 18,
+        // When precompute_select == 0: force pc to zero
+        INACTIVE_PC = 19,
+        // First slice positive: s1hi_shift >= 2 at transitions
+        FIRST_SLICE_POSITIVE = 20,
+        // When precompute_select == 0: force point_transition to zero
+        INACTIVE_POINT_TRANSITION = 21,
+        // Precompute select shape: monotonically non-decreasing after first row
+        PRECOMPUTE_SELECT_SHAPE = 22,
+    };
+
     static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS{ 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                                                                          5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
 

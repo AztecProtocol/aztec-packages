@@ -25,6 +25,19 @@ template <typename FF_> class ECCVMPointTableRelationImpl {
   public:
     using FF = FF_;
 
+    // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
+    enum SubrelationIndex : size_t {
+        // Point doubling: Dx = 2*Tx when point_transition = 1
+        DOUBLE_X = 0,
+        DOUBLE_Y = 1,
+        // D propagation: Dx_shift = Dx when not at transition
+        D_PROPAGATE_X = 2,
+        D_PROPAGATE_Y = 3,
+        // Point addition: T = T_shift + D when not at transition
+        ADD_X = 4,
+        ADD_Y = 5,
+    };
+
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{ 6, 6, 6, 6, 6, 6 };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
