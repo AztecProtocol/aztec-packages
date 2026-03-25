@@ -153,7 +153,9 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
   protected aztecSlotDuration: bigint;
-  private dateProvider: DateProvider;
+
+  /** Date provider for wall-clock time. */
+  private readonly dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -168,9 +170,6 @@ export class SequencerPublisher {
 
   /** Fee asset price oracle for computing price modifiers from Uniswap V4 */
   private feeAssetPriceOracle: FeeAssetPriceOracle;
-
-  /** Date provider for wall-clock time. */
-  private readonly dateProvider: DateProvider;
 
   /** Interruptible sleep used by sendRequestsAt to wait until a target timestamp. */
   private readonly interruptibleSleep = new InterruptibleSleep();

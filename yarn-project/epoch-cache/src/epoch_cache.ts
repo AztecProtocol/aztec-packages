@@ -10,6 +10,7 @@ import {
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
   getNextL1SlotTimestamp,
+  getSlotAtNextL1Block,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampForSlot,
@@ -348,17 +349,16 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  /** Returns the target and next L2 slot in the next L1 slot. Computes the current time once to avoid redundant calls. */
+  /** Returns the target and next L2 slot in the next L1 slot. */
   public getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber } {
-    const nowSeconds = this.nowInSeconds();
+    const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
     const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
 
     const currentSlot = getSlotAtTimestamp(nowSeconds, this.l1constants);
     const targetSlot = SlotNumber(currentSlot + offset);
 
-    const nextSlotTs = nowSeconds + BigInt(this.l1constants.ethereumSlotDuration);
-    const nextL1Slot = getSlotAtTimestamp(nextSlotTs, this.l1constants);
-    const nextSlot = SlotNumber(nextL1Slot + offset);
+    const nextL2SlotOnL1 = getSlotAtNextL1Block(nowSeconds, this.l1constants);
+    const nextSlot = SlotNumber(nextL2SlotOnL1 + offset);
 
     return { targetSlot, nextSlot };
   }
