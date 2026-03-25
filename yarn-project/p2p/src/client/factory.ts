@@ -17,16 +17,10 @@ import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestati
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
-<<<<<<< HEAD
-import { createTxValidatorForTransactionsEnteringPendingTxPool } from '../msg_validators/index.js';
-=======
 import {
-  createCheckAllowedSetupCalls,
   createTxValidatorForReqResponseReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
-  getDefaultAllowedSetupFunctions,
 } from '../msg_validators/index.js';
->>>>>>> 8407f66531 (fix: fully validate txs retrieved from tx file store (#21988))
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
