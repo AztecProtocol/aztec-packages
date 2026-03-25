@@ -21,10 +21,8 @@ function build {
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
-    # Ensure generated files exist (produced by codegen from committed schemas)
-    if [ ! -f src/cbind/generated/api_types.ts ]; then
-      (cd ../codegen && ./bootstrap.sh generate)
-    fi
+    # Generate bindings from committed schemas (idempotent, cached by codegen hash)
+    (cd ../codegen && ./bootstrap.sh generate)
     yarn build:wasm
     yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser

@@ -9,10 +9,8 @@ function build {
   echo_header "barretenberg-rs build"
 
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
-    # Ensure generated files exist (produced by codegen from committed schemas)
-    if [ ! -f barretenberg-rs/src/api.rs ]; then
-      (cd ../codegen && ./bootstrap.sh generate)
-    fi
+    # Generate bindings from committed schemas (idempotent, cached by codegen hash)
+    (cd ../codegen && ./bootstrap.sh generate)
 
     # Build all targets
     # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
