@@ -76,13 +76,8 @@ pub(crate) unconstrained fn get_message_contexts_by_tx_hash(
     );
 }
 
-<<<<<<< HEAD
-#[oracle(aztec_utl_resolveMessageContexts)]
-unconstrained fn resolve_message_contexts_oracle(
-=======
 #[oracle(aztec_utl_getMessageContextsByTxHash)]
 unconstrained fn get_message_contexts_by_tx_hash_oracle(
->>>>>>> b0090ffc53 (refactor!: more consistent oracle names (#22018))
     contract_address: AztecAddress,
     message_context_requests_array_base_slot: Field,
     message_context_responses_array_base_slot: Field,

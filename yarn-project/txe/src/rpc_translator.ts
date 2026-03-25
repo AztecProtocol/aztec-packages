@@ -801,11 +801,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-<<<<<<< HEAD
-  public async aztec_utl_resolveMessageContexts(
-=======
   public async aztec_utl_getMessageContextsByTxHash(
->>>>>>> b0090ffc53 (refactor!: more consistent oracle names (#22018))
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,

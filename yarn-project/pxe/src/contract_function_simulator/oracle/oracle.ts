@@ -540,11 +540,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-<<<<<<< HEAD
-  async aztec_utl_resolveMessageContexts(
-=======
   async aztec_utl_getMessageContextsByTxHash(
->>>>>>> b0090ffc53 (refactor!: more consistent oracle names (#22018))
     [contractAddress]: ACVMField[],
     [messageContextRequestsArrayBaseSlot]: ACVMField[],
     [messageContextResponsesArrayBaseSlot]: ACVMField[],
