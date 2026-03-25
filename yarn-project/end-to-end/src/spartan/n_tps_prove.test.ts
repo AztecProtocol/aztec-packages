@@ -1,6 +1,6 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { toSendOptions } from '@aztec/aztec.js/contracts';
+import { getGasLimits, toSendOptions, toSimulateOptions } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
@@ -569,11 +569,26 @@ async function createTx(
   const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const options = {
     from: accountAddress,
-    fee: { paymentMethod: sponsor, gasSettings: { maxPriorityFeesPerGas: GasFees.empty() } },
+    fee: { paymentMethod: sponsor, estimateGas: true, gasSettings: { maxPriorityFeesPerGas: GasFees.empty() } },
   };
   const interaction = benchmarkContract.methods.keccak_hash_1400(Array(1400).fill(42));
   const execPayload = await interaction.request(options);
-  const tx = await wallet.proveTx(execPayload, toSendOptions(options));
+
+  // Simulate to estimate gas, then prove with the estimated limits
+  const simulatedTx = await wallet.simulateTx(execPayload, toSimulateOptions(options));
+  const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx);
+  logger.info(
+    `Estimated gas limits: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+  );
+
+  const sendOptions = toSendOptions({
+    ...options,
+    fee: {
+      ...options.fee,
+      gasSettings: { ...options.fee.gasSettings, gasLimits, teardownGasLimits },
+    },
+  });
+  const tx = await wallet.proveTx(execPayload, sendOptions);
   logger.info('Prototype transaction created');
   return tx;
 }
