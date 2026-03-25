@@ -154,7 +154,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
-      rawReturnValues = simulatedTx.getAppPrivateReturnValues(0)?.values;
+      rawReturnValues = simulatedTx.getPrivateReturnValuesOfAppCall(0)?.values;
     } else {
       // For public functions we retrieve the first values directly from the public output.
       rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;

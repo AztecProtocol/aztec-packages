@@ -32,17 +32,22 @@ export class TxSimulationResultWithAppOffset {
 
   /**
    * Returns the private return values that correspond to the first app call.
-   * @param callIndex - Index of the app call within the batch (0-based).
+   * @param appCallIndex - Index of the app call within the app calls.
    */
-  getAppPrivateReturnValues(callIndex: number = 0): NestedProcessReturnValues | undefined {
+  getPrivateReturnValuesOfAppCall(appCallIndex: number = 0): NestedProcessReturnValues | undefined {
     const all = this.result.getPrivateReturnValues();
     if (!this.appCallOffset) {
       // appCallOffset is 0 implies that the app call is the root execution
+
+      if (appCallIndex != 0) {
+        throw new Error('App call index cannot be defined when there is single root app call');
+      }
+
       return all;
     }
     // The app call offset is defined on the flattened array of calls where entrypoint occupies index 0. Here we are
     // indexing into nested calls array and for this reason we need to subtract 1.
-    return all?.nested?.[callIndex + this.appCallOffset - 1];
+    return all?.nested?.[appCallIndex + this.appCallOffset - 1];
   }
 
   getPublicReturnValues() {

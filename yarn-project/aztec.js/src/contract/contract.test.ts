@@ -236,7 +236,7 @@ describe('Contract Class', () => {
     const anchorBlockTimestamp = 9999n;
 
     const txSimResult = mock<TxSimulationResultWithAppOffset>();
-    txSimResult.getAppPrivateReturnValues.mockReturnValue({ values: [] } as any);
+    txSimResult.getPrivateReturnValuesOfAppCall.mockReturnValue({ values: [] } as any);
     Object.defineProperty(txSimResult, 'offchainEffects', {
       value: [
         {

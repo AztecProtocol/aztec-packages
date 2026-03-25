@@ -143,7 +143,7 @@ export class BatchCall extends BaseContractInteraction {
           // For public functions we retrieve the values directly from the public output.
           const rawReturnValues =
             call.type == FunctionType.PRIVATE
-              ? simulatedTx!.getAppPrivateReturnValues(resultIndex)?.values
+              ? simulatedTx!.getPrivateReturnValuesOfAppCall(resultIndex)?.values
               : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
 
           results[callIndex] = {
