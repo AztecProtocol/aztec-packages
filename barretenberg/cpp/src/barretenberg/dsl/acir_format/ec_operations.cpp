@@ -46,10 +46,12 @@ template <typename Builder> void create_ec_add_constraint(Builder& builder, cons
 
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
+    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
 
     if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
+        builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0)); // generator is finite
     }
 
     cycle_group_ct input1_point =
@@ -61,6 +63,12 @@ template <typename Builder> void create_ec_add_constraint(Builder& builder, cons
     // Note that input_result is computed by Noir and passed to bb via ACIR. Hence, it is always a valid point on
     // Grumpkin, so we don't need to assert on curve.
     cycle_group_ct input_result(input_result_x, input_result_y, /*assert_on_curve=*/false);
+
+    // Constrain the result_infinite witness against the auto-detected infinity from coordinates.
+    // Use conditional_assign so the constraint is inactive when predicate is false.
+    bool_ct expected_infinite =
+        bool_ct::conditional_assign(predicate, input_result.is_point_at_infinity(), input_result_infinite);
+    input_result_infinite.assert_equal(expected_infinite);
 
     // Step 2.
     cycle_group_ct result = input1_point + input2_point;

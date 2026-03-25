@@ -1,11 +1,11 @@
-import { Barretenberg } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 import { Fr } from '../../curves/bn254/field.js';
 import { poseidon2Permutation } from './index.js';
 
 describe('poseidon2Permutation', () => {
   beforeAll(async () => {
-    await Barretenberg.initSingleton({ threads: 1 });
+    await BarretenbergSync.initSingleton();
   });
 
   it('test vectors from cpp should match', async () => {

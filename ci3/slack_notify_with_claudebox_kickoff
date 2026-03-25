@@ -2,7 +2,7 @@
 set -eu
 # Post a Slack notification and dispatch ClaudeBox to investigate.
 #
-# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>]
+# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>] [--target-ref <ref>]
 #
 # Requires: SLACK_BOT_TOKEN
 # Optional: CLAUDEBOX_REPO (default: AztecProtocol/aztec-packages)
@@ -18,9 +18,11 @@ prompt="$3"
 shift 3
 
 link=""
+target_ref=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --link) link="$2"; shift 2 ;;
+    --target-ref) target_ref="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -44,8 +46,13 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
 fi
 
 # Dispatch ClaudeBox workflow (CI=1 guaranteed above; gh auth assumed in CI)
+target_ref_args=()
+if [[ -n "$target_ref" ]]; then
+  target_ref_args+=(-f "target_ref=$target_ref")
+fi
 gh workflow run claudebox.yml \
   -R "$REPO" --ref next \
   -f prompt="$prompt" \
-  -f link="$link" || true
+  -f link="$link" \
+  "${target_ref_args[@]}" || true
 echo "ClaudeBox dispatched"
