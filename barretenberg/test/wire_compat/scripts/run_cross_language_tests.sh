@@ -19,6 +19,18 @@ TOTAL=0
 echo "Building Rust echo binaries..."
 (cd rust && cargo build --quiet 2>&1)
 
+# Build C++ binaries
+echo "Building C++ echo binaries..."
+MSGPACK_INC="$(cd "$TEST_DIR/../.." && pwd)/cpp/build/_deps/msgpack-c/src/msgpack-c/include"
+if [ -d "$MSGPACK_INC" ]; then
+  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_server echo_server.cpp 2>&1)
+  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_client echo_client.cpp 2>&1)
+  CPP_AVAILABLE=true
+else
+  echo "  (skipping C++ — msgpack-c not found at $MSGPACK_INC, run cmake first)"
+  CPP_AVAILABLE=false
+fi
+
 # Install TS dependencies if needed
 if [ ! -d ts/node_modules ]; then
   echo "Installing TS dependencies..."
@@ -31,11 +43,15 @@ SERVERS=(
   "rust:rust/target/debug/echo_server:Rust"
   "ts:npx tsx ts/echo_server.ts:TS"
 )
-
 CLIENTS=(
   "rust:rust/target/debug/echo_client:Rust"
   "ts:npx tsx ts/echo_client.ts:TS"
 )
+
+if [ "$CPP_AVAILABLE" = true ]; then
+  SERVERS+=("cpp:cpp/echo_server:C++")
+  CLIENTS+=("cpp:cpp/echo_client:C++")
+fi
 
 run_pair() {
   local server_cmd="$1"
