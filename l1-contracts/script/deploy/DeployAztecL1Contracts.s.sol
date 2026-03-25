@@ -140,7 +140,7 @@ contract DeployAztecL1Contracts is Script, Test {
   function _maybeDeployFeeAssetHandler() internal {
     // Deploy on test chains only (when we control the staking asset)
     if (config.existingTokenAddress() == address(0)) {
-      _output.feeAssetHandler = new FeeAssetHandler(deployer, address(_output.feeAsset), 10000e18);
+      _output.feeAssetHandler = new FeeAssetHandler(deployer, address(_output.feeAsset), 10_000e18);
       TestERC20(address(_output.feeAsset)).addMinter(address(_output.feeAssetHandler));
     }
   }
