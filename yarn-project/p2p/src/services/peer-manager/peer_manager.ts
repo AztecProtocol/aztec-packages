@@ -226,18 +226,28 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   /**
-   * Cleans up expired timeouts.
+   * Cleans up expired timeouts and stale failed-auth-handshake entries.
    *
    * When peers fail to dial after a number of retries, they are temporarily timed out.
    * This function removes any peers that have been in the timed out state for too long.
    * To give them a chance to reconnect.
+   *
+   * Also evicts entries from the failed-auth-handshake map whose expiry window has passed.
+   * Without this, peers that probe once and never reconnect would leave their entries in the
+   * map forever, causing an unbounded memory leak.
    */
   private cleanupExpiredTimeouts() {
-    // Clean up expired timeouts
     const now = this.dateProvider.now();
+
     for (const [peerId, timedOutPeer] of this.timedOutPeers.entries()) {
       if (now >= timedOutPeer.timeoutUntilMs) {
         this.timedOutPeers.delete(peerId);
+      }
+    }
+
+    for (const [id, entry] of this.failedAuthHandshakes.entries()) {
+      if (now - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
+        this.failedAuthHandshakes.delete(id);
       }
     }
   }
