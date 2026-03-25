@@ -95,7 +95,8 @@ export async function fetchAndCompileSchema(
 export async function generateForService(config: ServiceConfig, cbindDir: string): Promise<void> {
   const binaryPath = process.env[config.binaryEnvVar] || join(cbindDir, config.defaultBinaryPath);
 
-  // Skip if binary not available (e.g., C++ not built yet)
+  // Skip if binary not available (e.g., C++ not built yet).
+  // Generated files from a prior build/cache may still be present.
   if (!existsSync(binaryPath)) {
     console.log(`  [skip] ${config.name}: binary not found at ${binaryPath}`);
     return;
