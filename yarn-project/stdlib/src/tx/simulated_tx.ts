@@ -79,24 +79,12 @@ export class PrivateSimulationResult {
 }
 
 export class TxSimulationResult {
-  /**
-   * Index of the app's first call in a flattened array of calls. The wallet wraps the app payload in an entrypoint and
-   * may prepend fee payment calls, producing a flattened ordering of:
-   *   0 = entrypoint, 1..N = fee calls, N+1 = first app call.
-   * When undefined or 0, the app call is the root execution itself (DefaultEntrypoint / NO_FROM).
-   */
-  public appCallOffset?: number;
-
   constructor(
     public privateExecutionResult: PrivateExecutionResult,
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
     public stats?: SimulationStats,
   ) {}
-
-  setAppCallOffset(offset: number): void {
-    this.appCallOffset = offset;
-  }
 
   /** Returns offchain effects collected from private execution. */
   get offchainEffects(): OffchainEffect[] {
@@ -159,20 +147,6 @@ export class TxSimulationResult {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).getPrivateReturnValues();
   }
 
-  /**
-   * Returns the private return values that correspond to the first app call.
-   */
-  getAppPrivateReturnValues(callIndex: number = 0): NestedProcessReturnValues | undefined {
-    const all = this.getPrivateReturnValues();
-    if (!this.appCallOffset) {
-      // appCallOffset is 0 or undefined implies that the app call is the root execution
-      return all;
-    }
-    // The app call offset is defined on the flattened array of calls where entrypoint occupies index 0. Here we are
-    // indexing into nested calls array and for this reason we need to subtract 1.
-    return all?.nested?.[callIndex + this.appCallOffset - 1];
-  }
-
   toSimulatedTx(): Promise<Tx> {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).toSimulatedTx();
   }
@@ -183,7 +157,7 @@ export class TxSimulationResult {
 }
 
 /**
- * Recursively accummulate the return values of a call result and its nested executions,
+ * Recursively accumulate the return values of a call result and its nested executions,
  * so they can be retrieved in order.
  * @param executionResult
  * @returns

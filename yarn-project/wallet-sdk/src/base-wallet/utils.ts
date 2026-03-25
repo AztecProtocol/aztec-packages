@@ -1,4 +1,5 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import { MAX_ENQUEUED_CALLS_PER_CALL } from '@aztec/constants';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { makeTuple } from '@aztec/foundation/array';
@@ -214,13 +215,13 @@ export async function simulateViaNode(
  */
 export function buildMergedSimulationResult(
   optimizedResults: TxSimulationResult[],
-  normalResult: TxSimulationResult | null,
-): TxSimulationResult {
+  normalResult: TxSimulationResultWithAppOffset | null,
+): TxSimulationResultWithAppOffset {
   const optimizedReturnValues = optimizedResults.flatMap(r => r.publicOutput?.publicReturnValues ?? []);
-  const normalReturnValues = normalResult?.publicOutput?.publicReturnValues ?? [];
+  const normalReturnValues = normalResult?.result.publicOutput?.publicReturnValues ?? [];
   const allReturnValues = [...optimizedReturnValues, ...normalReturnValues];
 
-  const baseResult = normalResult ?? optimizedResults[0];
+  const baseResult = normalResult?.result ?? optimizedResults[0];
 
   const mergedPublicOutput: PublicSimulationOutput | undefined = baseResult.publicOutput
     ? {
@@ -233,8 +234,7 @@ export function buildMergedSimulationResult(
     baseResult.privateExecutionResult,
     baseResult.publicInputs,
     mergedPublicOutput,
-    normalResult?.stats,
+    normalResult?.result.stats,
   );
-  merged.setAppCallOffset(normalResult?.appCallOffset ?? 0);
-  return merged;
+  return new TxSimulationResultWithAppOffset(merged, normalResult?.appCallOffset ?? 0);
 }

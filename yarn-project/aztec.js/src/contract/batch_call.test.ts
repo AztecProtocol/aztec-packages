@@ -9,17 +9,17 @@ import {
   NestedProcessReturnValues,
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
-  TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BatchCall } from './batch_call.js';
 
 function mockTxSimResult(overrides: { anchorBlockTimestamp?: bigint; offchainEffects?: OffchainEffect[] } = {}) {
-  const txSimResult = mock<TxSimulationResult>();
+  const txSimResult = mock<TxSimulationResultWithAppOffset>();
   Object.defineProperty(txSimResult, 'offchainEffects', { value: overrides.offchainEffects ?? [] });
   Object.defineProperty(txSimResult, 'publicInputs', {
     value: {
@@ -28,8 +28,6 @@ function mockTxSimResult(overrides: { anchorBlockTimestamp?: bigint; offchainEff
       },
     },
   });
-  // Account entrypoint with no FPC: entrypoint=0, app=1.
-  txSimResult.setAppCallOffset(1);
   return txSimResult;
 }
 

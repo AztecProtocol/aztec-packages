@@ -2,7 +2,7 @@ import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import { type InteractionWaitOptions, type SendReturn, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
-import { AccountManager } from '@aztec/aztec.js/wallet';
+import { AccountManager, TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -18,7 +18,6 @@ import {
   ExecutionPayload,
   SimulationOverrides,
   type TxExecutionRequest,
-  type TxSimulationResult,
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
@@ -153,7 +152,7 @@ export class EmbeddedWallet extends BaseWallet {
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
-  ): Promise<TxSimulationResult> {
+  ): Promise<TxSimulationResultWithAppOffset> {
     const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -186,13 +185,15 @@ export class EmbeddedWallet extends BaseWallet {
       );
     }
 
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipFeeEnforcement,
       skipTxValidation,
       overrides,
       scopes,
     });
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return new TxSimulationResultWithAppOffset(result, appCallOffset);
   }
 
   private async getFakeAccountDataFor(address: AztecAddress) {

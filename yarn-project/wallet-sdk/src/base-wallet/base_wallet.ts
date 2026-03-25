@@ -24,6 +24,7 @@ import {
   type Wallet,
   type WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
@@ -62,7 +63,6 @@ import {
   BlockHeader,
   type TxExecutionRequest,
   type TxProfileResult,
-  TxSimulationResult,
   type UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
@@ -341,8 +341,8 @@ export abstract class BaseWallet implements Wallet {
       skipFeeEnforcement: opts.skipFeeEnforcement,
       scopes: opts.scopes,
     });
-    result.setAppCallOffset(await this.computeAppCallOffset(opts.from, opts.feeOptions));
-    return result;
+    const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
+    return new TxSimulationResultWithAppOffset(result, appCallOffset);
   }
 
   /**
@@ -367,7 +367,10 @@ export abstract class BaseWallet implements Wallet {
    * @param opts - Simulation options (from address, fee settings, etc.).
    * @returns The merged simulation result.
    */
-  async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
+  async simulateTx(
+    executionPayload: ExecutionPayload,
+    opts: SimulateOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
     const feeOptions = opts.fee?.estimateGas
       ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
       : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);

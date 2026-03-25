@@ -13,6 +13,7 @@ import {
 } from '@aztec/aztec.js/authorization';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -25,14 +26,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
-import type {
-  BlockHeader,
-  SimulationOverrides,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-  TxSimulationResult,
-} from '@aztec/stdlib/tx';
+import type { BlockHeader, SimulationOverrides, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 
@@ -217,7 +211,7 @@ export class TestWallet extends BaseWallet {
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
-  ): Promise<TxSimulationResult> {
+  ): Promise<TxSimulationResultWithAppOffset> {
     const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
     const skipKernels = this.simulationMode !== 'full';
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -265,8 +259,8 @@ export class TestWallet extends BaseWallet {
       overrides,
       scopes,
     });
-    result.setAppCallOffset(await this.computeAppCallOffset(from, feeOptions));
-    return result;
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return new TxSimulationResultWithAppOffset(result, appCallOffset);
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {
