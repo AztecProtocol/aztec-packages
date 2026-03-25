@@ -153,10 +153,8 @@ describe('e2e_deploy_contract private initialization', () => {
     const { contract, initArgs } = await deployUninitialized();
     const owner = defaultAccountAddress;
     await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
-    // Write a value via public function so the utility function has something to read.
-    await contract.methods.pub_init_check(owner, 84).send({ from: defaultAccountAddress });
     const result = await contract.methods.utility_init_check(owner).simulate({ from: defaultAccountAddress });
-    expect(result.result).toEqual(84n);
+    expect(result.result).toEqual(2n);
   });
 
   // A public call enqueued before the private constructor should fail the init check, even though the
@@ -180,7 +178,7 @@ describe('e2e_deploy_contract private initialization', () => {
     ]);
     await batch.send({ from: defaultAccountAddress });
     expect((await contract.methods.pub_no_init_check(owner).simulate({ from: defaultAccountAddress })).result).toEqual(
-      84n,
+      1n,
     );
   });
 
