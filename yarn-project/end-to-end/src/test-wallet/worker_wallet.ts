@@ -188,11 +188,6 @@ export class WorkerWallet implements Wallet {
     return this.call('proveTx', exec, opts);
   }
 
-  /** Simulates with gas estimation, then proves with the estimated limits. */
-  proveTxEstimated(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<Tx> {
-    return this.call('proveTxEstimated', exec, opts);
-  }
-
   /** Registers an account inside the worker's TestWallet, populating its accounts map. */
   registerAccount(secret: Fr, salt: Fr): Promise<AztecAddress> {
     return this.call('registerAccount', secret, salt);
