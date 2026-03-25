@@ -5,9 +5,10 @@ import { Tx } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
-/** Schema for the WorkerWallet API — extends WalletSchema with proveTx and registerAccount. */
+/** Schema for the WorkerWallet API — extends WalletSchema with proveTx, proveTxEstimated, and registerAccount. */
 export const WorkerWalletSchema = {
   ...WalletSchema,
   proveTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(Tx.schema),
+  proveTxEstimated: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(Tx.schema),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(AztecAddress.schema),
 };

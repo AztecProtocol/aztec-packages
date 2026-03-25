@@ -1,3 +1,4 @@
+import { getGasLimits } from '@aztec/aztec.js/contracts';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { SendOptions } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -25,6 +26,31 @@ try {
   const customMethods = {
     proveTx: async (exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>) => {
       const provenTx = await wallet.proveTx(exec, opts);
+      return new Tx(
+        provenTx.getTxHash(),
+        provenTx.data,
+        provenTx.chonkProof,
+        provenTx.contractClassLogFields,
+        provenTx.publicFunctionCalldata,
+      );
+    },
+    /** Simulates with gas estimation, then proves with the estimated limits. */
+    proveTxEstimated: async (exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>) => {
+      const simulatedTx = await wallet.simulateTx(exec, {
+        from: opts.from,
+        fee: { ...opts.fee, estimateGas: true },
+      });
+      const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx);
+      logger.info('Estimated gas limits', {
+        daGas: gasLimits.daGas,
+        l2Gas: gasLimits.l2Gas,
+        teardownDaGas: teardownGasLimits.daGas,
+        teardownL2Gas: teardownGasLimits.l2Gas,
+      });
+      const provenTx = await wallet.proveTx(exec, {
+        ...opts,
+        fee: { ...opts.fee, gasSettings: { ...opts.fee?.gasSettings, gasLimits, teardownGasLimits } },
+      });
       return new Tx(
         provenTx.getTxHash(),
         provenTx.data,
