@@ -21,9 +21,10 @@ function build {
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
-    # Note: yarn generate is no longer called here.
-    # Generated files are produced by barretenberg/codegen/bootstrap.sh generate
-    # which runs as the bb-generate Makefile target before bb-ts.
+    # Ensure generated files exist (produced by codegen from committed schemas)
+    if [ ! -f src/cbind/generated/api_types.ts ]; then
+      (cd ../codegen && ./bootstrap.sh generate)
+    fi
     yarn build:wasm
     yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
