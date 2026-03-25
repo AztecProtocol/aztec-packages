@@ -33,3 +33,4 @@ docs/docs/protocol-specs/public-vm/gen/
 __pycache__
 
 *.local.md
+.claude/settings.local.json
