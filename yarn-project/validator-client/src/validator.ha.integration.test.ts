@@ -129,7 +129,6 @@ describe('ValidatorClient HA Integration', () => {
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
-      validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
       l1Contracts: { rollupAddress },
       slashDuplicateProposalPenalty: 1n,

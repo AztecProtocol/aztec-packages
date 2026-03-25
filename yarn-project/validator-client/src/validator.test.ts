@@ -149,7 +149,6 @@ describe('ValidatorClient', () => {
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
-      validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
@@ -311,7 +310,6 @@ describe('ValidatorClient', () => {
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
     const enableReexecution = () => {
-      validatorClient.updateConfig({ validatorReexecute: true });
       mockCheckpointBuilder = mock<CheckpointBuilder>();
       mockCheckpointBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
       checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);

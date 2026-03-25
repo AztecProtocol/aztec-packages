@@ -66,7 +66,6 @@ describe('e2e_p2p_reex', () => {
     nodes = await createNodes(
       {
         ...t.ctx.aztecNodeConfig,
-        validatorReexecute: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       },
