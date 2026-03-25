@@ -411,9 +411,9 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     return await this.offensesStore.getOffensesForRound(targetRound);
   }
 
-  /** Returns all pending offenses stored */
-  public getPendingOffenses(): Promise<Offense[]> {
-    return this.offensesStore.getPendingOffenses();
+  /** Returns all offenses stored */
+  public getOffenses(): Promise<Offense[]> {
+    return this.offensesStore.getOffenses();
   }
 
   /**

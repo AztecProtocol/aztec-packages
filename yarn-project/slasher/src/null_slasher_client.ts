@@ -19,7 +19,7 @@ export class NullSlasherClient implements SlasherClientInterface {
     return Promise.resolve([]);
   }
 
-  public getPendingOffenses(): Promise<Offense[]> {
+  public getOffenses(): Promise<Offense[]> {
     return Promise.resolve([]);
   }
 

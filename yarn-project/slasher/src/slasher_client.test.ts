@@ -93,9 +93,9 @@ describe('SlasherClient', () => {
     return { validator, amount, offenseType, epochOrSlot };
   };
 
-  const addPendingOffense = async (opts: Parameters<typeof createOffense>[0] = {}): Promise<Offense> => {
+  const addOffense = async (opts: Parameters<typeof createOffense>[0] = {}): Promise<Offense> => {
     const offense = createOffense(opts);
-    await offensesStore.addPendingOffense(offense);
+    await offensesStore.addOffense(offense);
     return offense;
   };
 
@@ -196,14 +196,14 @@ describe('SlasherClient', () => {
         const targetRound = 3n;
 
         // Add slot-based offenses for the target round (slots 576-767 are in round 3)
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             validator: committee[0],
             epochOrSlot: targetRound * BigInt(roundSize),
             offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
           }),
         );
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             validator: committee[1],
             amount: slashingUnit * 3n,
@@ -227,7 +227,7 @@ describe('SlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
         const wrongRound = 4n; // Round 5 should vote on round 3, not 4
 
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             epochOrSlot: wrongRound * BigInt(roundSize),
             offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
@@ -253,7 +253,7 @@ describe('SlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
         const targetRound = 3n;
 
-        await addPendingOffense({
+        await addOffense({
           epochOrSlot: targetRound * BigInt(roundSize) + BigInt(epochDuration),
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
         });
@@ -289,7 +289,7 @@ describe('SlasherClient', () => {
         const targetRound = 3n;
 
         // Add slot-based offense for the target round
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             validator: committee[0],
             epochOrSlot: targetRound * BigInt(roundSize),
@@ -447,7 +447,7 @@ describe('SlasherClient', () => {
         const executableRound = 2n; // currentRound - delay - 1 = 5 - 2 - 1 = 2
 
         // Add offense for voting
-        await offensesStore.addPendingOffense(
+        await offensesStore.addOffense(
           createOffense({
             epochOrSlot: targetRound * BigInt(roundSize),
             offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
@@ -475,15 +475,15 @@ describe('SlasherClient', () => {
       const targetRound = 3n; // currentRound - offset(2)
 
       // Add slot-based offenses for different rounds
-      const targetOffense = await addPendingOffense({
+      const targetOffense = await addOffense({
         epochOrSlot: targetRound * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         epochOrSlot: (targetRound + 1n) * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based (wrong round)
       });
-      await addPendingOffense({
+      await addOffense({
         epochOrSlot: (targetRound - 1n) * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based (wrong round)
       });
@@ -497,7 +497,7 @@ describe('SlasherClient', () => {
     it('should return empty array when round is less than offset', async () => {
       const currentRound = 1n; // Less than offset of 2
 
-      await addPendingOffense({ epochOrSlot: 100n });
+      await addOffense({ epochOrSlot: 100n });
 
       const offenses = await slasherClient.gatherOffensesForRound(currentRound);
 
@@ -509,7 +509,7 @@ describe('SlasherClient', () => {
       const currentRound = 5n;
       const currentSlot = currentRound * BigInt(roundSize); // Round 5
       const targetRound = currentRound - 2n; // 5 - 2 = 3
-      await addPendingOffense({
+      await addOffense({
         epochOrSlot: targetRound * BigInt(roundSize),
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
@@ -531,19 +531,19 @@ describe('SlasherClient', () => {
       // in getSlashConsensusVotesFromOffenses after always-slash offenses are merged in.
       slasherClient.updateConfig({ slashMaxPayloadSize: 2 });
 
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[0],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[2],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[2],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[1],
@@ -560,13 +560,13 @@ describe('SlasherClient', () => {
       const targetRound = 3n;
       const baseSlot = targetRound * BigInt(roundSize);
 
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: baseSlot,
         amount: slashingUnit,
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: baseSlot,
         amount: slashingUnit * 2n,
@@ -585,19 +585,19 @@ describe('SlasherClient', () => {
       // Cap at 1 slashed validator-epoch pair; the highest-amount validator should survive
       slasherClient.updateConfig({ slashMaxPayloadSize: 1 });
 
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[0],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[2],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[2],
         epochOrSlot: baseSlot,
         amount: settings.slashingAmounts[1],
@@ -628,7 +628,7 @@ describe('SlasherClient', () => {
 
       await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0]).toEqual(offense);
     });
@@ -645,7 +645,7 @@ describe('SlasherClient', () => {
       await slasherClient.handleWantToSlash([offense]);
       await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
     });
 
@@ -660,7 +660,7 @@ describe('SlasherClient', () => {
 
       await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(0);
     });
 
@@ -675,7 +675,7 @@ describe('SlasherClient', () => {
 
       await slasherClient.handleWantToSlash([offense]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
     });
 
@@ -696,7 +696,7 @@ describe('SlasherClient', () => {
 
       await slasherClient.handleWantToSlash([offense1, offense2]);
 
-      const pendingOffenses = await offensesStore.getPendingOffenses();
+      const pendingOffenses = await offensesStore.getOffenses();
       expect(pendingOffenses).toHaveLength(2);
     });
   });
@@ -735,7 +735,7 @@ describe('SlasherClient', () => {
   describe('integration', () => {
     const waitForOffenses = (count: number) =>
       retryFastUntil(async () => {
-        const pendingOffenses = await offensesStore.getPendingOffenses();
+        const pendingOffenses = await offensesStore.getOffenses();
         return pendingOffenses.length >= count ? true : undefined;
       }, 'offense to be processed');
 
@@ -870,25 +870,25 @@ describe('SlasherClient', () => {
       const targetRound = 3n;
 
       // Add offenses with different amounts
-      await addPendingOffense({
+      await addOffense({
         validator: committee[0],
         epochOrSlot: targetRound * BigInt(roundSize),
         amount: settings.slashingAmounts[0], // 1 unit
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1],
         epochOrSlot: targetRound * BigInt(roundSize),
         amount: settings.slashingAmounts[0], // 1 units
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[1], // same as above!
         epochOrSlot: targetRound * BigInt(roundSize) + 1n,
         amount: 2n * settings.slashingAmounts[0], // 2 units on top of the previous 1
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
-      await addPendingOffense({
+      await addOffense({
         validator: committee[2],
         epochOrSlot: targetRound * BigInt(roundSize),
         amount: 20n * settings.slashingAmounts[0], // Exceeds max 3 units
@@ -916,7 +916,7 @@ describe('SlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
 
         // Add offense for normal validator (should be processed normally)
-        await addPendingOffense({
+        await addOffense({
           validator: normalValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit, // 1 unit
@@ -960,14 +960,14 @@ describe('SlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
 
         // Add offenses for both validators
-        await addPendingOffense({
+        await addOffense({
           validator: neverSlashValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit * 10n, // Large amount that would normally result in 3 units
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         });
 
-        await addPendingOffense({
+        await addOffense({
           validator: normalValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit, // 1 unit
@@ -994,7 +994,7 @@ describe('SlasherClient', () => {
 
         // Add offenses for all validators
         for (const validator of [neverSlashValidator1, neverSlashValidator2, normalValidator]) {
-          await addPendingOffense({
+          await addOffense({
             validator,
             epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
             amount: slashingUnit * 2n, // 2 units
@@ -1059,7 +1059,7 @@ describe('SlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize);
 
         // Add offense for normal processing
-        await addPendingOffense({
+        await addOffense({
           validator: normalValidator,
           epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
           amount: slashingUnit, // 1 unit

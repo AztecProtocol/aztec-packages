@@ -1535,7 +1535,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error(`Slasher client not enabled`);
     }
     if (round === 'all') {
-      return this.slasherClient.getPendingOffenses();
+      return this.slasherClient.getOffenses();
     } else {
       return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
     }

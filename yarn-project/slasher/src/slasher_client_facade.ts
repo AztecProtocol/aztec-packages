@@ -65,8 +65,8 @@ export class SlasherClientFacade implements SlasherClientInterface {
     return this.client?.gatherOffensesForRound(round) ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 
-  public getPendingOffenses(): Promise<Offense[]> {
-    return this.client?.getPendingOffenses() ?? Promise.reject(new Error('Slasher client not initialized'));
+  public getOffenses(): Promise<Offense[]> {
+    return this.client?.getOffenses() ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 
   public getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {

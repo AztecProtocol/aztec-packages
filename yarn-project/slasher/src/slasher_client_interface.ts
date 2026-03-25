@@ -13,8 +13,8 @@ export interface SlasherClientInterface {
   /** Gather offenses for a given round, defaults to current. */
   gatherOffensesForRound(round?: bigint): Promise<Offense[]>;
 
-  /** Returns all pending offenses */
-  getPendingOffenses(): Promise<Offense[]>;
+  /** Returns all offenses */
+  getOffenses(): Promise<Offense[]>;
 
   /** Update the configuration. */
   updateConfig(config: Partial<SlasherConfig>): void;
