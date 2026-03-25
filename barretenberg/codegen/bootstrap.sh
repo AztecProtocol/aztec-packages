@@ -16,7 +16,6 @@ export hash=$(cache_content_hash .rebuild_patterns)
 function build {
   echo_header "codegen tool build"
   if ! cache_download codegen-$hash.tar.gz; then
-    # Use npm directly (not npm_install_deps which expects yarn)
     npm ci --silent
     cache_upload codegen-$hash.tar.gz node_modules package-lock.json
   fi
@@ -25,20 +24,11 @@ function build {
 function generate {
   build
 
-  echo_header "codegen generate (hash=$hash)"
-  if ! cache_download codegen-generate-$hash.tar.gz; then
-    # Run codegen from committed schema JSON files (no C++ binary dependency)
-    npx tsx src/generate.ts
-
-    # Cache all generated output
-    cache_upload codegen-generate-$hash.tar.gz \
-      ../ts/src/cbind/generated \
-      ../ts/src/aztec-wsdb/generated \
-      ../ts/src/aztec-cdb/generated \
-      ../ts/src/aztec-avm/generated \
-      ../rust/barretenberg-rs/src/generated_types.rs \
-      ../rust/barretenberg-rs/src/api.rs
-  fi
+  echo_header "codegen generate"
+  # Always run codegen — it reads committed JSON schemas (fast, ~2s).
+  # No caching of generated output: relative paths cause extraction issues,
+  # and the generation is fast enough to just re-run each time.
+  npx tsx src/generate.ts
 }
 
 case "${1:-build}" in
