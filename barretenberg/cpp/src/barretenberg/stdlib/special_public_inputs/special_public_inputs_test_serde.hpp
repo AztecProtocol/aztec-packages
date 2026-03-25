@@ -1,7 +1,9 @@
 #pragma once
 
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
@@ -21,6 +23,7 @@ class KernelIOSerde {
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
     using NativeTableCommitments = std::array<NativeG1, MegaCircuitBuilder::NUM_WIRES>;
+    using NativeIpaClaim = OpeningClaim<curve::Grumpkin>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
 
@@ -29,6 +32,7 @@ class KernelIOSerde {
     NativeG1 app_return_data;
     NativeTableCommitments ecc_op_tables;
     NativeFF output_hn_accum_hash;
+    NativeIpaClaim ipa_claim;
 
     /**
      * @brief Deserialize KernelIO from a proof vector
@@ -58,7 +62,13 @@ class KernelIOSerde {
         for (auto& commitment : result.ecc_op_tables) {
             commitment = deserialize_point();
         }
-        result.output_hn_accum_hash = proof[idx];
+        result.output_hn_accum_hash = proof[idx++];
+        {
+            std::span<const NativeFF, NativeIpaClaim::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
+                                                                                NativeIpaClaim::PUBLIC_INPUTS_SIZE);
+            result.ipa_claim = NativeIpaClaim::reconstruct_from_public(limbs);
+            idx += NativeIpaClaim::PUBLIC_INPUTS_SIZE;
+        }
 
         return result;
     }
@@ -93,6 +103,14 @@ class KernelIOSerde {
             }
         };
 
+        auto serialize_grumpkin_fr = [&](const curve::Grumpkin::ScalarField& fr_val) {
+            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+            constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+            uint256_t val = static_cast<uint256_t>(fr_val);
+            proof[idx++] = NativeFF(val & LIMB_MASK);
+            proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
+        };
+
         serialize_point(pairing_inputs.P0());
         serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
@@ -100,7 +118,12 @@ class KernelIOSerde {
         for (const auto& commitment : ecc_op_tables) {
             serialize_point(commitment);
         }
-        proof[idx] = output_hn_accum_hash;
+        proof[idx++] = output_hn_accum_hash;
+        // Serialize IPA claim: challenge (2 limbs) + evaluation (2 limbs) + commitment (2 fr)
+        serialize_grumpkin_fr(ipa_claim.opening_pair.challenge);
+        serialize_grumpkin_fr(ipa_claim.opening_pair.evaluation);
+        proof[idx++] = NativeFF(ipa_claim.commitment.x);
+        proof[idx++] = NativeFF(ipa_claim.commitment.y);
     }
 };
 
@@ -117,12 +140,14 @@ class HidingKernelIOSerde {
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
     using NativeTableCommitments = std::array<NativeG1, MegaCircuitBuilder::NUM_WIRES>;
+    using NativeIpaClaim = OpeningClaim<curve::Grumpkin>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
 
     NativePairingPoints pairing_inputs;
     NativeG1 kernel_return_data;
     NativeTableCommitments ecc_op_tables;
+    NativeIpaClaim ipa_claim;
 
     /**
      * @brief Deserialize HidingKernelIO from a proof vector
@@ -146,6 +171,12 @@ class HidingKernelIOSerde {
         result.kernel_return_data = deserialize_point();
         for (auto& commitment : result.ecc_op_tables) {
             commitment = deserialize_point();
+        }
+        {
+            std::span<const NativeFF, NativeIpaClaim::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
+                                                                                NativeIpaClaim::PUBLIC_INPUTS_SIZE);
+            result.ipa_claim = NativeIpaClaim::reconstruct_from_public(limbs);
+            idx += NativeIpaClaim::PUBLIC_INPUTS_SIZE;
         }
 
         return result;
@@ -179,12 +210,24 @@ class HidingKernelIOSerde {
             }
         };
 
+        auto serialize_grumpkin_fr = [&](const curve::Grumpkin::ScalarField& fr_val) {
+            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+            constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+            uint256_t val = static_cast<uint256_t>(fr_val);
+            proof[idx++] = NativeFF(val & LIMB_MASK);
+            proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
+        };
+
         serialize_point(pairing_inputs.P0());
         serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
         for (const auto& commitment : ecc_op_tables) {
             serialize_point(commitment);
         }
+        serialize_grumpkin_fr(ipa_claim.opening_pair.challenge);
+        serialize_grumpkin_fr(ipa_claim.opening_pair.evaluation);
+        proof[idx++] = NativeFF(ipa_claim.commitment.x);
+        proof[idx++] = NativeFF(ipa_claim.commitment.y);
     }
 };
 

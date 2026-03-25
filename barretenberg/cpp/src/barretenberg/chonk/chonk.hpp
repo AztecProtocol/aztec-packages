@@ -90,6 +90,7 @@ class Chonk : public IVCBase {
     struct PublicInputsResult {
         PairingPoints pairing_points;
         std::optional<TableCommitments> T_prev_commitments; // set only for kernels
+        std::optional<KernelIO::IpaClaim> ipa_claim;        // set only for kernels
     };
 
     /**
@@ -184,6 +185,9 @@ class Chonk : public IVCBase {
     std::shared_ptr<DeciderZKProvingKey> hiding_prover_inst;
     std::shared_ptr<MegaZKVerificationKey> hiding_vk;
 
+    // IPA proof for the current IPA claim accumulator, needed for future IPA accumulation in goblin flush kernels
+    HonkProof ipa_proof;
+
     size_t get_num_circuits() const { return num_circuits; }
 
     // IVCBase interface
@@ -195,14 +199,16 @@ class Chonk : public IVCBase {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, TableCommitments>
-        recursive_verification_and_consistency_checks(
-            ClientCircuit& circuit,
-            const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const TableCommitments& T_prev_commitments,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+    [[nodiscard("Pairing points should be accumulated")]] std::tuple<std::optional<RecursiveVerifierAccumulator>,
+                                                                     std::vector<PairingPoints>,
+                                                                     TableCommitments,
+                                                                     std::optional<KernelIO::IpaClaim>>
+    recursive_verification_and_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibVerifierInputs& verifier_inputs,
+        const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
+        const TableCommitments& T_prev_commitments,
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);

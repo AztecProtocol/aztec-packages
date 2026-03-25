@@ -67,19 +67,24 @@ class KernelIO {
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
+    using GrumpkinCurve = stdlib::grumpkin<Builder>;
+    using IpaClaim = OpeningClaim<GrumpkinCurve>;
+
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
     using PublicFF = stdlib::PublicInputComponent<FF>;
+    using PublicIpaClaim = stdlib::PublicInputComponent<IpaClaim>;
 
     PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
     G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
     G1 app_return_data;             // Commitment to the return data of an app circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
     FF output_hn_accum_hash;        // hash of the output HN verifier accumulator
+    IpaClaim ipa_claim;             // IPA opening claim accumulated across goblin flush circuits
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
-    static constexpr bool HasIPA = false;
+    static constexpr bool HasIPA = true;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -103,6 +108,8 @@ class KernelIO {
         }
         output_hn_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
+        ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += IpaClaim::PUBLIC_INPUTS_SIZE;
     }
 
     /**
@@ -120,6 +127,7 @@ class KernelIO {
             table_commitment.set_public();
         }
         output_hn_accum_hash.set_public();
+        ipa_claim.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
@@ -143,6 +151,9 @@ class KernelIO {
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
         inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
+        auto [stdlib_opening_claim, ipa_proof] = IPA<GrumpkinCurve>::create_random_valid_ipa_claim_and_proof(builder);
+        inputs.ipa_claim = stdlib_opening_claim;
+        builder.ipa_proof = ipa_proof;
         inputs.set_public();
     }
 };
@@ -270,17 +281,21 @@ template <class Builder_> class HidingKernelIO {
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
+    using GrumpkinCurve = stdlib::grumpkin<Builder>;
+    using IpaClaim = OpeningClaim<GrumpkinCurve>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+    using PublicIpaClaim = stdlib::PublicInputComponent<IpaClaim>;
 
     PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
     G1 kernel_return_data;          // Commitment to the return data of the tail kernel circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from final Merge verification
+    IpaClaim ipa_claim;             // IPA opening claim accumulated across goblin flush circuits
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
-    static constexpr bool HasIPA = false;
+    static constexpr bool HasIPA = true;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -299,6 +314,8 @@ template <class Builder_> class HidingKernelIO {
             commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
+        ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += IpaClaim::PUBLIC_INPUTS_SIZE;
     }
 
     /**
@@ -314,6 +331,7 @@ template <class Builder_> class HidingKernelIO {
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
+        ipa_claim.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
@@ -337,6 +355,9 @@ template <class Builder_> class HidingKernelIO {
                                   /*assert_on_curve=*/false);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
+        auto [stdlib_opening_claim, ipa_proof] = IPA<GrumpkinCurve>::create_random_valid_ipa_claim_and_proof(builder);
+        inputs.ipa_claim = stdlib_opening_claim;
+        builder.ipa_proof = ipa_proof;
         inputs.set_public();
     };
 };

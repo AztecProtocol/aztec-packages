@@ -148,6 +148,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     WitnessCommitments& witness_commitments,
     const std::optional<StdlibFF>& prev_accum_hash)
 {
+    std::optional<KernelIO::IpaClaim> extracted_ipa_claim;
     if (verifier_inputs.is_kernel) {
         BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
                          verifier_inputs.type == QUEUE_TYPE::HN_FINAL,
@@ -156,8 +157,11 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // ============= Reconstruct the public inputs of the previous kernel =============
 
-        KernelIO kernel_input; // pairing points, ecc op tables, databus commitments
+        KernelIO kernel_input; // pairing points, ecc op tables, databus commitments, ipa claim
         kernel_input.reconstruct_from_public(public_inputs);
+
+        // Extract the IPA claim for pass-through to the next kernel
+        extracted_ipa_claim = kernel_input.ipa_claim;
 
         // ============= Perform databus consistency checks ===============================
 
@@ -194,7 +198,9 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
 
-        return { std::move(kernel_input.pairing_inputs), std::move(kernel_input.ecc_op_tables) };
+        return { std::move(kernel_input.pairing_inputs),
+                 std::move(kernel_input.ecc_op_tables),
+                 std::move(extracted_ipa_claim) };
     }
 
     // App circuit path
@@ -204,7 +210,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     // Set the app return data commitment to be propagated via the public inputs
     bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
 
-    return { std::move(app_input.pairing_inputs), std::nullopt };
+    return { std::move(app_input.pairing_inputs), std::nullopt, std::nullopt };
 }
 
 /**
@@ -223,7 +229,8 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
  */
 std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>,
            std::vector<Chonk::PairingPoints>,
-           Chonk::TableCommitments>
+           Chonk::TableCommitments,
+           std::optional<Chonk::KernelIO::IpaClaim>>
 Chonk::recursive_verification_and_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
@@ -254,7 +261,7 @@ Chonk::recursive_verification_and_consistency_checks(
     std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     // Step 2: Process public inputs and perform databus consistency checks
-    auto [io_pairing_points, T_prev_override] = process_public_inputs_and_consistency_checks(
+    auto [io_pairing_points, T_prev_override, extracted_ipa_claim] = process_public_inputs_and_consistency_checks(
         verifier_inputs, public_inputs, witness_commitments, prev_accum_hash);
 
     // Determine T_prev for merge verification
@@ -282,7 +289,7 @@ Chonk::recursive_verification_and_consistency_checks(
     all_points.emplace_back(std::move(io_pairing_points));
     all_points.emplace_back(merge_pairing_points);
 
-    return { std::move(output_accumulator), std::move(all_points), merged_table_commitments };
+    return { std::move(output_accumulator), std::move(all_points), merged_table_commitments, extracted_ipa_claim };
 }
 
 /**
@@ -346,6 +353,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
+    std::optional<KernelIO::IpaClaim> propagated_ipa_claim;
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
             &circuit, recursive_verifier_native_accum);
@@ -353,7 +361,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments] =
+        auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments, extracted_ipa_claim] =
             recursive_verification_and_consistency_checks(circuit,
                                                           verifier_input,
                                                           current_stdlib_verifier_accumulator,
@@ -364,6 +372,12 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         T_prev_commitments = merged_table_commitments;
         // Update the output verifier accumulator
         current_stdlib_verifier_accumulator = output_stdlib_verifier_accumulator;
+        // Capture IPA claim from the previous kernel (if this was a kernel verification)
+        if (extracted_ipa_claim.has_value()) {
+            BB_ASSERT(!propagated_ipa_claim.has_value(),
+                      "Multiple IPA claims extracted in the same kernel, which is not expected.");
+            propagated_ipa_claim = extracted_ipa_claim;
+        }
 
         stdlib_verification_queue.pop_front();
     }
@@ -373,6 +387,15 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
+    // For init kernel, create a default IPA claim; for all others, pass through from previous kernel
+    if (is_init_kernel) {
+        auto [stdlib_opening_claim, init_ipa_proof] =
+            IPA<KernelIO::GrumpkinCurve>::create_random_valid_ipa_claim_and_proof(circuit);
+        propagated_ipa_claim = stdlib_opening_claim;
+        ipa_proof = init_ipa_proof;
+    }
+    BB_ASSERT(propagated_ipa_claim.has_value());
+
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
 
@@ -383,7 +406,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Propagate public inputs
         HidingKernelIO hiding_output{ pairing_points_aggregator,
                                       bus_depot.get_kernel_return_data_commitment(circuit),
-                                      T_prev_commitments };
+                                      T_prev_commitments,
+                                      *propagated_ipa_claim };
         hiding_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
@@ -412,6 +436,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                 app_return_data_commitment,
                                 T_prev_commitments,
                                 current_verifier_accum_hash };
+        kernel_output.ipa_claim = *propagated_ipa_claim;
         kernel_output.set_public();
     }
 }
