@@ -18,7 +18,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
 import { TypeScriptCodegen } from './typescript_codegen.js';
-import { RustCodegen } from './rust_codegen.js';
+import { RustCodegen, type RustCodegenOptions } from './rust_codegen.js';
 import { CppCodegen, type CppCodegenOptions } from './cpp_codegen.js';
 
 const execAsync = promisify(exec);
@@ -180,12 +180,12 @@ function cppClientTarget(opts: CppCodegenOptions, cppOutputDir: string): Languag
 // ---------------------------------------------------------------------------
 // Helper: create Rust target
 // ---------------------------------------------------------------------------
-function rustTarget(outputDir: string): LanguageTarget {
+function rustTarget(outputDir: string, opts?: RustCodegenOptions): LanguageTarget {
   return {
     name: 'Rust',
     enabled: true,
     generate: (compiled, schemaHash) => {
-      const rustGen = new RustCodegen();
+      const rustGen = new RustCodegen(opts);
       return [
         { path: `${outputDir}/generated_types.rs`, content: rustGen.generateTypes(compiled, schemaHash) },
         { path: `${outputDir}/api.rs`, content: rustGen.generateApi(compiled) },
@@ -210,6 +210,9 @@ const BB_SERVICE: ServiceConfig = {
   ],
 };
 
+/** Rust output base for IPC service crate */
+const RUST_IPC_BASE = '../../../rust/aztec-ipc/src';
+
 /** World State Database service */
 const WSDB_SERVICE: ServiceConfig = {
   name: 'wsdb',
@@ -227,6 +230,15 @@ const WSDB_SERVICE: ServiceConfig = {
       },
       '../../../cpp/src/barretenberg/wsdb/wsdb',
     ),
+    rustTarget(`${RUST_IPC_BASE}/wsdb`, {
+      prefix: 'Wsdb',
+      apiStructName: 'WsdbApi',
+      backendImport: 'crate::backend::Backend',
+      errorImport: 'crate::error::{IpcError, Result}',
+      typesImport: 'super::generated_types::*',
+      typesDocComment: 'Generated types for aztec-wsdb IPC protocol',
+      apiDocComment: 'WSDB IPC client API',
+    }),
   ],
 };
 
@@ -247,6 +259,15 @@ const CDB_SERVICE: ServiceConfig = {
       },
       '../../../cpp/src/barretenberg/cdb/cdb',
     ),
+    rustTarget(`${RUST_IPC_BASE}/cdb`, {
+      prefix: 'Cdb',
+      apiStructName: 'CdbApi',
+      backendImport: 'crate::backend::Backend',
+      errorImport: 'crate::error::{IpcError, Result}',
+      typesImport: 'super::generated_types::*',
+      typesDocComment: 'Generated types for aztec-cdb IPC protocol',
+      apiDocComment: 'CDB IPC client API',
+    }),
   ],
 };
 
@@ -258,6 +279,15 @@ const AVM_SERVICE: ServiceConfig = {
   baseDir: '../aztec-avm',
   targets: [
     tsTarget(),
+    rustTarget(`${RUST_IPC_BASE}/avm`, {
+      prefix: 'Avm',
+      apiStructName: 'AvmApi',
+      backendImport: 'crate::backend::Backend',
+      errorImport: 'crate::error::{IpcError, Result}',
+      typesImport: 'super::generated_types::*',
+      typesDocComment: 'Generated types for aztec-avm IPC protocol',
+      apiDocComment: 'AVM IPC client API',
+    }),
   ],
 };
 

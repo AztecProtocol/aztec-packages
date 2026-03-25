@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "barretenberg-rs",
+    "aztec-ipc",
     "tests",
 ]
 
