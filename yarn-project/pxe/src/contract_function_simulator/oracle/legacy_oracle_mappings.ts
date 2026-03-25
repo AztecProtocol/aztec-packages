@@ -78,12 +78,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       oracle.aztec_utl_copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, [toACVMField(AztecAddress.ZERO)]),
     utilityDeleteCapsule: (contractAddress: ACVMField[], slot: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_deleteCapsule(contractAddress, slot, [toACVMField(AztecAddress.ZERO)]),
-    utilityGetSharedSecret: (
-      address: ACVMField[],
-      ephPKField0: ACVMField[],
-      ephPKField1: ACVMField[],
-      ephPKField2: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_utl_getSharedSecret(address, ephPKField0, ephPKField1, ephPKField2),
     utilityGetL1ToL2MembershipWitness: (
       contractAddress: ACVMField[],
       messageHash: ACVMField[],

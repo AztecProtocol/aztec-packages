@@ -151,7 +151,7 @@ export interface IUtilityExecutionOracle {
     scope: AztecAddress,
   ): Promise<void>;
   aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
-  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
+  getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
   invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
 }
