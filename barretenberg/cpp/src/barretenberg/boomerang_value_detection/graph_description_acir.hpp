@@ -83,65 +83,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
                                         uint32_t& discovered_w_i_real);
     Sha256SparseFunctionResult validate_sha256_sparse_function(const Sha256SparseFunctionParams& params);
     /**
-     * @brief Validate extend_witness reduction step for W[i] (i >= 16).
-     *
-     * Verifies: w_out_raw (= W[i]-1) exists, divisor gate equation holds,
-     * divisor has 2-bit range constraint. Returns w_out_raw's real index.
-     *
-     * @param w_i_real Real variable index of W[i] (must not be IS_CONSTANT)
-     * @return w_out_raw real index if valid, nullopt if validation fails
-     */
-    std::optional<uint32_t> validate_extend_witness_reduction(uint32_t w_i_real);
-    /**
-     * @brief Validate the w_out_raw add_two gate in extend_witness and discover xor_result.
-     *
-     * w_out_raw = xor_result.add_two(W[i-16], W[i-7])
-     * Searches backward from w_out_raw to find the add_two gate, verifies W[i-16] and W[i-7]
-     * on the expected wires, checks equation == 0, and returns xor_result's real index.
-     *
-     * @param w_out_raw_real Real index of w_out_raw (from validate_extend_witness_reduction)
-     * @param w_16_real Real index of W[i-16], or IS_CONSTANT
-     * @param w_7_real Real index of W[i-7], or IS_CONSTANT
-     * @param xor_result_const Whether xor_result is constant (w[i-15] && w[i-2] both constant)
-     * @return xor_result's real index (IS_CONSTANT if xor_result is constant) if valid, nullopt if fails
-     */
-    std::optional<uint32_t> validate_extend_witness_w_out_raw(uint32_t w_out_raw_real,
-                                                              uint32_t w_16_real,
-                                                              uint32_t w_7_real,
-                                                              bool xor_result_const);
-    /**
-     * @brief Validate the add_two chains that produce xor_result_sparse in extend_witness.
-     *
-     * Traces backward from xor_result_sparse through:
-     *   Right chain (3 add_two gates, from w_right data):
-     *     xor_result_sparse = prev2.add_two(corrections[3], left_xor_sparse)
-     *     prev2 = prev1.add_two(right[3], corrections[2])
-     *     prev1 = right[0].add_two(right[1], right[2])
-     *   Left chain (2 add_two gates, from w_left data):
-     *     left_before_mul = prev_l.add_two(left[3], corrections[1])
-     *     prev_l = left[0].add_two(left[1], left[2])
-     *
-     * @param xor_result_sparse_real Real index of xor_result_sparse (from lookup w_l)
-     * @param w_left_const Whether w[i-15] is constant (left chain absent)
-     * @param w_right_const Whether w[i-2] is constant (right chain absent except last add_two)
-     * @return true if all chains validate successfully
-     */
-    bool validate_extend_witness_add_two_chains(uint32_t xor_result_sparse_real, bool w_left_const, bool w_right_const);
-    /**
-     * @brief Validate the convert_witness lookup gates (SHA256_WITNESS_INPUT) for a W value.
-     *
-     * convert_witness creates 4 lookup gates. The first gate has:
-     *   w_l = input (W[j]), w_r = sparse_limbs[0] (C2), w_o = rotated_limb_corrections[0] (C3)
-     *
-     * Finds the gates via w_real in lookup w_l, hashes 4 consecutive gates' selectors,
-     * and returns sparse_limbs[0] and rotated_limb_corrections[0] for cross-validation.
-     *
-     * @param w_real Real index of the input W value (must not be IS_CONSTANT)
-     * @param expected_hash Pinned selector hash for WITNESS_INPUT (0 = skip)
-     * @return Pair of (sparse_limbs[0]_real, rotated_corrections[0]_real), or nullopt if fails
-     */
-    std::optional<std::pair<uint32_t, uint32_t>> validate_convert_witness_lookup(uint32_t w_real, size_t expected_hash);
-    /**
      * @brief Validate one extend_witness iteration for W[i] (i >= 16, non-constant).
      *
      * Called after compression round discovers W[i]. Traces backward through:

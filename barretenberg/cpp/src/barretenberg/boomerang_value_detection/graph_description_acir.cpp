@@ -1832,7 +1832,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_sha256_lookup_block(uint3
     }
 
     if (expected_hash != 0) {
-        size_t hash = sha256_helpers::compute_selector_hash(0, lookup_block, *start, *start + gate_count - 1);
+        size_t hash = sha256_helpers::compute_selector_hash_without_table_index(0, lookup_block, *start, *start + gate_count - 1);
         if (hash != expected_hash) {
             info("SHA256 ", log_prefix, ": selector hash mismatch: got ", hash);
             return false;
@@ -1842,447 +1842,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_sha256_lookup_block(uint3
     return true;
 }
 
-/**
- * @brief Validate the w_out_raw add_two gate and discover xor_result.
- *
- * w_out_raw = xor_result.add_two(W[i-16], W[i-7])
- *
- * Searches backward from w_out_raw to find the gate, verifies known wires, checks equation == 0.
- * Returns xor_result's real index (IS_CONSTANT if xor_result is constant).
- */
-template <typename FF, typename CircuitBuilder>
-std::optional<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_w_out_raw(
-    uint32_t w_out_raw_real, uint32_t w_16_real, uint32_t w_7_real, bool xor_result_const)
-{
-    constexpr uint32_t CONST = bb::stdlib::IS_CONSTANT;
-    const bool w16_const = (w_16_real == CONST);
-    const bool w7_const = (w_7_real == CONST);
-    const size_t num_non_const =
-        static_cast<size_t>(!xor_result_const) + static_cast<size_t>(!w16_const) + static_cast<size_t>(!w7_const);
-
-    // All constant → w_out_raw should be constant, but we were called with a real index.
-    // This shouldn't happen — caller should skip when w_out_raw is constant.
-    if (num_non_const == 0) {
-        info("SHA256 extend_witness: w_out_raw gate called with all-constant args");
-        return std::nullopt;
-    }
-
-    // 1 non-const: no gate created, add_two returns field_t wrapping the sole witness.
-    // w_out_raw IS that sole witness (with accumulated constants from the other two).
-    if (num_non_const == 1) {
-        if (!xor_result_const) {
-            // xor_result is the sole non-const → can't discover its separate index from here
-            // w_out_raw wraps xor_result with modified constants
-            return CONST; // xor_result index is embedded in w_out_raw, not separately discoverable
-        }
-        // xor_result const, one of w16/w7 is non-const → that witness is w_out_raw
-        return xor_result_const ? CONST : w_out_raw_real;
-    }
-
-    auto& arith_block = builder.blocks.arithmetic;
-    auto gates = analyzer.get_variable_gates(w_out_raw_real);
-
-    for (const auto& [blk_idx, gate_idx] : gates) {
-        if (&builder.blocks.get()[blk_idx] != &arith_block) {
-            continue;
-        }
-
-        FF q_m = arith_block.q_m()[gate_idx];
-        FF q_arith = arith_block.q_arith()[gate_idx];
-        if (!q_m.is_zero() || q_arith != FF::one()) {
-            continue;
-        }
-
-        uint32_t w_l_real = analyzer.to_real(arith_block.w_l()[gate_idx]);
-        uint32_t w_r_real = analyzer.to_real(arith_block.w_r()[gate_idx]);
-        uint32_t w_o_real = analyzer.to_real(arith_block.w_o()[gate_idx]);
-        uint32_t w_4_real = analyzer.to_real(arith_block.w_4()[gate_idx]);
-
-        uint32_t xor_result_real = CONST;
-
-        if (num_non_const == 3) {
-            // big_mul_add_gate: w_l=xor_result, w_r=W[i-16], w_o=W[i-7], w_4=w_out_raw
-            if (w_4_real != w_out_raw_real || w_r_real != w_16_real || w_o_real != w_7_real) {
-                continue;
-            }
-            xor_result_real = w_l_real;
-        } else {
-            // add_gate (2 non-const): w_o = w_out_raw
-            if (w_o_real != w_out_raw_real) {
-                continue;
-            }
-
-            if (xor_result_const) {
-                // xor_result absorbed into q_c. w_l and w_r are W[i-16] and W[i-7] (both non-const).
-                bool wires_ok =
-                    (w_l_real == w_16_real && w_r_real == w_7_real) || (w_l_real == w_7_real && w_r_real == w_16_real);
-                if (!wires_ok) {
-                    continue;
-                }
-                xor_result_real = CONST;
-            } else if (w16_const) {
-                // W[i-16] absorbed into q_c. w_l/w_r = xor_result and W[i-7] (either order).
-                if (w_l_real == w_7_real) {
-                    xor_result_real = w_r_real;
-                } else if (w_r_real == w_7_real) {
-                    xor_result_real = w_l_real;
-                } else {
-                    continue;
-                }
-            } else {
-                // W[i-7] absorbed into q_c. w_l/w_r = xor_result and W[i-16] (either order).
-                if (w_l_real == w_16_real) {
-                    xor_result_real = w_r_real;
-                } else if (w_r_real == w_16_real) {
-                    xor_result_real = w_l_real;
-                } else {
-                    continue;
-                }
-            }
-        }
-
-        // Gate equation check
-        FF q_1 = arith_block.q_1()[gate_idx];
-        FF q_2 = arith_block.q_2()[gate_idx];
-        FF q_3 = arith_block.q_3()[gate_idx];
-        FF q_4 = arith_block.q_4()[gate_idx];
-        FF q_c = arith_block.q_c()[gate_idx];
-        FF w_l_val = builder.get_variable(arith_block.w_l()[gate_idx]);
-        FF w_r_val = builder.get_variable(arith_block.w_r()[gate_idx]);
-        FF w_o_val = builder.get_variable(arith_block.w_o()[gate_idx]);
-        FF w_4_val = builder.get_variable(arith_block.w_4()[gate_idx]);
-
-        FF equation = q_m * w_l_val * w_r_val + q_1 * w_l_val + q_2 * w_r_val + q_3 * w_o_val + q_4 * w_4_val + q_c;
-        if (equation != FF::zero()) {
-            continue;
-        }
-
-        return xor_result_real;
-    }
-
-    info("SHA256 extend_witness: w_out_raw add_two gate not found for w_out_raw=", w_out_raw_real);
-    return std::nullopt;
-}
-
-/**
- * @brief Validate the convert_witness lookup gates (SHA256_WITNESS_INPUT) for a W value.
- *
- * convert_witness(input) calls get_lookup_accumulators(SHA256_WITNESS_INPUT, input) which creates
- * 4 lookup gates (one per limb: 3-bit, 7-bit, 8-bit, 14-bit). The first gate has:
- *   w_l = input (accumulated C1), w_r = sparse_limbs[0] (C2), w_o = rotated_corrections[0] (C3)
- */
-template <typename FF, typename CircuitBuilder>
-std::optional<std::pair<uint32_t, uint32_t>> StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_convert_witness_lookup(
-    uint32_t w_real, size_t expected_hash)
-{
-    static constexpr size_t WITNESS_INPUT_GATE_COUNT = 4;
-
-    auto& lookup_block = builder.blocks.lookup;
-    auto gates = analyzer.get_variable_gates(w_real);
-
-    for (const auto& [blk_idx, gate_idx] : gates) {
-        if (&builder.blocks.get()[blk_idx] != &lookup_block) {
-            continue;
-        }
-        if (analyzer.to_real(lookup_block.w_l()[gate_idx]) != w_real) {
-            continue;
-        }
-
-        // Found first gate of convert_witness lookup
-        if (gate_idx + WITNESS_INPUT_GATE_COUNT > lookup_block.size()) {
-            info("SHA256 convert_witness: not enough lookup gates for w=", w_real);
-            return std::nullopt;
-        }
-
-        // Hash selectors of 4 consecutive gates
-        if (expected_hash != 0) {
-            size_t hash = sha256_helpers::compute_selector_hash(
-                0, lookup_block, gate_idx, gate_idx + WITNESS_INPUT_GATE_COUNT - 1);
-            if (hash != expected_hash) {
-                info("SHA256 convert_witness: selector hash mismatch for w=", w_real, " got ", hash);
-                return std::nullopt;
-            }
-        }
-
-        // Extract sparse_limbs[0] from w_r and rotated_corrections[0] from w_o of first gate
-        uint32_t sparse_limb_0_real = analyzer.to_real(lookup_block.w_r()[gate_idx]);
-        uint32_t rotated_correction_0_real = analyzer.to_real(lookup_block.w_o()[gate_idx]);
-
-        return std::make_pair(sparse_limb_0_real, rotated_correction_0_real);
-    }
-
-    info("SHA256 convert_witness: lookup not found for w=", w_real);
-    return std::nullopt;
-}
-
-/**
- * @brief Validate the add_two chains that produce xor_result_sparse in extend_witness.
- *
- * Traces backward from xor_result_sparse through two chains:
- *
- * Right chain (w_right non-const): 3 add_two gates
- *   Gate R3: xor_result_sparse = prev_r2.add_two(corrections[3], left_xor_sparse)
- *   Gate R2: prev_r2 = prev_r1.add_two(right[3], corrections[2])
- *   Gate R1: prev_r1 = right[0].add_two(right[1], right[2])
- *
- * Left chain (w_left non-const): 2 add_two gates
- *   Gate L2: left_before_mul = prev_l.add_two(left[3], corrections[1])
- *   Gate L1: prev_l = left[0].add_two(left[1], left[2])
- *
- * When w_right is const, the right chain collapses. xor_result_sparse may just be left_xor_sparse
- * with constants absorbed. When w_left is const, the left chain collapses and left_xor_sparse is const.
- *
- * We trace backward using find_add_two_gate_by_output, validating each gate's equation.
- */
-template <typename FF, typename CircuitBuilder>
-bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_add_two_chains(uint32_t xor_result_sparse_real,
-                                                                                     bool w_left_const,
-                                                                                     bool w_right_const)
-{
-    constexpr uint32_t CONST = bb::stdlib::IS_CONSTANT;
-
-    // If both are constant, xor_result_sparse is constant — nothing to validate
-    if (w_left_const && w_right_const) {
-        return true;
-    }
-
-    // If xor_result_sparse is IS_CONSTANT, nothing to trace
-    if (xor_result_sparse_real == CONST) {
-        return true;
-    }
-
-    bool result = true;
-
-    if (!w_right_const) {
-        // --- Right chain: trace backward from xor_result_sparse through 3 add_two gates ---
-
-        // Gate R3: xor_result_sparse = prev_r2.add_two(corrections[3], left_xor_sparse)
-        auto gate_r3 = find_add_two_gate_by_output(xor_result_sparse_real);
-        if (!gate_r3.has_value()) {
-            info("SHA256 extend_witness: right chain gate R3 not found");
-            return false;
-        }
-
-        // In R3: one input is left_xor_sparse, another is corrections[3], third is prev_r2.
-        // We don't know which wire is which, but we can trace further from the intermediate output.
-        // For big_mul_add_gate: inputs on w_l, w_r, w_o. For add_gate: inputs on w_l, w_r.
-        // The intermediate prev_r2 is the output of gate R2.
-        uint32_t prev_r2_real;
-        if (gate_r3->is_big_mul_add) {
-            // w_l = prev_r2 (this), w_r = corrections[3], w_o = left_xor_sparse
-            prev_r2_real = gate_r3->w_l_real;
-        } else {
-            // add_gate: one of w_l/w_r is the non-const intermediate from right chain
-            // We need to find which one leads to another add_two gate (that's prev_r2)
-            auto try_r2_l = find_add_two_gate_by_output(gate_r3->w_l_real);
-            auto try_r2_r = find_add_two_gate_by_output(gate_r3->w_r_real);
-            if (try_r2_l.has_value()) {
-                prev_r2_real = gate_r3->w_l_real;
-            } else if (try_r2_r.has_value()) {
-                prev_r2_real = gate_r3->w_r_real;
-            } else {
-                // Neither leads to an add_two gate — the chain may be shorter due to constants
-                // This is valid if w_left is constant (left_xor_sparse absent, corrections may merge)
-                prev_r2_real = CONST;
-            }
-        }
-
-        // Gate R2: prev_r2 = prev_r1.add_two(right[3], corrections[2])
-        if (prev_r2_real != CONST) {
-            auto gate_r2 = find_add_two_gate_by_output(prev_r2_real);
-            if (!gate_r2.has_value()) {
-                info("SHA256 extend_witness: right chain gate R2 not found");
-                result = false;
-            } else {
-                // Gate R1: prev_r1 = right[0].add_two(right[1], right[2])
-                uint32_t prev_r1_real;
-                if (gate_r2->is_big_mul_add) {
-                    prev_r1_real = gate_r2->w_l_real;
-                } else {
-                    auto try_r1_l = find_add_two_gate_by_output(gate_r2->w_l_real);
-                    auto try_r1_r = find_add_two_gate_by_output(gate_r2->w_r_real);
-                    prev_r1_real = try_r1_l.has_value()   ? gate_r2->w_l_real
-                                   : try_r1_r.has_value() ? gate_r2->w_r_real
-                                                          : CONST;
-                }
-
-                if (prev_r1_real != CONST) {
-                    auto gate_r1 = find_add_two_gate_by_output(prev_r1_real);
-                    if (!gate_r1.has_value()) {
-                        info("SHA256 extend_witness: right chain gate R1 not found");
-                        result = false;
-                    }
-                }
-            }
-        }
-    }
-
-    if (!w_left_const) {
-        // --- Left chain: trace backward from left_xor_sparse through 2 add_two gates ---
-        // left_xor_sparse = (left[0].add_two(left[1], left[2]).add_two(left[3], corrections[1])) * fr(4)
-        //
-        // The * fr(4) doesn't create a gate — it adjusts multiplicative_constant.
-        // So left_xor_sparse's witness is the output of the second add_two (gate L2),
-        // with multiplicative_constant = 4.
-        //
-        // We need to find left_xor_sparse's witness index. If w_right is non-const,
-        // it was discovered from gate R3. If w_right is const, xor_result_sparse IS
-        // left_xor_sparse (with right-side constants absorbed).
-
-        uint32_t left_xor_sparse_real = CONST;
-
-        if (!w_right_const) {
-            // left_xor_sparse was on one of the wires of gate R3
-            auto gate_r3 = find_add_two_gate_by_output(xor_result_sparse_real);
-            if (gate_r3.has_value()) {
-                if (gate_r3->is_big_mul_add) {
-                    // w_o = left_xor_sparse in R3
-                    left_xor_sparse_real = gate_r3->w_o_real;
-                } else {
-                    // In add_gate R3, left_xor_sparse is the other wire (not prev_r2).
-                    // We already found prev_r2 above. The other one is left_xor_sparse.
-                    auto try_l = find_add_two_gate_by_output(gate_r3->w_l_real);
-                    auto try_r = find_add_two_gate_by_output(gate_r3->w_r_real);
-                    // The wire that does NOT lead to an add_two gate (or is not prev_r2) is left_xor_sparse
-                    if (!try_l.has_value()) {
-                        left_xor_sparse_real = gate_r3->w_l_real;
-                    } else if (!try_r.has_value()) {
-                        left_xor_sparse_real = gate_r3->w_r_real;
-                    }
-                }
-            }
-        } else {
-            // w_right const: xor_result_sparse's underlying witness IS left_xor_sparse
-            left_xor_sparse_real = xor_result_sparse_real;
-        }
-
-        if (left_xor_sparse_real != CONST) {
-            // Gate L2: left_before_mul = prev_l.add_two(left[3], corrections[1])
-            // left_xor_sparse = left_before_mul * 4, same witness index
-            auto gate_l2 = find_add_two_gate_by_output(left_xor_sparse_real);
-            if (!gate_l2.has_value()) {
-                info("SHA256 extend_witness: left chain gate L2 not found");
-                result = false;
-            } else {
-                // Gate L1: prev_l = left[0].add_two(left[1], left[2])
-                uint32_t prev_l_real;
-                if (gate_l2->is_big_mul_add) {
-                    prev_l_real = gate_l2->w_l_real;
-                } else {
-                    auto try_l1_l = find_add_two_gate_by_output(gate_l2->w_l_real);
-                    auto try_l1_r = find_add_two_gate_by_output(gate_l2->w_r_real);
-                    prev_l_real = try_l1_l.has_value()   ? gate_l2->w_l_real
-                                  : try_l1_r.has_value() ? gate_l2->w_r_real
-                                                         : CONST;
-                }
-
-                if (prev_l_real != CONST) {
-                    auto gate_l1 = find_add_two_gate_by_output(prev_l_real);
-                    if (!gate_l1.has_value()) {
-                        info("SHA256 extend_witness: left chain gate L1 not found");
-                        result = false;
-                    }
-                }
-            }
-        }
-    }
-
-    return result;
-}
-
-/**
- * @brief Validate the extend_witness 32-bit reduction for W[i].
- *
- * In extend_witness, after computing w_out_raw = xor_result + W[i-16] + W[i-7],
- * the result is reduced mod 2^32:
- *   w_out = w_out_raw mod 2^32  (new witness)
- *   divisor = (w_out_raw - w_out) / 2^32  (range-constrained to 2 bits)
- *
- * The circuit creates:
- *   w_out_raw_inv = w_out_raw * 2^{-32}   (no gate, multiplicative_constant adjustment)
- *   w_out_inv     = w_out * 2^{-32}       (no gate)
- *   divisor       = w_out_raw_inv - w_out_inv  (add_gate)
- *   divisor.create_range_constraint(2)
- *
- * The add_gate constrains: q_1 * w_out_raw + q_2 * w_out + q_3 * divisor = 0
- * where q_1 = 2^{-32}, q_2 = -2^{-32}, q_3 = -1.
- *
- * @param w_i_real Real variable index of W[i] (w_out). Must not be IS_CONSTANT.
- * @return w_out_raw's real index if valid, nullopt if validation fails.
- */
-template <typename FF, typename CircuitBuilder>
-std::optional<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_reduction(uint32_t w_i_real)
-{
-    // w_out_raw should be the variable created just before w_out.
-    // In extend_witness: w_out_raw is the add_two result, then w_out = witness_t(ctx, reduced_value).
-    // So w_out_raw's variable index should be w_out's index - 1.
-    // However, real_variable_index may alias, so we check using the raw index.
-    //
-    // We find w_out_raw by searching for w_i_real in the arithmetic block:
-    // the divisor gate has w_out on one wire and w_out_raw on another.
-
-    static constexpr FF INV_POW_TWO = FF(2).pow(32).invert();
-    static constexpr FF NEG_INV_POW_TWO = -INV_POW_TWO;
-
-    auto& arith_block = builder.blocks.arithmetic;
-    auto w_i_gates = analyzer.get_variable_gates(w_i_real);
-
-    for (const auto& [blk_idx, gate_idx] : w_i_gates) {
-        if (&builder.blocks.get()[blk_idx] != &arith_block) {
-            continue;
-        }
-
-        FF q_m = arith_block.q_m()[gate_idx];
-        FF q_arith = arith_block.q_arith()[gate_idx];
-
-        if (!q_m.is_zero() || q_arith != FF::one()) {
-            continue;
-        }
-
-        // The divisor gate: w_out_raw_inv - w_out_inv = divisor
-        // Created by operator-: w_l = w_out_raw, w_r = w_out, w_o = divisor
-        // q_1 = 2^{-32}, q_2 = -2^{-32}, q_3 = -1
-        FF q_1 = arith_block.q_1()[gate_idx];
-        FF q_2 = arith_block.q_2()[gate_idx];
-        FF q_3 = arith_block.q_3()[gate_idx];
-
-        if (q_1 != INV_POW_TWO || q_2 != NEG_INV_POW_TWO || q_3 != FF::neg_one()) {
-            continue;
-        }
-
-        // Verify w_i_real is on w_r (w_out position)
-        uint32_t w_r_real = analyzer.to_real(arith_block.w_r()[gate_idx]);
-        if (w_r_real != w_i_real) {
-            continue;
-        }
-
-        // Gate equation check
-        FF w_l_val = builder.get_variable(arith_block.w_l()[gate_idx]);
-        FF w_r_val = builder.get_variable(arith_block.w_r()[gate_idx]);
-        FF w_o_val = builder.get_variable(arith_block.w_o()[gate_idx]);
-        FF q_4 = arith_block.q_4()[gate_idx];
-        FF q_c = arith_block.q_c()[gate_idx];
-        FF w_4_val = builder.get_variable(arith_block.w_4()[gate_idx]);
-
-        FF equation = q_m * w_l_val * w_r_val + q_1 * w_l_val + q_2 * w_r_val + q_3 * w_o_val + q_4 * w_4_val + q_c;
-        if (equation != FF::zero()) {
-            continue;
-        }
-
-        uint32_t w_out_raw_real = analyzer.to_real(arith_block.w_l()[gate_idx]);
-
-        // Note: divisor is range-constrained to 2 bits via create_range_constraint(2),
-        // which normalizes the field_t first (creating a new witness). The range constraint
-        // is on the normalized witness, not directly on the gate wire. The equation check
-        // above validates the relationship; the range constraint is verified implicitly
-        // through circuit satisfiability.
-
-        return w_out_raw_real;
-    }
-
-    info("SHA256 extend_witness: reduction gate not found for w[i]=", w_i_real);
-    return std::nullopt;
-}
 
 /**
  * @brief Validate one extend_witness iteration for W[i] (i >= 16, non-constant).
@@ -2307,17 +1866,115 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_iteration(
     bool w_right_const = w_const[i - 2];
     bool xor_result_const = w_left_const && w_right_const;
 
+    auto& arith_block = builder.blocks.arithmetic;
+    [[maybe_unused]] auto& lookup_block = builder.blocks.lookup;
+
+    // Step 9 lambda: validate reduction (w_out → w_out_raw)
+    auto step9_reduction = [&](uint32_t w_i) -> std::optional<uint32_t> {
+        static constexpr FF INV_POW_TWO = FF(2).pow(32).invert();
+        static constexpr FF NEG_INV_POW_TWO = -INV_POW_TWO;
+
+        auto w_i_gates = analyzer.get_variable_gates(w_i);
+        for (const auto& [blk_idx, gate_idx] : w_i_gates) {
+            if (&builder.blocks.get()[blk_idx] != &arith_block) continue;
+            if (!arith_block.q_m()[gate_idx].is_zero() || arith_block.q_arith()[gate_idx] != FF::one()) continue;
+
+            FF q_1 = arith_block.q_1()[gate_idx];
+            FF q_2 = arith_block.q_2()[gate_idx];
+            FF q_3 = arith_block.q_3()[gate_idx];
+            if (q_1 != INV_POW_TWO || q_2 != NEG_INV_POW_TWO || q_3 != FF::neg_one()) continue;
+
+            if (analyzer.to_real(arith_block.w_r()[gate_idx]) != w_i) continue;
+
+            // Equation check
+            FF q_4 = arith_block.q_4()[gate_idx];
+            FF q_c = arith_block.q_c()[gate_idx];
+            FF wl = builder.get_variable(arith_block.w_l()[gate_idx]);
+            FF wr = builder.get_variable(arith_block.w_r()[gate_idx]);
+            FF wo = builder.get_variable(arith_block.w_o()[gate_idx]);
+            FF w4 = builder.get_variable(arith_block.w_4()[gate_idx]);
+            if (q_1 * wl + q_2 * wr + q_3 * wo + q_4 * w4 + q_c != FF::zero()) continue;
+
+            // Validate divisor range constraint (2 bits).
+            // divisor (w_o) has non-zero additive_constant, so create_range_constraint(2)
+            // normalizes it first. Find the normalize gate, then check the normalized
+            // witness is in the range list.
+            uint32_t divisor_raw = arith_block.w_o()[gate_idx];
+            uint32_t divisor_real = analyzer.to_real(divisor_raw);
+            uint32_t zero_real = analyzer.to_real(builder.zero_idx());
+
+            // Search for normalize gate: w_l=divisor, w_r=zero, w_o=normalized, q_2=0, q_3=-1
+            auto divisor_gates = analyzer.get_variable_gates(divisor_real);
+            for (const auto& [bi2, gi2] : divisor_gates) {
+                if (&builder.blocks.get()[bi2] != &arith_block) continue;
+                if (analyzer.to_real(arith_block.w_l()[gi2]) != divisor_real) continue;
+                if (analyzer.to_real(arith_block.w_r()[gi2]) != zero_real) continue;
+                if (analyzer.to_real(arith_block.w_4()[gi2]) != zero_real) continue;
+                if (arith_block.q_2()[gi2] != FF::zero() ||
+                    arith_block.q_3()[gi2] != FF::neg_one() ||
+                    arith_block.q_arith()[gi2] != FF::one()) continue;
+
+                // Found normalize gate. Check normalized witness in range list for target_range=3
+                uint32_t normalized_raw = arith_block.w_o()[gi2];
+                if (!validate_range_constraint(normalized_raw, 2)) {
+                    info("SHA256 extend_witness: divisor range constraint failed after normalization");
+                }
+                break;
+            }
+
+            return analyzer.to_real(arith_block.w_l()[gate_idx]);
+        }
+        return std::nullopt;
+    };
+
     // --- Step 9: Validate reduction (w_out → w_out_raw) ---
-    auto w_out_raw_opt = validate_extend_witness_reduction(w_i_real);
+    auto w_out_raw_opt = step9_reduction(w_i_real);
     if (!w_out_raw_opt.has_value()) {
         info("SHA256 extend_witness[", i, "]: step 9 (reduction) failed");
         return false;
     }
     uint32_t w_out_raw_real = *w_out_raw_opt;
 
+    // Step 8 lambda: validate w_out_raw = xor_result.add_two(W[i-16], W[i-7]), discover xor_result
+    // We know w_out_raw (the output). Search backward using find_add_two_gate_by_output,
+    // then verify known wires (w_16, w_7) and discover xor_result.
+    auto step8_w_out_raw = [&](uint32_t w_out_raw, uint32_t w_16, uint32_t w_7,
+                               bool xor_const) -> std::optional<uint32_t> {
+        const bool w16_const = (w_16 == CONST);
+        const bool w7_const = (w_7 == CONST);
+        const size_t num_non_const =
+            static_cast<size_t>(!xor_const) + static_cast<size_t>(!w16_const) + static_cast<size_t>(!w7_const);
+
+        if (num_non_const == 0) return std::nullopt;
+        if (num_non_const == 1) return xor_const ? CONST : w_out_raw;
+
+        // Find the add_two gate by its output
+        auto gate = find_add_two_gate_by_output(w_out_raw);
+        if (!gate.has_value()) return std::nullopt;
+
+        // Collect gate wires and discover xor_result
+        std::array<uint32_t, 4> wires = { gate->w_l_real, gate->w_r_real, gate->w_o_real, gate->w_4_real };
+        uint32_t zero_real = analyzer.to_real(builder.zero_idx());
+
+        // Verify known wires are present
+        auto wire_present = [&](uint32_t w) {
+            for (uint32_t gw : wires) { if (gw == w) return true; }
+            return false;
+        };
+        if (!w16_const && !wire_present(w_16)) return std::nullopt;
+        if (!w7_const && !wire_present(w_7)) return std::nullopt;
+
+        // Discover xor_result: the wire that isn't w_16, w_7, w_out_raw, or zero
+        for (uint32_t w : wires) {
+            if (w != w_16 && w != w_7 && w != w_out_raw && w != zero_real) {
+                return w;
+            }
+        }
+        return xor_const ? std::optional<uint32_t>(CONST) : std::nullopt;
+    };
+
     // --- Step 8: Validate w_out_raw add_two gate, discover xor_result ---
-    auto xor_result_opt =
-        validate_extend_witness_w_out_raw(w_out_raw_real, w_real[i - 16], w_real[i - 7], xor_result_const);
+    auto xor_result_opt = step8_w_out_raw(w_out_raw_real, w_real[i - 16], w_real[i - 7], xor_result_const);
     if (!xor_result_opt.has_value()) {
         info("SHA256 extend_witness[", i, "]: step 8 (w_out_raw add_two) failed");
         return false;
@@ -2327,7 +1984,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_iteration(
     // --- Step 7: Validate SHA256_WITNESS_OUTPUT lookup ---
     if (xor_result_real != CONST) {
         static constexpr size_t WITNESS_OUTPUT_GATE_COUNT = 11;
-        static constexpr size_t SHA256_WITNESS_OUTPUT_HASH = 0; // TODO: pin
+        static constexpr size_t SHA256_WITNESS_OUTPUT_HASH = 13451944807746674629ULL;
         bool lookup_ok = validate_sha256_lookup_block(
             xor_result_real, WITNESS_OUTPUT_GATE_COUNT, SHA256_WITNESS_OUTPUT_HASH, "extend_witness_output");
         if (!lookup_ok) {
@@ -2348,10 +2005,77 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_iteration(
             }
         }
 
-        // --- Steps 5-6: Validate add_two chains ---
+        // Steps 5-6 lambda: validate add_two chains for xor_result_sparse
+        auto step56_add_two_chains = [&](uint32_t xrs_real, bool wl_const, bool wr_const) -> bool {
+            if ((wl_const && wr_const) || xrs_real == CONST) return true;
+            bool ok = true;
+
+            if (!wr_const) {
+                // Right chain: 3 add_two gates
+                auto gate_r3 = find_add_two_gate_by_output(xrs_real);
+                if (!gate_r3.has_value()) { return false; }
+
+                uint32_t prev_r2 = CONST;
+                if (gate_r3->is_big_mul_add) {
+                    prev_r2 = gate_r3->w_l_real;
+                } else {
+                    auto try_l = find_add_two_gate_by_output(gate_r3->w_l_real);
+                    auto try_r = find_add_two_gate_by_output(gate_r3->w_r_real);
+                    prev_r2 = try_l.has_value() ? gate_r3->w_l_real
+                              : try_r.has_value() ? gate_r3->w_r_real : CONST;
+                }
+                if (prev_r2 != CONST) {
+                    auto gate_r2 = find_add_two_gate_by_output(prev_r2);
+                    if (!gate_r2.has_value()) { ok = false; }
+                    else {
+                        uint32_t prev_r1 = gate_r2->is_big_mul_add ? gate_r2->w_l_real : CONST;
+                        if (!gate_r2->is_big_mul_add) {
+                            auto tl = find_add_two_gate_by_output(gate_r2->w_l_real);
+                            auto tr = find_add_two_gate_by_output(gate_r2->w_r_real);
+                            prev_r1 = tl.has_value() ? gate_r2->w_l_real
+                                       : tr.has_value() ? gate_r2->w_r_real : CONST;
+                        }
+                        if (prev_r1 != CONST && !find_add_two_gate_by_output(prev_r1).has_value()) ok = false;
+                    }
+                }
+            }
+
+            if (!wl_const) {
+                // Left chain: 2 add_two gates, find left_xor_sparse first
+                uint32_t lxs_real = CONST;
+                if (!wr_const) {
+                    auto gate_r3 = find_add_two_gate_by_output(xrs_real);
+                    if (gate_r3.has_value()) {
+                        if (gate_r3->is_big_mul_add) { lxs_real = gate_r3->w_o_real; }
+                        else {
+                            auto tl = find_add_two_gate_by_output(gate_r3->w_l_real);
+                            auto tr = find_add_two_gate_by_output(gate_r3->w_r_real);
+                            lxs_real = !tl.has_value() ? gate_r3->w_l_real
+                                       : !tr.has_value() ? gate_r3->w_r_real : CONST;
+                        }
+                    }
+                } else { lxs_real = xrs_real; }
+
+                if (lxs_real != CONST) {
+                    auto gate_l2 = find_add_two_gate_by_output(lxs_real);
+                    if (!gate_l2.has_value()) { ok = false; }
+                    else {
+                        uint32_t prev_l = gate_l2->is_big_mul_add ? gate_l2->w_l_real : CONST;
+                        if (!gate_l2->is_big_mul_add) {
+                            auto tl = find_add_two_gate_by_output(gate_l2->w_l_real);
+                            auto tr = find_add_two_gate_by_output(gate_l2->w_r_real);
+                            prev_l = tl.has_value() ? gate_l2->w_l_real
+                                     : tr.has_value() ? gate_l2->w_r_real : CONST;
+                        }
+                        if (prev_l != CONST && !find_add_two_gate_by_output(prev_l).has_value()) ok = false;
+                    }
+                }
+            }
+            return ok;
+        };
+
         if (xor_result_sparse_real != CONST) {
-            bool chains_ok =
-                validate_extend_witness_add_two_chains(xor_result_sparse_real, w_left_const, w_right_const);
+            bool chains_ok = step56_add_two_chains(xor_result_sparse_real, w_left_const, w_right_const);
             if (!chains_ok) {
                 info("SHA256 extend_witness[", i, "]: steps 5-6 (add_two chains) failed");
                 result = false;
@@ -2359,11 +2083,30 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_iteration(
         }
     }
 
+    // Step 1-2 lambda: validate convert_witness lookups
+    auto step12_convert_witness = [&](uint32_t w, size_t expected_hash) -> std::optional<std::pair<uint32_t, uint32_t>> {
+        static constexpr size_t WITNESS_INPUT_GATE_COUNT = 4;
+        auto gates = analyzer.get_variable_gates(w);
+        for (const auto& [blk_idx, gate_idx] : gates) {
+            if (&builder.blocks.get()[blk_idx] != &lookup_block) continue;
+            if (analyzer.to_real(lookup_block.w_l()[gate_idx]) != w) continue;
+            if (gate_idx + WITNESS_INPUT_GATE_COUNT > lookup_block.size()) return std::nullopt;
+            if (expected_hash != 0) {
+                size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
+                    0, lookup_block, gate_idx, gate_idx + WITNESS_INPUT_GATE_COUNT - 1);
+                if (hash != expected_hash) return std::nullopt;
+            }
+            return std::make_pair(analyzer.to_real(lookup_block.w_r()[gate_idx]),
+                                  analyzer.to_real(lookup_block.w_o()[gate_idx]));
+        }
+        return std::nullopt;
+    };
+
     // --- Steps 1-2: Validate convert_witness lookups ---
-    static constexpr size_t SHA256_WITNESS_INPUT_HASH = 0; // TODO: pin
+    static constexpr size_t SHA256_WITNESS_INPUT_HASH = 7184092506163549213ULL;
 
     if (!w_left_const) {
-        auto cw_left = validate_convert_witness_lookup(w_real[i - 15], SHA256_WITNESS_INPUT_HASH);
+        auto cw_left = step12_convert_witness(w_real[i - 15], SHA256_WITNESS_INPUT_HASH);
         if (!cw_left.has_value()) {
             info("SHA256 extend_witness[", i, "]: step 1 (convert_witness left W[", i - 15, "]) failed");
             result = false;
@@ -2371,7 +2114,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_iteration(
     }
 
     if (!w_right_const) {
-        auto cw_right = validate_convert_witness_lookup(w_real[i - 2], SHA256_WITNESS_INPUT_HASH);
+        auto cw_right = step12_convert_witness(w_real[i - 2], SHA256_WITNESS_INPUT_HASH);
         if (!cw_right.has_value()) {
             info("SHA256 extend_witness[", i, "]: step 2 (convert_witness right W[", i - 2, "]) failed");
             result = false;
