@@ -11,24 +11,34 @@ namespace bb {
  *          L_j = product over bits of j: if bit_k=1 then u_k, else (1 - u_k).
  *          These are used by the verifier to combine BS individual sumcheck evaluations
  *          into one group evaluation.
- * @tparam BS Batch size (1, 2, or 4)
+ * @tparam BS Batch size (must be a power of 2)
  */
 template <size_t BS, typename FF>
 static std::array<FF, BS> compute_interleaving_lagrange_basis(
     [[maybe_unused]] std::span<const FF> interleaving_challenges)
 {
+    static_assert(BS > 0 && (BS & (BS - 1)) == 0, "BS must be a power of 2");
     if constexpr (BS == 1) {
         return { FF(1) };
-    } else if constexpr (BS == 2) {
-        const auto& u = interleaving_challenges[0];
-        return { FF(1) - u, u };
     } else {
-        static_assert(BS == 4, "Only BS=1, BS=2, and BS=4 are currently supported");
-        const auto& u0 = interleaving_challenges[0];
-        const auto& u1 = interleaving_challenges[1];
-        auto one_minus_u0 = FF(1) - u0;
-        auto one_minus_u1 = FF(1) - u1;
-        return { one_minus_u0 * one_minus_u1, u0 * one_minus_u1, one_minus_u0 * u1, u0 * u1 };
+        // General case: L_j = product over bits k of j: if bit_k=1 then u_k, else (1 - u_k)
+        constexpr size_t LOG_K = []() {
+            size_t v = BS, k = 0;
+            while (v > 1) {
+                v >>= 1;
+                k++;
+            }
+            return k;
+        }();
+        std::array<FF, BS> result;
+        for (size_t j = 0; j < BS; j++) {
+            FF val(1);
+            for (size_t k = 0; k < LOG_K; k++) {
+                val *= ((j >> k) & 1) ? interleaving_challenges[k] : (FF(1) - interleaving_challenges[k]);
+            }
+            result[j] = val;
+        }
+        return result;
     }
 }
 
