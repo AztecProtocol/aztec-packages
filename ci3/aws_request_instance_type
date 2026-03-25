@@ -15,7 +15,23 @@ ip_path=$state_dir/ip
 function cleanup {
   aws_terminate_instance $state_dir
 }
+# Terminate the instance on signals. We also explicitly terminate on connection
+# failure (SSH/SSM timeout) before exit 1 — see below.
 trap 'cleanup' SIGINT SIGTERM
+
+# Terminate the instance when we fail to connect.
+# Unlike cleanup(), this does NOT remove the state_dir (the caller may retry with a different instance type).
+function terminate_instance {
+  local iid=$(cat $state_dir/iid 2>/dev/null || true)
+  local sir=$(cat $state_dir/sir 2>/dev/null || true)
+  if [ -n "$iid" ]; then
+    >&2 echo "Terminating unreachable instance: $iid"
+    aws ec2 terminate-instances --region us-east-2 --instance-ids "$iid" > /dev/null 2>&1 || true
+  fi
+  if [ -n "$sir" ]; then
+    aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids "$sir" > /dev/null 2>&1 || true
+  fi
+}
 
 export AWS_DEFAULT_REGION=us-east-2
 
@@ -147,7 +163,8 @@ if [ -z "${KEY_NAME:-}" ]; then
   done
 
   if [ "$ssm_status" != "Online" ]; then
-    >&2 echo "Timed out waiting for SSM to see instance $iid"
+    >&2 echo "Timed out waiting for SSM to see instance $iid — terminating it."
+    terminate_instance
     exit 1
   fi
 
@@ -166,7 +183,8 @@ else
   [ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}"
   while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $ip $LIVE_CMD > /dev/null 2>&1; do
     if (( SECONDS >= 60 )); then
-      >&2 echo "Timeout: SSH could not login to $ip within 60 seconds."
+      >&2 echo "Timeout: SSH could not login to $ip within 60 seconds — terminating instance."
+      terminate_instance
       exit 1
     fi
     sleep 1
