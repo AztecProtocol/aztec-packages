@@ -12,12 +12,37 @@ namespace Acir {
 struct Circuit;
 }
 
+/**
+ * \brief Validates that ACIR witness connectivity (from the Noir circuit) matches UltraPlonk-style
+ *        variable connectivity after `create_circuit`.
+ *
+ * \details Pipeline:
+ * - **ACIR side** — `AcirGraph` connects witnesses that appear together in the same opcode
+ *   (assert-zero, black-box calls, memory block), then takes connected components ("ACIR components").
+ * - **Circuit side** — `cdg::UltraStaticAnalyzer` finds connected components on the built
+ *   `UltraCircuitBuilder`. Witness indices are mapped through `real_variable_index` to real variables.
+ * - **Classification** — Witnesses not in a multi-variable CC may still be valid if they are
+ *   constants, range-list-only, or singleton variables (gates but degree-0 in the CC graph); those
+ *   get synthetic "virtual" component ids to avoid spurious SPLIT. Otherwise `NO_CIRCUIT_CC`.
+ * - **Compare** — For each ACIR component, all witnesses must share one (real or virtual) circuit
+ *   component id, and none may be `NO_CIRCUIT_CC`.
+ */
 namespace acir_components_check {
 
+/** Single structural violation reported by `ComponentsChecker`. */
 struct Error {
-    enum class Type { SPLIT, UNCONSTRAINED };
+    enum class Type {
+        /** Same ACIR component maps to more than one circuit connected component. */
+        SPLIT,
+        /** At least one witness in the ACIR component has no circuit placement (not in a CC,
+         *  not classified as constant/singleton/range-list). */
+        UNCONSTRAINED
+    };
+    /** Which of the two failure modes applies. */
     Type type;
+    /** ACIR component id (from `AcirGraph::get_witness_component_map`). */
     size_t acir_component;
+    /** Human-readable explanation (may list witness indices and circuit CC ids). */
     std::string message;
 };
 
@@ -28,6 +53,9 @@ struct Error {
  * same circuit component. Detects two kinds of errors:
  *   - SPLIT: An ACIR component's witnesses are spread across multiple circuit components.
  *   - UNCONSTRAINED: An ACIR component has witnesses that don't appear in any circuit constraint.
+ *
+ * The constructor takes the raw `Acir::Circuit` used for `AcirGraph` and the `UltraCircuitBuilder`
+ * produced by `create_circuit` for the same program; both must stay valid through `check()`.
  */
 class ComponentsChecker {
   public:
@@ -45,22 +73,23 @@ class ComponentsChecker {
     const Acir::Circuit& acir_circuit_;
     bb::UltraCircuitBuilder& builder_;
 
-    // ACIR witness → ACIR component id
+    /// ACIR witness index → id of its connected component in `AcirGraph`.
     std::unordered_map<uint32_t, size_t> acir_witness_map_;
 
-    // ACIR witness → circuit component id (real CC, virtual singleton/constant, or NO_CIRCUIT_CC)
+    /// ACIR witness index → circuit-side component id (real CC from analyzer, virtual id for
+    /// constants/singletons, or sentinel meaning "no circuit role" — see `.cpp`).
     std::unordered_map<uint32_t, size_t> circuit_witness_map_;
 
-    // Circuit variable → CC index (from analyzer)
+    /// Real circuit variable index → connected component id from `UltraStaticAnalyzer`.
     std::unordered_map<uint32_t, size_t> circuit_var_to_cc_;
 
-    // Constant variable indices (from put_constant_variable cache)
+    /// `builder.constant_variable_indices`: real variables that represent compile-time constants.
     std::unordered_set<uint32_t> constant_var_set_;
 
-    // Variables in range_lists (pending delta_range gates)
+    /// Real variables referenced from `builder.range_lists` (delta-range / lookup plumbing).
     std::unordered_set<uint32_t> range_list_vars_;
 
-    // Gate counts from the analyzer
+    /// Per-variable gate participation counts from the analyzer (detects singletons).
     std::unordered_map<uint32_t, size_t> gate_counts_;
 
     /**

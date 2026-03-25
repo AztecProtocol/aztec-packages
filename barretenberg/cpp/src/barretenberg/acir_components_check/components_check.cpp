@@ -1,7 +1,14 @@
+/**
+ * @file components_check.cpp
+ * @brief Maps each ACIR witness to a circuit-side component (real, virtual, or absent) and compares
+ *        per ACIR component.
+ */
 #include "components_check.hpp"
 
 namespace acir_components_check {
 
+/** Sentinel: this ACIR witness has no acceptable circuit-side bucket (not in a CC, not constant,
+ *  not a recognized singleton/range-list variable). Compare step emits UNCONSTRAINED for these. */
 static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
 
 std::vector<Error> ComponentsChecker::check()
@@ -20,6 +27,7 @@ void ComponentsChecker::build_acir_component_map()
 
 void ComponentsChecker::build_circuit_component_map()
 {
+    // Real CCs: variables that share arithmetic gates form connected components.
     cdg::UltraStaticAnalyzer analyzer(builder_);
     auto circuit_cc = analyzer.find_connected_components();
 
@@ -45,7 +53,9 @@ void ComponentsChecker::build_circuit_component_map()
         constant_var_set_.insert(var_idx);
     }
 
-    // Assign virtual CC ids for singletons and constants
+    // Virtual CC ids start after real analyzer CC ids: one id per distinct constant or
+    // singleton/range-list real variable, so ACIR witnesses that only touch those paths do not
+    // falsely SPLIT a component that is "together" in ACIR but not linked by arithmetic CCs.
     size_t next_virtual_id = circuit_cc.size();
     std::unordered_map<uint32_t, size_t> virtual_cc_ids;
 

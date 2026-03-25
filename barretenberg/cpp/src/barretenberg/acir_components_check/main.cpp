@@ -1,3 +1,13 @@
+/**
+ * CLI: load compiled ACIR bytecode, synthesize an `UltraCircuitBuilder`, and run
+ * `acir_components_check::ComponentsChecker`.
+ *
+ * Input: path to bytecode (same formats as `get_bytecode` — e.g. gzip-compressed or JSON, depending
+ * on build). The program must deserialize to `Acir::ProgramWithoutBrillig` with exactly one function.
+ *
+ * Exit codes: 0 if no SPLIT/UNCONSTRAINED issues; 1 if any error message was produced; 1 also for
+ * bad usage. Brillig is excluded by the `ProgramWithoutBrillig` wire format.
+ */
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "components_check.hpp"

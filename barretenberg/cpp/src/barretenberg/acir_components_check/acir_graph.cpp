@@ -1,3 +1,7 @@
+/**
+ * @file acir_graph.cpp
+ * @brief Opcode → witness hyperedges for ACIR connectivity analysis.
+ */
 #include "acir_graph.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include <stack>
@@ -43,6 +47,8 @@ template <typename Container> void collect_witnesses(std::vector<uint32_t>& witn
     }
 }
 
+/** When predicate is constant zero, recursive aggregation is disabled in ACIR; skip adding edges
+ *  so the graph matches what constraint synthesis effectively uses. */
 bool is_disabled_recursive_aggregation(const Acir::BlackBoxFuncCall::RecursiveAggregation& recursion)
 {
     auto predicate = acir_format::parse_input(recursion.predicate);
