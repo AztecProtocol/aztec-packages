@@ -105,7 +105,7 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
   proverNodeSplitProving: {
     env: 'PROVER_NODE_SPLIT_PROVING',
     description: 'Enable split proving mode (checkpoint sub-tree + top-tree + publishing)',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
   proverNodeWorkPollIntervalMs: {
     env: 'PROVER_NODE_WORK_POLL_INTERVAL_MS',

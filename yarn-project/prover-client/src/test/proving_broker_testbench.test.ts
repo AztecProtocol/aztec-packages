@@ -620,8 +620,12 @@ describe('Proving Broker: Benchmarks', () => {
     await (broker as any).cleanupPass();
     const emptyCleanupTime = timer.ms() - cleanupStart;
 
-    // Force full cleanup by enqueuing a job with epoch 3
-    const fullCleanupJobId = makeRandomProvingJobId(EpochNumber(3));
+    // Force full cleanup by enqueuing a job with a high enough epoch.
+    // With maxEpochsToKeepResultsFor=2, we need epochHeight such that
+    // oldestEpochToKeep = epochHeight - 2 > 1 (the epoch used by test jobs).
+    // Epoch 4 gives oldestEpochToKeep = 2, so epoch 1 jobs get cleaned up.
+    const cleanupEpoch = EpochNumber(4);
+    const fullCleanupJobId = makeRandomProvingJobId(cleanupEpoch);
     const fullCleanupInputsUri = (await proofStore.saveProofInput(
       fullCleanupJobId,
       ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
@@ -630,7 +634,7 @@ describe('Proving Broker: Benchmarks', () => {
       id: fullCleanupJobId,
       type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
       inputsUri: fullCleanupInputsUri,
-      epochNumber: EpochNumber(3),
+      epochNumber: cleanupEpoch,
     });
 
     // Cleanup runtime with full epoch deletion

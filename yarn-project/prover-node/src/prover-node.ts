@@ -100,7 +100,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
       txGatheringTimeoutMs: 120_000,
       proverNodeFailedEpochStore: undefined,
       proverNodeEpochProvingDelayMs: undefined,
-      proverNodeSplitProving: false,
+      proverNodeSplitProving: true,
       proverNodeWorkPollIntervalMs: 1_000,
       proverNodeClaimHeartbeatIntervalMs: 30_000,
       ...compact(config),
@@ -280,7 +280,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
 
       void job
         .run()
-        .finally(() => facade.stop())
+        .finally(() => void facade.stop())
         .catch(err => {
           this.log.error(`Sub-tree job failed for epoch=${epoch} checkpoint=${checkpointIndex}`, err);
         });

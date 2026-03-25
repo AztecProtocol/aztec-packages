@@ -10,7 +10,7 @@ import {
   type WorkItemId,
   makeTopTreeCompleteJobId,
 } from '@aztec/stdlib/interfaces/server';
-import { EpochProofPayload } from '@aztec/stdlib/proofs';
+import { EpochProofPayload } from '@aztec/stdlib/proofs/epoch_proof_payload';
 
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 

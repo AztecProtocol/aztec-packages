@@ -22,7 +22,8 @@ import {
   makeSubTreeCompleteJobId,
   makeTopTreeCompleteJobId,
 } from '@aztec/stdlib/interfaces/server';
-import { EpochProofPayload, ProvingRequestType } from '@aztec/stdlib/proofs';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { EpochProofPayload } from '@aztec/stdlib/proofs/epoch_proof_payload';
 import { BlockRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';

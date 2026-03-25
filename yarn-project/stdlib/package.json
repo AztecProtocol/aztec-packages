@@ -31,6 +31,7 @@
     "./parity": "./dest/parity/index.js",
     "./vks": "./dest/vks/index.js",
     "./proofs": "./dest/proofs/index.js",
+    "./proofs/epoch_proof_payload": "./dest/proofs/epoch_proof_payload.js",
     "./messaging": "./dest/messaging/index.js",
     "./gas": "./dest/gas/index.js",
     "./tx": "./dest/tx/index.js",
