@@ -1043,6 +1043,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
+    if (referenceBlock === BlockNumber.ZERO) {
+      return undefined;
+    }
+    if (BlockHash.isBlockHash(referenceBlock)) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (referenceBlock.equals(initialBlockHash)) {
+        return undefined;
+      }
+    }
     // The Noir circuit checks the archive membership proof against `anchor_block_header.last_archive.root`,
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function authorize_once documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">authorize_once</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module functions</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="initialization_utils/index.html">initialization_utils</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.allow_phase_change.html">allow_phase_change</a></div></li>
+<li><a href="fn.authorize_once.html">authorize_once</a></div></li>
+<li><a href="fn.external.html">external</a></div></li>
+<li><a href="fn.initializer.html">initializer</a></div></li>
+<li><a href="fn.internal.html">internal</a></div></li>
+<li><a href="fn.noinitcheck.html">noinitcheck</a></div></li>
+<li><a href="fn.only_self.html">only_self</a></div></li>
+<li><a href="fn.view.html">view</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">functions</a></div>
+<h1>Function <span class="fn">authorize_once</span></h1>
+<pre><code>pub comptime fn authorize_once(
+    f: <a href="../../../std/primitive.FunctionDefinition.html" class="primitive">FunctionDefinition</a>,
+    from_arg_name: <a href="../../../std/primitive.CtString.html" class="primitive">CtString</a>,
+    nonce_arg_name: <a href="../../../std/primitive.CtString.html" class="primitive">CtString</a>,
+)</code></pre>
+
+<div class="comments">
+<p>Restricts access to an <a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> private or public function so that it can only be called by an authorized
+account.</p>
+<p>Receives the name of a <code>from</code> <code>AztecAddress</code> variable which will be the default authorized account, and the name of
+a <code>nonce</code> <code>Field</code> variable which is used by <code>from</code> to grant one-time-only access to other accounts.</p>
+<h2>Usage</h2>
+<p>The <code>from</code> account can always call an <a href="../../../noir_aztec/macros/functions/fn.authorize_once.html"><code>authorize_once</code></a> function by passing a value of 0 as the <code>nonce</code>. Any other
+caller requires explicit permission granted by the <code>from</code> account, which 1) will be tied to a specific <code>nonce</code>
+value that must be passed by the caller, and which can only be used once, and 2) will restrict all other function
+params to be exactly the ones that have been authorized by <code>from</code>.</p>
+<h2>Cost</h2>
+<p>Private functions perform a private authwit check by calling the standard account contract <code>verify_private_authwit</code>
+function on <code>from</code> with the hash resulting of all function params and the nonce. A nullifier is then emitted,
+preventing the same permission from being used again. Note that this requires that the caller has access to
+<code>from</code>'s contract class ID and salted initialization hash, as it would otherwise not be possible to call the
+<code>verify_private_authwit</code> function.</p>
+<p>Public functions call the <code>consume</code> function on the <code>AuthRegistry</code> contract, which requires that either a) <code>from</code>
+first calls the <code>set_authorized</code> public function, or b) that a private authwit check by <code>from</code> is passed for the
+registry's <code>set_authorized_private</code> function, allowing in turn the caller to privately call
+<code>set_authorized_private</code> in the same transaction in which the <a href="../../../noir_aztec/macros/functions/fn.authorize_once.html"><code>authorize_once</code></a> function is invoked.</p></div>
+</main>
+</span>
+</body>
+</html>

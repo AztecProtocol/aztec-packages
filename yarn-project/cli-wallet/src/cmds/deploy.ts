@@ -4,11 +4,12 @@ import type { DeployOptions } from '@aztec/aztec.js/contracts';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { encodeArgs, getContractArtifact, prettyPrintJSON } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
+import type { TxStatus } from '@aztec/stdlib/tx';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
@@ -30,6 +31,7 @@ export async function deploy(
   skipInitialization: boolean | undefined,
   wait: boolean,
   feeOpts: CLIFeeArgs,
+  waitForStatus: TxStatus,
   verbose: boolean,
   timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
@@ -60,7 +62,7 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deploy = contractDeployer.deploy(...args);
+  const deployInteraction = contractDeployer.deploy(...args);
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
     fee: { gasSettings, paymentMethod },
@@ -72,7 +74,8 @@ export async function deploy(
     skipInstancePublication,
   };
 
-  const sim = await deploy.simulate({
+  const localStart = performance.now();
+  const sim = await deployInteraction.simulate({
     ...deployOpts,
     fee: { ...deployOpts.fee, estimateGas: true },
   });
@@ -98,14 +101,18 @@ export async function deploy(
       printProfileResult(stats, log);
     }
 
-    const { address, partialAddress } = deploy;
-    const instance = await deploy.getInstance();
+    const { address, partialAddress } = deployInteraction;
+    const instance = await deployInteraction.getInstance();
+
+    const { txHash } = await deployInteraction.send({ ...deployOpts, wait: NO_WAIT });
+    const localTimeMs = performance.now() - localStart;
+    debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
+    out.hash = txHash;
 
     if (wait) {
-      const { receipt } = await deploy.send({ ...deployOpts, wait: { timeout, returnReceipt: true } });
-      const txHash = receipt.txHash;
-      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
-      out.hash = txHash;
+      const nodeStart = performance.now();
+      const receipt = await waitForTx(node, txHash, { timeout, waitForStatus });
+      const nodeTimeMs = performance.now() - nodeStart;
 
       if (!json) {
         log(`Contract deployed at ${address?.toString()}`);
@@ -115,6 +122,8 @@ export async function deploy(
         log(`Deployment salt: ${salt.toString()}`);
         log(`Deployer: ${instance.deployer.toString()}`);
         log(`Transaction fee: ${receipt.transactionFee?.toString()}`);
+        log(` Local processing time: ${(localTimeMs / 1000).toFixed(1)}s`);
+        log(` Node inclusion time: ${(nodeTimeMs / 1000).toFixed(1)}s`);
       } else {
         out.contract = {
           address: address?.toString(),
@@ -125,10 +134,6 @@ export async function deploy(
         };
       }
     } else {
-      const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
-      out.hash = txHash;
-
       if (!json) {
         log(`Contract deployed at ${address?.toString()}`);
         log(`Contract partial address ${(await partialAddress)?.toString()}`);
@@ -149,5 +154,5 @@ export async function deploy(
   if (json) {
     log(prettyPrintJSON(out));
   }
-  return deploy.address;
+  return deployInteraction.address;
 }
