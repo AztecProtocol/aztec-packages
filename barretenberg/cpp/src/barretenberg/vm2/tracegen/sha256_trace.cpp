@@ -16,6 +16,8 @@ using C = Column;
 
 namespace {
 
+constexpr FF TAG_U32_AS_FF = FF(static_cast<uint8_t>(MemoryTag::U32));
+
 // Precomputed inverses for values 0..65. Covers:
 // - rounds_remaining inverses: FF(64 - i) for i in [0, 63], i.e., values 1..64
 // - input_rounds_rem inverses: values 1..16
@@ -410,7 +412,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_start, 1 },
                       { C::sha256_execution_clk, event.execution_clk },
                       { C::sha256_space_id, event.space_id },
-                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_u32_tag, TAG_U32_AS_FF },
                       // Operand Addresses
                       { C::sha256_state_addr, state_addr },
                       { C::sha256_input_addr, input_addr },
@@ -505,8 +507,6 @@ void Sha256TraceBuilder::process(
         bool invalid_state_tag_err = std::ranges::any_of(
             event.state, [](const MemoryValue& state) { return state.get_tag() != MemoryTag::U32; });
 
-        constexpr FF TARGET_TAG = FF(static_cast<uint8_t>(MemoryTag::U32));
-
         if (invalid_state_tag_err) {
             // This is the more efficient batched tag check we perform in the circuit
             FF batched_tag_check = 0;
@@ -514,7 +514,7 @@ void Sha256TraceBuilder::process(
             for (uint32_t i = 0; i < event.state.size(); i++) {
                 // Compute the batched tag check step by step to match the circuit implementation
                 FF mem_tag = FF(static_cast<uint8_t>(event.state[i].get_tag()));
-                FF state_tag_diff = mem_tag - TARGET_TAG;
+                FF state_tag_diff = mem_tag - TAG_U32_AS_FF;
                 FF exponent = FF(1 << (i * 3)); // exponent is 1, 8, 64, 512, ...
                 batched_tag_check += state_tag_diff * exponent;
             }
@@ -541,7 +541,6 @@ void Sha256TraceBuilder::process(
         // Therefore, it is just sufficient to check the tag of the last element
         BB_ASSERT(!event.input.empty(), "SHA256 input cannot be empty");
         bool invalid_tag_err = event.input.back().get_tag() != MemoryTag::U32;
-        constexpr FF EXPECTED_TAG = FF(static_cast<uint8_t>(MemoryTag::U32));
 
         // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
         // sel_invalid_input_ROW_tag_err. And all the rows before need to contain sel_invalid_input_tag_err.
@@ -553,7 +552,7 @@ void Sha256TraceBuilder::process(
 
             const MemoryValue& round_input = event.input[i];
             FF input_tag = FF(static_cast<uint8_t>(round_input.get_tag()));
-            FF input_tag_diff = input_tag - EXPECTED_TAG;
+            FF input_tag_diff = input_tag - TAG_U32_AS_FF;
             // Inline inversion (not batched): this is an error path that should not often occur in production.
             FF input_tag_diff_inv = input_tag_diff == 0 ? 0 : input_tag_diff.invert();
 
@@ -566,7 +565,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_space_id, event.space_id },
                           { C::sha256_output_addr, output_addr },
                           { C::sha256_sel_is_input_round, 1 },
-                          { C::sha256_u32_tag, EXPECTED_TAG },
+                          { C::sha256_u32_tag, TAG_U32_AS_FF },
                           { C::sha256_sel_read_input_from_memory, 1 },
                           // Input Rounds Control Flow
                           { C::sha256_input_rounds_rem, input_rounds_rem },
@@ -635,7 +634,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_space_id, event.space_id },
                           { C::sha256_output_addr, output_addr },
                           { C::sha256_input_addr, round_input_addr },
-                          { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                          { C::sha256_u32_tag, TAG_U32_AS_FF },
                           { C::sha256_two_pow_32, static_cast<uint64_t>(1) << 32 },
                           // For round selectors
                           { C::sha256_xor_op_id, AVM_BITWISE_XOR_OP_ID },
@@ -697,7 +696,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_space_id, event.space_id },
                       { C::sha256_sel_mem_state_or_output, 1 },
                       { C::sha256_rw, 1 }, // Writing output
-                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_u32_tag, TAG_U32_AS_FF },
                       { C::sha256_two_pow_32, static_cast<uint64_t>(1) << 32 },
                       { C::sha256_output_addr, output_addr },
                       // Output Addresses
@@ -719,14 +718,14 @@ void Sha256TraceBuilder::process(
                       { C::sha256_memory_register_6_, round_state[6] + state[6] },
                       { C::sha256_memory_register_7_, round_state[7] + state[7] },
                       // Output Memory Tags
-                      { C::sha256_memory_tag_0_, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_memory_tag_1_, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_memory_tag_2_, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_memory_tag_3_, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_memory_tag_4_, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_memory_tag_5_, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_memory_tag_6_, static_cast<uint8_t>(MemoryTag::U32) },
-                      { C::sha256_memory_tag_7_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_0_, TAG_U32_AS_FF },
+                      { C::sha256_memory_tag_1_, TAG_U32_AS_FF },
+                      { C::sha256_memory_tag_2_, TAG_U32_AS_FF },
+                      { C::sha256_memory_tag_3_, TAG_U32_AS_FF },
+                      { C::sha256_memory_tag_4_, TAG_U32_AS_FF },
+                      { C::sha256_memory_tag_5_, TAG_U32_AS_FF },
+                      { C::sha256_memory_tag_6_, TAG_U32_AS_FF },
+                      { C::sha256_memory_tag_7_, TAG_U32_AS_FF },
                   } });
 
         row++;
