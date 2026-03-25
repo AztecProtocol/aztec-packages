@@ -121,7 +121,7 @@ export class NoteService {
     noteHash: Fr,
     nullifier: Fr,
     txHash: TxHash,
-    recipient: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // We are going to store the new note in the NoteStore, which will let us later return it via `getNotes`.
     // There's two things we need to check before we do this however:
@@ -196,8 +196,7 @@ export class NoteService {
       noteIndexInTx,
     );
 
-    // The note was found by `recipient`, so we use that as the scope when storing the note.
-    await this.noteStore.addNotes([noteDao], recipient, this.jobId);
+    await this.noteStore.addNotes([noteDao], scope, this.jobId);
 
     if (nullifierIndex !== undefined) {
       // We found nullifier index which implies that the note has already been nullified.

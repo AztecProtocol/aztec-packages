@@ -9,6 +9,60 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Capsule operations are now addressed by scope
+
+All capsule operations (`store`, `load`, `delete`, `copy`) and `CapsuleArray` now require a `scope: AztecAddress` parameter. This scopes capsule storage by address, providing isolation between different accounts within the same PXE.
+
+Contracts that use `CapsuleArray` directly also need to update.
+
+**Migration:**
+
+```diff
+- let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, slot);
++ let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, slot, scope);
+```
+
+The low-level capsule functions are similarly affected:
+
+```diff
+- capsules::store(contract_address, slot, value);
++ capsules::store(contract_address, slot, value, scope);
+
+- capsules::load(contract_address, slot);
++ capsules::load(contract_address, slot, scope);
+
+- capsules::delete(contract_address, slot);
++ capsules::delete(contract_address, slot, scope);
+
+- capsules::copy(contract_address, src_slot, dst_slot, num_entries);
++ capsules::copy(contract_address, src_slot, dst_slot, num_entries, scope);
+```
+
+If you need to stick the old, scope-less behavior, and you are really sure that that's what you need to use, you can use `scope = AztecAddress::zero()`.
+
+### [Aztec.nr] `process_message` utility function removed
+
+The auto-generated `process_message` utility function has been removed. If you need to deliver offchain messages (messages not broadcast via onchain logs), use the `offchain_receive` utility function instead. This function is automatically injected by the `#[aztec]` macro and accepts messages into a persistent inbox scoped by recipient. These messages are then picked up and processed during `sync_state`.
+
+**Impact**: Contracts that explicitly called `process_message` must switch to delivering messages via `offchain_receive` and letting `sync_state` handle processing.
+
+### [Aztec.nr] `CustomMessageHandler` type signature changed
+
+The `CustomMessageHandler` function type now receives an additional `scope: AztecAddress` parameter:
+
+```diff
+  type CustomMessageHandler = unconstrained fn(
+      AztecAddress,    // contract_address
+      u64,             // msg_type_id
+      u64,             // msg_metadata
+      BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,  // msg_content
+      MessageContext,  // message_context
++     AztecAddress,    // scope
+  );
+```
+
+**Impact**: Contracts that implement a custom message handler must update the function signature.
+
 ### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
 
 The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
@@ -119,7 +173,7 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 **Migration:**
 
 ```diff
-  attempt_note_discovery(
+    attempt_note_discovery(
       contract_address,
       tx_hash,
       unique_note_hashes_in_tx,

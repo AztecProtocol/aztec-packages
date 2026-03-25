@@ -738,10 +738,14 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_fetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async aztec_utl_fetchTaggedLogs(
+    foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
     const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().fetchTaggedLogs(pendingTaggedLogArrayBaseSlot);
+    await this.handlerAsUtility().fetchTaggedLogs(pendingTaggedLogArrayBaseSlot, scope);
 
     return toForeignCallResult([]);
   }
@@ -753,12 +757,14 @@ export class RPCTranslator {
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMaxNotePackedLen: ForeignCallSingle,
     foreignMaxEventSerializedLen: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
     const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
     const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
@@ -766,6 +772,7 @@ export class RPCTranslator {
       eventValidationRequestsArrayBaseSlot,
       maxNotePackedLen,
       maxEventSerializedLen,
+      scope,
     );
 
     return toForeignCallResult([]);
@@ -776,15 +783,18 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
     foreignLogRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
     const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().bulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
+      scope,
     );
 
     return toForeignCallResult([]);
@@ -795,31 +805,36 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
     const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().utilityResolveMessageContexts(
       contractAddress,
       messageContextRequestsArrayBaseSlot,
       messageContextResponsesArrayBaseSlot,
+      scope,
     );
 
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_storeCapsule(
+  aztec_utl_storeCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignCapsule: ForeignCallArray,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const capsule = fromArray(foreignCapsule);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().storeCapsule(contractAddress, slot, capsule);
+    this.handlerAsUtility().storeCapsule(contractAddress, slot, capsule, scope);
 
     return toForeignCallResult([]);
   }
@@ -829,12 +844,14 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignTSize: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const tSize = fromSingle(foreignTSize).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    const values = await this.handlerAsUtility().loadCapsule(contractAddress, slot);
+    const values = await this.handlerAsUtility().loadCapsule(contractAddress, slot, scope);
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
@@ -848,11 +865,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_deleteCapsule(foreignContractAddress: ForeignCallSingle, foreignSlot: ForeignCallSingle) {
+  aztec_utl_deleteCapsule(
+    foreignContractAddress: ForeignCallSingle,
+    foreignSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().deleteCapsule(contractAddress, slot);
+    this.handlerAsUtility().deleteCapsule(contractAddress, slot, scope);
 
     return toForeignCallResult([]);
   }
@@ -863,13 +885,15 @@ export class RPCTranslator {
     foreignSrcSlot: ForeignCallSingle,
     foreignDstSlot: ForeignCallSingle,
     foreignNumEntries: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const srcSlot = fromSingle(foreignSrcSlot);
     const dstSlot = fromSingle(foreignDstSlot);
     const numEntries = fromSingle(foreignNumEntries).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
+    await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope);
 
     return toForeignCallResult([]);
   }
