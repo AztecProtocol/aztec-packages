@@ -149,12 +149,14 @@ uint32_t Sha256TraceBuilder::ror_with_witness(
 }
 
 /**
- * @brief Perform a 32-bit right shift and insert the result and limb decomposition into the trace.
+ * @brief Perform a 32-bit right shift and insert the limb decomposition into the trace.
+ *
+ * The shift result is the high limb (col_lhs = val >> shift), written by into_limbs_with_witness.
+ *
  * @param val The 32-bit value to shift.
  * @param shift The number of bits to shift right.
- * @param col_result The column for the shift result.
- * @param col_lhs The column for the high limb of the decomposition.
- * @param col_rhs The column for the low limb of the decomposition.
+ * @param col_lhs The column for the high limb of the decomposition (shift result).
+ * @param col_rhs The column for the low limb of the decomposition (discarded bits).
  * @param trace The trace container to populate.
  * @return The shifted 32-bit value.
  * @pre shift must satisfy shift < 32. A shift >= 32 would cause undefined behavior per the
@@ -162,11 +164,10 @@ uint32_t Sha256TraceBuilder::ror_with_witness(
  *      SHA-256 shift amounts (3, 10), so this precondition is always satisfied.
  */
 uint32_t Sha256TraceBuilder::shr_with_witness(
-    const uint32_t val, const uint8_t shift, C col_result, C col_lhs, C col_rhs, TraceContainer& trace) const
+    const uint32_t val, const uint8_t shift, C col_lhs, C col_rhs, TraceContainer& trace) const
 {
     auto result = val >> shift;
     into_limbs_with_witness(val, shift, col_lhs, col_rhs, trace);
-    trace.set(col_result, row, result);
     return result;
 }
 
@@ -196,8 +197,7 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
         ror_with_witness(prev_w_helpers[1], 18, C::sha256_w_15_rotr_18, C::sha256_lhs_w_18, C::sha256_rhs_w_18, trace);
     trace.set(C::sha256_two_pow_18, row, 262144); // Store 2^18 for reference
     // Compute (w[i - 15] >> 3)
-    uint32_t shift_3 =
-        shr_with_witness(prev_w_helpers[1], 3, C::sha256_w_15_rshift_3, C::sha256_lhs_w_3, C::sha256_rhs_w_3, trace);
+    uint32_t shift_3 = shr_with_witness(prev_w_helpers[1], 3, C::sha256_lhs_w_3, C::sha256_rhs_w_3, trace);
     trace.set(C::sha256_two_pow_3, row, 8); // Store 2^3 for reference
 
     // Compute ror(w[i - 15], 7) ^ ror(w[i - 15], 18)
@@ -216,8 +216,7 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
         ror_with_witness(prev_w_helpers[14], 19, C::sha256_w_2_rotr_19, C::sha256_lhs_w_19, C::sha256_rhs_w_19, trace);
     trace.set(C::sha256_two_pow_19, row, 524288); // Store 2^19 for reference
     // Compute (w[i - 2] >> 10)
-    uint32_t shift_10 = shr_with_witness(
-        prev_w_helpers[14], 10, C::sha256_w_2_rshift_10, C::sha256_lhs_w_10, C::sha256_rhs_w_10, trace);
+    uint32_t shift_10 = shr_with_witness(prev_w_helpers[14], 10, C::sha256_lhs_w_10, C::sha256_rhs_w_10, trace);
     trace.set(C::sha256_two_pow_10, row, 1024); // Store 2^10 for reference
 
     // Compute ror(w[i - 2], 17) ^ ror(w[i - 2], 19)

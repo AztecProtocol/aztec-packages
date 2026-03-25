@@ -245,12 +245,12 @@ namespace sha256;
     ///// End Check rhs_w_18
 
     // w[i-15] `rightshift`  3
-    pol commit w_15_rshift_3;
+    // The shift result is lhs_w_3 (the high part of the decomposition). It is used directly
+    // in the XOR lookup #[W_S_0_XOR_1], which also implicitly range-checks it to 32 bits.
     pol commit lhs_w_3;
     pol commit rhs_w_3;
     sel_compute_w * (helper_w1 - (lhs_w_3 * 2**3 + rhs_w_3)) = 0;
-    sel_compute_w * (w_15_rshift_3 - lhs_w_3) = 0;
-    ///// Check rhs_w_3 < 2**3 (we don't have to check lhs_w_3 < 2**32 (aka w_15_rshift_3) since it's used in the lookup #[W_S_0_XOR_0])
+    ///// Check rhs_w_3 < 2**3 (we don't have to check lhs_w_3 < 2**32 since it's used in the lookup #[W_S_0_XOR_1])
     pol commit two_pow_3; // Lookup constant support: Can be removed when we support constants in lookups.
     sel_compute_w * (two_pow_3 - 2**3) = 0;
     #[RANGE_RHS_W_3]
@@ -268,7 +268,7 @@ namespace sha256;
 
     pol commit w_s_0;
     #[W_S_0_XOR_1]
-    sel_compute_w { w_15_rotr_7_xor_w_15_rotr_18, w_15_rshift_3, w_s_0, xor_op_id, u32_tag }
+    sel_compute_w { w_15_rotr_7_xor_w_15_rotr_18, lhs_w_3, w_s_0, xor_op_id, u32_tag }
     in
     bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
@@ -304,12 +304,12 @@ namespace sha256;
     ///// End Check rhs_w_19
 
     // w[i-2] `rightshift` 10
-    pol commit w_2_rshift_10;
+    // The shift result is lhs_w_10 (the high part of the decomposition). It is used directly
+    // in the XOR lookup #[W_S_1_XOR_1], which also implicitly range-checks it to 32 bits.
     pol commit lhs_w_10;
     pol commit rhs_w_10;
     sel_compute_w * (helper_w14 - (lhs_w_10 * 2**10 + rhs_w_10)) = 0;
-    sel_compute_w * (w_2_rshift_10 - lhs_w_10) = 0;
-    ///// Check rhs_w_10 < 2**10 (we don't have to check lhs_w_10 < 2**32 (aka w_2_rshift_10) since it's used in the lookup #[W_S_1_XOR_0])
+    ///// Check rhs_w_10 < 2**10 (we don't have to check lhs_w_10 < 2**32 since it's used in the lookup #[W_S_1_XOR_1])
     pol commit two_pow_10; // Lookup constant support: Can be removed when we support constants in lookups.
     sel_compute_w * (two_pow_10 - 2**10) = 0;
     #[RANGE_RHS_W_10]
@@ -327,7 +327,7 @@ namespace sha256;
 
     pol commit w_s_1;
     #[W_S_1_XOR_1]
-    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_op_id, u32_tag }
+    sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, lhs_w_10, w_s_1, xor_op_id, u32_tag }
     in
     bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 

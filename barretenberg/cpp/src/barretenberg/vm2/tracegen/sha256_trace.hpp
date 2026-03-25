@@ -29,12 +29,8 @@ class Sha256TraceBuilder final {
                               Column col_lhs,
                               Column col_rhs,
                               TraceContainer& trace) const;
-    uint32_t shr_with_witness(const uint32_t val,
-                              const uint8_t shift,
-                              Column col_result,
-                              Column col_lhs,
-                              Column col_rhs,
-                              TraceContainer& trace) const;
+    uint32_t shr_with_witness(
+        const uint32_t val, const uint8_t shift, Column col_lhs, Column col_rhs, TraceContainer& trace) const;
     uint32_t compute_w_with_witness(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace) const;
     std::array<uint32_t, 8> compute_compression_with_witness(const std::array<uint32_t, 8>& state,
                                                              uint32_t round_w,
