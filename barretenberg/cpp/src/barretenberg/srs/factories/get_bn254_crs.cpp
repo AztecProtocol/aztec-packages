@@ -221,22 +221,6 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
         return points;
     }
 
-    // Fallback: read legacy uncompressed CRS (64 bytes/point) directly
-    constexpr size_t UNCOMPRESSED_POINT_SIZE = 64;
-    auto legacy_path = path / "bn254_g1.dat";
-    size_t legacy_points = get_file_size(legacy_path) / UNCOMPRESSED_POINT_SIZE;
-    if (legacy_points >= num_points) {
-        vinfo("using legacy uncompressed bn254 crs with ", legacy_points, " points at ", legacy_path);
-        auto legacy_data = read_file(legacy_path, num_points * UNCOMPRESSED_POINT_SIZE);
-        std::vector<bb::g1::affine_element> points(num_points);
-        bb::parallel_for([&](bb::ThreadChunk chunk) {
-            for (auto i : chunk.range(num_points)) {
-                points[i] = from_buffer<bb::g1::affine_element>(legacy_data, i * UNCOMPRESSED_POINT_SIZE);
-            }
-        });
-        return points;
-    }
-
     if (!allow_download && compressed_points == 0) {
         throw_or_abort("bn254 g1 data not found at " + path.string() +
                        " and bb does not automatically download in this context." +
