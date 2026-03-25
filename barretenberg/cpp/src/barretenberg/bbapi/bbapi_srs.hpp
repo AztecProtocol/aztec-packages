@@ -22,12 +22,13 @@ struct SrsInitSrs {
 
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitSrsResponse";
-        uint8_t dummy = 0; // Empty response needs a dummy field for msgpack
-        SERIALIZATION_FIELDS(dummy);
+        std::vector<uint8_t>
+            points_buf; // Uncompressed G1 points (64 bytes each), empty if input was already uncompressed
+        SERIALIZATION_FIELDS(points_buf);
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> points_buf; // G1 points (32 bytes each, compressed)
+    std::vector<uint8_t> points_buf; // G1 points: compressed (32 bytes each) or uncompressed (64 bytes each)
     uint32_t num_points;
     std::vector<uint8_t> g2_point; // G2 point (128 bytes)
     Response execute(BBApiRequest& request) &&;
