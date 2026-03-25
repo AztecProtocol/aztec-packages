@@ -584,7 +584,7 @@ export class BotFactory {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       await deploy.register();
     } else {
-      const sender = deployOpts.from;
+      const sender = deployOpts.from === NO_FROM ? undefined : deployOpts.from;
       const balance = sender ? await getFeeJuiceBalance(sender, this.aztecNode) : 0n;
       const useClaim =
         sender &&
