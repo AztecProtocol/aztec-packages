@@ -281,8 +281,6 @@ void AvmProver::execute_pcs_rounds()
 
     constexpr size_t BS = Flavor::INTERLEAVING_BATCH_SIZE;
 
-    // Batch polynomials using short scalars to reduce ECCVM circuit size
-    auto unshifted_polys = prover_polynomials.get_unshifted();
     auto shifted_polys = prover_polynomials.get_to_be_shifted();
 
     // Get short batching challenges from transcript
@@ -292,247 +290,173 @@ void AvmProver::execute_pcs_rounds()
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
-    if constexpr (BS == 1) {
-        // Non-interleaved path: original logic
-        auto index_of_max_end_index = [](const auto& polys) {
-            auto it = std::ranges::max_element(
-                polys.begin(), polys.end(), [](const auto& a, const auto& b) { return a.end_index() < b.end_index(); });
-            return static_cast<size_t>(std::distance(polys.begin(), it));
-        };
+    // ---- Materialize interleaved group polynomials ----
+    // For BS=1 this is an identity (each group = 1 entity, no interleaving).
+    // For BS>1, groups of BS consecutive polys are interleaved into one polynomial.
 
-        size_t max_idx = index_of_max_end_index(shifted_polys);
-        Polynomial batched_shifted = std::move(shifted_polys[max_idx]);
-        batched_shifted *= shifted_challenges[max_idx];
-        for (size_t idx = 0; const auto [poly, challenge] : zip_view(shifted_polys, shifted_challenges)) {
-            if (idx != max_idx) {
-                batched_shifted.add_scaled(poly, challenge);
-            }
-            idx++;
+    auto precomputed_polys = prover_polynomials.get_precomputed();
+    auto wire_polys = prover_polynomials.get_wires();
+    auto derived_polys = prover_polynomials.get_derived();
+
+    // Wire groups need zero-padding before shifted wires for BS-alignment (PAD=0 for BS=1).
+    constexpr size_t PAD = Flavor::NUM_SHIFT_ALIGNMENT_PADDING;
+    constexpr size_t NON_SHIFTED_WIRES = bb::avm2::NUM_NON_SHIFTED_WIRES;
+    constexpr size_t PADDED_WIRE_COUNT = Flavor::NUM_WIRES + PAD;
+
+    Polynomial zero_poly;
+    auto get_padded_wire = [&](size_t padded_idx) -> Polynomial& {
+        if (padded_idx < NON_SHIFTED_WIRES) {
+            return wire_polys[padded_idx];
+        } else if (padded_idx < NON_SHIFTED_WIRES + PAD) {
+            return zero_poly;
+        } else {
+            return wire_polys[padded_idx - PAD];
         }
+    };
 
-        max_idx = index_of_max_end_index(unshifted_polys);
-        Polynomial batched_unshifted = std::move(unshifted_polys[max_idx]);
-        batched_unshifted *= unshifted_challenges[max_idx];
-        batched_unshifted += batched_shifted;
-        for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
-            if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
-                if (idx != max_idx) {
-                    batched_unshifted.add_scaled(poly, challenge);
-                }
-            }
-            idx++;
+    auto precomputed_groups = build_interleaved_groups<BS>(precomputed_polys, Flavor::NUM_PRECOMPUTED_GROUPS);
+
+    std::vector<Polynomial> wire_groups;
+    wire_groups.reserve(Flavor::NUM_WIRE_GROUPS);
+    for (size_t g = 0; g < Flavor::NUM_WIRE_GROUPS; g++) {
+        size_t start = g * BS;
+        size_t max_end = 0;
+        for (size_t j = 0; j < BS && start + j < PADDED_WIRE_COUNT; j++) {
+            max_end = std::max(max_end, get_padded_wire(start + j).end_index());
         }
-
-        const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
-
-        PolynomialBatcher polynomial_batcher(circuit_dyadic_size);
-        polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
-        polynomial_batcher.set_to_be_shifted(RefVector{ batched_shifted });
-
-        const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            circuit_dyadic_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
-
-        PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
-    } else {
-        // Interleaved path: materialize group polynomials, batch, and use shift_exponent=BS
-        auto precomputed_polys = prover_polynomials.get_precomputed();
-        auto wire_polys = prover_polynomials.get_wires();
-        auto derived_polys = prover_polynomials.get_derived();
-
-        // Insert zero-padding before shifted wires so shifted groups align with wire groups.
-        // We build the interleaved wire groups by iterating over wire polys with a mapping
-        // that inserts PAD zero slots at the non-shifted/shifted boundary.
-        constexpr size_t PAD = Flavor::NUM_SHIFT_ALIGNMENT_PADDING;
-        constexpr size_t NON_SHIFTED_WIRES = bb::avm2::NUM_NON_SHIFTED_WIRES;
-        constexpr size_t PADDED_WIRE_COUNT = Flavor::NUM_WIRES + PAD;
-
-        // Helper: get the wire polynomial at padded index, returning empty poly for padding slots.
-        Polynomial zero_poly;
-        auto get_padded_wire = [&](size_t padded_idx) -> Polynomial& {
-            if (padded_idx < NON_SHIFTED_WIRES) {
-                return wire_polys[padded_idx];
-            } else if (padded_idx < NON_SHIFTED_WIRES + PAD) {
-                return zero_poly;
-            } else {
-                return wire_polys[padded_idx - PAD];
-            }
-        };
-
-        // Materialize interleaved group polynomials
-        auto precomputed_groups = build_interleaved_groups<BS>(precomputed_polys, Flavor::NUM_PRECOMPUTED_GROUPS);
-
-        // Build wire groups with padding
-        std::vector<Polynomial> wire_groups;
-        wire_groups.reserve(Flavor::NUM_WIRE_GROUPS);
-        for (size_t g = 0; g < Flavor::NUM_WIRE_GROUPS; g++) {
-            size_t start = g * BS;
-            size_t max_end = 0;
-            for (size_t j = 0; j < BS && start + j < PADDED_WIRE_COUNT; j++) {
-                max_end = std::max(max_end, get_padded_wire(start + j).end_index());
-            }
-            const size_t interleaved_size = max_end * BS;
-            const size_t virtual_size = numeric::round_up_power_2(std::max(interleaved_size, size_t(1)));
-            Polynomial interleaved(interleaved_size, virtual_size);
-            for (size_t j = 0; j < BS && start + j < PADDED_WIRE_COUNT; j++) {
-                auto& p = get_padded_wire(start + j);
-                for (size_t i = p.start_index(); i < p.end_index(); i++) {
-                    interleaved.at(i * BS + j) = p.at(i);
-                }
-            }
-            wire_groups.push_back(std::move(interleaved));
-        }
-        auto derived_groups = build_interleaved_groups<BS>(derived_polys, Flavor::NUM_DERIVED_GROUPS);
-
-        // Build shifted wire groups separately as shiftable (start_index=BS) for PCS
-        auto shifted_polys = prover_polynomials.get_to_be_shifted();
-        auto shifted_wire_groups =
-            build_interleaved_groups<BS>(shifted_polys, Flavor::NUM_SHIFTED_GROUPS, /*shiftable=*/true);
-
-        // Collect all unshifted groups: precomputed + wire + derived
-        std::vector<Polynomial*> all_unshifted_groups;
-        all_unshifted_groups.reserve(Flavor::NUM_UNSHIFTED_GROUPS);
-        for (auto& g : precomputed_groups) {
-            all_unshifted_groups.push_back(&g);
-        }
-        for (auto& g : wire_groups) {
-            all_unshifted_groups.push_back(&g);
-        }
-        for (auto& g : derived_groups) {
-            all_unshifted_groups.push_back(&g);
-        }
-
-        // Shifted groups are a contiguous subset of wire groups. The shifted start is
-        // BS-aligned thanks to NUM_SHIFT_ALIGNMENT_PADDING zero polys inserted before shifted wires.
-        constexpr size_t SHIFTED_WIRE_OFFSET = (WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX) + PAD;
-        constexpr size_t SHIFTED_WIRE_END_OFFSET = (WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX) + PAD;
-        constexpr size_t SHIFTED_WIRE_GROUP_START = SHIFTED_WIRE_OFFSET / BS;
-        constexpr size_t SHIFTED_WIRE_GROUP_END = (SHIFTED_WIRE_END_OFFSET + BS - 1) / BS;
-        static_assert(SHIFTED_WIRE_GROUP_START * BS == SHIFTED_WIRE_OFFSET, "Padded shifted start must be BS-aligned");
-
-        // Batch unshifted groups with short scalars (one challenge per individual entity, combine BS per group)
-        // Unshifted challenges are indexed per individual entity, not per group.
-        // For group g, combine challenges[g*BS..g*BS+BS-1] using Lagrange basis at interleaving challenges.
-        // But for PCS, we need a single challenge per group. We use the challenge of the first entity in the group.
-        // Actually, the short-scalar batching is per-group for the interleaved path.
-        // The simplest approach: batch the group polynomials directly, one challenge per group.
-
-        // Get interleaving challenges (Fiat-Shamir)
-        std::vector<FF> interleaving_challenges;
-        for (size_t i = 0; i < Flavor::INTERLEAVING_LOG_K; i++) {
-            interleaving_challenges.push_back(
-                transcript->template get_challenge<FF>("interleaving_challenge_" + std::to_string(i)));
-        }
-
-        // Compute group-level challenges by combining per-entity challenges with Lagrange basis.
-        // IMPORTANT: Must respect section boundaries. Entity counts may not be divisible by BS,
-        // so the last group in each section may have fewer than BS entities (zero-padded).
-        auto lagrange = compute_interleaving_lagrange_basis<BS>(
-            std::span<const FF>(interleaving_challenges.data(), interleaving_challenges.size()));
-
-        // Helper: combine per-entity challenges into per-group challenges for a section.
-        // entity_challenges: challenges for entities in this section only.
-        // num_groups: number of groups in this section (ceil(num_entities / BS)).
-        auto combine_section_challenges = [&](std::span<const FF> entity_challenges, size_t num_groups) {
-            std::vector<FF> group_challenges(num_groups, FF(0));
-            for (size_t g = 0; g < num_groups; g++) {
-                for (size_t j = 0; j < BS && g * BS + j < entity_challenges.size(); j++) {
-                    group_challenges[g] += entity_challenges[g * BS + j] * lagrange[j];
-                }
-            }
-            return group_challenges;
-        };
-
-        // Combine per section, then concatenate for all unshifted groups.
-        // Wire challenges need padding zeros inserted at the same position as the wire polynomials.
-        auto precomputed_challenges_span = unshifted_challenges.subspan(0, Flavor::NUM_PRECOMPUTED_ENTITIES);
-        auto wire_challenges_raw = unshifted_challenges.subspan(Flavor::NUM_PRECOMPUTED_ENTITIES, Flavor::NUM_WIRES);
-        auto derived_challenges_span = unshifted_challenges.subspan(
-            Flavor::NUM_PRECOMPUTED_ENTITIES + Flavor::NUM_WIRES, Flavor::NUM_WITNESS_ENTITIES - Flavor::NUM_WIRES);
-
-        // Build padded wire challenges: [non-shifted challenges | PAD zeros | shifted challenges]
-        std::vector<FF> padded_wire_challenges;
-        padded_wire_challenges.reserve(Flavor::NUM_WIRES + PAD);
-        padded_wire_challenges.insert(
-            padded_wire_challenges.end(), wire_challenges_raw.begin(), wire_challenges_raw.begin() + NON_SHIFTED_WIRES);
-        padded_wire_challenges.resize(padded_wire_challenges.size() + PAD, FF(0));
-        padded_wire_challenges.insert(
-            padded_wire_challenges.end(), wire_challenges_raw.begin() + NON_SHIFTED_WIRES, wire_challenges_raw.end());
-
-        auto precomputed_group_challenges =
-            combine_section_challenges(precomputed_challenges_span, Flavor::NUM_PRECOMPUTED_GROUPS);
-        auto wire_group_challenges =
-            combine_section_challenges(std::span<const FF>(padded_wire_challenges), Flavor::NUM_WIRE_GROUPS);
-        auto derived_group_challenges = combine_section_challenges(derived_challenges_span, Flavor::NUM_DERIVED_GROUPS);
-
-        std::vector<FF> group_unshifted_challenges;
-        group_unshifted_challenges.reserve(Flavor::NUM_UNSHIFTED_GROUPS);
-        group_unshifted_challenges.insert(
-            group_unshifted_challenges.end(), precomputed_group_challenges.begin(), precomputed_group_challenges.end());
-        group_unshifted_challenges.insert(
-            group_unshifted_challenges.end(), wire_group_challenges.begin(), wire_group_challenges.end());
-        group_unshifted_challenges.insert(
-            group_unshifted_challenges.end(), derived_group_challenges.begin(), derived_group_challenges.end());
-
-        // For shifted entities: combine per-entity challenges into per-group challenges
-        auto group_shifted_challenges = combine_section_challenges(shifted_challenges, Flavor::NUM_SHIFTED_GROUPS);
-
-        // Batch shifted groups into a shiftable polynomial (first BS coefficients are zero)
-        // We need the shifted batch to be shiftable by BS for Gemini.
-        // Shifted wire groups have start_index=BS because individual polys have start_index=1.
-        size_t shifted_max_end = 0;
-        for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
-            shifted_max_end = std::max(shifted_max_end, shifted_wire_groups[g].end_index());
-        }
-        Polynomial batched_shifted_group = Polynomial::shiftable(shifted_max_end, shifted_max_end, BS);
-        for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
-            batched_shifted_group.add_scaled(shifted_wire_groups[g], group_shifted_challenges[g]);
-        }
-
-        // Batch unshifted groups
-        size_t unshifted_max_end = 0;
-        for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
-            unshifted_max_end = std::max(unshifted_max_end, all_unshifted_groups[g]->end_index());
-        }
-        Polynomial batched_unshifted_group(unshifted_max_end, unshifted_max_end);
-        for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
-            // Skip shifted wire groups since they'll be added via batched_shifted_group
-            size_t wire_group_idx = g - Flavor::NUM_PRECOMPUTED_GROUPS;
-            bool is_shifted_group = (g >= Flavor::NUM_PRECOMPUTED_GROUPS) &&
-                                    (wire_group_idx >= SHIFTED_WIRE_GROUP_START) &&
-                                    (wire_group_idx < SHIFTED_WIRE_GROUP_END);
-            if (!is_shifted_group) {
-                batched_unshifted_group.add_scaled(*all_unshifted_groups[g], group_unshifted_challenges[g]);
+        const size_t interleaved_size = max_end * BS;
+        const size_t virtual_size = numeric::round_up_power_2(std::max(interleaved_size, size_t(1)));
+        Polynomial interleaved(interleaved_size, virtual_size);
+        for (size_t j = 0; j < BS && start + j < PADDED_WIRE_COUNT; j++) {
+            auto& p = get_padded_wire(start + j);
+            for (size_t i = p.start_index(); i < p.end_index(); i++) {
+                interleaved.at(i * BS + j) = p.at(i);
             }
         }
-        // Add shifted contribution to unshifted batch (these wire groups overlap)
-        batched_unshifted_group += batched_shifted_group;
-
-        // PCS circuit size: data-proportional, derived from actual polynomial extent.
-        // Must match extended_challenge.size() = log2(circuit_size) + LOG_K.
-        const size_t group_circuit_size = numeric::round_up_power_2(batched_unshifted_group.end_index());
-
-        PolynomialBatcher polynomial_batcher(group_circuit_size, /*actual_data_size=*/0, /*shift_exponent=*/BS);
-        polynomial_batcher.set_unshifted(RefVector{ batched_unshifted_group });
-        polynomial_batcher.set_to_be_shifted(RefVector{ batched_shifted_group });
-
-        // Build extended multilinear challenge: interleaving challenges FIRST, then sumcheck challenges.
-        // Gemini needs log2(N*BS) = log2(N) + LOG_K rounds.
-        // Interleaving variables correspond to the LOWEST bits of the group poly index
-        // (they select position j within a BS-sized group), so they come FIRST in the challenge vector.
-        // Sumcheck challenges correspond to the original polynomial index (higher bits).
-        std::vector<FF> extended_challenge;
-        extended_challenge.reserve(Flavor::INTERLEAVING_LOG_K + sumcheck_output.challenge.size());
-        for (const auto& ic : interleaving_challenges) {
-            extended_challenge.push_back(ic);
-        }
-        extended_challenge.insert(
-            extended_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
-
-        const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            group_circuit_size, polynomial_batcher, extended_challenge, commitment_key, transcript);
-
-        PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+        wire_groups.push_back(std::move(interleaved));
     }
+
+    auto derived_groups = build_interleaved_groups<BS>(derived_polys, Flavor::NUM_DERIVED_GROUPS);
+    auto shifted_wire_groups =
+        build_interleaved_groups<BS>(shifted_polys, Flavor::NUM_SHIFTED_GROUPS, /*shiftable=*/true);
+
+    // Collect all unshifted groups: precomputed + wire + derived
+    std::vector<Polynomial*> all_unshifted_groups;
+    all_unshifted_groups.reserve(Flavor::NUM_UNSHIFTED_GROUPS);
+    for (auto& g : precomputed_groups) {
+        all_unshifted_groups.push_back(&g);
+    }
+    for (auto& g : wire_groups) {
+        all_unshifted_groups.push_back(&g);
+    }
+    for (auto& g : derived_groups) {
+        all_unshifted_groups.push_back(&g);
+    }
+
+    // ---- Combine per-entity challenges into per-group challenges ----
+
+    constexpr size_t SHIFTED_WIRE_OFFSET = (WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX) + PAD;
+    constexpr size_t SHIFTED_WIRE_END_OFFSET = (WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX) + PAD;
+    constexpr size_t SHIFTED_WIRE_GROUP_START = SHIFTED_WIRE_OFFSET / BS;
+    constexpr size_t SHIFTED_WIRE_GROUP_END = (SHIFTED_WIRE_END_OFFSET + BS - 1) / BS;
+    static_assert(SHIFTED_WIRE_GROUP_START * BS == SHIFTED_WIRE_OFFSET, "Padded shifted start must be BS-aligned");
+
+    // Get interleaving challenges (0 for BS=1)
+    std::vector<FF> interleaving_challenges;
+    for (size_t i = 0; i < Flavor::INTERLEAVING_LOG_K; i++) {
+        interleaving_challenges.push_back(
+            transcript->template get_challenge<FF>("interleaving_challenge_" + std::to_string(i)));
+    }
+
+    auto lagrange = compute_interleaving_lagrange_basis<BS>(
+        std::span<const FF>(interleaving_challenges.data(), interleaving_challenges.size()));
+
+    auto combine_section = [&](std::span<const FF> entity_challenges, size_t num_groups) {
+        std::vector<FF> group_challenges(num_groups, FF(0));
+        for (size_t g = 0; g < num_groups; g++) {
+            for (size_t j = 0; j < BS && g * BS + j < entity_challenges.size(); j++) {
+                group_challenges[g] += entity_challenges[g * BS + j] * lagrange[j];
+            }
+        }
+        return group_challenges;
+    };
+
+    // Pad wire challenges and combine per section
+    auto wire_challenges_raw = unshifted_challenges.subspan(Flavor::NUM_PRECOMPUTED_ENTITIES, Flavor::NUM_WIRES);
+    std::vector<FF> padded_wire_challenges;
+    padded_wire_challenges.reserve(Flavor::NUM_WIRES + PAD);
+    padded_wire_challenges.insert(
+        padded_wire_challenges.end(), wire_challenges_raw.begin(), wire_challenges_raw.begin() + NON_SHIFTED_WIRES);
+    padded_wire_challenges.resize(padded_wire_challenges.size() + PAD, FF(0));
+    padded_wire_challenges.insert(
+        padded_wire_challenges.end(), wire_challenges_raw.begin() + NON_SHIFTED_WIRES, wire_challenges_raw.end());
+
+    auto precomputed_group_challenges = combine_section(
+        unshifted_challenges.subspan(0, Flavor::NUM_PRECOMPUTED_ENTITIES), Flavor::NUM_PRECOMPUTED_GROUPS);
+    auto wire_group_challenges = combine_section(std::span<const FF>(padded_wire_challenges), Flavor::NUM_WIRE_GROUPS);
+    auto derived_group_challenges =
+        combine_section(unshifted_challenges.subspan(Flavor::NUM_PRECOMPUTED_ENTITIES + Flavor::NUM_WIRES,
+                                                     Flavor::NUM_WITNESS_ENTITIES - Flavor::NUM_WIRES),
+                        Flavor::NUM_DERIVED_GROUPS);
+
+    std::vector<FF> group_unshifted_challenges;
+    group_unshifted_challenges.reserve(Flavor::NUM_UNSHIFTED_GROUPS);
+    group_unshifted_challenges.insert(
+        group_unshifted_challenges.end(), precomputed_group_challenges.begin(), precomputed_group_challenges.end());
+    group_unshifted_challenges.insert(
+        group_unshifted_challenges.end(), wire_group_challenges.begin(), wire_group_challenges.end());
+    group_unshifted_challenges.insert(
+        group_unshifted_challenges.end(), derived_group_challenges.begin(), derived_group_challenges.end());
+
+    auto group_shifted_challenges = combine_section(shifted_challenges, Flavor::NUM_SHIFTED_GROUPS);
+
+    // ---- Batch group polynomials ----
+
+    size_t shifted_max_end = 0;
+    for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
+        shifted_max_end = std::max(shifted_max_end, shifted_wire_groups[g].end_index());
+    }
+    Polynomial batched_shifted = Polynomial::shiftable(shifted_max_end, shifted_max_end, BS);
+    for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
+        batched_shifted.add_scaled(shifted_wire_groups[g], group_shifted_challenges[g]);
+    }
+
+    size_t unshifted_max_end = 0;
+    for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
+        unshifted_max_end = std::max(unshifted_max_end, all_unshifted_groups[g]->end_index());
+    }
+    Polynomial batched_unshifted(unshifted_max_end, unshifted_max_end);
+    for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
+        size_t wire_group_idx = g - Flavor::NUM_PRECOMPUTED_GROUPS;
+        bool is_shifted_group = (g >= Flavor::NUM_PRECOMPUTED_GROUPS) && (wire_group_idx >= SHIFTED_WIRE_GROUP_START) &&
+                                (wire_group_idx < SHIFTED_WIRE_GROUP_END);
+        if (!is_shifted_group) {
+            batched_unshifted.add_scaled(*all_unshifted_groups[g], group_unshifted_challenges[g]);
+        }
+    }
+    batched_unshifted += batched_shifted;
+
+    // ---- PCS opening ----
+
+    const size_t group_circuit_size = numeric::round_up_power_2(batched_unshifted.end_index());
+
+    PolynomialBatcher polynomial_batcher(group_circuit_size, /*actual_data_size=*/0, /*shift_exponent=*/BS);
+    polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
+    polynomial_batcher.set_to_be_shifted(RefVector{ batched_shifted });
+
+    // Extended challenge: [interleaving_challenges || sumcheck_challenges]
+    std::vector<FF> extended_challenge;
+    extended_challenge.reserve(Flavor::INTERLEAVING_LOG_K + sumcheck_output.challenge.size());
+    for (const auto& ic : interleaving_challenges) {
+        extended_challenge.push_back(ic);
+    }
+    extended_challenge.insert(
+        extended_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
+
+    const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
+        group_circuit_size, polynomial_batcher, extended_challenge, commitment_key, transcript);
+
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof AvmProver::export_proof()
