@@ -11,8 +11,8 @@ use crate::{
         logs::notify_created_contract_class_log,
         notes::notify_nullified_note,
         nullifiers::notify_created_nullifier,
-        public_call::validate_public_calldata,
-        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
+        public_call::assert_valid_public_call_data,
+        tx_phase::{is_execution_in_revertible_phase, notify_revertible_phase_start},
     },
 };
 use crate::logging::aztecnr_trace_log_format;
@@ -519,7 +519,7 @@ impl PrivateContext {
         let current_counter = self.side_effect_counter;
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
-        let is_revertible = unsafe { in_revertible_phase(current_counter) };
+        let is_revertible = unsafe { is_execution_in_revertible_phase(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -775,6 +775,7 @@ impl PrivateContext {
             // Safety: Kernels verify that the key validation request is valid and below we verify that a request for
             // the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
+            assert(!request.pk_m.is_infinite, "Infinite public key points are not allowed");
             assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
             self.key_validation_requests_and_separators.push(
@@ -1282,7 +1283,7 @@ impl PrivateContext {
 
         let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        validate_public_calldata(calldata_hash);
+        assert_valid_public_call_data(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
@@ -1353,7 +1354,7 @@ impl PrivateContext {
     ) {
         let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        validate_public_calldata(calldata_hash);
+        assert_valid_public_call_data(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS

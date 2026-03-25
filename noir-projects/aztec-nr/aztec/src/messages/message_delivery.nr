@@ -210,9 +210,10 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     // TODO(#14565): Add constrained tagging
     let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
 
+    let contract_address = context.this_address();
     let ciphertext = remove_constraints_if(
         !constrained_encryption,
-        || AES128::encrypt(encode_into_message_plaintext(), recipient),
+        || AES128::encrypt(encode_into_message_plaintext(), recipient, contract_address),
     );
 
     if deliver_as_offchain_message {

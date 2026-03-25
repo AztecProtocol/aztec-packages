@@ -82,7 +82,7 @@ mod test {
 
         let hash = hash_args(serialized);
 
-        let _ = OracleMock::mock("aztec_prv_loadFromExecutionCache").returns(bad_serialized);
+        let _ = OracleMock::mock("aztec_prv_getHashPreimage").returns(bad_serialized);
         assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     }
 }

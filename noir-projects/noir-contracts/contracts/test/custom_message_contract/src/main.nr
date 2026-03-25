@@ -32,6 +32,7 @@ unconstrained fn handle_multi_log_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     message_context: MessageContext,
+    scope: AztecAddress,
 ) {
     if msg_type_id == MULTI_LOG_MSG_TYPE_ID {
         let part_number = MultiLog::<NUM_MULTI_LOG_PARTS>::unpack_part_number(msg_metadata);
@@ -41,7 +42,11 @@ unconstrained fn handle_multi_log_message(
         let slot = poseidon2_hash([MULTI_LOG_PARTS_SEPARATOR, message_id]);
 
         // Load (or initialize) the pending event and place this part at its index.
-        let mut multi_log: MultiLog<NUM_MULTI_LOG_PARTS> = capsules::load(contract_address, slot)
+        let mut multi_log: MultiLog<NUM_MULTI_LOG_PARTS> = capsules::load(
+            contract_address,
+            slot,
+            scope,
+        )
             .unwrap_or(MultiLog { parts: [BoundedVec::new(); NUM_MULTI_LOG_PARTS] });
         multi_log.parts[part_number] = msg_content;
 
@@ -70,7 +75,7 @@ unconstrained fn handle_multi_log_message(
                 }
             }
 
-            capsules::delete(contract_address, slot);
+            capsules::delete(contract_address, slot, scope);
 
             let event_type_id = EventSelector::from_field(event_type_id_field);
             let event_commitment = compute_private_serialized_event_commitment(
@@ -86,10 +91,10 @@ unconstrained fn handle_multi_log_message(
                 serialized_event,
                 event_commitment,
                 message_context.tx_hash,
-                message_context.recipient,
+                scope,
             );
         } else {
-            capsules::store(contract_address, slot, multi_log);
+            capsules::store(contract_address, slot, multi_log, scope);
         }
     } else {
         panic(f"Unknown message type id: {msg_type_id}");
