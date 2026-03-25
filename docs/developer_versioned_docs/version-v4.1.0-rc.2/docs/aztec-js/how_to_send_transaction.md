@@ -42,6 +42,23 @@ console.log(`Transaction fee: ${receipt.transactionFee}`);
 
 The `from` field specifies which account sends the transaction. If that account has Fee Juice, it pays for the transaction automatically. For other fee payment options, see [paying fees](./how_to_pay_fees.md).
 
+### What happens behind the scenes
+
+When using `EmbeddedWallet`, calling `send()` triggers a **simulation** step before the transaction is actually sent. This simulation:
+
+1. **Estimates gas limits** based on actual execution, with a configurable padding (default 10%) to avoid reverts. If you provide explicit gas limits via `fee.gasSettings`, they take precedence.
+2. **Generates private authwits automatically**. If the contract you're calling requires a private [authentication witness](./how_to_use_authwit.md) (e.g., a token transfer on behalf of the sender), the wallet detects this during simulation and creates the authwit on the fly — no manual setup needed.
+
+This means a simple `.send()` is all most apps need. You can adjust the gas padding if desired:
+
+```typescript
+wallet.setEstimatedGasPadding(0.2); // 20% padding instead of the default 10%
+```
+
+:::note
+Public authwits still need to be set explicitly before the transaction, as they require a separate onchain transaction. See [Using Authentication Witnesses](./how_to_use_authwit.md) for details.
+:::
+
 ### Send without waiting
 
 Use the `NO_WAIT` option to get the transaction hash immediately without waiting for inclusion:
