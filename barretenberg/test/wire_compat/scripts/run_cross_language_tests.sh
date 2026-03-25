@@ -53,6 +53,16 @@ if [ "$CPP_AVAILABLE" = true ]; then
   CLIENTS+=("cpp:cpp/echo_client:C++")
 fi
 
+# Build Zig binaries
+echo "Building Zig echo binaries..."
+if command -v zig &>/dev/null; then
+  (cd zig && zig build-exe echo_server.zig -ODebug 2>&1 && zig build-exe echo_client.zig -ODebug 2>&1)
+  SERVERS+=("zig:zig/echo_server:Zig")
+  CLIENTS+=("zig:zig/echo_client:Zig")
+else
+  echo "  (skipping Zig — zig not found)"
+fi
+
 run_pair() {
   local server_cmd="$1"
   local server_name="$2"
