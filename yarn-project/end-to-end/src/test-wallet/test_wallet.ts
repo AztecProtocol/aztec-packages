@@ -265,7 +265,7 @@ export class TestWallet extends BaseWallet {
       overrides,
       scopes,
     });
-    result.setUserCallOffset(await this.computeUserCallOffset(from, feeOptions));
+    result.setAppCallOffset(await this.computeAppCallOffset(from, feeOptions));
     return result;
   }
 

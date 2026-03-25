@@ -235,6 +235,6 @@ export function buildMergedSimulationResult(
     mergedPublicOutput,
     normalResult?.stats,
   );
-  merged.setUserCallOffset(normalResult?.userCallOffset);
+  merged.setAppCallOffset(normalResult?.appCallOffset);
   return merged;
 }

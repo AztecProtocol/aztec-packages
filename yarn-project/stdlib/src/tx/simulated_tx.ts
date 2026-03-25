@@ -80,11 +80,11 @@ export class PrivateSimulationResult {
 
 export class TxSimulationResult {
   /**
-   * Index into the private return values nested array where user function calls start. Set by the wallet based on
-   * how many fee payment calls precede user calls. Undefined when using DefaultEntrypoint (NO_FROM) — in that case
-   * the user fn is the root call.
+   * Index into the entrypoint's nested return values where the app's calls begin. The wallet may prepend fee payment
+   * calls to the app payload before wrapping it in an entrypoint; this offset skips past those. Undefined when using
+   * DefaultEntrypoint (NO_FROM), where the app call is the root execution.
    */
-  public userCallOffset?: number;
+  public appCallOffset?: number;
 
   constructor(
     public privateExecutionResult: PrivateExecutionResult,
@@ -93,9 +93,9 @@ export class TxSimulationResult {
     public stats?: SimulationStats,
   ) {}
 
-  /** Sets the offset where user function calls start in the nested return values array. */
-  setUserCallOffset(offset: number | undefined): void {
-    this.userCallOffset = offset;
+  /** Sets the offset where the app's calls begin in the entrypoint's nested return values. */
+  setAppCallOffset(offset: number | undefined): void {
+    this.appCallOffset = offset;
   }
 
   /** Returns offchain effects collected from private execution. */
@@ -160,16 +160,16 @@ export class TxSimulationResult {
   }
 
   /**
-   * Returns the private return values for the user call at the given index, accounting for any fee payment calls
-   * that precede user calls in the nested array. When userCallOffset is undefined (DefaultEntrypoint / NO_FROM),
-   * the user fn is the root call and callIndex is ignored.
+   * Returns the private return values for the app call at the given index, skipping past any fee payment calls the
+   * wallet prepended. When appCallOffset is undefined (DefaultEntrypoint / NO_FROM), the app call is the root
+   * execution and callIndex is ignored.
    */
-  getUserPrivateReturnValues(callIndex: number = 0): NestedProcessReturnValues | undefined {
+  getAppPrivateReturnValues(callIndex: number = 0): NestedProcessReturnValues | undefined {
     const all = this.getPrivateReturnValues();
-    if (this.userCallOffset === undefined) {
+    if (this.appCallOffset === undefined) {
       return all;
     }
-    return all?.nested?.[callIndex + this.userCallOffset];
+    return all?.nested?.[callIndex + this.appCallOffset];
   }
 
   toSimulatedTx(): Promise<Tx> {
