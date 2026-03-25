@@ -387,11 +387,7 @@ export class ServerWorldStateSynchronizer
   }
 
   private async handleChainFinalized(blockNumber: BlockNumber) {
-<<<<<<< HEAD
-    this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
-=======
-    this.log.info(`Updating world state finalized chain to block ${blockNumber}`);
->>>>>>> origin/v4
+    this.log.verbose(`Updating world state finalized chain to block ${blockNumber}`);
     // If the finalized block number is older than the oldest available block in world state,
     // skip entirely. The finalized block number can jump backwards (e.g. when the finalization
     // heuristic changes) and try to read block data that has already been pruned. When this

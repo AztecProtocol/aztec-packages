@@ -1793,18 +1793,11 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
-<<<<<<< HEAD
-  it('deleteLogs', async () => {
-    const block = publishedCheckpoints[0].checkpoint.blocks[0];
-    await store.addProposedBlock(block);
-    await expect(store.addLogs([block])).resolves.toEqual(true);
-=======
   describe('deleteLogs', () => {
     it('deletes public logs for a block', async () => {
       const block = publishedCheckpoints[0].checkpoint.blocks[0];
-      await store.addProposedBlocks([block]);
+      await store.addProposedBlock(block);
       await expect(store.addLogs([block])).resolves.toEqual(true);
->>>>>>> origin/v4
 
       expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
         block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
@@ -1822,7 +1815,7 @@ describe('KVArchiverDataStore', () => {
         txOptions: { numContractClassLogs: 1 },
         state: makeStateForBlock(1, 2),
       });
-      await store.addProposedBlocks([block]);
+      await store.addProposedBlock(block);
       await store.addLogs([block]);
 
       const logsBefore = await store.getContractClassLogs({ fromBlock: BlockNumber(1) });
@@ -1854,7 +1847,7 @@ describe('KVArchiverDataStore', () => {
       // Override block2's private log tag to match block1's
       block2.body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
 
-      await store.addProposedBlocks([block1, block2], { force: true });
+      await addProposedBlocks(store, [block1, block2], { force: true });
       await store.addLogs([block1, block2]);
 
       // Both blocks' logs should be present
@@ -1891,7 +1884,7 @@ describe('KVArchiverDataStore', () => {
       // Override block2's public log tag to match block1's
       block2.body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
 
-      await store.addProposedBlocks([block1, block2], { force: true });
+      await addProposedBlocks(store, [block1, block2], { force: true });
       await store.addLogs([block1, block2]);
 
       // Both blocks' logs should be present
@@ -1923,7 +1916,7 @@ describe('KVArchiverDataStore', () => {
       });
       const block2 = cp2.checkpoint.blocks[0];
 
-      await store.addProposedBlocks([block1, block2], { force: true });
+      await addProposedBlocks(store, [block1, block2], { force: true });
       await store.addLogs([block1, block2]);
 
       // Verify logs exist

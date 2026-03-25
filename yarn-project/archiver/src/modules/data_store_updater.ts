@@ -17,12 +17,9 @@ import {
   type ContractClassPublicWithCommitment,
   type ExecutablePrivateFunctionWithMembershipProof,
   type UtilityFunctionWithMembershipProof,
-<<<<<<< HEAD
   computeContractClassId,
-=======
   computeContractAddressFromInstance,
   computePublicBytecodeCommitment,
->>>>>>> origin/v4
   isValidPrivateFunctionMembershipProof,
   isValidUtilityFunctionMembershipProof,
 } from '@aztec/stdlib/contract';
