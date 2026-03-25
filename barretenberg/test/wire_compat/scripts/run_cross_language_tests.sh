@@ -77,7 +77,45 @@ run_pair() {
   rm -f "$socket"
 }
 
+# ---------------------------------------------------------------------------
+# Level 1: Golden file deserialization tests
+# ---------------------------------------------------------------------------
+echo "=== Golden File Deserialization Tests ==="
 echo ""
+
+# Generate golden files from Rust reference
+echo "Generating golden files from Rust reference..."
+(cd rust && cargo build --quiet --bin generate_golden 2>&1)
+rust/target/debug/generate_golden --output-dir golden 2>/dev/null
+
+# Rust golden test
+echo "  Rust:"
+if (cd rust && cargo build --quiet --bin golden_test 2>&1) && \
+   rust/target/debug/golden_test --golden-dir golden 2>/dev/null; then
+  echo "    PASS"
+  PASS=$((PASS + 1))
+else
+  echo "    FAIL"
+  FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+
+# TypeScript golden test
+echo "  TypeScript:"
+if npx tsx ts/golden_test.ts 2>/dev/null; then
+  echo "    PASS"
+  PASS=$((PASS + 1))
+else
+  echo "    FAIL"
+  FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+
+echo ""
+
+# ---------------------------------------------------------------------------
+# Level 2+3: IPC Round-Trip Matrix
+# ---------------------------------------------------------------------------
 echo "=== Cross-Language Wire Compatibility Matrix ==="
 echo ""
 
