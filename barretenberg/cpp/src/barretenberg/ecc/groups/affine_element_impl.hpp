@@ -55,7 +55,7 @@ constexpr std::array<affine_element<Fq, Fr, T>, 2> affine_element<Fq, Fr, T>::fr
     };
 
     uint256_t x_1 = compressed;
-    uint256_t x_2 = compressed + Fr::modulus;
+    uint256_t x_2 = compressed + Fq::modulus;
     auto [is_quadratic_remainder_1, y_1] = get_y_coordinate(x_1);
     auto [is_quadratic_remainder_2, y_2] = get_y_coordinate(x_2);
 
