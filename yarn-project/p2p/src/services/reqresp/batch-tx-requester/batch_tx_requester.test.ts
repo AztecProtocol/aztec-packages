@@ -777,15 +777,12 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getBadPeers()).not.toContain(peers[1].toString()); // peer1: always good
       expect(peerCollection.getBadPeers()).not.toContain(peers[2].toString()); // peer2: recovered
 
-      // Clear leftover queried state from the run so sampleAllPeers sees all available peers.
-      // Without this, the round-robin sampler can miss peers due to stale queriedDumbPeers state.
-      (peerCollection as any).queriedDumbPeers.clear();
-
-      // Verify query availability
-      const dumbPeersToQuery = sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection));
-      expect(dumbPeersToQuery).not.toContain(peers[0].toString()); // bad peer excluded
-      expect(dumbPeersToQuery).toContain(peers[1].toString()); // good peer included
-      expect(dumbPeersToQuery).toContain(peers[2].toString()); // recovered peer included
+      // Verify query availability by checking the underlying available dumb peers set directly,
+      // since sampleAllPeers depends on queriedDumbPeers state left over from the run.
+      const availableDumbPeers: Set<string> = (peerCollection as any).availableDumbPeers;
+      expect(availableDumbPeers).not.toContain(peers[0].toString()); // bad peer excluded
+      expect(availableDumbPeers).toContain(peers[1].toString()); // good peer included
+      expect(availableDumbPeers).toContain(peers[2].toString()); // recovered peer included
 
       // Peers might be marked as smart but no semaphore releases should happen
       // because smartParallelWorkerCount is 0
