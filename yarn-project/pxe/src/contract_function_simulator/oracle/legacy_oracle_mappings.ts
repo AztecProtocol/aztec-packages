@@ -1,5 +1,6 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { toACVMField } from '@aztec/simulator/client';
 import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { Oracle } from './oracle.js';
 
@@ -23,7 +24,8 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       contractAddress: ACVMField[],
       slot: ACVMField[],
       tSize: ACVMField[],
-    ): Promise<(ACVMField | ACVMField[])[]> => oracle.aztec_utl_loadCapsule(contractAddress, slot, tSize),
+    ): Promise<(ACVMField | ACVMField[])[]> =>
+      oracle.aztec_utl_loadCapsule(contractAddress, slot, tSize, [toACVMField(AztecAddress.ZERO)]),
     privateStoreInExecutionCache: (values: ACVMField[], hash: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_prv_storeInExecutionCache(values, hash),
     privateLoadFromExecutionCache: (returnsHash: ACVMField[]): Promise<ACVMField[][]> =>
@@ -65,33 +67,23 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       contractAddress: ACVMField[],
       slot: ACVMField[],
       capsule: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_utl_storeCapsule(contractAddress, slot, capsule),
+    ): Promise<ACVMField[]> =>
+      oracle.aztec_utl_storeCapsule(contractAddress, slot, capsule, [toACVMField(AztecAddress.ZERO)]),
     utilityCopyCapsule: (
       contractAddress: ACVMField[],
       srcSlot: ACVMField[],
       dstSlot: ACVMField[],
       numEntries: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_utl_copyCapsule(contractAddress, srcSlot, dstSlot, numEntries),
+    ): Promise<ACVMField[]> =>
+      oracle.aztec_utl_copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, [toACVMField(AztecAddress.ZERO)]),
     utilityDeleteCapsule: (contractAddress: ACVMField[], slot: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_utl_deleteCapsule(contractAddress, slot),
+      oracle.aztec_utl_deleteCapsule(contractAddress, slot, [toACVMField(AztecAddress.ZERO)]),
     utilityGetSharedSecret: (
       address: ACVMField[],
       ephPKField0: ACVMField[],
       ephPKField1: ACVMField[],
       ephPKField2: ACVMField[],
     ): Promise<ACVMField[]> => oracle.aztec_utl_getSharedSecret(address, ephPKField0, ephPKField1, ephPKField2),
-    utilityFetchTaggedLogs: (pendingTaggedLogArrayBaseSlot: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_utl_fetchTaggedLogs(pendingTaggedLogArrayBaseSlot),
-    utilityBulkRetrieveLogs: (
-      contractAddress: ACVMField[],
-      logRetrievalRequestsArrayBaseSlot: ACVMField[],
-      logRetrievalResponsesArrayBaseSlot: ACVMField[],
-    ): Promise<ACVMField[]> =>
-      oracle.aztec_utl_bulkRetrieveLogs(
-        contractAddress,
-        logRetrievalRequestsArrayBaseSlot,
-        logRetrievalResponsesArrayBaseSlot,
-      ),
     utilityGetL1ToL2MembershipWitness: (
       contractAddress: ACVMField[],
       messageHash: ACVMField[],
@@ -99,20 +91,6 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     ): Promise<(ACVMField | ACVMField[])[]> =>
       oracle.aztec_utl_getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
     utilityEmitOffchainEffect: (data: ACVMField[]): Promise<ACVMField[]> => oracle.aztec_utl_emitOffchainEffect(data),
-    // Adapter: old 3-param signature → new 5-param with injected constants.
-    // Values derived from: MAX_MESSAGE_CONTENT_LEN(11) - RESERVED_FIELDS (3 for notes, 1 for events).
-    utilityValidateAndStoreEnqueuedNotesAndEvents: (
-      contractAddress: ACVMField[],
-      noteValidationRequestsArrayBaseSlot: ACVMField[],
-      eventValidationRequestsArrayBaseSlot: ACVMField[],
-    ): Promise<ACVMField[]> =>
-      oracle.aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
-        contractAddress,
-        noteValidationRequestsArrayBaseSlot,
-        eventValidationRequestsArrayBaseSlot,
-        [new Fr(8).toString()],
-        [new Fr(10).toString()],
-      ),
     // Renames (same signature, different oracle name)
     privateNotifySetMinRevertibleSideEffectCounter: (counter: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_prv_notifyRevertiblePhaseStart(counter),

@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
-import { AztecAddress } from '../aztec-address/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { PendingTaggedLog } from './pending_tagged_log.js';
 
@@ -11,9 +10,8 @@ describe('PendingTaggedLog', () => {
     const txHash = new TxHash(new Fr(123n));
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
-    const recipient = AztecAddress.fromField(new Fr(789n));
 
-    const pendingLog = new PendingTaggedLog(log, txHash, uniqueNoteHashes, firstNullifier, recipient);
+    const pendingLog = new PendingTaggedLog(log, txHash, uniqueNoteHashes, firstNullifier);
     const serialized = pendingLog.toFields();
 
     // Test against snapshot
@@ -103,7 +101,6 @@ describe('PendingTaggedLog', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000006",
-        "0x0000000000000000000000000000000000000000000000000000000000000315",
       ]
     `);
 

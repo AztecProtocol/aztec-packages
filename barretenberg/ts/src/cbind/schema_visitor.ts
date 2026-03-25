@@ -197,6 +197,7 @@ export class SchemaVisitor {
       'unsigned int': 'u32',
       'unsigned short': 'u16',
       'unsigned long': 'u64',
+      'unsigned long long': 'u64',
       'unsigned char': 'u8',
       'double': 'f64',
       'string': 'string',

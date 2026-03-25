@@ -3,7 +3,7 @@ use crate::{
     context::UtilityContext,
     messages::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{MessageContext, MessageTxContext, OffchainMessageWithContext, resolve_message_contexts},
+        processing::{MessageContext, OffchainMessageWithContext, resolve_message_contexts},
     },
     oracle::contract_sync::invalidate_contract_sync_cache,
     protocol::{
@@ -54,7 +54,7 @@ global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 /// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
 /// based eviction and automatic transaction context resolution.
 pub(crate) type OffchainInboxSync<Env> = unconstrained fn[Env](
-/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
+/* contract_address */AztecAddress, /* scope */ AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
 
 /// A message delivered via the `offchain_receive` utility function.
 pub struct OffchainMessage {
@@ -93,6 +93,9 @@ struct PendingOffchainMsg {
 /// calls this function to hand the messages to the contract so they can be processed through the same mechanisms as
 /// onchain messages.
 ///
+/// Each message is routed to the inbox scoped to its `recipient` field, so messages for different accounts are
+/// automatically isolated.
+///
 /// Messages are processed when their originating transaction is found onchain (providing the context needed to
 /// validate resulting notes and events).
 ///
@@ -104,7 +107,6 @@ pub unconstrained fn receive(
     contract_address: AztecAddress,
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
-    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT);
     // May contain duplicates if multiple messages target the same recipient. This is harmless since
     // cache invalidation on the TS side is idempotent (deleting an already-deleted key is a no-op).
     let mut scopes: BoundedVec<AztecAddress, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
@@ -117,6 +119,8 @@ pub unconstrained fn receive(
         } else {
             0
         };
+        let inbox: CapsuleArray<PendingOffchainMsg> =
+            CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, msg.recipient);
         inbox.push(
             PendingOffchainMsg {
                 ciphertext: msg.ciphertext,
@@ -136,13 +140,17 @@ pub unconstrained fn receive(
 ///
 /// Messages remain in the inbox and are reprocessed on each sync until their originating transaction is no longer at
 /// risk of being dropped by a reorg.
-pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainMessageWithContext> {
-    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-    let context_resolution_requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
-    let resolved_contexts: CapsuleArray<Option<MessageTxContext>> =
-        CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
+pub unconstrained fn sync_inbox(
+    contract_address: AztecAddress,
+    scope: AztecAddress,
+) -> CapsuleArray<OffchainMessageWithContext> {
+    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, scope);
+    let context_resolution_requests: CapsuleArray<Field> =
+        CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_REQUESTS_SLOT, scope);
+    let resolved_contexts: CapsuleArray<Option<MessageContext>> =
+        CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_RESPONSES_SLOT, scope);
     let ready_to_process: CapsuleArray<OffchainMessageWithContext> =
-        CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
+        CapsuleArray::at(contract_address, OFFCHAIN_READY_MESSAGES_SLOT, scope);
 
     // Clear any stale ready messages from a previous run.
     ready_to_process.for_each(|i, _| { ready_to_process.remove(i); });
@@ -162,9 +170,10 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
 
     // Ask PXE to resolve contexts for all requested tx hashes.
     resolve_message_contexts(
-        address,
+        contract_address,
         OFFCHAIN_CONTEXT_REQUESTS_SLOT,
         OFFCHAIN_CONTEXT_RESPONSES_SLOT,
+        scope,
     );
 
     assert_eq(resolved_contexts.len(), inbox_len);
@@ -217,13 +226,7 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
         // consider it has expired: this is because we need to account for reorgs. If reorg occurs after we processed
         // a message, the effects of processing the message get rewind. However, the associated TX can be included in
         // a subsequent block. Should that happen, the message must be re-processed to ensure consistency.
-        let ctx = maybe_ctx.unwrap();
-        let message_context = MessageContext {
-            tx_hash: ctx.tx_hash,
-            unique_note_hashes_in_tx: ctx.unique_note_hashes_in_tx,
-            first_nullifier_in_tx: ctx.first_nullifier_in_tx,
-            recipient: msg.recipient,
-        };
+        let message_context = maybe_ctx.unwrap();
         ready_to_process.push(OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context });
     }
 
@@ -232,9 +235,7 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
 
 mod test {
     use crate::{
-        capsules::CapsuleArray,
-        oracle::random::random,
-        protocol::{address::AztecAddress, traits::FromField},
+        capsules::CapsuleArray, oracle::random::random, protocol::address::AztecAddress,
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
@@ -242,14 +243,11 @@ mod test {
         receive, sync_inbox,
     };
 
-    /// Creates an `OffchainMessage` with dummy ciphertext/recipient.
+    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
+
+    /// Creates an `OffchainMessage` with dummy ciphertext and `SCOPE` as recipient.
     fn make_msg(tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
-        OffchainMessage {
-            ciphertext: BoundedVec::new(),
-            recipient: AztecAddress::from_field(42),
-            tx_hash,
-            anchor_block_timestamp,
-        }
+        OffchainMessage { ciphertext: BoundedVec::new(), recipient: SCOPE, tx_hash, anchor_block_timestamp }
     }
 
     /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
@@ -263,9 +261,9 @@ mod test {
     unconstrained fn empty_inbox_returns_empty_result() {
         let env = TestEnvironment::new();
         env.utility_context(|context| {
-            let result = sync_inbox(context.this_address());
+            let result = sync_inbox(context.this_address(), SCOPE);
             let inbox: CapsuleArray<PendingOffchainMsg> =
-                CapsuleArray::at(context.this_address(), OFFCHAIN_INBOX_SLOT);
+                CapsuleArray::at(context.this_address(), OFFCHAIN_INBOX_SLOT, SCOPE);
 
             assert_eq(result.len(), 0);
             assert_eq(inbox.len(), 0);
@@ -288,8 +286,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let result = sync_inbox(address, SCOPE);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 0); // expired, removed
@@ -312,8 +310,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let result = sync_inbox(address, SCOPE);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
@@ -336,8 +334,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let result = sync_inbox(address, SCOPE);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 0); // expired, removed
@@ -359,8 +357,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let result = sync_inbox(address, SCOPE);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
 
             assert_eq(result.len(), 0); // not resolved, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
@@ -392,8 +390,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let result = sync_inbox(address, SCOPE);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
 
             assert_eq(result.len(), 0); // all contexts are None
             // Message 0 expired (anchor=0), message 1 survived (anchor=anchor_ts),
@@ -424,15 +422,14 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+            let result = sync_inbox(address, SCOPE);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
 
             // The message should be ready to process since its tx context was resolved.
             assert_eq(result.len(), 1);
 
             let ctx = result.get(0).message_context;
             assert_eq(ctx.tx_hash, known_tx_hash);
-            assert_eq(ctx.recipient, AztecAddress::from_field(42));
             assert(ctx.first_nullifier_in_tx != 0, "resolved context must have a first nullifier");
 
             // Message stays in inbox (not expired) for potential reorg reprocessing.
