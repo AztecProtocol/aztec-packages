@@ -79,6 +79,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
                                       const char* log_prefix);
     bool process_sha256comression_round(Sha256RoundState& state,
                                         uint32_t w_i_real,
+                                        bool w_i_const,
                                         size_t round_idx,
                                         uint32_t& discovered_w_i_real);
     Sha256SparseFunctionResult validate_sha256_sparse_function(const Sha256SparseFunctionParams& params);

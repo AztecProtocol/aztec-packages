@@ -490,6 +490,7 @@ struct Sha256RoundState {
     uint32_t a, b, c, d, e, f, g, h;
     uint32_t b_sparse, c_sparse; // majority sparse forms (for b and c)
     uint32_t f_sparse, g_sparse; // choose sparse forms (for f and g)
+    uint32_t w_i_real;           // discovered w[i] witness index for extend_witness validation
 };
 
 } // namespace sha256_helpers
