@@ -29,6 +29,7 @@ namespace {
 template <typename G1> class TestAffineElement : public testing::Test {
     using element = typename G1::element;
     using affine_element = typename G1::affine_element;
+    using Fr = typename G1::Fr;
 
   public:
     static void test_read_write_buffer()
@@ -254,6 +255,48 @@ template <typename G1> class TestAffineElement : public testing::Test {
         EXPECT_EQ(P, Q);
         EXPECT_NE(P, R);
     }
+
+    static void test_infinity_mul_by_scalar_is_infinity()
+    {
+        auto result = affine_element::infinity() * Fr::random_element();
+        EXPECT_TRUE(result.is_point_at_infinity());
+    }
+
+    static void test_batch_mul_matches_non_batch_mul()
+    {
+        constexpr size_t num_points = 512;
+        std::vector<affine_element> affine_points(num_points - 1, affine_element::infinity());
+        affine_points.push_back(affine_element::infinity());
+        Fr exponent = Fr::random_element();
+        std::vector<affine_element> expected;
+        std::transform(affine_points.begin(),
+                       affine_points.end(),
+                       std::back_inserter(expected),
+                       [exponent](const auto& el) { return el * exponent; });
+        std::vector<affine_element> result = element::batch_mul_with_endomorphism(affine_points, exponent);
+        EXPECT_THAT(result, ElementsAreArray(expected));
+    }
+
+    static void test_infinity_batch_mul_by_scalar_is_infinity()
+    {
+        constexpr size_t num_points = 1024;
+        std::vector<affine_element> affine_points(num_points, affine_element::infinity());
+        std::vector<affine_element> result = element::batch_mul_with_endomorphism(affine_points, Fr::random_element());
+        EXPECT_THAT(result, Each(Property(&affine_element::is_point_at_infinity, Eq(true))));
+    }
+
+    static void test_batch_mul_endomorphism_even_scalars()
+    {
+        const affine_element P = affine_element::one();
+        const std::vector<affine_element> points(4, P);
+        for (const Fr scalar : { Fr(0), Fr(2), Fr(4), Fr(6) }) {
+            const auto result = element::batch_mul_with_endomorphism(points, scalar);
+            const affine_element expected(element(P) * scalar);
+            for (size_t i = 0; i < points.size(); ++i) {
+                EXPECT_EQ(result[i], expected);
+            }
+        }
+    }
 };
 
 // using TestTypes = testing::Types<bb::g1>;
@@ -389,59 +432,39 @@ TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
 // Scalar 0 gives k1 = k2 = 0 (both skews), and even scalars like 2 and 4 trigger the k1-skew path.
 // These are regression tests for the operator+ fix: reverting to add_chunked would abort when the
 // accumulated result happens to equal ±P during the skew correction.
-TEST(AffineElement, BatchMulEndomorphismEvenScalars)
+TYPED_TEST(TestAffineElement, BatchMulEndomorphismEvenScalars)
 {
-    using G1 = grumpkin::g1;
-    const G1::affine_element P = G1::affine_element::one();
-    const std::vector<G1::affine_element> points(4, P);
-
-    for (const grumpkin::fr scalar : { grumpkin::fr(0), grumpkin::fr(2), grumpkin::fr(4), grumpkin::fr(6) }) {
-        const auto result = G1::element::batch_mul_with_endomorphism(points, scalar);
-        const G1::affine_element expected(G1::element(P) * scalar);
-        for (size_t i = 0; i < points.size(); ++i) {
-            EXPECT_EQ(result[i], expected);
-        }
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_endomorphism_even_scalars();
     }
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason
 // Multiplication of a point at infinity by a scalar should be a point at infinity
-TEST(AffineElement, InfinityMulByScalarIsInfinity)
+TYPED_TEST(TestAffineElement, InfinityMulByScalarIsInfinity)
 {
-    auto result = grumpkin::g1::affine_element::infinity() * grumpkin::fr::random_element();
-    EXPECT_TRUE(result.is_point_at_infinity());
+    TestFixture::test_infinity_mul_by_scalar_is_infinity();
 }
 
-// Batched multiplication of points should match
-TEST(AffineElement, BatchMulMatchesNonBatchMul)
+// Batched multiplication of points should match non-batched multiplication
+TYPED_TEST(TestAffineElement, BatchMulMatchesNonBatchMul)
 {
-    constexpr size_t num_points = 512;
-    std::vector<grumpkin::g1::affine_element> affine_points(num_points - 1, grumpkin::g1::affine_element::infinity());
-    // Include a point at infinity to test the mixed infinity + non-infinity case
-    affine_points.push_back(grumpkin::g1::affine_element::infinity());
-    grumpkin::fr exponent = grumpkin::fr::random_element();
-    std::vector<grumpkin::g1::affine_element> expected;
-    std::transform(affine_points.begin(),
-                   affine_points.end(),
-                   std::back_inserter(expected),
-                   [exponent](const auto& el) { return el * exponent; });
-
-    std::vector<grumpkin::g1::affine_element> result =
-        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, exponent);
-
-    EXPECT_THAT(result, ElementsAreArray(expected));
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_matches_non_batch_mul();
+    }
 }
 
 // Batched multiplication of a point at infinity by a scalar should result in points at infinity
-TEST(AffineElement, InfinityBatchMulByScalarIsInfinity)
+TYPED_TEST(TestAffineElement, InfinityBatchMulByScalarIsInfinity)
 {
-    constexpr size_t num_points = 1024;
-    std::vector<grumpkin::g1::affine_element> affine_points(num_points, grumpkin::g1::affine_element::infinity());
-
-    std::vector<grumpkin::g1::affine_element> result =
-        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, grumpkin::fr::random_element());
-
-    EXPECT_THAT(result, Each(Property(&grumpkin::g1::affine_element::is_point_at_infinity, Eq(true))));
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_infinity_batch_mul_by_scalar_is_infinity();
+    }
 }
 
 TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
