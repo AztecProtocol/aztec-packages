@@ -25,10 +25,14 @@ function generate {
   build
 
   echo_header "codegen generate"
+  echo "Working directory: $(pwd)"
+  echo "Schemas: $(ls schemas/*.json 2>/dev/null | wc -l) JSON files"
+
   # Always run codegen — it reads committed JSON schemas (fast, ~2s).
-  # No caching of generated output: relative paths cause extraction issues,
-  # and the generation is fast enough to just re-run each time.
-  npx tsx src/generate.ts
+  ./node_modules/.bin/tsx src/generate.ts
+
+  echo "Generate complete. Checking output..."
+  ls -la ../ts/src/cbind/generated/api_types.ts ../rust/barretenberg-rs/src/api.rs 2>&1 || true
 }
 
 case "${1:-build}" in
