@@ -1,0 +1,12 @@
+/mnt/user-data/charlie/aztec-repos/aztec-packages3/barretenberg/test/wire_compat/rust/target/debug/deps/libserde-4162afa942240556.rmeta: /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /mnt/user-data/charlie/aztec-repos/aztec-packages3/barretenberg/test/wire_compat/rust/target/debug/build/serde-073a7ef43ee78fab/out/private.rs
+
+/mnt/user-data/charlie/aztec-repos/aztec-packages3/barretenberg/test/wire_compat/rust/target/debug/deps/serde-4162afa942240556.d: /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /mnt/user-data/charlie/aztec-repos/aztec-packages3/barretenberg/test/wire_compat/rust/target/debug/build/serde-073a7ef43ee78fab/out/private.rs
+
+/mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/mnt/user-data/charlie/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/mnt/user-data/charlie/aztec-repos/aztec-packages3/barretenberg/test/wire_compat/rust/target/debug/build/serde-073a7ef43ee78fab/out/private.rs:
+
+# env-dep:OUT_DIR=/mnt/user-data/charlie/aztec-repos/aztec-packages3/barretenberg/test/wire_compat/rust/target/debug/build/serde-073a7ef43ee78fab/out

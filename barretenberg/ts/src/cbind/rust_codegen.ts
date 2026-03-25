@@ -128,9 +128,10 @@ export class RustCodegen {
       ? `\n#[serde(rename = "${struct.name}")]`
       : '';
 
-    // Commands need __typename field for struct identification, but skip it during serialization
+    // Commands have a __typename used for NamedUnion identification, but it's handled
+    // by the Command enum's custom serde, not by the struct itself.
     const typenameField = isCommand
-      ? `    #[serde(rename = "__typename", skip_serializing)]\n    pub type_name: String,\n`
+      ? `    #[serde(rename = "__typename", skip, default)]\n    pub type_name: String,\n`
       : '';
 
     // Generate constructor for commands
@@ -167,7 +168,7 @@ ${fieldInits}
 
   // Generate Command enum
   private generateCommandEnum(schema: CompiledSchema): string {
-    const names = Array.from(schema.structs.keys());
+    const names = schema.commands.map(c => c.name);
     const variants = names
       .map(name => {
         const rustName = toPascalCase(name);
