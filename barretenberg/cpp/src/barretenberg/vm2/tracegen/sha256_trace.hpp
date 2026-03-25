@@ -23,12 +23,8 @@ class Sha256TraceBuilder final {
 
     void into_limbs_with_witness(
         const uint64_t, const uint8_t b, Column col_lhs, Column col_rhs, TraceContainer& trace) const;
-    uint32_t ror_with_witness(const uint32_t val,
-                              const uint8_t shift,
-                              Column col_result,
-                              Column col_lhs,
-                              Column col_rhs,
-                              TraceContainer& trace) const;
+    uint32_t ror_with_witness(
+        const uint32_t val, const uint8_t shift, Column col_result, Column col_rhs, TraceContainer& trace) const;
     uint32_t shr_with_witness(
         const uint32_t val, const uint8_t shift, Column col_lhs, Column col_rhs, TraceContainer& trace) const;
     uint32_t compute_w_with_witness(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace) const;
