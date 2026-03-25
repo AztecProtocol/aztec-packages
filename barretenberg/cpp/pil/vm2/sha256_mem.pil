@@ -113,7 +113,7 @@ include "sha256.pil";
 
 namespace sha256;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -171,9 +171,9 @@ namespace sha256;
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
     ////////////////////////////////////////////////
-    pol commit sel_state_out_of_range_err;
-    pol commit sel_input_out_of_range_err;
-    pol commit sel_output_out_of_range_err;
+    pol commit sel_state_out_of_range_err; // @boolean when start == 1 (constrained by gt lookup on start rows)
+    pol commit sel_input_out_of_range_err; // @boolean when start == 1 (constrained by gt lookup on start rows)
+    pol commit sel_output_out_of_range_err; // @boolean when start == 1 (constrained by gt lookup on start rows)
 
     // Use the comparison gadget to check that the max addresses are within range.
     // The comparison gadget provides the ability to test GreaterThan so we check
@@ -230,21 +230,24 @@ namespace sha256;
     u32_tag = sel * constants.MEM_TAG_U32;
 
     // When this selector is on, the memory columns are active
-    pol commit sel_mem_state_or_output;
+    pol commit sel_mem_state_or_output; // @boolean (by definition: sum of two mutually exclusive booleans)
     // Activate the memory columns if
-    // (1) start && (1 - mem_out_of_range_err)
-    // (2) end && (1 - err), this uses err as it needs to capture later errors as well (i.e. mem tags or loading inputs)
+    // (1) STATE_READ_CONDITION: start && (1 - mem_out_of_range_err)
+    // (2) OUTPUT_WRITE_CONDITION: end && (1 - err), this uses err as it needs to capture later errors as well
+    //                             (i.e. mem tags or loading inputs)
+
     // Simplification: start * (1 - mem_out_of_range_err) = start - start * mem_out_of_range_err.
     // Since mem_out_of_range_err can only be non-zero when start == 1 (it is gated by start in its
     // definition), we have start * mem_out_of_range_err = mem_out_of_range_err.
     pol STATE_READ_CONDITION = start - mem_out_of_range_err;
 
     // We use an alternative definition of OUTPUT_WRITE_CONDITION that involves lower degree relations.
-    // pol OUTPUT_WRITE_CONDITION = end * (1 - err);
+    // Instead of defining OUTPUT_WRITE_CONDITION = end * (1 - err) we add the this term in the committed
+    // selector sel_mem_state_or_output and define OUTPUT_WRITE_CONDITION = sel_mem_state_or_output - STATE_READ_CONDITION.
 
     // We activate these memory columns if the start or end conditions are met. Note that the two
-    // conditions are mutually exclusive due to the presence of (1 - err) in OUTPUT_WRITE_CONDITION since
-    // start && end = 1 only during an error (since errors imply end)
+    // conditions are mutually exclusive due to the presence of (1 - err) in the second term since
+    // start && end = 1 only during an error (since errors imply end).
     #[START_OR_END_MEM]
     sel_mem_state_or_output = STATE_READ_CONDITION + end * (1 - err);
 
@@ -275,7 +278,7 @@ namespace sha256;
     // Cannot just rely on end. If we error after reading the state, end will be 1 and start will be 1.
     // This will cause the reads to be interpreted as writes in the memory permutations below. We define a rw
     // flag that accounts for this.
-    pol commit rw;
+    pol commit rw; // @boolean (by definition: equals OUTPUT_WRITE_CONDITION which is boolean)
     rw = OUTPUT_WRITE_CONDITION;
     #[MEM_OP_0]
     sel_mem_state_or_output {
@@ -376,7 +379,7 @@ namespace sha256;
     ////////////////////////////////////////////////
     // Error Handling - Invalid State Tag (not U32)
     ////////////////////////////////////////////////
-    pol commit sel_invalid_state_tag_err;
+    pol commit sel_invalid_state_tag_err; // @boolean
     sel_invalid_state_tag_err * (1 - sel_invalid_state_tag_err) = 0;
 
     pol STATE_TAG_DIFF_0 = memory_tag[0] - constants.MEM_TAG_U32;
@@ -438,7 +441,7 @@ namespace sha256;
 
     // Read input if we have not had an error from the previous temporality groups and this is an input round
     // The errors are mutually exclusive (see explanations at END_ON_ERROR below).
-    pol commit sel_read_input_from_memory;
+    pol commit sel_read_input_from_memory; // @boolean (by definition: product of booleans)
     sel_read_input_from_memory = sel * (1 - mem_out_of_range_err - sel_invalid_state_tag_err) * sel_is_input_round;
 
     // Put the result of the input loads in to the corresponding w value
@@ -464,11 +467,11 @@ namespace sha256;
     // Error Handling - Invalid Input Tag (not U32)
     ////////////////////////////////////////////////
     // This is 1 if any of the inputs loads fail, this is propagated from the row that errored back to the start row
-    pol commit sel_invalid_input_tag_err;
+    pol commit sel_invalid_input_tag_err; // @boolean
     sel_invalid_input_tag_err * (1 - sel_invalid_input_tag_err) = 0;
 
     // This is 1 on the specific input load that produced an error
-    pol commit sel_invalid_input_row_tag_err;
+    pol commit sel_invalid_input_row_tag_err; // @boolean
     sel_invalid_input_row_tag_err * (1 - sel_invalid_input_row_tag_err) = 0;
 
     pol INPUT_TAG_DIFF = sel_read_input_from_memory * (input_tag - constants.MEM_TAG_U32);

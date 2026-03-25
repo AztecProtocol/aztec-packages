@@ -46,7 +46,7 @@ namespace sha256;
     #[skippable_if]
     sel = 0; // from sha256_mem.pil
 
-    pol SEL_NO_ERR = sel * (1 - err);
+    pol SEL_NO_ERR = sel * (1 - err); // @boolean (by definition: product of booleans)
 
     // ========== INITIAL STATE & CONTROL FLOW =============
 
@@ -92,9 +92,9 @@ namespace sha256;
     perform_round * (and_op_id - constants.AVM_BITWISE_AND_OP_ID) = 0;
 
     // We perform a compression operation if we are not at a latched row, or there is not an err
-    pol commit perform_round;
+    pol commit perform_round; // @boolean (by definition: product of booleans)
     perform_round = (1 - LATCH_CONDITION) * SEL_NO_ERR;
-    pol commit last;
+    pol commit last; // @boolean (by definition: product of booleans)
     last = (1 - err) * end;
     // Since `end == 1 ==> sel == 1`, we have `last == SEL_NO_ERR * end`.
     // However, `err == 1` does not imply `end == 1` and we cannot simplify to `last = end - err`.
@@ -196,7 +196,7 @@ namespace sha256;
     pol commit w;
     // We compute w when we are no longer part of an input round (i.e. when we load input)
     // from memory. This selector is therefore off for the first 16 rounds.
-    pol commit sel_compute_w; // Implicitly boolean based on constraint below
+    pol commit sel_compute_w; // @boolean (by definition: product of booleans)
     sel_compute_w = perform_round * (1 - sel_is_input_round);
     pol COMPUTED_W = helper_w0 + w_s_0 + helper_w9 + w_s_1;
     pol commit computed_w_lhs;
@@ -565,7 +565,6 @@ namespace sha256;
     // ========== OUTPUT COMPUTATION =============
     // Add the initial state to the final round state (modulo 2^32) to produce the compression output.
     // Each output is decomposed into lhs (overflow) and rhs (result mod 2^32). Only rhs is written to memory.
-    // TODO: These constraints could be better - we might have to reverse the order of the rounds
     pol OUT_A = a + init_a;
     last * (OUT_A - (output_a_lhs * 2**32 + output_a_rhs)) = 0;
     pol OUT_B = b + init_b;
