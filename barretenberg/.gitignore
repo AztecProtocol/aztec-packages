@@ -9,5 +9,6 @@ cmake-build-debug
 *_opt.pil
 bench-out
 
-# Generated code from msgpack schema is committed as baseline.
-# Run `yarn generate` in ts/ to update when C++ binaries change.
+# Generated code from msgpack schema (produced by barretenberg/codegen, not committed)
+rust/barretenberg-rs/src/generated_types.rs
+rust/barretenberg-rs/src/api.rs
