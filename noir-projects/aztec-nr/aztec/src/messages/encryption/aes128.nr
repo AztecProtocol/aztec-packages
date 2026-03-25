@@ -675,7 +675,7 @@ mod test {
             let ciphertext = BoundedVec::from_array(AES128::encrypt(plaintext, recipient, contract_address));
 
             let empty_header = BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::new();
-            let _ = OracleMock::mock("aztec_utl_tryAes128Decrypt").returns(Option::some(empty_header)).times(1);
+            let _ = OracleMock::mock("aztec_utl_decryptAes128").returns(Option::some(empty_header)).times(1);
 
             assert(AES128::decrypt(ciphertext, recipient, contract_address).is_none());
         });
@@ -696,7 +696,7 @@ mod test {
             let bad_header = BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(encode_header(
                 MESSAGE_PLAINTEXT_SIZE_IN_BYTES + 1,
             ));
-            let _ = OracleMock::mock("aztec_utl_tryAes128Decrypt").returns(Option::some(bad_header)).times(1);
+            let _ = OracleMock::mock("aztec_utl_decryptAes128").returns(Option::some(bad_header)).times(1);
 
             assert(AES128::decrypt(ciphertext, recipient, contract_address).is_none());
         });
