@@ -27,7 +27,7 @@ library TestConstants {
   uint256 internal constant AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = 2;
   uint256 internal constant AZTEC_INBOX_LAG = 2;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
-  uint256 internal constant AZTEC_SLASHING_QUORUM = 17; // Must be > ROUND_SIZE / 2
+  uint256 internal constant AZTEC_SLASHING_QUORUM = 17; // Must be > ROUND_SIZE / 2 (ROUND_SIZE derived from EPOCH_DURATION)
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 32;
   uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;

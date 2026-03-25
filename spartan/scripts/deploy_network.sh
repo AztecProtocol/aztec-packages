@@ -453,16 +453,13 @@ log "Rollup contracts ready"
 
 if [[ "${USE_NETWORK_CONFIG:-false}" != "true" ]]; then
   REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
-  SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address)
   FEE_ASSET_HANDLER_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw fee_asset_handler_address)
 
   [[ -n "${REGISTRY_ADDRESS}" ]] || die "Failed to fetch registry_address"
-  [[ -n "${SLASH_FACTORY_ADDRESS}" ]] || die "Failed to fetch slash_factory_address"
   [[ -n "${FEE_ASSET_HANDLER_ADDRESS}" ]] || die "Failed to fetch fee_asset_handler_address"
-  log "Contract addresses: registry=${REGISTRY_ADDRESS}, slash_factory=${SLASH_FACTORY_ADDRESS}, fee_asset_handler=${FEE_ASSET_HANDLER_ADDRESS}"
+  log "Contract addresses: registry=${REGISTRY_ADDRESS}, fee_asset_handler=${FEE_ASSET_HANDLER_ADDRESS}"
 else
   REGISTRY_ADDRESS="${REGISTRY_ADDRESS:-}"
-  SLASH_FACTORY_ADDRESS="${SLASH_FACTORY_ADDRESS:-}"
   FEE_ASSET_HANDLER_ADDRESS="${FEE_ASSET_HANDLER_ADDRESS:-}"
 fi
 
@@ -522,7 +519,6 @@ L1_CONSENSUS_HOST_URLS = ${L1_CONSENSUS_HOST_URLS_JSON}
 L1_CONSENSUS_HOST_API_KEYS = ${L1_CONSENSUS_HOST_API_KEYS_JSON:-null}
 L1_CONSENSUS_HOST_API_KEY_HEADERS = ${L1_CONSENSUS_HOST_API_KEY_HEADERS_JSON:-null}
 REGISTRY_CONTRACT_ADDRESS = "${REGISTRY_ADDRESS}"
-SLASH_FACTORY_CONTRACT_ADDRESS = "${SLASH_FACTORY_ADDRESS}"
 FEE_ASSET_HANDLER_CONTRACT_ADDRESS = "${FEE_ASSET_HANDLER_ADDRESS}"
 VALIDATOR_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
 VALIDATOR_MNEMONIC_START_INDEX = ${VALIDATOR_MNEMONIC_START_INDEX}

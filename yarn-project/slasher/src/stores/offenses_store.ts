@@ -17,7 +17,7 @@ export class SlasherOffensesStore {
   /** Map from offense key to whether the offense has been executed */
   private offensesSlashed: AztecAsyncSet<string>;
 
-  /** Multimap from round to offense keys (only used for consensus based slashing) */
+  /** Multimap from round to offense keys */
   private roundsOffenses: AztecAsyncMultiMap<string, string>;
 
   private log = createLogger('slasher:store:offenses');
