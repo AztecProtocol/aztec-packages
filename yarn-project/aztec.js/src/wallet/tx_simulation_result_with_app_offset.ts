@@ -15,8 +15,8 @@ import { z } from 'zod';
 
 /**
  * Wraps a TxSimulationResult with the app call offset, which tracks where the app's calls begin in the flattened array
- * of calls. Tracking of app call offset is a wallet-level concern: the wallet wraps the app payload in an entrypoint
- * and may prepend calls (this is typically done for fee payments).
+ * of calls. Tracking of app call offset is a wallet-level concern: the wallet may wrap the app payload in an
+ * entrypoint or may prepend calls (this is typically done for fee payments).
  */
 export class TxSimulationResultWithAppOffset {
   constructor(
