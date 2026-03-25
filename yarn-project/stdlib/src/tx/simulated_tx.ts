@@ -80,9 +80,10 @@ export class PrivateSimulationResult {
 
 export class TxSimulationResult {
   /**
-   * Index into the entrypoint's nested return values where the app's calls begin. The wallet may prepend fee payment
-   * calls to the app payload before wrapping it in an entrypoint; this offset skips past those. Undefined when using
-   * DefaultEntrypoint (NO_FROM), where the app call is the root execution.
+   * Index of the app's first call in a flattened array of calls. The wallet wraps the app payload in an entrypoint and
+   * may prepend fee payment calls, producing a flattened ordering of:
+   *   0 = entrypoint, 1..N = fee calls, N+1 = first app call.
+   * When undefined or 0, the app call is the root execution itself (DefaultEntrypoint / NO_FROM).
    */
   public appCallOffset?: number;
 
@@ -93,8 +94,7 @@ export class TxSimulationResult {
     public stats?: SimulationStats,
   ) {}
 
-  /** Sets the offset where the app's calls begin in the entrypoint's nested return values. */
-  setAppCallOffset(offset: number | undefined): void {
+  setAppCallOffset(offset: number): void {
     this.appCallOffset = offset;
   }
 
@@ -160,16 +160,17 @@ export class TxSimulationResult {
   }
 
   /**
-   * Returns the private return values for the app call at the given index, skipping past any fee payment calls the
-   * wallet prepended. When appCallOffset is undefined (DefaultEntrypoint / NO_FROM), the app call is the root
-   * execution and callIndex is ignored.
+   * Returns the private return values that correspond to the first app call.
    */
   getAppPrivateReturnValues(callIndex: number = 0): NestedProcessReturnValues | undefined {
     const all = this.getPrivateReturnValues();
-    if (this.appCallOffset === undefined) {
+    if (!this.appCallOffset) {
+      // appCallOffset is 0 or undefined implies that the app call is the root execution
       return all;
     }
-    return all?.nested?.[callIndex + this.appCallOffset];
+    // The app call offset is defined on the flattened array of calls where entrypoint occupies index 0. Here we are
+    // indexing into nested calls array and for this reason we need to subtract 1.
+    return all?.nested?.[callIndex + this.appCallOffset - 1];
   }
 
   toSimulatedTx(): Promise<Tx> {

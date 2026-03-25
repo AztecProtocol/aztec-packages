@@ -28,8 +28,8 @@ function mockTxSimResult(overrides: { anchorBlockTimestamp?: bigint; offchainEff
       },
     },
   });
-  // No fee payment calls precede app calls in this test setup.
-  txSimResult.setAppCallOffset(0);
+  // Account entrypoint with no FPC: entrypoint=0, app=1.
+  txSimResult.setAppCallOffset(1);
   return txSimResult;
 }
 

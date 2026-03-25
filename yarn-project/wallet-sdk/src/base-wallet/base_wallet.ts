@@ -346,20 +346,17 @@ export abstract class BaseWallet implements Wallet {
   }
 
   /**
-   * Computes the index offset where the app's calls begin in the entrypoint's nested execution results, based on how
-   * many fee payment calls the wallet prepended to the payload.
+   * Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee
+   * calls, N+1 = app).
    * @param from - The sender address, or NO_FROM for the default entrypoint.
    * @param feeOptions - Fee options containing the wallet fee payment method.
    */
-  protected async computeAppCallOffset(
-    from: AztecAddress | NoFrom,
-    feeOptions: FeeOptions,
-  ): Promise<number | undefined> {
+  protected async computeAppCallOffset(from: AztecAddress | NoFrom, feeOptions: FeeOptions): Promise<number> {
     if (from === NO_FROM) {
-      return undefined;
+      return 0;
     }
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    return feeExecutionPayload?.calls.length ?? 0;
+    return (feeExecutionPayload?.calls.length ?? 0) + 1; // +1 for entrypoint
   }
 
   /**
