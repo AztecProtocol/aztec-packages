@@ -1090,7 +1090,7 @@ describe('LibP2PService', () => {
       };
 
       const mockPeerManager = mock<PeerManagerInterface>();
-      mockPeerManager.initializePeers.mockResolvedValue(undefined);
+      mockPeerManager.initializePeers.mockReturnValue(undefined);
       mockPeerManager.stop.mockResolvedValue(undefined);
       mockPeerManager.heartbeat.mockResolvedValue(undefined);
 
