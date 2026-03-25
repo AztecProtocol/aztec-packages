@@ -12,7 +12,7 @@
  */
 
 import { createHash } from 'crypto';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -94,6 +94,12 @@ export async function fetchAndCompileSchema(
  */
 export async function generateForService(config: ServiceConfig, cbindDir: string): Promise<void> {
   const binaryPath = process.env[config.binaryEnvVar] || join(cbindDir, config.defaultBinaryPath);
+
+  // Skip if binary not available (e.g., C++ not built yet)
+  if (!existsSync(binaryPath)) {
+    console.log(`  [skip] ${config.name}: binary not found at ${binaryPath}`);
+    return;
+  }
 
   const { compiled, schemaHash } = await fetchAndCompileSchema(binaryPath, config.name);
 

@@ -139,14 +139,19 @@ async function generate() {
     console.log('');
   }
 
-  // Generate curve constants (only if bb is included)
+  // Generate curve constants (only if bb is included and binary exists)
   if (requestedServices.includes('bb')) {
-    console.log('--- curve constants ---');
     const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../cpp/build/bin/bb');
-    const outputDir = join(__dirname, 'generated');
-    mkdirSync(outputDir, { recursive: true });
-    await generateCurveConstants(bbBuildPath, outputDir);
-    console.log('');
+    const { existsSync } = await import('fs');
+    if (existsSync(bbBuildPath)) {
+      console.log('--- curve constants ---');
+      const outputDir = join(__dirname, 'generated');
+      mkdirSync(outputDir, { recursive: true });
+      await generateCurveConstants(bbBuildPath, outputDir);
+      console.log('');
+    } else {
+      console.log('--- curve constants: skipped (bb binary not found) ---\n');
+    }
   }
 
   console.log('Generation complete.');
