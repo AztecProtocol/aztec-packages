@@ -243,14 +243,12 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
  * @param state The 8-element state array [a, b, c, d, e, f, g, h] at the start of this round.
  * @param round_w The message schedule word w[i] for this round.
  * @param round_constant The SHA-256 round constant k[i] for this round.
- * @param row The trace row index to write witness data to.
  * @param trace The trace container to populate.
  * @return The updated 8-element state array after this round.
  */
 std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(const std::array<uint32_t, 8>& state,
                                                                              uint32_t round_w,
                                                                              uint32_t round_constant,
-                                                                             uint32_t row,
                                                                              TraceContainer& trace) const
 {
 
@@ -653,7 +651,7 @@ void Sha256TraceBuilder::process(
             set_helper_cols(prev_w_helpers, trace);
 
             // Apply SHA-256 compression function to the message schedule and update the state
-            round_state = compute_compression_with_witness(round_state, round_w, ROUND_CONSTANTS[i], row, trace);
+            round_state = compute_compression_with_witness(round_state, round_w, ROUND_CONSTANTS[i], trace);
 
             // Update the prev_w_helpers, we shift all the values to the left and add the new round_w to
             // the end
