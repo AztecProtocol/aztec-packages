@@ -742,12 +742,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The app-siloed shared secret as a Field.
    */
   public async getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr> {
-    // Legacy oracle callers pass AztecAddress.ZERO since they cannot provide the contract address.
-    // New callers pass their contract address, which we validate matches the oracle's execution context.
-    // When ZERO is passed, we still use this.contractAddress for siloing, which is correct because
-    // the oracle is always executed in the context of the contract that called it.
-    // TODO: Remove zero-address bypass when legacy oracle mappings are retired.
-    if (!contractAddress.isZero() && !contractAddress.equals(this.contractAddress)) {
+    if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(
         `getSharedSecret called with contract address ${contractAddress}, expected ${this.contractAddress}`,
       );

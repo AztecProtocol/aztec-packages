@@ -34,6 +34,7 @@ mod test {
     use poseidon::poseidon2::Poseidon2;
     use std::aes128::aes128_encrypt;
 
+    global CONTRACT_ADDRESS: AztecAddress = AztecAddress { inner: 42 };
     global TEST_PLAINTEXT_LENGTH: u32 = 10;
     global TEST_CIPHERTEXT_LENGTH: u32 = 16;
     global TEST_PADDING_LENGTH: u32 = TEST_CIPHERTEXT_LENGTH - TEST_PLAINTEXT_LENGTH;
@@ -44,8 +45,7 @@ mod test {
 
         env.utility_context(|_| {
             let shared_secret_point = point_from_x_coord(1).unwrap();
-            let contract_address = AztecAddress { inner: 42 };
-            let s_app = compute_app_siloed_shared_secret(shared_secret_point, contract_address);
+            let s_app = compute_app_siloed_shared_secret(shared_secret_point, CONTRACT_ADDRESS);
 
             let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_shared_secret::<1>(s_app)[0];
 
@@ -85,8 +85,7 @@ mod test {
             // this test: we compute a MAC, include it in the plaintext, encrypt, and then verify that
             // decryption with a bad key produces a MAC mismatch.
             let shared_secret_point = point_from_x_coord(1).unwrap();
-            let contract_address = AztecAddress { inner: 42 };
-            let s_app = compute_app_siloed_shared_secret(shared_secret_point, contract_address);
+            let s_app = compute_app_siloed_shared_secret(shared_secret_point, CONTRACT_ADDRESS);
 
             let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_shared_secret::<1>(s_app)[0];
 
