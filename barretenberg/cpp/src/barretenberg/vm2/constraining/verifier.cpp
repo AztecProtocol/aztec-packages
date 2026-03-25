@@ -333,45 +333,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         // Extend padding indicator array for the extra interleaving rounds
         std::vector<FF> extended_padding(extended_challenge.size(), 1);
 
-        // Debug: check first few group challenges and commitments
-        for (size_t g = 0; g < std::min(size_t(3), (size_t)Flavor::NUM_PRECOMPUTED_GROUPS); g++) {
-            info("VERIFIER precomputed_group[",
-                 g,
-                 "] challenge=",
-                 group_unshifted_challenges[g],
-                 " comm=",
-                 all_unshifted_group_comms[g]);
-        }
-        for (size_t g = 0; g < std::min(size_t(3), (size_t)Flavor::NUM_WIRE_GROUPS); g++) {
-            info("VERIFIER wire_group[",
-                 g,
-                 "] challenge=",
-                 group_unshifted_challenges[Flavor::NUM_PRECOMPUTED_GROUPS + g],
-                 " comm=",
-                 wire_group_comms[g]);
-        }
-        for (size_t g = 0; g < std::min(size_t(3), (size_t)Flavor::NUM_SHIFTED_GROUPS); g++) {
-            info("VERIFIER shifted_group[",
-                 g,
-                 "] challenge=",
-                 group_shifted_challenges[g],
-                 " comm=",
-                 shifted_group_comms[g]);
-        }
-
-        info("VERIFIER DEBUG: batched_unshifted_eval=",
-             batched_unshifted_eval,
-             " batched_shifted_eval=",
-             batched_shifted_eval,
-             " extended_challenge_size=",
-             extended_challenge.size(),
-             " extended_padding_size=",
-             extended_padding.size(),
-             " batched_unshifted_group=",
-             batched_unshifted_group,
-             " batched_shifted_group=",
-             batched_shifted_group);
-
         ClaimBatcher batched_claim_batcher{ .shift_exponent = BS,
                                             .unshifted = ClaimBatch{ .commitments = RefVector(batched_unshifted_group),
                                                                      .evaluations = RefVector(batched_unshifted_eval) },
