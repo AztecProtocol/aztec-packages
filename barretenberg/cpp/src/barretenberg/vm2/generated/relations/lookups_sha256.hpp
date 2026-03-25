@@ -165,7 +165,7 @@ struct lookup_sha256_w_s_0_xor_1_settings_ {
     static constexpr Column INVERSES = Column::lookup_sha256_w_s_0_xor_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::sha256_w_15_rotr_7_xor_w_15_rotr_18,
-        ColumnAndShifts::sha256_w_15_rshift_3,
+        ColumnAndShifts::sha256_lhs_w_3,
         ColumnAndShifts::sha256_w_s_0,
         ColumnAndShifts::sha256_xor_op_id,
         ColumnAndShifts::sha256_u32_tag
@@ -287,7 +287,7 @@ struct lookup_sha256_w_s_1_xor_1_settings_ {
     static constexpr Column INVERSES = Column::lookup_sha256_w_s_1_xor_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::sha256_w_2_rotr_17_xor_w_2_rotr_19,
-        ColumnAndShifts::sha256_w_2_rshift_10,
+        ColumnAndShifts::sha256_lhs_w_10,
         ColumnAndShifts::sha256_w_s_1,
         ColumnAndShifts::sha256_xor_op_id,
         ColumnAndShifts::sha256_u32_tag
