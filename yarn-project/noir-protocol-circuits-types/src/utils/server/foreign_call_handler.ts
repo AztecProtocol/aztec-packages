@@ -25,10 +25,8 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
   const log = createLogger('noir-protocol-circuits:oracle');
 
   if (name === 'utilityLog') {
-    // The fieldsSize parameter is not used here, but it exists because the AVM transpiler maps this oracle to the
-    // DEBUGLOG opcode, which reads the fields size from memory at runtime.
-    assert(args.length === 4, 'expected 4 arguments for debugLog: level, msg, fields_size, fields');
-    const [levelInput, msgRaw, _fieldsSize, fields] = args;
+    assert(args.length === 4, 'expected 4 arguments for debugLog: level, msg, fields_length, fields');
+    const [levelInput, msgRaw, _ignoredFieldsSize, fields] = args;
     const levelNumber = Fr.fromString(levelInput[0]).toNumber();
     if (!LogLevels[levelNumber]) {
       throw new Error(`Invalid debug log level: ${levelNumber}`);
