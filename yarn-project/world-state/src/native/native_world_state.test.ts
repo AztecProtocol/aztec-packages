@@ -1089,7 +1089,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.tmp();
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
