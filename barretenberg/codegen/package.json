@@ -9,10 +9,8 @@
     "generate:cdb": "tsx src/generate.ts cdb",
     "generate:avm": "tsx src/generate.ts avm"
   },
-  "dependencies": {
-    "msgpackr": "^1.10.0"
-  },
   "devDependencies": {
+    "msgpackr": "^1.10.0",
     "tsx": "^4.0.0"
   }
 }

@@ -27,11 +27,27 @@ for service in bb:bb wsdb:aztec-wsdb cdb:aztec-cdb avm:aztec-avm; do
   echo "  [updated] ${name}_schema.json"
 done
 
-# Curve constants (binary msgpack)
+# Curve constants: export as msgpack then convert to JSON
 bb_path="${BB_BIN}/bb"
 if [ -x "$bb_path" ]; then
-  "$bb_path" msgpack curve_constants 2>/dev/null > "${CODEGEN_DIR}/schemas/bb_curve_constants.msgpack"
-  echo "  [updated] bb_curve_constants.msgpack"
+  local tmpfile=$(mktemp)
+  "$bb_path" msgpack curve_constants 2>/dev/null > "$tmpfile"
+  # Convert msgpack to JSON using node (msgpackr available in codegen node_modules)
+  node -e "
+    const {unpack} = require('msgpackr');
+    const fs = require('fs');
+    const buf = fs.readFileSync('$tmpfile');
+    const c = unpack(buf);
+    const toHex = (a) => Buffer.from(a).toString('hex');
+    const cvt = (p) => Array.isArray(p.x) ? {x:p.x.map(toHex),y:p.y.map(toHex)} : {x:toHex(p.x),y:toHex(p.y)};
+    const out = {};
+    for (const [k,v] of Object.entries(c)) {
+      out[k] = k.endsWith('_modulus') ? toHex(v) : cvt(v);
+    }
+    fs.writeFileSync('${CODEGEN_DIR}/schemas/bb_curve_constants.json', JSON.stringify(out, null, 2));
+  "
+  rm -f "$tmpfile"
+  echo "  [updated] bb_curve_constants.json"
 fi
 
 echo ""
