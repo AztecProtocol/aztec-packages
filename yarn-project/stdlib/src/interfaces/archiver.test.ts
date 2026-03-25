@@ -31,6 +31,7 @@ import type { LogFilter } from '../logs/log_filter.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { BlockHeader } from '../tx/block_header.js';
@@ -255,6 +256,7 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
+      pendingCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -358,7 +360,14 @@ describe('ArchiverApiSchema', () => {
 
   it('getPendingCheckpoint', async () => {
     const result = await context.client.getPendingCheckpoint();
-    expect(result).toBeUndefined();
+    expect(result).toEqual({
+      checkpointNumber: 1,
+      header: expect.any(CheckpointHeader),
+      blockCount: 1,
+      startBlock: 1,
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
   });
 
   it('getPendingChainValidationStatus', async () => {
@@ -395,7 +404,14 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({ valid: true });
   }
   getPendingCheckpoint(): Promise<PendingCheckpointData | undefined> {
-    return Promise.resolve(undefined);
+    return Promise.resolve({
+      checkpointNumber: CheckpointNumber(1),
+      header: CheckpointHeader.random(),
+      blockCount: 1,
+      startBlock: BlockNumber(1),
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
   }
   syncImmediate() {
     return Promise.resolve();
@@ -572,7 +588,7 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
-      pendingCheckpoint: undefined,
+      pendingCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });

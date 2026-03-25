@@ -13,7 +13,7 @@ import {
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CheckpointData, PendingCheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractClassPublicWithCommitment,
@@ -614,6 +614,23 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Sets the last synced validation status of the pending chain. */
   public setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     return this.#blockStore.setPendingChainValidationStatus(status);
+  }
+
+  /**
+   * Gets the number L2 Block number of the pending checkpoint
+   * @returns The number of the pending L2 block
+   */
+  public getPendingCheckpointL2BlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getPendingCheckpointL2BlockNumber();
+  }
+
+  /**
+   * Set pending checkpoint
+   * @param pendingCheckpoint
+   * @returns
+   */
+  public setPendingCheckpoint(pendingCheckpoint: PendingCheckpointData): Promise<void> {
+    return this.#blockStore.setPendingCheckpoint(pendingCheckpoint);
   }
 
   /**

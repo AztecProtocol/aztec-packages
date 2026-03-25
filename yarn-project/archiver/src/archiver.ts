@@ -210,7 +210,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async setPendingCheckpoint(pending: PendingCheckpointData): Promise<void> {
-    await this.dataStore.blockStore.setPendingCheckpoint(pending);
+    await this.updater.setPendingCheckpoint(pending);
   }
 
   /**

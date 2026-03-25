@@ -320,6 +320,7 @@ describe('P2P Client', () => {
       await expect(client.getL2Tips()).resolves.toEqual({
         proposed: { number: BlockNumber(100), hash: expect.any(String) },
         checkpointed: { block: { number: BlockNumber(100), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        pendingCheckpoint: { block: { number: BlockNumber(100), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
@@ -330,6 +331,7 @@ describe('P2P Client', () => {
 
       await expect(client.getL2Tips()).resolves.toEqual({
         proposed: { number: BlockNumber(90), hash: expect.any(String) },
+        pendingCheckpoint: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         checkpointed: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
@@ -342,6 +344,7 @@ describe('P2P Client', () => {
 
       await expect(client.getL2Tips()).resolves.toEqual({
         proposed: { number: BlockNumber(92), hash: expect.any(String) },
+        pendingCheckpoint: { block: { number: BlockNumber(92), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         checkpointed: { block: { number: BlockNumber(92), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },

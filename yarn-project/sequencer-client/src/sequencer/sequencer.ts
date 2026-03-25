@@ -303,11 +303,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // confirmed + 1. With a pending checkpoint, we can build confirmed + 2 and pending + 1.
     const confirmedCkpt = syncedTo.checkpointedCheckpointNumber;
     const pendingCkpt = syncedTo.pendingCheckpointData?.checkpointNumber;
-    const maxAllowedCheckpoint =
-      pendingCkpt !== undefined
-        ? CheckpointNumber(Math.min(confirmedCkpt + 2, pendingCkpt + 1))
-        : CheckpointNumber(confirmedCkpt + 1);
-    if (checkpointNumber > maxAllowedCheckpoint) {
+    if (checkpointNumber > confirmedCkpt + 2) {
       this.log.warn(
         `Skipping slot ${targetSlot}: checkpoint ${checkpointNumber} exceeds max pipeline depth (confirmed=${confirmedCkpt}, pending=${pendingCkpt})`,
       );
@@ -624,13 +620,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    const hasPendingCheckpoint =
+      pendingCheckpointData !== undefined &&
+      l2Tips.pendingCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+
     return {
       blockData,
       blockNumber: blockData.header.getBlockNumber(),
       checkpointNumber: blockData.checkpointNumber,
       checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
       archive: blockData.archive.root,
-      hasPendingCheckpoint: l2Tips.pendingCheckpoint !== undefined,
+      hasPendingCheckpoint,
       pendingCheckpointData,
       syncedL2Slot,
       pendingChainValidationStatus,

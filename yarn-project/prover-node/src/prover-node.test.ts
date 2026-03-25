@@ -161,9 +161,12 @@ describe('prover-node', () => {
         block: { number: latestBlockNumber, hash: latestHash },
         checkpoint: { number: checkpoints.at(-1)!.number, hash: latestHash },
       },
+      pendingCheckpoint: {
+        block: { number: latestBlockNumber, hash: latestHash },
+        checkpoint: { number: checkpoints.at(-1)!.number, hash: latestHash },
+      },
       proven: genesisTipId,
       finalized: genesisTipId,
-      pendingCheckpoint: undefined,
     });
     l2BlockSource.getBlockHeader.mockImplementation(number =>
       Promise.resolve(number === checkpoints[0].blocks[0].number - 1 ? previousBlockHeader : undefined),

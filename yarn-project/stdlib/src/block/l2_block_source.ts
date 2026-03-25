@@ -322,7 +322,7 @@ export type L2BlockTag = 'proposed' | 'pendingCheckpoint' | 'checkpointed' | 'pr
 export type L2Tips = {
   proposed: L2BlockId;
   checkpointed: L2TipId;
-  pendingCheckpoint?: L2TipId;
+  pendingCheckpoint: L2TipId;
   proven: L2TipId;
   finalized: L2TipId;
 };
@@ -367,7 +367,7 @@ const L2TipIdSchema = z.object({
 export const L2TipsSchema = z.object({
   proposed: L2BlockIdSchema,
   checkpointed: L2TipIdSchema,
-  pendingCheckpoint: L2TipIdSchema.optional(),
+  pendingCheckpoint: L2TipIdSchema,
   proven: L2TipIdSchema,
   finalized: L2TipIdSchema,
 });

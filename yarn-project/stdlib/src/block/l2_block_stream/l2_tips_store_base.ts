@@ -66,24 +66,29 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
 
   public getL2Tips(): Promise<L2Tips> {
     return this.runInTransaction(async () => {
-      const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId] = await Promise.all([
-        this.getBlockId('proposed'),
-        this.getBlockId('finalized'),
-        this.getBlockId('proven'),
-        this.getBlockId('checkpointed'),
-      ]);
+      const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId, pendingCheckpointBlockId] =
+        await Promise.all([
+          this.getBlockId('proposed'),
+          this.getBlockId('finalized'),
+          this.getBlockId('proven'),
+          this.getBlockId('checkpointed'),
+          this.getBlockId('pendingCheckpoint'),
+        ]);
 
-      const [finalizedCheckpointId, provenCheckpointId, checkpointedCheckpointId] = await Promise.all([
-        this.getCheckpointId('finalized'),
-        this.getCheckpointId('proven'),
-        this.getCheckpointId('checkpointed'),
-      ]);
+      const [finalizedCheckpointId, provenCheckpointId, checkpointedCheckpointId, pendingCheckpointId] =
+        await Promise.all([
+          this.getCheckpointId('finalized'),
+          this.getCheckpointId('proven'),
+          this.getCheckpointId('checkpointed'),
+          this.getCheckpointId('pendingCheckpoint'),
+        ]);
 
       return {
         proposed: proposedBlockId,
         finalized: { block: finalizedBlockId, checkpoint: finalizedCheckpointId },
         proven: { block: provenBlockId, checkpoint: provenCheckpointId },
         checkpointed: { block: checkpointedBlockId, checkpoint: checkpointedCheckpointId },
+        pendingCheckpoint: { block: pendingCheckpointBlockId, checkpoint: pendingCheckpointId },
       };
     });
   }
@@ -164,6 +169,12 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     await this.runInTransaction(async () => {
       await this.saveTag('checkpointed', event.block);
       await this.saveCheckpoint(event.checkpoint);
+      // pendingCheckpoint is always >= checkpointed. If checkpointed has caught up
+      // or surpassed it, advance pendingCheckpoint to match.
+      const pendingCheckpointBlock = await this.getBlockId('pendingCheckpoint');
+      if (event.block.number > pendingCheckpointBlock.number) {
+        await this.saveTag('pendingCheckpoint', event.block);
+      }
     });
   }
 
@@ -174,6 +185,7 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     await this.runInTransaction(async () => {
       await this.saveTag('proposed', event.block);
       await this.saveTag('checkpointed', event.block);
+      await this.saveTag('pendingCheckpoint', event.block);
       const storeProven = await this.getBlockId('proven');
       if (storeProven.number > event.block.number) {
         await this.saveTag('proven', event.block);

@@ -293,6 +293,10 @@ export class ServerWorldStateSynchronizer
         block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
+      pendingCheckpoint: {
+        block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
+      },
       finalized: {
         block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
@@ -301,7 +305,6 @@ export class ServerWorldStateSynchronizer
         block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
-      pendingCheckpoint: undefined,
     };
   }
 

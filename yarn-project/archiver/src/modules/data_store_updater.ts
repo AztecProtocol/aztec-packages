@@ -7,7 +7,7 @@ import {
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
 import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import { type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type PendingCheckpointData, type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublicWithCommitment,
   computeContractAddressFromInstance,
@@ -115,6 +115,17 @@ export class ArchiverDataStoreUpdater {
       await this.l2TipsCache?.refresh();
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
+    return result;
+  }
+
+  // TODO: is there more validations that can be done here?
+  // we do need this to be done in a transaction
+  public async setPendingCheckpoint(pendingCheckpoint: PendingCheckpointData) {
+    const result = await this.store.transactionAsync(async () => {
+      await this.store.setPendingCheckpoint(pendingCheckpoint);
+      await this.l2TipsCache?.refresh();
+    });
+
     return result;
   }
 

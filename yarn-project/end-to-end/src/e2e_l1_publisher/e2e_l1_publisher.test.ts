@@ -241,7 +241,7 @@ describe('L1Publisher integration', () => {
           checkpointed: tipId,
           proven: tipId,
           finalized: tipId,
-          pendingCheckpoint: undefined,
+          pendingCheckpoint: tipId,
         };
       },
       getBlockNumber(): Promise<BlockNumber> {

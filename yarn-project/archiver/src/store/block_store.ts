@@ -650,10 +650,14 @@ export class BlockStore {
     return CheckpointNumber(pending?.checkpointNumber ?? INITIAL_CHECKPOINT_NUMBER - 1);
   }
 
+  /**
+   * Attempts to get the pendingCheckpoint's block number, if there is not one, then fallback to the checkpointed block number
+   * @returns
+   */
   async getPendingCheckpointL2BlockNumber(): Promise<BlockNumber> {
     const pending = await this.getPendingCheckpoint();
     if (!pending) {
-      return BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
+      return await this.getCheckpointedL2BlockNumber();
     }
     return BlockNumber(pending.startBlock + pending.blockCount - 1);
   }
@@ -1032,7 +1036,7 @@ export class BlockStore {
     return this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
-  /** Sets the pending checkpoint (quorum-attested but not yet L1-confirmed). Only accepts confirmed + 1. */
+  /** Sets the pending checkpoint (not yet L1-confirmed). Only accepts confirmed + 1. */
   async setPendingCheckpoint(pending: PendingCheckpointData) {
     return await this.db.transactionAsync(async () => {
       const current = await this.getPendingCheckpointNumber();

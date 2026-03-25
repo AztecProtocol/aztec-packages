@@ -60,7 +60,13 @@ export class L2TipsCache {
         ].map(getBlockData),
       );
 
-    if (!latestBlockData || !provenBlockData || !finalizedBlockData || !checkpointedBlockData) {
+    if (
+      !latestBlockData ||
+      !provenBlockData ||
+      !finalizedBlockData ||
+      !checkpointedBlockData ||
+      !pendingCheckpointBlockData
+    ) {
       throw new Error('Failed to load block data for L2 tips');
     }
 
@@ -68,7 +74,7 @@ export class L2TipsCache {
       await Promise.all([
         this.getCheckpointIdForBlock(provenBlockData),
         this.getCheckpointIdForBlock(finalizedBlockData),
-        this.getCheckpointIdForPendingCheckpoint(),
+        this.getCheckpointIdForPendingCheckpoint(checkpointedBlockData),
         this.getCheckpointIdForBlock(checkpointedBlockData),
       ]);
 
@@ -78,12 +84,10 @@ export class L2TipsCache {
         block: { number: provenBlockNumber, hash: provenBlockData.blockHash.toString() },
         checkpoint: provenCheckpointId,
       },
-      pendingCheckpoint: pendingCheckpointBlockData
-        ? {
-            block: { number: pendingCheckpointBlockNumber, hash: pendingCheckpointBlockData.blockHash.toString() },
-            checkpoint: pendingCheckpointId,
-          }
-        : undefined,
+      pendingCheckpoint: {
+        block: { number: pendingCheckpointBlockNumber, hash: pendingCheckpointBlockData.blockHash.toString() },
+        checkpoint: pendingCheckpointId,
+      },
       finalized: {
         block: { number: finalizedBlockNumber, hash: finalizedBlockData.blockHash.toString() },
         checkpoint: finalizedCheckpointId,
@@ -95,13 +99,12 @@ export class L2TipsCache {
     };
   }
 
-  private async getCheckpointIdForPendingCheckpoint(): Promise<CheckpointId> {
+  private async getCheckpointIdForPendingCheckpoint(
+    checkpointedBlockData: Pick<BlockData, 'checkpointNumber'>,
+  ): Promise<CheckpointId> {
     const checkpointData = await this.blockStore.getPendingCheckpoint();
     if (!checkpointData) {
-      return {
-        number: CheckpointNumber.ZERO,
-        hash: GENESIS_BLOCK_HEADER_HASH.toString(),
-      };
+      return this.getCheckpointIdForBlock(checkpointedBlockData);
     }
     return {
       number: checkpointData.checkpointNumber,

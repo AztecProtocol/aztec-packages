@@ -63,6 +63,7 @@ import {
   makeStateForBlock,
 } from '../test/mock_structs.js';
 import { type ArchiverL1SynchPoint, KVArchiverDataStore } from './kv_archiver_store.js';
+import { L2TipsCache } from './l2_tips_cache.js';
 
 async function addProposedBlocks(
   store: KVArchiverDataStore,
@@ -3835,6 +3836,141 @@ describe('KVArchiverDataStore', () => {
       await expect(store.addProposedBlock(block2)).rejects.toThrow(
         'Cannot insert new checkpoint 4 given previous confirmed checkpoint number is 1',
       );
+    });
+
+    it('getPendingCheckpointL2BlockNumber defaults to checkpointed block number', async () => {
+      // Add checkpoint 1 with blocks 1-3
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 3, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // No pending checkpoint set — should fall back to the checkpointed block number
+      const pendingBlockNumber = await store.blockStore.getPendingCheckpointL2BlockNumber();
+      const checkpointedBlockNumber = await store.blockStore.getCheckpointedL2BlockNumber();
+      expect(pendingBlockNumber).toBe(checkpointedBlockNumber);
+      expect(pendingBlockNumber).toBe(3);
+    });
+
+    it('getPendingCheckpointL2BlockNumber returns pending block number when set', async () => {
+      // Add checkpoint 1 with block 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Add proposed block for pending checkpoint 2
+      await addBlocksForPendingCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
+
+      // Set pending checkpoint
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(2),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      // Should return last block of pending checkpoint (startBlock + blockCount - 1)
+      const pendingBlockNumber = await store.blockStore.getPendingCheckpointL2BlockNumber();
+      expect(pendingBlockNumber).toBe(2);
+      // And it should be greater than the checkpointed block number
+      expect(pendingBlockNumber).toBeGreaterThan(await store.blockStore.getCheckpointedL2BlockNumber());
+    });
+
+    it('getPendingCheckpointL2BlockNumber falls back to checkpointed after pending is cleared', async () => {
+      // Add checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Add blocks and set pending checkpoint 2
+      await addBlocksForPendingCheckpoint(2, 1, 2, checkpoint1.checkpoint.blocks[0].archive);
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(2),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+      expect(await store.blockStore.getPendingCheckpointL2BlockNumber()).toBe(2);
+
+      // Confirm checkpoint 2 on L1 (clears pending)
+      const checkpoint2 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(2), {
+          numBlocks: 1,
+          startBlockNumber: 2,
+          previousArchive: checkpoint1.checkpoint.blocks[0].archive,
+        }),
+        20,
+      );
+      await store.addCheckpoints([checkpoint2]);
+
+      // Pending cleared — should fall back to the new checkpointed block number
+      const pendingBlockNumber = await store.blockStore.getPendingCheckpointL2BlockNumber();
+      const checkpointedBlockNumber = await store.blockStore.getCheckpointedL2BlockNumber();
+      expect(pendingBlockNumber).toBe(checkpointedBlockNumber);
+      expect(pendingBlockNumber).toBe(2);
+    });
+  });
+
+  describe('L2TipsCache pendingCheckpoint', () => {
+    it('returns pendingCheckpoint equal to checkpointed when no pending exists', async () => {
+      // Add checkpoint 1 with blocks 1-3
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 3, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      const l2TipsCache = new L2TipsCache(store.blockStore);
+      const tips = await l2TipsCache.getL2Tips();
+
+      // pendingCheckpoint should always be defined
+      expect(tips.pendingCheckpoint).toBeDefined();
+      // With no pending checkpoint, it should equal the checkpointed tip
+      expect(tips.pendingCheckpoint!.block.number).toBe(tips.checkpointed.block.number);
+      expect(tips.pendingCheckpoint!.checkpoint.number).toBe(tips.checkpointed.checkpoint.number);
+    });
+
+    it('returns pendingCheckpoint ahead of checkpointed when pending is set', async () => {
+      // Add checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Add a proposed block for pending checkpoint 2, chaining from checkpoint 1
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: checkpoint1.checkpoint.blocks[0].archive,
+      });
+      await store.addProposedBlock(block2, { force: true });
+
+      // Set pending checkpoint
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(2),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      const l2TipsCache = new L2TipsCache(store.blockStore);
+      const tips = await l2TipsCache.getL2Tips();
+
+      expect(tips.pendingCheckpoint).toBeDefined();
+      expect(tips.pendingCheckpoint!.block.number).toBeGreaterThan(tips.checkpointed.block.number);
+      expect(tips.pendingCheckpoint!.checkpoint.number).toBeGreaterThan(tips.checkpointed.checkpoint.number);
     });
   });
 
