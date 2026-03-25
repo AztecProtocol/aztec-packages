@@ -12,7 +12,8 @@ FROM aztecprotocol/build:3.0-amd64 AS builder
 ARG COMMIT=""
 
 # Install ldid (not included in build image, only in basebox)
-RUN curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o /usr/local/bin/ldid \
+RUN LDID_ARCH=$(uname -m) && \
+    curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_${LDID_ARCH} -o /usr/local/bin/ldid \
     && chmod +x /usr/local/bin/ldid
 
 # Install Node.js 24 (build image has Node 22, but bootstrap requires 24)
