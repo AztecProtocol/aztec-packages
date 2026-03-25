@@ -82,8 +82,16 @@ export class Barretenberg extends AsyncApi {
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 16, this.options.crsPath, this.options.logger);
 
     // Load CRS into wasm global CRS state.
-    // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
+    // srsInitSrs auto-detects compressed (32B/point) vs uncompressed (64B/point).
+    // When decompressing, it returns the uncompressed bytes so we can cache them.
+    const response = await this.srsInitSrs({
+      pointsBuf: crs.getG1Data(),
+      numPoints: crs.numPoints,
+      g2Point: crs.getG2Data(),
+    });
+    if (response.pointsBuf.length > 0) {
+      await crs.cacheUncompressed(response.pointsBuf);
+    }
     await this.srsInitGrumpkinSrs({ pointsBuf: grumpkinCrs.getG1Data(), numPoints: grumpkinCrs.numPoints });
   }
 
