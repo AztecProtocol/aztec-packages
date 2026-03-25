@@ -778,6 +778,7 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getBadPeers()).not.toContain(peers[2].toString()); // peer2: recovered
 
       // Clear leftover queried state from the run so sampleAllPeers sees all available peers.
+      // Without this, the round-robin sampler can miss peers due to stale queriedDumbPeers state.
       (peerCollection as any).queriedDumbPeers.clear();
 
       // Verify query availability

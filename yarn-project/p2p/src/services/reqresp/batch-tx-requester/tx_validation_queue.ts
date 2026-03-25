@@ -1,10 +1,8 @@
 import type { Logger } from '@aztec/foundation/log';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { IPeerCollection } from './peer_collection.js';
 import type { IBatchRequestTxValidator } from './tx_validator.js';
 
 /** A tx received from a peer, pending validation. */
@@ -40,7 +38,6 @@ export class TxValidationQueue {
 
   constructor(
     private readonly txValidator: IBatchRequestTxValidator,
-    private readonly peers: IPeerCollection,
     private readonly logger: Logger,
   ) {}
 
@@ -117,11 +114,6 @@ export class TxValidationQueue {
           // Drain remaining entries for this hash — they are silently ignored.
           this.drainRemaining(hash);
         } else {
-          this.logger.warn(
-            `Penalizing peer ${entry.peerId.toString()} for sending invalid tx ${hash} in batch response`,
-            { peerId: entry.peerId },
-          );
-          this.peers.penalisePeer(entry.peerId, PeerErrorSeverity.LowToleranceError);
           entry.resolve({ tx: entry.tx, peerId: entry.peerId, status: 'invalid' });
         }
       }

@@ -96,7 +96,7 @@ export class BatchTxRequester {
     }
     this.txsMetadata = new MissingTxMetadataCollection(requestTracker, this.txBatchSize);
     this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
-    this.validationQueue = new TxValidationQueue(this.txValidator, this.peers, this.logger);
+    this.validationQueue = new TxValidationQueue(this.txValidator, this.logger);
   }
 
   /*
@@ -479,11 +479,12 @@ export class BatchTxRequester {
    * */
   private async handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
-    const hasAccepted = await this.handleReceivedTxs(peerId, response.txs);
+    const hasInvalid = await this.handleReceivedTxs(peerId, response.txs);
 
-    // Redeem the peer if we actually validated and accepted at least one of their txs.
-    // Invalid txs are penalized individually by the validation queue.
-    if (hasAccepted) {
+    // A successful response with no invalid txs redeems the peer, even if all
+    // their txs were already accepted from other peers. Invalid txs are
+    // penalized individually by the validation queue.
+    if (!hasInvalid) {
       this.peers.unMarkPeerAsBad(peerId);
     }
 
@@ -496,7 +497,7 @@ export class BatchTxRequester {
    * accepted, subsequent copies are silently ignored, and invalid copies cause the
    * sending peer to be penalized.
    *
-   * @returns true if any tx from this peer was validated and accepted.
+   * @returns true if any tx from this peer was invalid.
    */
   private async handleReceivedTxs(peerId: PeerId, txs: TxArray): Promise<boolean> {
     const newTxs = txs.filter(tx => !this.txsMetadata.alreadyFetched(tx.txHash));
@@ -507,14 +508,19 @@ export class BatchTxRequester {
 
     const outcomes = await this.validationQueue.submit(peerId, newTxs);
 
-    let hasAccepted = false;
+    let hasInvalid = false;
     for (const outcome of outcomes) {
       if (outcome.status === 'accepted') {
         if (this.txsMetadata.markFetched(peerId, outcome.tx)) {
           this.txQueue.put(outcome.tx);
         }
-        hasAccepted = true;
+      } else if (outcome.status === 'invalid') {
+        hasInvalid = true;
       }
+    }
+
+    if (hasInvalid) {
+      this.peers.penalisePeer(peerId, PeerErrorSeverity.LowToleranceError);
     }
 
     const missingTxHashes = this.txsMetadata.getMissingTxHashes();
@@ -528,7 +534,7 @@ export class BatchTxRequester {
       );
     }
 
-    return hasAccepted;
+    return hasInvalid;
   }
 
   /*

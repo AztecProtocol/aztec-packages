@@ -1,13 +1,11 @@
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { createSecp256k1PeerId } from '../../../index.js';
-import type { IPeerCollection } from './peer_collection.js';
 import { TxValidationQueue } from './tx_validation_queue.js';
 import type { IBatchRequestTxValidator } from './tx_validator.js';
 
@@ -15,14 +13,12 @@ const makeTx = (txHash?: TxHash) => Tx.random({ txHash }) as Tx;
 
 describe('TxValidationQueue', () => {
   let validator: MockProxy<IBatchRequestTxValidator>;
-  let penalizer: MockProxy<IPeerCollection>;
   let queue: TxValidationQueue;
 
   beforeEach(() => {
     validator = mock<IBatchRequestTxValidator>();
     validator.validateRequestedTx.mockResolvedValue({ result: 'valid' });
-    penalizer = mock<IPeerCollection>();
-    queue = new TxValidationQueue(validator, penalizer, createLogger('test'));
+    queue = new TxValidationQueue(validator, createLogger('test'));
   });
 
   it('accepts a valid tx', async () => {
@@ -37,7 +33,7 @@ describe('TxValidationQueue', () => {
     expect(validator.validateRequestedTx).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects an invalid tx and penalizes the peer', async () => {
+  it('rejects an invalid tx', async () => {
     validator.validateRequestedTx.mockResolvedValue({ result: 'invalid', reason: ['bad proof'] });
     const peer = await createSecp256k1PeerId();
     const tx = makeTx();
@@ -45,7 +41,6 @@ describe('TxValidationQueue', () => {
     const outcomes = await queue.submit(peer, [tx]);
 
     expect(outcomes[0].status).toBe('invalid');
-    expect(penalizer.penalisePeer).toHaveBeenCalledWith(peer, PeerErrorSeverity.LowToleranceError);
   });
 
   it('skips duplicate tx hash already accepted from another peer', async () => {
@@ -58,11 +53,10 @@ describe('TxValidationQueue', () => {
     const outcomes1 = await queue.submit(peer1, [tx1]);
     expect(outcomes1[0].status).toBe('accepted');
 
-    // Second submission is skipped — no validation, no penalty
+    // Second submission is skipped — no validation
     const outcomes2 = await queue.submit(peer2, [tx2]);
     expect(outcomes2[0].status).toBe('skipped');
     expect(validator.validateRequestedTx).toHaveBeenCalledTimes(1);
-    expect(penalizer.penalisePeer).not.toHaveBeenCalled();
   });
 
   it('validates different hashes in parallel', async () => {
@@ -112,9 +106,8 @@ describe('TxValidationQueue', () => {
     // Submit both concurrently
     const [outcomes1, outcomes2] = await Promise.all([queue.submit(peer1, [tx1]), queue.submit(peer2, [tx2])]);
 
-    // First peer's tx is invalid → penalized
+    // First peer's tx is invalid
     expect(outcomes1[0].status).toBe('invalid');
-    expect(penalizer.penalisePeer).toHaveBeenCalledWith(peer1, PeerErrorSeverity.LowToleranceError);
 
     // Second peer's tx is valid → accepted
     expect(outcomes2[0].status).toBe('accepted');
@@ -151,7 +144,6 @@ describe('TxValidationQueue', () => {
 
     // Only validated once — the first copy
     expect(validator.validateRequestedTx).toHaveBeenCalledTimes(1);
-    expect(penalizer.penalisePeer).not.toHaveBeenCalled();
   });
 
   it('handles mix of accepted and invalid in a single submission', async () => {
@@ -169,10 +161,9 @@ describe('TxValidationQueue', () => {
 
     expect(outcomes[0].status).toBe('accepted');
     expect(outcomes[1].status).toBe('invalid');
-    expect(penalizer.penalisePeer).toHaveBeenCalledTimes(1);
   });
 
-  it('penalizes each peer that sends an invalid copy', async () => {
+  it('validates each copy of an invalid hash from different peers', async () => {
     const [peer1, peer2] = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
     const hash = TxHash.random();
 
@@ -185,7 +176,6 @@ describe('TxValidationQueue', () => {
 
     expect(outcomes1[0].status).toBe('invalid');
     expect(outcomes2[0].status).toBe('invalid');
-    expect(penalizer.penalisePeer).toHaveBeenCalledWith(peer1, PeerErrorSeverity.LowToleranceError);
-    expect(penalizer.penalisePeer).toHaveBeenCalledWith(peer2, PeerErrorSeverity.LowToleranceError);
+    expect(validator.validateRequestedTx).toHaveBeenCalledTimes(2);
   });
 });
