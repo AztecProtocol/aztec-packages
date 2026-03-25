@@ -141,6 +141,7 @@ function tsTarget(): LanguageTarget {
       return [
         { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled, schemaHash) },
         { path: 'generated/async.ts', content: tsGen.generateAsyncApi(compiled) },
+        { path: 'generated/server.ts', content: tsGen.generateServerApi(compiled) },
       ];
     },
   };
@@ -166,13 +167,27 @@ function tsTargetWithSync(): LanguageTarget {
 // ---------------------------------------------------------------------------
 function cppClientTarget(opts: CppCodegenOptions, cppOutputDir: string): LanguageTarget {
   return {
-    name: 'C++',
+    name: 'C++ client',
     enabled: true,
     generate: (compiled, schemaHash) => {
       const cppGen = new CppCodegen(opts);
       return [
         { path: cppOutputDir + '_ipc_client_generated.hpp', content: cppGen.generateHeader(compiled, schemaHash) },
         { path: cppOutputDir + '_ipc_client_generated.cpp', content: cppGen.generateImpl(compiled) },
+      ];
+    },
+  };
+}
+
+function cppServerTarget(opts: CppCodegenOptions, cppOutputDir: string): LanguageTarget {
+  return {
+    name: 'C++ server',
+    enabled: true,
+    generate: (compiled, _schemaHash) => {
+      const cppGen = new CppCodegen(opts);
+      return [
+        { path: cppOutputDir + '_ipc_server_generated.hpp', content: cppGen.generateServerHeader(compiled) },
+        { path: cppOutputDir + '_ipc_server_generated.cpp', content: cppGen.generateServerImpl(compiled) },
       ];
     },
   };
@@ -190,6 +205,7 @@ function rustTarget(outputDir: string, opts?: RustCodegenOptions): LanguageTarge
       return [
         { path: `${outputDir}/generated_types.rs`, content: rustGen.generateTypes(compiled, schemaHash) },
         { path: `${outputDir}/api.rs`, content: rustGen.generateApi(compiled) },
+        { path: `${outputDir}/server.rs`, content: rustGen.generateServer(compiled) },
       ];
     },
   };
@@ -207,6 +223,7 @@ function zigTarget(outputDir: string, opts?: ZigCodegenOptions): LanguageTarget 
       return [
         { path: `${outputDir}/generated_types.zig`, content: zigGen.generateTypes(compiled, schemaHash) },
         { path: `${outputDir}/client.zig`, content: zigGen.generateClient(compiled, schemaHash) },
+        { path: `${outputDir}/server.zig`, content: zigGen.generateServer(compiled) },
       ];
     },
   };
@@ -234,6 +251,20 @@ const BB_SERVICE: ServiceConfig = {
 /** Rust output base for IPC service crate */
 const RUST_IPC_BASE = '../../../rust/aztec-ipc/src';
 
+const WSDB_CPP_OPTS: CppCodegenOptions = {
+  namespace: 'bb::wsdb',
+  prefix: 'Wsdb',
+  executeHeader: 'barretenberg/wsdb/wsdb_execute.hpp',
+  commandsHeader: 'barretenberg/wsdb/wsdb_commands.hpp',
+};
+
+const CDB_CPP_OPTS: CppCodegenOptions = {
+  namespace: 'bb::cdb',
+  prefix: 'Cdb',
+  executeHeader: 'barretenberg/cdb/cdb_execute.hpp',
+  commandsHeader: 'barretenberg/cdb/cdb_commands.hpp',
+};
+
 /** World State Database service */
 const WSDB_SERVICE: ServiceConfig = {
   name: 'wsdb',
@@ -242,15 +273,8 @@ const WSDB_SERVICE: ServiceConfig = {
   baseDir: '../aztec-wsdb',
   targets: [
     tsTarget(),
-    cppClientTarget(
-      {
-        namespace: 'bb::wsdb',
-        prefix: 'Wsdb',
-        executeHeader: 'barretenberg/wsdb/wsdb_execute.hpp',
-        commandsHeader: 'barretenberg/wsdb/wsdb_commands.hpp',
-      },
-      '../../../cpp/src/barretenberg/wsdb/wsdb',
-    ),
+    cppClientTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
+    cppServerTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
     rustTarget(`${RUST_IPC_BASE}/wsdb`, {
       prefix: 'Wsdb',
       apiStructName: 'WsdbApi',
@@ -272,15 +296,8 @@ const CDB_SERVICE: ServiceConfig = {
   baseDir: '../aztec-cdb',
   targets: [
     tsTarget(),
-    cppClientTarget(
-      {
-        namespace: 'bb::cdb',
-        prefix: 'Cdb',
-        executeHeader: 'barretenberg/cdb/cdb_execute.hpp',
-        commandsHeader: 'barretenberg/cdb/cdb_commands.hpp',
-      },
-      '../../../cpp/src/barretenberg/cdb/cdb',
-    ),
+    cppClientTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
+    cppServerTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
     rustTarget(`${RUST_IPC_BASE}/cdb`, {
       prefix: 'Cdb',
       apiStructName: 'CdbApi',
