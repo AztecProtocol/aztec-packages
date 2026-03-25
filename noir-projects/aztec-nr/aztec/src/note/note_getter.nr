@@ -53,6 +53,8 @@ fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Op
     }
 }
 
+// Validates that two notes are correctly ordered according to lexicographic comparison over the sort keys.
+// If all keys are equal, any order is valid.
 fn check_notes_order<let N: u32>(fields_0: [Field; N], fields_1: [Field; N], sorts: BoundedVec<Option<Sort>, N>) {
     let mut order_determined_as_valid = false;
     for i in 0..sorts.len() {

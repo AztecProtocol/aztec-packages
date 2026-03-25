@@ -468,6 +468,16 @@ unconstrained fn check_notes_order_with_single_sort_key() {
     check_notes_order(fields_0, fields_1, sorts);
 }
 
+#[test]
+unconstrained fn check_notes_order_accepts_equal_notes() {
+    let fields_0 = [5, 10];
+    let fields_1 = [5, 10];
+    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
+    sorts.push(make_sort(0, SortOrder.ASC));
+    sorts.push(make_sort(1, SortOrder.ASC));
+    check_notes_order(fields_0, fields_1, sorts);
+}
+
 fn make_sort(index: u8, order: u8) -> Option<Sort> {
     Option::some(
         Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
