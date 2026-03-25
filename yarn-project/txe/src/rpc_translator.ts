@@ -917,9 +917,9 @@ export class RPCTranslator {
       fromSingle(foreignEphPKField2),
     ]);
 
-    const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK);
+    const sApp = await this.handlerAsUtility().getSharedSecret(address, ephPK);
 
-    return toForeignCallResult(secret.toFields().map(toSingle));
+    return toForeignCallResult([toSingle(sApp)]);
   }
 
   // eslint-disable-next-line camelcase

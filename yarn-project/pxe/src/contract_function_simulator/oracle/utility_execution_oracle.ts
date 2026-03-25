@@ -15,7 +15,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
-import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { computeAppSiloedSharedSecret, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -699,19 +699,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Retrieves the shared secret for a given address and ephemeral public key.
+   * Retrieves app-siloed shared secret for a given address and ephemeral public key.
    * @param address - The address to get the secret for.
    * @param ephPk - The ephemeral public key to get the secret for.
    * @returns The secret for the given address.
    */
-  public async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    // TODO(#12656): return an app-siloed secret
+  public async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Fr> {
     const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-    return deriveEcdhSharedSecret(addressSecret, ephPk);
+    const rawSharedSecret = await deriveEcdhSharedSecret(addressSecret, ephPk);
+    return computeAppSiloedSharedSecret(rawSharedSecret, this.contractAddress);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {

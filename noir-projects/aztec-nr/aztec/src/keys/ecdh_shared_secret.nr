@@ -1,4 +1,11 @@
-use crate::protocol::{address::aztec_address::AztecAddress, point::Point, scalar::Scalar, traits::FromField};
+use crate::protocol::{
+    address::aztec_address::AztecAddress,
+    constants::{DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__ECDH_RAND},
+    hash::poseidon2_hash_with_separator,
+    point::Point,
+    scalar::Scalar,
+    traits::{FromField, ToField},
+};
 use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
 /// Computes a standard ECDH shared secret: secret * public_key = shared_secret.
@@ -6,11 +13,45 @@ use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 /// The input secret is known only to one party. The output shared secret can be derived given knowledge of
 /// `public_key`'s key-pair and the public ephemeral secret, using this same function (with reversed inputs).
 ///
-/// E.g.: Epk = esk * G // ephemeral key-pair Pk = sk * G // recipient key-pair Shared secret S = esk * Pk = sk * Epk
+/// E.g.: Epk = esk * G // ephemeral key-pair Pk = sk * G // recipient key-pair
+/// Shared secret S = esk * Pk = sk * Epk
 ///
 /// See also: https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman
 pub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {
     multi_scalar_mul([public_key], [secret])
+}
+
+/// Computes an app-siloed shared secret from a raw ECDH shared secret point and a contract address.
+///
+/// `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, contract_address)`
+///
+/// ## Why app-silo the shared secret?
+///
+/// Without app-siloing, a malicious contract developer could collect all public ephemeral keys (Epks) and write
+/// a contract that calls the `get_shared_secret` oracle for each one. If they trick a user into running their
+/// contract, it gains access to the user's oracle and can compute candidate shared secrets for all Epks using
+/// the user's address secret key. Some of those will be correct (when the Epk was intended for that user),
+/// allowing the attacker to decrypt the associated ciphertexts.
+///
+/// By including the contract address in the hash, the oracle returns a different `s_app` for each contract.
+/// A malicious contract's `s_app` values will not match those used by the legitimate encrypting contract,
+/// preventing decryption.
+pub fn compute_app_siloed_shared_secret(shared_secret: Point, contract_address: AztecAddress) -> Field {
+    poseidon2_hash_with_separator(
+        [shared_secret.x, shared_secret.y, contract_address.to_field()],
+        DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET,
+    )
+}
+
+/// Derives indexed randomness from an app-siloed shared secret.
+///
+/// `s_i = h(DOM_SEP__ECDH_RAND + i, s_app)`
+///
+/// This unified derivation pattern replaces the previous approach of using multiple separate domain
+/// separators (SYMMETRIC_KEY, SYMMETRIC_KEY_2, CIPHERTEXT_FIELD_MASK). Callers assign sequential
+/// indices for each random field they need (AES keys, IVs, field masks, etc.).
+pub fn derive_shared_secret_randomness(s_app: Field, index: u32) -> Field {
+    poseidon2_hash_with_separator([s_app], DOM_SEP__ECDH_RAND + index)
 }
 
 #[test]

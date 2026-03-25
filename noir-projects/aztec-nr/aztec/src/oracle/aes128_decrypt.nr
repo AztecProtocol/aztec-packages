@@ -24,9 +24,11 @@ pub unconstrained fn try_aes128_decrypt<let N: u32>(
 
 mod test {
     use crate::{
-        messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe,
+        keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
+        messages::encryption::aes128::derive_aes_symmetric_key_and_iv,
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
+    use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::try_aes128_decrypt;
     use poseidon::poseidon2::Poseidon2;
@@ -41,11 +43,11 @@ mod test {
         let env = TestEnvironment::new();
 
         env.utility_context(|_| {
-            let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
+            let shared_secret_point = point_from_x_coord(1).unwrap();
+            let contract_address = AztecAddress { inner: 42 };
+            let s_app = compute_app_siloed_shared_secret(shared_secret_point, contract_address);
 
-            let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
-                ciphertext_shared_secret,
-            )[0];
+            let (sym_key, iv) = derive_aes_symmetric_key_and_iv::<1>(s_app)[0];
 
             let plaintext: [u8; TEST_PLAINTEXT_LENGTH] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -71,22 +73,24 @@ mod test {
         let env = TestEnvironment::new();
 
         env.utility_context(|_| {
-            // The AES decryption oracle will not fail for any valid ciphertext; it will always return
-            // `Some` with some data. Whether the decryption was successful is up to the app to check in a
-            // custom way.
+            // The AES decryption oracle will not fail for any valid ciphertext; it will
+            // always return `Some` with some data. Whether the decryption was successful
+            // is up to the app to check in a custom way.
             //
-            // E.g. if it's a note that's been encrypted, upon decryption the app can check whether the
-            // note hash exists onchain. If it doesn't, that's a strong indicator that decryption failed.
+            // E.g. if it's a note that's been encrypted, upon decryption the app can
+            // check whether the note hash exists onchain. If it doesn't, that's a strong
+            // indicator that decryption failed.
             //
             // E.g. for non-note messages, the plaintext could include a MAC
-            // (https://en.wikipedia.org/wiki/Message_authentication_code). We demonstrate this approach in
-            // this test: we compute a MAC, include it in the plaintext, encrypt, and then verify that
-            // decryption with a bad key produces a MAC mismatch.
-            let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
+            // (https://en.wikipedia.org/wiki/Message_authentication_code). We demonstrate
+            // this approach in this test: we compute a MAC, include it in the plaintext,
+            // encrypt, and then verify that decryption with a bad key produces a MAC
+            // mismatch.
+            let shared_secret_point = point_from_x_coord(1).unwrap();
+            let contract_address = AztecAddress { inner: 42 };
+            let s_app = compute_app_siloed_shared_secret(shared_secret_point, contract_address);
 
-            let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
-                ciphertext_shared_secret,
-            )[0];
+            let (sym_key, iv) = derive_aes_symmetric_key_and_iv::<1>(s_app)[0];
 
             let mac_preimage = 0x42;
             let mac = Poseidon2::hash([mac_preimage], 1);
@@ -94,11 +98,12 @@ mod test {
 
             let plaintext: [u8; TEST_PLAINTEXT_LENGTH] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-            // We append the mac to the plaintext. It doesn't necessarily have to be 32 bytes; that's quite an extreme
-            // length. 16 bytes or 8 bytes might be sufficient, and would save on data broadcasting costs. The shorter
-            // the mac, the more possibility of false positive decryptions (decryption seemingly succeeding, but the
-            // decrypted plaintext being garbage). Some projects use the `iv` (all 16 bytes or the first 8 bytes) as a
-            // mac.
+            // We append the mac to the plaintext. It doesn't necessarily have to be 32
+            // bytes; that's quite an extreme length. 16 bytes or 8 bytes might be
+            // sufficient, and would save on data broadcasting costs. The shorter the mac,
+            // the more possibility of false positive decryptions (decryption seemingly
+            // succeeding, but the decrypted plaintext being garbage). Some projects use
+            // the `iv` (all 16 bytes or the first 8 bytes) as a mac.
             let mut plaintext_with_mac = [0 as u8; TEST_PLAINTEXT_LENGTH + TEST_MAC_LENGTH];
             for i in 0..TEST_PLAINTEXT_LENGTH {
                 plaintext_with_mac[i] = plaintext[i];
@@ -109,18 +114,20 @@ mod test {
 
             let ciphertext = aes128_encrypt(plaintext_with_mac, iv, sym_key);
 
-            // We now would broadcast the tuple [ciphertext, mac] to the network. The recipient will then decrypt the
-            // ciphertext, and if the mac inside the received plaintext matches the mac that was broadcast, then the
-            // recipient knows that decryption was successful.
+            // We now would broadcast the tuple [ciphertext, mac] to the network. The
+            // recipient will then decrypt the ciphertext, and if the mac inside the
+            // received plaintext matches the mac that was broadcast, then the recipient
+            // knows that decryption was successful.
 
-            // For this test, we intentionally mutate the sym_key to a bad one, so that decryption fails. This allows
-            // us to explore how the recipient can detect failed decryption by checking the decrypted mac against the
-            // broadcasted mac.
+            // For this test, we intentionally mutate the sym_key to a bad one, so that
+            // decryption fails. This allows us to explore how the recipient can detect
+            // failed decryption by checking the decrypted mac against the broadcasted
+            // mac.
             let mut bad_sym_key = sym_key;
             bad_sym_key[0] = 0;
 
-            // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
-            // work with logs of unknown length.
+            // We need to convert the array to a BoundedVec because the oracle expects a
+            // BoundedVec as it's designed to work with logs of unknown length.
             let ciphertext_bvec = BoundedVec::<u8, 48>::from_array(ciphertext);
             // Decryption with wrong key still returns Some (with garbage).
             let received_plaintext = try_aes128_decrypt(ciphertext_bvec, iv, bad_sym_key).unwrap();

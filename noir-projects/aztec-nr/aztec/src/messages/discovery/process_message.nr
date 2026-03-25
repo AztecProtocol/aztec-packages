@@ -34,7 +34,11 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
-    let message_plaintext_option = AES128::decrypt(message_ciphertext, message_context.recipient);
+    let message_plaintext_option = AES128::decrypt(
+        message_ciphertext,
+        message_context.recipient,
+        contract_address,
+    );
 
     if message_plaintext_option.is_some() {
         process_message_plaintext(

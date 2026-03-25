@@ -740,6 +740,9 @@ pub global DOM_SEP__SYMMETRIC_KEY: u32 = 3882206064;
 pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 4129434989;
 pub global DOM_SEP__CIPHERTEXT_FIELD_MASK: u32 = 1870492847;
 
+pub global DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET: u32 = 3330539091;
+pub global DOM_SEP__ECDH_RAND: u32 = 3709656964;
+
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
 // ---------------------------------------------------------------
