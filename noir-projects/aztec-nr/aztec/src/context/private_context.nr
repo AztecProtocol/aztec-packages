@@ -775,6 +775,7 @@ impl PrivateContext {
             // Safety: Kernels verify that the key validation request is valid and below we verify that a request for
             // the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
+            assert(!request.pk_m.is_infinite, "Infinite public key points are not allowed");
             assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
             self.key_validation_requests_and_separators.push(
