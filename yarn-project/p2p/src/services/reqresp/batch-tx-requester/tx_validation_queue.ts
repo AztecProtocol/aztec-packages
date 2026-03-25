@@ -4,7 +4,7 @@ import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { IPeerPenalizer } from './interface.js';
+import type { IPeerCollection } from './peer_collection.js';
 import type { IBatchRequestTxValidator } from './tx_validator.js';
 
 /** A tx received from a peer, pending validation. */
@@ -40,7 +40,7 @@ export class TxValidationQueue {
 
   constructor(
     private readonly txValidator: IBatchRequestTxValidator,
-    private readonly peerPenalizer: IPeerPenalizer,
+    private readonly peers: IPeerCollection,
     private readonly logger: Logger,
   ) {}
 
@@ -102,9 +102,15 @@ export class TxValidationQueue {
           continue;
         }
 
-        const result = await this.txValidator.validateRequestedTx(entry.tx);
+        let isValid = false;
+        try {
+          const result = await this.txValidator.validateRequestedTx(entry.tx);
+          isValid = result.result === 'valid';
+        } catch (err: any) {
+          this.logger.warn(`Validation threw for tx ${hash} from peer ${entry.peerId.toString()}: ${err.message}`);
+        }
 
-        if (result.result === 'valid') {
+        if (isValid) {
           this.acceptedHashes.add(hash);
           entry.resolve({ tx: entry.tx, peerId: entry.peerId, status: 'accepted' });
 
@@ -115,7 +121,7 @@ export class TxValidationQueue {
             `Penalizing peer ${entry.peerId.toString()} for sending invalid tx ${hash} in batch response`,
             { peerId: entry.peerId },
           );
-          this.peerPenalizer.penalizePeer(entry.peerId, PeerErrorSeverity.LowToleranceError);
+          this.peers.penalisePeer(entry.peerId, PeerErrorSeverity.LowToleranceError);
           entry.resolve({ tx: entry.tx, peerId: entry.peerId, status: 'invalid' });
         }
       }

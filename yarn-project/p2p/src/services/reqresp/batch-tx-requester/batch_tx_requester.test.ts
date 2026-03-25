@@ -777,6 +777,9 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getBadPeers()).not.toContain(peers[1].toString()); // peer1: always good
       expect(peerCollection.getBadPeers()).not.toContain(peers[2].toString()); // peer2: recovered
 
+      // Clear leftover queried state from the run so sampleAllPeers sees all available peers.
+      (peerCollection as any).queriedDumbPeers.clear();
+
       // Verify query availability
       const dumbPeersToQuery = sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection));
       expect(dumbPeersToQuery).not.toContain(peers[0].toString()); // bad peer excluded
