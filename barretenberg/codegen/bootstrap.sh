@@ -16,7 +16,8 @@ export hash=$(cache_content_hash .rebuild_patterns)
 function build {
   echo_header "codegen tool build"
   if ! cache_download codegen-$hash.tar.gz; then
-    npm_install_deps
+    # Use npm directly (not npm_install_deps which expects yarn)
+    npm ci --silent
     cache_upload codegen-$hash.tar.gz node_modules package-lock.json
   fi
 }
