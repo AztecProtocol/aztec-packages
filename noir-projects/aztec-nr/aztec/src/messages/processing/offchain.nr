@@ -3,9 +3,9 @@ use crate::{
     context::UtilityContext,
     messages::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{MessageContext, OffchainMessageWithContext, resolve_message_contexts},
+        processing::{get_message_contexts_by_tx_hash, MessageContext, OffchainMessageWithContext},
     },
-    oracle::contract_sync::invalidate_contract_sync_cache,
+    oracle::contract_sync::set_contract_sync_cache_invalid,
     protocol::{
         address::AztecAddress,
         constants::MAX_TX_LIFETIME,
@@ -133,7 +133,7 @@ pub unconstrained fn receive(
         i += 1;
     }
 
-    invalidate_contract_sync_cache(contract_address, scopes);
+    set_contract_sync_cache_invalid(contract_address, scopes);
 }
 
 /// Returns offchain-delivered messages to process during sync.
@@ -169,7 +169,7 @@ pub unconstrained fn sync_inbox(
     }
 
     // Ask PXE to resolve contexts for all requested tx hashes.
-    resolve_message_contexts(
+    get_message_contexts_by_tx_hash(
         contract_address,
         OFFCHAIN_CONTEXT_REQUESTS_SLOT,
         OFFCHAIN_CONTEXT_RESPONSES_SLOT,

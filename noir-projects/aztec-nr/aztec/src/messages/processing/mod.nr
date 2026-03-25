@@ -184,13 +184,13 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
 /// The `message_context_requests_array_base_slot` must point to a CapsuleArray<Field> containing tx hashes.
 /// PXE will store `Option<MessageContextResponse>` values into the responses array at
 /// `message_context_responses_array_base_slot`.
-pub unconstrained fn resolve_message_contexts(
+pub unconstrained fn get_message_contexts_by_tx_hash(
     contract_address: AztecAddress,
     message_context_requests_array_base_slot: Field,
     message_context_responses_array_base_slot: Field,
     scope: AztecAddress,
 ) {
-    oracle::message_processing::resolve_message_contexts(
+    oracle::message_processing::get_message_contexts_by_tx_hash(
         contract_address,
         message_context_requests_array_base_slot,
         message_context_responses_array_base_slot,
@@ -230,7 +230,7 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
         i += 1;
     }
 
-    oracle::message_processing::bulk_retrieve_logs(
+    oracle::message_processing::get_logs_by_tag(
         contract_address,
         LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
         LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
