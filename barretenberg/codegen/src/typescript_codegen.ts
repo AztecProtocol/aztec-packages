@@ -8,8 +8,8 @@
  *   - No complex abstraction
  */
 
-import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.js';
-import { toPascalCase } from './naming.js';
+import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.ts';
+import { toPascalCase } from './naming.ts';
 
 function toCamelCase(name: string): string {
   const pascal = toPascalCase(name);

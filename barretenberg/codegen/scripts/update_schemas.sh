@@ -32,8 +32,8 @@ bb_path="${BB_BIN}/bb"
 if [ -x "$bb_path" ]; then
   local tmpfile=$(mktemp)
   "$bb_path" msgpack curve_constants 2>/dev/null > "$tmpfile"
-  # Convert msgpack to JSON using node (msgpackr available in codegen node_modules)
-  node -e "
+  # Convert msgpack to JSON (msgpackr from barretenberg/ts node_modules)
+  NODE_PATH="${CODEGEN_DIR}/../ts/node_modules" node -e "
     const {unpack} = require('msgpackr');
     const fs = require('fs');
     const buf = fs.readFileSync('$tmpfile');

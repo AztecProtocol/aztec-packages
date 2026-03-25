@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { generateForService, SERVICES } from './service_codegen.js';
+import { generateForService, SERVICES } from './service_codegen.ts';
 
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));

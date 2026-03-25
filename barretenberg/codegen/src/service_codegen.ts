@@ -7,7 +7,7 @@
  *   - Service-specific options for each generator (C++ namespace, prefix, etc.)
  *
  * Usage:
- *   import { generateForService, SERVICES } from './service_codegen.js';
+ *   import { generateForService, SERVICES } from './service_codegen.ts';
  *   await generateForService(SERVICES.wsdb);
  */
 
@@ -15,11 +15,11 @@ import { createHash } from 'crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { dirname, join } from 'path';
-import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
-import { TypeScriptCodegen } from './typescript_codegen.js';
-import { RustCodegen, type RustCodegenOptions } from './rust_codegen.js';
-import { CppCodegen, type CppCodegenOptions } from './cpp_codegen.js';
-import { ZigCodegen, type ZigCodegenOptions } from './zig_codegen.js';
+import { SchemaVisitor, type CompiledSchema } from './schema_visitor.ts';
+import { TypeScriptCodegen } from './typescript_codegen.ts';
+import { RustCodegen, type RustCodegenOptions } from './rust_codegen.ts';
+import { CppCodegen, type CppCodegenOptions } from './cpp_codegen.ts';
+import { ZigCodegen, type ZigCodegenOptions } from './zig_codegen.ts';
 
 /** Output file descriptor */
 export interface OutputFile {

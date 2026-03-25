@@ -8,8 +8,8 @@
  * explicitly per struct.
  */
 
-import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.js';
-import { toSnakeCase, toPascalCase } from './naming.js';
+import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.ts';
+import { toSnakeCase, toPascalCase } from './naming.ts';
 
 export interface ZigCodegenOptions {
   /** Service prefix to strip from method names (e.g., 'Wsdb') */

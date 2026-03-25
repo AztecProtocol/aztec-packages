@@ -8,8 +8,8 @@
  *   - No complex abstraction
  */
 
-import type { CompiledSchema, Type, Struct, Field } from './schema_visitor.js';
-import { toSnakeCase, toPascalCase } from './naming.js';
+import type { CompiledSchema, Type, Struct, Field } from './schema_visitor.ts';
+import { toSnakeCase, toPascalCase } from './naming.ts';
 
 export interface RustCodegenOptions {
   /** Prefix for stripping from method names, e.g. 'Wsdb' makes WsdbGetTreeInfo -> get_tree_info */

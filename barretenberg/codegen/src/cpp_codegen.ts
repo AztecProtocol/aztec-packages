@@ -12,8 +12,8 @@
  *   const impl = gen.generateImpl(schema);
  */
 
-import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.js';
-import { toSnakeCase } from './naming.js';
+import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.ts';
+import { toSnakeCase } from './naming.ts';
 
 export interface CppCodegenOptions {
   /** C++ namespace for generated code, e.g. 'bb::cdb' */
