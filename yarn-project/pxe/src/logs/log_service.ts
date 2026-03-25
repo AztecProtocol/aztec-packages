@@ -12,7 +12,6 @@ import {
 } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../access_scopes.js';
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
@@ -114,16 +113,21 @@ export class LogService {
     );
   }
 
-  public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scopes: AccessScopes) {
+  public async fetchTaggedLogs(
+    contractAddress: AztecAddress,
+    pendingTaggedLogArrayBaseSlot: Fr,
+    recipient: AztecAddress,
+  ) {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     // We only load logs from block up to and including the anchor block number
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    // Determine recipients: use scopes if provided, otherwise get all accounts
-    const recipients = scopes !== 'ALL_SCOPES' && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
+    // Get all secrets for this recipient (one per sender)
+    const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
+<<<<<<< HEAD
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
     // (recipient = us, sender = us)
     const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
@@ -161,7 +165,28 @@ export class LogService {
           await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
         }
       }),
+=======
+    // Load logs for all sender-recipient pairs in parallel
+    const logArrays = await Promise.all(
+      secrets.map(secret =>
+        loadPrivateLogsForSenderRecipientPair(
+          secret,
+          this.aztecNode,
+          this.recipientTaggingStore,
+          anchorBlockNumber,
+          anchorBlockHash,
+          this.jobId,
+        ),
+      ),
+>>>>>>> 3029216084 (feat!: scoped capsules (#21533))
     );
+
+    // Flatten all logs from all secrets
+    const allLogs = logArrays.flat();
+
+    if (allLogs.length > 0) {
+      await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
+    }
   }
 
   async #getSecretsForSenders(
@@ -201,13 +226,18 @@ export class LogService {
         scopedLog.txHash,
         scopedLog.noteHashes,
         scopedLog.firstNullifier,
-        recipient,
       );
 
       return pendingTaggedLog.toFields();
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobId);
+    return this.capsuleStore.appendToCapsuleArray(
+      contractAddress,
+      capsuleArrayBaseSlot,
+      pendingTaggedLogs,
+      this.jobId,
+      recipient,
+    );
   }
 }
