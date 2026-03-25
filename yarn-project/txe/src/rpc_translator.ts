@@ -357,13 +357,13 @@ export class RPCTranslator {
     return toForeignCallResult([toArray(returns)]);
   }
 
-  // The fieldsSize parameter is not used here (the TXE passes the full array), but it exists because the AVM
-  // transpiler maps this oracle to the DEBUGLOG opcode, which reads the fields size from memory at runtime.
+  // When the argument is a slice, noir automatically adds a length field to oracle call.
+  // When the argument is an array, we add the field length manually to the signature.
   // eslint-disable-next-line camelcase
   async aztec_utl_log(
     foreignLevel: ForeignCallSingle,
     foreignMessage: ForeignCallArray,
-    _foreignFieldsSize: ForeignCallSingle,
+    _foreignLength: ForeignCallSingle,
     foreignFields: ForeignCallArray,
   ) {
     const level = fromSingle(foreignLevel).toNumber();

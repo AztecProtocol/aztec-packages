@@ -429,13 +429,11 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  // The fieldsSize parameter is not used here (the ACVM passes the full array), but it exists because the AVM
-  // transpiler maps this oracle to the DEBUGLOG opcode, which reads the fields size from memory at runtime.
   // eslint-disable-next-line camelcase
   async aztec_utl_log(
     level: ACVMField[],
     message: ACVMField[],
-    _fieldsSize: ACVMField[],
+    _ignoredFieldsSize: ACVMField[],
     fields: ACVMField[],
   ): Promise<ACVMField[]> {
     const levelFr = Fr.fromString(level[0]);
