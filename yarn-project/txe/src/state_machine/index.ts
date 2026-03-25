@@ -3,6 +3,7 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
 import { MessageContextService } from '@aztec/pxe/simulator';
 import { L2Block } from '@aztec/stdlib/block';
@@ -60,6 +61,7 @@ export class TXEStateMachine {
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
+      new DateProvider(),
       undefined,
       log,
     );
