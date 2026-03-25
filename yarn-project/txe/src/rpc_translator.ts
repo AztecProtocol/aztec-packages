@@ -933,6 +933,7 @@ export class RPCTranslator {
     foreignEphPKField0: ForeignCallSingle,
     foreignEphPKField1: ForeignCallSingle,
     foreignEphPKField2: ForeignCallSingle,
+    foreignContractAddress: ForeignCallSingle,
   ) {
     const address = AztecAddress.fromField(fromSingle(foreignAddress));
     const ephPK = Point.fromFields([
@@ -940,10 +941,11 @@ export class RPCTranslator {
       fromSingle(foreignEphPKField1),
       fromSingle(foreignEphPKField2),
     ]);
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
-    const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK);
+    const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK, contractAddress);
 
-    return toForeignCallResult(secret.toFields().map(toSingle));
+    return toForeignCallResult([toSingle(secret)]);
   }
 
   // eslint-disable-next-line camelcase

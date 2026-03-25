@@ -25,14 +25,17 @@ pub unconstrained fn try_aes128_decrypt<let N: u32>(
 
 mod test {
     use crate::{
-        messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe,
+        keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
+        messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_shared_secret,
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
+    use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::try_aes128_decrypt;
     use poseidon::poseidon2::Poseidon2;
     use std::aes128::aes128_encrypt;
 
+    global CONTRACT_ADDRESS: AztecAddress = AztecAddress { inner: 42 };
     global TEST_PLAINTEXT_LENGTH: u32 = 10;
     global TEST_CIPHERTEXT_LENGTH: u32 = 16;
     global TEST_PADDING_LENGTH: u32 = TEST_CIPHERTEXT_LENGTH - TEST_PLAINTEXT_LENGTH;
@@ -42,11 +45,10 @@ mod test {
         let env = TestEnvironment::new();
 
         env.utility_context(|_| {
-            let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
+            let shared_secret_point = point_from_x_coord(1).unwrap();
+            let s_app = compute_app_siloed_shared_secret(shared_secret_point, CONTRACT_ADDRESS);
 
-            let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
-                ciphertext_shared_secret,
-            )[0];
+            let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_shared_secret::<1>(s_app)[0];
 
             let plaintext: [u8; TEST_PLAINTEXT_LENGTH] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -83,11 +85,10 @@ mod test {
             // (https://en.wikipedia.org/wiki/Message_authentication_code). We demonstrate this approach in
             // this test: we compute a MAC, include it in the plaintext, encrypt, and then verify that
             // decryption with a bad key produces a MAC mismatch.
-            let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
+            let shared_secret_point = point_from_x_coord(1).unwrap();
+            let s_app = compute_app_siloed_shared_secret(shared_secret_point, CONTRACT_ADDRESS);
 
-            let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
-                ciphertext_shared_secret,
-            )[0];
+            let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_shared_secret::<1>(s_app)[0];
 
             let mac_preimage = 0x42;
             let mac = Poseidon2::hash([mac_preimage], 1);

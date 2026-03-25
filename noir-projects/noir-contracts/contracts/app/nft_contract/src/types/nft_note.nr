@@ -123,6 +123,7 @@ impl NFTNote {
             randomness,
             recipient,
             commitment,
+            context.this_address(),
         );
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.

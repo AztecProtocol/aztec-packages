@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -462,6 +463,68 @@ describe('Utility Execution test suite', () => {
           'test-job-id',
           scope,
         );
+      });
+    });
+
+    describe('getSharedSecret', () => {
+      it('returns different shared secrets for different contract addresses', async () => {
+        // Generate a deterministic ephemeral public key
+        const ephSk = GrumpkinScalar.random();
+        const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
+
+        // Derive keys so we can mock getMasterSecretKey (used by getSharedSecret)
+        const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
+        keyStore.getMasterSecretKey.mockImplementation((publicKey: Point) => {
+          if (publicKey.equals(ownerCompleteAddress.publicKeys.masterIncomingViewingPublicKey)) {
+            return Promise.resolve(ownerIvskM);
+          }
+          throw new Error(`Unknown public key ${publicKey}`);
+        });
+
+        const contractAddressA = await AztecAddress.random();
+        const contractAddressB = await AztecAddress.random();
+
+        const makeOracle = (addr: AztecAddress) =>
+          new UtilityExecutionOracle({
+            contractAddress: addr,
+            authWitnesses: [],
+            capsules: [],
+            anchorBlockHeader,
+            contractStore,
+            noteStore,
+            keyStore,
+            addressStore,
+            aztecNode,
+            recipientTaggingStore,
+            senderAddressBookStore,
+            capsuleStore,
+            privateEventStore,
+            messageContextService,
+            contractSyncService,
+            jobId: 'test-job-id',
+            scopes: 'ALL_SCOPES',
+          });
+
+        const oracleA = makeOracle(contractAddressA);
+        const oracleB = makeOracle(contractAddressB);
+
+        const secretA = await oracleA.getSharedSecret(owner, ephPk, contractAddressA);
+        const secretB = await oracleB.getSharedSecret(owner, ephPk, contractAddressB);
+
+        // After app-siloing, different contracts must get different shared secrets for the same
+        // (address, ephPk) pair. This prevents cross-contract decryption attacks.
+        expect(secretA).not.toEqual(secretB);
+      });
+
+      it('rejects when contract address does not match execution context', async () => {
+        const ephSk = GrumpkinScalar.random();
+        const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
+
+        const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
+        keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
+
+        const wrongAddress = await AztecAddress.random();
+        await expect(utilityExecutionOracle.getSharedSecret(owner, ephPk, wrongAddress)).rejects.toThrow(/expected/);
       });
     });
   });
