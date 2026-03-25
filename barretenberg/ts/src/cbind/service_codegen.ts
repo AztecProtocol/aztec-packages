@@ -135,10 +135,10 @@ function tsTarget(): LanguageTarget {
   return {
     name: 'TypeScript',
     enabled: true,
-    generate: (compiled, _schemaHash) => {
+    generate: (compiled, schemaHash) => {
       const tsGen = new TypeScriptCodegen();
       return [
-        { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled) },
+        { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled, schemaHash) },
         { path: 'generated/async.ts', content: tsGen.generateAsyncApi(compiled) },
       ];
     },
@@ -149,10 +149,10 @@ function tsTargetWithSync(): LanguageTarget {
   return {
     name: 'TypeScript',
     enabled: true,
-    generate: (compiled, _schemaHash) => {
+    generate: (compiled, schemaHash) => {
       const tsGen = new TypeScriptCodegen();
       return [
-        { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled) },
+        { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled, schemaHash) },
         { path: 'generated/sync.ts', content: tsGen.generateSyncApi(compiled) },
         { path: 'generated/async.ts', content: tsGen.generateAsyncApi(compiled) },
       ];
@@ -167,10 +167,10 @@ function cppClientTarget(opts: CppCodegenOptions, cppOutputDir: string): Languag
   return {
     name: 'C++',
     enabled: true,
-    generate: (compiled, _schemaHash) => {
+    generate: (compiled, schemaHash) => {
       const cppGen = new CppCodegen(opts);
       return [
-        { path: cppOutputDir + '_ipc_client_generated.hpp', content: cppGen.generateHeader(compiled) },
+        { path: cppOutputDir + '_ipc_client_generated.hpp', content: cppGen.generateHeader(compiled, schemaHash) },
         { path: cppOutputDir + '_ipc_client_generated.cpp', content: cppGen.generateImpl(compiled) },
       ];
     },
@@ -184,10 +184,10 @@ function rustTarget(outputDir: string): LanguageTarget {
   return {
     name: 'Rust',
     enabled: true,
-    generate: (compiled, _schemaHash) => {
+    generate: (compiled, schemaHash) => {
       const rustGen = new RustCodegen();
       return [
-        { path: `${outputDir}/generated_types.rs`, content: rustGen.generateTypes(compiled) },
+        { path: `${outputDir}/generated_types.rs`, content: rustGen.generateTypes(compiled, schemaHash) },
         { path: `${outputDir}/api.rs`, content: rustGen.generateApi(compiled) },
       ];
     },
