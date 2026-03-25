@@ -785,7 +785,6 @@ describe('L1Publisher integration', () => {
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
-        block.timestamp,
         EthAddress.random(),
         (_payload: any) => Promise.resolve(Signature.random().toString()),
       );
