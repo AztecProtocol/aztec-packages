@@ -262,7 +262,6 @@ mod test {
             note_completion_log_tag: 123,
             note_type_id: 456,
             packed_private_note_content: BoundedVec::new(),
-            recipient: AztecAddress::from_field(2),
         }
     }
 
