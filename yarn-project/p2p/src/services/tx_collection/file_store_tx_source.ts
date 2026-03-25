@@ -1,7 +1,8 @@
+import { partitionAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
-import { Tx, type TxHash } from '@aztec/stdlib/tx';
+import { Tx, type TxHash, type TxValidator } from '@aztec/stdlib/tx';
 import {
   type Histogram,
   Metrics,
@@ -23,6 +24,7 @@ export class FileStoreTxSource implements TxSource {
     private readonly fileStore: ReadOnlyFileStore,
     private readonly baseUrl: string,
     private readonly basePath: string,
+    private readonly txValidator: TxValidator,
     private readonly log: Logger,
     telemetry: TelemetryClient,
   ) {
@@ -44,6 +46,7 @@ export class FileStoreTxSource implements TxSource {
   public static async create(
     url: string,
     basePath: string,
+    txValidator: TxValidator,
     log: Logger = createLogger('p2p:file_store_tx_source'),
     telemetry: TelemetryClient = getTelemetryClient(),
   ): Promise<FileStoreTxSource | undefined> {
@@ -53,7 +56,7 @@ export class FileStoreTxSource implements TxSource {
         log.warn(`Failed to create file store for URL: ${url}`);
         return undefined;
       }
-      return new FileStoreTxSource(fileStore, url, basePath, log, telemetry);
+      return new FileStoreTxSource(fileStore, url, basePath, txValidator, log, telemetry);
     } catch (err) {
       log.warn(`Error creating file store for URL: ${url}`, { error: err });
       return undefined;
@@ -65,35 +68,41 @@ export class FileStoreTxSource implements TxSource {
   }
 
   public async getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult> {
-    const invalidTxHashes: string[] = [];
+    const results = await Promise.all(
+      txHashes.map(async txHash => {
+        const path = `${this.basePath}/txs/${txHash.toString()}.bin`;
+        const timer = new Timer();
+        try {
+          const buffer = await this.fileStore.read(path);
+          const tx = Tx.fromBuffer(buffer);
+          return { tx, downloadDuration: timer.ms(), downloadSize: buffer.length };
+        } catch {
+          this.downloadsFailed.add(1);
+          return undefined;
+        }
+      }),
+    );
+
+    const txs = results.filter(tx => tx !== undefined);
+    const [validTxs, invalidTxs] = await partitionAsync(
+      txs,
+      async ({ tx, downloadDuration, downloadSize }): Promise<boolean> => {
+        const valid = await this.txValidator.validateTx(tx);
+        if (valid.result === 'valid') {
+          this.downloadsSuccess.add(1);
+          this.downloadDuration.record(Math.ceil(downloadDuration));
+          this.downloadSize.record(downloadSize);
+          return true;
+        } else {
+          this.downloadsFailed.add(1);
+          return false;
+        }
+      },
+    );
+
     return {
-      validTxs: (
-        await Promise.all(
-          txHashes.map(async txHash => {
-            const path = `${this.basePath}/txs/${txHash.toString()}.bin`;
-            const timer = new Timer();
-            try {
-              const buffer = await this.fileStore.read(path);
-              const tx = Tx.fromBuffer(buffer);
-              if ((await tx.validateTxHash()) && txHash.equals(tx.txHash)) {
-                this.downloadsSuccess.add(1);
-                this.downloadDuration.record(Math.ceil(timer.ms()));
-                this.downloadSize.record(buffer.length);
-                return tx;
-              } else {
-                invalidTxHashes.push(tx.txHash.toString());
-                this.downloadsFailed.add(1);
-                return undefined;
-              }
-            } catch {
-              // Tx not found or error reading - return undefined
-              this.downloadsFailed.add(1);
-              return undefined;
-            }
-          }),
-        )
-      ).filter(tx => tx !== undefined),
-      invalidTxHashes: invalidTxHashes,
+      validTxs: validTxs.map(({ tx }) => tx),
+      invalidTxHashes: invalidTxs.map(({ tx }) => tx.getTxHash().toString()),
     };
   }
 }
@@ -109,9 +118,12 @@ export class FileStoreTxSource implements TxSource {
 export async function createFileStoreTxSources(
   urls: string[],
   basePath: string,
+  txValidator: TxValidator,
   log: Logger = createLogger('p2p:file_store_tx_source'),
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<FileStoreTxSource[]> {
-  const sources = await Promise.all(urls.map(url => FileStoreTxSource.create(url, basePath, log, telemetry)));
+  const sources = await Promise.all(
+    urls.map(url => FileStoreTxSource.create(url, basePath, txValidator, log, telemetry)),
+  );
   return sources.filter((s): s is FileStoreTxSource => s !== undefined);
 }
