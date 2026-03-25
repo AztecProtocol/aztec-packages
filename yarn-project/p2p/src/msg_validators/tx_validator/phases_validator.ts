@@ -40,7 +40,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
       // We only need to create/revert checkpoint here because of this addNewContracts call.
-      await this.contractsDB.addNewContracts(tx);
+      this.contractsDB.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
         this.#log.debug(

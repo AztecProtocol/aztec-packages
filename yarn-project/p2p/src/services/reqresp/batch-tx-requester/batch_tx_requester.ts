@@ -514,6 +514,9 @@ export class BatchTxRequester {
     });
 
     if (hasInvalidTx) {
+      this.logger.warn(`Penalizing peer ${peerId.toString()} for sending invalid transactions in batch response`, {
+        peerId,
+      });
       this.peers.penalisePeer(peerId, PeerErrorSeverity.LowToleranceError);
     } else {
       // If we have received successful response from the peer, they have "redeemed" themselves and not considered bad anymore

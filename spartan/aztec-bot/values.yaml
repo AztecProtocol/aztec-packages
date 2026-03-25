@@ -21,6 +21,8 @@ bot:
   nodeUrl: ""
   testAccounts: false
   botPrivateKey: "0xcafe"
+  daGasLimit: ""
+  l2GasLimit: ""
 
   persistence:
     enabled: false

@@ -242,8 +242,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
         // - Get negative fold evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
-        const std::vector<Fr> gemini_fold_neg_evaluations =
-            GeminiVerifier::get_gemini_evaluations(virtual_log_n, transcript);
+        std::vector<Fr> gemini_fold_neg_evaluations = GeminiVerifier::get_gemini_evaluations(virtual_log_n, transcript);
 
         // - Compute vector (r, r², ... , r^{2^{d-1}}), where d = log_n
         const std::vector<Fr> gemini_eval_challenge_powers =
@@ -290,7 +289,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             const auto challenge_tag = shplonk_evaluation_challenge.get_origin_tag();
             // Tag the Gemini fold evaluations
-            for (auto& eval : const_cast<std::vector<Fr>&>(gemini_fold_neg_evaluations)) {
+            for (auto& eval : gemini_fold_neg_evaluations) {
                 eval.set_origin_tag(challenge_tag);
             }
         }

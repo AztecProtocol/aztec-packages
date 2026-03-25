@@ -20,11 +20,12 @@ Here are the most relevant files you should be aware of:
 - `.env.template` - Template for environment variables required for Netlify functions (copy to `.env` and update with your API keys).
 - `netlify.toml` - Configuration for Netlify deployment and functions.
 
-This site uses **Docusaurus multi-instance docs** with two separate documentation areas:
+This site uses **Docusaurus multi-instance docs** with separate documentation areas:
 
 - `docs/` - Root-level documentation (landing page, shared content)
 - `docs-developers/` - Developer documentation source files (tutorials, references, guides)
-- `docs-network/` - Network/node operator documentation source files
+- `docs-operate/` - Operator documentation source files
+- `docs-participate/` - Participation / educational documentation source files
 
 See the [Docusaurus website](https://docusaurus.io/docs/docs-introduction) for the full documentation on how to create docs and to manage the metadata.
 
@@ -40,7 +41,8 @@ Each versioned docs folder is a complete copy of the documentation at that point
 When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `testnet`, `devnet`, and `nightly`, while network docs show versions like `testnet` and `ignition`.
 
 - Updating files in `docs-developers/` updates the "next" developer version
-- Updating files in `docs-network/` updates the "next" network version
+- Updating files in `docs-operate/` updates the "next" operate version
+- Updating files in `docs-participate/` updates the unversioned participate docs
 - Updating files in versioned folders like `developer_versioned_docs/version-v3.0.0-devnet.5/` updates that specific version
 
 Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in versioned folders, since those docs have already been processed and built. Instead, drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
@@ -581,7 +583,7 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
 
 **Limitations**:
 
-- Only analyzes documentation in the source folders (`docs-developers/`, `docs-network/`), not versioned docs
+- Only analyzes documentation in the source folders (`docs-developers/`, `docs-operate/`, `docs-participate/`), not versioned docs
 - Suggested changes should always be reviewed by a human before applying
 - The AI may occasionally suggest unnecessary or incorrect changes
 

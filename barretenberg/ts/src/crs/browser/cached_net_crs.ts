@@ -7,7 +7,6 @@ import { get, set } from 'idb-keyval';
 export class CachedNetCrs {
   private g1Data!: Uint8Array;
   private g2Data!: Uint8Array;
-
   constructor(public readonly numPoints: number) {}
 
   static async new(numPoints: number) {
@@ -20,17 +19,16 @@ export class CachedNetCrs {
    * Download the data.
    */
   async init() {
-    // Check if data is in IndexedDB
-    const g1Data = await get('g1Data');
+    const g1Compressed = await get('g1DataCompressed');
     const g2Data = await get('g2Data');
     const netCrs = new NetCrs(this.numPoints);
-    const g1DataLength = this.numPoints * 64;
+    const compressedLength = this.numPoints * 32;
 
-    if (!g1Data || g1Data.length < g1DataLength) {
-      this.g1Data = await netCrs.downloadG1Data();
-      await set('g1Data', this.g1Data);
+    if (g1Compressed && g1Compressed.length >= compressedLength) {
+      this.g1Data = g1Compressed;
     } else {
-      this.g1Data = g1Data;
+      this.g1Data = await netCrs.downloadG1Data();
+      await set('g1DataCompressed', this.g1Data);
     }
 
     if (!g2Data) {
@@ -42,8 +40,7 @@ export class CachedNetCrs {
   }
 
   /**
-   * G1 points data for prover key.
-   * @returns The points data.
+   * G1 points data for prover key (compressed, 32 bytes/point).
    */
   getG1Data(): Uint8Array {
     return this.g1Data;

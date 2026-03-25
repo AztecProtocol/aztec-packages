@@ -19,6 +19,7 @@ import {
   EmbeddedWallet as EmbeddedWalletBase,
   type EmbeddedWalletOptions,
 } from '@aztec/wallets/embedded';
+import { NO_FROM, NoFrom } from '@aztec/aztec.js/account';
 
 const logger = createLogger('wallet');
 const LocalStorageKey = 'aztec-account';
@@ -43,7 +44,7 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
    * @returns - Complete fee options that can be used to create a transaction execution request
    */
   override async completeFeeOptions(
-    from: AztecAddress,
+    from: AztecAddress | NoFrom,
     feePayer?: AztecAddress,
     gasSettings?: Partial<FieldsOf<GasSettings>>
   ): Promise<FeeOptions> {
@@ -52,21 +53,26 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
       (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
     let walletFeePaymentMethod;
-    // The transaction does not include a fee payment method, so we
-    // use the sponsoredFPC
-    if (!feePayer) {
-      accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.EXTERNAL;
-      const sponsoredFPCAddress = await this.#getSponsoredFPCAddress();
+    // If from is an address, we need to determine the appropriate fee payment method options for the
+    // account contract entrypoint to use
+    if (from !== NO_FROM) {
+      // The transaction does not include a fee payment method, so we
+      // use the sponsoredFPC
+      if (!feePayer) {
+        accountFeePaymentMethodOptions =
+          AccountFeePaymentMethodOptions.EXTERNAL;
+        const sponsoredFPCAddress = await this.#getSponsoredFPCAddress();
 
-      walletFeePaymentMethod = new SponsoredFeePaymentMethod(
-        sponsoredFPCAddress
-      );
-    } else {
-      // The transaction includes fee payment method, so we check if we are the fee payer for it
-      // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
-      accountFeePaymentMethodOptions = from.equals(feePayer)
-        ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
-        : AccountFeePaymentMethodOptions.EXTERNAL;
+        walletFeePaymentMethod = new SponsoredFeePaymentMethod(
+          sponsoredFPCAddress
+        );
+      } else {
+        // The transaction includes fee payment method, so we check if we are the fee payer for it
+        // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
+        accountFeePaymentMethodOptions = from.equals(feePayer)
+          ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
+          : AccountFeePaymentMethodOptions.EXTERNAL;
+      }
     }
     const fullGasSettings: GasSettings = GasSettings.default({
       ...gasSettings,
@@ -153,7 +159,7 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
     const sponsoredFPCAddress = await this.#getSponsoredFPCAddress();
 
     const deployOpts: DeployAccountOptions<InteractionWaitOptions> = {
-      from: AztecAddress.ZERO,
+      from: NO_FROM,
       fee: {
         paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPCAddress),
       },

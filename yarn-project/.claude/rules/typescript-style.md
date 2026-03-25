@@ -331,3 +331,19 @@ mock.getData.mockImplementation((id: string) => {
   return Promise.resolve(undefined);
 });
 ```
+
+## Arrow Function Bodies
+
+Use expression bodies instead of block bodies when the block only contains a `return`:
+
+```typescript
+// Good: Expression body
+items.map(item => item.value * 2)
+fn(arg => expression(arg, foo))
+
+// Bad: Block body with just a return
+items.map(item => { return item.value * 2; })
+fn(arg => { return expression(arg, foo); })
+```
+
+Block bodies are appropriate when the callback has multiple statements or side effects beyond the return.

@@ -111,6 +111,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
 {
     BB_BENCH_NAME("Gemini::compute_fold_polynomials");
+    BB_ASSERT_GTE(log_n, size_t(2), "Gemini folding requires at least 4-element polynomials");
     const size_t virtual_log_n = multilinear_challenge.size();
 
     // Cost per iteration: 1 subtraction + 1 multiplication + 1 addition
