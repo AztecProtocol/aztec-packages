@@ -45,13 +45,17 @@ A couple of examples:
 Each optimisation technique has its own tradeoffs and caveats so should be carefully considered with the full details in the linked [section](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products).
 :::
 
-#### Overhead of nested Private Calls
+#### Overhead of nested private calls
 
-When private functions are called, the overhead of a "kernel circuit" is added each time, so be mindful of calling/nesting too many private functions. This may influence the design towards larger private functions rather than conventionally atomic functions.
+Every transaction pays a fixed kernel overhead (~290k gates for init, reset, and tail circuits). Each additional private function call beyond the account entrypoint adds a `private_kernel_inner` iteration (~101k gates). This overhead compounds with the number of distinct private function calls, so be mindful of calling/nesting too many private functions — this may influence your design towards larger private functions rather than conventionally atomic ones.
 
-#### Profiling using FlameGraph
+For example, if you have a function that calls an external verification step as a separate private function, inlining that verification saves an entire kernel iteration (~101k gates), even if it slightly increases the calling function's own gate count.
 
-Measuring the gate count across a private function is explained in the [profiling guide](./how_to_profile_transactions).
+See [Private Kernel Circuit - Performance Impact](../../../foundational-topics/advanced/circuits/private_kernel.md#performance-impact) for detailed numbers.
+
+#### Profiling
+
+Measuring gate counts is explained in the [profiling guide](./how_to_profile_transactions). Use `aztec profile gates` for quick per-function gate counts, or `aztec-wallet profile` for full transaction profiling including kernel overhead.
 
 ### L2 Data costs
 

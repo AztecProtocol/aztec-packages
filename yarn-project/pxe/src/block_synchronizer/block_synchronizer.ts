@@ -77,6 +77,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
           if (blockHeader) {
             await this.updateAnchorBlockHeader(blockHeader);
+          } else {
+            this.log.warn(
+              `Block header not found for proven block ${event.block.number}, skipping anchor block header update`,
+            );
           }
         }
         break;
@@ -86,6 +90,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
           if (blockHeader) {
             await this.updateAnchorBlockHeader(blockHeader);
+          } else {
+            this.log.warn(
+              `Block header not found for finalized block ${event.block.number}, skipping anchor block header update`,
+            );
           }
         }
         break;

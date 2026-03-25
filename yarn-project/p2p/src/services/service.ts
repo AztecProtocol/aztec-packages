@@ -196,6 +196,13 @@ export interface PeerDiscoveryService extends EventEmitter {
   on(event: 'peer:discovered', listener: (enr: ENR) => void): this;
   emit(event: 'peer:discovered', enr: ENR): boolean;
 
+  /**
+   * Event emitted when our public IP is discovered or changes via discv5 peer interactions.
+   * Only emitted when enrUpdate is enabled (i.e. queryForIp=true and no static p2pIp).
+   */
+  on(event: 'ip:changed', listener: (ip: string) => void): this;
+  emit(event: 'ip:changed', ip: string): boolean;
+
   getStatus(): PeerDiscoveryState;
 
   getEnr(): ENR | undefined;

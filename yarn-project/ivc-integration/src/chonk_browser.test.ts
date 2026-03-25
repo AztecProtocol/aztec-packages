@@ -320,7 +320,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
             const backend = new AztecClientBackend(bytecodes, barretenberg);
 
             console.log('[Test] Proving...');
-            const [, proof, vk] = await backend.prove(witnessStack, vks);
+            const { proof, vk } = await backend.prove(witnessStack, vks);
             console.log(\`[Test] Proof generated, size: \${proof.length} bytes\`);
 
             console.log('[Test] Verifying...');

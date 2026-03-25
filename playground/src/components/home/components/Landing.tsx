@@ -18,6 +18,7 @@ import { trackButtonClick } from '../../../utils/matomo';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { prepareForFeePayment } from '../../../utils/sponsoredFPC';
 import { colors, commonStyles } from '../../../global.styles';
+import { NO_FROM } from '@aztec/aztec.js/account';
 
 const container = css({
   display: 'flex',
@@ -399,7 +400,7 @@ export function Landing() {
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts: DeployAccountOptions = {
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         fee: {
           paymentMethod,
         },
