@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-use crate::logging::aztecnr_debug_log_format;
-use crate::messages::{
-    discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
-    encoding::MAX_MESSAGE_CONTENT_LEN,
-    logs::note::{decode_private_note_message, MAX_NOTE_PACKED_LEN},
-    processing::enqueue_note_for_validation,
-=======
 use crate::{
     logging::{aztecnr_debug_log_format, aztecnr_warn_log_format},
     messages::{
@@ -15,7 +7,6 @@ use crate::{
         processing::enqueue_note_for_validation,
     },
     protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::ToField},
->>>>>>> c02d4a4848 (fix(pxe): robust error handling in message processing (#21093))
 };
 
 pub(crate) unconstrained fn process_private_note_msg(
