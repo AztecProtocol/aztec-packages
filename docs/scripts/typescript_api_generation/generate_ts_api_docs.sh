@@ -18,11 +18,13 @@ YARN_PROJECT_DIR="$(cd "$DOCS_ROOT/../yarn-project" && pwd)"
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"
 
-# Determine output folder name - use stable paths for nightly/devnet
+# Determine output folder name - use stable paths for nightly/devnet/testnet
 if [[ "$VERSION" == *"nightly"* ]]; then
     OUTPUT_FOLDER="nightly"
 elif [[ "$VERSION" == *"devnet"* ]]; then
     OUTPUT_FOLDER="devnet"
+elif [[ "$VERSION" == *"rc"* ]] || [[ "$VERSION" == *"testnet"* ]]; then
+    OUTPUT_FOLDER="testnet"
 else
     OUTPUT_FOLDER="$VERSION"
 fi
@@ -198,6 +200,7 @@ generate_json_for_package() {
             --excludePrivate \
             --excludeInternal \
             --excludeExternals \
+            --skipErrorChecking \
             --tsconfig ./tsconfig.json \
             "${entry_points_arr[@]}" \
             2>"$error_log"

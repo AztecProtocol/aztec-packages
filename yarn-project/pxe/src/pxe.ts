@@ -500,7 +500,9 @@ export class PXE {
    * @returns The synced block header
    */
   public getSyncedBlockHeader(): Promise<BlockHeader> {
-    return this.anchorBlockStore.getBlockHeader();
+    return this.#putInJobQueue(() => {
+      return this.anchorBlockStore.getBlockHeader();
+    });
   }
 
   /**

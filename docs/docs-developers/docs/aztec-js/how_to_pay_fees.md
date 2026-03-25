@@ -5,13 +5,13 @@ sidebar_position: 7
 description: Pay transaction fees on Aztec, understand mana costs, estimate gas, and retrieve fees from receipts.
 ---
 
-import { Fees } from '@site/src/components/Snippets/general_snippets';
+import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 This guide walks you through paying transaction fees on Aztec using various payment methods.
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
+- <General.AztecJSPrerequisites />
 - Understanding of [fee concepts](../foundational-topics/fees.md)
 
 :::info
@@ -23,7 +23,11 @@ This guide walks you through paying transaction fees on Aztec using various paym
 | Method              | Use Case                      | Privacy | Requirements               |
 | ------------------- | ----------------------------- | ------- | -------------------------- |
 | Fee Juice (default) | Account already has Fee Juice | Public  | Funded account             |
+#if(testnet)
+| Sponsored FPC       | Testing, free transactions    | Public  | None (not on testnet)      |
+#else
 | Sponsored FPC       | Testing, free transactions    | Public  | None                       |
+#endif
 | Private FPC         | Pay with tokens privately     | Private | Token balance, FPC address |
 | Public FPC          | Pay with tokens publicly      | Public  | Token balance, FPC address |
 | Bridge + Claim      | Bootstrap from L1             | Public  | L1 ETH for gas             |
@@ -33,6 +37,10 @@ This guide walks you through paying transaction fees on Aztec using various paym
 Mana is Aztec's unit of computational effort (like gas on Ethereum), and Fee Juice is the native fee token used to pay for transactions. For a detailed explanation of these concepts, see [Fee Concepts](../foundational-topics/fees.md).
 
 ## Estimate mana costs
+
+:::tip Automatic estimation with EmbeddedWallet
+When using `EmbeddedWallet`, gas is estimated automatically on every `send()` call. You only need to manually estimate if you want to preview costs before sending, or if you're using a custom wallet implementation.
+:::
 
 Before sending a transaction, you can estimate the mana it will consume by simulating with `estimateGas: true`:
 
@@ -114,7 +122,15 @@ Fee Payment Contracts (FPC) pay fees on your behalf, typically accepting a diffe
 
 ### Sponsored Fee Payment Contracts
 
-The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on both the local network and the testnet (deployed by Aztec Labs).
+#if(testnet)
+:::warning
+The Sponsored FPC is **not** deployed on testnet. To pay fees, you must either [bridge Fee Juice from L1](#bridge-fee-juice-from-l1) or deploy your own fee-paying contract.
+:::
+
+The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on the local network and devnet (deployed by Aztec Labs), but **not on testnet**.
+#else
+The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on both the local network and devnet (deployed by Aztec Labs).
+#endif
 
 You can derive the Sponsored FPC address from its deployment parameters, register it with your wallet, and use it to pay for transactions:
 
@@ -254,6 +270,10 @@ const receipt = await contract.methods.myFunction().send({
 ```
 
 ### Use automatic gas estimation
+
+:::note
+When using `EmbeddedWallet`, gas estimation happens automatically on every `send()` — you don't need to pass `estimateGas`. This option is useful for custom wallet implementations or when you want to estimate gas during a `simulate()` call.
+:::
 
 ```typescript
 // contract, aliceAddress, and paymentMethod are from the examples above

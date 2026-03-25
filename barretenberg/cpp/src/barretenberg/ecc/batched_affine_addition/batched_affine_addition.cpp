@@ -62,7 +62,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
     const size_t MIN_POINTS_PER_THREAD = 1 << 14; // heuristic; anecdotally optimal for practical cases
     const size_t total_num_points = points.size();
     const size_t optimal_threads = total_num_points / MIN_POINTS_PER_THREAD;
-    const size_t num_threads = std::max(1UL, std::min(get_num_cpus(), optimal_threads));
+    const size_t num_threads = std::max(size_t{ 1 }, std::min(get_num_cpus(), optimal_threads));
     // Distribute the work as evenly as possible across threads
     const size_t base_thread_size = total_num_points / num_threads;
     const size_t leftover_size = total_num_points % num_threads;

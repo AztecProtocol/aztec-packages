@@ -128,8 +128,6 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery(
         }
     }
 
-    aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")([discovered_notes.len() as Field]);
-
     *discovered_notes
 }
 
