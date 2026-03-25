@@ -1,0 +1,18 @@
+{
+  "name": "@aztec/barretenberg-codegen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "tsx src/generate.ts",
+    "generate:bb": "tsx src/generate.ts bb",
+    "generate:wsdb": "tsx src/generate.ts wsdb",
+    "generate:cdb": "tsx src/generate.ts cdb",
+    "generate:avm": "tsx src/generate.ts avm"
+  },
+  "dependencies": {
+    "msgpackr": "^1.10.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0"
+  }
+}
