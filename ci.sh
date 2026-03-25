@@ -192,7 +192,7 @@ case "$cmd" in
     export JOB_ID="grind-p2p"
     export INSTANCE_POSTFIX="grind-p2p"
     export CPUS=${CPUS:-192}
-    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-240}
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-420}
     bootstrap_ec2 "./bootstrap.sh ci-grind-p2p" | DUP=1 cache_log "Grind p2p tests" $RUN_ID
     ;;
   ##########################################

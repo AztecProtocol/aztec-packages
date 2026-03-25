@@ -670,7 +670,7 @@ case "$cmd" in
     echo_header "build yarn-project for p2p grind"
     make yarn-project
 
-    timeout="${1:-20m}"
+    timeout="${1:-40m}"
     hash="grind"
     failed=0
 
@@ -698,7 +698,7 @@ case "$cmd" in
     for test in "${e2e_tests[@]}"; do
       echo_header "Grinding: $test"
       full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=\"verbose; debug:p2p\" yarn-project/end-to-end/scripts/run_test.sh simple src/${test}"
-      grind_test "$full_cmd" "$timeout" || { echo "FAILED: $test"; failed=1; }
+      grind_test "$full_cmd" "$timeout" 15 || { echo "FAILED: $test"; failed=1; }
     done
 
     exit $failed
