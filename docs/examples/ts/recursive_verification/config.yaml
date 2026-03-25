@@ -1,5 +1,8 @@
 # Configuration for recursive_verification example
 
+# Setup script to run before index.ts (generates proof data)
+setup: "node --preserve-symlinks --preserve-symlinks-main --import tsx/esm scripts/generate_data.ts"
+
 # Contract artifacts to import for codegen (names without .json extension)
 # These must already be compiled to docs/target/ directory
 contracts:
@@ -19,3 +22,8 @@ dependencies:
   # Packages outside yarn-project/ - use explicit link paths
   - "link:@aztec/bb.js:barretenberg/ts"
   - "link:@aztec/noir-noir_js:noir/packages/noir_js"
+  # Transitive dependencies of @aztec/noir-noir_js
+  - "link:@aztec/noir-acvm_js:noir/packages/acvm_js"
+  - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
+  - "link:@aztec/noir-types:noir/packages/types"
+  - "npm:pako"
