@@ -4,7 +4,7 @@ import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import { BlockNumber, type CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
-import type { LogData, Logger } from '@aztec/foundation/log';
+import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
@@ -65,7 +65,7 @@ export class CheckpointProposalHandler {
     private epochCache: EpochCache,
     private config: ValidatorClientFullConfig,
     private dateProvider: DateProvider = new DateProvider(),
-    private log: Logger,
+    private log: Logger = createLogger('validator:checkpoint-proposal-handler'),
   ) {}
 
   /**
