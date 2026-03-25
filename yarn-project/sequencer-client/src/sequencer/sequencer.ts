@@ -359,7 +359,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
-    const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
+    let invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
     // Determine the correct archive and L1 state overrides for the canProposeAt check.
     // The L1 contract reads archives[pendingCheckpointNumber] and compares it with the provided archive.
@@ -370,13 +370,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
     } = {};
 
-    if (invalidateCheckpoint) {
-      // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
-      // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
-      archiveForCheck = invalidateCheckpoint.lastArchive;
-      l1Overrides.forcePendingCheckpointNumber = invalidateCheckpoint.forcePendingCheckpointNumber;
-      this.metrics.recordPipelineDepth(0);
-    } else if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasPendingCheckpoint) {
+    if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasPendingCheckpoint) {
       // Parent checkpoint hasn't landed on L1 yet. Override both the pending checkpoint number
       // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
@@ -387,6 +381,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.verbose(
         `Building on top of pending checkpoint (pending=${syncedTo.pendingCheckpointData?.checkpointNumber})`,
       );
+      // Clear the invalidation - the pending checkpoint should handle it.
+      invalidateCheckpoint = undefined;
+    } else if (invalidateCheckpoint) {
+      // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
+      // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
+      archiveForCheck = invalidateCheckpoint.lastArchive;
+      l1Overrides.forcePendingCheckpointNumber = invalidateCheckpoint.forcePendingCheckpointNumber;
+      this.metrics.recordPipelineDepth(0);
     } else {
       this.metrics.recordPipelineDepth(0);
     }
@@ -546,7 +548,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /**
    * Returns whether all dependencies have caught up.
    * We don't check against the previous block submitted since it may have been reorg'd out.
-   * Note: this checks against the checkpointed chain (L1-confirmed state), not the proposed chain.
    */
   protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<SequencerSyncCheckResult | undefined> {
     // Check that the archiver has fully synced the L2 slot before the one we want to propose in.

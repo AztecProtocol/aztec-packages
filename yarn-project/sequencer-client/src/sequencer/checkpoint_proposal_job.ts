@@ -292,29 +292,18 @@ export class CheckpointProposalJob implements Traceable {
       const parentCheckpointNumber = isPipelining ? CheckpointNumber(this.checkpointNumber - 1) : undefined;
 
       // Compute the parent's fee header override when pipelining
-      let forcePendingFeeHeader: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader } | undefined;
       if (isPipelining && this.pendingCheckpointData) {
-        const rollup = this.publisher.rollupContract;
-        const grandparentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 2);
-        const [grandparentCheckpoint, manaTarget] = await Promise.all([
-          rollup.getCheckpoint(grandparentCheckpointNumber),
-          rollup.getManaTarget(),
-        ]);
-        const parentFeeHeader = RollupContract.computeChildFeeHeader(
-          grandparentCheckpoint.feeHeader,
-          this.pendingCheckpointData.totalManaUsed,
-          this.pendingCheckpointData.feeAssetPriceModifier,
-          manaTarget,
-        );
-        forcePendingFeeHeader = { checkpointNumber: parentCheckpointNumber!, feeHeader: parentFeeHeader };
-        this.computedForcePendingFeeHeader = forcePendingFeeHeader;
+        this.computedForcePendingFeeHeader = await this.computeForcePendingFeeHeader(parentCheckpointNumber!);
       }
 
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
         feeRecipient,
         this.targetSlot,
-        { forcePendingCheckpointNumber: parentCheckpointNumber, forcePendingFeeHeader },
+        {
+          forcePendingCheckpointNumber: parentCheckpointNumber,
+          forcePendingFeeHeader: this.computedForcePendingFeeHeader,
+        },
       );
 
       // Collect L1 to L2 messages for the checkpoint and compute their hash
@@ -1084,6 +1073,56 @@ export class CheckpointProposalJob implements Traceable {
       return true;
     }
     return false;
+  }
+
+  /**
+   * In times of congestion we need to simulate using the correct fee header override for the previous block
+   * We calculate the correct fee header values.
+   *
+   * If we are in block 1, or the checkpoint we are querying does not exist, we return undefined. However
+   * If we are pipelining - where this function is called, the grandparentCheckpointNumber should always exist
+   * @param parentCheckpointNumber
+   * @returns
+   */
+  protected async computeForcePendingFeeHeader(parentCheckpointNumber: CheckpointNumber): Promise<
+    | {
+        checkpointNumber: CheckpointNumber;
+        feeHeader: FeeHeader;
+      }
+    | undefined
+  > {
+    if (!this.pendingCheckpointData) {
+      return undefined;
+    }
+
+    const rollup = this.publisher.rollupContract;
+    const grandparentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 2);
+    try {
+      const [grandparentCheckpoint, manaTarget] = await Promise.all([
+        rollup.getCheckpoint(grandparentCheckpointNumber),
+        rollup.getManaTarget(),
+      ]);
+
+      if (!grandparentCheckpoint || !grandparentCheckpoint.feeHeader) {
+        this.log.error(
+          `Grandparent checkpoint or its feeHeader is undefined for checkpointNumber=${grandparentCheckpointNumber.toString()}`,
+        );
+        return undefined;
+      } else {
+        const parentFeeHeader = RollupContract.computeChildFeeHeader(
+          grandparentCheckpoint.feeHeader,
+          this.pendingCheckpointData.totalManaUsed,
+          this.pendingCheckpointData.feeAssetPriceModifier,
+          manaTarget,
+        );
+        return { checkpointNumber: parentCheckpointNumber!, feeHeader: parentFeeHeader };
+      }
+    } catch (err) {
+      this.log.error(
+        `Failed to fetch grandparent checkpoint or mana target for checkpointNumber=${grandparentCheckpointNumber.toString()}: ${err}`,
+      );
+      return undefined;
+    }
   }
 
   /** Waits until a specific time within the current slot */

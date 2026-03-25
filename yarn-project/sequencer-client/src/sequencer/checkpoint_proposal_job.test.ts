@@ -1,4 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
+import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -18,7 +19,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import { Checkpoint, type CheckpointData, L1PublishedData } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, type CheckpointData, L1PublishedData, type PendingCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -29,6 +30,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -586,6 +588,121 @@ describe('CheckpointProposalJob', () => {
     );
   }
 
+  describe('computeForcePendingFeeHeader', () => {
+    // Use checkpoint 3 so the grandparent (checkpoint 1) is valid
+    const pipelinedCheckpointNumber = CheckpointNumber(3);
+
+    function createJobWithPendingCheckpoint(pendingData: PendingCheckpointData): TestCheckpointProposalJob {
+      const setStateFn = jest.fn();
+      const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
+
+      return new TestCheckpointProposalJob(
+        SlotNumber(newSlotNumber),
+        SlotNumber(newSlotNumber),
+        epoch,
+        pipelinedCheckpointNumber,
+        lastBlockNumber,
+        proposer,
+        publisher,
+        attestorAddress,
+        undefined,
+        validatorClient,
+        globalVariableBuilder,
+        p2p,
+        worldState,
+        l1ToL2MessageSource,
+        l2BlockSource,
+        checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
+        blockSink,
+        l1Constants,
+        config,
+        timetable,
+        slasherClient,
+        epochCache,
+        dateProvider,
+        metrics,
+        eventEmitter,
+        setStateFn,
+        getTelemetryClient().getTracer('test'),
+        { actor: 'test' },
+        pendingData,
+      );
+    }
+
+    const pendingData: PendingCheckpointData = {
+      checkpointNumber: CheckpointNumber(1),
+      header: CheckpointHeader.empty(),
+      startBlock: BlockNumber(1),
+      blockCount: 1,
+      totalManaUsed: 5000n,
+      feeAssetPriceModifier: 100n,
+    };
+
+    const grandparentFeeHeader: FeeHeader = {
+      manaUsed: 3000n,
+      excessMana: 1000n,
+      ethPerFeeAsset: 500n,
+      congestionCost: 50n,
+      proverCost: 10n,
+    };
+
+    it('returns undefined when pendingCheckpointData is not set', async () => {
+      const result = await job.computeForcePendingFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+
+    function mockRollup(overrides: { grandparentCheckpoint?: any; manaTarget?: bigint }) {
+      const rollup = publisher.rollupContract;
+      jest.spyOn(rollup, 'getCheckpoint').mockResolvedValue(overrides.grandparentCheckpoint);
+      jest.spyOn(rollup, 'getManaTarget').mockResolvedValue(overrides.manaTarget ?? 10_000n);
+    }
+
+    it('computes fee header from grandparent checkpoint', async () => {
+      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      const manaTarget = 10_000n;
+
+      mockRollup({ grandparentCheckpoint: { feeHeader: grandparentFeeHeader }, manaTarget });
+
+      const parentCheckpointNumber = CheckpointNumber(1);
+      const result = await jobWithPending.computeForcePendingFeeHeader(parentCheckpointNumber);
+
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(parentCheckpointNumber);
+
+      const expected = RollupContract.computeChildFeeHeader(
+        grandparentFeeHeader,
+        pendingData.totalManaUsed,
+        pendingData.feeAssetPriceModifier,
+        manaTarget,
+      );
+      expect(result!.feeHeader).toEqual(expected);
+    });
+
+    it('returns undefined when grandparent checkpoint is not found', async () => {
+      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      mockRollup({ grandparentCheckpoint: undefined });
+
+      const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when grandparent checkpoint has no feeHeader', async () => {
+      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
+
+      const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when rollup calls throw', async () => {
+      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
+
+      const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe('multiple block mode', () => {
     beforeEach(() => {
       // Multiple block mode: set blockDurationMs to 8 seconds
@@ -1104,6 +1221,11 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Get timetable for testing - allows tests to spy on methods */
   public getTimetable(): SequencerTimetable {
     return this.timetable;
+  }
+
+  /** Expose computeForcePendingFeeHeader for testing */
+  public override computeForcePendingFeeHeader(parentCheckpointNumber: CheckpointNumber) {
+    return super.computeForcePendingFeeHeader(parentCheckpointNumber);
   }
 
   /** Expose internal buildSingleBlock method */
