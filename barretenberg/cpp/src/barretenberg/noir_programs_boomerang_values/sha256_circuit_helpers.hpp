@@ -9,6 +9,7 @@
  */
 
 #include "barretenberg/boomerang_value_detection/graph.hpp"
+#include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include <array>
 #include <map>
@@ -19,11 +20,12 @@ namespace sha256_helpers {
 
 static constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
 static constexpr size_t SHA256_LOOKUP_GATE_COUNT = 2896;
-// selector constants for direct gate validation
+constexpr uint32_t CONST = bb::stdlib::IS_CONSTANT;
 inline const std::array<std::string, 9> BLOCK_NAMES = {
     "pub_inputs", "lookup", "arithmetic",         "delta_range",       "elliptic",
     "memory",     "nnf",    "poseidon2_external", "poseidon2_internal"
 };
+// selector constants for direct gate validation
 
 /**
  * @brief Classification of arithmetic gates by selector pattern
@@ -373,6 +375,23 @@ size_t compute_selector_hash(size_t combined_hash, Block& block, size_t start_id
     return combined_hash;
 }
 
+template <typename Block>
+size_t compute_selector_hash_without_table_index(size_t combined_hash, Block& block, size_t start_idx, size_t end_idx)
+{
+    static constexpr size_t Q3_SELECTOR_INDEX = 4;
+    auto selectors = block.get_selectors();
+    for (size_t gate = start_idx; gate <= end_idx; ++gate) {
+        for (size_t s = 0; s < selectors.size(); ++s) {
+            if (s == Q3_SELECTOR_INDEX) {
+                continue;
+            }
+            uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
+            combined_hash = hash_combine(combined_hash, std::hash<uint64_t>()(val));
+        }
+    }
+    return combined_hash;
+}
+
 /**
  * @brief Check if a gate has all selectors zero (unconstrained / filler gate)
  */
@@ -402,5 +421,75 @@ size_t compute_selector_hash(size_t combined_hash, Block& block, const std::vect
     }
     return combined_hash;
 }
+
+/**
+ * @brief Compute selector hash excluding q_3 (index 4) which holds the table_index.
+ *
+ * table_index varies depending on circuit context (assigned sequentially when tables are created).
+ * Excluding it makes the hash stable across different circuits using the same lookup table type.
+ */
+template <typename Block>
+size_t compute_selector_hash_without_table_index(size_t combined_hash,
+                                                  Block& block,
+                                                  const std::vector<size_t>& gate_indices)
+{
+    static constexpr size_t Q3_SELECTOR_INDEX = 4; // q_3 position in get_selectors() order
+    auto selectors = block.get_selectors();
+    for (size_t gate : gate_indices) {
+        for (size_t s = 0; s < selectors.size(); ++s) {
+            if (s == Q3_SELECTOR_INDEX) {
+                continue;
+            }
+            uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
+            combined_hash = hash_combine(combined_hash, std::hash<uint64_t>()(val));
+        }
+    }
+    return combined_hash;
+}
+
+struct BlockRange {
+    size_t first;
+    size_t last;
+    size_t size() const { return last - first + 1; }
+};
+
+struct Sha256SubcircuitBoundaries {
+    BlockRange lookup;
+    std::vector<size_t> constrained_gates;   // sorted arithmetic gate indices with non-zero selectors
+    std::vector<size_t> unconstrained_gates; // sorted arithmetic filler gate indices (all selectors zero)
+};
+
+/**
+ * @brief Parameters for validate_sha256_sparse_function, which validates both
+ * choose_with_sigma1 and majority_with_sigma0 (they share the same gate structure).
+ */
+enum class Sha256SparseFunctionType {
+    CHOOSE,  // Uses lookup[C2][2] for sparse_limb in first add_two
+    MAJORITY // Uses lookup[C2][1] for sparse_limb in first add_two
+};
+
+struct Sha256SparseFunctionParams {
+    Sha256SparseFunctionType type;
+    uint32_t primary_sparse_real;
+    uint32_t fst_sparse_real;
+    uint32_t snd_sparse_real;
+    size_t input_gate_count;     // CH_INPUT: 3, MAJ_INPUT: 3
+    size_t output_gate_count;    // CH_OUTPUT: 16, MAJ_OUTPUT: 11
+    size_t input_selector_hash;  // Pinned hash for INPUT lookup gates (0 = skip check)
+    size_t output_selector_hash; // Pinned hash for OUTPUT lookup gates (0 = skip check)
+    const char* log_prefix;      // "choose" or "majority" for log messages
+};
+
+struct Sha256SparseFunctionResult {
+    bool valid;
+    uint32_t primary_sparse_real; // sparse form of primary input (e.sparse or a.sparse), IS_CONSTANT if not found
+    uint32_t result_real;         // output of the OUTPUT lookup (ch or maj result), IS_CONSTANT if not found
+};
+
+struct Sha256RoundState {
+    uint32_t a, b, c, d, e, f, g, h;
+    uint32_t b_sparse, c_sparse; // majority sparse forms (for b and c)
+    uint32_t f_sparse, g_sparse; // choose sparse forms (for f and g)
+};
 
 } // namespace sha256_helpers

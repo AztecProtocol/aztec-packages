@@ -2,19 +2,33 @@
 #include "barretenberg/boomerang_value_detection/opcode_constraint_map.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
 
 namespace cdg {
 
-struct BlockRange {
-    size_t first;
-    size_t last;
-    size_t size() const { return last - first + 1; }
+using sha256_helpers::Sha256RoundState;
+using sha256_helpers::Sha256SparseFunctionParams;
+using sha256_helpers::Sha256SparseFunctionResult;
+using sha256_helpers::Sha256SparseFunctionType;
+using sha256_helpers::Sha256SubcircuitBoundaries;
+/**
+ * @brief Result of find_and_validate_add_two_gate: gate index and output witness.
+ */
+struct AddTwoGateInfo {
+    size_t gate_idx;
+    uint32_t result_real; // real variable index of the output wire
 };
 
-struct Sha256SubcircuitBoundaries {
-    BlockRange lookup;
-    std::vector<size_t> constrained_gates;   // sorted arithmetic gate indices with non-zero selectors
-    std::vector<size_t> unconstrained_gates; // sorted arithmetic filler gate indices (all selectors zero)
+/**
+ * @brief Full wire info from an add_two gate, discovered by searching backward from output.
+ */
+struct AddTwoGateWires {
+    size_t gate_idx;
+    uint32_t w_l_real;
+    uint32_t w_r_real;
+    uint32_t w_o_real;
+    uint32_t w_4_real;
+    bool is_big_mul_add; // true = big_mul_add_gate (output in w_4), false = add_gate (output in w_o)
 };
 
 template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
@@ -34,6 +48,119 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool is_uncostrained_arithmetic_gate(size_t gate_index);
     std::optional<size_t> find_sha256_add_normalize_gate(uint32_t result_real, uint32_t hash_real);
     std::optional<std::vector<size_t>> find_sha256_decompose_gate(uint32_t result_real);
+    std::optional<AddTwoGateInfo> find_and_validate_add_two_gate(uint32_t a_real, uint32_t b_real, uint32_t c_real);
+    std::optional<AddTwoGateWires> find_add_two_gate_by_output(uint32_t output_real);
+    /**
+     * @brief Find an arithmetic gate matching specified wire positions.
+     *
+     * Searches for gates where ALL given witness indices appear on any wire (position-independent).
+     * Validates q_m=0, q_arith=1, and gate equation == 0.
+     * Searches via the first witness in the vector using get_variable_gates.
+     *
+     * @param witnesses Real variable indices to search for (all must appear on gate wires)
+     * @return Vector of matching gate indices (empty if none found).
+     */
+    std::vector<size_t> find_arithmetic_gate(const std::vector<uint32_t>& witnesses);
+    /**
+     * @brief Find and hash-validate a contiguous block of lookup gates starting from a known output witness.
+     *
+     * The output of read_from_1_to_2_table (lookup[C2][0]) appears in w_r of the first gate.
+     * Finds that gate, hashes `gate_count` consecutive gates' selectors, compares against pinned hash.
+     *
+     * @param output_real Real index of the lookup output (appears in w_r of first gate)
+     * @param gate_count Number of consecutive lookup gates to hash
+     * @param expected_hash Pinned selector hash (0 = skip hash check)
+     * @param log_prefix Label for error messages
+     * @return true if found and hash matches (or hash check skipped)
+     */
+    bool validate_sha256_lookup_block(uint32_t output_real,
+                                      size_t gate_count,
+                                      size_t expected_hash,
+                                      const char* log_prefix);
+    bool process_sha256comression_round(Sha256RoundState& state,
+                                        uint32_t w_i_real,
+                                        size_t round_idx,
+                                        uint32_t& discovered_w_i_real);
+    Sha256SparseFunctionResult validate_sha256_sparse_function(const Sha256SparseFunctionParams& params);
+    /**
+     * @brief Validate extend_witness reduction step for W[i] (i >= 16).
+     *
+     * Verifies: w_out_raw (= W[i]-1) exists, divisor gate equation holds,
+     * divisor has 2-bit range constraint. Returns w_out_raw's real index.
+     *
+     * @param w_i_real Real variable index of W[i] (must not be IS_CONSTANT)
+     * @return w_out_raw real index if valid, nullopt if validation fails
+     */
+    std::optional<uint32_t> validate_extend_witness_reduction(uint32_t w_i_real);
+    /**
+     * @brief Validate the w_out_raw add_two gate in extend_witness and discover xor_result.
+     *
+     * w_out_raw = xor_result.add_two(W[i-16], W[i-7])
+     * Searches backward from w_out_raw to find the add_two gate, verifies W[i-16] and W[i-7]
+     * on the expected wires, checks equation == 0, and returns xor_result's real index.
+     *
+     * @param w_out_raw_real Real index of w_out_raw (from validate_extend_witness_reduction)
+     * @param w_16_real Real index of W[i-16], or IS_CONSTANT
+     * @param w_7_real Real index of W[i-7], or IS_CONSTANT
+     * @param xor_result_const Whether xor_result is constant (w[i-15] && w[i-2] both constant)
+     * @return xor_result's real index (IS_CONSTANT if xor_result is constant) if valid, nullopt if fails
+     */
+    std::optional<uint32_t> validate_extend_witness_w_out_raw(uint32_t w_out_raw_real,
+                                                              uint32_t w_16_real,
+                                                              uint32_t w_7_real,
+                                                              bool xor_result_const);
+    /**
+     * @brief Validate the add_two chains that produce xor_result_sparse in extend_witness.
+     *
+     * Traces backward from xor_result_sparse through:
+     *   Right chain (3 add_two gates, from w_right data):
+     *     xor_result_sparse = prev2.add_two(corrections[3], left_xor_sparse)
+     *     prev2 = prev1.add_two(right[3], corrections[2])
+     *     prev1 = right[0].add_two(right[1], right[2])
+     *   Left chain (2 add_two gates, from w_left data):
+     *     left_before_mul = prev_l.add_two(left[3], corrections[1])
+     *     prev_l = left[0].add_two(left[1], left[2])
+     *
+     * @param xor_result_sparse_real Real index of xor_result_sparse (from lookup w_l)
+     * @param w_left_const Whether w[i-15] is constant (left chain absent)
+     * @param w_right_const Whether w[i-2] is constant (right chain absent except last add_two)
+     * @return true if all chains validate successfully
+     */
+    bool validate_extend_witness_add_two_chains(uint32_t xor_result_sparse_real, bool w_left_const, bool w_right_const);
+    /**
+     * @brief Validate the convert_witness lookup gates (SHA256_WITNESS_INPUT) for a W value.
+     *
+     * convert_witness creates 4 lookup gates. The first gate has:
+     *   w_l = input (W[j]), w_r = sparse_limbs[0] (C2), w_o = rotated_limb_corrections[0] (C3)
+     *
+     * Finds the gates via w_real in lookup w_l, hashes 4 consecutive gates' selectors,
+     * and returns sparse_limbs[0] and rotated_limb_corrections[0] for cross-validation.
+     *
+     * @param w_real Real index of the input W value (must not be IS_CONSTANT)
+     * @param expected_hash Pinned selector hash for WITNESS_INPUT (0 = skip)
+     * @return Pair of (sparse_limbs[0]_real, rotated_corrections[0]_real), or nullopt if fails
+     */
+    std::optional<std::pair<uint32_t, uint32_t>> validate_convert_witness_lookup(uint32_t w_real, size_t expected_hash);
+    /**
+     * @brief Validate one extend_witness iteration for W[i] (i >= 16, non-constant).
+     *
+     * Called after compression round discovers W[i]. Traces backward through:
+     *   Step 9: reduction (w_out → w_out_raw, divisor range check)
+     *   Step 8: w_out_raw add_two gate (discover xor_result)
+     *   Step 7: SHA256_WITNESS_OUTPUT lookup (hash selectors)
+     *   Steps 5-6: add_two chains for xor_result_sparse and left_xor_sparse
+     *   Steps 1-2: convert_witness lookups for W[i-15] and W[i-2] (hash selectors)
+     *
+     * @param w_i_real Real index of W[i] (must not be IS_CONSTANT)
+     * @param w_real Array of all 64 W real indices (IS_CONSTANT for constant entries)
+     * @param w_const Array of constant flags for all 64 W values
+     * @param i The extend_witness iteration index (16..63)
+     * @return true if all validations pass
+     */
+    bool validate_extend_witness_iteration(uint32_t w_i_real,
+                                           const std::array<uint32_t, 64>& w_real,
+                                           const std::array<bool, 64>& w_const,
+                                           size_t i);
 
     std::vector<size_t> find_range_list_unconstrained_gates(const CircuitBuilder::RangeList& range_list);
     std::optional<size_t> find_gate_matching_state(auto& block,
