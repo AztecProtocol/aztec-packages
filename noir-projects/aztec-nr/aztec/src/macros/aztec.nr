@@ -234,12 +234,8 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted) -> Quoted
                 _compute_note_hash,
                 _compute_note_nullifier,
                 $process_custom_message_option,
-<<<<<<< HEAD
-                Option::some(aztec::messages::processing::offchain::sync_inbox),
-=======
                 $offchain_inbox_sync_option,
                 scope,
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
             );
         }
     }

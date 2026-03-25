@@ -127,45 +127,6 @@ export class LogService {
     // Get all secrets for this recipient (one per sender)
     const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
-<<<<<<< HEAD
-    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
-    // (recipient = us, sender = us)
-    const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
-    // We deduplicate the senders by adding them to a set and then converting the set back to an array
-    const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
-      AztecAddress.fromString(sender),
-    );
-
-    // For each recipient, fetch secrets, load logs, and store them.
-    // We run these per-recipient tasks in parallel so that logs are loaded for all recipients concurrently.
-    await Promise.all(
-      recipients.map(async recipient => {
-        // Get all secrets for this recipient (one per sender)
-        const secrets = await this.#getSecretsForSenders(contractAddress, recipient, deduplicatedSenders);
-
-        // Load logs for all sender-recipient pairs in parallel
-        const logArrays = await Promise.all(
-          secrets.map(secret =>
-            loadPrivateLogsForSenderRecipientPair(
-              secret,
-              this.aztecNode,
-              this.recipientTaggingStore,
-              anchorBlockNumber,
-              anchorBlockHash,
-              this.jobId,
-            ),
-          ),
-        );
-
-        // Flatten all logs from all secrets
-        const allLogs = logArrays.flat();
-
-        // Store the logs for this recipient
-        if (allLogs.length > 0) {
-          await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
-        }
-      }),
-=======
     // Load logs for all sender-recipient pairs in parallel
     const logArrays = await Promise.all(
       secrets.map(secret =>
@@ -178,7 +139,6 @@ export class LogService {
           this.jobId,
         ),
       ),
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
     );
 
     // Flatten all logs from all secrets
@@ -192,7 +152,6 @@ export class LogService {
   async #getSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
-    senders: AztecAddress[],
   ): Promise<ExtendedDirectionalAppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
     if (!recipientCompleteAddress) {
@@ -200,8 +159,17 @@ export class LogService {
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
+    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
+    // (recipient = us, sender = us)
+    const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
+
+    // We deduplicate the senders by adding them to a set and then converting the set back to an array
+    const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
+      AztecAddress.fromString(sender),
+    );
+
     return Promise.all(
-      senders.map(sender => {
+      deduplicatedSenders.map(sender => {
         return ExtendedDirectionalAppTaggingSecret.compute(
           recipientCompleteAddress,
           recipientIvsk,

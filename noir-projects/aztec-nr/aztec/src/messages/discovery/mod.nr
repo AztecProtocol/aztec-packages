@@ -126,11 +126,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-<<<<<<< HEAD
-    let mut logs = get_private_logs(contract_address);
-=======
     let logs = get_private_logs(contract_address, scope);
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
             aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);

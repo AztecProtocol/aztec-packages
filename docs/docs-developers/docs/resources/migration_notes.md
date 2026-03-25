@@ -9,8 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
-=======
 ### [Aztec.nr] Capsule operations are now addressed by scope
 
 All capsule operations (`store`, `load`, `delete`, `copy`) and `CapsuleArray` now require a `scope: AztecAddress` parameter. This scopes capsule storage by address, providing isolation between different accounts within the same PXE.
@@ -85,8 +83,6 @@ The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
 +   from: address,
 + });
 ```
-
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
 ### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
 
 `ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.

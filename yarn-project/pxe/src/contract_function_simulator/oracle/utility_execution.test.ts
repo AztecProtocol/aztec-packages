@@ -342,22 +342,14 @@ describe('Utility Execution test suite', () => {
       it('throws when contractAddress does not match', async () => {
         const wrongAddress = await AztecAddress.random();
         await expect(
-<<<<<<< HEAD
-          utilityExecutionOracle.resolveMessageContexts(wrongAddress, requestSlot, responseSlot),
-=======
           utilityExecutionOracle.utilityResolveMessageContexts(wrongAddress, requestSlot, responseSlot, scope),
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
         ).rejects.toThrow(`Got a message context request from ${wrongAddress}, expected ${contractAddress}`);
       });
 
       it('sets null in response capsule for zero tx hashes', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[Fr.ZERO]]);
 
-<<<<<<< HEAD
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot);
-=======
         await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
 
         const response = capsuleStore.setCapsuleArray.mock.calls.find(
           call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
@@ -381,11 +373,7 @@ describe('Utility Execution test suite', () => {
           data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
         } as any);
 
-<<<<<<< HEAD
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot);
-=======
         await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
 
         const response = capsuleStore.setCapsuleArray.mock.calls.find(
           call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
@@ -407,11 +395,7 @@ describe('Utility Execution test suite', () => {
           data: { txHash, noteHashes: [], nullifiers: [Fr.random()] },
         } as any);
 
-<<<<<<< HEAD
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot);
-=======
         await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
 
         const response = capsuleStore.setCapsuleArray.mock.calls.find(
           call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
@@ -424,31 +408,19 @@ describe('Utility Execution test suite', () => {
       it('throws on empty capsule entry', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[]]);
         await expect(
-<<<<<<< HEAD
-          utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot),
-=======
           utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot, scope),
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
         ).rejects.toThrow('Malformed message context request at index 0: expected 1 field (tx hash), got 0');
       });
 
       it('throws on capsule entry with extra fields', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[Fr.random(), Fr.random()]]);
         await expect(
-<<<<<<< HEAD
-          utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot),
-=======
           utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot, scope),
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
         ).rejects.toThrow('Malformed message context request at index 0: expected 1 field (tx hash), got 2');
       });
 
       it('clears the request capsule after processing', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([]);
-<<<<<<< HEAD
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot);
-        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(contractAddress, requestSlot, [], 'test-job-id');
-=======
         await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
         expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
           contractAddress,
@@ -457,17 +429,12 @@ describe('Utility Execution test suite', () => {
           'test-job-id',
           scope,
         );
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
       });
 
       it('clears the request capsule even on error', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[]]);
         await expect(
-<<<<<<< HEAD
-          utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot),
-=======
           utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot, scope),
->>>>>>> 3029216084 (feat!: scoped capsules (#21533))
         ).rejects.toThrow();
         expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
           contractAddress,
