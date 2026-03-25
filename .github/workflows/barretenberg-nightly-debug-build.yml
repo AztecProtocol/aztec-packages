@@ -36,6 +36,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          export CI=1
           ./ci3/slack_notify_with_claudebox_kickoff "#honk-team" \
             "Nightly debug build FAILED: <${RUN_URL}|View Run> (🤖)" \
             "Nightly barretenberg debug build failed. CI run: ${RUN_URL}. Investigate the build failure, identify the root cause, and create a fix PR targeting next." \

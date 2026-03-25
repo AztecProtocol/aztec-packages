@@ -29,15 +29,14 @@ pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) note_completion_log_tag: Field,
     pub(crate) note_type_id: Field,
     pub(crate) packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>,
-    pub(crate) recipient: AztecAddress,
 }
 
 pub(crate) unconstrained fn process_partial_note_private_msg(
     contract_address: AztecAddress,
-    recipient: AztecAddress,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
+    scope: AztecAddress,
 ) {
     let decoded = decode_partial_note_private_message(msg_metadata, msg_content);
 
@@ -52,12 +51,12 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
             note_completion_log_tag,
             note_type_id,
             packed_private_note_content,
-            recipient,
         };
 
         CapsuleArray::at(
             contract_address,
             DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+            scope,
         )
             .push(pending);
     } else {
@@ -75,10 +74,12 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
+    scope: AztecAddress,
 ) {
     let pending_partial_notes = CapsuleArray::at(
         contract_address,
         DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+        scope,
     );
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
@@ -86,7 +87,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // Each of the pending partial notes might get completed by one or more logs containing its public
     // values. For performance reasons, we fetch all of these logs concurrently and then process them one
     // by one, minimizing the amount of time waiting for the node roundtrip.
-    let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes, scope);
 
     // Each entry in the completion logs array corresponds to the entry in the pending partial notes array at the
     // same index. This means we can use the same index as we iterate through the responses to get both the partial
@@ -166,7 +167,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                     discovered_note.note_hash,
                     discovered_note.inner_nullifier,
                     log.tx_hash,
-                    pending_partial_note.recipient,
+                    scope,
                 );
             });
 
@@ -204,6 +205,7 @@ mod test {
                 contract_address,
                 compute_note_hash,
                 compute_note_nullifier,
+                AztecAddress::zero(),
             );
         });
     }
@@ -221,6 +223,7 @@ mod test {
                 contract_address,
                 compute_note_hash,
                 compute_note_nullifier,
+                AztecAddress::zero(),
             );
 
             // The pending note should not be removed since there was no completion log to process it.
@@ -233,14 +236,16 @@ mod test {
         contract_address: AztecAddress,
         response_count: u32,
     ) -> CapsuleArray<DeliveredPendingPartialNote> {
+        let scope = AztecAddress::zero();
         let pending_notes: CapsuleArray<DeliveredPendingPartialNote> = CapsuleArray::at(
             contract_address,
             DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+            scope,
         );
         pending_notes.push(make_dummy_pending_note());
 
         let response_slot = compute_per_request_response_slot(0);
-        let responses: CapsuleArray<LogRetrievalResponse> = CapsuleArray::at(contract_address, response_slot);
+        let responses: CapsuleArray<LogRetrievalResponse> = CapsuleArray::at(contract_address, response_slot, scope);
         for _ in 0..response_count {
             responses.push(make_dummy_response());
         }

@@ -228,7 +228,7 @@ jobs:
 
   update-irm:
     needs: deploy-network
-    if: contains(inputs.network, 'testnet') && !contains(inputs.semver, '-')
+    if: contains(inputs.network, 'testnet')
     uses: ./.github/workflows/deploy-irm.yml
     secrets: inherit
     with:

@@ -346,14 +346,18 @@ async function deployTokenAndMint(
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
-  const {
-    receipt: { contract: tokenContract },
-  } = await TokenContract.deploy(wallet, admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS).send({
+  const { contract: tokenContract } = await TokenContract.deploy(
+    wallet,
+    admin,
+    TOKEN_NAME,
+    TOKEN_SYMBOL,
+    TOKEN_DECIMALS,
+  ).send({
     from: admin,
     fee: {
       paymentMethod,
     },
-    wait: { timeout: 600, returnReceipt: true },
+    wait: { timeout: 600 },
   });
 
   const tokenAddress = tokenContract.address;

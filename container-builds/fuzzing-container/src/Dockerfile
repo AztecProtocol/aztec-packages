@@ -65,6 +65,14 @@ RUN cmake --build build-fuzzing-cov
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-avm
 RUN cmake --build build-fuzzing-avm && mv build-fuzzing-avm/bin bin-fuzzing-avm && rm -rf build-fuzzing-avm
 
+# Merge per-preset manifests into unified manifest
+RUN python3 scripts/merge_fuzzer_manifests.py \
+    bin-fuzzing/fuzzer_manifest.json \
+    bin-fuzzing-noasm/fuzzer_manifest.json \
+    bin-fuzzing-avm/fuzzer_manifest.json \
+    build-fuzzing-cov/bin/fuzzer_manifest.json \
+    --output /tmp/fuzzer_manifest.json
+
 # Runtime stage
 FROM ubuntu:noble AS runtime
 
@@ -102,6 +110,9 @@ COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-c
 
 # Copy CRS
 COPY --from=builder /root/.bb-crs /root/.bb-crs
+
+# Copy fuzzer manifest
+COPY --from=builder /tmp/fuzzer_manifest.json ./fuzzer_manifest.json
 
 # Copy entrypoint script
 COPY entrypoint.sh .
