@@ -167,6 +167,8 @@ WsdbFindLeafIndices::Response WsdbFindLeafIndices::execute(WsdbRequest& request)
             revision, treeId, typed_leaves, response.indices, startIndex);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type for find_leaf_indices");
     }
     return response;
 }
@@ -198,6 +200,8 @@ WsdbFindSiblingPaths::Response WsdbFindSiblingPaths::execute(WsdbRequest& reques
         request.world_state.find_sibling_paths<NullifierLeafValue>(revision, treeId, typed_leaves, response.paths);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type for find_sibling_paths");
     }
     return response;
 }
@@ -226,6 +230,8 @@ WsdbAppendLeaves::Response WsdbAppendLeaves::execute(WsdbRequest& request) &&
         request.world_state.append_leaves<NullifierLeafValue>(treeId, typed_leaves, forkId);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type for append_leaves");
     }
     return Response{};
 }
