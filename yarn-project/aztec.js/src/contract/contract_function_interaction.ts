@@ -19,6 +19,7 @@ import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
@@ -130,7 +131,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
       const utilityResult = await this.wallet.executeUtility(call, {
-        scope: options.from,
+        scopes: options.from === NO_FROM ? [] : [options.from],
         authWitnesses: options.authWitnesses,
       });
 

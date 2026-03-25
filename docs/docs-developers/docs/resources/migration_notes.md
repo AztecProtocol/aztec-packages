@@ -9,6 +9,159 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Capsule operations are now addressed by scope
+
+All capsule operations (`store`, `load`, `delete`, `copy`) and `CapsuleArray` now require a `scope: AztecAddress` parameter. This scopes capsule storage by address, providing isolation between different accounts within the same PXE.
+
+Contracts that use `CapsuleArray` directly also need to update.
+
+**Migration:**
+
+```diff
+- let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, slot);
++ let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, slot, scope);
+```
+
+The low-level capsule functions are similarly affected:
+
+```diff
+- capsules::store(contract_address, slot, value);
++ capsules::store(contract_address, slot, value, scope);
+
+- capsules::load(contract_address, slot);
++ capsules::load(contract_address, slot, scope);
+
+- capsules::delete(contract_address, slot);
++ capsules::delete(contract_address, slot, scope);
+
+- capsules::copy(contract_address, src_slot, dst_slot, num_entries);
++ capsules::copy(contract_address, src_slot, dst_slot, num_entries, scope);
+```
+
+If you need to stick the old, scope-less behavior, and you are really sure that that's what you need to use, you can use `scope = AztecAddress::zero()`.
+
+### [Aztec.nr] `process_message` utility function removed
+
+The auto-generated `process_message` utility function has been removed. If you need to deliver offchain messages (messages not broadcast via onchain logs), use the `offchain_receive` utility function instead. This function is automatically injected by the `#[aztec]` macro and accepts messages into a persistent inbox scoped by recipient. These messages are then picked up and processed during `sync_state`.
+
+**Impact**: Contracts that explicitly called `process_message` must switch to delivering messages via `offchain_receive` and letting `sync_state` handle processing.
+
+### [Aztec.nr] `CustomMessageHandler` type signature changed
+
+The `CustomMessageHandler` function type now receives an additional `scope: AztecAddress` parameter:
+
+```diff
+  type CustomMessageHandler = unconstrained fn(
+      AztecAddress,    // contract_address
+      u64,             // msg_type_id
+      u64,             // msg_metadata
+      BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,  // msg_content
+      MessageContext,  // message_context
++     AztecAddress,    // scope
+  );
+```
+
+**Impact**: Contracts that implement a custom message handler must update the function signature.
+
+### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
+
+The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
+
+The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
+
+**Migration:**
+
+```diff
+- const {
+-   receipt: { contract, instance },
+- } = await MyContract.deploy(wallet, ...args).send({
+-   from: address,
+-   wait: { returnReceipt: true },
+- });
+
++ const { contract, instance } = await MyContract.deploy(wallet, ...args).send({
++   from: address,
++ });
+```
+
+### [aztec.js] `isContractInitialized` is now `initializationStatus` tri-state enum
+
+`ContractMetadata.isContractInitialized` has been renamed to `ContractMetadata.initializationStatus` and changed from `boolean | undefined` to a `ContractInitializationStatus` enum with values `INITIALIZED`, `UNINITIALIZED`, and `UNKNOWN`.
+
+- `INITIALIZED`: the contract has been initialized (initialization nullifier found)
+- `UNINITIALIZED`: the contract instance is registered but has not been initialized
+- `UNKNOWN`: the instance is not registered and no public initialization nullifier was found
+
+When the instance is not registered, the wallet now attempts to check the public initialization nullifier (computed from address alone) before returning `UNKNOWN`. Previously this case returned `undefined`.
+
+**Migration:**
+
+```diff
++ import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
+
+  const metadata = await wallet.getContractMetadata(address);
+- if (metadata.isContractInitialized) {
++ if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
+    // contract is initialized
+  }
+```
+
+### [Aztec.js] Use `NO_FROM` instead of `AztecAddress.ZERO` to bypass account contract entrypoint
+
+When sending transactions that should not be mediated by an account contract (e.g., account contract self-deployments), use the explicit `NO_FROM` sentinel instead of `AztecAddress.ZERO`.
+
+`NO_FROM` signals that the transaction should be executed directly via the `DefaultEntrypoint`. This replaces the brittle convention of passing `AztecAddress.ZERO` as the `from` field.
+
+**Migration:**
+
+```diff
+- import { AztecAddress } from '@aztec/aztec.js';
++ import { NO_FROM } from '@aztec/aztec.js/account';
+
+  await contract.methods.my_method().send({
+-   from: AztecAddress.ZERO,
++   from: NO_FROM,
+  });
+```
+
+Note that `DefaultEntrypoint` only accepts a single call. If you need to execute multiple calls without account contract mediation (e.g., deploying an account contract and paying a fee in the same transaction), wrap them through `DefaultMultiCallEntrypoint` on the app side before sending:
+
+```typescript
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { DefaultMultiCallEntrypoint } from "@aztec/entrypoints/multicall";
+import { mergeExecutionPayloads } from "@aztec/stdlib/tx";
+
+// Merge multiple execution payloads into one
+const merged = mergeExecutionPayloads([deployPayload, feePayload]);
+
+// Wrap through multicall so it becomes a single call for DefaultEntrypoint
+const multicall = new DefaultMultiCallEntrypoint();
+const chainInfo = await wallet.getChainInfo();
+const wrappedPayload = await multicall.wrapExecutionPayload(merged, chainInfo);
+
+// Send without account contract mediation
+await wallet.sendTx(wrappedPayload, { from: NO_FROM });
+```
+
+Using other contracts for wrapping (for example, supporting more calls) is also supported, as long as the contract is registered in the wallet. This opens the door to different flows that do not use account entrypoints as the first call in the chain, including app sponsored FPCs.
+
+**Impact**: Any code that passes `AztecAddress.ZERO` as the `from` option in `.send()`, `.simulate()`, or deploy options must switch to `NO_FROM`. Wallets use `DefaultEntrypoint` directly for `NO_FROM` transactions, instead of the `DefaultMultiCallEntrypoint` that was used internally before when specifying `AztecAddress.ZERO`.
+
+### [Aztec.js] `ExecuteUtilityOptions.scope` renamed to `scopes` and type changed to `AztecAddress[]`
+
+The `scope` field in `ExecuteUtilityOptions` has been renamed to `scopes` and changed from a single `AztecAddress` to `AztecAddress[]`. This aligns the wallet's `executeUtility` API with the PXE API and `sendTx` in `Wallet`, which both accept an array of scopes.
+
+**Migration:**
+
+```diff
+  wallet.executeUtility(call, {
+-   scope: myAddress,
++   scopes: [myAddress],
+  });
+```
+
+**Impact**: Any code that calls `wallet.executeUtility` directly must update the options object. Wallets must update to adapt to the new interface
+
 ### [Aztec.nr] `attempt_note_discovery` now takes two separate functions instead of one
 
 The `attempt_note_discovery` function (and related discovery functions like `do_sync_state`, `process_message_ciphertext`) now takes separate `compute_note_hash` and `compute_note_nullifier` arguments instead of a single combined `compute_note_hash_and_nullifier`. The corresponding type aliases are now `ComputeNoteHash` and `ComputeNoteNullifier` (instead of `ComputeNoteHashAndNullifier`).
@@ -20,7 +173,7 @@ Most contracts are not affected, as the macro-generated `sync_state` and `proces
 **Migration:**
 
 ```diff
-  attempt_note_discovery(
+    attempt_note_discovery(
       contract_address,
       tx_hash,
       unique_note_hashes_in_tx,
@@ -127,6 +280,8 @@ The `maxLogsHit` flag indicates whether the log limit was reached, meaning more 
 ### [Aztec.nr] Removed `get_random_bytes`
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
+
+## 4.1.0-rc.2
 
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 

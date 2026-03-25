@@ -10,7 +10,7 @@
 #   ./run.sh connection     # Run specific example
 #   ./run.sh getting_started advanced  # Run multiple examples
 #
-# Available examples: connection, getting_started, advanced, authwit, testing
+# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification
 
 set -euo pipefail
 
@@ -116,6 +116,18 @@ run_project() {
 
     cd "$project_dir"
 
+    # Run setup command if specified in config.yaml (e.g., proof generation)
+    local setup_cmd
+    setup_cmd="$(yq eval '.setup // ""' config.yaml 2>/dev/null)"
+    if [ -n "$setup_cmd" ]; then
+        echo -e "${YELLOW}Running setup: $setup_cmd${NC}"
+        if ! eval "$setup_cmd"; then
+            echo -e "${RED}✗ FAIL - $project_name setup failed${NC}"
+            return 1
+        fi
+        echo -e "${GREEN}✓ Setup complete${NC}"
+    fi
+
     local start_time=$(date +%s)
     local max_retries=5
 
@@ -154,7 +166,8 @@ cleanup_project() {
            "$project_dir/tsconfig.json" \
            "$project_dir/.yarnrc.yml" \
            "$project_dir/artifacts" \
-           "$project_dir/codegenCache.json" 2>/dev/null || true
+           "$project_dir/codegenCache.json" \
+           "$project_dir/data.json" 2>/dev/null || true
     # Keep yarn.lock empty
     > "$project_dir/yarn.lock"
 }
@@ -163,7 +176,7 @@ cleanup_project() {
 # Note: bob_token_contract and other custom contract examples require verification keys
 # which aren't generated during docs compilation, so they're not included by default
 if [ $# -eq 0 ]; then
-    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap")
+    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap" "aave_bridge" "recursive_verification")
 else
     EXAMPLES=()
     for arg in "$@"; do
@@ -174,6 +187,8 @@ else
             authwit)         EXAMPLES+=("aztecjs_authwit") ;;
             testing)         EXAMPLES+=("aztecjs_testing") ;;
             swap)            EXAMPLES+=("example_swap") ;;
+            aave_bridge)     EXAMPLES+=("aave_bridge") ;;
+            recursive_verification) EXAMPLES+=("recursive_verification") ;;
             *)
                 if [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
                     EXAMPLES+=("aztecjs_$arg")

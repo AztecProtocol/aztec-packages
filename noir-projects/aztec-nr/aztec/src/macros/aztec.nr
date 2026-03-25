@@ -101,8 +101,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     let fn_abi_exports = create_fn_abi_exports(m);
 
     // We generate `_compute_note_hash`, `_compute_note_nullifier` (and the deprecated
-    // `_compute_note_hash_and_nullifier` wrapper), `sync_state` and `process_message` functions only if they are not
-    // already implemented. If they are implemented we just insert empty quotes.
+    // `_compute_note_hash_and_nullifier` wrapper) and `sync_state` functions only if they are not already implemented.
+    // If they are implemented we just insert empty quotes.
     let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
         // Note that we don't test for `_compute_note_hash` or `_compute_note_nullifier` in order to make this simpler
         // - users must either implement all three or none.
@@ -137,11 +137,6 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     }
     let offchain_receive_fn_and_abi_export = generate_offchain_receive();
 
-    let process_message_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { process_message }) {
-        generate_process_message(process_custom_message_option)
-    } else {
-        quote {}
-    };
     let (has_public_init_nullifier_fn, emit_public_init_nullifier_fn_body) = generate_emit_public_init_nullifier(m);
     let public_dispatch = generate_public_dispatch(m, has_public_init_nullifier_fn);
 
@@ -154,7 +149,6 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
         $sync_state_fn_and_abi_export
-        $process_message_fn_and_abi_export
         $emit_public_init_nullifier_fn_body
         $offchain_receive_fn_and_abi_export
     }
@@ -227,7 +221,9 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 /// Generates the `sync_state` utility function that performs message discovery.
 comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_inbox_sync_option: Quoted) -> Quoted {
     quote {
-        pub struct sync_state_parameters {}
+        pub struct sync_state_parameters {
+            pub scope: aztec::protocol::address::AztecAddress,
+        }
 
         #[abi(functions)]
         pub struct sync_state_abi {
@@ -235,7 +231,7 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_
         }
 
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
-        unconstrained fn sync_state() {
+        unconstrained fn sync_state(scope: aztec::protocol::address::AztecAddress) {
             let address = aztec::context::UtilityContext::new().this_address();
             aztec::messages::discovery::do_sync_state(
                 address,
@@ -243,43 +239,8 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_
                 _compute_note_nullifier,
                 $process_custom_message_option,
                 $offchain_inbox_sync_option,
+                scope,
             );
-        }
-    }
-}
-
-/// Generates the `process_message` utility function that processes a single message ciphertext.
-comptime fn generate_process_message(process_custom_message_option: Quoted) -> Quoted {
-    quote {
-        pub struct process_message_parameters {
-            pub message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            pub message_context: aztec::messages::processing::MessageContext,
-        }
-
-        #[abi(functions)]
-        pub struct process_message_abi {
-            parameters: process_message_parameters,
-        }
-
-        #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
-        unconstrained fn process_message(
-            message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            message_context: aztec::messages::processing::MessageContext,
-        ) {
-            let address = aztec::context::UtilityContext::new().this_address();
-
-            aztec::messages::discovery::process_message::process_message_ciphertext(
-                address,
-                _compute_note_hash,
-                _compute_note_nullifier,
-                $process_custom_message_option,
-                message_ciphertext,
-                message_context,
-            );
-
-            // At this point, the note is pending validation and storage in the database. We must call
-            // validate_and_store_enqueued_notes_and_events to complete that process.
-            aztec::messages::processing::validate_and_store_enqueued_notes_and_events(address);
         }
     }
 }
@@ -302,6 +263,8 @@ comptime fn generate_offchain_receive() -> Quoted {
         }
 
         /// Receives offchain messages into this contract's offchain inbox for subsequent processing.
+        ///
+        /// Each message is routed to the inbox scoped to its `recipient` field.
         ///
         /// For more details, see `aztec::messages::processing::offchain::receive`.
         ///

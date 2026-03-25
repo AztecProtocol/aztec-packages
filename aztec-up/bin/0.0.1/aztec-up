@@ -103,8 +103,10 @@ function is_semver {
 # Resolve alias (like "nightly") to actual version number
 function resolve_version {
   local version="$1"
-  if is_semver "$version"; then
-    echo "$version"
+  # Strip leading v from semver-like inputs (v0.85.0 -> 0.85.0), but not aliases (v4-nightly)
+  local stripped="${version#v}"
+  if is_semver "$stripped"; then
+    echo "$stripped"
   else
     # Fetch alias file to get actual version
     local resolved
@@ -314,6 +316,11 @@ function cmd_uninstall {
     exit 1
   fi
 
+  if ! is_semver "$version"; then
+    echo "Error: Invalid version '$version'. Expected a semver string (e.g. 0.85.0)."
+    exit 1
+  fi
+
   local current_version
   current_version=$(get_current_version)
 
@@ -376,7 +383,7 @@ function cmd_prune {
   done
   echo
 
-  read -p "Continue? (y/n) " -n 1 -r
+  read -p "Continue? (y/N) " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Aborted."

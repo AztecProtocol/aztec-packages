@@ -2,11 +2,11 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { MessageContext } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import { MessageTxContext } from '../contract_function_simulator/noir-structs/message_tx_context.js';
 import { MessageContextService } from './message_context_service.js';
 
 describe('MessageContextService', () => {
@@ -63,7 +63,7 @@ describe('MessageContextService', () => {
     );
   });
 
-  it('resolves a valid tx hash into a MessageTxContext', async () => {
+  it('resolves a valid tx hash into a MessageContext', async () => {
     const txHash = TxHash.random();
     const noteHashes = [Fr.random(), Fr.random()];
     const firstNullifier = Fr.random();
@@ -77,7 +77,7 @@ describe('MessageContextService', () => {
 
     const results = await service.resolveMessageContexts([txHash.hash], anchorBlockNumber);
 
-    expect(results).toEqual([new MessageTxContext(txHash, noteHashes, firstNullifier)]);
+    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier)]);
   });
 
   it('resolves tx hashes in different situations', async () => {
@@ -111,14 +111,14 @@ describe('MessageContextService', () => {
     const results = await service.resolveMessageContexts(
       [
         Fr.ZERO, // zero → null
-        validTxHash.hash, // valid → MessageTxContext
+        validTxHash.hash, // valid → MessageContext
         notFoundTxHash.hash, // not found → null
         futureTxHash.hash, // beyond anchor → null
       ],
       anchorBlockNumber,
     );
 
-    expect(results).toEqual([null, new MessageTxContext(validTxHash, validNoteHashes, validNullifier), null, null]);
+    expect(results).toEqual([null, new MessageContext(validTxHash, validNoteHashes, validNullifier), null, null]);
 
     // Zero hash should not trigger getTxEffect
     expect(aztecNode.getTxEffect).toHaveBeenCalledTimes(3);

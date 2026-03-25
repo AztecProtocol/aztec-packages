@@ -514,6 +514,8 @@ bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer
             request.value.revision, request.value.treeId, r3.value.leaves, response.indices, r3.value.startIndex);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type");
     }
 
     MsgHeader header(request.header.messageId);
@@ -555,6 +557,8 @@ bool WorldStateWrapper::find_sibling_paths(msgpack::object& obj, msgpack::sbuffe
             request.value.revision, request.value.treeId, r3.value.leaves, response.paths);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type");
     }
 
     MsgHeader header(request.header.messageId);
@@ -607,6 +611,8 @@ bool WorldStateWrapper::append_leaves(msgpack::object& obj, msgpack::sbuffer& bu
         _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
         break;
     }
+    default:
+        throw std::runtime_error("Unsupported tree type");
     }
 
     MsgHeader header(request.header.messageId);

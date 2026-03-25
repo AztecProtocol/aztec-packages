@@ -39,7 +39,7 @@ function inject_version {
   # Re-sign after modifying the binary.
   if [[ "$(os)" == "macos" ]]; then
     codesign -s - -f "$binary" 2>/dev/null || true
-  elif llvm-objdump --macho --private-header "$binary" &>/dev/null; then
+  elif llvm-objdump-20 --macho --private-header "$binary" 2>/dev/null | grep -q "Mach header"; then
     ldid -S "$binary"
   fi
 }
@@ -323,10 +323,10 @@ function bench {
   bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
-# Upload assets to release.
+# Upload assets to release in AztecProtocol/barretenberg.
 function release {
   echo_header "bb cpp release"
-  do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
+  do_or_dryrun gh release upload $REF_NAME build-release/* --repo AztecProtocol/barretenberg --clobber
 }
 
 function bench_ivc {

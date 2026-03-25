@@ -1,37 +1,124 @@
 include "calldata.pil";
-include "precomputed.pil";
-include "poseidon2_hash.pil";
 include "constants_gen.pil";
+include "poseidon2_hash.pil";
+include "precomputed.pil";
 
-// ###########
-// Calldata Hashing
-// ###########
-//
-// This circuit constrains the correctness of the calldata hash (output_hash) and
-// size (calldata_size) from the calldata.pil trace. The hash is used in the public inputs
-// (see tx.pil -> #[READ_PUBLIC_CALL_REQUEST_PHASE]) and the size in execution (see tx.pil ->
-// #[DISPATCH_EXEC_START] and data_copy.pil -> #[DISPATCH_CD_COPY], 'parent_calldata_size')
-// for accessing calldata.
-//
-// As in bytecode hashing, we must process each field of the calldata and ensure it is included
-// in the preimage to a poseidon2 hash with no extra or omitted fields. Each row corresponds to a
-// poseidon permutation (3 fields). We constrain the size and output hash fully once each row is
-// processed, so this trace should be looked up by the final row (where latch == 1).
-//
-// Note that in calldata.pil, the incrementing index starts at 1:
-// cd_hash_0 = H([sep, 0x111, 0x222, 0x333, 0x444])
-// cd_hash_1 = H([sep, 0xaaa, 0xbbb])
-//   index_0_ |  index_1_ | index_2_ | context_id | input_0_ | input_1_ | input_2_ | output_hash | latch | start | rounds_rem | padding | calldata_size |
-// -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+------------+---------+---------------+
-//     0      |     1     |     2    |      1     |    sep   |   0x111  |   0x222  |  cd_hash_0  |   0   |   1   |     2      |    0    |       4       |
-//     3      |     4     |     5    |      1     |   0x333  |   0x444  |     0    |  cd_hash_0  |   1   |   0   |     1      |    1    |       4       |
-//     0      |     1     |     2    |      2     |    sep   |   0xaaa  |   0xbbb  |  cd_hash_1  |   1   |   1   |     1      |    0    |       2       |
-//
-// For empty calldata, we lookup a special row to the calldata.pil trace where index = 0 and latch = 1 for the context_id:
-//   index_0_ |  index_1_ | index_2_ | context_id | input_0_ | input_1_ | input_2_ | output_hash | latch | start | rounds_rem | padding | calldata_size |
-// -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+------------+---------+---------------+
-//     0      |     1     |     2    |      1     |    sep   |     0    |     0    |   H([sep])  |   1   |   1   |     1      |    2    |       0       |
-//
+/**
+ * Calldata Hashing
+ *
+ * Verifies that a claimed calldata hash (output_hash) and size (calldata_size) are consistent
+ * with the actual calldata fields stored in calldata.pil. This is the central link in the
+ * calldata trust chain:
+ *
+ *                                                   poseidon2_hash
+ *                                                       ^
+ *                                                       |
+ *                                                       |
+ *                                                       |         [lookups + permutation]
+ *   public inputs <--------- tx.pil <============> calldata_hashing <=========> calldata.pil
+ *                              /\                                                  ^
+ *                              ||                                                  |
+ *                              \/                                                  |
+ *                          execution.pil <==========> data_copy.pil ---------------+
+ *
+ *   ------> = lookup (arrow tip at the destination trace)
+ *   <======> = permutation (bidirectional, 1-to-1)
+ *
+ * tx.pil reads calldata_hash from the transaction's public inputs (#[READ_PUBLIC_CALL_REQUEST_PHASE])
+ * and performs a permutation into this trace (#[READ_CALLDATA_HASH]) to bind (output_hash,
+ * calldata_size, context_id). This trace then:
+ *   - Looks up every calldata field from calldata.pil (#[GET_CALLDATA_FIELD_0/1/2]).
+ *   - Feeds them (with a prepended domain separator) into a Poseidon2 hash (#[POSEIDON2_HASH]).
+ *   - Verifies that calldata_size equals the last non-padding index (#[CHECK_FINAL_INDEX]).
+ *   - For non-empty calldata, performs a permutation with calldata.pil (#[CHECK_FINAL_SIZE])
+ *     to ensure calldata.pil's final index matches calldata_size.
+ *
+ * As in bytecode hashing, we must process each field of the calldata and ensure it is included
+ * in the preimage to a Poseidon2 hash with no extra or omitted fields. Each row corresponds to
+ * one Poseidon2 permutation (3 input fields). The output hash and size are constrained to be
+ * consistent across all rows (#[HASH_CONSISTENCY], #[SIZE_CONSISTENCY]), so the final values
+ * at end == 1 represent the complete result.
+ *
+ * tx.pil also dispatches calldata_size to the execution trace (#[DISPATCH_EXEC_START]), which
+ * feeds it to data_copy.pil for CALLDATACOPY. data_copy.pil reads individual values from
+ * calldata.pil (#[COL_READ]), which are trustworthy because this trace has already verified
+ * them against the hash.
+ *
+ * EMPTY CALLDATA:
+ * When calldata is empty (calldata_size = 0), the only hashed input is the domain separator.
+ * Both Poseidon2 input slots after the separator are padding (PADDING_1 = PADDING_2 = 1).
+ * In this case, sel_end_not_empty evaluates to 0 (since start = 1 and PADDING_1 = 1), so
+ * the #[CHECK_FINAL_SIZE] permutation does not fire and no entry is required in calldata.pil.
+ * The hash H([separator, 0, 0]) is still verified via #[POSEIDON2_HASH], and the size is
+ * checked to be 0 via #[CHECK_FINAL_INDEX].
+ *
+ * PRECONDITIONS:
+ * - The calldata.pil trace must be populated with the correct calldata fields for each context_id.
+ * - The permutation from tx.pil to this trace must be invoked with distinct context_ids for each
+ *   enqueued call.
+ *
+ * See "SECURITY ARGUMENT" section in calldata.pil for more details on the security of the calldata
+ * pipeline.
+ *
+ * USAGE:
+ *
+ * Read calldata hash, size, and context_id (tx.pil #[READ_CALLDATA_HASH]):
+ *
+ *   caller_sel {
+ *       calldata_hash, calldata_size, context_id
+ *   } is calldata_hashing.end {
+ *       calldata_hashing.output_hash, calldata_hashing.calldata_size, calldata_hashing.context_id
+ *   };
+ *
+ *   - Inputs: context_id, calldata_hash.
+ *   - Outputs: calldata_size.
+ *   - Selector: calldata_hashing.end (only the final row per calldata instance).
+ *   - Note: this is a permutation (is), not a lookup (in).
+ *
+ * TRACE SHAPE:
+ * Variable number of rows per context_id — one row per Poseidon2 permutation (3 fields per row).
+ * Row count: ceil((calldata_size + 1) / 3), where +1 accounts for the prepended domain separator.
+ * Padding fields (= 0) fill the last row if the total input length is not a multiple of 3.
+ * The final row for each context_id has end = 1.
+ *
+ * Note that in calldata.pil, the incrementing index starts at 1:
+ * cd_hash_0 = H([sep, 0x111, 0x222, 0x333, 0x444])
+ * cd_hash_1 = H([sep, 0xaaa, 0xbbb])
+ *   index_0_ |  index_1_ | index_2_ | context_id | input_0_ | input_1_ | input_2_ | output_hash |  end  | start | sel_not_start | rounds_rem | sel_not_padding_1 | sel_not_padding_2 | calldata_size | input_len | sel_end_not_empty |
+ * -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+---------------+------------+-------------------+-------------------+---------------+-----------+-------------------+
+ *     0      |     1     |     2    |      1     |    sep   |   0x111  |   0x222  |  cd_hash_0  |   0   |   1   |       0       |     2      |         1         |         1         |       4       |     5     |         0         |
+ *     3      |     4     |     5    |      1     |   0x333  |   0x444  |     0    |  cd_hash_0  |   1   |   0   |       1       |     1      |         1         |         0         |       4       |     5     |         1         |
+ *     0      |     1     |     2    |      2     |    sep   |   0xaaa  |   0xbbb  |  cd_hash_1  |   1   |   1   |       0       |     1      |         1         |         1         |       2       |     3     |         1         |
+ *
+ * For empty calldata (calldata_size = 0), no fields are looked up from calldata.pil:
+ *   index_0_ |  index_1_ | index_2_ | context_id | input_0_ | input_1_ | input_2_ | output_hash |  end  | start | sel_not_start | rounds_rem | sel_not_padding_1 | sel_not_padding_2 | calldata_size | input_len | sel_end_not_empty |
+ * -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+---------------+------------+-------------------+-------------------+---------------+-----------+-------------------+
+ *     0      |     1     |     2    |      1     |    sep   |     0    |     0    |   H([sep])  |   1   |   1   |       0       |     1      |         0         |         0         |       0       |     1     |         0         |
+ *
+ * ERROR HANDLING: This gadget does not have error conditions. It is part of the infallible
+ * set of operations in the AVM (similar to bytecode hashing).
+ *
+ * INTERACTIONS:
+ * - calldata: lookups for individual field values via #[GET_CALLDATA_FIELD_0/1/2] and final
+ *   size permutation via #[CHECK_FINAL_SIZE] (non-empty calldata only).
+ * - poseidon2_hash: lookup for Poseidon2 hash computation via #[POSEIDON2_HASH].
+ * - tx: looked up by tx.pil via #[READ_CALLDATA_HASH] at end rows.
+ *
+ * @column sel Selector for active rows.
+ * @column end Designates the final row for a given context_id's hashing.
+ * @column sel_end_not_empty Committed selector: 1 on end rows of non-empty calldata.
+ * @column context_id Identifies which enqueued call this calldata hash belongs to.
+ * @column calldata_size The number of calldata fields for this context_id.
+ * @column start Marks the first row of a new context_id hashing run.
+ * @column sel_not_start Selector for an active row which is not the first row of a new context_id hashing run.
+ * @column input[3] The three inputs to each Poseidon2 permutation round.
+ * @column index[3] The indices of the inputs (starting at 0 for the separator).
+ * @column sel_not_padding_1 Selector: 1 if input[1] is not a padding value.
+ * @column sel_not_padding_2 Selector: 1 if input[2] is not a padding value.
+ * @column output_hash The Poseidon2 hash output, propagated to all rows and finalized at end.
+ * @column input_len The total number of hashed fields including the separator (= calldata_size + 1).
+ * @column rounds_rem The number of Poseidon2 permutation rounds remaining (decrements each row, equals 1 at end).
+ */
 namespace calldata_hashing;
 
     #[skippable_if]
@@ -39,89 +126,110 @@ namespace calldata_hashing;
 
     pol commit sel; // @boolean
     sel * (1 - sel) = 0;
-    // If sel = 0, sel' != 1
+
+    // ==== MULTI-ROW COMPUTATION SELECTORS ====
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+
+    pol commit start; // @boolean
+    start * (1 - start) = 0;
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
+
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    // If start or end is active, sel must be active.
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    // Note: sel * (1 - LATCH_CONDITION) simplifies to (sel - end) because:
+    //   - end == 1 ==> sel == 1 (by #[SEL_ON_START_OR_END]), so sel * end = end.
+    //   - sel == 0 on the first row (proving system guarantee), so sel * first_row = 0.
+
+    // sel is continuous within a computation block: it cannot change except at a latch (after end == 1).
     #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
 
-    pol commit latch; // @boolean
-    latch * (1 - latch) = 0;
+    // A new computation block must start immediately after precomputed.first_row == 1 or end == 1.
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
 
-    // latch == 1 ==> sel == 1
-    #[SEL_TOGGLED_AT_LATCH]
-    latch * (1 - sel) = 0;
+    // Needs to be a committed column as it is used in the lookup.
+    // sel * (1 - start) simplifies to (sel - start) because start == 1 ==> sel == 1
+    // (by #[SEL_ON_START_OR_END]), so sel * start = start.
+    pol commit sel_not_start; // @boolean (by definition)
+    sel_not_start = sel - start;
 
-    // Given both latch and first_row are boolean and that latch cannot be activated at first row (sel would have
-    // to be activated which is impossible on first row.), LATCH_CONDITION is a boolean.
-    pol LATCH_CONDITION = latch + precomputed.first_row;
+    // ==== COLUMN CONTINUITY ====
 
     pol commit context_id;
+    // Context id does not change until end
     #[ID_CONSISTENCY]
     (1 - LATCH_CONDITION) * (context_id' - context_id) = 0;
 
     pol commit calldata_size;
+    // Calldata size does not change until end
     #[SIZE_CONSISTENCY]
     (1 - LATCH_CONDITION) * (calldata_size' - calldata_size) = 0;
 
-    // The start of a new context id and new set of hashing runs:
-    pol commit start; // @boolean
-    start * (1 - start) = 0;
-
-    // Needs to be a committed column as it is used in the lookup:
-    pol commit sel_not_start; // @boolean (by definition)
-    sel_not_start = sel * (1 - start);
-
-    // If the current row is a latch or the first row, the next row should be a start (if it's active):
-    #[START_AFTER_LATCH]
-    sel' * (start' - LATCH_CONDITION) = 0;
-
-    // The inputs to the poseidon2 hash. The very first input (index == 0) is the separator, the remaining
-    // inputs are calldata fields matching those in calldata.pil
+    // ==== POSEIDON2 HASH INPUTS AND INDICES LAYOUT ====
+    // The inputs to the poseidon2 hash. The very first input (index == 0) is the separator,
+    // the remaining inputs are calldata fields matching those in calldata.pil.
     pol commit input[3];
+
     // The index of the inputs to the poseidon2 hash, starting at 0.
-    // NOTE: the calldata trace starts at 1, so we don't have to shift by one (for the prepended separator)
-    // to match values. This also means the value of the final index == the calldata size in fields.
+    // NOTE: the calldata trace starts at 1, so we don't have to shift by one (for the prepended
+    // separator) to match values. This also means the value of the final index == the calldata
+    // size in fields.
     pol commit index[3];
 
     // We must start at index == 0:
     #[START_INDEX_IS_ZERO]
     start * index[0] = 0;
 
-    // At the start of a new calldata hash, the initial field has to be the separator, and we skip the lookup:
+    // At the start of a new calldata hash, the initial field has to be the separator, and we
+    // skip the lookup:
     #[START_IS_SEPARATOR]
     start * (input[0] - constants.DOM_SEP__PUBLIC_CALLDATA) = 0;
 
-    // The index increments by 3 each row (unless we are at latch):
+    // The index increments by 3 each row (unless we are at end):
     #[INDEX_INCREMENTS]
-    sel * (1 - LATCH_CONDITION) * (index[0]' - (index[0] + 3)) = 0;
+    (sel - end) * (index[0]' - (index[0] + 3)) = 0;
 
-    // Each index in the array increments (note: ideally we would just use a single index, but we need to use
-    // index + 1 and index + 2 in the lookups to calldata.pil):
+    // Each index in the array increments (note: ideally we would just use a single index, but
+    // we need to use index + 1 and index + 2 in the lookups to calldata.pil):
     #[INDEX_INCREMENTS_1]
     sel * (index[1] - (index[0] + 1)) = 0;
 
     #[INDEX_INCREMENTS_2]
     sel * (index[2] - (index[1] + 1)) = 0;
 
+    // ==== CALLDATA FIELD LOOKUPS ====
+
+    // Lookup calldata field at index[0] (skipped at start, where input[0] is the separator):
     #[GET_CALLDATA_FIELD_0]
     sel_not_start { index[0], context_id, input[0] }
     in
     calldata.sel { calldata.index, calldata.context_id, calldata.value };
 
+    // Lookup calldata field at index[1] (skipped when padding):
     #[GET_CALLDATA_FIELD_1]
     sel_not_padding_1 { index[1], context_id, input[1] }
     in
     calldata.sel { calldata.index, calldata.context_id, calldata.value };
 
+    // Lookup calldata field at index[2] (skipped when padding):
     #[GET_CALLDATA_FIELD_2]
     sel_not_padding_2 { index[2], context_id, input[2] }
     in
     calldata.sel { calldata.index, calldata.context_id, calldata.value };
 
-    // Padding
+    // ==== PADDING ====
 
-    // We lookup the poseidon inputs in chunks of 3 (to match the pos. perm.), so if the total number of fields hashed is not
-    // a multiple of 3, we have some padding field values (=0). These will fail the lookups into calldata.pil.
-    // Note: input[0] must never be a padding value and padding can only occur at the last row (i.e. latch = 1).
+    // We lookup the poseidon inputs in chunks of 3 (to match the pos. perm.), so if the total
+    // number of fields hashed is not a multiple of 3, we have some padding field values (=0).
+    // The padding values would fail the lookups into calldata.pil because their indices are out of bounds.
+    // Note: input[0] must never be a padding value and padding can only occur at the last row
+    // (i.e. end = 1).
 
     // Needs to be committed columns as they are used in the lookups
     pol commit sel_not_padding_1; // @boolean
@@ -130,80 +238,101 @@ namespace calldata_hashing;
     sel_not_padding_2 * (1 - sel_not_padding_2) = 0;
 
     // PADDING_1 == 1 <==> input[1] is a padding value ==> (see #[PADDING_CONSISTENCY]) PADDING_2 == 1
-    pol PADDING_1 = sel * (1 - sel_not_padding_1);
+    pol PADDING_1 = sel - sel_not_padding_1;
     // PADDING_2 == 1 <==> input[2] is a padding value <==> we have any padded values
-    pol PADDING_2 = sel * (1 - sel_not_padding_2);
+    pol PADDING_2 = sel - sel_not_padding_2;
 
-    // Note: the poseidon trace does not constrain that padded fields == 0, so we must do so here:
+    // The poseidon trace does not constrain that padded fields == 0, so we must do so here:
     // padding_1 == 1 ==> input[1] == 0
     #[PADDED_BY_ZERO_1]
     PADDING_1 * input[1] = 0;
+
     // padding_2 == 1 ==> input[2] == 0
     #[PADDED_BY_ZERO_2]
     PADDING_2 * input[2] = 0;
-
-    // Note: we could defer much of the below calculation to the poseidon trace with an additional lookup with
-    // poseidon2_hash.start == 1, poseidon2_hash.padding = sel_padding_1 + sel_padding_2 (would need new col.s).
-    // We could probably include the rounds_rem check in this as well.
-    // Maybe this is worth the overhead?
 
     // If input[1] is a padding value, input[2] must also be a padding value:
     // padding_1 == 1 ==> padding_2 == 1
     #[PADDING_CONSISTENCY]
     PADDING_1 * sel_not_padding_2 = 0;
-    // padding_2 == 1 ==> latch == 1
-    #[PADDING_END]
-    PADDING_2 * (1 - latch) = 0;
 
-    // Only valid at the final (latch = 1) row. In all other rows, PADDING_1 = PADDING_2 = 0:
+    // padding_2 == 1 ==> end == 1
+    #[PADDING_END]
+    PADDING_2 * (1 - end) = 0;
+
+    // Note that nothing prevents a malicious prover to activate sel_not_padding_1 and sel_not_padding_2
+    // on the inactive part of the trace. However, this does not affect the security of the calldata pipeline
+    // as such entries are just activating lookups into calldata.pil (no side effects). These selectors
+    // are not used as destination selectors of lookups and are not permutation selectors.
+
+    // ==== FINAL SIZE CHECK ====
+
+    // Only valid at the final (end = 1) row. In all other rows, PADDING_1 = PADDING_2 = 0:
     // padding_1 == 1 & padding_2 == 1 <==> calldata_size = index[0]
     // padding_1 == 0 & padding_2 == 1 <==> calldata_size = index[1]
     // padding_1 == 0 & padding_2 == 0 <==> calldata_size = index[2]
     #[CHECK_FINAL_INDEX]
-    latch * ( calldata_size - (
-        PADDING_1 * index[0] + // #[PADDING_CONSISTENCY] constrains that PADDING_1 = 1 ==> PADDING_2 = 1 ==> two padding fields
+    end * ( calldata_size - (
+        PADDING_1 * index[0] + // PADDING_1 = 1 ==> PADDING_2 = 1 ==> two padding fields
         (PADDING_2 - PADDING_1) * index[1] + // one padding field ==> calldata_size = index[1]
         sel_not_padding_2 * index[2] // no padding ==> calldata_size = index[2]
     )) = 0;
 
-    // Check that our claimed calldata_size matches the final index given by calldata.pil:
-    // Note: we do not need to check the value here, because #[CHECK_FINAL_INDEX] checks that calldata_size is one of the values of
-    // index[] looked up above.
-    // Note: we could probably utilise the other value lookups to check this, but would need to define col.s like
-    // input_1_is_final to check against calldata.latch for each value at every row. Worth the overhead?
-    // For empty calldata, the below looks up a special row where calldata.latch = 1 and calldata.index = 0:
-    #[CHECK_FINAL_SIZE]
-    latch { calldata_size, context_id }
-    in
-    calldata.latch { calldata.index, calldata.context_id };
+    // sel_end_not_empty is 1 on end rows of non-empty calldata, 0 otherwise.
+    // An empty calldata is captured when `end == 1` at row `start == 1` and there are
+    // 2 padding fields, i.e. `PADDING_1 == 1` (implying `PADDING_2 == 1`).
+    pol commit sel_end_not_empty; // @boolean (by definition)
+    sel_end_not_empty = end * (1 - start * PADDING_1);
 
-    // At the last round, it is checked against the public inputs/tx trace:
+    // Check that our claimed calldata_size matches the final index given by calldata.pil.
+    // This is a permutation (not a lookup) ensuring a 1-to-1 correspondence between
+    // end rows here and end rows in calldata.pil for each context_id.
+    // We do not need to check the value here, because #[CHECK_FINAL_INDEX] checks that
+    // calldata_size is one of the values of index[] looked up in calldata.pil above.
+    // For empty calldata, sel_end_not_empty = 0 so no entry in calldata.pil is required.
+    #[CHECK_FINAL_SIZE]
+    sel_end_not_empty { calldata_size, context_id }
+    is
+    calldata.end { calldata.index, calldata.context_id };
+
+    // ==== HASH OUTPUT ====
+
+    // Checked against the public inputs/tx trace at the last round.
     pol commit output_hash;
 
+    // Output hash does not change until end.
     #[HASH_CONSISTENCY]
     (1 - LATCH_CONDITION) * (output_hash' - output_hash) = 0;
 
-    // The length of the hashed calldata in fields, including the prepended separator. We use it to look up into poseidon_2 to ensure that
-    // the hashed IV matches our calldata length. We cannot just rely on rounds_rem since the padding could be 1 or 2 off.
+    // The length of the hashed calldata in fields, including the prepended separator. We use it
+    // to look up into poseidon2_hash to ensure that the hashed IV matches our calldata length.
+    // We cannot just rely on rounds_rem since the padding could be 1 or 2 off.
     pol commit input_len;
 
+    // input_len = calldata_size + 1 (the +1 is for the prepended domain separator).
     #[CALLDATA_HASH_INPUT_LENGTH_FIELDS]
     sel * (input_len - (calldata_size + 1)) = 0;
 
+    // ==== ROUND COUNTING ====
+
     // The number of rounds (rows) remaining to completely hash the calldata.
-    // We use it to ensure the ordering of poseidon_2 rounds is correct (i.e. a malicious prover cannot swap the order of poseidon rounds).
+    // We use it to ensure the ordering of poseidon2 rounds is correct (i.e. a malicious prover
+    // cannot swap the order of poseidon rounds).
     pol commit rounds_rem;
 
-    // The rounds remaining decrement each row as long as the row is not latched, otherwise rounds_rem == 1
-    // Note: may be able to omit latch * (rounds_rem - 1) since the poseidon trace also constrains this
+    // The rounds remaining decrement each row unless end == 1, where rounds_rem == 1.
+    // Note: may be able to omit end * (rounds_rem - 1) since the poseidon trace also
+    // constrains this.
     #[ROUNDS_DECREMENT]
-    sel * ((1 - LATCH_CONDITION) * (rounds_rem' - rounds_rem + 1) + latch * (rounds_rem - 1)) = 0;
+    (sel - end) * (rounds_rem' - rounds_rem + 1) + end * (rounds_rem - 1) = 0;
 
+    // ==== POSEIDON2 HASH LOOKUP ====
 
+    // Lookup into the poseidon2_hash trace to constrain the hash computation
     #[POSEIDON2_HASH]
     sel {
         start,
-        latch,
+        end,
         input[0],
         input[1],
         input[2],

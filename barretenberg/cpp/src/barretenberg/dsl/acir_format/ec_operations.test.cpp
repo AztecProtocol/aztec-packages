@@ -294,3 +294,140 @@ TYPED_TEST(EcOperationsTestsBothConstant, InvalidWitnesses)
     BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
 }
+
+// ============================================================
+// Infinity flag tests
+// ============================================================
+using GrumpkinPoint = bb::grumpkin::g1::affine_element;
+using FF = bb::fr;
+
+struct AcirPoint {
+    FF x, y, inf;
+    static AcirPoint from_native(const GrumpkinPoint& p)
+    {
+        return { p.x, p.y, p.is_point_at_infinity() ? FF(1) : FF(0) };
+    }
+    static AcirPoint infinity() { return { FF(0), FF(0), FF(1) }; }
+};
+
+template <typename Builder> class EcOperationsInfinityTests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    // Push an AcirPoint to the witness vector and return the [x, y, inf] indices.
+    static std::array<uint32_t, 3> push_point(WitnessVector& witness, const AcirPoint& pt)
+    {
+        uint32_t xi = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(pt.x);
+        uint32_t yi = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(pt.y);
+        uint32_t ii = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(pt.inf);
+        return { xi, yi, ii };
+    }
+
+    // Build an EcAdd constraint (predicate=1) from three ACIR points.
+    // Returns the constraint and the populated witness vector.
+    static std::pair<EcAdd, WitnessVector> make_ec_add(AcirPoint p1, AcirPoint p2, AcirPoint result)
+    {
+        WitnessVector witness;
+        auto i1 = push_point(witness, p1);
+        auto i2 = push_point(witness, p2);
+        auto r = push_point(witness, result);
+        uint32_t pred_idx = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(FF(1));
+
+        EcAdd c{
+            .input1_x = WitnessOrConstant<FF>::from_index(i1[0]),
+            .input1_y = WitnessOrConstant<FF>::from_index(i1[1]),
+            .input1_infinite = WitnessOrConstant<FF>::from_index(i1[2]),
+            .input2_x = WitnessOrConstant<FF>::from_index(i2[0]),
+            .input2_y = WitnessOrConstant<FF>::from_index(i2[1]),
+            .input2_infinite = WitnessOrConstant<FF>::from_index(i2[2]),
+            .predicate = WitnessOrConstant<FF>::from_index(pred_idx),
+            .result_x = r[0],
+            .result_y = r[1],
+            .result_infinite = r[2],
+        };
+        return { c, witness };
+    }
+
+    // Run the circuit and return (satisfied, error_string).
+    static std::pair<bool, std::string> run_circuit(EcAdd constraint, WitnessVector witness)
+    {
+        AcirFormat cs = constraint_to_acir_format(constraint);
+        AcirProgram program{ cs, witness };
+        auto builder = create_circuit<Builder>(program, ProgramMetadata{});
+        bool ok = CircuitChecker::check(builder) && !builder.failed();
+        return { ok, builder.err() };
+    }
+};
+
+TYPED_TEST_SUITE(EcOperationsInfinityTests, BuilderTypes);
+
+// P + (-P) = point_at_infinity: valid proof with result_infinite=1, result_x=0, result_y=0.
+TYPED_TEST(EcOperationsInfinityTests, ResultIsInfinity)
+{
+    BB_DISABLE_ASSERTS();
+    GrumpkinPoint p = GrumpkinPoint::random_element();
+    auto [constraint, witness] =
+        TestFixture::make_ec_add(AcirPoint::from_native(p), AcirPoint::from_native(-p), AcirPoint::infinity());
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(ok) << "P + (-P) = infinity should produce a valid circuit";
+}
+
+// A finite result with result_infinite=1 (forged) must fail.
+TYPED_TEST(EcOperationsInfinityTests, ForgedInfinityFlagOnFiniteResultFails)
+{
+    BB_DISABLE_ASSERTS();
+    GrumpkinPoint p = GrumpkinPoint::random_element();
+    GrumpkinPoint q = GrumpkinPoint::random_element();
+    ASSERT_FALSE((p + q).is_point_at_infinity());
+    auto [constraint, witness] =
+        TestFixture::make_ec_add(AcirPoint::from_native(p), AcirPoint::from_native(q), AcirPoint::from_native(p + q));
+    witness[constraint.result_infinite] = FF(1); // forge: finite result claimed as infinite
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
+        << "Forged infinity flag on finite result should fail";
+}
+
+// An infinity result with result_infinite=0 (forged) must fail.
+TYPED_TEST(EcOperationsInfinityTests, ForgedFiniteFlagOnInfinityResultFails)
+{
+    BB_DISABLE_ASSERTS();
+    GrumpkinPoint p = GrumpkinPoint::random_element();
+    // Forge result: (0,0) coordinates but is_infinite=0 (should be 1)
+    auto [constraint, witness] = TestFixture::make_ec_add(
+        AcirPoint::from_native(p), AcirPoint::from_native(-p), AcirPoint{ FF(0), FF(0), FF(0) });
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
+        << "Forged finite flag on infinity result should fail";
+}
+
+// Input point at infinity (∞ + P = P): should produce a valid circuit.
+TYPED_TEST(EcOperationsInfinityTests, Input1IsInfinity)
+{
+    BB_DISABLE_ASSERTS();
+    GrumpkinPoint p = GrumpkinPoint::random_element();
+    auto [constraint, witness] =
+        TestFixture::make_ec_add(AcirPoint::infinity(), AcirPoint::from_native(p), AcirPoint::from_native(p));
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(ok) << "infinity + P = P should produce a valid circuit";
+}
+
+// Input point with forged input_infinite=1 (non-zero coordinates) must fail.
+TYPED_TEST(EcOperationsInfinityTests, ForgedInputInfinityFlagFails)
+{
+    BB_DISABLE_ASSERTS();
+    GrumpkinPoint p = GrumpkinPoint::random_element();
+    GrumpkinPoint q = GrumpkinPoint::random_element();
+    auto [constraint, witness] =
+        TestFixture::make_ec_add(AcirPoint::from_native(p), AcirPoint::from_native(q), AcirPoint::from_native(p + q));
+    witness[constraint.input1_infinite.index] = FF(1); // forge: finite input1 claimed as infinite
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos) << "Forged input infinity flag should fail";
+}

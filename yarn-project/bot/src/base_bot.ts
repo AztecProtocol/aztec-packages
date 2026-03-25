@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { BatchCall, ContractFunctionInteraction, type SendInteractionOptions } from '@aztec/aztec.js/contracts';
+import type { SendInteractionOptions } from '@aztec/aztec.js/contracts';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
@@ -56,27 +56,19 @@ export abstract class BaseBot {
     return Promise.resolve();
   }
 
-  protected async getSendMethodOpts(
-    interaction: ContractFunctionInteraction | BatchCall,
-  ): Promise<SendInteractionOptions> {
+  protected getSendMethodOpts(): SendInteractionOptions {
     const { l2GasLimit, daGasLimit, minFeePadding } = this.config;
 
     this.wallet.setMinFeePadding(minFeePadding);
 
-    let gasSettings;
-    if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
-      gasSettings = { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) };
-      this.log.verbose(`Using gas limits ${l2GasLimit} L2 gas ${daGasLimit} DA gas`);
-    } else {
-      this.log.verbose(`Estimating gas for transaction`);
-      ({ estimatedGas: gasSettings } = await interaction.simulate({
-        fee: { estimateGas: true },
-        from: this.defaultAccountAddress,
-      }));
-    }
+    const gasSettings =
+      l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0
+        ? { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) }
+        : undefined;
+
     return {
       from: this.defaultAccountAddress,
-      fee: { gasSettings },
+      ...(gasSettings ? { fee: { gasSettings } } : {}),
     };
   }
 }

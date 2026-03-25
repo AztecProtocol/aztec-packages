@@ -119,28 +119,37 @@ export interface IUtilityExecutionOracle {
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;
+  fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress): Promise<void>;
   validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
+    scope: AztecAddress,
   ): Promise<void>;
   bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ): Promise<void>;
   utilityResolveMessageContexts(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ): Promise<void>;
-  storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
-  loadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
-  deleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;
-  copyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
+  storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope: AztecAddress): void;
+  loadCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): Promise<Fr[] | null>;
+  deleteCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): void;
+  copyCapsule(
+    contractAddress: AztecAddress,
+    srcKey: Fr,
+    dstKey: Fr,
+    numEntries: number,
+    scope: AztecAddress,
+  ): Promise<void>;
   aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
   invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): void;

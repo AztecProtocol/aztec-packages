@@ -237,7 +237,7 @@ MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
     // Brillig semantic enforces that tags match for LTE.
     if (a.get_tag() != b.get_tag()) {
         events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .error = true });
-        throw AluException("LT, Tag mismatch between operands.");
+        throw AluException("LTE, Tag mismatch between operands.");
     }
     // Note: the result of LTE is the opposite of GT
     // Use the greater_than interface to check if a > b

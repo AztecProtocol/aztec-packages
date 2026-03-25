@@ -18,7 +18,6 @@ export class NoteValidationRequest {
     public noteHash: Fr,
     public nullifier: Fr,
     public txHash: TxHash,
-    public recipient: AztecAddress,
   ) {}
 
   static fromFields(fields: Fr[], maxNotePackedLen: number): NoteValidationRequest {
@@ -37,7 +36,6 @@ export class NoteValidationRequest {
     const noteHash = reader.readField();
     const nullifier = reader.readField();
     const txHash = TxHash.fromField(reader.readField());
-    const recipient = AztecAddress.fromField(reader.readField());
 
     if (reader.remainingFields() !== 0) {
       throw new Error(
@@ -55,7 +53,6 @@ export class NoteValidationRequest {
       noteHash,
       nullifier,
       txHash,
-      recipient,
     );
   }
 }

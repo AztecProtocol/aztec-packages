@@ -125,14 +125,18 @@ describe('Kernelless simulation', () => {
       expect(token0AuthwitRequest.contractAddress).toEqual(token0.address);
       expect(token1AuthwitRequest.contractAddress).toEqual(token1.address);
 
-      // Authwit selector + inner_hash + msg_sender + function_selector + args_hash + args (4)
-      expect(token0AuthwitRequest.data).toHaveLength(9);
-      expect(token1AuthwitRequest.data).toHaveLength(9);
+      // Authwit selector + inner_hash + on_behalf_of + msg_sender + function_selector + args_hash + args (4)
+      expect(token0AuthwitRequest.data).toHaveLength(10);
+      expect(token1AuthwitRequest.data).toHaveLength(10);
 
       const token0CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
       const token1CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token1AuthwitRequest.data);
 
       expect(token0CallAuthorizationRequest.selector).toEqual(token1CallAuthorizationRequest.selector);
+      expect(token0CallAuthorizationRequest.onBehalfOf).toEqual(liquidityProviderAddress);
+      expect(token1CallAuthorizationRequest.onBehalfOf).toEqual(liquidityProviderAddress);
+      expect(token0CallAuthorizationRequest.msgSender).toEqual(amm.address);
+      expect(token1CallAuthorizationRequest.msgSender).toEqual(amm.address);
 
       const functionAbi = await getFunctionArtifact(
         TokenContractArtifact,
@@ -342,14 +346,18 @@ describe('Kernelless simulation', () => {
         from: adminAddress,
       });
 
-      // Kernelless simulation of reading + nullifying that settled note produces a settled
-      // read request that gets verified against the note hash tree at the anchor block
+      // Spy on the node API that generateSimulatedProvingResult uses to verify settled read requests
+      const noteHashMembershipWitnessSpy = jest.spyOn(aztecNode, 'getNoteHashMembershipWitness');
+
       wallet.setSimulationMode('kernelless-override');
       await expect(
         pendingNoteHashesContract.methods.get_then_nullify_note(mintAmount, adminAddress).simulate({
           from: adminAddress,
         }),
       ).resolves.toBeDefined();
+
+      expect(noteHashMembershipWitnessSpy).toHaveBeenCalled();
+      noteHashMembershipWitnessSpy.mockRestore();
     });
   });
 });

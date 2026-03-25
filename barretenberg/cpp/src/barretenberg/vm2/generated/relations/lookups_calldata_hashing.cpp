@@ -28,7 +28,6 @@ namespace bb::avm2 {
 INSTANTIATE_LOOKUP(lookup_calldata_hashing_get_calldata_field_0_relation);
 INSTANTIATE_LOOKUP(lookup_calldata_hashing_get_calldata_field_1_relation);
 INSTANTIATE_LOOKUP(lookup_calldata_hashing_get_calldata_field_2_relation);
-INSTANTIATE_LOOKUP(lookup_calldata_hashing_check_final_size_relation);
 INSTANTIATE_LOOKUP(lookup_calldata_hashing_poseidon2_hash_relation);
 
 } // namespace bb::avm2
