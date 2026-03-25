@@ -87,9 +87,9 @@ describe('L2BlockStream', () => {
     checkpointed_?: number,
     proven?: number,
     finalized?: number,
-    pendingCheckpoint_?: number,
+    proposedCheckpoint_?: number,
   ) => {
-    pendingCheckpoint_ = pendingCheckpoint_ ?? 0;
+    proposedCheckpoint_ = proposedCheckpoint_ ?? 0;
     checkpointed_ = checkpointed_ ?? 0;
     proven = proven ?? 0;
     finalized = finalized ?? 0;
@@ -99,7 +99,7 @@ describe('L2BlockStream', () => {
     blockSource.getL2Tips.mockResolvedValue({
       proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
       checkpointed: makeTipId(checkpointed_),
-      pendingCheckpoint: makeTipId(pendingCheckpoint_),
+      proposedCheckpoint: makeTipId(proposedCheckpoint_),
       proven: makeTipId(proven),
       finalized: makeTipId(finalized),
     });
@@ -413,19 +413,19 @@ describe('L2BlockStream', () => {
       checkpointedBlock?: number,
       proven?: number,
       finalized?: number,
-      pendingCheckpointBlock?: number,
+      proposedCheckpointBlock?: number,
     ) => {
       checkpointedBlock = checkpointedBlock ?? 0;
       proven = proven ?? 0;
       finalized = finalized ?? 0;
-      pendingCheckpointBlock = pendingCheckpointBlock ?? 0;
+      proposedCheckpointBlock = proposedCheckpointBlock ?? 0;
       latest = latest_;
       checkpointed = checkpointedBlock;
 
       const checkpointedCheckpointNum = checkpointedBlock > 0 ? getCheckpointForBlock(checkpointedBlock) : 0;
       const provenCheckpointNum = proven > 0 ? getCheckpointForBlock(proven) : 0;
       const finalizedCheckpointNum = finalized > 0 ? getCheckpointForBlock(finalized) : 0;
-      const pendingCheckpointNum = pendingCheckpointBlock > 0 ? getCheckpointForBlock(pendingCheckpointBlock) : 0;
+      const proposedCheckpointNum = proposedCheckpointBlock > 0 ? getCheckpointForBlock(proposedCheckpointBlock) : 0;
 
       blockSource.getL2Tips.mockResolvedValue({
         proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
@@ -436,11 +436,11 @@ describe('L2BlockStream', () => {
             hash: makeHash(checkpointedCheckpointNum),
           },
         },
-        pendingCheckpoint: {
-          block: { number: BlockNumber(pendingCheckpointBlock), hash: makeHash(pendingCheckpointBlock) },
+        proposedCheckpoint: {
+          block: { number: BlockNumber(proposedCheckpointBlock), hash: makeHash(proposedCheckpointBlock) },
           checkpoint: {
-            number: CheckpointNumber(pendingCheckpointNum),
-            hash: makeHash(pendingCheckpointNum),
+            number: CheckpointNumber(proposedCheckpointNum),
+            hash: makeHash(proposedCheckpointNum),
           },
         },
         proven: {
@@ -1717,7 +1717,7 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
   };
-  public pendingCheckpointed = {
+  public proposedCheckpointed = {
     block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
     checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
   };
@@ -1740,7 +1740,7 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
     return Promise.resolve({
       proposed: this.proposed,
       checkpointed: this.checkpointed,
-      pendingCheckpoint: this.pendingCheckpointed,
+      proposedCheckpoint: this.proposedCheckpointed,
       proven: this.proven,
       finalized: this.finalized,
     });

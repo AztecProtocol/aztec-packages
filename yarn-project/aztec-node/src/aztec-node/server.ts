@@ -621,7 +621,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
 
     // Register checkpoint proposal handler for all nodes.
-    // Validates proposals before setting pending checkpoint on archiver.
+    // Validates proposals before setting proposed checkpoint on archiver.
     const getValidatorAddresses = validatorClient
       ? () => validatorClient.getValidatorAddresses().map(a => a.toString())
       : undefined;

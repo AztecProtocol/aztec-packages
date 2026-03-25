@@ -31,7 +31,7 @@ import {
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
-import { type Checkpoint, type PendingCheckpointData, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, type ProposedCheckpointData, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { computeQuorum, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -120,7 +120,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
     public readonly tracer: Tracer,
     bindings?: LoggerBindings,
-    private readonly pendingCheckpointData?: PendingCheckpointData,
+    private readonly proposedCheckpointData?: ProposedCheckpointData,
   ) {
     this.log = createLogger('sequencer:checkpoint-proposal', {
       ...bindings,
@@ -286,13 +286,13 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Create checkpoint builder for the slot.
-      // When pipelining, force the pending checkpoint number and fee header to our parent so the
+      // When pipelining, force the proposed checkpoint number and fee header to our parent so the
       // fee computation sees the same chain tip that L1 will see once the previous pipelined checkpoint lands.
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
       const parentCheckpointNumber = isPipelining ? CheckpointNumber(this.checkpointNumber - 1) : undefined;
 
       // Compute the parent's fee header override when pipelining
-      if (isPipelining && this.pendingCheckpointData) {
+      if (isPipelining && this.proposedCheckpointData) {
         this.computedForcePendingFeeHeader = await this.computeForcePendingFeeHeader(parentCheckpointNumber!);
       }
 
@@ -1091,7 +1091,7 @@ export class CheckpointProposalJob implements Traceable {
       }
     | undefined
   > {
-    if (!this.pendingCheckpointData) {
+    if (!this.proposedCheckpointData) {
       return undefined;
     }
 
@@ -1111,8 +1111,8 @@ export class CheckpointProposalJob implements Traceable {
       } else {
         const parentFeeHeader = RollupContract.computeChildFeeHeader(
           grandparentCheckpoint.feeHeader,
-          this.pendingCheckpointData.totalManaUsed,
-          this.pendingCheckpointData.feeAssetPriceModifier,
+          this.proposedCheckpointData.totalManaUsed,
+          this.proposedCheckpointData.feeAssetPriceModifier,
           manaTarget,
         );
         return { checkpointNumber: parentCheckpointNumber!, feeHeader: parentFeeHeader };

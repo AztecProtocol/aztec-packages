@@ -9,7 +9,7 @@ import { type BlockData, type BlockHash, CheckpointedL2Block, L2Block, type L2Ti
 import {
   Checkpoint,
   type CheckpointData,
-  type PendingCheckpointData,
+  type ProposedCheckpointData,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -162,8 +162,8 @@ export abstract class ArchiverDataSourceBase
     return this.store.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
-  public getPendingCheckpoint(): Promise<PendingCheckpointData | undefined> {
-    return this.store.blockStore.getPendingCheckpoint();
+  public getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.store.blockStore.getProposedCheckpoint();
   }
 
   public isPendingChainInvalid(): Promise<boolean> {

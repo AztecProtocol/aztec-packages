@@ -293,7 +293,7 @@ export class ServerWorldStateSynchronizer
         block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
-      pendingCheckpoint: {
+      proposedCheckpoint: {
         block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },

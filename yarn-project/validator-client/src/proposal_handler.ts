@@ -208,7 +208,7 @@ export class ProposalHandler {
     }
 
     // Ensure the block source is synced before checking for existing blocks,
-    // since a pending checkpoint prune may remove blocks we'd otherwise find.
+    // since a proposed checkpoint prune may remove blocks we'd otherwise find.
     // This affects mostly the block_number_already_exists check, since a pending
     // checkpoint prune could remove a block that would conflict with this proposal.
     // When pipelining is enabled, the proposer builds ahead of L1 submission, so the

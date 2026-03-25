@@ -44,7 +44,7 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
       checkpointed: tip,
       proven: tip,
       finalized: tip,
-      pendingCheckpoint: tip,
+      proposedCheckpoint: tip,
     });
   }
 }

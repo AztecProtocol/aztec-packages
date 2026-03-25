@@ -10,9 +10,9 @@ import { z } from 'zod';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { schemas } from '../schemas/schemas.js';
 
-/** Lightweight data for a pending checkpoint (proposed but not yet L1-confirmed).
+/** Lightweight data for a proposed checkpoint (proposed but not yet L1-confirmed).
  *  Includes fee-relevant fields used during pipelining to compute the fee header override. */
-export type PendingCheckpointData = {
+export type ProposedCheckpointData = {
   checkpointNumber: CheckpointNumber;
   header: CheckpointHeader;
   startBlock: BlockNumber;
@@ -21,7 +21,7 @@ export type PendingCheckpointData = {
   feeAssetPriceModifier: bigint;
 };
 
-export const PendingCheckpointDataSchema = z.object({
+export const ProposedCheckpointDataSchema = z.object({
   checkpointNumber: CheckpointNumberSchema,
   header: CheckpointHeader.schema,
   startBlock: BlockNumberSchema,

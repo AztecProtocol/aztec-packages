@@ -76,7 +76,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
       proven: tipId,
       finalized: tipId,
       checkpointed: tipId,
-      pendingCheckpoint: tipId,
+      proposedCheckpoint: tipId,
     };
   }
 

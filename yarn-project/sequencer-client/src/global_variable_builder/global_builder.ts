@@ -129,7 +129,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       l1GenesisTime: this.l1GenesisTime,
     });
 
-    // When pipelining, force the pending checkpoint number and fee header to the parent so that
+    // When pipelining, force the proposed checkpoint number and fee header to the parent so that
     // the fee computation matches what L1 will see when the previous pipelined checkpoint has landed.
     const pendingNumberOverride = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,

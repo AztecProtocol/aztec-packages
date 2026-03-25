@@ -792,8 +792,8 @@ export class SequencerPublisher {
           `Simulation for invalidate checkpoint ${checkpointNumber} failed due to checkpoint not being in pending chain`,
           { ...logData, request, error: viemError.message },
         );
-        const latestPendingCheckpointNumber = await this.rollupContract.getCheckpointNumber();
-        if (latestPendingCheckpointNumber < checkpointNumber) {
+        const latestProposedCheckpointNumber = await this.rollupContract.getCheckpointNumber();
+        if (latestProposedCheckpointNumber < checkpointNumber) {
           this.log.verbose(`Checkpoint ${checkpointNumber} has already been invalidated`, { ...logData });
           return undefined;
         } else {
@@ -1467,7 +1467,7 @@ export class SequencerPublisher {
       args,
     });
 
-    // override the pending checkpoint number if requested
+    // override the proposed checkpoint number if requested
     const forcePendingCheckpointNumberStateDiff = (
       options.forcePendingCheckpointNumber !== undefined
         ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingCheckpointNumber)

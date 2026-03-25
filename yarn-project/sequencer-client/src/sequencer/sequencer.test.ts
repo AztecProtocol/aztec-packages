@@ -314,7 +314,7 @@ describe('sequencer', () => {
       getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsDataForEpoch: mockFn().mockResolvedValue([]),
       getSyncedL2SlotNumber: mockFn().mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER)),
-      getPendingCheckpoint: mockFn().mockResolvedValue(undefined),
+      getProposedCheckpoint: mockFn().mockResolvedValue(undefined),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -964,7 +964,7 @@ describe('sequencer', () => {
     });
   });
 
-  describe('pipelining with pending checkpoint-based L1 check skip', () => {
+  describe('pipelining with proposed checkpoint-based L1 check skip', () => {
     beforeEach(() => {
       // Skip execute() to avoid the pipeline sleep (which would block for 16s in real time).
       // We only need to test prepareCheckpointProposal behavior here.
@@ -1001,13 +1001,13 @@ describe('sequencer', () => {
       sequencer.skipExecute = false;
     });
 
-    it('skips L1 check when pending checkpoint exists', async () => {
+    it('skips L1 check when proposed checkpoint exists', async () => {
       await setupSingleTxBlock();
 
       // Override to non-genesis state so checkSync doesn't take the genesis path.
-      // pendingCheckpoint is set with checkpoint number 1 > checkpointed tip 0, so hasPendingCheckpoint is true.
+      // proposedCheckpoint is set with checkpoint number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
       const nonGenesisHash = Fr.random().toString();
-      const pendingCheckpointHash = Fr.random().toString();
+      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1020,9 +1020,9 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        pendingCheckpoint: {
+        proposedCheckpoint: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: pendingCheckpointHash },
+          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
         },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
@@ -1049,7 +1049,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getPendingCheckpoint.mockResolvedValue({
+      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
       } as any);
 
@@ -1072,7 +1072,7 @@ describe('sequencer', () => {
       // Confirmed checkpoint is 1, pending is 2, proposed tip is in checkpoint 3.
       // So sequencer would try to build checkpoint 4, which exceeds the 1-deep pipeline limit.
       const nonGenesisHash = Fr.random().toString();
-      const pendingCheckpointHash = Fr.random().toString();
+      const proposedCheckpointHash = Fr.random().toString();
       const checkpointedHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
@@ -1086,9 +1086,9 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: BlockNumber(3), hash: nonGenesisHash },
-        pendingCheckpoint: {
+        proposedCheckpoint: {
           block: { number: BlockNumber(2), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(2), hash: pendingCheckpointHash },
+          checkpoint: { number: CheckpointNumber(2), hash: proposedCheckpointHash },
         },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
@@ -1115,7 +1115,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getPendingCheckpoint.mockResolvedValue({
+      l2BlockSource.getProposedCheckpoint.mockResolvedValue({
         checkpointNumber: CheckpointNumber(2),
       } as any);
 
@@ -1125,7 +1125,7 @@ describe('sequencer', () => {
       expect(publisher.canProposeAt).not.toHaveBeenCalled();
     });
 
-    it('calls L1 check without archive override when no pending checkpoint', async () => {
+    it('calls L1 check without archive override when no proposed checkpoint', async () => {
       await setupSingleTxBlock();
 
       await sequencer.work();

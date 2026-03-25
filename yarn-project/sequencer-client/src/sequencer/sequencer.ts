@@ -13,7 +13,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import type { Checkpoint, PendingCheckpointData } from '@aztec/stdlib/checkpoint';
+import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
@@ -299,10 +299,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Next checkpoint follows from the last synced one
     const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 
-    // Guard: don't exceed 1-deep pipeline. Without a pending checkpoint, we can only build
-    // confirmed + 1. With a pending checkpoint, we can build confirmed + 2 and pending + 1.
+    // Guard: don't exceed 1-deep pipeline. Without a proposed checkpoint, we can only build
+    // confirmed + 1. With a proposed checkpoint, we can build confirmed + 2 and pending + 1.
     const confirmedCkpt = syncedTo.checkpointedCheckpointNumber;
-    const pendingCkpt = syncedTo.pendingCheckpointData?.checkpointNumber;
+    const pendingCkpt = syncedTo.proposedCheckpointData?.checkpointNumber;
     if (checkpointNumber > confirmedCkpt + 2) {
       this.log.warn(
         `Skipping slot ${targetSlot}: checkpoint ${checkpointNumber} exceeds max pipeline depth (confirmed=${confirmedCkpt}, pending=${pendingCkpt})`,
@@ -358,7 +358,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     let invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
     // Determine the correct archive and L1 state overrides for the canProposeAt check.
-    // The L1 contract reads archives[pendingCheckpointNumber] and compares it with the provided archive.
+    // The L1 contract reads archives[proposedCheckpointNumber] and compares it with the provided archive.
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
     const l1Overrides: {
@@ -366,8 +366,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
     } = {};
 
-    if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasPendingCheckpoint) {
-      // Parent checkpoint hasn't landed on L1 yet. Override both the pending checkpoint number
+    if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint) {
+      // Parent checkpoint hasn't landed on L1 yet. Override both the proposed checkpoint number
       // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
       l1Overrides.forcePendingCheckpointNumber = parentCheckpointNumber;
@@ -375,9 +375,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics.recordPipelineDepth(1);
 
       this.log.verbose(
-        `Building on top of pending checkpoint (pending=${syncedTo.pendingCheckpointData?.checkpointNumber})`,
+        `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber})`,
       );
-      // Clear the invalidation - the pending checkpoint should handle it.
+      // Clear the invalidation - the proposed checkpoint should handle it.
       invalidateCheckpoint = undefined;
     } else if (invalidateCheckpoint) {
       // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
@@ -444,7 +444,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       publisher,
       attestorAddress,
       invalidateCheckpoint,
-      syncedTo.pendingCheckpointData,
+      syncedTo.proposedCheckpointData,
     );
   }
 
@@ -458,7 +458,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
-    pendingCheckpointData?: PendingCheckpointData,
+    proposedCheckpointData?: ProposedCheckpointData,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
       slot,
@@ -489,7 +489,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.setState.bind(this),
       this.tracer,
       this.log.getBindings(),
-      pendingCheckpointData,
+      proposedCheckpointData,
     );
   }
 
@@ -566,14 +566,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       })),
       this.l2BlockSource
         .getL2Tips()
-        .then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed, pendingCheckpoint: t.pendingCheckpoint })),
+        .then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed, proposedCheckpoint: t.proposedCheckpoint })),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => t.proposed),
       this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getPendingCheckpoint(),
+      this.l2BlockSource.getProposedCheckpoint(),
     ] as const);
 
-    const [worldState, l2Tips, p2p, l1ToL2MessageSource, pendingChainValidationStatus, pendingCheckpointData] =
+    const [worldState, l2Tips, p2p, l1ToL2MessageSource, pendingChainValidationStatus, proposedCheckpointData] =
       syncedBlocks;
 
     // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
@@ -607,7 +607,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         checkpointedCheckpointNumber: CheckpointNumber.ZERO,
         blockNumber: BlockNumber.ZERO,
         archive,
-        hasPendingCheckpoint: false,
+        hasProposedCheckpoint: false,
         syncedL2Slot,
         pendingChainValidationStatus,
       };
@@ -620,9 +620,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    const hasPendingCheckpoint =
-      pendingCheckpointData !== undefined &&
-      l2Tips.pendingCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+    const hasProposedCheckpoint =
+      proposedCheckpointData !== undefined &&
+      l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
 
     return {
       blockData,
@@ -630,8 +630,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       checkpointNumber: blockData.checkpointNumber,
       checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
       archive: blockData.archive.root,
-      hasPendingCheckpoint,
-      pendingCheckpointData,
+      hasProposedCheckpoint,
+      proposedCheckpointData,
       syncedL2Slot,
       pendingChainValidationStatus,
     };
@@ -982,8 +982,8 @@ type SequencerSyncCheckResult = {
   checkpointedCheckpointNumber: CheckpointNumber;
   blockNumber: BlockNumber;
   archive: Fr;
-  hasPendingCheckpoint: boolean;
-  pendingCheckpointData?: PendingCheckpointData;
+  hasProposedCheckpoint: boolean;
+  proposedCheckpointData?: ProposedCheckpointData;
   syncedL2Slot: SlotNumber;
   pendingChainValidationStatus: ValidateCheckpointResult;
 };

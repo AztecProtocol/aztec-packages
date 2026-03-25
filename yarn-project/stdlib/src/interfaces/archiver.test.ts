@@ -15,7 +15,7 @@ import type { L2Tips } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
-import type { PendingCheckpointData } from '../checkpoint/pending_checkpoint_data.js';
+import type { ProposedCheckpointData } from '../checkpoint/proposed_checkpoint_data.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
@@ -256,7 +256,7 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
-      pendingCheckpoint: expectedTipId,
+      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -358,8 +358,8 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
-  it('getPendingCheckpoint', async () => {
-    const result = await context.client.getPendingCheckpoint();
+  it('getProposedCheckpoint', async () => {
+    const result = await context.client.getProposedCheckpoint();
     expect(result).toEqual({
       checkpointNumber: 1,
       header: expect.any(CheckpointHeader),
@@ -403,7 +403,7 @@ class MockArchiver implements ArchiverApi {
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
   }
-  getPendingCheckpoint(): Promise<PendingCheckpointData | undefined> {
+  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve({
       checkpointNumber: CheckpointNumber(1),
       header: CheckpointHeader.random(),
@@ -588,7 +588,7 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
-      pendingCheckpoint: tipId,
+      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });

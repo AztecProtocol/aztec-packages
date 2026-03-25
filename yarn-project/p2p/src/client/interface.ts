@@ -86,7 +86,7 @@ export type P2P = P2PClient & {
 
   /**
    * Registers a callback that runs for ALL nodes (not just validators) when a checkpoint proposal is received.
-   * Used to set the pending checkpoint number on the archiver so the sequencer can build on top of it.
+   * Used to set the proposed checkpoint number on the archiver so the sequencer can build on top of it.
    *
    * @param handler - A function taking a received checkpoint proposal
    */

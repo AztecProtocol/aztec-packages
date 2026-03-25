@@ -72,13 +72,13 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     proven: number,
     finalized: number,
     checkpointed: number = 0,
-    pendingCheckpoint: number = 0,
+    proposedCheckpoint: number = 0,
   ) => ({
     proposed: makeTip(proposed),
     proven: makeTipId(proven),
     finalized: makeTipId(finalized),
     checkpointed: makeTipId(checkpointed),
-    pendingCheckpoint: makeTipId(pendingCheckpoint),
+    proposedCheckpoint: makeTipId(proposedCheckpoint),
   });
 
   const makeCheckpoint = async (checkpointNumber: number, blocks: L2Block[]): Promise<PublishedCheckpoint> => {

@@ -22,7 +22,7 @@ import {
 import {
   type CheckpointData,
   L1PublishedData,
-  type PendingCheckpointData,
+  type ProposedCheckpointData,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
@@ -49,8 +49,8 @@ import {
   CheckpointNotFoundError,
   CheckpointNumberNotSequentialError,
   InitialCheckpointNumberNotSequentialError,
-  PendingCheckpointNotSequentialError,
-  PendingCheckpointStaleError,
+  ProposedCheckpointNotSequentialError,
+  ProposedCheckpointStaleError,
 } from '../errors.js';
 
 export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
@@ -76,8 +76,8 @@ type CheckpointStorage = {
   attestations: Buffer[];
 };
 
-/** Storage format for a pending checkpoint (attested but not yet L1-confirmed). */
-type PendingCheckpointStorage = {
+/** Storage format for a proposed checkpoint (attested but not yet L1-confirmed). */
+type ProposedCheckpointStorage = {
   header: Buffer;
   // archive: Buffer;
   // checkpointOutHash: Buffer;
@@ -130,7 +130,7 @@ export class BlockStore {
   /** Index mapping block archive to block number */
   #blockArchiveIndex: AztecAsyncMap<string, number>;
 
-  #pendingCheckpoint: AztecAsyncSingleton<PendingCheckpointStorage>;
+  #proposedCheckpoint: AztecAsyncSingleton<ProposedCheckpointStorage>;
 
   #log = createLogger('archiver:block_store');
 
@@ -147,7 +147,7 @@ export class BlockStore {
     this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
     this.#checkpoints = db.openMap('archiver_checkpoints');
     this.#slotToCheckpoint = db.openMap('archiver_slot_to_checkpoint');
-    this.#pendingCheckpoint = db.openSingleton('pending_checkpoint_data');
+    this.#proposedCheckpoint = db.openSingleton('proposed_checkpoint_data');
   }
 
   /**
@@ -183,7 +183,7 @@ export class BlockStore {
 
       // Extract the latest block and checkpoint numbers
       const previousBlockNumber = await this.getLatestL2BlockNumber();
-      const pendingCheckpointNumber = await this.getPendingCheckpointNumber();
+      const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
       const previousCheckpointNumber = await this.getLatestCheckpointNumber();
 
       // Verify we're not overwriting checkpointed blocks
@@ -208,11 +208,11 @@ export class BlockStore {
       if (
         !opts.force &&
         previousCheckpointNumber !== expectedCheckpointNumber &&
-        pendingCheckpointNumber !== expectedCheckpointNumber
+        proposedCheckpointNumber !== expectedCheckpointNumber
       ) {
         const [reported, source]: [CheckpointNumber, 'confirmed' | 'pending'] =
-          pendingCheckpointNumber > previousCheckpointNumber
-            ? [pendingCheckpointNumber, 'pending']
+          proposedCheckpointNumber > previousCheckpointNumber
+            ? [proposedCheckpointNumber, 'pending']
             : [previousCheckpointNumber, 'confirmed'];
         throw new CheckpointNumberNotSequentialError(blockCheckpointNumber, reported, source);
       }
@@ -311,11 +311,11 @@ export class BlockStore {
         await this.#slotToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, checkpoint.checkpoint.number);
       }
 
-      // Clear the pending checkpoint if any of the confirmed checkpoints match or supersede it
-      const pendingCheckpointNumber = await this.getPendingCheckpointNumber();
+      // Clear the proposed checkpoint if any of the confirmed checkpoints match or supersede it
+      const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
       const lastConfirmedCheckpointNumber = checkpoints[checkpoints.length - 1].checkpoint.number;
-      if (pendingCheckpointNumber <= lastConfirmedCheckpointNumber) {
-        await this.#pendingCheckpoint.delete();
+      if (proposedCheckpointNumber <= lastConfirmedCheckpointNumber) {
+        await this.#proposedCheckpoint.delete();
       }
 
       await this.#lastSynchedL1Block.set(checkpoints[checkpoints.length - 1].l1.blockNumber);
@@ -350,7 +350,7 @@ export class BlockStore {
   /**
    * Validates that blocks are sequential, have correct indexes, and chain via archive roots.
    * This is the same validation used for both confirmed checkpoints (addCheckpoints) and
-   * pending checkpoints (setPendingCheckpoint).
+   * proposed checkpoints (setProposedCheckpoint).
    */
   private validateCheckpointBlocks(blocks: L2Block[], previousBlock: L2Block | undefined): void {
     for (const block of blocks) {
@@ -476,10 +476,10 @@ export class BlockStore {
         this.#log.debug(`Removed checkpoint ${c}`);
       }
 
-      // Clear any pending checkpoint that was removed
-      const pendingCheckpointNumber = await this.getPendingCheckpointNumber();
-      if (pendingCheckpointNumber > checkpointNumber) {
-        await this.#pendingCheckpoint.delete();
+      // Clear any proposed checkpoint that was removed
+      const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
+      if (proposedCheckpointNumber > checkpointNumber) {
+        await this.#proposedCheckpoint.delete();
       }
 
       return { blocksRemoved };
@@ -628,8 +628,8 @@ export class BlockStore {
     return CheckpointNumber(latestCheckpointNumber);
   }
 
-  async getPendingCheckpoint(): Promise<PendingCheckpointData | undefined> {
-    const stored = await this.#pendingCheckpoint.getAsync();
+  async getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    const stored = await this.#proposedCheckpoint.getAsync();
     if (!stored) {
       return undefined;
     }
@@ -645,17 +645,17 @@ export class BlockStore {
     };
   }
 
-  async getPendingCheckpointNumber(): Promise<CheckpointNumber> {
-    const pending = await this.getPendingCheckpoint();
+  async getProposedCheckpointNumber(): Promise<CheckpointNumber> {
+    const pending = await this.getProposedCheckpoint();
     return CheckpointNumber(pending?.checkpointNumber ?? INITIAL_CHECKPOINT_NUMBER - 1);
   }
 
   /**
-   * Attempts to get the pendingCheckpoint's block number, if there is not one, then fallback to the checkpointed block number
+   * Attempts to get the proposedCheckpoint's block number, if there is not one, then fallback to the checkpointed block number
    * @returns
    */
-  async getPendingCheckpointL2BlockNumber(): Promise<BlockNumber> {
-    const pending = await this.getPendingCheckpoint();
+  async getProposedCheckpointL2BlockNumber(): Promise<BlockNumber> {
+    const pending = await this.getProposedCheckpoint();
     if (!pending) {
       return await this.getCheckpointedL2BlockNumber();
     }
@@ -1036,18 +1036,18 @@ export class BlockStore {
     return this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
-  /** Sets the pending checkpoint (not yet L1-confirmed). Only accepts confirmed + 1. */
-  async setPendingCheckpoint(pending: PendingCheckpointData) {
+  /** Sets the proposed checkpoint (not yet L1-confirmed). Only accepts confirmed + 1. */
+  async setProposedCheckpoint(pending: ProposedCheckpointData) {
     return await this.db.transactionAsync(async () => {
-      const current = await this.getPendingCheckpointNumber();
+      const current = await this.getProposedCheckpointNumber();
       if (pending.checkpointNumber <= current) {
         // 不稳定
-        throw new PendingCheckpointStaleError(pending.checkpointNumber, current);
+        throw new ProposedCheckpointStaleError(pending.checkpointNumber, current);
       }
       const confirmed = await this.getLatestCheckpointNumber();
       if (pending.checkpointNumber !== confirmed + 1) {
         // 不稳定
-        throw new PendingCheckpointNotSequentialError(pending.checkpointNumber, confirmed);
+        throw new ProposedCheckpointNotSequentialError(pending.checkpointNumber, confirmed);
       }
 
       // Ensure the previous checkpoint + blocks exist
@@ -1062,7 +1062,7 @@ export class BlockStore {
       }
       this.validateCheckpointBlocks(blocks, previousBlock);
 
-      await this.#pendingCheckpoint.set({
+      await this.#proposedCheckpoint.set({
         header: pending.header.toBuffer(),
         // archive: pending.archive,
         // checkpointOutHash: pending.checkpointOutHash,

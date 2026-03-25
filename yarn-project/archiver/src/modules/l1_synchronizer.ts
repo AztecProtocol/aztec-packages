@@ -258,10 +258,10 @@ export class ArchiverL1Synchronizer implements Traceable {
 
   /** Prune all proposed local blocks that should have been checkpointed by now. */
   private async pruneUncheckpointedBlocks(currentL1Timestamp: bigint) {
-    const [lastCheckpointedBlockNumber, lastProposedBlockNumber, pendingCheckpoint] = await Promise.all([
+    const [lastCheckpointedBlockNumber, lastProposedBlockNumber, proposedCheckpoint] = await Promise.all([
       this.store.getCheckpointedL2BlockNumber(),
       this.store.getLatestBlockNumber(),
-      this.store.blockStore.getPendingCheckpoint(),
+      this.store.getProposedCheckpoint(),
     ]);
 
     // If there are no uncheckpointed blocks, we got nothing to do
@@ -270,12 +270,12 @@ export class ArchiverL1Synchronizer implements Traceable {
       return;
     }
 
-    // Don't prune blocks that are covered by a pending checkpoint (awaiting L1 submission from pipelining)
+    // Don't prune blocks that are covered by a proposed checkpoint (awaiting L1 submission from pipelining)
     const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
-    if (pendingCheckpoint) {
-      const lastPendingBlock = BlockNumber(pendingCheckpoint.startBlock + pendingCheckpoint.blockCount - 1);
+    if (proposedCheckpoint) {
+      const lastPendingBlock = BlockNumber(proposedCheckpoint.startBlock + proposedCheckpoint.blockCount - 1);
       if (lastPendingBlock >= firstUncheckpointedBlockNumber) {
-        this.log.trace(`Skipping prune: pending checkpoint covers blocks up to ${lastPendingBlock}`);
+        this.log.trace(`Skipping prune: proposed checkpoint covers blocks up to ${lastPendingBlock}`);
         return;
       }
     }

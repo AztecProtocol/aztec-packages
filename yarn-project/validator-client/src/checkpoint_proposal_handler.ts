@@ -70,14 +70,14 @@ export class CheckpointProposalHandler {
 
   /**
    * Registers this handler on the p2p client as the all-nodes checkpoint proposal handler.
-   * On valid proposals with pipelining enabled, sets the pending checkpoint on the archiver.
+   * On valid proposals with pipelining enabled, sets the proposed checkpoint on the archiver.
    * For own proposals (matching validator addresses), skips validation since the proposer already validated.
    * @param getOwnValidatorAddresses - A function that returns current validator addresses (called per proposal
    *   to pick up keystore reloads).
    */
   register(
     p2pClient: P2P,
-    archiver: Pick<Archiver, 'setPendingCheckpoint' | 'getL1Constants'>,
+    archiver: Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>,
     getOwnValidatorAddresses?: () => string[],
   ): CheckpointProposalHandler {
     const handler = async (
@@ -93,14 +93,14 @@ export class CheckpointProposalHandler {
         if (isOwnProposal) {
           this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
           if (this.epochCache.isProposerPipeliningEnabled()) {
-            await this.setPendingCheckpointFromBlocks(proposal, archiver);
+            await this.setProposedCheckpointFromBlocks(proposal, archiver);
           }
           return undefined;
         }
 
         const result = await this.handleCheckpointProposal(proposal);
         if (result.isValid && this.epochCache.isProposerPipeliningEnabled()) {
-          await this.setPendingCheckpointFromValidation(proposal, result.checkpointNumber, archiver);
+          await this.setProposedCheckpointFromValidation(proposal, result.checkpointNumber, archiver);
         }
       } catch (err) {
         this.log.warn(`Error handling checkpoint proposal for slot ${proposal.slotNumber}`, { err });
@@ -301,25 +301,25 @@ export class CheckpointProposalHandler {
   }
 
   /**
-   * Derives pending checkpoint data from validated blocks and sets it on the archiver.
+   * Derives proposed checkpoint data from validated blocks and sets it on the archiver.
    * Used after successful validation of a foreign proposal.
    *
    * Note: we do not retry in this function as we wait for the last block already as part of validateCheckpointProposal
    */
-  private async setPendingCheckpointFromValidation(
+  private async setProposedCheckpointFromValidation(
     proposal: CheckpointProposalCore,
     checkpointNumber: CheckpointNumber,
-    archiver: Pick<Archiver, 'setPendingCheckpoint'>,
+    archiver: Pick<Archiver, 'setProposedCheckpoint'>,
   ): Promise<void> {
     const blockData = await this.blockSource.getBlockDataByArchive(proposal.archive);
     if (!blockData) {
-      this.log.debug(`Block data not found for checkpoint proposal archive, cannot set pending checkpoint`, {
+      this.log.debug(`Block data not found for checkpoint proposal archive, cannot set proposed checkpoint`, {
         archive: proposal.archive.toString(),
       });
       return;
     }
 
-    await archiver.setPendingCheckpoint({
+    await archiver.setProposedCheckpoint({
       header: proposal.checkpointHeader,
       checkpointNumber,
       startBlock: BlockNumber(blockData.header.getBlockNumber() - blockData.indexWithinCheckpoint),
@@ -330,12 +330,12 @@ export class CheckpointProposalHandler {
   }
 
   /**
-   * Sets pending checkpoint from blocks for own proposals (skips full validation).
+   * Sets proposed checkpoint from blocks for own proposals (skips full validation).
    * Waits for block data to appear in the archiver with a retry loop.
    */
-  private async setPendingCheckpointFromBlocks(
+  private async setProposedCheckpointFromBlocks(
     proposal: CheckpointProposalCore,
-    archiver: Pick<Archiver, 'setPendingCheckpoint' | 'getL1Constants'>,
+    archiver: Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>,
   ): Promise<void> {
     let blockData = await this.blockSource.getBlockDataByArchive(proposal.archive);
 
@@ -355,7 +355,7 @@ export class CheckpointProposalHandler {
     }
 
     if (blockData) {
-      await archiver.setPendingCheckpoint({
+      await archiver.setProposedCheckpoint({
         header: proposal.checkpointHeader,
         checkpointNumber: blockData.checkpointNumber,
         startBlock: BlockNumber(blockData.header.getBlockNumber() - blockData.indexWithinCheckpoint),
@@ -364,7 +364,7 @@ export class CheckpointProposalHandler {
         feeAssetPriceModifier: proposal.feeAssetPriceModifier,
       });
     } else {
-      this.log.debug(`Block data not found for own checkpoint proposal archive, cannot set pending checkpoint`, {
+      this.log.debug(`Block data not found for own checkpoint proposal archive, cannot set proposed checkpoint`, {
         archive: proposal.archive.toString(),
       });
     }

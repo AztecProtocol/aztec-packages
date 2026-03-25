@@ -19,7 +19,12 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import { Checkpoint, type CheckpointData, L1PublishedData, type PendingCheckpointData } from '@aztec/stdlib/checkpoint';
+import {
+  Checkpoint,
+  type CheckpointData,
+  L1PublishedData,
+  type ProposedCheckpointData,
+} from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -592,7 +597,7 @@ describe('CheckpointProposalJob', () => {
     // Use checkpoint 3 so the grandparent (checkpoint 1) is valid
     const pipelinedCheckpointNumber = CheckpointNumber(3);
 
-    function createJobWithPendingCheckpoint(pendingData: PendingCheckpointData): TestCheckpointProposalJob {
+    function createJobWithProposedCheckpoint(pendingData: ProposedCheckpointData): TestCheckpointProposalJob {
       const setStateFn = jest.fn();
       const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
 
@@ -629,7 +634,7 @@ describe('CheckpointProposalJob', () => {
       );
     }
 
-    const pendingData: PendingCheckpointData = {
+    const pendingData: ProposedCheckpointData = {
       checkpointNumber: CheckpointNumber(1),
       header: CheckpointHeader.empty(),
       startBlock: BlockNumber(1),
@@ -646,7 +651,7 @@ describe('CheckpointProposalJob', () => {
       proverCost: 10n,
     };
 
-    it('returns undefined when pendingCheckpointData is not set', async () => {
+    it('returns undefined when proposedCheckpointData is not set', async () => {
       const result = await job.computeForcePendingFeeHeader(CheckpointNumber(1));
       expect(result).toBeUndefined();
     });
@@ -658,7 +663,7 @@ describe('CheckpointProposalJob', () => {
     }
 
     it('computes fee header from grandparent checkpoint', async () => {
-      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       const manaTarget = 10_000n;
 
       mockRollup({ grandparentCheckpoint: { feeHeader: grandparentFeeHeader }, manaTarget });
@@ -679,7 +684,7 @@ describe('CheckpointProposalJob', () => {
     });
 
     it('returns undefined when grandparent checkpoint is not found', async () => {
-      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: undefined });
 
       const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
@@ -687,7 +692,7 @@ describe('CheckpointProposalJob', () => {
     });
 
     it('returns undefined when grandparent checkpoint has no feeHeader', async () => {
-      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
 
       const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
@@ -695,7 +700,7 @@ describe('CheckpointProposalJob', () => {
     });
 
     it('returns undefined when rollup calls throw', async () => {
-      const jobWithPending = createJobWithPendingCheckpoint(pendingData);
+      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
 
       const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));

@@ -20,7 +20,7 @@ import {
   Checkpoint,
   type CheckpointData,
   L1PublishedData,
-  type PendingCheckpointData,
+  type ProposedCheckpointData,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -45,7 +45,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   private provenBlockNumber: number = 0;
   private finalizedBlockNumber: number = 0;
   private checkpointedBlockNumber: number = 0;
-  private pendingCheckpointBlockNumber: number = 0;
+  private proposedCheckpointBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
 
@@ -96,7 +96,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     });
     // Keep tip numbers consistent with remaining blocks.
     this.checkpointedBlockNumber = Math.min(this.checkpointedBlockNumber, maxBlockNum);
-    this.pendingCheckpointBlockNumber = Math.min(this.pendingCheckpointBlockNumber, maxBlockNum);
+    this.proposedCheckpointBlockNumber = Math.min(this.proposedCheckpointBlockNumber, maxBlockNum);
     this.provenBlockNumber = Math.min(this.provenBlockNumber, maxBlockNum);
     this.finalizedBlockNumber = Math.min(this.finalizedBlockNumber, maxBlockNum);
     this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
@@ -113,16 +113,16 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     this.finalizedBlockNumber = finalizedBlockNumber;
   }
 
-  public setPendingCheckpointBlockNumber(blockNumber: number) {
-    this.pendingCheckpointBlockNumber = blockNumber;
+  public setProposedCheckpointBlockNumber(blockNumber: number) {
+    this.proposedCheckpointBlockNumber = blockNumber;
   }
 
   public setCheckpointedBlockNumber(checkpointedBlockNumber: number) {
     const prevCheckpointed = this.checkpointedBlockNumber;
     this.checkpointedBlockNumber = checkpointedBlockNumber;
-    // Pending checkpoint is always at least as advanced as checkpointed
-    if (this.pendingCheckpointBlockNumber < checkpointedBlockNumber) {
-      this.pendingCheckpointBlockNumber = checkpointedBlockNumber;
+    // Proposed checkpoint is always at least as advanced as checkpointed
+    if (this.proposedCheckpointBlockNumber < checkpointedBlockNumber) {
+      this.proposedCheckpointBlockNumber = checkpointedBlockNumber;
     }
     // Auto-create single-block checkpoints for newly checkpointed blocks that don't have one yet.
     // This handles blocks added via addProposedBlocks that are now being marked as checkpointed.
@@ -187,8 +187,8 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(BlockNumber(this.finalizedBlockNumber));
   }
 
-  public getPendingCheckpointL2BlockNumber() {
-    return Promise.resolve(BlockNumber(this.pendingCheckpointBlockNumber));
+  public getProposedCheckpointL2BlockNumber() {
+    return Promise.resolve(BlockNumber(this.proposedCheckpointBlockNumber));
   }
 
   public getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
@@ -428,19 +428,19 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   async getL2Tips(): Promise<L2Tips> {
-    const [latest, proven, finalized, checkpointed, pendingCheckpoint] = [
+    const [latest, proven, finalized, checkpointed, proposedCheckpoint] = [
       await this.getBlockNumber(),
       await this.getProvenBlockNumber(),
       this.finalizedBlockNumber,
       this.checkpointedBlockNumber,
-      await this.getPendingCheckpointL2BlockNumber(),
+      await this.getProposedCheckpointL2BlockNumber(),
     ] as const;
 
     const latestBlock = this.l2Blocks[latest - 1];
     const provenBlock = this.l2Blocks[proven - 1];
     const finalizedBlock = this.l2Blocks[finalized - 1];
     const checkpointedBlock = this.l2Blocks[checkpointed - 1];
-    const pendingCheckpointBlock = this.l2Blocks[pendingCheckpoint - 1];
+    const proposedCheckpointBlock = this.l2Blocks[proposedCheckpoint - 1];
 
     const latestBlockId = {
       number: BlockNumber(latest),
@@ -458,9 +458,9 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       number: BlockNumber(checkpointed),
       hash: (await checkpointedBlock?.hash())?.toString(),
     };
-    const pendingCheckpointBlockId = {
-      number: BlockNumber(pendingCheckpoint),
-      hash: (await pendingCheckpointBlock?.hash())?.toString(),
+    const proposedCheckpointBlockId = {
+      number: BlockNumber(proposedCheckpoint),
+      hash: (await proposedCheckpointBlock?.hash())?.toString(),
     };
 
     const makeTipId = (blockId: typeof latestBlockId) => ({
@@ -476,7 +476,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       checkpointed: makeTipId(checkpointedBlockId),
       proven: makeTipId(provenBlockId),
       finalized: makeTipId(finalizedBlockId),
-      pendingCheckpoint: makeTipId(pendingCheckpointBlockId),
+      proposedCheckpoint: makeTipId(proposedCheckpointBlockId),
     };
   }
 
@@ -558,7 +558,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve({ valid: true });
   }
 
-  getPendingCheckpoint(): Promise<PendingCheckpointData | undefined> {
+  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve(undefined);
   }
 
