@@ -12,17 +12,14 @@
  */
 
 import { createHash } from 'crypto';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
 import { dirname, join } from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
 import { TypeScriptCodegen } from './typescript_codegen.js';
 import { RustCodegen, type RustCodegenOptions } from './rust_codegen.js';
 import { CppCodegen, type CppCodegenOptions } from './cpp_codegen.js';
 import { ZigCodegen, type ZigCodegenOptions } from './zig_codegen.js';
-
-const execAsync = promisify(exec);
 
 /** Output file descriptor */
 export interface OutputFile {
@@ -42,11 +39,9 @@ export interface LanguageTarget {
 export interface ServiceConfig {
   /** Human-readable service name */
   name: string;
-  /** Environment variable to override binary path */
-  binaryEnvVar: string;
-  /** Default binary path relative to cbind/ directory */
-  defaultBinaryPath: string;
-  /** Base directory for output files (relative to cbind/) */
+  /** Path to the committed schema JSON file (relative to cbindDir) */
+  schemaFile: string;
+  /** Base directory for output files (relative to cbindDir) */
   baseDir: string;
   /** Language targets for this service */
   targets: LanguageTarget[];
@@ -62,16 +57,14 @@ export function computeSchemaHash(schemaJson: string): string {
 }
 
 /**
- * Fetch schema from a service binary and compile it to the IR.
- * Returns both the compiled schema and the raw JSON hash for versioning.
+ * Load schema from a committed JSON file and compile it to the IR.
  */
-export async function fetchAndCompileSchema(
-  binaryPath: string,
+export function loadAndCompileSchema(
+  schemaPath: string,
   serviceName: string,
-): Promise<{ compiled: CompiledSchema; schemaHash: string; rawJson: string }> {
-  console.log(`Fetching msgpack schema from ${serviceName}...`);
-  const { stdout } = await execAsync(`${binaryPath} msgpack schema`);
-  const rawJson = stdout.trim();
+): { compiled: CompiledSchema; schemaHash: string; rawJson: string } {
+  console.log(`Loading schema for ${serviceName} from ${schemaPath}...`);
+  const rawJson = readFileSync(schemaPath, 'utf-8').trim();
   const schema = JSON.parse(rawJson);
 
   if (!schema.commands || !schema.responses) {
@@ -92,17 +85,14 @@ export async function fetchAndCompileSchema(
 /**
  * Run code generation for a single service across all its language targets.
  */
-export async function generateForService(config: ServiceConfig, cbindDir: string): Promise<void> {
-  const binaryPath = process.env[config.binaryEnvVar] || join(cbindDir, config.defaultBinaryPath);
+export function generateForService(config: ServiceConfig, cbindDir: string): void {
+  const schemaPath = join(cbindDir, config.schemaFile);
 
-  // Skip if binary not available (e.g., C++ not built yet).
-  // Generated files from a prior build/cache may still be present.
-  if (!existsSync(binaryPath)) {
-    console.log(`  [skip] ${config.name}: binary not found at ${binaryPath}`);
-    return;
+  if (!existsSync(schemaPath)) {
+    throw new Error(`Schema file not found: ${schemaPath}. Run update_schemas.sh to generate it.`);
   }
 
-  const { compiled, schemaHash } = await fetchAndCompileSchema(binaryPath, config.name);
+  const { compiled, schemaHash } = loadAndCompileSchema(schemaPath, config.name);
 
   const baseDir = join(cbindDir, config.baseDir);
 
@@ -128,7 +118,7 @@ export async function generateForService(config: ServiceConfig, cbindDir: string
     // Run clang-format on generated C++ files
     if (cppFiles.length > 0) {
       try {
-        await execAsync(`clang-format-20 -i ${cppFiles.join(' ')}`);
+        execSync(`clang-format-20 -i ${cppFiles.join(' ')}`, { stdio: 'ignore' });
       } catch {
         // clang-format-20 may not be available in all environments
       }
@@ -248,10 +238,11 @@ const RUST_IPC_BASE = '../../../rust/aztec-ipc/src';
 const ZIG_IPC_BASE = '../../../zig/aztec-ipc/src';
 
 /** The main bb binary — used for general barretenberg API */
+const SCHEMAS = '../schemas';
+
 const BB_SERVICE: ServiceConfig = {
   name: 'bb',
-  binaryEnvVar: 'BB_BINARY_PATH',
-  defaultBinaryPath: '../../cpp/build/bin/bb',
+  schemaFile: `${SCHEMAS}/bb_schema.json`,
   baseDir: `${TS_SRC}/cbind`,
   targets: [
     tsTargetWithSync(),
@@ -276,8 +267,7 @@ const CDB_CPP_OPTS: CppCodegenOptions = {
 /** World State Database service */
 const WSDB_SERVICE: ServiceConfig = {
   name: 'wsdb',
-  binaryEnvVar: 'WSDB_BINARY_PATH',
-  defaultBinaryPath: '../../cpp/build/bin/aztec-wsdb',
+  schemaFile: `${SCHEMAS}/wsdb_schema.json`,
   baseDir: `${TS_SRC}/aztec-wsdb`,
   targets: [
     tsTarget(),
@@ -299,8 +289,7 @@ const WSDB_SERVICE: ServiceConfig = {
 /** Contract Database service */
 const CDB_SERVICE: ServiceConfig = {
   name: 'cdb',
-  binaryEnvVar: 'CDB_BINARY_PATH',
-  defaultBinaryPath: '../../cpp/build/bin/aztec-cdb',
+  schemaFile: `${SCHEMAS}/cdb_schema.json`,
   baseDir: `${TS_SRC}/aztec-cdb`,
   targets: [
     tsTarget(),
@@ -322,8 +311,7 @@ const CDB_SERVICE: ServiceConfig = {
 /** AVM Simulator service */
 const AVM_SERVICE: ServiceConfig = {
   name: 'avm',
-  binaryEnvVar: 'AVM_BINARY_PATH',
-  defaultBinaryPath: '../../cpp/build/bin/aztec-avm',
+  schemaFile: `${SCHEMAS}/avm_schema.json`,
   baseDir: `${TS_SRC}/aztec-avm`,
   targets: [
     tsTarget(),
