@@ -21,14 +21,7 @@ function aztec {
 
 case $cmd in
   test)
-<<<<<<< HEAD
-    export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract_log"}"
-=======
-    # Attempt to compile, no-op if there are no changes
-    node --no-warnings "$script_dir/../dest/bin/index.js" compile
-
     export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract"}"
->>>>>>> 52a0af8017 (feat: aztecnr log prefixing)
     aztec start --txe --port 8081 &
     server_pid=$!
     trap 'kill $server_pid &>/dev/null || true' EXIT
