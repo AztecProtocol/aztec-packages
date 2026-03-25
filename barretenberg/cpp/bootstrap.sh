@@ -224,8 +224,13 @@ function build_smt_verification {
 
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
   if cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
-    # Restore machine-dependent paths after downloading cache
-    find build-smt/_deps/cvc5 -type f -name "*.cmake" -exec sed -i "s|/workspace|$(pwd)|g" {} \;
+    # Restore machine-dependent paths after downloading cache.
+    # Detect the old build path from a cached CMakeCache.txt (look for "directory: <path>/build-smt").
+    local old_path=$(grep -m1 -oP '(?<=directory: ).+(?=/build-smt)' \
+      build-smt/_deps/cvc5/src/cvc5/build/deps/src/CryptoMiniSat-EP-build/CMakeCache.txt 2>/dev/null || true)
+    if [ -n "$old_path" ] && [ "$old_path" != "$(pwd)" ]; then
+      find build-smt/_deps/cvc5 -type f \( -name "*.cmake" -o -name "CMakeCache.txt" \) -exec sed -i "s|$old_path|$(pwd)|g" {} \;
+    fi
   else
     cmake --build build-smt --target cvc5
     cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
