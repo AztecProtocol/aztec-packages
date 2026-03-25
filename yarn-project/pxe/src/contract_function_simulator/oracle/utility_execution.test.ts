@@ -149,6 +149,8 @@ describe('Utility Execution test suite', () => {
 
     const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
+    // The initializer nullifier check requires the instance to be a valid preimage of the contract address, so we
+    // can't use a random contract address here.
     const instanceFields = {
       version: 1 as const,
       salt: Fr.random(),
