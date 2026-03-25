@@ -93,6 +93,7 @@ describe('ValidatorClient', () => {
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let validatorAccounts: PrivateKeyAccount[];
+  let validatorPrivateKeys: ReturnType<typeof generatePrivateKey>[];
   let dateProvider: TestDateProvider;
   let txProvider: MockProxy<TxProvider>;
   let keyStoreManager: KeystoreManager;
@@ -136,7 +137,7 @@ describe('ValidatorClient', () => {
     haKeyStore.start.mockImplementation(() => Promise.resolve());
     haKeyStore.stop.mockImplementation(() => Promise.resolve());
 
-    const validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
+    validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
     validatorAccounts = validatorPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
 
     haKeyStore.getAddresses.mockReturnValue(validatorAccounts.map(account => EthAddress.fromString(account.address)));
