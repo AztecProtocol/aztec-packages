@@ -309,17 +309,6 @@ describe('ValidatorClient', () => {
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
-    const enableReexecution = () => {
-      mockCheckpointBuilder = mock<CheckpointBuilder>();
-      mockCheckpointBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
-      checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);
-      worldState.fork.mockResolvedValue({
-        close: () => Promise.resolve(),
-        [Symbol.asyncDispose]: () => Promise.resolve(),
-        getTreeInfo: () => Promise.resolve({ root: proposal.blockHeader.lastArchive.root.toBuffer() }),
-      } as never);
-    };
-
     beforeEach(async () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
@@ -381,6 +370,16 @@ describe('ValidatorClient', () => {
           indexWithinCheckpoint: IndexWithinCheckpoint(0),
         } as unknown as L2Block,
       };
+
+      // Set up reexecution mocks (reexecution is always enabled)
+      mockCheckpointBuilder = mock<CheckpointBuilder>();
+      mockCheckpointBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
+      checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);
+      worldState.fork.mockResolvedValue({
+        close: () => Promise.resolve(),
+        [Symbol.asyncDispose]: () => Promise.resolve(),
+        getTreeInfo: () => Promise.resolve({ root: proposal.blockHeader.lastArchive.root.toBuffer() }),
+      } as never);
     });
 
     it('should validate block proposal', async () => {
@@ -395,6 +394,8 @@ describe('ValidatorClient', () => {
       const selfProposal = await makeBlockProposal({
         blockHeader: proposal.blockHeader,
         inHash: emptyInHash,
+        archiveRoot: proposal.archive,
+        txHashes: proposal.txHashes,
         signer: selfSigner,
       });
 
@@ -566,7 +567,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should re-execute and validate proposal', async () => {
-      enableReexecution();
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
     });
@@ -574,7 +574,6 @@ describe('ValidatorClient', () => {
     it('should not validate proposal if roots do not match and should emit WANT_TO_SLASH_EVENT', async () => {
       // Block builder returns a block with a different root
       const emitSpy = jest.spyOn(validatorClient, 'emit');
-      enableReexecution();
       blockBuildResult.block.archive.root = Fr.random();
 
       // Proposal should be invalid
@@ -596,7 +595,6 @@ describe('ValidatorClient', () => {
 
     it('should not validate proposal if a random field in the proposal does not match', async () => {
       // Block builder returns a block with a different archive root
-      enableReexecution();
       blockBuildResult.block.archive.root = Fr.random();
 
       // Proposal should be invalid
@@ -605,7 +603,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should not validate proposal if the proposed block number is taken', async () => {
-      enableReexecution();
       blockSource.getBlockHeader.mockResolvedValue({} as BlockHeader);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -616,7 +613,6 @@ describe('ValidatorClient', () => {
       validatorClient.updateConfig({ slashBroadcastedInvalidBlockPenalty: 0n });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
-      enableReexecution();
       blockBuildResult.block.archive.root = Fr.random();
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
@@ -649,7 +645,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if the transactions are not available', async () => {
-      enableReexecution();
       txProvider.getTxsForBlockProposal.mockImplementation(proposal =>
         Promise.resolve({
           txs: [],
@@ -662,7 +657,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if re-execution fails', async () => {
-      enableReexecution();
       mockCheckpointBuilder.buildBlock.mockImplementation(() => {
         throw new Error('Failed to build block');
       });
@@ -711,7 +705,6 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if messages do not match', async () => {
-      enableReexecution();
       l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([Fr.random()]);
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
@@ -726,7 +719,6 @@ describe('ValidatorClient', () => {
       // L1 messages for the checkpoint) will catch it.
 
       it('should return false if global variables do not match parent for non-first block in checkpoint', async () => {
-        enableReexecution();
         // Create a proposal with indexWithinCheckpoint > 0 (non-first block in checkpoint)
         const parentSlotNumber = 100;
         const parentBlockNumber = 10;
@@ -813,7 +805,6 @@ describe('ValidatorClient', () => {
       validatorClient.updateConfig({ fishermanMode: true });
 
       // Enable re-execution (required in fisherman mode)
-      enableReexecution();
 
       // Set up so validator is NOT in the committee
       epochCache.filterInCommittee.mockResolvedValueOnce([]);
