@@ -102,8 +102,7 @@ export async function buildTxMetaData(tx: Tx, allowedSetupCalls: boolean = true)
   const anchorBlockHeaderHash = anchorBlockHeaderHashFr.toString();
   const expirationTimestamp = tx.data.expirationTimestamp;
   const anchorBlockNumber = tx.data.constants.anchorBlockHeader.globalVariables.blockNumber;
-  const { maxPriorityFeesPerGas: priorityFees, maxFeesPerGas } = tx.getGasSettings();
-  const priorityFee = minBigint(maxFeesPerGas.feePerL2Gas, priorityFees.feePerL2Gas);
+  const priorityFee = getTxPriorityFee(tx);
   const feePayer = tx.data.feePayer.toString();
 
   const { feeLimit, claimAmount } = await getFeePayerBalanceDelta(tx, ProtocolContractAddress.FeeJuice);
@@ -335,4 +334,10 @@ export function stubTxMetaData(
     estimatedSizeBytes: 0,
     data: stubTxMetaValidationData({ expirationTimestamp }),
   };
+}
+
+/** Returns the priority fee for a tx, based on the L2 priority fee capped by the max fee per gas. */
+function getTxPriorityFee(tx: Tx): bigint {
+  const { maxPriorityFeesPerGas: priorityFees, maxFeesPerGas } = tx.getGasSettings();
+  return minBigint(maxFeesPerGas.feePerL2Gas, priorityFees.feePerL2Gas);
 }
