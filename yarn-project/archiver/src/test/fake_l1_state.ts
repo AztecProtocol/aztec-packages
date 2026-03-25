@@ -150,8 +150,12 @@ export class FakeL1State {
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
 
+  // The L1 block number reported as "finalized" (defaults to the start block)
+  private finalizedL1BlockNumber: bigint;
+
   constructor(private readonly config: FakeL1StateConfig) {
     this.l1BlockNumber = config.l1StartBlock;
+    this.finalizedL1BlockNumber = config.l1StartBlock;
     this.lastArchive = new AppendOnlyTreeSnapshot(config.genesisArchiveRoot, 1);
   }
 
@@ -283,9 +287,28 @@ export class FakeL1State {
     this.updatePendingCheckpointNumber();
   }
 
+  /** Sets the L1 block number that will be reported as "finalized". */
+  setFinalizedL1BlockNumber(blockNumber: bigint): void {
+    this.finalizedL1BlockNumber = blockNumber;
+  }
+
   /** Marks a checkpoint as proven. Updates provenCheckpointNumber. */
   markCheckpointAsProven(checkpointNumber: CheckpointNumber): void {
     this.provenCheckpointNumber = checkpointNumber;
+  }
+
+  /**
+   * Simulates what `rollup.getProvenCheckpointNumber({ blockNumber: atL1Block })` would return.
+   */
+  getProvenCheckpointNumberAtL1Block(atL1Block: bigint): CheckpointNumber {
+    if (this.provenCheckpointNumber === 0) {
+      return CheckpointNumber(0);
+    }
+    const checkpoint = this.checkpoints.find(cp => cp.checkpointNumber === this.provenCheckpointNumber);
+    if (checkpoint && checkpoint.l1BlockNumber <= atL1Block) {
+      return this.provenCheckpointNumber;
+    }
+    return CheckpointNumber(0);
   }
 
   /** Sets the target committee size for attestation validation. */
@@ -406,6 +429,11 @@ export class FakeL1State {
       });
     });
 
+    mockRollup.getProvenCheckpointNumber.mockImplementation((options?: { blockNumber?: bigint }) => {
+      const atBlock = options?.blockNumber ?? this.l1BlockNumber;
+      return Promise.resolve(this.getProvenCheckpointNumberAtL1Block(atBlock));
+    });
+
     mockRollup.canPruneAtTime.mockImplementation(() => Promise.resolve(this.canPruneResult));
 
     // Mock the wrapper method for fetching checkpoint events
@@ -449,10 +477,13 @@ export class FakeL1State {
     publicClient.getChainId.mockResolvedValue(1);
     publicClient.getBlockNumber.mockImplementation(() => Promise.resolve(this.l1BlockNumber));
 
-    // Use async function pattern that existing test uses for getBlock
-
-    publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint } = {}) => {
-      const blockNum = args.blockNumber ?? (await publicClient.getBlockNumber());
+    publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint; blockTag?: string } = {}) => {
+      let blockNum: bigint;
+      if (args.blockTag === 'finalized') {
+        blockNum = this.finalizedL1BlockNumber;
+      } else {
+        blockNum = args.blockNumber ?? (await publicClient.getBlockNumber());
+      }
       return {
         number: blockNum,
         timestamp: BigInt(blockNum) * BigInt(this.config.ethereumSlotDuration) + this.config.l1GenesisTime,

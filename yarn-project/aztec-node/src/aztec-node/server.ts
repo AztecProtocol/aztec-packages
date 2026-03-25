@@ -1043,6 +1043,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+<<<<<<< HEAD
     // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
     if (referenceBlock === BlockNumber.ZERO) {
       return undefined;
@@ -1053,11 +1054,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         return undefined;
       }
     }
+=======
+>>>>>>> origin/v4
     // The Noir circuit checks the archive membership proof against `anchor_block_header.last_archive.root`,
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
     const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
+<<<<<<< HEAD
     const committedDb = await this.getWorldState(BlockNumber(referenceBlockNumber - 1));
+=======
+    const committedDb = await this.#getWorldState(BlockNumber(referenceBlockNumber - 1));
+>>>>>>> origin/v4
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
       ? undefined
@@ -1664,6 +1671,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     return snapshot;
+  }
+
+  /** Resolves a block parameter to a block number. */
+  protected async resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
+    if (block === 'latest') {
+      return BlockNumber(await this.blockSource.getBlockNumber());
+    }
+    if (BlockHash.isBlockHash(block)) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (block.equals(initialBlockHash)) {
+        return BlockNumber.ZERO;
+      }
+      const header = await this.blockSource.getBlockHeaderByHash(block);
+      if (!header) {
+        throw new Error(`Block hash ${block.toString()} not found.`);
+      }
+      return header.getBlockNumber();
+    }
+    return block as BlockNumber;
   }
 
   /** Resolves a block parameter to a block number. */
