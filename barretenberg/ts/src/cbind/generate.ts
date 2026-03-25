@@ -1,8 +1,16 @@
 /**
- * Multi-language code generation from BB msgpack schema
+ * Multi-service, multi-language code generation from msgpack schemas.
  *
  * Architecture:
- *   Raw Schema → SchemaVisitor → CompiledSchema IR → Language Codegens → Files
+ *   Service Binaries → `msgpack schema` → SchemaVisitor → CompiledSchema IR → Language Codegens → Files
+ *
+ * This is the unified entry point. It generates bindings for all services (bb, wsdb, cdb, avm)
+ * across all configured language targets (TypeScript, Rust, C++).
+ *
+ * Usage:
+ *   npx tsx src/cbind/generate.ts              # Generate all services
+ *   npx tsx src/cbind/generate.ts bb            # Generate only bb
+ *   npx tsx src/cbind/generate.ts wsdb cdb      # Generate wsdb and cdb
  */
 
 import { writeFileSync, mkdirSync } from 'fs';
@@ -11,94 +19,12 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { unpack } from 'msgpackr';
-import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
-import { TypeScriptCodegen } from './typescript_codegen.js';
-import { RustCodegen } from './rust_codegen.js';
+import { generateForService, SERVICES } from './service_codegen.js';
 
 const execAsync = promisify(exec);
 
-// Language generators - all use the same CompiledSchema IR
-interface LanguageGenerator {
-  name: string;
-  enabled: boolean;
-  generate: (compiled: CompiledSchema) => Array<{ path: string; content: string }>;
-}
-
-const LANGUAGE_GENERATORS: LanguageGenerator[] = [
-  {
-    name: 'TypeScript',
-    enabled: true,
-    generate: (compiled) => {
-      const tsGen = new TypeScriptCodegen();
-      return [
-        { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled) },
-        { path: 'generated/sync.ts', content: tsGen.generateSyncApi(compiled) },
-        { path: 'generated/async.ts', content: tsGen.generateAsyncApi(compiled) },
-      ];
-    },
-  },
-  {
-    name: 'Rust',
-    enabled: true,
-    generate: (compiled) => {
-      const rustGen = new RustCodegen();
-      return [
-        { path: '../../../rust/barretenberg-rs/src/generated_types.rs', content: rustGen.generateTypes(compiled) },
-        { path: '../../../rust/barretenberg-rs/src/api.rs', content: rustGen.generateApi(compiled) },
-      ];
-    },
-  },
-];
-
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-async function generate() {
-  const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../cpp/build/bin/bb');
-
-  // Get schema from bb
-  console.log('Fetching msgpack schema from bb...');
-  const { stdout } = await execAsync(`${bbBuildPath} msgpack schema`);
-  const schema = JSON.parse(stdout.trim());
-
-  if (!schema.commands || !schema.responses) {
-    throw new Error('Invalid schema: missing commands or responses');
-  }
-
-  // Compile schema once using visitor pattern
-  console.log('Compiling schema...');
-  const visitor = new SchemaVisitor();
-  const compiled = visitor.visit(schema.commands, schema.responses);
-
-  console.log(`Found ${compiled.commands.length} commands, ${compiled.structs.size} structs\n`);
-
-  // Ensure output directory exists
-  const outputDir = join(__dirname, 'generated');
-  mkdirSync(outputDir, { recursive: true });
-
-  // Generate all language bindings from compiled IR
-  for (const generator of LANGUAGE_GENERATORS) {
-    if (!generator.enabled) {
-      console.log(`⊘ ${generator.name}: disabled`);
-      continue;
-    }
-
-    const files = generator.generate(compiled);
-
-    for (const file of files) {
-      const outputPath = join(__dirname, file.path);
-      mkdirSync(dirname(outputPath), { recursive: true });
-      writeFileSync(outputPath, file.content);
-      console.log(`✓ ${generator.name}: ${outputPath}`);
-    }
-  }
-
-  // Generate curve constants
-  console.log('\nGenerating curve constants...');
-  await generateCurveConstants(bbBuildPath, outputDir);
-
-  console.log('\n✨ Generation complete! Clean, maintainable, multi-language architecture.');
-}
 
 async function generateCurveConstants(bbBuildPath: string, outputDir: string) {
   // Get curve constants from bb as msgpack binary
@@ -109,9 +35,6 @@ async function generateCurveConstants(bbBuildPath: string, outputDir: string) {
 
   // Decode msgpack
   const constants = unpack(constantsBuffer as Buffer);
-
-  // Helper to convert Uint8Array to hex string
-  const toHex = (bytes: Uint8Array) => '0x' + Buffer.from(bytes).toString('hex');
 
   // Helper to convert Uint8Array to bigint (big-endian)
   const toBigInt = (bytes: Uint8Array) => {
@@ -191,7 +114,42 @@ export const SECP256R1_G1_GENERATOR = {
 
   const outputPath = join(outputDir, 'curve_constants.ts');
   writeFileSync(outputPath, content);
-  console.log(`✓ Curve constants: ${outputPath}`);
+  console.log(`  [curve_constants] ${outputPath}`);
+}
+
+async function generate() {
+  // Parse CLI args: optional list of service names to generate
+  const args = process.argv.slice(2);
+  const requestedServices = args.length > 0 ? args : Object.keys(SERVICES);
+
+  // Validate service names
+  for (const name of requestedServices) {
+    if (!SERVICES[name]) {
+      console.error(`Unknown service: ${name}. Available: ${Object.keys(SERVICES).join(', ')}`);
+      process.exit(1);
+    }
+  }
+
+  console.log(`Generating bindings for: ${requestedServices.join(', ')}\n`);
+
+  // Generate each requested service
+  for (const name of requestedServices) {
+    console.log(`--- ${name} ---`);
+    await generateForService(SERVICES[name], __dirname);
+    console.log('');
+  }
+
+  // Generate curve constants (only if bb is included)
+  if (requestedServices.includes('bb')) {
+    console.log('--- curve constants ---');
+    const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../cpp/build/bin/bb');
+    const outputDir = join(__dirname, 'generated');
+    mkdirSync(outputDir, { recursive: true });
+    await generateCurveConstants(bbBuildPath, outputDir);
+    console.log('');
+  }
+
+  console.log('Generation complete.');
 }
 
 // Run the generator
