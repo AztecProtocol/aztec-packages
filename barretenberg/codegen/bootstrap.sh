@@ -35,9 +35,17 @@ function generate {
   ls -la ../ts/src/cbind/generated/api_types.ts ../rust/barretenberg-rs/src/api.rs 2>&1 || true
 }
 
-case "${1:-build}" in
-  hash) echo $hash ;;
-  build) build ;;
-  generate) generate ;;
-  *) echo "Unknown command: $1"; exit 1 ;;
+case "$cmd" in
+  "")
+    build
+    ;;
+  hash)
+    echo $hash
+    ;;
+  generate)
+    generate
+    ;;
+  *)
+    default_cmd_handler "$@"
+    ;;
 esac
