@@ -1,3 +1,4 @@
+import { minBigint } from '@aztec/foundation/bigint';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -6,7 +7,6 @@ import { Gas } from '@aztec/stdlib/gas';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
-import { getTxPriorityFee } from '../tx_pool/priority.js';
 import { type PreAddResult, TxPoolRejectionCode } from './eviction/interfaces.js';
 
 /** Validator-compatible data interface, mirroring the subset of PrivateKernelTailCircuitPublicInputs used by validators. */
@@ -102,7 +102,8 @@ export async function buildTxMetaData(tx: Tx, allowedSetupCalls: boolean = true)
   const anchorBlockHeaderHash = anchorBlockHeaderHashFr.toString();
   const expirationTimestamp = tx.data.expirationTimestamp;
   const anchorBlockNumber = tx.data.constants.anchorBlockHeader.globalVariables.blockNumber;
-  const priorityFee = getTxPriorityFee(tx);
+  const { maxPriorityFeesPerGas: priorityFees, maxFeesPerGas } = tx.getGasSettings();
+  const priorityFee = minBigint(maxFeesPerGas.feePerL2Gas, priorityFees.feePerL2Gas);
   const feePayer = tx.data.feePayer.toString();
 
   const { feeLimit, claimAmount } = await getFeePayerBalanceDelta(tx, ProtocolContractAddress.FeeJuice);
