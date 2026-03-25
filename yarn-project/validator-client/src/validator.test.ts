@@ -51,6 +51,7 @@ import type {
 } from './checkpoint_builder.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
+import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
 
 function makeKeyStore(validator: {
@@ -84,7 +85,7 @@ describe('ValidatorClient', () => {
     > & {
       disableTransactions: boolean;
     };
-  let validatorClient: TestValidatorClient;
+  let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -176,7 +177,7 @@ describe('ValidatorClient', () => {
       keyStoreManager,
       blobClient,
       dateProvider,
-    )) as TestValidatorClient;
+    )) as ValidatorClient;
   });
 
   describe('createBlockProposal', () => {
@@ -401,7 +402,7 @@ describe('ValidatorClient', () => {
 
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(selfSigner.address);
 
-      const handleSpy = jest.spyOn(validatorClient.getBlockProposalHandler(), 'handleBlockProposal');
+      const handleSpy = jest.spyOn(validatorClient.getProposalHandler(), 'handleBlockProposal');
       const isValid = await validatorClient.validateBlockProposal(selfProposal, sender);
       expect(isValid).toBe(true);
       expect(handleSpy).toHaveBeenCalled();
@@ -410,7 +411,7 @@ describe('ValidatorClient', () => {
     it('should return early when escape hatch is open', async () => {
       epochCache.isEscapeHatchOpenAtSlot.mockResolvedValueOnce(true);
 
-      const handleSpy = jest.spyOn(validatorClient.getBlockProposalHandler(), 'handleBlockProposal');
+      const handleSpy = jest.spyOn(validatorClient.getProposalHandler(), 'handleBlockProposal');
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -479,7 +480,10 @@ describe('ValidatorClient', () => {
 
     it('should attest to a checkpoint proposal after validating a block for that slot', async () => {
       const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
-      const uploadBlobsSpy = jest.spyOn(validatorClient, 'uploadBlobsForCheckpoint');
+      const uploadBlobsSpy = jest.spyOn(
+        validatorClient.getProposalHandler() as TestProposalHandler,
+        'tryUploadBlobsForCheckpoint',
+      );
 
       const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
       expect(didValidate).toBe(true);
@@ -494,10 +498,15 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // Mock validateCheckpointProposal to pass, so handleCheckpointProposal runs its
+      // own checks (signature, fee modifier) and then proceeds to blob upload.
+      const validateCheckpointSpy = jest
+        .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
+        .mockResolvedValue({ isValid: true });
+
       // Enable blob upload for this attestation
       blobClient.canUpload.mockReturnValue(true);
 
-      validatorClient.updateConfig({ skipCheckpointProposalValidation: true });
       const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
 
       expect(attestations).toBeDefined();
@@ -506,6 +515,7 @@ describe('ValidatorClient', () => {
       expect(uploadBlobsSpy).toHaveBeenCalled();
 
       uploadBlobsSpy.mockRestore();
+      validateCheckpointSpy.mockRestore();
     });
 
     it('should not attest to a checkpoint proposal that references a middle block instead of the last', async () => {
@@ -797,7 +807,7 @@ describe('ValidatorClient', () => {
       // blocks in the same checkpoint share the same checkpointNumber, they will always
       // compute the same inHash from the same L1 messages. If a malicious proposal has a
       // different inHash, it will fail the existing validation at lines 192-200 in
-      // block_proposal_handler.ts.
+      // proposal_handler.ts.
     });
 
     it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {
@@ -902,7 +912,10 @@ describe('ValidatorClient', () => {
       blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
-      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+      await (validatorClient.getProposalHandler() as TestProposalHandler).uploadBlobsForCheckpoint(
+        proposal,
+        proposalInfo,
+      );
 
       expect(blockSource.getBlocksForSlot).toHaveBeenCalledWith(proposal.slotNumber);
       expect(blobClient.sendBlobsToFilestore).toHaveBeenCalled();
@@ -912,7 +925,10 @@ describe('ValidatorClient', () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
-      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+      await (validatorClient.getProposalHandler() as TestProposalHandler).uploadBlobsForCheckpoint(
+        proposal,
+        proposalInfo,
+      );
 
       expect(blobClient.sendBlobsToFilestore).not.toHaveBeenCalled();
     });
@@ -924,7 +940,9 @@ describe('ValidatorClient', () => {
       blobClient.sendBlobsToFilestore.mockRejectedValue(new Error('upload failed'));
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
-      await expect(validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo)).resolves.toBeUndefined();
+      await expect(
+        (validatorClient.getProposalHandler() as TestProposalHandler).uploadBlobsForCheckpoint(proposal, proposalInfo),
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -1089,8 +1107,11 @@ describe('ValidatorClient', () => {
 });
 
 /** Exposes protected methods for direct testing */
-class TestValidatorClient extends ValidatorClient {
+class TestProposalHandler extends ProposalHandler {
   declare public uploadBlobsForCheckpoint: (
-    ...args: Parameters<ValidatorClient['uploadBlobsForCheckpoint']>
+    ...args: Parameters<ProposalHandler['uploadBlobsForCheckpoint']>
   ) => Promise<void>;
+  declare public tryUploadBlobsForCheckpoint: (
+    ...args: Parameters<ProposalHandler['tryUploadBlobsForCheckpoint']>
+  ) => void;
 }
