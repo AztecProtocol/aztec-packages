@@ -15,9 +15,9 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     utilityLog: (
       level: ACVMField[],
       message: ACVMField[],
-      _ignoredFieldsSize: ACVMField[],
+      _fieldsSize: ACVMField[],
       fields: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_utl_log(level, message, _ignoredFieldsSize, fields),
+    ): Promise<ACVMField[]> => oracle.aztec_utl_log(level, message, _fieldsSize, fields),
     utilityAssertCompatibleOracleVersion: (version: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_utl_assertCompatibleOracleVersion(version),
     utilityLoadCapsule: (
