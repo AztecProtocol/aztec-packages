@@ -4,17 +4,8 @@ use aztec::macros::aztec;
 
 #[aztec]
 pub contract InitTest {
-    use aztec::macros::{
-        functions::{external, initializer, noinitcheck, only_self, view},
-        storage::storage,
-    };
+    use aztec::macros::functions::{external, initializer, noinitcheck, only_self, view};
     use aztec::protocol::address::AztecAddress;
-    use aztec::state_vars::{Map, PublicMutable};
-
-    #[storage]
-    struct Storage<Context> {
-        public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
-    }
 
     #[external("private")]
     #[initializer]
@@ -64,19 +55,17 @@ pub contract InitTest {
     fn priv_no_init_check(owner: AztecAddress, value: Field) {}
 
     #[external("public")]
-    fn pub_init_check(owner: AztecAddress, value: Field) {
-        self.storage.public_values.at(owner).write(value);
-    }
+    fn pub_init_check(owner: AztecAddress, value: Field) {}
 
     #[external("public")]
     #[noinitcheck]
     #[view]
     fn pub_no_init_check(owner: AztecAddress) -> pub Field {
-        self.storage.public_values.at(owner).read()
+        1
     }
 
     #[external("utility")]
     unconstrained fn utility_init_check(owner: AztecAddress) -> Field {
-        self.storage.public_values.at(owner).read()
+        2
     }
 }
