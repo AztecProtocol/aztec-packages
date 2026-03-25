@@ -9,6 +9,7 @@ libs = ['lib']
 solc = "./solc-0.8.30"
 evm_version = 'prague'
 optimizer = true
+optimizer_runs = 100
 match_path = "test/**/*.t.sol"
 # Helper to get all the contract names in the src/governance and src/core directories
 # find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "

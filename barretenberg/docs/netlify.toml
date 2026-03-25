@@ -1,6 +1,8 @@
 [build]
   # Only build if docs-related files changed (docs/ or #include_code references)
   ignore = "./scripts/netlify-ignore-build.sh"
+  command = "yarn install && yarn build"
+  publish = "build"
 
 # Redirect root to /docs
 [[redirects]]

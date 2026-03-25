@@ -198,7 +198,7 @@ describe('indexed merkle tree root calculator', () => {
     // Pick some value to find a witness for...
     const testIndex = 2;
     const testValue = values[testIndex];
-    const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
+    const sortedValues = [...values].sort((a, b) => a.cmp(b));
     // ...and find its next value.
     const nextValue = sortedValues[sortedValues.indexOf(testValue) + 1] || Fr.ZERO;
 
@@ -230,7 +230,7 @@ describe('indexed merkle tree root calculator', () => {
 
     // Pick some value to find a low leaf for...
     const testValue = Fr.random();
-    const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
+    const sortedValues = [...values].sort((a, b) => a.cmp(b));
     // ...and find its 'sandwich' values.
     const previousIndex = sortedValues.findIndex(
       (a, i) =>

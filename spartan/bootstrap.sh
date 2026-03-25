@@ -92,6 +92,15 @@ NETWORK_TESTS_2=(
   mbps.test.ts
 )
 
+# Retrieve the admin API key stored as a K8s Secret during deployment.
+# Exported so the test runner can authenticate against the admin RPC endpoint.
+function export_admin_api_key {
+  export AZTEC_ADMIN_API_KEY
+  AZTEC_ADMIN_API_KEY=$(kubectl get secret aztec-admin-api-key \
+    --namespace "$NAMESPACE" \
+    -o jsonpath='{.data.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
+}
+
 # Run spartan tests sequentially with k8s log enrichment, collecting failures.
 function run_network_tests {
   local env_file="$1"
@@ -99,12 +108,7 @@ function run_network_tests {
   source_network_env "$env_file"
   gcp_auth
   export SCENARIO_TESTS=1
-  # Retrieve the admin API key stored as a K8s Secret during deployment.
-  # Exported so the test runner can authenticate against the admin RPC endpoint.
-  export AZTEC_ADMIN_API_KEY
-  AZTEC_ADMIN_API_KEY=$(kubectl get secret aztec-admin-api-key \
-    --namespace "$NAMESPACE" \
-    -o jsonpath='{.data.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  export_admin_api_key
   local failed=()
   for test_file in "$@"; do
     echo_header "Running $test_file"
@@ -142,7 +146,7 @@ function network_tests {
 
 function network_bench_cmds {
   local high_value_tps=0.1
-  local low_value_tps_list=(0.1 0.2 0.5 1)
+  local low_value_tps_list=(0.1 0.2 0.5 1 2)
 
   for low_value_tps in "${low_value_tps_list[@]}"; do
     local low_label=${low_value_tps/./_}
@@ -174,6 +178,7 @@ function network_bench {
 
   echo_header "spartan bench"
   gcp_auth
+  export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   network_bench_cmds | parallelize 1
 }
@@ -187,6 +192,7 @@ function proving_bench {
 
   echo_header "spartan proving bench"
   gcp_auth
+  export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   proving_bench_cmds | parallelize 1
 }
@@ -200,6 +206,7 @@ function block_capacity_bench {
 
   echo_header "spartan block capacity bench"
   gcp_auth
+  export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   block_capacity_bench_cmds | parallelize 1
 }
