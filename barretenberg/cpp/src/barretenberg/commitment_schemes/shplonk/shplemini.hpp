@@ -369,22 +369,16 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        // Currently, only used in ECCVM. The batch_sumcheck_round_claims method unconditionally offsets nu-powers
-        // by NUM_SMALL_IPA_EVALUATIONS, assuming the Libra/SmallSubgroupIPA claims occupy that slot — this is only
-        // correct when ZK is enabled.
-        if constexpr (HasZK) {
-            if (committed_sumcheck) {
-                batch_sumcheck_round_claims(commitments,
-                                            scalars,
-                                            constant_term_accumulator,
-                                            multivariate_challenge,
-                                            shplonk_batching_challenge_powers,
-                                            shplonk_evaluation_challenge,
-                                            sumcheck_round_commitments,
-                                            sumcheck_round_evaluations);
-            }
-        } else {
-            BB_ASSERT(!committed_sumcheck);
+        // Currently, only used in ECCVM
+        if (committed_sumcheck) {
+            batch_sumcheck_round_claims(commitments,
+                                        scalars,
+                                        constant_term_accumulator,
+                                        multivariate_challenge,
+                                        shplonk_batching_challenge_powers,
+                                        shplonk_evaluation_challenge,
+                                        sumcheck_round_commitments,
+                                        sumcheck_round_evaluations);
         }
 
         // Finalize the batch opening claim
@@ -675,13 +669,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // to the evaluations at 0, 1, and the round challenge u_i.
         // Compute the power of `shplonk_batching_challenge` to add sumcheck univariate commitments and evaluations to
         // the batch.
-        // Note: committed sumcheck is currently only used with ZK (ECCVM). The nu-power offset by
-        // NUM_SMALL_IPA_EVALUATIONS assumes the Libra/SmallSubgroupIPA claims occupy that slot. If committed sumcheck
-        // is ever used without ZK, this offset must be made conditional on HasZK.
-        static_assert(HasZK,
-                      "batch_sumcheck_round_claims assumes ZK is enabled; the nu-power offset by "
-                      "NUM_SMALL_IPA_EVALUATIONS would be incorrect without ZK");
-        size_t power = num_gemini_claims + NUM_SMALL_IPA_EVALUATIONS;
+        size_t power = num_gemini_claims;
+        if constexpr (HasZK) {
+            power += NUM_SMALL_IPA_EVALUATIONS;
+        }
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);
