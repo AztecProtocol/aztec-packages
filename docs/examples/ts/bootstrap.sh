@@ -214,16 +214,17 @@ validate_project() {
                 return 1
             fi
 
-            # Check for .d.ts files in dest/ or lib/ (different packages use different output dirs)
+            # Check for .d.ts files in common output dirs
             local dts_count=0
-            if [ -d "$link_target/dest" ]; then
-                dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
-            elif [ -d "$link_target/lib" ]; then
-                dts_count=$(find "$link_target/lib" -name "*.d.ts" 2>/dev/null | wc -l)
-            fi
+            for check_dir in dest lib nodejs web; do
+                if [ -d "$link_target/$check_dir" ]; then
+                    dts_count=$(find "$link_target/$check_dir" -name "*.d.ts" 2>/dev/null | wc -l)
+                    [ "$dts_count" -gt 0 ] && break
+                fi
+            done
 
             if [ "$dts_count" -eq 0 ]; then
-                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/ and lib/)"
+                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/, lib/, nodejs/, web/)"
                 ls -la "$link_target" | head -20 || true
                 return 1
             fi
@@ -231,7 +232,7 @@ validate_project() {
             echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
         done
 
-        yarn add -D typescript >/dev/null 2>&1
+        yarn add -D "typescript@^5.3.3" >/dev/null 2>&1
 
         # Create tsconfig.json from template
         if [ ! -f "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" ]; then
@@ -264,16 +265,20 @@ get_all_projects() {
     done
 }
 
-# In CI, validate all yarn.lock files are empty (they must exist but contain no content).
+# In CI, validate all yarn.lock files are committed empty (they must exist but contain no content).
+# We check git state (not filesystem) because a previous interrupted validation run may have
+# populated lockfiles on disk via yarn add before cleanup could run.
 # Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
 if [ "${CI:-0}" != "0" ]; then
     for lockfile in */yarn.lock; do
         [ -f "$lockfile" ] || continue
-        if [ -s "$lockfile" ]; then
-            echo_stderr "ERROR: $lockfile is not empty. These files must be committed empty."
+        if [ -n "$(git show HEAD:"docs/examples/ts/$lockfile" 2>/dev/null)" ]; then
+            echo_stderr "ERROR: $lockfile is not empty in git. These files must be committed empty."
             echo_stderr "       Run: > $lockfile && git add $lockfile"
             exit 1
         fi
+        # Ensure clean filesystem state (may be dirty from a previous interrupted run)
+        > "$lockfile"
     done
 fi
 

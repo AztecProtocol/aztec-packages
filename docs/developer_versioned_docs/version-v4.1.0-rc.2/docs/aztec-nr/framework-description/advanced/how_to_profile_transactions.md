@@ -2,7 +2,7 @@
 title: Profiling Transactions
 sidebar_position: 2
 tags: [contracts, profiling]
-description: How to profile Aztec transactions and identify performance bottlenecks.
+description: How to profile Aztec transactions and identify performance bottlenecks using aztec profile, aztec-wallet, and aztec.js.
 ---
 
 This guide shows you how to profile Aztec transactions to understand gate counts and identify optimization opportunities.
@@ -10,11 +10,86 @@ This guide shows you how to profile Aztec transactions to understand gate counts
 ## Prerequisites
 
 - `aztec` command installed ([see installation](../../../../getting_started_on_local_network.md))
-- `aztec-wallet` installed
-- Aztec contract deployed and ready to test
+- Aztec contract compiled (`aztec compile`)
 - Basic understanding of proving and gate counts
 
-## Profile with aztec-wallet
+## Choosing a profiling tool
+
+Aztec provides three ways to profile. Each serves a different purpose:
+
+| Tool                                              | What it measures                                          | Needs deployment? | When to use                                              |
+| ------------------------------------------------- | --------------------------------------------------------- | ----------------- | -------------------------------------------------------- |
+| `aztec profile gates`                             | Per-function gate counts                                  | No                | Quick check of individual function costs after compiling |
+| `aztec profile flamegraph`                        | Per-function flamegraph SVG                               | No                | Deep-dive into where gates come from inside a function   |
+| `aztec-wallet profile` / `.profile()` in aztec.js | Full transaction gate count including all kernel circuits | Yes               | Understanding the true cost of a transaction end-to-end  |
+
+In most cases, start with `aztec profile gates` for a quick overview, then use the full transaction profiling tools when you need to understand kernel overhead.
+
+## Quick profiling with `aztec profile`
+
+These commands work on compiled artifacts directly — no deployment or running network required.
+
+### Gate counts
+
+```bash
+# Compile your contract
+aztec compile
+
+# Get gate counts for all functions
+aztec profile gates ./target
+```
+
+Example output:
+
+```text
+Gate counts:
+────────────────────────────────────────────────────────────────────
+my_contract-MyContract::constructor                          5,200
+my_contract-MyContract::my_function                         14,832
+my_contract-MyContract::transfer                            31,559
+────────────────────────────────────────────────────────────────────
+Total: 3 circuit(s)
+```
+
+These are the gate counts for your contract functions alone, **without** kernel circuit overhead. See [Understanding kernel overhead](#understanding-kernel-overhead) for how this translates to total transaction cost.
+
+:::note BB binary
+`aztec profile` needs the Barretenberg (`bb`) backend binary. It is auto-detected from the `@aztec/bb.js` package. If auto-detection fails, set the `BB` environment variable:
+
+```bash
+BB=/path/to/bb aztec profile gates ./target
+```
+
+:::
+
+### Flamegraphs
+
+To generate an interactive flamegraph SVG for a specific function:
+
+```bash
+aztec profile flamegraph ./target/my_contract-MyContract.json my_function
+```
+
+This outputs a file like `my_contract-MyContract-my_function-flamegraph.svg` in the same directory. Open it in a browser for an interactive view where:
+
+- **Width** represents gate count
+- **Height** represents call stack depth
+- **Wide sections** indicate optimization targets
+
+:::tip
+If `noir-profiler` is not on your PATH, set the `PROFILER_PATH` environment variable:
+
+```bash
+PROFILER_PATH=/path/to/noir-profiler aztec profile flamegraph ./target/my_contract-MyContract.json my_function
+```
+
+:::
+
+## Full transaction profiling
+
+The tools above measure individual function gate counts. To understand the **total** proving cost of a transaction — including account entrypoints and kernel circuits — use `aztec-wallet profile` or `.profile()` in aztec.js. These require a deployed contract and a running network.
+
+### Profile with aztec-wallet
 
 Use the `profile` command instead of `send` to get detailed gate counts:
 
@@ -35,7 +110,7 @@ aztec-wallet profile my_function \
   -f accounts:test0
 ```
 
-### Reading the output
+#### Reading the output
 
 The profile command outputs a per-circuit breakdown:
 
@@ -54,11 +129,13 @@ Total gates: 177,086 (Biggest circuit: private_kernel_inner -> 78,452)
 
 Key metrics:
 
-- **Gates**: Circuit complexity for each function
+- **Gates**: Circuit complexity for each step
 - **Subtotal**: Accumulated gate count
 - **Time**: Execution time per circuit
 
-## Profile with aztec.js
+Notice that the kernel circuits (`private_kernel_init`, `private_kernel_inner`) appear alongside your contract functions. These are protocol overhead — see [Understanding kernel overhead](#understanding-kernel-overhead).
+
+### Profile with aztec.js
 
 ```typescript
 const result = await contract.methods.my_function(args).profile({
@@ -76,7 +153,7 @@ for (const step of result.executionSteps) {
 console.log("Total time:", result.stats.timings.total, "ms");
 ```
 
-### Profile modes
+#### Profile modes
 
 - `gates`: Gate counts per circuit
 - `execution-steps`: Detailed execution trace with bytecode and witnesses
@@ -86,7 +163,7 @@ Set `skipProofGeneration: true` for faster iteration when you only need gate cou
 
 ## Generate flamegraphs with noir-profiler
 
-For deeper analysis of individual contract functions, use the Noir profiler to generate interactive flamegraphs. The profiler is installed automatically with Nargo (starting noirup v0.1.4).
+For deeper analysis of individual contract functions beyond what `aztec profile flamegraph` provides, you can use the Noir profiler directly. The profiler is installed automatically with Nargo.
 
 ```bash
 # Compile your contract first
@@ -104,22 +181,26 @@ noir-profiler opcodes \
   --output ./target
 ```
 
-Open the generated `.svg` file in a browser for an interactive view where:
-
-- **Width** represents gate count or opcode count
-- **Height** represents call stack depth
-- **Wide sections** indicate optimization targets
-
 For detailed usage, see the [Noir profiler documentation](https://noir-lang.org/docs/tooling/profiler).
+
+## Understanding kernel overhead
+
+When you profile a full transaction, you'll see kernel circuits alongside your contract functions. These are protocol overhead — the private kernel runs once per private function call in the transaction. Even a typical transaction calling a single contract function involves two private calls (the account entrypoint + your function), totaling ~427k gates of which only ~14k are your function.
+
+For a detailed breakdown of kernel phases and their gate costs, see [Private Kernel Circuit - Performance Impact](../../../foundational-topics/advanced/circuits/private_kernel.md#performance-impact).
 
 ## Gate count guidelines
 
-| Gate Count        | Assessment            |
-| ----------------- | --------------------- |
-| < 50,000          | Excellent             |
-| 50,000 - 200,000  | Acceptable            |
-| 200,000 - 500,000 | Consider optimizing   |
-| > 500,000         | Requires optimization |
+These are rough guidelines for a **single contract function's** gate count (i.e. what `aztec profile gates` reports). A typical transaction (e.g. a token transfer) totals ~500,000 gates across all circuits including kernel overhead, so use that as a reference point.
+
+| Gate Count        | Assessment                   |
+| ----------------- | ---------------------------- |
+| < 50,000          | Excellent                    |
+| 50,000 - 200,000  | Good                         |
+| 200,000 - 500,000 | Consider optimizing          |
+| > 500,000         | Worth optimizing if possible |
+
+Note that a high gate count does **not** prevent transaction inclusion — it only affects client-side proving time. See [Private Kernel Circuit - Performance Impact](../../../foundational-topics/advanced/circuits/private_kernel.md#performance-impact) for details.
 
 ## Next steps
 

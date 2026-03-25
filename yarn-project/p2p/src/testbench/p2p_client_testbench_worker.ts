@@ -40,7 +40,7 @@ import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requ
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
-import { MissingTxsTracker } from '../services/tx_collection/missing_txs_tracker.js';
+import { RequestTracker } from '../services/tx_collection/request_tracker.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
@@ -273,10 +273,9 @@ async function runAggregatorBenchmark(
         noopTxValidator,
       );
       const fetchedTxs = await collector.collectTxs(
-        MissingTxsTracker.fromArray(txHashes),
+        RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
         blockProposal,
         pinnedPeer,
-        timeoutMs,
       );
       const durationMs = timer.ms();
       return {
@@ -293,10 +292,9 @@ async function runAggregatorBenchmark(
       BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
     );
     const fetchedTxs = await collector.collectTxs(
-      MissingTxsTracker.fromArray(txHashes),
+      RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
       blockProposal,
       pinnedPeer,
-      timeoutMs,
     );
     const durationMs = timer.ms();
     return {

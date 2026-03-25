@@ -50,7 +50,7 @@ If your account already has Fee Juice (for example, [bridged from L1](./how_to_p
 
 #include_code deploy_account_fee_juice /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-The `from: AztecAddress.ZERO` is required because there's no existing account to send from—the transaction itself creates the account.
+The `from: NO_FROM` signals that this transaction should be executed without account contract mediation. The wallet will directly execute it via a default entrypoint with no authorization
 
 ## Verify deployment
 

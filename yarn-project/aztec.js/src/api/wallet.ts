@@ -15,6 +15,7 @@ export {
   type PublicEvent,
   type PublicEventFilter,
   type ContractMetadata,
+  ContractInitializationStatus,
   type ContractClassMetadata,
   AppCapabilitiesSchema,
   WalletCapabilitiesSchema,

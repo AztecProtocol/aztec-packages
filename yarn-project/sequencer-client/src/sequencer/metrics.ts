@@ -49,6 +49,8 @@ export class SequencerMetrics {
   private checkpointBlockCount: Gauge;
   private checkpointTxCount: Gauge;
   private checkpointTotalMana: Gauge;
+  private pipelineDepth: Gauge;
+  private pipelineDiscards: UpDownCounter;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -143,6 +145,10 @@ export class SequencerMetrics {
 
     this.slashingAttempts = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
 
+    this.pipelineDepth = this.meter.createGauge(Metrics.SEQUENCER_PIPELINE_DEPTH);
+    this.pipelineDiscards = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_PIPELINE_DISCARDS_COUNT);
+    this.pipelineDepth.record(0);
+
     // Fisherman fee analysis metrics
     this.fishermanWouldBeIncluded = createUpDownCounterWithDefault(
       this.meter,
@@ -232,6 +238,14 @@ export class SequencerMetrics {
     this.stateTransitionBufferDuration.record(durationMs, {
       [Attributes.SEQUENCER_STATE]: state,
     });
+  }
+
+  recordPipelineDepth(depth: number) {
+    this.pipelineDepth.record(depth);
+  }
+
+  recordPipelineDiscard(count = 1) {
+    this.pipelineDiscards.add(count);
   }
 
   incOpenSlot(slot: SlotNumber, proposer: string) {

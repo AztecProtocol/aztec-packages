@@ -1,4 +1,5 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type ContractFunctionInteraction, NO_WAIT, toSendOptions } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
@@ -114,7 +115,7 @@ describe('block capacity benchmark', () => {
         );
         const deployMethod = await manager.getDeployMethod();
         await deployMethod.send({
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           fee: { paymentMethod: sponsor },
           wait: { timeout: 2400 },
         });

@@ -491,8 +491,14 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_fetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsUtility().fetchTaggedLogs(Fr.fromString(pendingTaggedLogArrayBaseSlot));
+  async aztec_utl_fetchTaggedLogs(
+    [pendingTaggedLogArrayBaseSlot]: ACVMField[],
+    [scope]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().fetchTaggedLogs(
+      Fr.fromString(pendingTaggedLogArrayBaseSlot),
+      AztecAddress.fromString(scope),
+    );
     return [];
   }
 
@@ -503,6 +509,7 @@ export class Oracle {
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
     [maxNotePackedLen]: ACVMField[],
     [maxEventSerializedLen]: ACVMField[],
+    [scope]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
@@ -510,6 +517,7 @@ export class Oracle {
       Fr.fromString(eventValidationRequestsArrayBaseSlot),
       Fr.fromString(maxNotePackedLen).toNumber(),
       Fr.fromString(maxEventSerializedLen).toNumber(),
+      AztecAddress.fromString(scope),
     );
 
     return [];
@@ -520,11 +528,13 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [logRetrievalRequestsArrayBaseSlot]: ACVMField[],
     [logRetrievalResponsesArrayBaseSlot]: ACVMField[],
+    [scope]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().bulkRetrieveLogs(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(logRetrievalRequestsArrayBaseSlot),
       Fr.fromString(logRetrievalResponsesArrayBaseSlot),
+      AztecAddress.fromString(scope),
     );
     return [];
   }
@@ -534,27 +544,31 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [messageContextRequestsArrayBaseSlot]: ACVMField[],
     [messageContextResponsesArrayBaseSlot]: ACVMField[],
+    [scope]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().utilityResolveMessageContexts(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(messageContextRequestsArrayBaseSlot),
       Fr.fromString(messageContextResponsesArrayBaseSlot),
+      AztecAddress.fromString(scope),
     );
     return [];
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_storeCapsule(
+  aztec_utl_storeCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     capsule: ACVMField[],
+    [scope]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().storeCapsule(
+    this.handlerAsUtility().storeCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
       capsule.map(Fr.fromString),
+      AztecAddress.fromField(Fr.fromString(scope)),
     );
-    return [];
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
@@ -562,10 +576,12 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
+    [scope]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const values = await this.handlerAsUtility().loadCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
+      AztecAddress.fromField(Fr.fromString(scope)),
     );
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
@@ -580,12 +596,17 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_deleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsUtility().deleteCapsule(
+  aztec_utl_deleteCapsule(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    [scope]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    this.handlerAsUtility().deleteCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
+      AztecAddress.fromField(Fr.fromString(scope)),
     );
-    return [];
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
@@ -594,12 +615,14 @@ export class Oracle {
     [srcSlot]: ACVMField[],
     [dstSlot]: ACVMField[],
     [numEntries]: ACVMField[],
+    [scope]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().copyCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(srcSlot),
       Fr.fromString(dstSlot),
       Fr.fromString(numEntries).toNumber(),
+      AztecAddress.fromField(Fr.fromString(scope)),
     );
     return [];
   }

@@ -1,5 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { type ChildProcess, spawn } from 'child_process';
@@ -33,6 +34,12 @@ export async function startAnvil(
      * L1-finality-based logic work without needing hundreds of mined blocks.
      */
     slotsInAnEpoch?: number;
+    /**
+     * If provided, the date provider will be synced to anvil's block time on every mined block.
+     * This keeps the dateProvider in lockstep with anvil's chain time, avoiding drift between
+     * the wall clock and the L1 chain when computing L1 slot timestamps.
+     */
+    dateProvider?: TestDateProvider;
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
@@ -108,12 +115,15 @@ export async function startAnvil(
         child.once('close', onClose);
       });
 
-      // Continue piping for logging / method-call capture after startup.
-      if (logger || opts.captureMethodCalls) {
+      // Continue piping for logging, method-call capture, and/or dateProvider sync after startup.
+      if (logger || opts.captureMethodCalls || opts.dateProvider) {
         child.stdout?.on('data', (data: Buffer) => {
           const text = data.toString();
           logger?.debug(text.trim());
           methodCalls?.push(...(text.match(/eth_[^\s]+/g) || []));
+          if (opts.dateProvider) {
+            syncDateProviderFromAnvilOutput(text, opts.dateProvider);
+          }
         });
         child.stderr?.on('data', (data: Buffer) => {
           logger?.debug(data.toString().trim());
@@ -158,6 +168,19 @@ export async function startAnvil(
   };
 
   return { anvil: anvilObj, methodCalls, stop, rpcUrl: `http://127.0.0.1:${port}` };
+}
+
+/** Extracts block time from anvil stdout and syncs the dateProvider. */
+function syncDateProviderFromAnvilOutput(text: string, dateProvider: TestDateProvider): void {
+  // Anvil logs mined blocks as:
+  //   Block Time: "Fri, 20 Mar 2026 02:10:46 +0000"
+  const match = text.match(/Block Time:\s*"([^"]+)"/);
+  if (match) {
+    const blockTimeMs = new Date(match[1]).getTime();
+    if (!isNaN(blockTimeMs)) {
+      dateProvider.setTime(blockTimeMs);
+    }
+  }
 }
 
 /** Send SIGTERM, wait up to 5 s, then SIGKILL. All timers are always cleared. */
