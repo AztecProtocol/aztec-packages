@@ -181,12 +181,10 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     std::filesystem::create_directories(path);
 
     auto g1_path = path / "bn254_g1.dat";
+    auto compressed_path = path / "bn254_g1_compressed.dat";
     auto lock_path = path / "crs.lock";
     // Acquire exclusive lock to prevent simultaneous downloads
     FileLockGuard lock(lock_path.string());
-
-    // On-disk format is always uncompressed (64 bytes/point)
-    size_t g1_file_points = get_file_size(g1_path) / sizeof(g1::affine_element);
 
     auto deserialize_points = [](const std::vector<uint8_t>& data, size_t n) {
         auto points = std::vector<g1::affine_element>(n);
@@ -198,19 +196,43 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
         return points;
     };
 
+    auto decompress_points = [](const std::vector<uint8_t>& data, size_t n) {
+        auto points = std::vector<g1::affine_element>(n);
+        parallel_for([&](const ThreadChunk& tc) {
+            for (size_t i : tc.range(n)) {
+                uint256_t c = from_buffer<uint256_t>(data, i * COMPRESSED_POINT_SIZE);
+                points[i] = g1::affine_element::from_compressed(c);
+            }
+        });
+        return points;
+    };
+
+    // Check uncompressed file first (bn254_g1.dat, 64 bytes/point)
+    size_t g1_file_points = get_file_size(g1_path) / sizeof(g1::affine_element);
     if (g1_file_points >= num_points) {
         vinfo("using cached bn254 crs with ", std::to_string(g1_file_points), " points at ", g1_path);
         auto data = read_file(g1_path, num_points * sizeof(g1::affine_element));
         return deserialize_points(data, num_points);
     }
 
-    if (!allow_download && g1_file_points == 0) {
+    // Fall back to compressed file (bn254_g1_compressed.dat, 32 bytes/point)
+    size_t compressed_file_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
+    if (compressed_file_points >= num_points) {
+        vinfo("using cached compressed bn254 crs with ",
+              std::to_string(compressed_file_points),
+              " points at ",
+              compressed_path);
+        auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
+        return decompress_points(data, num_points);
+    }
+
+    if (!allow_download && g1_file_points == 0 && compressed_file_points == 0) {
         throw_or_abort("bn254 g1 data not found at " + g1_path.string() +
                        " and bb does not automatically download in this context." +
                        " Run barretenberg/crs/bootstrap.sh to download.");
     } else if (!allow_download) {
         throw_or_abort(format("bn254 g1 data had ",
-                              g1_file_points,
+                              std::max(g1_file_points, compressed_file_points),
                               " points and ",
                               num_points,
                               " were requested but download not allowed in this context"));
@@ -221,6 +243,11 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     if (g1_file_points >= num_points) {
         auto data = read_file(g1_path, num_points * sizeof(g1::affine_element));
         return deserialize_points(data, num_points);
+    }
+    compressed_file_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
+    if (compressed_file_points >= num_points) {
+        auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
+        return decompress_points(data, num_points);
     }
 
     // Download compressed, verify, decompress, and store uncompressed on disk
