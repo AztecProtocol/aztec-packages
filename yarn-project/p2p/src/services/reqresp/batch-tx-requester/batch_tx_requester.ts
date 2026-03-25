@@ -21,6 +21,7 @@ import {
 import type { BatchTxRequesterLibP2PService, BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadataCollection } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection } from './peer_collection.js';
+import { TxValidationQueue } from './tx_validation_queue.js';
 import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_validator.js';
 
 /*
@@ -52,6 +53,7 @@ export class BatchTxRequester {
   private readonly smartRequesterSemaphore: ISemaphore;
   private readonly txQueue: FifoMemoryQueue<Tx>;
   private readonly txValidator: IBatchRequestTxValidator;
+  private readonly validationQueue: TxValidationQueue;
   private readonly smartParallelWorkerCount: number;
   private readonly dumbParallelWorkerCount: number;
   private readonly txBatchSize: number;
@@ -94,6 +96,7 @@ export class BatchTxRequester {
     }
     this.txsMetadata = new MissingTxMetadataCollection(requestTracker, this.txBatchSize);
     this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
+    this.validationQueue = new TxValidationQueue(this.txValidator, this.p2pService.peerScoring, this.logger);
   }
 
   /*
@@ -481,11 +484,12 @@ export class BatchTxRequester {
     this.decideIfPeerIsSmart(peerId, response);
   }
 
-  /*
-   * Handles received txs.
-   * Transactions are validated and then put on async queue
-   * to be yielded by main running loop
-   * */
+  /**
+   * Handles received txs by submitting them to the validation queue.
+   * The queue validates copies of the same tx hash serially: the first valid copy is
+   * accepted, subsequent copies are silently ignored, and invalid copies cause the
+   * sending peer to be penalized.
+   */
   private async handleReceivedTxs(peerId: PeerId, txs: TxArray) {
     const newTxs = txs.filter(tx => !this.txsMetadata.alreadyFetched(tx.txHash));
 
@@ -493,43 +497,31 @@ export class BatchTxRequester {
       return;
     }
 
-    //TODO: this validation can be slow, maybe spawn worker just for validation
-    // We could use the async queue for communication.
-    const validationResults = await Promise.allSettled(
-      newTxs.map(async tx => ({
-        tx,
-        isValid: (await this.txValidator.validateRequestedTx(tx)).result === 'valid',
-      })),
-    );
+    const outcomes = await this.validationQueue.submit(peerId, newTxs);
 
-    let hasInvalidTx = false;
-    validationResults.forEach(result => {
-      if (result.status === 'fulfilled' && result.value.isValid) {
-        if (this.txsMetadata.markFetched(peerId, result.value.tx)) {
-          this.txQueue.put(result.value.tx);
+    let hasInvalid = false;
+    for (const outcome of outcomes) {
+      if (outcome.status === 'accepted') {
+        if (this.txsMetadata.markFetched(peerId, outcome.tx)) {
+          this.txQueue.put(outcome.tx);
         }
-      } else {
-        hasInvalidTx = true;
+      } else if (outcome.status === 'invalid') {
+        hasInvalid = true;
       }
-    });
+    }
 
-    if (hasInvalidTx) {
-      this.logger.warn(`Penalizing peer ${peerId.toString()} for sending invalid transactions in batch response`, {
-        peerId,
-      });
-      this.peers.penalisePeer(peerId, PeerErrorSeverity.LowToleranceError);
-    } else {
-      // If we have received successful response from the peer, they have "redeemed" themselves and not considered bad anymore
+    // Only redeem the peer if every tx we actually validated from them passed.
+    // Skipped txs (already accepted from another peer) don't count either way.
+    if (!hasInvalid) {
       this.peers.unMarkPeerAsBad(peerId);
     }
 
     const missingTxHashes = this.txsMetadata.getMissingTxHashes();
     if (missingTxHashes.size === 0) {
-      // wake sleepers so they can see shouldStop() and exit before waiting on timeout
       this.unlockSmartRequesterSemaphores();
     } else {
       this.logger.trace(
-        `Missing txs: ${Array.from(this.txsMetadata.getMissingTxHashes())
+        `Missing txs: ${Array.from(missingTxHashes)
           .map(tx => tx.toString())
           .join(', ')}`,
       );
