@@ -59,17 +59,21 @@ class HidingKernelIO {
     using FF = curve::BN254::ScalarField;
     using G1 = curve::BN254::AffineElement;
     using TableCommitments = std::array<G1, MegaCircuitBuilder::NUM_WIRES>;
+    using IpaClaim = OpeningClaim<curve::Grumpkin>;
 
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicPoint = PublicInputComponent<G1>;
+    using PublicIpaClaim = PublicInputComponent<IpaClaim>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES);
-    static constexpr bool HasIPA = false;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE +
+                                                 G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES) +
+                                                 GRUMPKIN_OPENING_CLAIM_SIZE;
+    static constexpr bool HasIPA = true;
 
     PairingPoints<curve::BN254> pairing_inputs;
     G1 kernel_return_data;
     TableCommitments ecc_op_tables;
+    IpaClaim ipa_claim;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -92,6 +96,8 @@ class HidingKernelIO {
             commitment = PublicPoint::reconstruct(public_inputs, { index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
+        ipa_claim = PublicIpaClaim::reconstruct(public_inputs, { index });
+        index += IpaClaim::PUBLIC_INPUTS_SIZE;
     }
 
     /**
