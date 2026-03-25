@@ -42,5 +42,6 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     check_nullifier_exists_oracle(inner_nullifier)
 }
 
-#[oracle(aztec_utl_checkNullifierExists)]
+// TODO(F-498): review naming consistency
+#[oracle(aztec_utl_doesNullifierExist)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}

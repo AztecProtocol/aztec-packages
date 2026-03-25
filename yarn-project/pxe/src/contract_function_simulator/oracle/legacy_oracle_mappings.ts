@@ -25,11 +25,11 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       slot: ACVMField[],
       tSize: ACVMField[],
     ): Promise<(ACVMField | ACVMField[])[]> =>
-      oracle.aztec_utl_loadCapsule(contractAddress, slot, tSize, [toACVMField(AztecAddress.ZERO)]),
+      oracle.aztec_utl_getCapsule(contractAddress, slot, tSize, [toACVMField(AztecAddress.ZERO)]),
     privateStoreInExecutionCache: (values: ACVMField[], hash: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_prv_storeInExecutionCache(values, hash),
+      oracle.aztec_prv_setHashPreimage(values, hash),
     privateLoadFromExecutionCache: (returnsHash: ACVMField[]): Promise<ACVMField[][]> =>
-      oracle.aztec_prv_loadFromExecutionCache(returnsHash),
+      oracle.aztec_prv_getHashPreimage(returnsHash),
     privateCallPrivateFunction: (
       contractAddress: ACVMField[],
       functionSelector: ACVMField[],
@@ -62,13 +62,13 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       startStorageSlot: ACVMField[],
       numberOfElements: ACVMField[],
     ): Promise<ACVMField[][]> =>
-      oracle.aztec_utl_storageRead(blockHash, contractAddress, startStorageSlot, numberOfElements),
+      oracle.aztec_utl_getFromPublicStorage(blockHash, contractAddress, startStorageSlot, numberOfElements),
     utilityStoreCapsule: (
       contractAddress: ACVMField[],
       slot: ACVMField[],
       capsule: ACVMField[],
     ): Promise<ACVMField[]> =>
-      oracle.aztec_utl_storeCapsule(contractAddress, slot, capsule, [toACVMField(AztecAddress.ZERO)]),
+      oracle.aztec_utl_setCapsule(contractAddress, slot, capsule, [toACVMField(AztecAddress.ZERO)]),
     utilityCopyCapsule: (
       contractAddress: ACVMField[],
       srcSlot: ACVMField[],
@@ -95,19 +95,19 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
     privateNotifySetMinRevertibleSideEffectCounter: (counter: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_prv_notifyRevertiblePhaseStart(counter),
     privateIsSideEffectCounterRevertible: (sideEffectCounter: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_prv_inRevertiblePhase(sideEffectCounter),
+      oracle.aztec_prv_isExecutionInRevertiblePhase(sideEffectCounter),
     // Signature changes: old 4-param oracles → new 1-param validatePublicCalldata
     privateNotifyEnqueuedPublicFunctionCall: (
       _contractAddress: ACVMField[],
       calldataHash: ACVMField[],
       _sideEffectCounter: ACVMField[],
       _isStaticCall: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_prv_validatePublicCalldata(calldataHash),
+    ): Promise<ACVMField[]> => oracle.aztec_prv_assertValidPublicCalldata(calldataHash),
     privateNotifySetPublicTeardownFunctionCall: (
       _contractAddress: ACVMField[],
       calldataHash: ACVMField[],
       _sideEffectCounter: ACVMField[],
       _isStaticCall: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_prv_validatePublicCalldata(calldataHash),
+    ): Promise<ACVMField[]> => oracle.aztec_prv_assertValidPublicCalldata(calldataHash),
   };
 }
