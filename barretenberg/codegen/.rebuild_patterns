@@ -1,0 +1,3 @@
+^barretenberg/codegen/src/.*\.ts$
+^barretenberg/codegen/package\.json$
+^barretenberg/codegen/bootstrap\.sh$
