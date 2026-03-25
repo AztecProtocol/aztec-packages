@@ -130,12 +130,17 @@ void bn254_point_decompression(benchmark::State& state)
 {
     constexpr size_t NUM_POINTS = 1 << 17; // 131072 — typical circuit size
 
-    // Read uncompressed points from disk and compress them for benchmark input
+    // Read uncompressed points from disk and compress them for benchmark input.
+    // Compression: store x-coordinate as uint256_t, set bit 255 if y is odd.
     auto uncompressed_buf = read_file(bb::srs::bb_crs_path() / "bn254_g1.dat", NUM_POINTS * sizeof(g1::affine_element));
     std::vector<uint256_t> compressed(NUM_POINTS);
     for (size_t i = 0; i < NUM_POINTS; ++i) {
         auto point = from_buffer<g1::affine_element>(uncompressed_buf, i * sizeof(g1::affine_element));
-        compressed[i] = uint256_t(point.compress());
+        uint256_t x(point.x);
+        if (uint256_t(point.y).get_bit(0)) {
+            x.data[3] |= bb::group_elements::UINT256_TOP_LIMB_MSB;
+        }
+        compressed[i] = x;
     }
 
     for (auto _ : state) {
