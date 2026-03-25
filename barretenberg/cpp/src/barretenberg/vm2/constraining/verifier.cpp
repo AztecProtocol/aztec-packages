@@ -249,23 +249,41 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
             return result;
         };
 
-        // Split unshifted challenges/evals by section to avoid cross-section boundary issues
+        // Split unshifted challenges/evals by section to avoid cross-section boundary issues.
+        // Wire section needs zero-padding before shifted wires for BS-alignment.
         constexpr size_t NUM_PRECOMPUTED = Flavor::NUM_PRECOMPUTED_ENTITIES;
         constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
         constexpr size_t NUM_DERIVED = Flavor::NUM_WITNESS_ENTITIES - Flavor::NUM_WIRES;
+        constexpr size_t PAD = Flavor::NUM_SHIFT_ALIGNMENT_PADDING;
+        constexpr size_t NON_SHIFTED_WIRES = bb::avm2::NUM_NON_SHIFTED_WIRES;
+
+        // Helper to build padded wire values: [non-shifted | PAD zeros | shifted]
+        auto pad_wire_values = [&](std::span<const FF> wire_vals) {
+            std::vector<FF> padded;
+            padded.reserve(wire_vals.size() + PAD);
+            padded.insert(padded.end(), wire_vals.begin(), wire_vals.begin() + NON_SHIFTED_WIRES);
+            padded.resize(padded.size() + PAD, FF(0));
+            padded.insert(padded.end(), wire_vals.begin() + NON_SHIFTED_WIRES, wire_vals.end());
+            return padded;
+        };
+
+        auto wire_challenges_raw = unshifted_challenges.subspan(NUM_PRECOMPUTED, NUM_WIRES);
+        auto wire_evals_raw = unshifted_evals.subspan(NUM_PRECOMPUTED, NUM_WIRES);
+        auto padded_wire_challenges = pad_wire_values(wire_challenges_raw);
+        auto padded_wire_evals = pad_wire_values(wire_evals_raw);
 
         auto group_unshifted_challenges = concat_vectors(
             combine_section(unshifted_challenges.subspan(0, NUM_PRECOMPUTED), Flavor::NUM_PRECOMPUTED_GROUPS),
-            combine_section(unshifted_challenges.subspan(NUM_PRECOMPUTED, NUM_WIRES), Flavor::NUM_WIRE_GROUPS),
+            combine_section(std::span<const FF>(padded_wire_challenges), Flavor::NUM_WIRE_GROUPS),
             combine_section(unshifted_challenges.subspan(NUM_PRECOMPUTED + NUM_WIRES, NUM_DERIVED),
                             Flavor::NUM_DERIVED_GROUPS));
         auto group_shifted_challenges = combine_section(shifted_challenges, Flavor::NUM_SHIFTED_GROUPS);
 
-        auto group_unshifted_evals = concat_vectors(
-            combine_section(unshifted_evals.subspan(0, NUM_PRECOMPUTED), Flavor::NUM_PRECOMPUTED_GROUPS),
-            combine_section(unshifted_evals.subspan(NUM_PRECOMPUTED, NUM_WIRES), Flavor::NUM_WIRE_GROUPS),
-            combine_section(unshifted_evals.subspan(NUM_PRECOMPUTED + NUM_WIRES, NUM_DERIVED),
-                            Flavor::NUM_DERIVED_GROUPS));
+        auto group_unshifted_evals =
+            concat_vectors(combine_section(unshifted_evals.subspan(0, NUM_PRECOMPUTED), Flavor::NUM_PRECOMPUTED_GROUPS),
+                           combine_section(std::span<const FF>(padded_wire_evals), Flavor::NUM_WIRE_GROUPS),
+                           combine_section(unshifted_evals.subspan(NUM_PRECOMPUTED + NUM_WIRES, NUM_DERIVED),
+                                           Flavor::NUM_DERIVED_GROUPS));
         auto group_shifted_evals = combine_section(shifted_evals, Flavor::NUM_SHIFTED_GROUPS);
 
         // Collect all unshifted group commitments: precomputed (from VK) + wire + derived
@@ -282,10 +300,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
             all_unshifted_group_comms.push_back(c);
         }
 
-        // Shifted group commitments = subset of wire groups
-        // WIRES_TO_BE_SHIFTED_START_IDX is absolute (includes precomputed offset), convert to wire-relative
-        constexpr size_t SHIFTED_WIRE_OFFSET = WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX;
-        constexpr size_t SHIFTED_WIRE_END_OFFSET = WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX;
+        // Shifted group commitments = subset of wire groups (with padding offset)
+        constexpr size_t SHIFTED_WIRE_OFFSET = (WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX) + PAD;
+        constexpr size_t SHIFTED_WIRE_END_OFFSET = (WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX) + PAD;
         constexpr size_t SHIFTED_WIRE_GROUP_START = SHIFTED_WIRE_OFFSET / BS;
         constexpr size_t SHIFTED_WIRE_GROUP_END = (SHIFTED_WIRE_END_OFFSET + BS - 1) / BS;
         std::vector<Commitment> shifted_group_comms;

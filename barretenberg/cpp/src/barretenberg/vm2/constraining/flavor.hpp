@@ -73,6 +73,7 @@ class AvmFlavor {
     static constexpr size_t NUM_WITNESS_GROUPS = bb::avm2::NUM_WITNESS_GROUPS;
     static constexpr size_t NUM_UNSHIFTED_GROUPS = bb::avm2::NUM_UNSHIFTED_GROUPS;
     static constexpr size_t NUM_SHIFTED_GROUPS = bb::avm2::NUM_SHIFTED_GROUPS;
+    static constexpr size_t NUM_SHIFT_ALIGNMENT_PADDING = bb::avm2::NUM_SHIFT_ALIGNMENT_PADDING;
 
     // Need to be templated for recursive verifier
     template <typename FF_> using MainRelations_ = AvmFlavorVariables::MainRelations_<FF_>;

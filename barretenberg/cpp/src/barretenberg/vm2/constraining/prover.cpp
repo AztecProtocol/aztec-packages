@@ -92,22 +92,51 @@ void AvmProver::execute_public_inputs_round()
     }
 }
 /**
+ * @brief Build a wire polynomial vector with zero-padding inserted before shifted wires.
+ * @details When the shifted wire start isn't BS-aligned, we insert zero polynomials so that
+ *          shifted wire groups align exactly with wire groups. The padding count is
+ *          NUM_SHIFT_ALIGNMENT_PADDING (derived from entity counts and BS).
+ */
+template <size_t BS>
+static std::vector<PolynomialSpan<const FF>> build_padded_wire_spans(std::span<Flavor::Polynomial> wires)
+{
+    constexpr size_t PAD = Flavor::NUM_SHIFT_ALIGNMENT_PADDING;
+    constexpr size_t NON_SHIFTED = bb::avm2::NUM_NON_SHIFTED_WIRES;
+    static Flavor::Polynomial zero_poly; // static zero poly for padding spans
+
+    std::vector<PolynomialSpan<const FF>> result;
+    result.reserve(wires.size() + PAD);
+    for (size_t i = 0; i < NON_SHIFTED && i < wires.size(); i++) {
+        result.push_back(wires[i]);
+    }
+    for (size_t i = 0; i < PAD; i++) {
+        result.push_back(zero_poly);
+    }
+    for (size_t i = NON_SHIFTED; i < wires.size(); i++) {
+        result.push_back(wires[i]);
+    }
+    return result;
+}
+
+/**
  * @brief Commit to groups of BS consecutive wire polynomials using interleaved commitments.
  * @details For BS=1, this degenerates to individual commits (identical to non-interleaved behavior).
+ *          Inserts zero-padding before shifted wires so shifted groups align with wire groups.
  */
 void AvmProver::execute_wire_commitments_round()
 {
     BB_BENCH_NAME("AvmProver::execute_wire_commitments_round");
     constexpr size_t BS = Flavor::INTERLEAVING_BATCH_SIZE;
     auto wires = prover_polynomials.get_wires();
+    auto padded = build_padded_wire_spans<BS>(wires);
 
     for (size_t g = 0; g < Flavor::NUM_WIRE_GROUPS; g++) {
         size_t start = g * BS;
-        size_t count = std::min(BS, wires.size() - start);
+        size_t count = std::min(BS, padded.size() - start);
         std::vector<PolynomialSpan<const FF>> chunks;
         chunks.reserve(count);
         for (size_t j = 0; j < count; j++) {
-            chunks.push_back(wires[start + j]);
+            chunks.push_back(padded[start + j]);
         }
         auto comm = commitment_key.commit_interleaved<BS>(chunks);
         transcript->send_to_verifier("WIRE_GROUP_" + std::to_string(g), comm);
@@ -310,9 +339,48 @@ void AvmProver::execute_pcs_rounds()
         auto wire_polys = prover_polynomials.get_wires();
         auto derived_polys = prover_polynomials.get_derived();
 
+        // Insert zero-padding before shifted wires so shifted groups align with wire groups.
+        // We build the interleaved wire groups by iterating over wire polys with a mapping
+        // that inserts PAD zero slots at the non-shifted/shifted boundary.
+        constexpr size_t PAD = Flavor::NUM_SHIFT_ALIGNMENT_PADDING;
+        constexpr size_t NON_SHIFTED_WIRES = bb::avm2::NUM_NON_SHIFTED_WIRES;
+        constexpr size_t PADDED_WIRE_COUNT = Flavor::NUM_WIRES + PAD;
+
+        // Helper: get the wire polynomial at padded index, returning empty poly for padding slots.
+        Polynomial zero_poly;
+        auto get_padded_wire = [&](size_t padded_idx) -> Polynomial& {
+            if (padded_idx < NON_SHIFTED_WIRES) {
+                return wire_polys[padded_idx];
+            } else if (padded_idx < NON_SHIFTED_WIRES + PAD) {
+                return zero_poly;
+            } else {
+                return wire_polys[padded_idx - PAD];
+            }
+        };
+
         // Materialize interleaved group polynomials
         auto precomputed_groups = build_interleaved_groups<BS>(precomputed_polys, Flavor::NUM_PRECOMPUTED_GROUPS);
-        auto wire_groups = build_interleaved_groups<BS>(wire_polys, Flavor::NUM_WIRE_GROUPS);
+
+        // Build wire groups with padding
+        std::vector<Polynomial> wire_groups;
+        wire_groups.reserve(Flavor::NUM_WIRE_GROUPS);
+        for (size_t g = 0; g < Flavor::NUM_WIRE_GROUPS; g++) {
+            size_t start = g * BS;
+            size_t max_end = 0;
+            for (size_t j = 0; j < BS && start + j < PADDED_WIRE_COUNT; j++) {
+                max_end = std::max(max_end, get_padded_wire(start + j).end_index());
+            }
+            const size_t interleaved_size = max_end * BS;
+            const size_t virtual_size = numeric::round_up_power_2(std::max(interleaved_size, size_t(1)));
+            Polynomial interleaved(interleaved_size, virtual_size);
+            for (size_t j = 0; j < BS && start + j < PADDED_WIRE_COUNT; j++) {
+                auto& p = get_padded_wire(start + j);
+                for (size_t i = p.start_index(); i < p.end_index(); i++) {
+                    interleaved.at(i * BS + j) = p.at(i);
+                }
+            }
+            wire_groups.push_back(std::move(interleaved));
+        }
         auto derived_groups = build_interleaved_groups<BS>(derived_polys, Flavor::NUM_DERIVED_GROUPS);
 
         // Build shifted wire groups separately as shiftable (start_index=BS) for PCS
@@ -333,14 +401,13 @@ void AvmProver::execute_pcs_rounds()
             all_unshifted_groups.push_back(&g);
         }
 
-        // Shifted groups are a contiguous subset of wire groups (thanks to BS-alignment)
-        // WIRES_TO_BE_SHIFTED_START_IDX is absolute (includes precomputed offset), convert to wire-relative
-        constexpr size_t SHIFTED_WIRE_OFFSET = WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX;
-        constexpr size_t SHIFTED_WIRE_END_OFFSET = WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX;
+        // Shifted groups are a contiguous subset of wire groups. The shifted start is
+        // BS-aligned thanks to NUM_SHIFT_ALIGNMENT_PADDING zero polys inserted before shifted wires.
+        constexpr size_t SHIFTED_WIRE_OFFSET = (WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX) + PAD;
+        constexpr size_t SHIFTED_WIRE_END_OFFSET = (WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX) + PAD;
         constexpr size_t SHIFTED_WIRE_GROUP_START = SHIFTED_WIRE_OFFSET / BS;
         constexpr size_t SHIFTED_WIRE_GROUP_END = (SHIFTED_WIRE_END_OFFSET + BS - 1) / BS;
-        static_assert(SHIFTED_WIRE_GROUP_START * BS == SHIFTED_WIRE_OFFSET,
-                      "Wire-relative shifted start must be BS-aligned");
+        static_assert(SHIFTED_WIRE_GROUP_START * BS == SHIFTED_WIRE_OFFSET, "Padded shifted start must be BS-aligned");
 
         // Batch unshifted groups with short scalars (one challenge per individual entity, combine BS per group)
         // Unshifted challenges are indexed per individual entity, not per group.
@@ -376,14 +443,25 @@ void AvmProver::execute_pcs_rounds()
         };
 
         // Combine per section, then concatenate for all unshifted groups.
+        // Wire challenges need padding zeros inserted at the same position as the wire polynomials.
         auto precomputed_challenges_span = unshifted_challenges.subspan(0, Flavor::NUM_PRECOMPUTED_ENTITIES);
-        auto wire_challenges_span = unshifted_challenges.subspan(Flavor::NUM_PRECOMPUTED_ENTITIES, Flavor::NUM_WIRES);
+        auto wire_challenges_raw = unshifted_challenges.subspan(Flavor::NUM_PRECOMPUTED_ENTITIES, Flavor::NUM_WIRES);
         auto derived_challenges_span = unshifted_challenges.subspan(
             Flavor::NUM_PRECOMPUTED_ENTITIES + Flavor::NUM_WIRES, Flavor::NUM_WITNESS_ENTITIES - Flavor::NUM_WIRES);
 
+        // Build padded wire challenges: [non-shifted challenges | PAD zeros | shifted challenges]
+        std::vector<FF> padded_wire_challenges;
+        padded_wire_challenges.reserve(Flavor::NUM_WIRES + PAD);
+        padded_wire_challenges.insert(
+            padded_wire_challenges.end(), wire_challenges_raw.begin(), wire_challenges_raw.begin() + NON_SHIFTED_WIRES);
+        padded_wire_challenges.resize(padded_wire_challenges.size() + PAD, FF(0));
+        padded_wire_challenges.insert(
+            padded_wire_challenges.end(), wire_challenges_raw.begin() + NON_SHIFTED_WIRES, wire_challenges_raw.end());
+
         auto precomputed_group_challenges =
             combine_section_challenges(precomputed_challenges_span, Flavor::NUM_PRECOMPUTED_GROUPS);
-        auto wire_group_challenges = combine_section_challenges(wire_challenges_span, Flavor::NUM_WIRE_GROUPS);
+        auto wire_group_challenges =
+            combine_section_challenges(std::span<const FF>(padded_wire_challenges), Flavor::NUM_WIRE_GROUPS);
         auto derived_group_challenges = combine_section_challenges(derived_challenges_span, Flavor::NUM_DERIVED_GROUPS);
 
         std::vector<FF> group_unshifted_challenges;
