@@ -6,10 +6,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds
 # with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
 # that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
-# Hash depends on codegen generation hash (which transitively depends on cpp hash)
+# Hash depends on codegen hash (includes schemas + codegen source),
 # plus our own source files, release status, and AVM transpiler setting.
 hash=$(hash_str \
-  $(../codegen/bootstrap.sh generate_hash) \
+  $(../codegen/bootstrap.sh hash) \
   $(cache_content_hash .rebuild_patterns) \
   $(semver check $REF_NAME && echo 1 || echo 0) \
   ${AVM_TRANSPILER:-1})

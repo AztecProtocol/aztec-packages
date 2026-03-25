@@ -211,8 +211,8 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cros
 bb-codegen:
 	$(call build,$@,barretenberg/codegen)
 
-# BB Generate - run codegen to produce bindings for all consumers
-bb-generate: bb-codegen bb-cpp-native
+# BB Generate - run codegen from committed schemas (no C++ binary dependency)
+bb-generate: bb-codegen
 	$(call build,$@,barretenberg/codegen,generate)
 
 # BB TypeScript - TypeScript bindings (generated files from bb-generate)

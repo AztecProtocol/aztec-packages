@@ -2,8 +2,8 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Hash depends on codegen generation hash (which transitively depends on cpp hash)
-hash=$(hash_str $(../codegen/bootstrap.sh generate_hash) $(cache_content_hash .rebuild_patterns))
+# Hash depends on codegen hash (includes schemas + codegen source)
+hash=$(hash_str $(../codegen/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 function build {
   echo_header "barretenberg-rs build"

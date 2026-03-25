@@ -4,12 +4,13 @@
 # Usage:
 #   ./bootstrap.sh           # Build tool (npm install)
 #   ./bootstrap.sh build     # Same
-#   ./bootstrap.sh generate  # Build + run codegen (needs C++ binaries)
-#   ./bootstrap.sh hash      # Print tool hash
-#   ./bootstrap.sh generate_hash  # Print generation hash (tool + C++ schemas)
+#   ./bootstrap.sh generate  # Build + run codegen from committed schemas
+#   ./bootstrap.sh hash      # Print tool hash (includes schemas)
 
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+# Hash includes codegen source AND committed schema files.
+# Changes to either invalidate the cache.
 export hash=$(cache_content_hash .rebuild_patterns)
 
 function build {
@@ -23,18 +24,13 @@ function build {
 function generate {
   build
 
-  # Generation hash depends on both the codegen tool AND the C++ schemas
-  local cpp_hash=$(../cpp/bootstrap.sh hash)
-  local gen_hash=$(hash_str $hash $cpp_hash)
-  export generate_hash=$gen_hash
-
-  echo_header "codegen generate (hash=$gen_hash)"
-  if ! cache_download codegen-generate-$gen_hash.tar.gz; then
-    # Run codegen against C++ binaries
+  echo_header "codegen generate (hash=$hash)"
+  if ! cache_download codegen-generate-$hash.tar.gz; then
+    # Run codegen from committed schema JSON files (no C++ binary dependency)
     npx tsx src/generate.ts
 
     # Cache all generated output
-    cache_upload codegen-generate-$gen_hash.tar.gz \
+    cache_upload codegen-generate-$hash.tar.gz \
       ../ts/src/cbind/generated \
       ../ts/src/aztec-wsdb/generated \
       ../ts/src/aztec-cdb/generated \
@@ -44,14 +40,8 @@ function generate {
   fi
 }
 
-function generate_hash {
-  local cpp_hash=$(../cpp/bootstrap.sh hash)
-  hash_str $hash $cpp_hash
-}
-
 case "${1:-build}" in
   hash) echo $hash ;;
-  generate_hash) generate_hash ;;
   build) build ;;
   generate) generate ;;
   *) echo "Unknown command: $1"; exit 1 ;;
