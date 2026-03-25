@@ -202,7 +202,7 @@ function test_cmds {
     elif [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
       cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     elif [[ "$test" =~ e2e_p2p ]]; then
-      cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
+      cmd_env+=" LOG_LEVEL=\"verbose; debug:p2p\""
     fi
 
     # Enable real proofs in prover-client integration tests only on CI full.
