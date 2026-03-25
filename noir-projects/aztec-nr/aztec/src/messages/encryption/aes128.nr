@@ -565,6 +565,7 @@ mod test {
 
     #[test]
     unconstrained fn encrypt_to_invalid_address() {
+        // x = 3 is a non-residue for this curve, resulting in an invalid address
         let invalid_address = AztecAddress { inner: 3 };
         let contract_address = AztecAddress { inner: 42 };
 

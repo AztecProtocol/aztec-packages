@@ -18,7 +18,7 @@ unconstrained fn get_shared_secret_oracle(
 /// s_app = h(DOM_SEP, S.x, S.y, contract)  (app-siloed scalar)
 /// ```
 ///
-/// where `contract` is the address of the calling contract, validated by the oracle against its own execution
+/// where `contract` is the address of the calling contract. The oracle host validates this matches its execution
 /// context.
 ///
 /// Without app-siloing, a malicious contract could call this oracle with public information (address, ephPk) and

@@ -735,10 +735,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Retrieves the shared secret for a given address and ephemeral public key.
+   * Retrieves the app-siloed shared secret for a given address and ephemeral public key.
    * @param address - The address to get the secret for.
    * @param ephPk - The ephemeral public key to get the secret for.
-   * @returns The secret for the given address.
+   * @param contractAddress - The contract address for app-siloing (validated against execution context).
+   * @returns The app-siloed shared secret as a Field.
    */
   public async getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr> {
     // Legacy oracle callers pass AztecAddress.ZERO since they cannot provide the contract address.

@@ -515,6 +515,17 @@ describe('Utility Execution test suite', () => {
         // (address, ephPk) pair. This prevents cross-contract decryption attacks.
         expect(secretA).not.toEqual(secretB);
       });
+
+      it('rejects when contract address does not match execution context', async () => {
+        const ephSk = GrumpkinScalar.random();
+        const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
+
+        const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
+        keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
+
+        const wrongAddress = await AztecAddress.random();
+        await expect(utilityExecutionOracle.getSharedSecret(owner, ephPk, wrongAddress)).rejects.toThrow(/expected/);
+      });
     });
   });
 });

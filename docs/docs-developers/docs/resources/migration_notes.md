@@ -9,6 +9,27 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `encrypt`/`decrypt` and `getSharedSecret` now require contract address
+
+`AES128::encrypt` and `AES128::decrypt` now take an additional `contract_address: AztecAddress` parameter for app-siloed encryption. The `get_shared_secret` oracle now returns a `Field` (app-siloed scalar) instead of a `Point`.
+
+**Migration:**
+
+```diff
+- let ciphertext = AES128::encrypt(plaintext, recipient);
++ let ciphertext = AES128::encrypt(plaintext, recipient, context.this_address());
+
+- let plaintext = AES128::decrypt(ciphertext, recipient);
++ let plaintext = AES128::decrypt(ciphertext, recipient, context.this_address());
+```
+
+The `compute_partial_note_private_content_log` function also requires a new `contract_address` parameter:
+
+```diff
+- compute_partial_note_private_content_log(content, randomness, recipient, tag);
++ compute_partial_note_private_content_log(content, randomness, recipient, tag, context.this_address());
+```
+
 ### [Aztec.nr] Capsule operations are now addressed by scope
 
 All capsule operations (`store`, `load`, `delete`, `copy`) and `CapsuleArray` now require a `scope: AztecAddress` parameter. This scopes capsule storage by address, providing isolation between different accounts within the same PXE.
