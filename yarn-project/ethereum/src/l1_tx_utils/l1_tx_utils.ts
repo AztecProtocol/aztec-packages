@@ -229,7 +229,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       throw new InterruptError(`Transaction sending is interrupted`);
     }
 
-    await this.sendMutex.acquire();
     try {
       const gasConfig = merge(this.config, gasConfigOverrides);
       const account = this.getSenderAddress().toString();
@@ -257,20 +256,27 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         );
       }
 
-      const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
-      // If a fallback RPC node returns a stale count (lower than what we last sent), use our
-      // local lower bound to avoid sending a duplicate of an already-pending transaction.
-      const nonce =
-        this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
+      let txHash: Hex;
+      let nonce: number;
+      let baseState: Pick<L1TxState, 'request' | 'gasLimit' | 'blobInputs' | 'gasPrice' | 'nonce'>;
 
-      const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
-      const txData = this.makeTxData(baseState, { isCancelTx: false });
+      await this.sendMutex.acquire();
+      try {
+        const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+        // If a fallback RPC node returns a stale count (lower than what we last sent), use our
+        // local lower bound to avoid sending a duplicate of an already-pending transaction.
+        nonce =
+          this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
 
-      // Send the new tx
-      const signedRequest = await this.prepareSignedTransaction(txData);
-      const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
-      // Update after tx is sent successfully
-      this.lastSentNonce = nonce;
+        baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
+        const txData = this.makeTxData(baseState, { isCancelTx: false });
+
+        const signedRequest = await this.prepareSignedTransaction(txData);
+        txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+        this.lastSentNonce = nonce;
+      } finally {
+        this.sendMutex.release();
+      }
 
       // Create the new state for monitoring
       const l1TxState: L1TxState = {
@@ -318,8 +324,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         request: pick(request, 'to', 'value'),
       });
       throw viemError;
-    } finally {
-      this.sendMutex.release();
     }
   }
 
