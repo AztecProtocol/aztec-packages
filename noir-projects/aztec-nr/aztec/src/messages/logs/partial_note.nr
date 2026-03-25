@@ -32,6 +32,7 @@ pub fn compute_partial_note_private_content_log<PartialNotePrivateContent>(
     randomness: Field,
     recipient: AztecAddress,
     note_completion_log_tag: Field,
+    contract_address: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     PartialNotePrivateContent: NoteType + Packable,
@@ -42,7 +43,7 @@ where
         randomness,
         note_completion_log_tag,
     );
-    let message_ciphertext = AES128::encrypt(message_plaintext, recipient);
+    let message_ciphertext = AES128::encrypt(message_plaintext, recipient, contract_address);
 
     prefix_with_tag(message_ciphertext, recipient)
 }

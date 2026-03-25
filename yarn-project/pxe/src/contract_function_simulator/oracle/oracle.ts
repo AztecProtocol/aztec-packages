@@ -655,12 +655,14 @@ export class Oracle {
     [ephPKField0]: ACVMField[],
     [ephPKField1]: ACVMField[],
     [ephPKField2]: ACVMField[],
+    [contractAddress]: ACVMField[],
   ): Promise<ACVMField[]> {
     const secret = await this.handlerAsUtility().getSharedSecret(
       AztecAddress.fromField(Fr.fromString(address)),
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
     );
-    return secret.toFields().map(toACVMField);
+    return [toACVMField(secret)];
   }
 
   // eslint-disable-next-line camelcase
