@@ -378,7 +378,7 @@ namespace sha256;
     in
     gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_e_25
-    // pol S_1 = (E_0 `rotr` 6) `xor` (E_0 `rotr` 11) `xor` (E_0 `rotr` 25);
+    // pol S_1 = (E `rotr` 6) `xor` (E `rotr` 11) `xor` (E `rotr` 25);
 
     pol commit e_rotr_6_xor_e_rotr_11;
     #[S_1_XOR_0]
