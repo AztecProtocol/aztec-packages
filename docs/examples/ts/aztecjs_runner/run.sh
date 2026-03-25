@@ -10,7 +10,7 @@
 #   ./run.sh connection     # Run specific example
 #   ./run.sh getting_started advanced  # Run multiple examples
 #
-# Available examples: connection, getting_started, advanced, authwit, testing, swap, recursive_verification
+# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification
 
 set -euo pipefail
 
@@ -176,7 +176,7 @@ cleanup_project() {
 # Note: bob_token_contract and other custom contract examples require verification keys
 # which aren't generated during docs compilation, so they're not included by default
 if [ $# -eq 0 ]; then
-    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap" "recursive_verification")
+    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap" "aave_bridge" "recursive_verification")
 else
     EXAMPLES=()
     for arg in "$@"; do
@@ -187,6 +187,7 @@ else
             authwit)         EXAMPLES+=("aztecjs_authwit") ;;
             testing)         EXAMPLES+=("aztecjs_testing") ;;
             swap)            EXAMPLES+=("example_swap") ;;
+            aave_bridge)     EXAMPLES+=("aave_bridge") ;;
             recursive_verification) EXAMPLES+=("recursive_verification") ;;
             *)
                 if [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then

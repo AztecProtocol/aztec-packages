@@ -15,7 +15,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
-import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { MessageContext, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -39,7 +39,6 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
-import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -128,15 +127,25 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const LEGACY_ORACLE_VERSION = 12;
     if (isProtocolContract(this.contractAddress)) {
       if (version !== LEGACY_ORACLE_VERSION && version !== ORACLE_VERSION) {
+        const hint =
+          version > ORACLE_VERSION
+            ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
+            : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
         throw new Error(
-          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} or current oracle version ${ORACLE_VERSION} for alpha payload contract at ${this.contractAddress}, got ${version}.`,
+          `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${LEGACY_ORACLE_VERSION} or ${ORACLE_VERSION}, got ${version})`,
         );
       }
       return;
     }
 
     if (version !== ORACLE_VERSION) {
-      throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
+      const hint =
+        version > ORACLE_VERSION
+          ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
+          : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
+      throw new Error(
+        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle version ${ORACLE_VERSION}, got ${version})`,
+      );
     }
   }
 
@@ -466,7 +475,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     logContractMessage(logger, LogLevels[level], message, fields);
   }
 
-  public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
     const logService = new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
@@ -479,7 +488,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.logger.getBindings(),
     );
 
-    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
+    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, scope);
   }
 
   /**
@@ -498,6 +507,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     eventValidationRequestsArrayBaseSlot: Fr,
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
+    scope: AztecAddress,
   ) {
     // TODO(#10727): allow other contracts to store notes
     if (!this.contractAddress.equals(contractAddress)) {
@@ -507,11 +517,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all note and event validation requests and process them all concurrently. This makes the process much
     // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
+      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId, scope)
     ).map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
 
     const eventValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
+      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId, scope)
     ).map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
@@ -526,7 +536,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         request.noteHash,
         request.nullifier,
         request.txHash,
-        request.recipient,
+        scope,
       ),
     );
 
@@ -539,21 +549,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         request.serializedEvent,
         request.eventCommitment,
         request.txHash,
-        request.recipient,
+        scope,
       ),
     );
 
     await Promise.all([...noteStorePromises, ...eventStorePromises]);
 
     // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, [], this.jobId);
-    await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
+    await this.capsuleStore.setCapsuleArray(
+      contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      [],
+      this.jobId,
+      scope,
+    );
+    await this.capsuleStore.setCapsuleArray(
+      contractAddress,
+      eventValidationRequestsArrayBaseSlot,
+      [],
+      this.jobId,
+      scope,
+    );
   }
 
   public async bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ) {
     // TODO(#10727): allow other contracts to process partial notes
     if (!this.contractAddress.equals(contractAddress)) {
@@ -563,7 +586,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId)
+      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId, scope)
     ).map(LogRetrievalRequest.fromFields);
 
     const logService = new LogService(
@@ -581,7 +604,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
 
     // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId);
+    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId, scope);
 
     // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
     await this.capsuleStore.setCapsuleArray(
@@ -589,6 +612,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       logRetrievalResponsesArrayBaseSlot,
       maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
       this.jobId,
+      scope,
     );
   }
 
@@ -596,15 +620,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ) {
     try {
       if (!this.contractAddress.equals(contractAddress)) {
         throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
       }
+
+      // TODO(@mverzilli): this is a prime example of where using a volatile array would make much more sense, we don't
+      // need scopes here, we just need a bit of shared memory to cross boundaries between Noir and TS.
+      // At the same time, we don't want to allow any global scope access other than where backwards compatibility
+      // forces us to. Hence we need the scope here to be artificial.
       const requestCapsules = await this.capsuleStore.readCapsuleArray(
         contractAddress,
         messageContextRequestsArrayBaseSlot,
         this.jobId,
+        scope,
       );
 
       const txHashes = requestCapsules.map((fields, i) => {
@@ -625,50 +656,65 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.setCapsuleArray(
         contractAddress,
         messageContextResponsesArrayBaseSlot,
-        maybeMessageContexts.map(MessageTxContext.toSerializedOption),
+        maybeMessageContexts.map(MessageContext.toSerializedOption),
         this.jobId,
+        scope,
       );
     } finally {
-      await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
+      await this.capsuleStore.setCapsuleArray(
+        contractAddress,
+        messageContextRequestsArrayBaseSlot,
+        [],
+        this.jobId,
+        scope,
+      );
     }
   }
 
-  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule, this.jobId);
-    return Promise.resolve();
+    this.capsuleStore.storeCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
-  public async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  public async loadCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return (
-      // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
-      this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
-      (await this.capsuleStore.loadCapsule(this.contractAddress, slot, this.jobId))
-    );
+    const maybeTransientCapsule = this.capsules.find(
+      c =>
+        c.contractAddress.equals(contractAddress) &&
+        c.storageSlot.equals(slot) &&
+        (c.scope ?? AztecAddress.ZERO).equals(scope),
+    )?.data;
+
+    // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
+    return maybeTransientCapsule ?? (await this.capsuleStore.loadCapsule(contractAddress, slot, this.jobId, scope));
   }
 
-  public deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    this.capsuleStore.deleteCapsule(this.contractAddress, slot, this.jobId);
-    return Promise.resolve();
+    this.capsuleStore.deleteCapsule(contractAddress, slot, this.jobId, scope);
   }
 
-  public copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  public copyCapsule(
+    contractAddress: AztecAddress,
+    srcSlot: Fr,
+    dstSlot: Fr,
+    numEntries: number,
+    scope: AztecAddress,
+  ): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleStore.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries, this.jobId);
+    return this.capsuleStore.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
   }
 
   /**

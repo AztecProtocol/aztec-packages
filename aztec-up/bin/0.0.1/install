@@ -2,6 +2,9 @@
 # Per-version installer script
 # This script is called by aztec-up to install a specific version of the Aztec toolchain.
 # It expects VERSION and INSTALL_URI to be set.
+
+# Guard against truncated curl downloads: bash must parse the entire {} block before executing any of it.
+{
 set -euo pipefail
 
 # Colors
@@ -232,3 +235,7 @@ function main {
 }
 
 main "$@"
+
+# Explicit exit prevents bash from reading past the closing brace.
+exit
+}
