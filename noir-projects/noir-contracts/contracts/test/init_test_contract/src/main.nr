@@ -74,4 +74,9 @@ pub contract InitTest {
     fn pub_no_init_check(owner: AztecAddress) -> pub Field {
         self.storage.public_values.at(owner).read()
     }
+
+    #[external("utility")]
+    unconstrained fn utility_init_check(owner: AztecAddress) -> Field {
+        self.storage.public_values.at(owner).read()
+    }
 }
