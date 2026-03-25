@@ -241,6 +241,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   default     = 0
 }
 
+variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
+  description = "Clean up old signed HA duties after this many hours (prevents unbounded DB growth)"
+  type        = number
+  default     = 24
+}
+
 variable "ADMIN_API_KEY_HASH" {
   description = "SHA-256 hex hash of the admin API key. When set, enables admin API authentication on validator nodes. Leave empty to disable admin auth (default)."
   type        = string
@@ -760,6 +766,12 @@ variable "BLOB_FILE_STORE_UPLOAD_URL" {
   type        = string
   nullable    = true
   default     = null
+}
+
+variable "BLOB_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading blobs from filestore. Set to ',' to disable."
+  type        = string
+  default     = ""
 }
 
 variable "TX_FILE_STORE_ENABLED" {

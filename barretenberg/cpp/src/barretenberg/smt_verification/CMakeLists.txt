@@ -49,6 +49,9 @@ add_dependencies(cvc5-lib cvc5)
 include_directories(${CVC5_INCLUDE})
 set_target_properties(cvc5-lib PROPERTIES IMPORTED_LOCATION ${CVC5_LIB})
 
+# Export cvc5 paths so other modules (e.g. acir_formal_proofs) can use them.
+set(CVC5_INCLUDE_DIR ${CVC5_INCLUDE} CACHE INTERNAL "cvc5 include directory")
+
 barretenberg_module(smt_verification common stdlib_primitives stdlib_sha256 circuit_checker transcript cvc5-lib)
 # We have no easy way to add a dependency to an external target, we list the built targets explicit. Could be cleaner.
 add_dependencies(smt_verification cvc5)

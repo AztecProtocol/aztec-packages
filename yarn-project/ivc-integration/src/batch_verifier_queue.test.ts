@@ -32,7 +32,7 @@ describe('Batch Chonk Verifier Queue', () => {
     logger.info('Generating proof for tests...');
     const [bytecodes, witnesses, , vks] = await generateTestingIVCStack(1, 0);
     const backend = new AztecClientBackend(bytecodes, bb);
-    const [proofFields, , generatedVk] = await backend.prove(witnesses, vks);
+    const { proofFields, vk: generatedVk } = await backend.prove(witnesses, vks);
     validProofFields = proofFields;
     invalidProofFields = corruptProofFields(validProofFields);
     vk = generatedVk;

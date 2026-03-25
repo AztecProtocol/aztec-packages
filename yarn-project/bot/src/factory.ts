@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -15,6 +16,7 @@ import { deriveKeys } from '@aztec/aztec.js/keys';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { waitForTx } from '@aztec/aztec.js/node';
+import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -207,7 +209,7 @@ export class BotFactory {
     const signingKey = deriveSigningKey(secret);
     const accountManager = await this.wallet.createSchnorrAccount(secret, salt, signingKey);
     const metadata = await this.wallet.getContractMetadata(accountManager.address);
-    if (metadata.isContractInitialized) {
+    if (metadata.initializationStatus === ContractInitializationStatus.INITIALIZED) {
       this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
       const timer = new Timer();
       const address = accountManager.address;
@@ -225,14 +227,14 @@ export class BotFactory {
       const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
 
       const { estimatedGas } = await deployMethod.simulate({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
         fee: { estimateGas: true, paymentMethod },
       });
       const gasSettings = GasSettings.from({ ...estimatedGas!, maxFeesPerGas, maxPriorityFeesPerGas: GasFees.empty() });
 
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await deployMethod.send({
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           fee: { gasSettings, paymentMethod },
           wait: NO_WAIT,
         });

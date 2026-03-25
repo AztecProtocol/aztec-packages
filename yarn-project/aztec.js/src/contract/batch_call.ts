@@ -5,6 +5,7 @@ import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
+  NO_FROM,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   type SimulationResult,
@@ -80,7 +81,7 @@ export class BatchCall extends BaseContractInteraction {
     for (const [call] of utility) {
       batchRequests.push({
         name: 'executeUtility' as const,
-        args: [call, { scope: options.from, authWitnesses: options.authWitnesses }],
+        args: [call, { scopes: options.from === NO_FROM ? [] : [options.from], authWitnesses: options.authWitnesses }],
       });
     }
 
