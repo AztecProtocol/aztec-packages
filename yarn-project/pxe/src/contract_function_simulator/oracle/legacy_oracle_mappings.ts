@@ -83,7 +83,10 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       ephPKField0: ACVMField[],
       ephPKField1: ACVMField[],
       ephPKField2: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_utl_getSharedSecret(address, ephPKField0, ephPKField1, ephPKField2),
+    ): Promise<ACVMField[]> =>
+      oracle.aztec_utl_getSharedSecret(address, ephPKField0, ephPKField1, ephPKField2, [
+        toACVMField(AztecAddress.ZERO),
+      ]),
     utilityGetL1ToL2MembershipWitness: (
       contractAddress: ACVMField[],
       messageHash: ACVMField[],

@@ -212,7 +212,11 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
 
     let ciphertext = remove_constraints_if(
         !constrained_encryption,
-        || AES128::encrypt(encode_into_message_plaintext(), recipient),
+        || AES128::encrypt(
+            encode_into_message_plaintext(),
+            recipient,
+            context.this_address(),
+        ),
     );
 
     if deliver_as_offchain_message {

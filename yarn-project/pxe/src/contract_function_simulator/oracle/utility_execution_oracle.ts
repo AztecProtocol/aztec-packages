@@ -15,7 +15,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
-import { MessageContext, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -740,14 +740,23 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param ephPk - The ephemeral public key to get the secret for.
    * @returns The secret for the given address.
    */
-  public async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    // TODO(#12656): return an app-siloed secret
+  public async getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr> {
+    // Legacy oracle callers pass AztecAddress.ZERO since they cannot provide the contract address.
+    // New callers pass their contract address, which we validate matches the oracle's execution context.
+    // When ZERO is passed, we still use this.contractAddress for siloing, which is correct because
+    // the oracle is always executed in the context of the contract that called it.
+    // TODO: Remove zero-address bypass when legacy oracle mappings are retired.
+    if (!contractAddress.isZero() && !contractAddress.equals(this.contractAddress)) {
+      throw new Error(
+        `getSharedSecret called with contract address ${contractAddress}, expected ${this.contractAddress}`,
+      );
+    }
     const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-    return deriveEcdhSharedSecret(addressSecret, ephPk);
+    return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {

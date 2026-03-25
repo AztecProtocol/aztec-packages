@@ -35,7 +35,7 @@ pub unconstrained fn process_message_ciphertext<CustomMessageHandlerEnv>(
     message_context: MessageContext,
     recipient: AztecAddress,
 ) {
-    let message_plaintext_option = AES128::decrypt(message_ciphertext, recipient);
+    let message_plaintext_option = AES128::decrypt(message_ciphertext, recipient, contract_address);
 
     if message_plaintext_option.is_some() {
         process_message_plaintext(
