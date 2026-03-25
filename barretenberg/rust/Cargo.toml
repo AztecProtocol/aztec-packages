@@ -2,7 +2,8 @@
 resolver = "2"
 members = [
     "barretenberg-rs",
-    "aztec-ipc",
+    # aztec-ipc excluded until Rust codegen handles all schema types (MerkleTreeId enum, unordered_map, etc.)
+    # "aztec-ipc",
     "tests",
 ]
 
