@@ -8,12 +8,14 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -57,6 +59,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
+import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
@@ -126,6 +129,7 @@ import { NodeMetrics } from './node_metrics.js';
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private metrics: NodeMetrics;
   private initialHeaderHashPromise: Promise<BlockHash> | undefined = undefined;
+  private ethCheatCodes: EthCheatCodes | undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -151,6 +155,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
     private proofVerifier: ClientProtocolCircuitVerifier,
+    private dateProvider: DateProvider,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
     private blobClient?: BlobClientInterface,
@@ -576,6 +581,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochCache,
       packageVersion,
       proofVerifier,
+      dateProvider,
       telemetry,
       log,
       blobClient,
@@ -1600,6 +1606,84 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     this.keyStoreManager = newManager;
     this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
+  }
+
+  private getEthCheatCodes(): EthCheatCodes {
+    if (!this.ethCheatCodes) {
+      this.ethCheatCodes = new EthCheatCodes(this.config.l1RpcUrls, this.dateProvider);
+    }
+    return this.ethCheatCodes;
+  }
+
+  /** Updates the date provider to match the given L1 timestamp, if it supports time manipulation. */
+  private updateDateProvider(timestampInSeconds: number): void {
+    if ('setTime' in this.dateProvider) {
+      (this.dateProvider as { setTime(ms: number): void }).setTime(timestampInSeconds * 1000);
+    }
+  }
+
+  public async setNextBlockTimestamp(timestamp: number): Promise<void> {
+    const ethCheatCodes = this.getEthCheatCodes();
+    await ethCheatCodes.setNextBlockTimestamp(timestamp);
+    this.updateDateProvider(timestamp);
+  }
+
+  public async advanceNextBlockTimestampBy(duration: number): Promise<void> {
+    const ethCheatCodes = this.getEthCheatCodes();
+    const currentTimestamp = await ethCheatCodes.timestamp();
+    await ethCheatCodes.setNextBlockTimestamp(currentTimestamp + duration);
+    this.updateDateProvider(currentTimestamp + duration);
+  }
+
+  public async mineBlock(): Promise<void> {
+    if (!this.sequencer) {
+      throw new BadRequestError('Cannot mine block: no sequencer is running');
+    }
+
+    const currentBlockNumber = await this.getBlockNumber();
+
+    // Mine one L1 block — this uses any pending evm_setNextBlockTimestamp
+    const ethCheatCodes = this.getEthCheatCodes();
+    await ethCheatCodes.evmMine();
+
+    // Check if we're in a new L2 slot. If not, warp to the next slot's timestamp.
+    const l1Constants = await this.blockSource.getL1Constants();
+    const currentL1Timestamp = BigInt(await ethCheatCodes.timestamp());
+    const currentSlot = getSlotAtTimestamp(currentL1Timestamp, l1Constants);
+
+    const latestBlock = await this.getBlock('latest');
+    const lastBlockSlot = latestBlock ? BigInt(latestBlock.header.globalVariables.slotNumber) : 0n;
+
+    if (BigInt(currentSlot) <= lastBlockSlot) {
+      const nextSlotTimestamp = getTimestampForSlot(SlotNumber(Number(lastBlockSlot) + 1), l1Constants);
+      await ethCheatCodes.warp(Number(nextSlotTimestamp));
+    }
+
+    // Update dateProvider to match L1 time
+    const newTimestamp = await ethCheatCodes.timestamp();
+    this.updateDateProvider(newTimestamp);
+
+    // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
+    const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
+    this.sequencer.updateConfig({ minTxsPerBlock: 0 });
+
+    try {
+      // Trigger the sequencer to produce a block immediately
+      void this.sequencer.trigger();
+
+      // Wait for the new L2 block to appear
+      await retryUntil(
+        async () => {
+          const newBlockNumber = await this.getBlockNumber();
+          return newBlockNumber > currentBlockNumber ? true : undefined;
+        },
+        'mineBlock',
+        30,
+        0.1,
+      );
+    } finally {
+      this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    }
   }
 
   #getInitialHeaderHash(): Promise<BlockHash> {

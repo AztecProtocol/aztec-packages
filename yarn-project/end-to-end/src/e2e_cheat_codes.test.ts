@@ -4,12 +4,14 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { DateProvider } from '@aztec/foundation/timer';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
+import { type EndToEndContext, setup } from './fixtures/setup.js';
 import { getLogger, startAnvil } from './fixtures/utils.js';
 
 describe('e2e_cheat_codes', () => {
@@ -132,6 +134,55 @@ describe('e2e_cheat_codes', () => {
       } catch (e: any) {
         expect(e.message).toContain('No Signer available');
       }
+    });
+  });
+
+  describe('L2 admin time manipulation', () => {
+    let context: EndToEndContext;
+    let aztecNode: AztecNode;
+    let aztecNodeAdmin: AztecNodeAdmin;
+
+    beforeAll(async () => {
+      context = await setup(0);
+      aztecNode = context.aztecNode;
+      aztecNodeAdmin = context.aztecNodeAdmin;
+    });
+
+    afterAll(async () => {
+      await context.teardown();
+    });
+
+    it('setNextBlockTimestamp + mineBlock produces a block with the target timestamp', async () => {
+      const targetTimestamp = Math.floor(Date.now() / 1000) + 1000;
+      await aztecNodeAdmin.setNextBlockTimestamp(targetTimestamp);
+      await aztecNodeAdmin.mineBlock();
+
+      const blockNumber = await aztecNode.getBlockNumber();
+      const block = await aztecNode.getBlock(blockNumber);
+      expect(block).toBeDefined();
+      expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
+    });
+
+    it('advanceNextBlockTimestampBy + mineBlock advances time', async () => {
+      const blockBeforeAdvance = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+      const timestampBefore = Number(blockBeforeAdvance!.header.globalVariables.timestamp);
+
+      const advancement = 100;
+      await aztecNodeAdmin.advanceNextBlockTimestampBy(advancement);
+      await aztecNodeAdmin.mineBlock();
+
+      const blockNumber = await aztecNode.getBlockNumber();
+      const block = await aztecNode.getBlock(blockNumber);
+      expect(block).toBeDefined();
+      const timestampAfter = Number(block!.header.globalVariables.timestamp);
+      expect(timestampAfter).toBeGreaterThanOrEqual(timestampBefore + advancement);
+    });
+
+    it('mineBlock without setting timestamp still produces a new block', async () => {
+      const blockNumberBefore = await aztecNode.getBlockNumber();
+      await aztecNodeAdmin.mineBlock();
+      const blockNumberAfter = await aztecNode.getBlockNumber();
+      expect(blockNumberAfter).toBeGreaterThan(blockNumberBefore);
     });
   });
 });
