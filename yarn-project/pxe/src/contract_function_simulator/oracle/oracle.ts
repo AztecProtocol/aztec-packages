@@ -108,13 +108,13 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_storeInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+  aztec_prv_setHashPreimage(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsPrivate().storeInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
+  async aztec_prv_getHashPreimage([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
     const values = await this.handlerAsPrivate().loadFromExecutionCache(Fr.fromString(returnsHash));
     return [values.map(toACVMField)];
   }
@@ -252,7 +252,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_tryGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+  async aztec_utl_getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
     const result = await this.handlerAsUtility().tryGetPublicKeysAndPartialAddress(parsedAddress);
 
@@ -380,7 +380,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
+  async aztec_utl_doesNullifierExist([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
     const exists = await this.handlerAsUtility().checkNullifierExists(Fr.fromString(innerNullifier));
     return [toACVMField(exists)];
   }
@@ -400,7 +400,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_storageRead(
+  async aztec_utl_getFromPublicStorage(
     [blockHash]: ACVMField[],
     [contractAddress]: ACVMField[],
     [startStorageSlot]: ACVMField[],
@@ -464,7 +464,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_validatePublicCalldata([calldataHash]: ACVMField[]): Promise<ACVMField[]> {
+  async aztec_prv_assertValidPublicCalldata([calldataHash]: ACVMField[]): Promise<ACVMField[]> {
     await this.handlerAsPrivate().validatePublicCalldata(Fr.fromString(calldataHash));
     return [];
   }
@@ -476,7 +476,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_inRevertiblePhase([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+  async aztec_prv_isExecutionInRevertiblePhase([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
     const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(Fr.fromString(sideEffectCounter).toNumber());
     return Promise.resolve([toACVMField(isRevertible)]);
   }
@@ -491,7 +491,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_fetchTaggedLogs(
+  async aztec_utl_getPendingTaggedLogs(
     [pendingTaggedLogArrayBaseSlot]: ACVMField[],
     [scope]: ACVMField[],
   ): Promise<ACVMField[]> {
@@ -524,7 +524,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_bulkRetrieveLogs(
+  async aztec_utl_getLogsByTag(
     [contractAddress]: ACVMField[],
     [logRetrievalRequestsArrayBaseSlot]: ACVMField[],
     [logRetrievalResponsesArrayBaseSlot]: ACVMField[],
@@ -540,7 +540,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_utilityResolveMessageContexts(
+  async aztec_utl_getMessageContextsByTxHash(
     [contractAddress]: ACVMField[],
     [messageContextRequestsArrayBaseSlot]: ACVMField[],
     [messageContextResponsesArrayBaseSlot]: ACVMField[],
@@ -556,7 +556,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_storeCapsule(
+  aztec_utl_setCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     capsule: ACVMField[],
@@ -572,7 +572,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_loadCapsule(
+  async aztec_utl_getCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
@@ -628,7 +628,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_tryAes128Decrypt(
+  async aztec_utl_decryptAes128(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],
     iv: ACVMField[],
@@ -655,16 +655,18 @@ export class Oracle {
     [ephPKField0]: ACVMField[],
     [ephPKField1]: ACVMField[],
     [ephPKField2]: ACVMField[],
+    [contractAddress]: ACVMField[],
   ): Promise<ACVMField[]> {
     const secret = await this.handlerAsUtility().getSharedSecret(
       AztecAddress.fromField(Fr.fromString(address)),
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
     );
-    return secret.toFields().map(toACVMField);
+    return [toACVMField(secret)];
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_invalidateContractSyncCache(
+  aztec_utl_setContractSyncCacheInvalid(
     [contractAddress]: ACVMField[],
     scopes: ACVMField[],
     [scopeCount]: ACVMField[],
