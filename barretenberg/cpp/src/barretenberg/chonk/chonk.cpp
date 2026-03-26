@@ -382,6 +382,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
 
+        // Extract native verifier accumulator from the stdlib accum to use it in the next round
+        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
+
         // Get databus commitments
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
         auto app_return_data_commitment = bus_depot.get_app_return_data_commitment(circuit);
