@@ -45,7 +45,7 @@ include "sha256.pil";
  *     - guaranteed by this gadget to be U32.
  * - M[rop[2] + i]: for 0 <= i < 16, M[input_addr + i] aka input[i] (the i-th value of the hash input array)
  *     - guaranteed by this gadget to be U32.
-*
+ *
  * INTERACTIONS (as source):
  * - gt.sel_others: address range checks for state/input/output address bounds.
  *   Tuple: { max_addr, max_mem_addr, out_of_range_result }.

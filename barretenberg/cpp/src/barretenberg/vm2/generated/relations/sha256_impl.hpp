@@ -37,26 +37,26 @@ void sha256Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_xor_op_id)) - CView(constants_AVM_BITWISE_XOR_OP_ID));
+        auto tmp = (static_cast<View>(in.get(C::sha256_perform_round)) -
+                    (FF(1) - CView(sha256_LATCH_CONDITION)) * CView(sha256_SEL_NO_ERR));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_and_op_id)) - CView(constants_AVM_BITWISE_AND_OP_ID));
+        auto tmp = (static_cast<View>(in.get(C::sha256_last)) -
+                    (FF(1) - static_cast<View>(in.get(C::sha256_err))) * static_cast<View>(in.get(C::sha256_end)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::sha256_perform_round)) -
-                    (FF(1) - CView(sha256_LATCH_CONDITION)) * CView(sha256_SEL_NO_ERR));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_xor_op_id)) - CView(constants_AVM_BITWISE_XOR_OP_ID));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::sha256_last)) -
-                    (FF(1) - static_cast<View>(in.get(C::sha256_err))) * static_cast<View>(in.get(C::sha256_end)));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_and_op_id)) - CView(constants_AVM_BITWISE_AND_OP_ID));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {

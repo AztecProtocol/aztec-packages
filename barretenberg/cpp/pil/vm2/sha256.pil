@@ -83,6 +83,13 @@ namespace sha256;
     pol commit output_h_lhs;
     pol commit output_h_rhs;
 
+    // We perform a compression operation if we are not at a latched row, or there is not an err
+    pol commit perform_round; // @boolean (by definition: product of booleans)
+    perform_round = (1 - LATCH_CONDITION) * SEL_NO_ERR;
+    pol commit last; // @boolean (by definition: product of booleans)
+    last = (1 - err) * end;
+    // Since `end == 1 ==> sel == 1`, we have `last == SEL_NO_ERR * end`.
+    // However, `err == 1` does not imply `end == 1` and we cannot simplify to `last = end - err`.
 
     // These are needed while we can't use constant values in lookups.
     // For the XOR lookups
@@ -91,14 +98,6 @@ namespace sha256;
     // For the AND lookups
     pol commit and_op_id;
     perform_round * (and_op_id - constants.AVM_BITWISE_AND_OP_ID) = 0;
-
-    // We perform a compression operation if we are not at a latched row, or there is not an err
-    pol commit perform_round; // @boolean (by definition: product of booleans)
-    perform_round = (1 - LATCH_CONDITION) * SEL_NO_ERR;
-    pol commit last; // @boolean (by definition: product of booleans)
-    last = (1 - err) * end;
-    // Since `end == 1 ==> sel == 1`, we have `last == SEL_NO_ERR * end`.
-    // However, `err == 1` does not imply `end == 1` and we cannot simplify to `last = end - err`.
 
     // Counter — tracks how many compression rounds remain.
     // The constraint below is a compound: on the start row it forces rounds_remaining = 64,

@@ -533,7 +533,7 @@ void Sha256TraceBuilder::process(
         // before we threw an error - so it will be the last element in the input vector.
         // Therefore, it is just sufficient to check the tag of the last element
         BB_ASSERT(!event.input.empty(), "SHA256 input cannot be empty");
-        bool invalid_tag_err = event.input.back().get_tag() != MemoryTag::U32;
+        bool invalid_input_tag_err = event.input.back().get_tag() != MemoryTag::U32;
 
         // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
         // sel_invalid_input_ROW_tag_err. And all the rows before need to contain sel_invalid_input_tag_err.
@@ -571,15 +571,15 @@ void Sha256TraceBuilder::process(
                           { C::sha256_w, round_input.as_ff() },
                           // Error Columns
                           // Propagated tag error columns
-                          { C::sha256_sel_invalid_input_tag_err, invalid_tag_err ? 1 : 0 },
+                          { C::sha256_sel_invalid_input_tag_err, invalid_input_tag_err ? 1 : 0 },
                           // Invalid Row Tag Error Columns
-                          { C::sha256_sel_invalid_input_row_tag_err, (is_last && invalid_tag_err) ? 1 : 0 },
-                          { C::sha256_err, invalid_tag_err ? 1 : 0 },
-                          { C::sha256_end, (is_last && invalid_tag_err) ? 1 : 0 },
+                          { C::sha256_sel_invalid_input_row_tag_err, (is_last && invalid_input_tag_err) ? 1 : 0 },
+                          { C::sha256_err, invalid_input_tag_err ? 1 : 0 },
+                          { C::sha256_end, (is_last && invalid_input_tag_err) ? 1 : 0 },
                       } });
         }
 
-        if (invalid_tag_err) {
+        if (invalid_input_tag_err) {
             // We need to increment the row counter for the next event (since we may have added rows for input loading)
             row += static_cast<uint32_t>(event.input.size());
             continue;
@@ -663,9 +663,9 @@ void Sha256TraceBuilder::process(
         // input_addr stays constant at input_addr + 16 (satisfies CONTINUITY_INPUT_ADDR from row 63)
         trace.set(row,
                   { {
+                      { C::sha256_sel, 1 },
                       { C::sha256_end, 1 },
                       { C::sha256_last, 1 },
-                      { C::sha256_sel, 1 },
                       { C::sha256_round_count, 64 },
                       { C::sha256_input_addr, input_addr + 16 },
                   } });
@@ -702,6 +702,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_memory_address_6_, output_addr + 6 },
                       { C::sha256_memory_address_7_, output_addr + 7 },
                       // Output Values
+                      // The addition round_state[i] + state[i] is performed modulo 2^32.
                       { C::sha256_memory_register_0_, round_state[0] + state[0] },
                       { C::sha256_memory_register_1_, round_state[1] + state[1] },
                       { C::sha256_memory_register_2_, round_state[2] + state[2] },
