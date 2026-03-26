@@ -41,7 +41,16 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
-  public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
+  public async bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequests: LogRetrievalRequest[],
+  ): Promise<(LogRetrievalResponse | null)[]> {
+    for (const request of logRetrievalRequests) {
+      if (!contractAddress.equals(request.contractAddress)) {
+        throw new Error(`Got a note validation request from ${request.contractAddress}, expected ${contractAddress}`);
+      }
+    }
+
     return await Promise.all(
       logRetrievalRequests.map(async request => {
         const [publicLog, privateLog] = await Promise.all([
