@@ -134,10 +134,12 @@ function release {
 # This is not done by CI.
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
 function release_aztec_up {
-    # Upload root aztec-install with VERSION defaulting to latest (instead of local nightly).
+    # Upload root installer assets: aztec-install (with VERSION defaulting to latest), aztec-up, and banner files.
     sed "s/^VERSION=.*/VERSION=\${VERSION:-latest}/" bin/0.0.1/aztec-install | \
       do_or_dryrun aws s3 cp - "s3://install.aztec.network/aztec-install"
     do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-banner "s3://install.aztec.network/aztec-banner"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-banner-truecolor "s3://install.aztec.network/aztec-banner-truecolor"
 
     # Update alias list.
     do_or_dryrun aws s3 cp bin/aliases/index "s3://install.aztec.network/aliases/index"
