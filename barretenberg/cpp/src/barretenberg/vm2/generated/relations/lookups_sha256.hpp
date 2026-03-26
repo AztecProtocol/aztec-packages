@@ -16,19 +16,15 @@ namespace bb::avm2 {
 struct lookup_sha256_range_comp_w_lhs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_W_LHS";
     static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::sha256_sel_compute_w;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_sha256_range_comp_w_lhs_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_range_comp_w_lhs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32,
-        ColumnAndShifts::sha256_computed_w_lhs,
-        ColumnAndShifts::sha256_sel_compute_w
+        ColumnAndShifts::sha256_computed_w_lhs
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_sha256_range_comp_w_lhs_settings = lookup_settings<lookup_sha256_range_comp_w_lhs_settings_>;
@@ -165,7 +161,7 @@ struct lookup_sha256_w_s_0_xor_1_settings_ {
     static constexpr Column INVERSES = Column::lookup_sha256_w_s_0_xor_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::sha256_w_15_rotr_7_xor_w_15_rotr_18,
-        ColumnAndShifts::sha256_w_15_rshift_3,
+        ColumnAndShifts::sha256_lhs_w_3,
         ColumnAndShifts::sha256_w_s_0,
         ColumnAndShifts::sha256_xor_op_id,
         ColumnAndShifts::sha256_u32_tag
@@ -287,7 +283,7 @@ struct lookup_sha256_w_s_1_xor_1_settings_ {
     static constexpr Column INVERSES = Column::lookup_sha256_w_s_1_xor_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::sha256_w_2_rotr_17_xor_w_2_rotr_19,
-        ColumnAndShifts::sha256_w_2_rshift_10,
+        ColumnAndShifts::sha256_lhs_w_10,
         ColumnAndShifts::sha256_w_s_1,
         ColumnAndShifts::sha256_xor_op_id,
         ColumnAndShifts::sha256_u32_tag
@@ -785,17 +781,15 @@ using lookup_sha256_maj_xor_1_relation = lookup_relation_base<FF_, lookup_sha256
 struct lookup_sha256_range_comp_next_a_lhs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_NEXT_A_LHS";
     static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::sha256_perform_round;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_sha256_range_comp_next_a_lhs_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_range_comp_next_a_lhs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_next_a_lhs, ColumnAndShifts::sha256_perform_round
+        ColumnAndShifts::sha256_next_a_lhs
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_sha256_range_comp_next_a_lhs_settings = lookup_settings<lookup_sha256_range_comp_next_a_lhs_settings_>;
@@ -831,17 +825,15 @@ using lookup_sha256_range_comp_next_a_rhs_relation =
 struct lookup_sha256_range_comp_next_e_lhs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_NEXT_E_LHS";
     static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::sha256_perform_round;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_sha256_range_comp_next_e_lhs_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_range_comp_next_e_lhs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_next_e_lhs, ColumnAndShifts::sha256_perform_round
+        ColumnAndShifts::sha256_next_e_lhs
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_sha256_range_comp_next_e_lhs_settings = lookup_settings<lookup_sha256_range_comp_next_e_lhs_settings_>;
@@ -872,28 +864,6 @@ template <typename FF_>
 using lookup_sha256_range_comp_next_e_rhs_relation =
     lookup_relation_base<FF_, lookup_sha256_range_comp_next_e_rhs_settings>;
 
-/////////////////// lookup_sha256_range_comp_a_lhs ///////////////////
-
-struct lookup_sha256_range_comp_a_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_A_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_a_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_a_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_a_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_a_lhs_settings = lookup_settings<lookup_sha256_range_comp_a_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_a_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_a_lhs_settings>;
-
 /////////////////// lookup_sha256_range_comp_a_rhs ///////////////////
 
 struct lookup_sha256_range_comp_a_rhs_settings_ {
@@ -915,28 +885,6 @@ struct lookup_sha256_range_comp_a_rhs_settings_ {
 using lookup_sha256_range_comp_a_rhs_settings = lookup_settings<lookup_sha256_range_comp_a_rhs_settings_>;
 template <typename FF_>
 using lookup_sha256_range_comp_a_rhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_a_rhs_settings>;
-
-/////////////////// lookup_sha256_range_comp_b_lhs ///////////////////
-
-struct lookup_sha256_range_comp_b_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_B_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_b_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_b_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_b_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_b_lhs_settings = lookup_settings<lookup_sha256_range_comp_b_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_b_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_b_lhs_settings>;
 
 /////////////////// lookup_sha256_range_comp_b_rhs ///////////////////
 
@@ -960,28 +908,6 @@ using lookup_sha256_range_comp_b_rhs_settings = lookup_settings<lookup_sha256_ra
 template <typename FF_>
 using lookup_sha256_range_comp_b_rhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_b_rhs_settings>;
 
-/////////////////// lookup_sha256_range_comp_c_lhs ///////////////////
-
-struct lookup_sha256_range_comp_c_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_C_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_c_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_c_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_c_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_c_lhs_settings = lookup_settings<lookup_sha256_range_comp_c_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_c_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_c_lhs_settings>;
-
 /////////////////// lookup_sha256_range_comp_c_rhs ///////////////////
 
 struct lookup_sha256_range_comp_c_rhs_settings_ {
@@ -1003,28 +929,6 @@ struct lookup_sha256_range_comp_c_rhs_settings_ {
 using lookup_sha256_range_comp_c_rhs_settings = lookup_settings<lookup_sha256_range_comp_c_rhs_settings_>;
 template <typename FF_>
 using lookup_sha256_range_comp_c_rhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_c_rhs_settings>;
-
-/////////////////// lookup_sha256_range_comp_d_lhs ///////////////////
-
-struct lookup_sha256_range_comp_d_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_D_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_d_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_d_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_d_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_d_lhs_settings = lookup_settings<lookup_sha256_range_comp_d_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_d_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_d_lhs_settings>;
 
 /////////////////// lookup_sha256_range_comp_d_rhs ///////////////////
 
@@ -1048,28 +952,6 @@ using lookup_sha256_range_comp_d_rhs_settings = lookup_settings<lookup_sha256_ra
 template <typename FF_>
 using lookup_sha256_range_comp_d_rhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_d_rhs_settings>;
 
-/////////////////// lookup_sha256_range_comp_e_lhs ///////////////////
-
-struct lookup_sha256_range_comp_e_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_E_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_e_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_e_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_e_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_e_lhs_settings = lookup_settings<lookup_sha256_range_comp_e_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_e_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_e_lhs_settings>;
-
 /////////////////// lookup_sha256_range_comp_e_rhs ///////////////////
 
 struct lookup_sha256_range_comp_e_rhs_settings_ {
@@ -1091,28 +973,6 @@ struct lookup_sha256_range_comp_e_rhs_settings_ {
 using lookup_sha256_range_comp_e_rhs_settings = lookup_settings<lookup_sha256_range_comp_e_rhs_settings_>;
 template <typename FF_>
 using lookup_sha256_range_comp_e_rhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_e_rhs_settings>;
-
-/////////////////// lookup_sha256_range_comp_f_lhs ///////////////////
-
-struct lookup_sha256_range_comp_f_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_F_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_f_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_f_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_f_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_f_lhs_settings = lookup_settings<lookup_sha256_range_comp_f_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_f_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_f_lhs_settings>;
 
 /////////////////// lookup_sha256_range_comp_f_rhs ///////////////////
 
@@ -1136,28 +996,6 @@ using lookup_sha256_range_comp_f_rhs_settings = lookup_settings<lookup_sha256_ra
 template <typename FF_>
 using lookup_sha256_range_comp_f_rhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_f_rhs_settings>;
 
-/////////////////// lookup_sha256_range_comp_g_lhs ///////////////////
-
-struct lookup_sha256_range_comp_g_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_G_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_g_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_g_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_g_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_g_lhs_settings = lookup_settings<lookup_sha256_range_comp_g_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_g_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_g_lhs_settings>;
-
 /////////////////// lookup_sha256_range_comp_g_rhs ///////////////////
 
 struct lookup_sha256_range_comp_g_rhs_settings_ {
@@ -1179,28 +1017,6 @@ struct lookup_sha256_range_comp_g_rhs_settings_ {
 using lookup_sha256_range_comp_g_rhs_settings = lookup_settings<lookup_sha256_range_comp_g_rhs_settings_>;
 template <typename FF_>
 using lookup_sha256_range_comp_g_rhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_g_rhs_settings>;
-
-/////////////////// lookup_sha256_range_comp_h_lhs ///////////////////
-
-struct lookup_sha256_range_comp_h_lhs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SHA256_RANGE_COMP_H_LHS";
-    static constexpr std::string_view RELATION_NAME = "sha256";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_last;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_sha256;
-    static constexpr Column COUNTS = Column::lookup_sha256_range_comp_h_lhs_counts;
-    static constexpr Column INVERSES = Column::lookup_sha256_range_comp_h_lhs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::sha256_two_pow_32, ColumnAndShifts::sha256_output_h_lhs, ColumnAndShifts::sha256_last
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_sha256_range_comp_h_lhs_settings = lookup_settings<lookup_sha256_range_comp_h_lhs_settings_>;
-template <typename FF_>
-using lookup_sha256_range_comp_h_lhs_relation = lookup_relation_base<FF_, lookup_sha256_range_comp_h_lhs_settings>;
 
 /////////////////// lookup_sha256_range_comp_h_rhs ///////////////////
 
