@@ -297,6 +297,17 @@ template <typename G1> class TestAffineElement : public testing::Test {
             }
         }
     }
+
+    static void test_frc_codec_round_trip()
+    {
+        using FrField = FrCodec::DataType;
+        affine_element point = affine_element::random_element();
+        std::vector<FrField> public_inputs = FrCodec::serialize_to_fields(point);
+        std::span<FrField, affine_element::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(),
+                                                                     affine_element::PUBLIC_INPUTS_SIZE);
+        auto reconstructed = FrCodec::deserialize_from_fields<affine_element>(limbs);
+        EXPECT_EQ(reconstructed, point);
+    }
 };
 
 // using TestTypes = testing::Types<bb::g1>;
@@ -391,40 +402,14 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
     }
 }
 
-TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
+// FrCodec is defined only for BN254 and Grumpkin (the two curves whose points appear in transcripts).
+TYPED_TEST(TestAffineElement, FrCodecRoundTrip)
 {
-    using Curve = curve::BN254;
-    using Fr = Curve::ScalarField;
-    using AffineElement = Curve::AffineElement;
-
-    AffineElement point = AffineElement::random_element();
-
-    // Construct public inputs using FrCodec format (2 limbs of 136 bits per coordinate)
-    std::vector<Fr> public_inputs = FrCodec::serialize_to_fields(point);
-
-    std::span<Fr, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
-
-    auto reconstructed = FrCodec::deserialize_from_fields<AffineElement>(limbs);
-
-    EXPECT_EQ(reconstructed, point);
-}
-
-TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
-{
-    using Curve = curve::Grumpkin;
-    using AffineElement = Curve::AffineElement;
-    using Fr = bb::fr;
-
-    AffineElement point = AffineElement::random_element();
-
-    // Construct public inputs using FrCodec format
-    std::vector<Fr> public_inputs = FrCodec::serialize_to_fields(point);
-
-    std::span<Fr, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
-
-    auto reconstructed = FrCodec::deserialize_from_fields<AffineElement>(limbs);
-
-    EXPECT_EQ(reconstructed, point);
+    if constexpr (std::is_same_v<TypeParam, bb::g1> || std::is_same_v<TypeParam, grumpkin::g1>) {
+        TestFixture::test_frc_codec_round_trip();
+    } else {
+        GTEST_SKIP();
+    }
 }
 
 // Verify that batch_mul_with_endomorphism gives correct results for even scalars (where k1 or k2 in the
