@@ -124,17 +124,23 @@ BENCHMARK_REGISTER_F(ChonkBench, ProofDecompress)->Unit(benchmark::kMillisecond)
 BENCHMARK_REGISTER_F(ChonkBench, VerifyIndividual)->Unit(benchmark::kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
 /**
- * @brief Benchmark BN254 G1 point decompression (used by SRS compressed download)
+ * @brief Benchmark BN254 G1 point decompression (used during compressed CRS download)
  */
 void bn254_point_decompression(benchmark::State& state)
 {
     constexpr size_t NUM_POINTS = 1 << 17; // 131072 — typical circuit size
 
-    // Read compressed points from disk (32 bytes each, big-endian uint256_t)
-    auto compressed_buf = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", NUM_POINTS * sizeof(uint256_t));
+    // Read uncompressed points from disk and compress them for benchmark input.
+    // Compression: store x-coordinate as uint256_t, set bit 255 if y is odd.
+    auto uncompressed_buf = read_file(bb::srs::bb_crs_path() / "bn254_g1.dat", NUM_POINTS * sizeof(g1::affine_element));
     std::vector<uint256_t> compressed(NUM_POINTS);
     for (size_t i = 0; i < NUM_POINTS; ++i) {
-        compressed[i] = from_buffer<uint256_t>(compressed_buf, i * sizeof(uint256_t));
+        auto point = from_buffer<g1::affine_element>(uncompressed_buf, i * sizeof(g1::affine_element));
+        uint256_t x(point.x);
+        if (uint256_t(point.y).get_bit(0)) {
+            x.data[3] |= bb::group_elements::UINT256_TOP_LIMB_MSB;
+        }
+        compressed[i] = x;
     }
 
     for (auto _ : state) {
