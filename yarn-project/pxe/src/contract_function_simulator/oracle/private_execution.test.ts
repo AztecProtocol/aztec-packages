@@ -463,7 +463,7 @@ describe('Private Execution test suite', () => {
 
   describe('no constructor', () => {
     it('emits a field array as an encrypted log', async () => {
-      const args = [times(5, () => Fr.random()), owner, false];
+      const args = [Fr.ZERO, times(5, () => Fr.random()), owner, false];
       const result = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'emit_array_as_encrypted_log',

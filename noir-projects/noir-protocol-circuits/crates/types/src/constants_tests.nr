@@ -9,8 +9,9 @@ use crate::{
         DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
         DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__CONTRACT_ADDRESS_V1,
         DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY,
-        DOM_SEP__EVENT_COMMITMENT, DOM_SEP__FUNCTION_ARGS, DOM_SEP__INITIALIZATION_NULLIFIER,
-        DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NHK_M,
+        DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FUNCTION_ARGS,
+        DOM_SEP__INITIALIZATION_NULLIFIER, DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M,
+        DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NHK_M, DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER, DOM_SEP__OVSK_M,
         DOM_SEP__PARTIAL_ADDRESS, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         DOM_SEP__PRIVATE_FUNCTION_LEAF, DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER,
@@ -20,8 +21,9 @@ use crate::{
         DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
         DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH,
         DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, DOM_SEP__TSK_M,
-        DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST, DOM_SEP__UNIQUE_NOTE_HASH,
-        NULL_MSG_SENDER_CONTRACT_ADDRESS, SIDE_EFFECT_MASKING_ADDRESS, TX_START_PREFIX,
+        DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
+        DOM_SEP__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS, SIDE_EFFECT_MASKING_ADDRESS,
+        TX_START_PREFIX,
     },
     hash::poseidon2_hash_bytes,
     traits::{FromField, ToField},
@@ -135,7 +137,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<53, 46>::new();
+    let mut tester = HashedValueTester::<56, 49>::new();
 
     // -----------------
     // Domain separators
@@ -158,6 +160,15 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PUBLIC_STORAGE_MAP_SLOT,
         "public_storage_map_slot",
+    );
+    tester.assert_dom_sep_matches_derived(DOM_SEP__EVENT_LOG_TAG, "event_log_tag");
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__NOTE_COMPLETION_LOG_TAG,
+        "note_completion_log_tag",
+    );
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
+        "unconstrained_msg_log_tag",
     );
     tester.assert_dom_sep_matches_derived(DOM_SEP__MESSAGE_NULLIFIER, "message_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PRIVATE_FUNCTION_LEAF, "private_function_leaf");
