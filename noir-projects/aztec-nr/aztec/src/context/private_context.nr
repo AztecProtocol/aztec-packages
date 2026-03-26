@@ -885,13 +885,11 @@ impl PrivateContext {
     /// filter for relevant logs without scanning all of them.
     /// * `log` - The log data that will be publicly broadcast (so make sure it's already been encrypted before you
     /// call this function). Private logs are bounded in size (`PRIVATE_LOG_CIPHERTEXT_LEN`), to encourage all logs
-    /// from all smart contracts look identical.
-    /// * `length` - The actual length of `log` (measured in number of Fields). Although the input log has a max
-    /// size of `PRIVATE_LOG_CIPHERTEXT_LEN`, the latter values of the array might all be 0's for small logs. This
-    /// `length` should reflect the trimmed length of the array. The protocol's kernel circuits can then append
-    /// random fields as "padding" after the `length`, so that the logs of this smart contract look
-    /// indistinguishable from (the same length as) the logs of all other applications. It's up to wallets how much
-    /// padding to apply, so ideally all wallets should agree on standards for this.
+    /// from all smart contracts look identical. The `.len()` of the BoundedVec should reflect the actual length of
+    /// the data (measured in number of Fields). The protocol's kernel circuits can then append random fields as
+    /// "padding" after `.len()` fields, so that the logs of this smart contract look indistinguishable from (the
+    /// same length as) the logs of all other applications. It's up to wallets how much padding to apply, so
+    /// ideally all wallets should agree on standards for this.
     ///
     /// ## Safety
     ///
@@ -900,11 +898,8 @@ impl PrivateContext {
     /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
     /// ([`crate::messages::message_delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
     /// handle tagging automatically.
-    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32) {
-        let counter = self.next_counter();
-        let full_log = [tag].concat(log);
-        self.private_logs.push(PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }
-            .count(counter));
+    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
+        self.emit_raw_note_log_unsafe(tag, log, 0);
     }
 
     // TODO: rename.
@@ -917,9 +912,8 @@ impl PrivateContext {
     /// See `emit_private_log_unsafe` for more info about private log emission.
     ///
     /// # Arguments
-    /// * `tag` - A tag placed at `fields[0]`. See `emit_private_log_unsafe`.
-    /// * `log` - The log data as an array of Field elements
-    /// * `length` - The actual length of the `log` (measured in number of Fields).
+    /// * `tag` - A tag placed at `fields[0]`. See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
+    /// * `log` - The log data. See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
     /// * `note_hash_counter` - The side-effect counter that was assigned to the new note_hash when it was pushed to
     /// this `PrivateContext`.
     ///
@@ -932,13 +926,12 @@ impl PrivateContext {
     pub fn emit_raw_note_log_unsafe(
         &mut self,
         tag: Field,
-        log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN],
-        length: u32,
+        log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
         note_hash_counter: u32,
     ) {
         let counter = self.next_counter();
-        let full_log = [tag].concat(log);
-        let private_log = PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter };
+        let full_log = [tag].concat(log.storage());
+        let private_log = PrivateLogData { log: PrivateLog::new(full_log, log.len() + 1), note_hash_counter };
         self.private_logs.push(private_log.count(counter));
     }
 
