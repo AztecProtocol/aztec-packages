@@ -70,6 +70,8 @@ export function WalletConnect({ network, onWalletConnected }: WalletConnectProps
     let isMounted = true;
     done.then(() => {
       if (isMounted) setDiscoveryDone(true);
+    }).catch((err) => {
+      if (isMounted) setStatus(`Discovery error: ${err.message}`);
     });
 
     return () => {

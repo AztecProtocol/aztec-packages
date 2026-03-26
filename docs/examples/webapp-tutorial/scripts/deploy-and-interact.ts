@@ -14,7 +14,7 @@ console.log("Accounts ready:", alice.address.toString(), bob.address.toString())
 // docs:end:script-setup
 
 // docs:start:script-deploy
-const contract = await PodRacingContract.deploy(wallet, alice.address).send({
+const { contract } = await PodRacingContract.deploy(wallet, alice.address).send({
   from: alice.address,
 });
 console.log("Contract deployed at:", contract.address.toString());

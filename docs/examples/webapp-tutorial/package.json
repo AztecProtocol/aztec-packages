@@ -8,7 +8,7 @@
   },
   "scripts": {
     "clean": "rm -rf ../../target src/artifacts/*.json src/artifacts/*.ts dist",
-    "compile": "cd ../.. && ${AZTEC:-aztec} compile examples/webapp-tutorial/contracts --force && mkdir -p examples/webapp-tutorial/src/artifacts && cp target/*.json examples/webapp-tutorial/src/artifacts",
+    "compile": "cd ../.. && ${AZTEC:-aztec} compile --package pod_racing_contract --force && mkdir -p examples/webapp-tutorial/src/artifacts && cp target/pod_racing_contract-PodRacing.json examples/webapp-tutorial/src/artifacts",
     "codegen": "cd ../.. && ${AZTEC:-aztec} codegen ./target -o ./target && cp target/*.ts examples/webapp-tutorial/src/artifacts",
     "prep": "yarn compile && yarn codegen",
     "dev": "vite",

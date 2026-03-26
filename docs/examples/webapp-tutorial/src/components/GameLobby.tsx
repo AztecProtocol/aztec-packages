@@ -47,7 +47,7 @@ export function GameLobby({ wallet, account, onGameJoined }: GameLobbyProps) {
       setStatus('Creating game...');
       addLog('Creating game...', 'pending');
       const receipt = await createGame(contract, account, gId);
-      addLog(`Game ${gId} created successfully`, 'success', receipt.txHash?.toString());
+      addLog(`Game ${gId} created successfully`, 'success', receipt.receipt.txHash?.toString());
 
       setStatus(`Game created! Share contract address: ${contract.address}`);
       onGameJoined(contract, gId);
@@ -89,7 +89,7 @@ export function GameLobby({ wallet, account, onGameJoined }: GameLobbyProps) {
       addLog(`Attached to contract ${contractAddr.toString()}`, 'info');
       addLog(`Joining game ${gId}...`, 'pending');
       const receipt = await joinGame(contract, account, gId);
-      addLog(`Joined game ${gId} successfully`, 'success', receipt.txHash?.toString());
+      addLog(`Joined game ${gId} successfully`, 'success', receipt.receipt.txHash?.toString());
 
       setStatus('Joined game!');
       onGameJoined(contract, gId);

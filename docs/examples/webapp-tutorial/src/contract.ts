@@ -13,7 +13,7 @@ import { EmbeddedWallet } from './embedded-wallet';
  */
 export async function deployContract(wallet: Wallet, deployer: AztecAddress): Promise<PodRacingContract> {
   const paymentMethod = await createSponsoredFeePayment();
-  const contract = await PodRacingContract.deploy(wallet, deployer)
+  const { contract } = await PodRacingContract.deploy(wallet, deployer)
     .send({ from: deployer, fee: { paymentMethod } });
 
   console.log('Pod Racing contract deployed at:', contract.address.toString());
@@ -51,7 +51,7 @@ export async function createGame(
     .create_game(gameId)
     .send({ from, fee: { paymentMethod } });
 
-  console.log('Game created, tx hash:', receipt.txHash.toString());
+  console.log('Game created, tx hash:', receipt.receipt.txHash.toString());
   return receipt;
 }
 
@@ -68,7 +68,7 @@ export async function joinGame(
     .join_game(gameId)
     .send({ from, fee: { paymentMethod } });
 
-  console.log('Joined game, tx hash:', receipt.txHash.toString());
+  console.log('Joined game, tx hash:', receipt.receipt.txHash.toString());
   return receipt;
 }
 
@@ -87,7 +87,7 @@ export async function playRound(
     .play_round(gameId, round, tracks[0], tracks[1], tracks[2], tracks[3], tracks[4])
     .send({ from, fee: { paymentMethod } });
 
-  console.log('Round played, tx hash:', receipt.txHash.toString());
+  console.log('Round played, tx hash:', receipt.receipt.txHash.toString());
   return receipt;
 }
 
@@ -104,7 +104,7 @@ export async function finishGame(
     .finish_game(gameId)
     .send({ from, fee: { paymentMethod } });
 
-  console.log('Game finished (scores revealed), tx hash:', receipt.txHash.toString());
+  console.log('Game finished (scores revealed), tx hash:', receipt.receipt.txHash.toString());
   return receipt;
 }
 
@@ -121,7 +121,7 @@ export async function finalizeGame(
     .finalize_game(gameId)
     .send({ from, fee: { paymentMethod } });
 
-  console.log('Game finalized, tx hash:', receipt.txHash.toString());
+  console.log('Game finalized, tx hash:', receipt.receipt.txHash.toString());
   return receipt;
 }
 // docs:end:game-actions

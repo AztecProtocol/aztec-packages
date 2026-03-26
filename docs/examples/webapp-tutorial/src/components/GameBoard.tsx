@@ -50,7 +50,7 @@ export function GameBoard({
     try {
       addLog('Building private transaction proof...', 'pending');
       const receipt = await playRound(contract, account, gameId, currentRound, allocations);
-      addLog(`Round ${currentRound} submitted successfully`, 'success', receipt.txHash?.toString());
+      addLog(`Round ${currentRound} submitted successfully`, 'success', receipt.receipt.txHash?.toString());
       setStatus('Round submitted!');
       setAllocations([2, 2, 2, 2, 1]);
       onRoundPlayed();
@@ -72,7 +72,7 @@ export function GameBoard({
     try {
       addLog('Reading private notes and computing totals...', 'pending');
       const receipt = await finishGame(contract, account, gameId);
-      addLog('Scores revealed successfully', 'success', receipt.txHash?.toString());
+      addLog('Scores revealed successfully', 'success', receipt.receipt.txHash?.toString());
       setStatus('Scores revealed! Waiting for opponent to reveal, then finalize.');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -89,7 +89,7 @@ export function GameBoard({
     addLog('Finalizing game and determining winner...', 'pending');
     try {
       const receipt = await finalizeGame(contract, account, gameId);
-      addLog('Game finalized! Winner determined.', 'success', receipt.txHash?.toString());
+      addLog('Game finalized! Winner determined.', 'success', receipt.receipt.txHash?.toString());
       setStatus('Game finalized! Winner determined.');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
