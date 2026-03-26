@@ -141,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 122;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2976;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 363;
-    static constexpr size_t NUM_WIRES = 2524;
-    static constexpr size_t NUM_ALL_ENTITIES = 3461;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2948;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 362;
+    static constexpr size_t NUM_WIRES = 2504;
+    static constexpr size_t NUM_ALL_ENTITIES = 3432;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -515,21 +515,13 @@ struct AvmFlavorVariables {
         lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
-        lookup_sha256_range_comp_a_lhs_relation<FF_>,
         lookup_sha256_range_comp_a_rhs_relation<FF_>,
-        lookup_sha256_range_comp_b_lhs_relation<FF_>,
         lookup_sha256_range_comp_b_rhs_relation<FF_>,
-        lookup_sha256_range_comp_c_lhs_relation<FF_>,
         lookup_sha256_range_comp_c_rhs_relation<FF_>,
-        lookup_sha256_range_comp_d_lhs_relation<FF_>,
         lookup_sha256_range_comp_d_rhs_relation<FF_>,
-        lookup_sha256_range_comp_e_lhs_relation<FF_>,
         lookup_sha256_range_comp_e_rhs_relation<FF_>,
-        lookup_sha256_range_comp_f_lhs_relation<FF_>,
         lookup_sha256_range_comp_f_rhs_relation<FF_>,
-        lookup_sha256_range_comp_g_lhs_relation<FF_>,
         lookup_sha256_range_comp_g_rhs_relation<FF_>,
-        lookup_sha256_range_comp_h_lhs_relation<FF_>,
         lookup_sha256_range_comp_h_rhs_relation<FF_>,
         lookup_sha256_range_comp_next_a_lhs_relation<FF_>,
         lookup_sha256_range_comp_next_a_rhs_relation<FF_>,
