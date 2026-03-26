@@ -26,7 +26,7 @@ fi
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
 shared_bin_path="$AZTEC_HOME/bin"
 
-VERSION="${VERSION:-latest}"
+VERSION="${VERSION:-nightly}"
 
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
