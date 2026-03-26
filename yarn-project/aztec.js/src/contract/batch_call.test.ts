@@ -1,8 +1,11 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  Capsule,
   ExecutionPayload,
+  HashedValues,
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
   TxSimulationResult,
@@ -404,6 +407,28 @@ describe('BatchCall', () => {
       expect(result.calls[0]).toEqual(feePayload.calls[0]);
       expect(result.calls[1]).toEqual(payload.calls[0]);
       expect(mockPaymentMethod.getExecutionPayload).toHaveBeenCalledTimes(1);
+    });
+
+    it('should propagate authWitnesses, capsules, and extraHashedArgs into the execution payload', async () => {
+      const contractAddress = await AztecAddress.random();
+      const payload = createPrivateExecutionPayload('func', [Fr.random()], contractAddress);
+
+      const authWitness = AuthWitness.random();
+      const capsule = new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random()]);
+      const extraHashedArgs = [HashedValues.random()];
+
+      batchCall = new BatchCall(wallet, [payload], extraHashedArgs);
+      // Inject authWitnesses and capsules into the interaction (as BaseContractInteraction exposes these)
+      (batchCall as any).authWitnesses = [authWitness];
+      (batchCall as any).capsules = [capsule];
+
+      const result = await batchCall.request();
+
+      expect(result.calls).toHaveLength(1);
+      expect(result.calls[0]).toEqual(payload.calls[0]);
+      expect(result.authWitnesses).toContainEqual(authWitness);
+      expect(result.capsules).toContainEqual(capsule);
+      expect(result.extraHashedArgs).toContainEqual(extraHashedArgs[0]);
     });
   });
 });

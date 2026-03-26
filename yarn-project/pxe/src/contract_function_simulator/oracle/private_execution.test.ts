@@ -289,18 +289,21 @@ describe('Private Execution test suite', () => {
     messageContextService.resolveMessageContexts.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId) => {
-        await syncState(
-          contractAddress,
-          contractStore,
-          functionToInvokeAfterSync,
-          utilityExecutor,
-          noteStore,
-          aztecNode,
-          anchorBlockHeader,
-          jobId,
-          'ALL_SCOPES',
-        );
+      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId, scopes) => {
+        const scopeAddresses = scopes === 'ALL_SCOPES' ? [owner] : scopes;
+        for (const scope of scopeAddresses) {
+          await syncState(
+            contractAddress,
+            contractStore,
+            functionToInvokeAfterSync,
+            utilityExecutor,
+            noteStore,
+            aztecNode,
+            anchorBlockHeader,
+            jobId,
+            scope,
+          );
+        }
       },
     );
     contracts = {};
@@ -460,7 +463,7 @@ describe('Private Execution test suite', () => {
 
   describe('no constructor', () => {
     it('emits a field array as an encrypted log', async () => {
-      const args = [times(5, () => Fr.random()), owner, false];
+      const args = [Fr.ZERO, times(5, () => Fr.random()), owner, false];
       const result = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'emit_array_as_encrypted_log',
@@ -719,7 +722,7 @@ describe('Private Execution test suite', () => {
         contractAddress: parentAddress,
       });
 
-      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [], childAddress);
+      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
     });
   });
 

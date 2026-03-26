@@ -1,4 +1,4 @@
-use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::{Deserialize, Serialize}};
+use crate::protocol::{constants::MAX_NOTE_HASHES_PER_TX, traits::{Deserialize, Serialize}};
 
 /// Additional information needed to process a message.
 ///
@@ -10,26 +10,11 @@ pub struct MessageContext {
     pub tx_hash: Field,
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub first_nullifier_in_tx: Field,
-    pub recipient: AztecAddress,
-}
-
-/// Transaction context needed to process a message.
-///
-/// Like [`MessageContext`], but `MessageTxContext` does not include the recipient. MessageTxContext's are kind of
-/// adhoc: they are just the minimal data structure that the contract needs to get from a PXE oracle to prepare
-/// offchain messages to be processed. We reify it with a type just because it crosses Noir<->TS boundaries.
-/// The contract knows how to pair the context data with a recipient: then it is able to build a `MessageContext` for
-/// subsequent processing.
-#[derive(Serialize, Deserialize, Eq)]
-pub(crate) struct MessageTxContext {
-    pub tx_hash: Field,
-    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-    pub first_nullifier_in_tx: Field,
 }
 
 mod test {
     use crate::messages::processing::MessageContext;
-    use crate::protocol::{address::AztecAddress, traits::{Deserialize, FromField}};
+    use crate::protocol::traits::Deserialize;
 
     #[test]
     unconstrained fn message_context_serialization_matches_typescript() {
@@ -37,14 +22,12 @@ mod test {
         let tx_hash = 123;
         let unique_note_hashes = BoundedVec::from_array([4, 5]);
         let first_nullifier = 6;
-        let recipient = AztecAddress::from_field(789);
 
         // Create a MessageContext instance
         let message_context = MessageContext {
             tx_hash,
             unique_note_hashes_in_tx: unique_note_hashes,
             first_nullifier_in_tx: first_nullifier,
-            recipient,
         };
 
         // Expected output generated from TypeScript's `MessageContext.toFields()`
@@ -116,7 +99,6 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
-            0x0000000000000000000000000000000000000000000000000000000000000315,
         ];
 
         let deserialized = MessageContext::deserialize(serialized_message_context_from_typescript);

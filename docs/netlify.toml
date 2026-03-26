@@ -800,3 +800,8 @@
     # Aztec-nr: user-defined 'offchain_receive' is not allowed
     from = "/errors/7"
     to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
+
+[[redirects]]
+    # PXE: incompatible oracle version between contract and PXE
+    from = "/errors/8"
+    to = "/developers/docs/foundational-topics/pxe"

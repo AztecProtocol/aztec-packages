@@ -111,12 +111,16 @@ describe('Discv5Service', () => {
     await stopNodes(node1, node2);
   });
 
-  it('should automatically resolve p2p ip if not set', async () => {
+  it('should automatically resolve p2p ip if not set and queryForIp is true', async () => {
     const extraNodes = 3;
     const nodes: DiscV5Service[] = [];
 
-    // Create a node with no p2pIp
-    const node = await createNode({ p2pIp: undefined, config: { addrVotesToUpdateEnr: 1, pingInterval: 200 } });
+    // Create a node with no p2pIp and queryForIp=true -- enrUpdate should be enabled
+    const node = await createNode({
+      p2pIp: undefined,
+      queryForIp: true,
+      config: { addrVotesToUpdateEnr: 1, pingInterval: 200 },
+    });
     await node.start();
     nodes.push(node);
 
@@ -134,12 +138,19 @@ describe('Discv5Service', () => {
 
     expect(node.getEnr().ip).toEqual(undefined);
 
+    // ip:changed should be emitted when the ENR IP is resolved
+    let discoveredIp: string | undefined;
+    node.on('ip:changed', (ip: string) => {
+      discoveredIp = ip;
+    });
+
     await runDiscoveryUntil(nodes, () => node.getEnr().ip !== undefined);
 
-    // Expect it's IP has been updated, and that the tcp and udp ports are the same
+    // Expect IP has been updated, tcp and udp ports match, and ip:changed event was emitted
     expect(node.getEnr().ip).not.toEqual(undefined);
     expect(node.getEnr().tcp).not.toEqual(undefined);
     expect(node.getEnr().tcp).toEqual(node.getEnr().udp);
+    expect(discoveredIp).toEqual(node.getEnr().ip?.toString());
 
     await stopNodes(...nodes);
   });
