@@ -1685,25 +1685,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return block as BlockNumber;
   }
 
-  /** Resolves a block parameter to a block number. */
-  protected async resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
-    if (block === 'latest') {
-      return BlockNumber(await this.blockSource.getBlockNumber());
-    }
-    if (BlockHash.isBlockHash(block)) {
-      const initialBlockHash = await this.#getInitialHeaderHash();
-      if (block.equals(initialBlockHash)) {
-        return BlockNumber.ZERO;
-      }
-      const header = await this.blockSource.getBlockHeaderByHash(block);
-      if (!header) {
-        throw new Error(`Block hash ${block.toString()} not found.`);
-      }
-      return header.getBlockNumber();
-    }
-    return block as BlockNumber;
-  }
-
   /**
    * Ensure we fully sync the world state
    * @returns A promise that fulfils once the world state is synced
