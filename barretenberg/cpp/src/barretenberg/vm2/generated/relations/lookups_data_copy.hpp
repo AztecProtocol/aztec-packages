@@ -50,7 +50,7 @@ struct lookup_data_copy_check_src_addr_in_range_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::data_copy_read_addr_upper_bound,
         ColumnAndShifts::data_copy_mem_size,
-        ColumnAndShifts::data_copy_src_out_of_range_err
+        ColumnAndShifts::data_copy_src_reads_exceed_mem
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
                                                                                     ColumnAndShifts::gt_input_b,
@@ -89,31 +89,29 @@ template <typename FF_>
 using lookup_data_copy_check_dst_addr_in_range_relation =
     lookup_relation_base<FF_, lookup_data_copy_check_dst_addr_in_range_settings>;
 
-/////////////////// lookup_data_copy_data_index_upper_bound_gt_offset ///////////////////
+/////////////////// lookup_data_copy_sel_has_reads ///////////////////
 
-struct lookup_data_copy_data_index_upper_bound_gt_offset_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_DATA_INDEX_UPPER_BOUND_GT_OFFSET";
+struct lookup_data_copy_sel_has_reads_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_SEL_HAS_READS";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start_no_err;
     static constexpr Column DST_SELECTOR = Column::gt_sel_others;
-    static constexpr Column COUNTS = Column::lookup_data_copy_data_index_upper_bound_gt_offset_counts;
-    static constexpr Column INVERSES = Column::lookup_data_copy_data_index_upper_bound_gt_offset_inv;
+    static constexpr Column COUNTS = Column::lookup_data_copy_sel_has_reads_counts;
+    static constexpr Column INVERSES = Column::lookup_data_copy_sel_has_reads_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_data_index_upper_bound,
+        ColumnAndShifts::data_copy_clamped_read_index_upper_bound,
         ColumnAndShifts::data_copy_offset,
-        ColumnAndShifts::data_copy_data_index_upper_bound_gt_offset
+        ColumnAndShifts::data_copy_sel_has_reads
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
                                                                                     ColumnAndShifts::gt_input_b,
                                                                                     ColumnAndShifts::gt_res };
 };
 
-using lookup_data_copy_data_index_upper_bound_gt_offset_settings =
-    lookup_settings<lookup_data_copy_data_index_upper_bound_gt_offset_settings_>;
+using lookup_data_copy_sel_has_reads_settings = lookup_settings<lookup_data_copy_sel_has_reads_settings_>;
 template <typename FF_>
-using lookup_data_copy_data_index_upper_bound_gt_offset_relation =
-    lookup_relation_base<FF_, lookup_data_copy_data_index_upper_bound_gt_offset_settings>;
+using lookup_data_copy_sel_has_reads_relation = lookup_relation_base<FF_, lookup_data_copy_sel_has_reads_settings>;
 
 /////////////////// lookup_data_copy_col_read ///////////////////
 
