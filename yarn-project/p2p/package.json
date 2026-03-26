@@ -89,6 +89,7 @@
     "@libp2p/interface": "^2.11.0",
     "@libp2p/peer-id": "^5.1.0",
     "@libp2p/peer-store": "^11.0.0",
+    "@libp2p/ping": "^2.0.13",
     "@libp2p/prometheus-metrics": "^4.2.4",
     "@libp2p/tcp": "^10.0.0",
     "@multiformats/multiaddr": "~12.4.0",

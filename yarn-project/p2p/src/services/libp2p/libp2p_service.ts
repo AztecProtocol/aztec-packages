@@ -59,6 +59,7 @@ import {
   TopicValidatorResult,
 } from '@libp2p/interface';
 import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
+import { ping } from '@libp2p/ping';
 import { tcp } from '@libp2p/tcp';
 import { multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p } from 'libp2p';
@@ -425,6 +426,9 @@ export class LibP2PService extends WithTracer implements P2PService {
           runOnConnectionOpen: true,
         }),
         identifyPush: identifyPush({
+          protocolPrefix: 'aztec',
+        }),
+        ping: ping({
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({

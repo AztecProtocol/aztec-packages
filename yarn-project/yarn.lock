@@ -1750,6 +1750,7 @@ __metadata:
     "@libp2p/interface": "npm:^2.11.0"
     "@libp2p/peer-id": "npm:^5.1.0"
     "@libp2p/peer-store": "npm:^11.0.0"
+    "@libp2p/ping": "npm:^2.0.13"
     "@libp2p/prometheus-metrics": "npm:^4.2.4"
     "@libp2p/tcp": "npm:^10.0.0"
     "@multiformats/multiaddr": "npm:~12.4.0"
@@ -4706,6 +4707,21 @@ __metadata:
     uint8arraylist: "npm:^2.4.8"
     uint8arrays: "npm:^5.1.0"
   checksum: 10/8cc39e20224e90fc0fb1687fe19d010ee5ffb605c1a3ebd5d376d1fd7266cd6a1b4eba35c94b146040cd4b151a5e172a55d4c25f777e05de5243ad10541cf5f5
+  languageName: node
+  linkType: hard
+
+"@libp2p/ping@npm:^2.0.13":
+  version: 2.0.37
+  resolution: "@libp2p/ping@npm:2.0.37"
+  dependencies:
+    "@libp2p/crypto": "npm:^5.1.8"
+    "@libp2p/interface": "npm:^2.11.0"
+    "@libp2p/interface-internal": "npm:^2.3.19"
+    "@multiformats/multiaddr": "npm:^12.4.4"
+    it-byte-stream: "npm:^2.0.2"
+    main-event: "npm:^1.0.1"
+    uint8arrays: "npm:^5.1.0"
+  checksum: 10/63ae8f1c264b92fb6f021cf8fe039017c698ad4c6a29b172685c6c94ae747fbbf85ba9204b5581b592569ccb9edf6264dc2ab222e8364fc095731588115c4ae7
   languageName: node
   linkType: hard
 

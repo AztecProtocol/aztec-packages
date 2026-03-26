@@ -307,6 +307,30 @@ describe('e2e_p2p_preferred_network', () => {
       `All node peer connections established: ${identifiers.map((id, i) => `${id} (${expectedPeerCounts[i]})`).join(', ')}`,
     );
 
+    // Wait for gossipsub mesh to form before proceeding. TCP connections alone are not
+    // sufficient — gossipsub needs heartbeat cycles to GRAFT peers into the mesh.
+    // Without this, validators may miss proposals/attestations via gossip.
+    //
+    // We skip the mesh check for preferred nodes and no-discovery validators because gossipsub's
+    // `directPeers` mechanism prevents them from ever forming mesh links:
+    // - Preferred nodes (indices 2,3): validators have them as directPeers, so when the preferred
+    //   node tries to GRAFT a validator, the validator rejects with PRUNE (gossipsub never GRAFTs
+    //   to/from directPeers). The PRUNE triggers a 60s backoff, creating an infinite cycle.
+    // - Picky validator (index 6): ALL its peers are its own directPeers, and gossipsub excludes
+    //   directPeers from mesh candidacy during heartbeats.
+    // Message delivery still works for these nodes via gossipsub's directPeers relay path, which
+    // always sends messages to directPeers regardless of mesh membership.
+    const preferredNodeStartIndex = nodes.length;
+    const pickyValidatorIndex = nodes.length + preferredNodes.length + validators.length;
+    const skipMeshCheck = new Set<number>();
+    for (let i = 0; i < preferredNodes.length; i++) {
+      skipMeshCheck.add(preferredNodeStartIndex + i);
+    }
+    for (let i = 0; i < noDiscoveryValidators.length; i++) {
+      skipMeshCheck.add(pickyValidatorIndex + i);
+    }
+    await t.waitForGossipSubMesh(allNodes, undefined, undefined, undefined, skipMeshCheck);
+
     validators.push(...noDiscoveryValidators);
 
     // We will setup some gossip monitors to ensure that nodes that restrict who they connect to

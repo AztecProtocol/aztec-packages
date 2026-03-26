@@ -405,6 +405,49 @@ export class P2PNetworkTest {
    * @param timeoutSeconds - Maximum time to wait for connections (default: 30 seconds)
    * @param checkIntervalSeconds - How often to check connectivity (default: 0.1 seconds)
    */
+  /**
+   * Wait for gossipsub mesh to form for all specified topics across all nodes.
+   * Each node must have at least 1 mesh peer per topic before this resolves.
+   *
+   * @param skipNodeIndices - Indices of nodes to skip the mesh check for. This is needed for
+   *   nodes whose only gossipsub peers are configured as `directPeers` (e.g. via `preferredPeers`).
+   *   Gossipsub's `directPeers` bypass the mesh entirely: they are excluded from mesh candidacy
+   *   during heartbeats and GRAFT attempts from directPeers are rejected with PRUNE. This means
+   *   nodes that ONLY connect to peers that have them as `directPeers` will never form mesh links,
+   *   even though message delivery still works via the directPeers relay path.
+   */
+  async waitForGossipSubMesh(
+    nodes: AztecNodeService[],
+    topics: TopicType[] = [TopicType.tx],
+    timeoutSeconds = 30,
+    checkIntervalSeconds = 0.1,
+    skipNodeIndices: Set<number> = new Set(),
+  ) {
+    for (const topic of topics) {
+      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
+      await Promise.all(
+        nodes.map(async (node, index) => {
+          if (skipNodeIndices.has(index)) {
+            this.logger.warn(`Skipping gossip mesh check for node ${index} (directPeers-only node)`);
+            return;
+          }
+          const p2p = node.getP2P();
+          await retryUntil(
+            async () => {
+              const meshPeers = await p2p.getGossipMeshPeerCount(topic);
+              this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
+              return meshPeers >= 1 ? true : undefined;
+            },
+            `Node ${index} to have gossip mesh peers for ${topic} topic`,
+            timeoutSeconds,
+            checkIntervalSeconds,
+          );
+        }),
+      );
+      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
+    }
+  }
+
   async waitForP2PMeshConnectivity(
     nodes: AztecNodeService[],
     expectedNodeCount?: number,
@@ -437,28 +480,7 @@ export class P2PNetworkTest {
 
     this.logger.warn('All nodes connected to P2P mesh');
 
-    // Wait for GossipSub mesh to form for all specified topics.
-    // We only require at least 1 mesh peer per node because GossipSub
-    // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
-    for (const topic of topics) {
-      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
-      await Promise.all(
-        nodes.map(async (node, index) => {
-          const p2p = node.getP2P();
-          await retryUntil(
-            async () => {
-              const meshPeers = await p2p.getGossipMeshPeerCount(topic);
-              this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
-              return meshPeers >= 1 ? true : undefined;
-            },
-            `Node ${index} to have gossip mesh peers for ${topic} topic`,
-            timeoutSeconds,
-            checkIntervalSeconds,
-          );
-        }),
-      );
-      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
-    }
+    await this.waitForGossipSubMesh(nodes, topics, timeoutSeconds, checkIntervalSeconds);
   }
 
   async teardown() {
