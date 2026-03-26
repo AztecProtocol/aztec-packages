@@ -1,6 +1,6 @@
 ---
 title: Private Kernel Circuit
-sidebar_position: 0
+sidebar_position: 1
 tags: [protocol, circuits]
 description: Learn about the Private Kernel Circuit, the only zero-knowledge circuit in Aztec that handles private data and ensures transaction privacy by executing on user devices.
 ---
