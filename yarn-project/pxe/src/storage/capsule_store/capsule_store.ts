@@ -135,7 +135,7 @@ export class CapsuleStore implements StagedStore {
    * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
    * network state it's backed by local PXE db.
    */
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
+  setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
     const dbSlotKey = dbSlotToKey(contractAddress, slot, scope);
 
     // A store overrides any pre-existing data on the slot
@@ -148,7 +148,7 @@ export class CapsuleStore implements StagedStore {
    * @param slot - The slot in the database to read.
    * @returns The stored data or `null` if no data is stored under the slot.
    */
-  async loadCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[] | null> {
+  async getCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[] | null> {
     const dataBuffer = await this.#getFromStage(jobId, dbSlotToKey(contractAddress, slot, scope));
     if (!dataBuffer) {
       this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
@@ -240,18 +240,18 @@ export class CapsuleStore implements StagedStore {
     // and not using a transaction here would heavily impact performance.
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
-      const lengthData = await this.loadCapsule(contractAddress, baseSlot, jobId, scope);
+      const lengthData = await this.getCapsule(contractAddress, baseSlot, jobId, scope);
       const currentLength = lengthData ? lengthData[0].toNumber() : 0;
 
       // Store each capsule at consecutive slots after baseSlot + 1 + currentLength
       for (let i = 0; i < content.length; i++) {
         const nextSlot = arraySlot(baseSlot, currentLength + i);
-        this.storeCapsule(contractAddress, nextSlot, content[i], jobId, scope);
+        this.setCapsule(contractAddress, nextSlot, content[i], jobId, scope);
       }
 
       // Update length to include all new capsules
       const newLength = currentLength + content.length;
-      this.storeCapsule(contractAddress, baseSlot, [new Fr(newLength)], jobId, scope);
+      this.setCapsule(contractAddress, baseSlot, [new Fr(newLength)], jobId, scope);
     });
   }
 
@@ -263,14 +263,14 @@ export class CapsuleStore implements StagedStore {
     // of jobs: different calls running concurrently on the same contract may cause trouble.
     return this.#store.transactionAsync(async () => {
       // Load length, defaulting to 0 if not found
-      const maybeLength = await this.loadCapsule(contractAddress, baseSlot, jobId, scope);
+      const maybeLength = await this.getCapsule(contractAddress, baseSlot, jobId, scope);
       const length = maybeLength ? maybeLength[0].toBigInt() : 0n;
 
       const values: Fr[][] = [];
 
       // Read each capsule at consecutive slots after baseSlot
       for (let i = 0; i < length; i++) {
-        const currentValue = await this.loadCapsule(contractAddress, arraySlot(baseSlot, i), jobId, scope);
+        const currentValue = await this.getCapsule(contractAddress, arraySlot(baseSlot, i), jobId, scope);
         if (currentValue == undefined) {
           throw new Error(
             `Expected non-empty value at capsule array in base slot ${baseSlot} at index ${i} for contract ${contractAddress}`,
@@ -295,15 +295,15 @@ export class CapsuleStore implements StagedStore {
     // of jobs: different calls running concurrently on the same contract may cause trouble.
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
-      const maybeLength = await this.loadCapsule(contractAddress, baseSlot, jobId, scope);
+      const maybeLength = await this.getCapsule(contractAddress, baseSlot, jobId, scope);
       const originalLength = maybeLength ? maybeLength[0].toNumber() : 0;
 
       // Set the new length
-      this.storeCapsule(contractAddress, baseSlot, [new Fr(content.length)], jobId, scope);
+      this.setCapsule(contractAddress, baseSlot, [new Fr(content.length)], jobId, scope);
 
       // Store the new content, possibly overwriting existing values
       for (let i = 0; i < content.length; i++) {
-        this.storeCapsule(contractAddress, arraySlot(baseSlot, i), content[i], jobId, scope);
+        this.setCapsule(contractAddress, arraySlot(baseSlot, i), content[i], jobId, scope);
       }
 
       // Clear any stragglers
