@@ -1,5 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
+import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
@@ -892,7 +892,8 @@ export class ProposalHandler {
         return;
       }
 
-      const blobFields = blocks.flatMap(b => b.toBlobFields());
+      const blockBlobData = blocks.map(b => b.toBlockBlobData());
+      const blobFields = encodeCheckpointBlobDataFromBlocks(blockBlobData);
       const blobs: Blob[] = await getBlobsPerL1Block(blobFields);
       await this.blobClient.sendBlobsToFilestore(blobs);
       this.log.debug(`Uploaded ${blobs.length} blobs to filestore for checkpoint at slot ${proposal.slotNumber}`, {
