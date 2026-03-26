@@ -122,11 +122,6 @@ function release {
   do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/$version/aztec-install"
   do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/$version/aztec-up"
 
-<<<<<<< HEAD
-  # Update alias to point to new version.
-  # This has real impact outside of the version fence. i.e. if it's nightly dist tag, it affects nightly installs.
-  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
-=======
   # Update versioned alias (e.g. v4-nightly, v5-latest).
   do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/v${major}-${dist_tag}" <<< "$version"
 
@@ -134,7 +129,6 @@ function release {
   if [ "$major" = "$DEFAULT_MAJOR_VERSION" ]; then
     do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$dist_tag" <<< "$version"
   fi
->>>>>>> 5f80cf2566 (feat(aztec-up): add versioned aliases for multi-major version support (#21817))
 }
 
 # This is not done by CI.

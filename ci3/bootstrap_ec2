@@ -326,12 +326,12 @@ function run {
         -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
         -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
         -e EC2_SPOT=${EC2_SPOT:-unknown} \
+        -e AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-} \
         --pids-limit=65536 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }
 
-<<<<<<< HEAD
     # If stdout is a tty, run in foreground, otherwise run in background and handle spot termination notices.
     if [ -t 1 ]; then
       docker_args+=' -ti'
@@ -357,67 +357,6 @@ function run {
       wait \$build_pid
     fi
 "
-=======
-  docker run --privileged --rm \${docker_args:-} \
-    --name aztec_build \
-    --hostname $instance_name \
-    -v bootstrap_ci_local_docker:/var/lib/docker \
-    -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
-    -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \
-    -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs \
-    -v /dev/kmsg:/dev/kmsg \
-    -v /tmp:/tmp \
-    -e GOOGLE_APPLICATION_CREDENTIALS="\${GOOGLE_APPLICATION_CREDENTIALS}" \
-    -e NETWORK_ENV_FILE="\${NETWORK_ENV_FILE}" \
-    -e CI=1 \
-    -e CI_SSM_MODE=$ci_ssm_mode \
-    -e CI_LOG_ID=${CI_LOG_ID:-} \
-    -e CI_LOGS_S3_LOCATION=${CI_LOGS_S3_LOCATION:-s3://aztec-ci-artifacts/logs} \
-    -e RUN_ID=${RUN_ID:-} \
-    -e JOB_ID=${JOB_ID:-} \
-    -e REF_NAME=${REF_NAME:-} \
-    -e TARGET_BRANCH=${TARGET_BRANCH:-} \
-    -e CI_DASHBOARD=${CI_DASHBOARD:-} \
-    -e PARENT_LOG_ID=${PARENT_LOG_ID:-} \
-    -e NO_CACHE=${NO_CACHE:-} \
-    -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
-    -e CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1} \
-    -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
-    -e SSH_CONNECTION=' ' \
-    -e LOCAL_USER_ID=\$local_uid \
-    -e LOCAL_GROUP_ID=\$local_gid \
-    -e GCP_PROJECT_ID=${GCP_PROJECT_ID:-} \
-    -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
-    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
-    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
-    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
-    -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
-    -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
-    -e DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME:-} \
-    -e R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-} \
-    -e R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-} \
-    -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
-    -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
-    -e GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-aztecprotocol/aztec-packages} \
-    -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
-    -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
-    -e NPM_TOKEN=${NPM_TOKEN:-} \
-    -e CARGO_REGISTRY_TOKEN=${CARGO_REGISTRY_TOKEN:-} \
-    -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
-    -e SOCKET_SECURITY_API_TOKEN=${SOCKET_SECURITY_API_TOKEN:-} \
-    -e AWS_TOKEN=\$aws_token \
-    -e NAMESPACE=${NAMESPACE:-} \
-    -e NETWORK=${NETWORK:-} \
-    -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
-    -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
-    -e EC2_SPOT=${EC2_SPOT:-unknown} \
-    -e AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-} \
-    -e DRY_RUN=${DRY_RUN:-} \
-    --pids-limit=65536 \
-    --shm-size=2g \
-    --ulimit nofile=1048576:1048576 \
-    aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
->>>>>>> 5f80cf2566 (feat(aztec-up): add versioned aliases for multi-major version support (#21817))
 }
 
 set +e
