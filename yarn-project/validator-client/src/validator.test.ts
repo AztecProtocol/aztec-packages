@@ -388,7 +388,7 @@ describe('ValidatorClient', () => {
       expect(isValid).toBe(true);
     });
 
-    it('should process block proposal from own validator key (HA peer)', async () => {
+    it('should ignore block proposal from own validator key (HA peer)', async () => {
       const selfSigner = new Secp256k1Signer(Buffer32.fromString(validatorPrivateKeys[0]));
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const selfProposal = await makeBlockProposal({
@@ -401,8 +401,8 @@ describe('ValidatorClient', () => {
 
       const handleSpy = jest.spyOn(validatorClient.getProposalHandler(), 'handleBlockProposal');
       const isValid = await validatorClient.validateBlockProposal(selfProposal, sender);
-      expect(isValid).toBe(true);
-      expect(handleSpy).toHaveBeenCalled();
+      expect(isValid).toBe(false);
+      expect(handleSpy).not.toHaveBeenCalled();
     });
 
     it('should return early when escape hatch is open', async () => {

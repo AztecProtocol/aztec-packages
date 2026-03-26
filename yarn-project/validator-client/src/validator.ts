@@ -373,12 +373,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return false;
     }
 
-    // Log self-proposals from HA peers (same validator key on different nodes)
+    // Ignore proposals from ourselves (may happen in HA setups)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.verbose(`Processing block proposal from HA peer for slot ${slotNumber}`, {
+      this.log.debug(`Ignoring block proposal from self for slot ${slotNumber}`, {
         proposer: proposer.toString(),
         slotNumber,
       });
+      return false;
     }
 
     // Check if we're in the committee (for metrics purposes)
