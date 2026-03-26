@@ -105,8 +105,10 @@ echo "$meaningful_commits"
 if git merge "origin/next" --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH"; then
   echo "Successfully merged next into $TRAIN_BRANCH"
 
-  # Try to push
-  if git push origin "$TRAIN_BRANCH"; then
+  # Try to push directly first
+  push_output=$(git push origin "$TRAIN_BRANCH" 2>&1) && push_ok=true || push_ok=false
+
+  if [[ "$push_ok" == "true" ]]; then
     echo "Successfully pushed to $TRAIN_BRANCH"
     pushed_sha=$(git rev-parse HEAD)
 
@@ -123,8 +125,43 @@ if git merge "origin/next" --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH"
         done
     fi
   else
-    log_error "Failed to push to $TRAIN_BRANCH"
-    exit 1
+    # Direct push failed (likely branch protection / ruleset).
+    # Fall back to creating a PR with the merge.
+    log_warn "Direct push to $TRAIN_BRANCH failed: $push_output"
+    echo "Falling back to PR-based merge..."
+
+    # Create a temporary branch for the merge PR
+    temp_branch="auto-merge-next-to-${TRAIN_BRANCH//\//-}-$(date +%Y%m%d-%H%M%S)"
+    git checkout -b "$temp_branch"
+    if ! git push origin "$temp_branch"; then
+      log_error "Failed to push temporary branch $temp_branch"
+      exit 1
+    fi
+
+    # Check if there's already an open merge-next PR for this train branch
+    existing_pr=$(gh pr list --state open --base "$TRAIN_BRANCH" --search "merge next into $TRAIN_BRANCH in:title" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+    if [[ -n "$existing_pr" ]]; then
+      echo "Merge-next PR #$existing_pr already open for $TRAIN_BRANCH, updating it..."
+      # Force-update the existing PR's branch
+      gh pr checkout "$existing_pr"
+      git reset --hard "$temp_branch"
+      git push --force origin "HEAD:$(gh pr view "$existing_pr" --json headRefName --jq '.headRefName')"
+      # Clean up temp branch
+      git push origin --delete "$temp_branch" || true
+      echo "Updated existing PR #$existing_pr"
+    else
+      # Create a PR to merge next into the train branch
+      pr_url=$(gh pr create \
+        --base "$TRAIN_BRANCH" \
+        --head "$temp_branch" \
+        --title "chore: merge next into $TRAIN_BRANCH" \
+        --body "Automated merge of \`next\` into \`$TRAIN_BRANCH\`.
+
+This PR was created because direct push to the train branch is blocked by branch protection rules." \
+        --label "ci-no-squash" 2>&1)
+
+      echo "Created merge PR: $pr_url"
+    fi
   fi
 else
   # Merge failed, capture conflict details before aborting

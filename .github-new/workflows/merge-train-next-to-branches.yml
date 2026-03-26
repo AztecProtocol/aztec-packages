@@ -1,0 +1,41 @@
+name: Merge Train Auto-Pull
+
+on:
+  push:
+    branches:
+      - next
+
+jobs:
+  merge-to-trains:
+    name: Merge next to merge-train branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Run merge-next script for all branches
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          failed=()
+          for branch in merge-train/avm merge-train/barretenberg merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
+            echo "::group::$branch"
+            if ! ./scripts/merge-train/merge-next.sh "$branch"; then
+              failed+=("$branch")
+              echo "::warning::Failed to merge next into $branch"
+            fi
+            echo "::endgroup::"
+          done
+          if [[ ${#failed[@]} -gt 0 ]]; then
+            echo "::error::Failed to merge next into: ${failed[*]}"
+            exit 1
+          fi
