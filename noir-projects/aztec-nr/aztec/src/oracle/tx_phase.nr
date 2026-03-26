@@ -9,8 +9,8 @@ pub(crate) fn notify_revertible_phase_start(counter: u32) {
 }
 
 /// Returns whether a side effect counter falls in the revertible phase of the transaction.
-pub(crate) unconstrained fn in_revertible_phase(current_counter: u32) -> bool {
-    in_revertible_phase_oracle(current_counter)
+pub(crate) unconstrained fn is_execution_in_revertible_phase(current_counter: u32) -> bool {
+    is_execution_in_revertible_phase_oracle(current_counter)
 }
 
 unconstrained fn notify_revertible_phase_start_oracle_wrapper(counter: u32) {
@@ -20,5 +20,5 @@ unconstrained fn notify_revertible_phase_start_oracle_wrapper(counter: u32) {
 #[oracle(aztec_prv_notifyRevertiblePhaseStart)]
 unconstrained fn notify_revertible_phase_start_oracle(_counter: u32) {}
 
-#[oracle(aztec_prv_inRevertiblePhase)]
-unconstrained fn in_revertible_phase_oracle(current_counter: u32) -> bool {}
+#[oracle(aztec_prv_isExecutionInRevertiblePhase)]
+unconstrained fn is_execution_in_revertible_phase_oracle(current_counter: u32) -> bool {}

@@ -179,7 +179,7 @@ export class TXESession implements TXESessionStateHandler {
 
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);
-    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore, keyStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -188,7 +188,13 @@ export class TXESession implements TXESessionStateHandler {
     const initialJobId = jobCoordinator.beginJob();
 
     const logger = createLogger('txe:session');
-    const contractSyncService = new ContractSyncService(stateMachine.node, contractStore, noteStore, logger);
+    const contractSyncService = new ContractSyncService(
+      stateMachine.node,
+      contractStore,
+      noteStore,
+      () => keyStore.getAccounts(),
+      logger,
+    );
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,

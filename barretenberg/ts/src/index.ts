@@ -7,8 +7,10 @@ export {
   UltraHonkVerifierBackend,
   UltraHonkBackend,
   AztecClientBackend,
+  flattenChonkProofFields,
   fieldToString,
   fieldsToStrings,
+  type AztecClientProveResult,
   type UltraHonkBackendOptions,
   type VerifierTarget,
 } from './barretenberg/index.js';

@@ -1,5 +1,6 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import type { AccountManager } from '@aztec/aztec.js/wallet';
 import type { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -21,7 +22,7 @@ export async function deployFundedSchnorrAccounts(
     const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
     const deployMethod = await accountManager.getDeployMethod();
     await deployMethod.send({
-      from: AztecAddress.ZERO,
+      from: NO_FROM,
       skipClassPublication: i !== 0,
       wait: waitOptions,
     });

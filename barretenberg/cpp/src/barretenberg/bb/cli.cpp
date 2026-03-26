@@ -26,6 +26,7 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -310,6 +311,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
+    bool disable_asserts = false;
+    const auto add_disable_asserts_flag = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_flag("--disable_asserts",
+                       disable_asserts,
+                       "Disable BB assertions (asserts become warnings). Not for production use.")
+            ->group(advanced_group);
+    };
+
     const auto add_include_gates_per_opcode_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--include_gates_per_opcode",
                                     flags.include_gates_per_opcode,
@@ -429,6 +439,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
     add_vk_policy_option(check);
+    add_disable_asserts_flag(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -982,6 +993,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for Chonk expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                }
+                if (disable_asserts) {
+                    BB_DISABLE_ASSERTS();
+                    return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }

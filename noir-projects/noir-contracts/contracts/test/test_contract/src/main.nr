@@ -31,7 +31,7 @@ pub contract Test {
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::{PRIVATE_LOG_SIZE_IN_FIELDS, MAX_PUBLIC_LOG_SIZE_IN_FIELDS},
+            constants::{PRIVATE_LOG_CIPHERTEXT_LEN, MAX_PUBLIC_LOG_SIZE_IN_FIELDS},
             traits::{Hash, Packable, Serialize},
         },
         // Event related
@@ -325,7 +325,12 @@ pub contract Test {
 
     // For testing non-note encrypted logs
     #[external("private")]
-    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
+    fn emit_array_as_encrypted_log(
+        tag: Field,
+        fields: [Field; 5],
+        owner: AztecAddress,
+        nest: bool,
+    ) {
         let event = ExampleEvent {
             value0: fields[0],
             value1: fields[1],
@@ -339,25 +344,27 @@ pub contract Test {
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
-            self.call_self.emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false);
+            self.call_self.emit_array_as_encrypted_log(tag, [0, 0, 0, 0, 0], owner, false);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
-            self.context.emit_private_log(leaky_log, 5);
+            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 5]);
+            self.context.emit_private_log_unsafe(tag, leaky_log, 5);
         }
     }
 
     #[external("public")]
     fn emit_public(value: Field) {
-        self.context.emit_public_log(/*message=*/ value);
-        self.context.emit_public_log(/*message=*/ [10, 20, 30]);
-        self.context.emit_public_log(/*message=*/ "Hello, world!");
+        self.context.emit_public_log_unsafe(0, /*message=*/ value);
+        self.context.emit_public_log_unsafe(0, /*message=*/ [10, 20, 30]);
+        self.context.emit_public_log_unsafe(0, /*message=*/ "Hello, world!");
     }
 
     #[external("public")]
     fn emit_full_size_public_log(value_offset: Field) {
-        let log_fields = [0; MAX_PUBLIC_LOG_SIZE_IN_FIELDS].mapi(|i, _| value_offset + i as Field);
-        self.context.emit_public_log(log_fields);
+        // -1 because emit_public_log_unsafe prepends the tag, so the emitted log is N + 1 fields.
+        let log_fields =
+            [0; MAX_PUBLIC_LOG_SIZE_IN_FIELDS - 1].mapi(|i, _| value_offset + i as Field);
+        self.context.emit_public_log_unsafe(0, log_fields);
     }
 
     #[external("private")]

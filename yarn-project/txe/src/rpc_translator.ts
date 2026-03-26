@@ -339,7 +339,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_storeInExecutionCache(foreignValues: ForeignCallArray, foreignHash: ForeignCallSingle) {
+  aztec_prv_setHashPreimage(foreignValues: ForeignCallArray, foreignHash: ForeignCallSingle) {
     const values = fromArray(foreignValues);
     const hash = fromSingle(foreignHash);
 
@@ -349,7 +349,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_loadFromExecutionCache(foreignHash: ForeignCallSingle) {
+  async aztec_prv_getHashPreimage(foreignHash: ForeignCallSingle) {
     const hash = fromSingle(foreignHash);
 
     const returns = await this.handlerAsPrivate().loadFromExecutionCache(hash);
@@ -378,7 +378,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_storageRead(
+  async aztec_utl_getFromPublicStorage(
     foreignBlockHash: ForeignCallSingle,
     foreignContractAddress: ForeignCallSingle,
     foreignStartStorageSlot: ForeignCallSingle,
@@ -556,7 +556,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_checkNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
+  async aztec_utl_doesNullifierExist(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 
     const exists = await this.handlerAsUtility().checkNullifierExists(innerNullifier);
@@ -582,7 +582,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_tryGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
+  async aztec_utl_getPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
     const result = await this.handlerAsUtility().tryGetPublicKeysAndPartialAddress(address);
@@ -652,7 +652,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_validatePublicCalldata(_foreignCalldataHash: ForeignCallSingle) {
+  public aztec_prv_assertValidPublicCalldata(_foreignCalldataHash: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
@@ -662,7 +662,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  public async aztec_prv_inRevertiblePhase(foreignSideEffectCounter: ForeignCallSingle) {
+  public async aztec_prv_isExecutionInRevertiblePhase(foreignSideEffectCounter: ForeignCallSingle) {
     const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
     const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(sideEffectCounter);
     return toForeignCallResult([toSingle(new Fr(isRevertible))]);
@@ -738,10 +738,14 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_fetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+  async aztec_utl_getPendingTaggedLogs(
+    foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
     const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().fetchTaggedLogs(pendingTaggedLogArrayBaseSlot);
+    await this.handlerAsUtility().fetchTaggedLogs(pendingTaggedLogArrayBaseSlot, scope);
 
     return toForeignCallResult([]);
   }
@@ -753,12 +757,14 @@ export class RPCTranslator {
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMaxNotePackedLen: ForeignCallSingle,
     foreignMaxEventSerializedLen: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
     const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
     const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
@@ -766,75 +772,86 @@ export class RPCTranslator {
       eventValidationRequestsArrayBaseSlot,
       maxNotePackedLen,
       maxEventSerializedLen,
+      scope,
     );
 
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  public async aztec_utl_bulkRetrieveLogs(
+  public async aztec_utl_getLogsByTag(
     foreignContractAddress: ForeignCallSingle,
     foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
     foreignLogRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
     const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().bulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
+      scope,
     );
 
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  public async aztec_utl_utilityResolveMessageContexts(
+  public async aztec_utl_getMessageContextsByTxHash(
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
     const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().utilityResolveMessageContexts(
       contractAddress,
       messageContextRequestsArrayBaseSlot,
       messageContextResponsesArrayBaseSlot,
+      scope,
     );
 
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_storeCapsule(
+  aztec_utl_setCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignCapsule: ForeignCallArray,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const capsule = fromArray(foreignCapsule);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().storeCapsule(contractAddress, slot, capsule);
+    this.handlerAsUtility().storeCapsule(contractAddress, slot, capsule, scope);
 
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_loadCapsule(
+  async aztec_utl_getCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignTSize: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
     const tSize = fromSingle(foreignTSize).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    const values = await this.handlerAsUtility().loadCapsule(contractAddress, slot);
+    const values = await this.handlerAsUtility().loadCapsule(contractAddress, slot, scope);
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
@@ -848,11 +865,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_deleteCapsule(foreignContractAddress: ForeignCallSingle, foreignSlot: ForeignCallSingle) {
+  aztec_utl_deleteCapsule(
+    foreignContractAddress: ForeignCallSingle,
+    foreignSlot: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().deleteCapsule(contractAddress, slot);
+    this.handlerAsUtility().deleteCapsule(contractAddress, slot, scope);
 
     return toForeignCallResult([]);
   }
@@ -863,13 +885,15 @@ export class RPCTranslator {
     foreignSrcSlot: ForeignCallSingle,
     foreignDstSlot: ForeignCallSingle,
     foreignNumEntries: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const srcSlot = fromSingle(foreignSrcSlot);
     const dstSlot = fromSingle(foreignDstSlot);
     const numEntries = fromSingle(foreignNumEntries).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
+    await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope);
 
     return toForeignCallResult([]);
   }
@@ -879,7 +903,7 @@ export class RPCTranslator {
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
   // eslint-disable-next-line camelcase
-  async aztec_utl_tryAes128Decrypt(
+  async aztec_utl_decryptAes128(
     foreignCiphertextBVecStorage: ForeignCallArray,
     foreignCiphertextLength: ForeignCallSingle,
     foreignIv: ForeignCallArray,
@@ -909,6 +933,7 @@ export class RPCTranslator {
     foreignEphPKField0: ForeignCallSingle,
     foreignEphPKField1: ForeignCallSingle,
     foreignEphPKField2: ForeignCallSingle,
+    foreignContractAddress: ForeignCallSingle,
   ) {
     const address = AztecAddress.fromField(fromSingle(foreignAddress));
     const ephPK = Point.fromFields([
@@ -916,14 +941,15 @@ export class RPCTranslator {
       fromSingle(foreignEphPKField1),
       fromSingle(foreignEphPKField2),
     ]);
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
-    const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK);
+    const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK, contractAddress);
 
-    return toForeignCallResult(secret.toFields().map(toSingle));
+    return toForeignCallResult([toSingle(secret)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_invalidateContractSyncCache(
+  aztec_utl_setContractSyncCacheInvalid(
     foreignContractAddress: ForeignCallSingle,
     foreignScopes: ForeignCallArray,
     foreignScopeCount: ForeignCallSingle,

@@ -42,6 +42,7 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
@@ -134,6 +135,7 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
   protected aztecSlotDuration: bigint;
+  private dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -187,6 +189,7 @@ export class SequencerPublisher {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
+    this.dateProvider = deps.dateProvider;
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
@@ -612,9 +615,10 @@ export class SequencerPublisher {
 
     const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+    const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract
-      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, slotOffset, {
+      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       })
       .catch(err => {
@@ -652,7 +656,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+    const ts = this.getNextL1SlotTimestamp();
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -817,9 +821,14 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
-    // Anchor the simulation timestamp to the checkpoint's own slot start time
-    // rather than the current L1 block timestamp, which may overshoot into the next slot if the build ran late.
-    const ts = checkpoint.header.timestamp;
+    // When pipelining, the checkpoint targets the next slot so its timestamp is in the future.
+    // Without pipelining, the checkpoint targets the current slot so its timestamp is in the past
+    // by the time we simulate (~24s of build time), causing eth_simulateV1 to reject it.
+    // In that case, use the latest L1 block timestamp + one ethereum slot, which is just ahead
+    // of L1 and still within the same L2 slot.
+    const ts = this.epochCache.isProposerPipeliningEnabled()
+      ? checkpoint.header.timestamp
+      : (await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration;
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -1584,5 +1593,11 @@ export class SequencerPublisher {
         }
       },
     });
+  }
+
+  /** Returns the timestamp to use when simulating L1 proposal calls */
+  private getNextL1SlotTimestamp(): bigint {
+    const l1Constants = this.epochCache.getL1Constants();
+    return getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
   }
 }

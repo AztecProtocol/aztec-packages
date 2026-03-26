@@ -7,7 +7,6 @@ import { get, set } from 'idb-keyval';
 export class CachedNetCrs {
   private g1Data!: Uint8Array;
   private g2Data!: Uint8Array;
-
   constructor(public readonly numPoints: number) {}
 
   static async new(numPoints: number) {
@@ -20,20 +19,21 @@ export class CachedNetCrs {
    * Download the data.
    */
   async init() {
-    // Check if data is in IndexedDB
-    const g1Data = await get('g1Data');
     const g2Data = await get('g2Data');
-    const netCrs = new NetCrs(this.numPoints);
-    const g1DataLength = this.numPoints * 64;
 
-    if (!g1Data || g1Data.length < g1DataLength) {
-      this.g1Data = await netCrs.downloadG1Data();
-      await set('g1Data', this.g1Data);
+    // Prefer cached uncompressed (64 bytes/point, fast path: no decompression needed)
+    const g1Uncompressed = await get('g1Data');
+    const uncompressedLength = this.numPoints * 64;
+    if (g1Uncompressed && g1Uncompressed.length >= uncompressedLength) {
+      this.g1Data = g1Uncompressed;
     } else {
-      this.g1Data = g1Data;
+      // Download compressed from CDN
+      const netCrs = new NetCrs(this.numPoints);
+      this.g1Data = await netCrs.downloadG1Data();
     }
 
     if (!g2Data) {
+      const netCrs = new NetCrs(this.numPoints);
       this.g2Data = await netCrs.downloadG2Data();
       await set('g2Data', this.g2Data);
     } else {
@@ -42,11 +42,17 @@ export class CachedNetCrs {
   }
 
   /**
-   * G1 points data for prover key.
-   * @returns The points data.
+   * G1 points data for prover key (compressed or uncompressed).
    */
   getG1Data(): Uint8Array {
     return this.g1Data;
+  }
+
+  /**
+   * Cache uncompressed G1 data in IndexedDB after WASM decompression.
+   */
+  async cacheUncompressed(data: Uint8Array): Promise<void> {
+    await set('g1Data', data);
   }
 
   /**

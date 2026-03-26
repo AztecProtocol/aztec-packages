@@ -72,7 +72,7 @@ export class CheatCodes {
    * @param duration - The duration to advance time by (in seconds)
    */
   async warpL2TimeAtLeastBy(sequencerClient: SequencerClient, node: AztecNode, duration: bigint | number) {
-    const currentTimestamp = await this.eth.timestamp();
+    const currentTimestamp = await this.eth.lastBlockTimestamp();
     const targetTimestamp = BigInt(currentTimestamp) + BigInt(duration);
     await this.warpL2TimeAtLeastTo(sequencerClient, node, targetTimestamp);
   }

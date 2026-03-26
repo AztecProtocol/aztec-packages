@@ -6,6 +6,7 @@
  * attestations are signed, and no double-signing occurs.
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
@@ -255,7 +256,7 @@ describe('HA Full Setup', () => {
       accountData.signingKey,
     );
     const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: AztecAddress.ZERO });
+    await deployMethod.send({ from: NO_FROM });
     ownerAddress = accountManager.address;
     logger.info(`Test account deployed at ${ownerAddress}`);
   });
@@ -325,7 +326,6 @@ describe('HA Full Setup', () => {
     const { receipt } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
-      wait: { returnReceipt: true },
     });
 
     await waitForProven(aztecNode, receipt, {
@@ -444,7 +444,6 @@ describe('HA Full Setup', () => {
     const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
       from: ownerAddress,
       contractAddressSalt: Fr.random(),
-      wait: { returnReceipt: true },
     });
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
@@ -603,7 +602,6 @@ describe('HA Full Setup', () => {
       const receipt = await deployer.deploy(ownerAddress, ownerAddress, 201).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(201),
-        wait: { returnReceipt: true },
       });
       expect(receipt.receipt.blockNumber).toBeDefined();
       const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
@@ -646,7 +644,6 @@ describe('HA Full Setup', () => {
       const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(i + 100)),
-        wait: { returnReceipt: true },
       });
 
       expect(receipt.blockNumber).toBeDefined();

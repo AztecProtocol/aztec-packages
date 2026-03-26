@@ -1,9 +1,11 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, ContractFunctionInteraction, type DeployOptions, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
+import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
@@ -175,9 +177,9 @@ describe('e2e_block_building', () => {
 
       // Assert all contracts got initialized
       const areInitialized = await Promise.all(
-        addresses.map(async a => (await wallet.getContractMetadata(a)).isContractInitialized),
+        addresses.map(async a => (await wallet.getContractMetadata(a)).initializationStatus),
       );
-      expect(areInitialized).toEqual(times(TX_COUNT, () => true));
+      expect(areInitialized).toEqual(times(TX_COUNT, () => ContractInitializationStatus.INITIALIZED));
     });
 
     it('assembles a block with multiple txs with public fns', async () => {
@@ -444,7 +446,8 @@ describe('e2e_block_building', () => {
       // call test contract
       const valuesAsArray = Object.values(values);
 
-      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, ownerAddress, true);
+      const tag = 42n;
+      const action = testContract.methods.emit_array_as_encrypted_log(tag, valuesAsArray, ownerAddress, true);
       const tx = await proveInteraction(wallet, action, { from: ownerAddress });
       const rct = await tx.send();
 
@@ -465,14 +468,12 @@ describe('e2e_block_building', () => {
       expect(events[1].event).toEqual(nestedValues);
 
       // The last log is not encrypted.
-      // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = await computeSiloedPrivateLogFirstField(
-        testContract.address,
-        new Fr(valuesAsArray[0]),
-      );
-      expect(privateLogs[2].fields.slice(0, 5).map((f: Fr) => f.toBigInt())).toEqual([
-        expectedFirstField.toBigInt(),
-        ...valuesAsArray.slice(1),
+      // fields[0] is the tag, siloed with the contract address by the kernel circuit.
+      // The payload starts at fields[1].
+      const expectedSiloedTag = await computeSiloedPrivateLogFirstField(testContract.address, new Fr(tag));
+      expect(privateLogs[2].fields.slice(0, 6).map((f: Fr) => f.toBigInt())).toEqual([
+        expectedSiloedTag.toBigInt(),
+        ...valuesAsArray,
       ]);
     }, 60_000);
   });
@@ -507,7 +508,7 @@ describe('e2e_block_building', () => {
       const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
-        from: AztecAddress.ZERO,
+        from: NO_FROM,
       });
     });
 
