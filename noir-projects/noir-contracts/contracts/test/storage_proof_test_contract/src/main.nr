@@ -57,7 +57,12 @@ contract StorageProofTest {
         let address_capsule_key = compute_address_capsule_key(eth_storage_root, address);
         // Safety: We'll check that the address inside the hint matches.
         let hinted_account = unsafe {
-            Account::deserialize(capsules::load(self.address, address_capsule_key).unwrap())
+            Account::deserialize(capsules::load(
+                self.address,
+                address_capsule_key,
+                AztecAddress::zero(),
+            )
+                .unwrap())
         };
         assert_eq(hinted_account.address, address.to_field().to_be_bytes::<20>());
 
@@ -68,6 +73,7 @@ contract StorageProofTest {
             <(u32, [Node; MAX_ACCOUNT_PROOF_LENGTH]) as Deserialize>::deserialize(capsules::load(
                 self.address,
                 account_proof_capsule_key,
+                AztecAddress::zero(),
             )
                 .unwrap())
         };
@@ -86,9 +92,12 @@ contract StorageProofTest {
 
         // Safety: This is a hint for path verification.
         let hinted_storage_proof_length = unsafe {
-            u32::deserialize(
-                capsules::load(self.address, storage_proof_capsule_key).unwrap(),
+            u32::deserialize(capsules::load(
+                self.address,
+                storage_proof_capsule_key,
+                AztecAddress::zero(),
             )
+                .unwrap())
         };
         assert(hinted_storage_proof_length > 0, "Storage proof length must be greater than 0");
 
@@ -134,7 +143,12 @@ contract StorageProofTest {
             if i < num_nodes_to_process {
                 // Safety: This is a hint for the path verification.
                 hinted_nodes[i] = unsafe {
-                    Node::deserialize(capsules::load(self.address, node_capsule_key).unwrap())
+                    Node::deserialize(capsules::load(
+                        self.address,
+                        node_capsule_key,
+                        AztecAddress::zero(),
+                    )
+                        .unwrap())
                 };
             }
         }

@@ -24,7 +24,6 @@ describe('EventValidationRequest', () => {
       2, // bounded_vec_len
       6, // event_commitment
       7, // tx_hash
-      8, // recipient
     ].map(n => new Fr(n));
 
     const request = EventValidationRequest.fromFields(serialized, 10);
@@ -35,7 +34,6 @@ describe('EventValidationRequest', () => {
     expect(request.serializedEvent).toEqual([new Fr(4), new Fr(5)]);
     expect(request.eventCommitment).toEqual(new Fr(6));
     expect(request.txHash).toEqual(TxHash.fromBigInt(7n));
-    expect(request.recipient).toEqual(AztecAddress.fromBigInt(8n));
   });
 
   it('throws if fed more fields than expected', () => {
@@ -57,11 +55,10 @@ describe('EventValidationRequest', () => {
       2, // bounded_vec_len
       6, // event_commitment
       7, // tx_hash
-      8, // recipient
     ].map(n => new Fr(n));
 
     expect(() => EventValidationRequest.fromFields(serialized, 10)).toThrow(
-      'Error converting array of fields to EventValidationRequest: expected 17 fields but received 18 (maxEventSerializedLen=10).',
+      'Error converting array of fields to EventValidationRequest: expected 16 fields but received 17 (maxEventSerializedLen=10).',
     );
   });
 });
