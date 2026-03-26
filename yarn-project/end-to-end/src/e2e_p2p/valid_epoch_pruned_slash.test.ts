@@ -52,6 +52,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         enforceTimeTable: true,
         cancelTxOnTimeout: false,
         sequencerPublisherAllowInvalidStates: true,

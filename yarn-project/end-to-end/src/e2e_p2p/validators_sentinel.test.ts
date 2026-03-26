@@ -39,6 +39,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         aztecTargetCommitteeSize: NUM_VALIDATORS,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
