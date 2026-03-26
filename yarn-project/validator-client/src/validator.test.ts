@@ -23,7 +23,7 @@ import {
 } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { type BlockData, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -906,8 +906,7 @@ describe('ValidatorClient', () => {
     const proposalInfo = { slotNumber: 1, archive: '0x00', proposer: '0x00', txCount: 0 };
 
     it('should send blobs from blocks in the slot to filestore', async () => {
-      const blobFields = [Fr.random(), Fr.random()];
-      const mockBlock = { toBlobFields: () => blobFields } as unknown as L2Block;
+      const mockBlock = L2Block.empty();
       blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
       blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
 
@@ -934,7 +933,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not throw when blob upload fails', async () => {
-      const mockBlock = { toBlobFields: () => [Fr.random()] } as unknown as L2Block;
+      const mockBlock = L2Block.empty();
       blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
       blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
       blobClient.sendBlobsToFilestore.mockRejectedValue(new Error('upload failed'));
