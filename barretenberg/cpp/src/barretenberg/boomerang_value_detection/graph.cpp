@@ -58,7 +58,7 @@ template <typename FF, typename CircuitBuilder>
 std::vector<std::pair<size_t, size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(uint32_t var_idx) const
 {
     std::vector<std::pair<size_t, size_t>> result;
-    auto search = variable_gate_count.find(var_idx);
+    auto search = variable_gate_count.find(to_real(var_idx));
     if (search != variable_gate_count.end() && search->second != 0) {
         const auto block_data = circuit_builder.blocks.get();
         for (size_t blk_idx = 0; blk_idx < block_data.size(); blk_idx++) {

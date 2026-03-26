@@ -97,7 +97,7 @@ void run_arith_corruption_test(FindFn find_gate, CorruptFn corrupt_gate, bool ex
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
     auto incorrect = analyzer.get_incorrect_opcodes();
     EXPECT_FALSE(incorrect.empty());
-    EXPECT_GT(incorrect.count(0), 0u);
+    EXPECT_GT(incorrect.count(0), 0U);
 }
 
 /**
@@ -112,7 +112,7 @@ template <typename CorruptFn> void run_ext_round_corruption_test(CorruptFn corru
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     auto& block = builder.blocks.poseidon2_external;
-    ASSERT_GT(block.size(), 0u) << "No external round gates found";
+    ASSERT_GT(block.size(), 0U) << "No external round gates found";
     bool found = false;
     for (size_t i = 0; i < block.size() && !found; i++) {
         if (block.q_poseidon2_external()[i] == fr::one()) {
@@ -126,7 +126,7 @@ template <typename CorruptFn> void run_ext_round_corruption_test(CorruptFn corru
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
     auto incorrect = analyzer.get_incorrect_opcodes();
     EXPECT_FALSE(incorrect.empty());
-    EXPECT_GT(incorrect.count(0), 0u);
+    EXPECT_GT(incorrect.count(0), 0U);
 }
 
 /**
@@ -141,7 +141,7 @@ template <typename CorruptFn> void run_int_round_corruption_test(CorruptFn corru
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     auto& block = builder.blocks.poseidon2_internal;
-    ASSERT_GT(block.size(), 0u) << "No internal round gates found";
+    ASSERT_GT(block.size(), 0U) << "No internal round gates found";
     bool found = false;
     for (size_t i = 0; i < block.size() && !found; i++) {
         if (block.q_poseidon2_internal()[i] == fr::one()) {
@@ -155,7 +155,7 @@ template <typename CorruptFn> void run_int_round_corruption_test(CorruptFn corru
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
     auto incorrect = analyzer.get_incorrect_opcodes();
     EXPECT_FALSE(incorrect.empty());
-    EXPECT_GT(incorrect.count(0), 0u);
+    EXPECT_GT(incorrect.count(0), 0U);
 }
 
 } // namespace
@@ -236,7 +236,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2LargeInputs)
 /**
  * @brief Test that corrupting matrix layer q_1 selector is detected
  */
-TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_Selectors)
+TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayerSelectors)
 {
     // corrupting matrix layer q_1 selector is detected
     run_arith_corruption_test(
@@ -306,7 +306,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedMatrixLayer_Selectors)
  * @details External rounds require q_poseidon2_external=1; disabling it should be detected
  * Note: CircuitChecker may not detect disabled poseidon2 selector
  */
-TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_qSelector)
+TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRoundSelector)
 {
     auto [constraint, witness] = make_poseidon2_test_context({ fr(1), fr(2), fr(3), fr(4) });
     auto constraint_system = build_acir_format(constraint);
@@ -314,7 +314,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_qSelecto
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     auto& ext_block = builder.blocks.poseidon2_external;
-    ASSERT_GT(ext_block.size(), 0u) << "No external round gates found";
+    ASSERT_GT(ext_block.size(), 0U) << "No external round gates found";
     bool found_gate = false;
     for (size_t i = 0; i < ext_block.size() && !found_gate; i++) {
         if (ext_block.q_poseidon2_external()[i] == fr::one()) {
@@ -329,14 +329,14 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_qSelecto
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
     auto incorrect = analyzer.get_incorrect_opcodes();
     EXPECT_FALSE(incorrect.empty());
-    EXPECT_GT(incorrect.count(0), 0u);
+    EXPECT_GT(incorrect.count(0), 0U);
 }
 
 /**
  * @brief Test that corrupting external round constants (q_1, q_2, q_3, q_4) is detected
  * @details Round constants are fixed by the Poseidon2 algorithm; changing any of them should be detected
  */
-TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRound_RoundConstants)
+TEST_F(BoomerangPoseidon2ConstraintsTests, DetectCorruptedExternalRoundConstants)
 {
     // Corrupt q_1 (first round constant element)
     run_ext_round_corruption_test([](auto& b, size_t i) { b.q_1().set(i, b.q_1()[i] + fr(1)); });
