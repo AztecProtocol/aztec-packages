@@ -26,12 +26,14 @@ template <typename FF_> class ECCVMLookupRelationImpl {
     enum SubrelationIndex : size_t {
         GRAND_PRODUCT = 0,
         LEFT_SHIFTABLE = 1,
+        NUM_SUBRELATIONS,
     };
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // grand product construction sub-relation
         LENGTH  // left-shiftable polynomial sub-relation
     };
+    static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 

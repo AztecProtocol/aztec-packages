@@ -122,11 +122,13 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         // No-op row: accumulator preservation when no selector is active
         NO_OP_ACC_X = 45,
         NO_OP_ACC_Y = 46,
+        NUM_SUBRELATIONS,
     };
 
     static constexpr std::array<size_t, 47> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+    static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,

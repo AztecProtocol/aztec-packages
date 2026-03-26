@@ -36,9 +36,11 @@ template <typename FF_> class ECCVMPointTableRelationImpl {
         // Point addition: T = T_shift + D when not at transition
         ADD_X = 4,
         ADD_Y = 5,
+        NUM_SUBRELATIONS,
     };
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{ 6, 6, 6, 6, 6, 6 };
+    static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,

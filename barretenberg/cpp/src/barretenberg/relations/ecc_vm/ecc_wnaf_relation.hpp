@@ -85,10 +85,12 @@ template <typename FF_> class ECCVMWnafRelationImpl {
         INACTIVE_POINT_TRANSITION = 21,
         // Precompute select shape: monotonically non-decreasing after first row
         PRECOMPUTE_SELECT_SHAPE = 22,
+        NUM_SUBRELATIONS,
     };
 
     static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS{ 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                                                                          5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
+    static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
