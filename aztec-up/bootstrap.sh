@@ -118,10 +118,9 @@ function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
   # e.g. "nightly", or "latest" for bare releases
-  local tag=$(dist_tag)
+  local dist_tag=$(dist_tag)
   # e.g. "4" from v4.1.0-nightly.20260319
   local major=$(semver major $REF_NAME)
-  local default_major_version="$DEFAULT_MAJOR_VERSION"
 
   # Upload each file in bin/0.0.1/, replacing VERSION= lines with the release version.
   for file in bin/0.0.1/*; do
@@ -130,11 +129,11 @@ function release {
   done
 
   # Update versioned alias (e.g. v4-nightly, v5-latest).
-  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/v${major}-${tag}" <<< "$version"
+  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/v${major}-${dist_tag}" <<< "$version"
 
   # Bare alias (e.g. "nightly") should always resolve to the default major.
-  if [ "$major" = "$default_major_version" ]; then
-    do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$tag" <<< "$version"
+  if [ "$major" = "$DEFAULT_MAJOR_VERSION" ]; then
+    do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$dist_tag" <<< "$version"
   fi
 }
 
