@@ -75,24 +75,12 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 ### In-Circuit (Recursive) Verifier Components
 53. `stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp`
 54. `stdlib/eccvm_verifier/verifier_commitment_key.hpp`
-55. `stdlib/eccvm_verifier/ecc_bools_relation.cpp`
-56. `stdlib/eccvm_verifier/ecc_lookup_relation.cpp`
-57. `stdlib/eccvm_verifier/ecc_msm_relation.cpp`
-58. `stdlib/eccvm_verifier/ecc_point_table_relation.cpp`
-59. `stdlib/eccvm_verifier/ecc_set_relation.cpp`
-60. `stdlib/eccvm_verifier/ecc_transcript_relation.cpp`
-61. `stdlib/eccvm_verifier/ecc_wnaf_relation.cpp`
-62. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
-63. `stdlib/translator_vm_verifier/translator_decomposition_relation_ultra.cpp`
-64. `stdlib/translator_vm_verifier/translator_delta_range_constraint_relation.cpp`
-65. `stdlib/translator_vm_verifier/translator_extra_relations.cpp`
-66. `stdlib/translator_vm_verifier/translator_non_native_field_relation.cpp`
-67. `stdlib/translator_vm_verifier/translator_permutation_relation.cpp`
-68. `stdlib/honk_verifier/ipa_accumulator.hpp`
-69. `stdlib/honk_verifier/ultra_verification_keys_comparator.hpp`
+55. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
+56. `stdlib/honk_verifier/ipa_accumulator.hpp`
+57. `stdlib/honk_verifier/ultra_verification_keys_comparator.hpp`
 
 ### Supporting Types
-70. `goblin/types.hpp`
+58. `goblin/types.hpp`
 
 ---
 
