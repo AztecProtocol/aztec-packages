@@ -45,7 +45,7 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vk
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
 
         auto circuit = circuit_producer.create_next_circuit(ivc);
-        auto vk = CircuitProducer::get_verification_key(circuit);
+        auto vk = circuit_producer.get_verification_key(circuit);
         vkeys.push_back(vk);
         ivc.accumulate(circuit, vk);
     }

@@ -123,6 +123,7 @@ class Chonk : public IVCBase {
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
         bool is_kernel = false;
+        bool is_goblin_flush_app = false; // True for A_G (goblin flush app) circuits
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
@@ -132,16 +133,19 @@ class Chonk : public IVCBase {
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
         bool is_kernel = false;
+        bool is_goblin_flush_app = false; // True for A_G (goblin flush app) circuits
 
         // Explicit constructor needed for older libc++ (iOS SDK) compatibility with std::deque::emplace_back
         StdlibVerifierInputs(StdlibProof proof_,
                              std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash_,
                              QUEUE_TYPE type_,
-                             bool is_kernel_)
+                             bool is_kernel_,
+                             bool is_goblin_flush_app_ = false)
             : proof(std::move(proof_))
             , honk_vk_and_hash(std::move(honk_vk_and_hash_))
             , type(type_)
             , is_kernel(is_kernel_)
+            , is_goblin_flush_app(is_goblin_flush_app_)
         {}
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
@@ -188,6 +192,14 @@ class Chonk : public IVCBase {
     // IPA proof for the current IPA claim accumulator, needed for future IPA accumulation in goblin flush kernels
     HonkProof ipa_proof;
 
+    // Goblin flush support
+    HonkProof flush_ipa_proof; // IPA proof from A_G's Circuit C
+    // Temporary storage for flush/kernel data extracted during perform_recursive_verification
+    // (used in complete_kernel_circuit_logic for goblin flush assertions)
+    TableCommitments T_prev_flush;              // T_prev from GoblinFlushIO (accumulated table before flush)
+    TableCommitments t_flush;                   // t from GoblinFlushIO (previous kernel's ECC ops in flush)
+    TableCommitments prev_kernel_ecc_op_tables; // ecc_op_tables from previous kernel's KernelIO
+
     size_t get_num_circuits() const { return num_circuits; }
 
     // IVCBase interface
@@ -202,7 +214,8 @@ class Chonk : public IVCBase {
     [[nodiscard("Pairing points should be accumulated")]] std::tuple<std::optional<RecursiveVerifierAccumulator>,
                                                                      std::vector<PairingPoints>,
                                                                      TableCommitments,
-                                                                     std::optional<KernelIO::IpaClaim>>
+                                                                     std::optional<KernelIO::IpaClaim>,
+                                                                     TableCommitments>
     recursive_verification_and_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
