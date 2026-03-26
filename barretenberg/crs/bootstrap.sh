@@ -6,9 +6,12 @@ shift || true
 
 # To run bb we need a crs.
 # Download ignition up front to ensure no race conditions at runtime.
-# 2^25 points + 1 because the first is the generator, *32 bytes per compressed point, -1 because Range is inclusive.
+# 2^25 points + 1 because the first is the generator, -1 because Range header is inclusive.
 # We make the file read only to ensure no test can attempt to grow it any larger. 2^25 is already huge...
-# Set CRS_UNCOMPRESSED=1 to also download uncompressed (64 bytes/point) for fast cold starts.
+#
+# CRS_FORMAT controls which BN254 G1 format to use:
+#   uncompressed  - Download uncompressed (64 bytes/point), delete compressed. Used for AMI baking.
+#   (default)     - Happy if either format already exists. If neither, download compressed.
 
 # Primary CRS host (Cloudflare R2)
 CRS_PRIMARY_HOST="https://crs.aztec-cdn.foundation"
@@ -49,27 +52,46 @@ function build {
   crs_size=$((2**25+1))
   mkdir -p $crs_path
 
-  # Download compressed CRS (32 bytes/point) by default.
-  # bb will decompress and cache uncompressed on first use.
-  crs_size_bytes=$((crs_size*32))
-  g1=$crs_path/bn254_g1_compressed.dat
-  if [ ! -f "$g1" ] || [ $(stat -c%s "$g1") -lt $crs_size_bytes ]; then
-    echo "Downloading compressed crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
-    download_with_fallback "$g1" "g1_compressed.dat" "bytes=0-$((crs_size_bytes-1))"
-    chmod a-w "$g1"
-  fi
+  local format="${CRS_FORMAT:-}"
+  local g1_compressed=$crs_path/bn254_g1_compressed.dat
+  local g1_uncompressed=$crs_path/bn254_g1.dat
+  local compressed_bytes=$((crs_size*32))
+  local uncompressed_bytes=$((crs_size*64))
 
-  # Optionally also download uncompressed (64 bytes/point) to avoid decompression at runtime.
-  # Used for AMI baking where we want fast cold starts.
-  if [ "${CRS_UNCOMPRESSED:-0}" -eq 1 ]; then
-    g1_uncompressed=$crs_path/bn254_g1.dat
-    g1_uncompressed_bytes=$((crs_size*64))
-    if [ ! -f "$g1_uncompressed" ] || [ $(stat -c%s "$g1_uncompressed") -lt $g1_uncompressed_bytes ]; then
-      echo "Downloading uncompressed crs of size: ${crs_size} ($((g1_uncompressed_bytes/(1024*1024)))MB)"
-      download_with_fallback "$g1_uncompressed" "g1.dat" "bytes=0-$((g1_uncompressed_bytes-1))"
-      chmod a-w "$g1_uncompressed"
-    fi
-  fi
+  case "$format" in
+    uncompressed)
+      # AMI bake: download uncompressed for fast cold starts, remove compressed.
+      if [ ! -f "$g1_uncompressed" ] || [ $(stat -c%s "$g1_uncompressed") -lt $uncompressed_bytes ]; then
+        echo "Downloading uncompressed crs of size: ${crs_size} ($((uncompressed_bytes/(1024*1024)))MB)"
+        download_with_fallback "$g1_uncompressed" "g1.dat" "bytes=0-$((uncompressed_bytes-1))"
+        chmod a-w "$g1_uncompressed"
+      fi
+      if [ -f "$g1_compressed" ]; then
+        chmod u+w "$g1_compressed" && rm "$g1_compressed" && echo "Removed compressed CRS."
+      fi
+      ;;
+    "")
+      # Default: happy if either format exists. If neither, download compressed (smaller).
+      local have_uncompressed=false
+      local have_compressed=false
+      if [ -f "$g1_uncompressed" ] && [ $(stat -c%s "$g1_uncompressed") -ge $uncompressed_bytes ]; then
+        have_uncompressed=true
+      fi
+      if [ -f "$g1_compressed" ] && [ $(stat -c%s "$g1_compressed") -ge $compressed_bytes ]; then
+        have_compressed=true
+      fi
+
+      if ! $have_uncompressed && ! $have_compressed; then
+        echo "Downloading compressed crs of size: ${crs_size} ($((compressed_bytes/(1024*1024)))MB)"
+        download_with_fallback "$g1_compressed" "g1_compressed.dat" "bytes=0-$((compressed_bytes-1))"
+        chmod a-w "$g1_compressed"
+      fi
+      ;;
+    *)
+      echo "Unknown CRS_FORMAT: $format (expected: uncompressed or empty)"
+      exit 1
+      ;;
+  esac
 
   g2=$crs_path/bn254_g2.dat
   if [ ! -f "$g2" ]; then
