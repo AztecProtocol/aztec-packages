@@ -55,6 +55,10 @@ if(AVM)
   # Solution: Link dsl, then vm2 again to resolve the circular reference.
   if(NOT WASM AND NOT FUZZING)
       target_link_libraries(vm2_tests PRIVATE dsl vm2)
+
+      # VK generator: computes precomputed commitments and writes avm_fixed_vk.hpp
+      add_executable(avm_vk_gen constraining/gen_fixed_vk.cpp)
+      target_link_libraries(avm_vk_gen PRIVATE vm2 vm2_sim)
   endif()
 
   if(FUZZING)

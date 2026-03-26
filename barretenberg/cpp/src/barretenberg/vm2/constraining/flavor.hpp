@@ -242,9 +242,9 @@ class AvmFlavor {
         using Base = FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, typename constraining::AvmHardCodedVKAndHash>;
         using Base::Base;
 
-        // For BS>1, precomputed group commitments (one per group, committed via commit_interleaved).
-        // For BS=1, these are identical to individual precomputed commitments.
-        std::array<Commitment, NUM_PRECOMPUTED_GROUPS> precomputed_group_commitments{};
+        // Precomputed group commitments, initialized from hardcoded values.
+        std::array<Commitment, NUM_PRECOMPUTED_GROUPS> precomputed_group_commitments =
+            constraining::AvmHardCodedVKAndHash::get_precomputed_group_commitments();
     };
 
     // Used by sumcheck.
