@@ -156,6 +156,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
 
     this.log.debug(`Syncing PXE with the node`);
+    // Capture the promise locally so we always await the exact promise we created, even if this.isSyncing is modified
+    // between assignment and await (e.g. due to future refactors introducing a yield point).
     const isSyncing = this.doSync();
     this.isSyncing = isSyncing;
     try {
