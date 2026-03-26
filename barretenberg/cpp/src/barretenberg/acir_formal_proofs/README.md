@@ -41,10 +41,10 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 | Binary::Or  | Unsigned_32   | Unsigned_32   | 5.3          | 0.25      | &check; | TermType::BVTerm | -      | 20.03.2026 |
 | Binary::Or  | Unsigned_128  | Unsigned_128  | 124          | 0.88      | &check; | TermType::BVTerm | -      | 20.03.2026 |
 | Binary::Or  | Signed_64     | Signed_64     | 20.7         | -         | &check; | TermType::BVTerm | -      | 20.03.2026 |
-| Binary::Shl | Unsigned_64   | Unsigned_8    | 43.9         | 2.53      | &check; | TermType::BVTerm | -      | 20.03.2026 |
-| Binary::Shl | Unsigned_32   | Unsigned_8    | FAILED       | -         | &cross; | TermType::BVTerm | ACIR changed in noir, see [#21845](https://github.com/AztecProtocol/aztec-packages/issues/21845) | 20.03.2026 |
+| Binary::Shl | Unsigned_64   | Unsigned_64   | 5000         | 12        | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Shl | Signed_64     | Signed_64     | 1116         | 6         | &cross; | TermType::BVTerm | - | 20.03.2026 |
 | Binary::Shl | Signed_8      | Signed_8      | 49.6         | 2.54      | &check; | TermType::BVTerm | -      | 20.03.2026 |
-| Binary::Shr | Unsigned_64   | Unsigned_8    | FAILED       | -         | &cross; | TermType::BVTerm | ACIR changed in noir, see [#21845](https://github.com/AztecProtocol/aztec-packages/issues/21845) | 20.03.2026 |
+| Binary::Shr | Unsigned_64   | Unsigned_64   | 4981         | ~10       | &check; | TermType::BVTerm | -      | 20.03.2026 |
 | Binary::Shr | Signed_8      | Signed_8      | 235          | -         | &check; | TermType::BVTerm | -      | 20.03.2026 |
 | Binary::Sub | Unsigned_128  | Unsigned_128  | 4.1          | 0.23      | &check; | TermType::BVTerm | -      | 20.03.2026 |
 | Binary::Sub | Signed_64     | Signed_64     | 81.6         | 2.86      | &check; | TermType::BVTerm | -      | 20.03.2026 |
