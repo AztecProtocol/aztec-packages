@@ -236,7 +236,7 @@ function cmd_install {
   fi
 
   # Download and run the version-specific installer
-  curl -fsSL "$install_url" | bash
+  curl -fsSL "$install_url" | VERSION="$resolved_version" bash
 
   # Update the current symlink
   ln -sfn "$AZTEC_HOME/versions/$resolved_version" "$AZTEC_HOME/current"
