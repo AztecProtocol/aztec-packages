@@ -343,7 +343,7 @@ export class RPCTranslator {
     const values = fromArray(foreignValues);
     const hash = fromSingle(foreignHash);
 
-    this.handlerAsPrivate().storeInExecutionCache(values, hash);
+    this.handlerAsPrivate().setHashPreimage(values, hash);
 
     return toForeignCallResult([]);
   }
@@ -352,7 +352,7 @@ export class RPCTranslator {
   async aztec_prv_getHashPreimage(foreignHash: ForeignCallSingle) {
     const hash = fromSingle(foreignHash);
 
-    const returns = await this.handlerAsPrivate().loadFromExecutionCache(hash);
+    const returns = await this.handlerAsPrivate().getHashPreimage(hash);
 
     return toForeignCallResult([toArray(returns)]);
   }
@@ -389,7 +389,7 @@ export class RPCTranslator {
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
 
-    const values = await this.handlerAsUtility().storageRead(
+    const values = await this.handlerAsUtility().getFromPublicStorage(
       blockHash,
       contractAddress,
       startStorageSlot,
@@ -559,7 +559,7 @@ export class RPCTranslator {
   async aztec_utl_doesNullifierExist(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 
-    const exists = await this.handlerAsUtility().checkNullifierExists(innerNullifier);
+    const exists = await this.handlerAsUtility().doesNullifierExist(innerNullifier);
 
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }
@@ -585,7 +585,7 @@ export class RPCTranslator {
   async aztec_utl_getPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const result = await this.handlerAsUtility().tryGetPublicKeysAndPartialAddress(address);
+    const result = await this.handlerAsUtility().getPublicKeysAndPartialAddress(address);
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
@@ -664,7 +664,7 @@ export class RPCTranslator {
   // eslint-disable-next-line camelcase
   public async aztec_prv_isExecutionInRevertiblePhase(foreignSideEffectCounter: ForeignCallSingle) {
     const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
-    const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(sideEffectCounter);
+    const isRevertible = await this.handlerAsPrivate().isExecutionInRevertiblePhase(sideEffectCounter);
     return toForeignCallResult([toSingle(new Fr(isRevertible))]);
   }
 
@@ -745,7 +745,7 @@ export class RPCTranslator {
     const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().fetchTaggedLogs(pendingTaggedLogArrayBaseSlot, scope);
+    await this.handlerAsUtility().getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot, scope);
 
     return toForeignCallResult([]);
   }
@@ -790,7 +790,7 @@ export class RPCTranslator {
     const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().bulkRetrieveLogs(
+    await this.handlerAsUtility().getLogsByTag(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
@@ -812,7 +812,7 @@ export class RPCTranslator {
     const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    await this.handlerAsUtility().utilityResolveMessageContexts(
+    await this.handlerAsUtility().getMessageContextsByTxHash(
       contractAddress,
       messageContextRequestsArrayBaseSlot,
       messageContextResponsesArrayBaseSlot,
@@ -834,7 +834,7 @@ export class RPCTranslator {
     const capsule = fromArray(foreignCapsule);
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    this.handlerAsUtility().storeCapsule(contractAddress, slot, capsule, scope);
+    this.handlerAsUtility().setCapsule(contractAddress, slot, capsule, scope);
 
     return toForeignCallResult([]);
   }
@@ -851,7 +851,7 @@ export class RPCTranslator {
     const tSize = fromSingle(foreignTSize).toNumber();
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
-    const values = await this.handlerAsUtility().loadCapsule(contractAddress, slot, scope);
+    const values = await this.handlerAsUtility().getCapsule(contractAddress, slot, scope);
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
@@ -915,7 +915,7 @@ export class RPCTranslator {
 
     // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
     try {
-      const plaintextBuffer = await this.handlerAsUtility().aes128Decrypt(ciphertext, iv, symKey);
+      const plaintextBuffer = await this.handlerAsUtility().decryptAes128(ciphertext, iv, symKey);
       const [storage, length] = arrayToBoundedVec(
         bufferToU8Array(plaintextBuffer),
         foreignCiphertextBVecStorage.length,
@@ -960,7 +960,7 @@ export class RPCTranslator {
       .slice(0, count)
       .map(f => new AztecAddress(f));
 
-    this.handlerAsUtility().invalidateContractSyncCache(contractAddress, scopes);
+    this.handlerAsUtility().setContractSyncCacheInvalid(contractAddress, scopes);
 
     return Promise.resolve(toForeignCallResult([]));
   }

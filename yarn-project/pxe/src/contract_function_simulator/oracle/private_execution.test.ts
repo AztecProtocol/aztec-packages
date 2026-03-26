@@ -286,7 +286,7 @@ describe('Private Execution test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     contractSyncService = mock<ContractSyncService>();
     messageContextService = mock<MessageContextService>();
-    messageContextService.resolveMessageContexts.mockResolvedValue([]);
+    messageContextService.getMessageContextsByTxHash.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
       async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId, scopes) => {
@@ -436,7 +436,7 @@ describe('Private Execution test suite', () => {
       });
     });
 
-    capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleStore.getCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     aztecNode.getPublicStorageAt.mockImplementation(
       (_block: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
