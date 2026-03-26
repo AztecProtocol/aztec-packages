@@ -40,7 +40,7 @@ struct perm_execution_dispatch_to_cd_copy_settings_ {
         ColumnAndShifts::data_copy_dst_addr,
         ColumnAndShifts::data_copy_src_addr,
         ColumnAndShifts::data_copy_src_data_size,
-        ColumnAndShifts::data_copy_err
+        ColumnAndShifts::data_copy_dst_out_of_range_err
     };
 };
 
@@ -78,7 +78,7 @@ struct perm_execution_dispatch_to_rd_copy_settings_ {
         ColumnAndShifts::data_copy_dst_addr,
         ColumnAndShifts::data_copy_src_addr,
         ColumnAndShifts::data_copy_src_data_size,
-        ColumnAndShifts::data_copy_err
+        ColumnAndShifts::data_copy_dst_out_of_range_err
     };
 };
 
