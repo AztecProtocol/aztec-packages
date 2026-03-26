@@ -40,7 +40,7 @@ function inject_version {
   if [[ "$(os)" == "macos" ]]; then
     codesign -s - -f "$binary" 2>/dev/null || true
   elif llvm-objdump --macho --private-header "$binary" &>/dev/null; then
-    ldid -S "$binary"
+    ldid -S "$binary" 2>/dev/null || echo "Warning: ldid failed to sign $binary (may be wrong arch) - skipping" >&2
   fi
 }
 
