@@ -15,7 +15,6 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
