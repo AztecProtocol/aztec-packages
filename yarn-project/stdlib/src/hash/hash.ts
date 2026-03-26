@@ -98,6 +98,11 @@ export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
   return siloNullifier(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS), txRequestHash);
 }
 
+/** Domain-separates a raw log tag with the given domain separator. */
+export function computeLogTag(rawTag: number | bigint | boolean | Fr | Buffer, domSep: DomainSeparator): Promise<Fr> {
+  return poseidon2HashWithSeparator([new Fr(rawTag)], domSep);
+}
+
 export function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contract, field], DomainSeparator.PRIVATE_LOG_FIRST_FIELD);
 }
