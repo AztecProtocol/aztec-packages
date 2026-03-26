@@ -674,6 +674,12 @@ pub global DOM_SEP__SILOED_NULLIFIER: u32 = 57496191;
 /// This is not technically a protocol constant as message nullifiers are computed by each contract.
 pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
 
+/// Domain separator for event log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
+/// Domain separator for partial note completion log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
+/// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].

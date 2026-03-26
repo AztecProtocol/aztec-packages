@@ -2,13 +2,19 @@ use aztec::{
     context::{PrivateContext, PublicContext},
     keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
-    messages::logs::partial_note::compute_partial_note_private_content_log,
+    messages::{
+        logs::partial_note::encode_partial_note_private_message,
+        message_delivery::{do_private_message_delivery, MessageDelivery},
+    },
     note::{note_interface::{NoteHash, NoteType}, utils::compute_note_nullifier},
     oracle::random::random,
     protocol::{
         address::AztecAddress,
-        constants::{DOM_SEP__NOTE_HASH, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT},
-        hash::poseidon2_hash_with_separator,
+        constants::{
+            DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__NOTE_HASH,
+            DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        },
+        hash::{compute_log_tag, poseidon2_hash_with_separator},
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
     },
 };
@@ -117,18 +123,20 @@ impl NFTNote {
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
         let private_log_content = NFTPartialNotePrivateLogContent {};
 
-        let encrypted_log = compute_partial_note_private_content_log(
-            private_log_content,
-            owner,
-            randomness,
+        do_private_message_delivery(
+            context,
+            || {
+                encode_partial_note_private_message(
+                    private_log_content,
+                    owner,
+                    randomness,
+                    commitment,
+                )
+            },
+            Option::none(),
             recipient,
-            commitment,
-            context.this_address(),
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
-        // Regardless of the original content size, the log is padded with random bytes up to
-        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
-        let length = encrypted_log.len();
-        context.emit_private_log(encrypted_log, length);
 
         let partial_note = PartialNFTNote { commitment };
 
@@ -196,11 +204,12 @@ impl PartialNFTNote {
 
         // We need to do two things:
         //  - emit a public log containing the public fields (the storage slot and token id). The contract will later
-        //  find it by searching for the expected tag (which is simply the partial note commitment).
+        //  find it by searching for the domain-separated commitment as the tag.
         //  - insert the completion note hash (i.e. the hash of the note) into the note hash tree. This is typically
         //  only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
         //  inserted in public as the public values are provided and the note hash computed.
-        context.emit_public_log(self.compute_note_completion_log(storage_slot, token_id));
+        let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
+        context.emit_public_log_unsafe(log_tag, [storage_slot, token_id]);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, token_id));
     }
 
@@ -214,13 +223,6 @@ impl PartialNFTNote {
             [self.commitment, completer.to_field()],
             DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         )
-    }
-
-    fn compute_note_completion_log(self, storage_slot: Field, token_id: Field) -> [Field; 3] {
-        // The first field of this log must be the tag that the recipient of the partial note private field logs
-        // expects, which is equal to the partial note commitment. The storage slot is included as the first public
-        // value so that note discovery can extract it.
-        [self.commitment, storage_slot, token_id]
     }
 
     fn compute_complete_note_hash(self, storage_slot: Field, token_id: Field) -> Field {
