@@ -14,7 +14,7 @@ export class MessageContextService {
    * process messages that originated from that transaction. Returns `null` for tx hashes that are zero, not yet
    * available, or in blocks beyond the anchor block.
    */
-  resolveMessageContexts(txHashes: Fr[], anchorBlockNumber: number): Promise<(MessageContext | null)[]> {
+  getMessageContextsByTxHash(txHashes: Fr[], anchorBlockNumber: number): Promise<(MessageContext | null)[]> {
     // TODO: optimize, we might be hitting the node to get the same txHash repeatedly
     return Promise.all(
       txHashes.map(async txHashField => {

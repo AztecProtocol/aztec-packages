@@ -20,7 +20,7 @@ describe('MessageContextService', () => {
   });
 
   it('returns null for zero tx hash', async () => {
-    const results = await service.resolveMessageContexts([Fr.ZERO], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([Fr.ZERO], anchorBlockNumber);
 
     expect(results).toEqual([null]);
     expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
@@ -30,7 +30,7 @@ describe('MessageContextService', () => {
     const txHash = TxHash.random();
     aztecNode.getTxEffect.mockResolvedValueOnce(undefined);
 
-    const results = await service.resolveMessageContexts([txHash.hash], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
     expect(results).toEqual([null]);
   });
@@ -44,7 +44,7 @@ describe('MessageContextService', () => {
       data: { txHash, noteHashes: [Fr.random()], nullifiers: [Fr.random()] },
     } as any);
 
-    const results = await service.resolveMessageContexts([txHash.hash], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
     expect(results).toEqual([null]);
   });
@@ -58,7 +58,7 @@ describe('MessageContextService', () => {
       data: { txHash, noteHashes: [Fr.random()], nullifiers: [] },
     } as any);
 
-    await expect(service.resolveMessageContexts([txHash.hash], anchorBlockNumber)).rejects.toThrow(
+    await expect(service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber)).rejects.toThrow(
       `Tx effect for ${txHash} has no nullifiers`,
     );
   });
@@ -75,7 +75,7 @@ describe('MessageContextService', () => {
       data: { txHash, noteHashes, nullifiers: [firstNullifier, Fr.random()] },
     } as any);
 
-    const results = await service.resolveMessageContexts([txHash.hash], anchorBlockNumber);
+    const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
     expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier)]);
   });
@@ -108,7 +108,7 @@ describe('MessageContextService', () => {
       return undefined; // notFoundTxHash
     });
 
-    const results = await service.resolveMessageContexts(
+    const results = await service.getMessageContextsByTxHash(
       [
         Fr.ZERO, // zero → null
         validTxHash.hash, // valid → MessageContext

@@ -4,7 +4,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
-import type { Anvil } from '@viem/anvil';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
@@ -12,7 +11,7 @@ import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import type { ViemClient } from '../types.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
 import { RollupCheatCodes } from './rollup_cheat_codes.js';
-import { startAnvil } from './start_anvil.js';
+import { type Anvil, startAnvil } from './start_anvil.js';
 
 describe('RollupCheatCodes', () => {
   let anvil: Anvil;

@@ -41,7 +41,7 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
-  public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
+  public async fetchLogsByTag(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
     return await Promise.all(
       logRetrievalRequests.map(async request => {
         const [publicLog, privateLog] = await Promise.all([
