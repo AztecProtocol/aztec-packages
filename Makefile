@@ -235,7 +235,7 @@ bb-sol: bb-cpp-native bb-crs
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-native-tests: bb-cpp-native
+bb-cpp-native-tests: bb-cpp-native bb-crs
 	$(call test,$@,barretenberg/cpp,native)
 
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads
