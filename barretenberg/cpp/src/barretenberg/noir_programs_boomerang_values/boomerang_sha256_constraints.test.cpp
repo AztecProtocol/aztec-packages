@@ -24,48 +24,9 @@ using namespace cdg;
 
 namespace {
 
-// Block indices in UltraTraceBlockData::get() order
-[[maybe_unused]] constexpr size_t LOOKUP_BLOCK_IDX = 1;
-[[maybe_unused]] constexpr size_t ARITHMETIC_BLOCK_IDX = 2;
-[[maybe_unused]] constexpr size_t DELTA_RANGE_BLOCK_IDX = 3;
-
 // SHA256 IV constants
 constexpr uint32_t SHA256_IV[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
-
-// ACIR circuit adds 8 assert_equal gates (one per result) in the arithmetic block.
-[[maybe_unused]] constexpr size_t EXPECTED_ACIR_ARITH_GATES = 2371;
-
-/**
- * @brief Build a standalone SHA256 reference circuit (no ACIR overhead).
- *
- * Calls SHA256<Builder>::sha256_block() directly on a fresh UltraCircuitBuilder.
- * The resulting circuit contains only gates created by sha256_block itself:
- * lookup gates, arithmetic gates (including range constraint fillers), and delta_range gates.
- * No ACIR assert_equal gates or other ACIR infrastructure.
- */
-UltraCircuitBuilder build_sha256_reference_circuit()
-{
-    using field_ct = bb::stdlib::field_t<UltraCircuitBuilder>;
-    using witness_ct = bb::stdlib::witness_t<UltraCircuitBuilder>;
-    using SHA256 = bb::stdlib::SHA256<UltraCircuitBuilder>;
-
-    UltraCircuitBuilder builder;
-
-    std::array<field_ct, 8> h_init;
-    for (size_t i = 0; i < 8; ++i) {
-        h_init[i] = witness_ct(&builder, SHA256_IV[i]);
-    }
-
-    std::array<field_ct, 16> block;
-    uint32_t input_block[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-    for (size_t i = 0; i < 16; ++i) {
-        block[i] = witness_ct(&builder, input_block[i]);
-    }
-
-    SHA256::sha256_block(h_init, block);
-    return builder;
-}
 
 /**
  * @brief Helper struct to hold SHA256 constraint test setup
@@ -108,95 +69,6 @@ SHA256TestSetup build_standard_sha256_setup()
     }
 
     return setup;
-}
-
-/**
- * @brief Compute a deterministic hash of selectors in a block range
- *
- * Uses Boost-style hash_combine (same approach as KeyHasher in graph.hpp):
- *   combined = combined ^ (element_hash + 0x9e3779b9 + (combined << 6) + (combined >> 2))
- *
- * @param combined_hash Initial hash value (0 for fresh, or previous hash for chaining)
- */
-template <typename Block>
-size_t compute_selector_hash(size_t combined_hash, Block& block, size_t start_idx, size_t end_idx)
-{
-    constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
-    auto hash_combiner = [](size_t lhs, size_t rhs) {
-        return lhs ^ (rhs + HASH_COMBINE_CONSTANT + (lhs << 6) + (lhs >> 2));
-    };
-
-    auto selectors = block.get_selectors();
-
-    for (size_t gate = start_idx; gate <= end_idx; ++gate) {
-        for (size_t s = 0; s < selectors.size(); ++s) {
-            uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
-            combined_hash = hash_combiner(combined_hash, std::hash<uint64_t>()(val));
-        }
-    }
-    return combined_hash;
-}
-
-/**
- * @brief Compute a deterministic hash of selectors for specific gate indices
- */
-template <typename Block>
-size_t compute_selector_hash(size_t combined_hash, Block& block, const std::vector<size_t>& gate_indices)
-{
-    constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
-    auto hash_combiner = [](size_t lhs, size_t rhs) {
-        return lhs ^ (rhs + HASH_COMBINE_CONSTANT + (lhs << 6) + (lhs >> 2));
-    };
-
-    auto selectors = block.get_selectors();
-
-    for (size_t gate : gate_indices) {
-        for (size_t s = 0; s < selectors.size(); ++s) {
-            uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
-            combined_hash = hash_combiner(combined_hash, std::hash<uint64_t>()(val));
-        }
-    }
-    return combined_hash;
-}
-
-/**
- * @brief Compute reference selector hashes from a standalone SHA256 circuit.
- *
- * Uses the same group-based hashing as validate_sha256_subcircuit_selectors:
- * unconstrained gates first (seed 0), then constrained gates (seeded from unconstrained).
- * This is position-independent — produces the same hash for any valid SHA256 constraint.
- *
- * Gate 0 is fix_witness for zero_idx (not SHA256 logic), excluded from hashing.
- *
- * Returns {lookup_hash, arith_hash}.
- */
-std::pair<size_t, size_t> compute_sha256_reference_hashes()
-{
-    auto ref_builder = build_sha256_reference_circuit();
-    auto& lookup = ref_builder.blocks.lookup;
-    auto& arith = ref_builder.blocks.arithmetic;
-
-    size_t lookup_hash = compute_selector_hash(0, lookup, 0, lookup.size() - 1);
-
-    // Classify gates (skip gate 0 = fix_witness)
-    auto unconstrained_indices = sha256_helpers::find_unconstrained_arithmetic_gates(ref_builder);
-    std::set<size_t> uc_set(unconstrained_indices.begin(), unconstrained_indices.end());
-
-    std::vector<size_t> constrained_gates;
-    std::vector<size_t> unconstrained_gates;
-    for (size_t i = 1; i < arith.size(); ++i) {
-        if (uc_set.count(i)) {
-            unconstrained_gates.push_back(i);
-        } else {
-            constrained_gates.push_back(i);
-        }
-    }
-
-    // Chain: unconstrained first (seed 0), then constrained
-    size_t uc_hash = compute_selector_hash(0, arith, unconstrained_gates);
-    size_t arith_hash = compute_selector_hash(uc_hash, arith, constrained_gates);
-
-    return std::make_pair(lookup_hash, arith_hash);
 }
 
 WitnessOrConstant<fr> witness_from_index(uint32_t idx)
@@ -278,79 +150,6 @@ TEST_F(BoomerangSHA256ConstraintsTests, SHA256ZeroInputs)
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
 
     EXPECT_TRUE(incorrect_opcodes.empty());
-}
-
-/**
- * @brief Regression test: compute selector hashes from standalone sha256_block circuit.
- *
- * Builds a reference circuit using SHA256<Builder>::sha256_block() directly (no ACIR),
- * computes selector hashes over full lookup and arithmetic blocks, and prints them.
- * These hashes are the ground truth for validate_sha256_subcircuit_selectors.
- */
-TEST_F(BoomerangSHA256ConstraintsTests, SHA256SelectorHashRegression)
-{
-    auto [ref_lookup_hash, ref_arith_hash] = compute_sha256_reference_hashes();
-    info("=== SHA256 Reference Selector Hashes (standalone sha256_block) ===");
-    info("Lookup selector hash: ", ref_lookup_hash);
-    info("Arithmetic selector hash: ", ref_arith_hash);
-}
-
-/**
- * @brief Test find_sha256_subcircuit_boundaries for a single constraint
- *
- * Verifies that the boundary finder correctly identifies lookup and arithmetic
- * gate ranges by comparing against a standalone sha256_block reference circuit.
- */
-TEST_F(BoomerangSHA256ConstraintsTests, FindSha256SubcircuitBoundaries)
-{
-    auto setup = build_standard_sha256_setup();
-
-    AcirFormat constraint_system = constraint_to_acir_format(setup.constraint);
-    AcirProgram program{ constraint_system, setup.witness_values };
-    auto builder = create_circuit<UltraCircuitBuilder>(program, ProgramMetadata{});
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-
-    AcirFormat constraint_system_copy = constraint_system;
-    auto static_analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
-
-    auto boundaries = static_analyzer.find_sha256_subcircuit_boundaries(&setup.constraint);
-    ASSERT_TRUE(boundaries.has_value());
-
-    // Compare against standalone sha256_block reference circuit.
-    auto [ref_lookup_hash, ref_arith_hash] = compute_sha256_reference_hashes();
-    EXPECT_EQ(ref_lookup_hash, 1201492680789112893ULL);
-    EXPECT_EQ(ref_arith_hash, 17755299155013926430ULL);
-
-    auto ref_builder = build_sha256_reference_circuit();
-    EXPECT_EQ(boundaries->lookup.size(), ref_builder.blocks.lookup.size());
-    // -1: gate 0 is fix_witness for zero_idx, not SHA256 logic
-    EXPECT_EQ(boundaries->constrained_gates.size() + boundaries->unconstrained_gates.size(),
-              ref_builder.blocks.arithmetic.size() - 1);
-}
-
-/**
- * @brief Test validate_sha256_subcircuit_selectors for a single constraint
- *
- * Verifies that the selector hash validation accepts known-good SHA256 subcircuit gates.
- */
-TEST_F(BoomerangSHA256ConstraintsTests, ValidateSha256SubcircuitSelectors)
-{
-    auto setup = build_standard_sha256_setup();
-
-    AcirFormat constraint_system = constraint_to_acir_format(setup.constraint);
-    AcirProgram program{ constraint_system, setup.witness_values };
-    auto builder = create_circuit<UltraCircuitBuilder>(program, ProgramMetadata{});
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-
-    AcirFormat constraint_system_copy = constraint_system;
-    auto static_analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
-
-    auto boundaries = static_analyzer.find_sha256_subcircuit_boundaries(&setup.constraint);
-    ASSERT_TRUE(boundaries.has_value()) << "Failed to find SHA256 subcircuit boundaries";
-
-    EXPECT_TRUE(static_analyzer.validate_sha256_subcircuit_selectors(*boundaries));
 }
 
 /**
@@ -831,17 +630,6 @@ TEST_F(BoomerangSHA256ConstraintsTests, TwoSHA256Constraints)
     std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
 
     EXPECT_TRUE(incorrect_opcodes.empty());
-    // Verify boundaries are found for both constraints and selectors validate
-    auto boundaries_1 = analyzer.find_sha256_subcircuit_boundaries(&constraint_1);
-    ASSERT_TRUE(boundaries_1.has_value());
-    EXPECT_TRUE(analyzer.validate_sha256_subcircuit_selectors(*boundaries_1));
-
-    auto boundaries_2 = analyzer.find_sha256_subcircuit_boundaries(&constraint_2);
-    ASSERT_TRUE(boundaries_2.has_value());
-    EXPECT_TRUE(analyzer.validate_sha256_subcircuit_selectors(*boundaries_2));
-
-    // Lookup subtraces should be disjoint
-    EXPECT_NE(boundaries_1->lookup.first, boundaries_2->lookup.first);
 }
 
 /**

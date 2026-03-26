@@ -48,7 +48,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool is_uncostrained_arithmetic_gate(size_t gate_index);
     std::optional<size_t> find_sha256_add_normalize_gate(uint32_t result_real, uint32_t hash_real);
     std::optional<std::vector<size_t>> find_sha256_decompose_gate(uint32_t result_real);
-    std::optional<AddTwoGateInfo> find_and_validate_add_two_gate(uint32_t a_real, uint32_t b_real, uint32_t c_real);
+    std::optional<AddTwoGateInfo> find_and_validate_add_two_gate(uint32_t a_real,
+                                                                 uint32_t b_real,
+                                                                 uint32_t c_real);
     std::optional<AddTwoGateWires> find_add_two_gate_by_output(uint32_t output_real);
     /**
      * @brief Find an arithmetic gate matching specified wire positions.
