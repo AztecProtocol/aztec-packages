@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import {
   type Account,
   type Chain,
@@ -23,7 +22,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { startAnvil } from './start_anvil.js';
+import { type Anvil, startAnvil } from './start_anvil.js';
 
 // using new type for custom transports
 export type ExtendedWalletClient = Client<
