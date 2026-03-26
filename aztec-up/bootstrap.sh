@@ -3,6 +3,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
 
+# Bare aliases ("nightly", "latest") resolve to this major version.
+DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
+
 function build {
   # Create versions.json so we know what to install.
   ../bootstrap.sh versions > ./bin/0.0.1/versions
@@ -108,6 +111,10 @@ function test {
 function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
+  # e.g. "nightly", or "latest" for bare releases
+  local dist_tag=$(dist_tag)
+  # e.g. "4" from v4.1.0-nightly.20260319
+  local major=$(semver major $REF_NAME)
 
   # Upload version-specific files to version directory.
   do_or_dryrun aws s3 cp bin/0.0.1/install "s3://install.aztec.network/$version/install"
@@ -115,9 +122,19 @@ function release {
   do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/$version/aztec-install"
   do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/$version/aztec-up"
 
+<<<<<<< HEAD
   # Update alias to point to new version.
   # This has real impact outside of the version fence. i.e. if it's nightly dist tag, it affects nightly installs.
   do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
+=======
+  # Update versioned alias (e.g. v4-nightly, v5-latest).
+  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/v${major}-${dist_tag}" <<< "$version"
+
+  # Bare alias (e.g. "nightly") should always resolve to the default major.
+  if [ "$major" = "$DEFAULT_MAJOR_VERSION" ]; then
+    do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$dist_tag" <<< "$version"
+  fi
+>>>>>>> 5f80cf2566 (feat(aztec-up): add versioned aliases for multi-major version support (#21817))
 }
 
 # This is not done by CI.
