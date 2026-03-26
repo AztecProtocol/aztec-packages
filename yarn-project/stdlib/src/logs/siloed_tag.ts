@@ -1,8 +1,9 @@
+import { DomainSeparator } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import { computeSiloedPrivateLogFirstField } from '../hash/hash.js';
+import { computeLogTag, computeSiloedPrivateLogFirstField } from '../hash/hash.js';
 import { schemas } from '../schemas/schemas.js';
 import type { PreTag } from './pre_tag.js';
 import { Tag } from './tag.js';
@@ -24,9 +25,13 @@ export class SiloedTag {
 
   static async compute(preTag: PreTag): Promise<SiloedTag> {
     const tag = await Tag.compute(preTag);
-    return SiloedTag.computeFromTagAndApp(tag, preTag.extendedSecret.app);
+    const logTag = await computeLogTag(tag.value, DomainSeparator.UNCONSTRAINED_MSG_LOG_TAG);
+    return SiloedTag.computeFromTagAndApp(new Tag(logTag), preTag.extendedSecret.app);
   }
 
+  /**
+   * Unlike `compute`, this expects a tag whose value is already domain-separated.
+   */
   static async computeFromTagAndApp(tag: Tag, app: AztecAddress): Promise<SiloedTag> {
     const siloedTag = await computeSiloedPrivateLogFirstField(app, tag.value);
     return new SiloedTag(siloedTag);

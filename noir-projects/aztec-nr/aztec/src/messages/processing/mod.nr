@@ -23,7 +23,12 @@ use crate::{
     },
     oracle,
 };
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
+use crate::protocol::{
+    address::AztecAddress,
+    constants::DOM_SEP__NOTE_COMPLETION_LOG_TAG,
+    hash::{compute_log_tag, sha256_to_field},
+    traits::{Deserialize, Serialize},
+};
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
@@ -224,9 +229,13 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     let pending_partial_notes_count = pending_partial_notes.len();
     while i < pending_partial_notes_count {
         let pending_partial_note = pending_partial_notes.get(i);
-        log_retrieval_requests.push(
-            LogRetrievalRequest { contract_address, unsiloed_tag: pending_partial_note.note_completion_log_tag },
+        // Partial note completion logs are emitted with a domain-separated tag. To find matching logs, we apply the
+        // same domain separation to the stored raw tag.
+        let log_tag = compute_log_tag(
+            pending_partial_note.note_completion_log_tag,
+            DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         );
+        log_retrieval_requests.push(LogRetrievalRequest { contract_address, unsiloed_tag: log_tag });
         i += 1;
     }
 
