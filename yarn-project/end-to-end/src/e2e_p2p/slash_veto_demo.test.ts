@@ -78,6 +78,7 @@ describe('veto slash', () => {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
+        anvilSlotsInAnEpoch: 4,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
