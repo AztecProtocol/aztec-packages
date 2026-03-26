@@ -5,18 +5,22 @@ import type { DebugLog } from '@aztec/stdlib/logs';
 
 /** Resolves a contract address to a human-readable name, if available. */
 export type ContractNameResolver = (address: AztecAddress) => Promise<string | undefined>;
+export type CONTRACT_LOG_KIND = 'aztecnr' | 'user';
 
 /**
- * Creates a logger whose output is prefixed with `contract_log::<name>(<addrAbbrev>)`.
+ * Creates a logger whose output is prefixed with `contract:<name>(<addrAbbrev>)`.
  */
 export async function createContractLogger(
   contractAddress: AztecAddress,
   getContractName: ContractNameResolver,
+  kind: CONTRACT_LOG_KIND,
   options?: { instanceId?: string },
 ): Promise<Logger> {
   const addrAbbrev = contractAddress.toString().slice(0, 10);
   const name = await getContractName(contractAddress);
-  const module = name ? `contract_log::${name}(${addrAbbrev})` : `contract_log::Unknown(${addrAbbrev})`;
+
+  const prefix = kind == 'aztecnr' ? 'aztecnr' : 'contract';
+  const module = name ? `${prefix}:${name}(${addrAbbrev})` : `${prefix}:Unknown(${addrAbbrev})`;
   return createLogger(module, options);
 }
 
@@ -29,11 +33,20 @@ export function logContractMessage(logger: Logger, level: LogLevel, message: str
 
 /**
  * Displays debug logs collected during public function simulation,
- * using the `contract_log::` prefixed logger format.
+ * using the `contract:` prefixed logger format.
  */
 export async function displayDebugLogs(debugLogs: DebugLog[], getContractName: ContractNameResolver): Promise<void> {
   for (const log of debugLogs) {
-    const logger = await createContractLogger(log.contractAddress, getContractName);
-    logContractMessage(logger, log.level, log.message, log.fields);
+    const { kind, message } = stripAztecnrLogPrefix(log.message);
+    const logger = await createContractLogger(log.contractAddress, getContractName, kind);
+    logContractMessage(logger, log.level, message, log.fields);
+  }
+}
+
+export function stripAztecnrLogPrefix(message: string): { kind: CONTRACT_LOG_KIND; message: string } {
+  if (message.startsWith('[aztec-nr] ')) {
+    return { kind: 'aztecnr', message: message.slice('[aztec-nr] '.length) };
+  } else {
+    return { kind: 'user', message };
   }
 }

@@ -23,7 +23,12 @@ use crate::{
     },
     oracle,
 };
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
+use crate::protocol::{
+    address::AztecAddress,
+    constants::DOM_SEP__NOTE_COMPLETION_LOG_TAG,
+    hash::{compute_log_tag, sha256_to_field},
+    traits::{Deserialize, Serialize},
+};
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
@@ -184,13 +189,13 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
 /// The `message_context_requests_array_base_slot` must point to a CapsuleArray<Field> containing tx hashes.
 /// PXE will store `Option<MessageContextResponse>` values into the responses array at
 /// `message_context_responses_array_base_slot`.
-pub unconstrained fn resolve_message_contexts(
+pub unconstrained fn get_message_contexts_by_tx_hash(
     contract_address: AztecAddress,
     message_context_requests_array_base_slot: Field,
     message_context_responses_array_base_slot: Field,
     scope: AztecAddress,
 ) {
-    oracle::message_processing::resolve_message_contexts(
+    oracle::message_processing::get_message_contexts_by_tx_hash(
         contract_address,
         message_context_requests_array_base_slot,
         message_context_responses_array_base_slot,
@@ -224,13 +229,17 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     let pending_partial_notes_count = pending_partial_notes.len();
     while i < pending_partial_notes_count {
         let pending_partial_note = pending_partial_notes.get(i);
-        log_retrieval_requests.push(
-            LogRetrievalRequest { contract_address, unsiloed_tag: pending_partial_note.note_completion_log_tag },
+        // Partial note completion logs are emitted with a domain-separated tag. To find matching logs, we apply the
+        // same domain separation to the stored raw tag.
+        let log_tag = compute_log_tag(
+            pending_partial_note.note_completion_log_tag,
+            DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         );
+        log_retrieval_requests.push(LogRetrievalRequest { contract_address, unsiloed_tag: log_tag });
         i += 1;
     }
 
-    oracle::message_processing::bulk_retrieve_logs(
+    oracle::message_processing::get_logs_by_tag(
         contract_address,
         LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
         LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,

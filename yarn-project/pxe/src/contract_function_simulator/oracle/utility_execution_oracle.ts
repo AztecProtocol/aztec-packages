@@ -15,14 +15,14 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
-import { MessageContext, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
-import { createContractLogger, logContractMessage } from '../../contract_logging.js';
+import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
@@ -76,6 +76,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isUtility = true as const;
 
   private contractLogger: Logger | undefined;
+  private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
 
   protected readonly contractAddress: AztecAddress;
@@ -452,7 +453,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Returns a per-contract logger whose output is prefixed with `contract_log::<name>(<addrAbbrev>)`.
+   * Returns a per-contract logger whose output is prefixed with `contract:<name>(<addrAbbrev>)`.
    */
   async #getContractLogger(): Promise<Logger> {
     if (!this.contractLogger) {
@@ -461,18 +462,39 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.contractLogger = await createContractLogger(
         this.contractAddress,
         addr => this.contractStore.getDebugContractName(addr),
+        'user',
         { instanceId: this.jobId },
       );
     }
     return this.contractLogger;
   }
 
+  /**
+   * Returns a per-contract logger whose output is prefixed with `aztecnr:<name>(<addrAbbrev>)`.
+   */
+  async #getAztecnrLogger(): Promise<Logger> {
+    if (!this.aztecnrLogger) {
+      // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
+      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      this.aztecnrLogger = await createContractLogger(
+        this.contractAddress,
+        addr => this.contractStore.getDebugContractName(addr),
+        'aztecnr',
+        { instanceId: this.jobId },
+      );
+    }
+    return this.aztecnrLogger;
+  }
+
   public async log(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }
-    const logger = await this.#getContractLogger();
-    logContractMessage(logger, LogLevels[level], message, fields);
+
+    const { kind, message: strippedMessage } = stripAztecnrLogPrefix(message);
+
+    const logger = kind == 'aztecnr' ? await this.#getAztecnrLogger() : await this.#getContractLogger();
+    logContractMessage(logger, LogLevels[level], strippedMessage, fields);
   }
 
   public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
@@ -735,19 +757,24 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Retrieves the shared secret for a given address and ephemeral public key.
+   * Retrieves the app-siloed shared secret for a given address and ephemeral public key.
    * @param address - The address to get the secret for.
    * @param ephPk - The ephemeral public key to get the secret for.
-   * @returns The secret for the given address.
+   * @param contractAddress - The contract address for app-siloing (validated against execution context).
+   * @returns The app-siloed shared secret as a Field.
    */
-  public async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    // TODO(#12656): return an app-siloed secret
+  public async getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      throw new Error(
+        `getSharedSecret called with contract address ${contractAddress}, expected ${this.contractAddress}`,
+      );
+    }
     const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-    return deriveEcdhSharedSecret(addressSecret, ephPk);
+    return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {
