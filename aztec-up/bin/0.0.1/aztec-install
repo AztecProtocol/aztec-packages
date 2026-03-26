@@ -28,10 +28,14 @@ fi
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
 shared_bin_path="$AZTEC_HOME/bin"
 
+# Toolchain version to install (alias or semver). Replaced at release time.
 VERSION=${VERSION:-0.0.1}
+# Infrastructure version: controls where to fetch installer assets (banner, aztec-up).
+# When empty, assets are fetched directly from INSTALL_URI.
+INFRA_VERSION=${INFRA_VERSION:-}
 
-# Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
+INFRA_BASE_URI="$INSTALL_URI${INFRA_VERSION:+/$INFRA_VERSION}"
 
 # Check if version string is valid semver
 function is_semver {
@@ -74,9 +78,9 @@ function typewriter {
 function title {
   clear
   if [ "${COLORTERM:-}" = "truecolor" ] || [ "${COLORTERM:-}" = "24bit" ]; then
-    curl -fsSL "$INSTALL_URI/$VERSION/aztec-banner-truecolor" 2>/dev/null || true
+    curl -fsSL "$INFRA_BASE_URI/aztec-banner-truecolor" 2>/dev/null || true
   else
-    curl -fsSL "$INSTALL_URI/$VERSION/aztec-banner" 2>/dev/null || true
+    curl -fsSL "$INFRA_BASE_URI/aztec-banner" 2>/dev/null || true
   fi
   typewriter "initializing stealth protocols..." "${p}"
   sleep 1
@@ -171,11 +175,7 @@ function install_jq {
 }
 
 function install_aztec_up {
-  # If there's a version of aztec-up at the VERSION location, use that, else fallback to root installer.
-  if ! curl -fsSL "$INSTALL_URI/$VERSION/aztec-up" -o "$shared_bin_path/aztec-up"; then
-    # Download aztec-up from root.
-    curl -fsSL "$INSTALL_URI/aztec-up" -o "$shared_bin_path/aztec-up"
-  fi
+  curl -fsSL "$INFRA_BASE_URI/aztec-up" -o "$shared_bin_path/aztec-up"
   chmod +x "$shared_bin_path/aztec-up"
 }
 
