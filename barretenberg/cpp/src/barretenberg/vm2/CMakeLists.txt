@@ -32,9 +32,10 @@ if(AVM)
   file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
   file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
 
-  # Start with all sources, then exclude test/bench/fuzzer files
+  # Start with all sources, then exclude test/bench/fuzzer/gen files
   set(VM2_SOURCE_FILES ${ALL_SOURCE_FILES})
   list(FILTER VM2_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
+  list(FILTER VM2_SOURCE_FILES EXCLUDE REGEX ".*/gen_fixed_vk\\.cpp$")
 
   # Make vm2 and vm2_sim sources mutually exclusive
   foreach(SIM_FILE ${VM2_SIM_SOURCE_FILES})
