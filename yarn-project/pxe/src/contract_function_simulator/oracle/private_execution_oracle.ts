@@ -265,7 +265,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public storeInExecutionCache(values: Fr[], hash: Fr) {
+  public setHashPreimage(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
@@ -274,7 +274,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param hash - Hash of the values.
    * @returns The values.
    */
-  public loadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+  public getHashPreimage(hash: Fr): Promise<Fr[]> {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -282,7 +282,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Promise.resolve(preimage);
   }
 
-  override async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  override async doesNullifierExist(innerNullifier: Fr): Promise<boolean> {
     // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
     // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
     // in the current transaction.
@@ -295,7 +295,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     return (
       this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
-      (await super.checkNullifierExists(innerNullifier))
+      (await super.doesNullifierExist(innerNullifier))
     );
   }
 
@@ -598,7 +598,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /** Validates the calldata preimage exists in the cache and checks cumulative calldata size is within limits. */
-  public validatePublicCalldata(calldataHash: Fr) {
+  public assertValidPublicCalldata(calldataHash: Fr) {
     const calldata = this.executionCache.getPreimage(calldataHash);
     if (!calldata) {
       throw new Error('Calldata for public call not found in cache');
@@ -615,7 +615,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  public inRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
+  public isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
     return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
   }
 

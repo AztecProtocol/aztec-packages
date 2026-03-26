@@ -285,7 +285,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param account - The account address.
    * @returns The public keys and partial address, or `undefined` if the account is not registered.
    */
-  public async tryGetPublicKeysAndPartialAddress(
+  public async getPublicKeysAndPartialAddress(
     account: AztecAddress,
   ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
@@ -391,7 +391,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param innerNullifier - The inner nullifier.
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
-  public async checkNullifierExists(innerNullifier: Fr) {
+  public async doesNullifierExist(innerNullifier: Fr) {
     const [nullifier, anchorBlockHash] = await Promise.all([
       siloNullifier(this.contractAddress, innerNullifier!),
       this.anchorBlockHeader.hash(),
@@ -429,7 +429,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param startStorageSlot - The starting storage slot.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public storageRead(
+  public getFromPublicStorage(
     blockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
@@ -497,7 +497,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     logContractMessage(logger, LogLevels[level], strippedMessage, fields);
   }
 
-  public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
+  public async getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
     const logService = new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
@@ -594,7 +594,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public async bulkRetrieveLogs(
+  public async getLogsByTag(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
@@ -623,7 +623,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.logger.getBindings(),
     );
 
-    const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
+    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(logRetrievalRequests);
 
     // Requests are cleared once we're done.
     await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId, scope);
@@ -638,7 +638,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public async utilityResolveMessageContexts(
+  public async getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
@@ -669,7 +669,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         return fields[0];
       });
 
-      const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(
+      const maybeMessageContexts = await this.messageContextService.getMessageContextsByTxHash(
         txHashes,
         this.anchorBlockHeader.getBlockNumber(),
       );
@@ -693,15 +693,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
+  public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    this.capsuleStore.storeCapsule(contractAddress, slot, capsule, this.jobId, scope);
+    this.capsuleStore.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
-  public async loadCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
+  public async getCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -714,7 +714,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     )?.data;
 
     // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
-    return maybeTransientCapsule ?? (await this.capsuleStore.loadCapsule(contractAddress, slot, this.jobId, scope));
+    return maybeTransientCapsule ?? (await this.capsuleStore.getCapsule(contractAddress, slot, this.jobId, scope));
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
@@ -743,7 +743,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
    * stored notes or events are discovered.
    */
-  public invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
+  public setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
     if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(`Contract ${this.contractAddress} cannot invalidate sync cache of ${contractAddress}`);
     }
@@ -751,7 +751,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
-  public aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  public decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
