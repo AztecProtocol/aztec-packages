@@ -129,10 +129,12 @@ function release {
 # This is not done by CI.
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
 function release_root_installer {
-    # Upload root aztec-install with VERSION defaulting to latest (instead of local 0.0.1).
+    # Upload root installer assets: aztec-install (with VERSION defaulting to latest), aztec-up, and banner files.
     sed "s/^VERSION=.*/VERSION=\${VERSION:-latest}/" bin/0.0.1/aztec-install | \
       do_or_dryrun aws s3 cp - "s3://install.aztec.network/aztec-install"
     do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-banner "s3://install.aztec.network/aztec-banner"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-banner-truecolor "s3://install.aztec.network/aztec-banner-truecolor"
 
     # Update alias list.
     do_or_dryrun aws s3 cp bin/aliases/index "s3://install.aztec.network/aliases/index"
@@ -205,6 +207,7 @@ function install_on_mac_vm {
     # Point npm at local Verdaccio and scripts at local HTTP server.
     export npm_config_registry=http://$host_ip:$verdaccio_port
     export INSTALL_URI=http://$host_ip:$http_port
+    export INFRA_VERSION=0.0.1
     export NO_NEW_SHELL=1
 
     touch \$HOME/.zshrc
