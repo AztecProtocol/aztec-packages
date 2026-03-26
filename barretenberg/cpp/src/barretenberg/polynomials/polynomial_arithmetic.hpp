@@ -86,10 +86,7 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
 // void populate_with_vanishing_polynomial(Fr* coeffs, const size_t num_non_zero_entries, const EvaluationDomain<Fr>&
 // src_domain, const EvaluationDomain<Fr>& target_domain);
 
-fr compute_barycentric_evaluation(const fr* coeffs,
-                                  size_t num_coeffs,
-                                  const fr& z,
-                                  const EvaluationDomain<fr>& domain);
+fr compute_barycentric_evaluation(const fr* coeffs, size_t num_coeffs, const fr& z, const EvaluationDomain<fr>& domain);
 
 // This function computes sum of all scalars in a given array.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n);
