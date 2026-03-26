@@ -31,11 +31,7 @@ pub contract Test {
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-<<<<<<< HEAD
-            constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-=======
             constants::{PRIVATE_LOG_CIPHERTEXT_LEN, MAX_PUBLIC_LOG_SIZE_IN_FIELDS},
->>>>>>> 8c88e11c0d (feat(aztec-nr)!: domain-separated tags on log emission (#21910))
             traits::{Hash, Packable, Serialize},
         },
         // Event related
@@ -363,8 +359,6 @@ pub contract Test {
         self.context.emit_public_log_unsafe(0, /*message=*/ "Hello, world!");
     }
 
-<<<<<<< HEAD
-=======
     #[external("public")]
     fn emit_full_size_public_log(value_offset: Field) {
         // -1 because emit_public_log_unsafe prepends the tag, so the emitted log is N + 1 fields.
@@ -373,7 +367,6 @@ pub contract Test {
         self.context.emit_public_log_unsafe(0, log_fields);
     }
 
->>>>>>> 8c88e11c0d (feat(aztec-nr)!: domain-separated tags on log emission (#21910))
     #[external("private")]
     fn consume_mint_to_private_message(
         amount: u128,

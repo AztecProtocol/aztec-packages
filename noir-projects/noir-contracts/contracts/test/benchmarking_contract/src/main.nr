@@ -11,9 +11,6 @@ pub contract Benchmarking {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
-<<<<<<< HEAD
-        protocol::address::AztecAddress,
-=======
         oracle::random::random,
         protocol::{
             address::{AztecAddress, EthAddress},
@@ -23,7 +20,6 @@ pub contract Benchmarking {
                 PRIVATE_LOG_CIPHERTEXT_LEN,
             },
         },
->>>>>>> 8c88e11c0d (feat(aztec-nr)!: domain-separated tags on log emission (#21910))
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
     use field_note::FieldNote;
@@ -73,8 +69,6 @@ pub contract Benchmarking {
     fn sha256_hash_1024(data: [u8; 1024]) -> [u8; 32] {
         sha256::sha256_var(data, data.len())
     }
-<<<<<<< HEAD
-=======
 
     // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
     #[external("private")]
@@ -139,5 +133,4 @@ pub contract Benchmarking {
     // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
     #[external("public")]
     fn noop_pub() {}
->>>>>>> 8c88e11c0d (feat(aztec-nr)!: domain-separated tags on log emission (#21910))
 }
