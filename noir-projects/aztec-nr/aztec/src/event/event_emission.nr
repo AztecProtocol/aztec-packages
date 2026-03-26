@@ -3,7 +3,7 @@ use crate::{
     event::{event_interface::{compute_private_event_commitment, EventInterface}, EventMessage},
     oracle::random::random,
 };
-use crate::protocol::traits::{Serialize, ToField};
+use crate::protocol::{constants::DOM_SEP__EVENT_LOG_TAG, hash::compute_log_tag, traits::{Serialize, ToField}};
 
 /// An event that was emitted in the current contract call.
 pub struct NewEvent<Event> {
@@ -39,17 +39,11 @@ pub fn emit_event_in_public<Event>(context: PublicContext, event: Event)
 where
     Event: EventInterface + Serialize,
 {
-    let mut log_content = [0; <Event as Serialize>::N + 1];
-
-    let serialized_event = event.serialize();
-    for i in 0..serialized_event.len() {
-        log_content[i] = serialized_event[i];
-    }
-
-    // We put the selector in the "last" place, to avoid reading or assigning to an expression in an index
-    //
-    // TODO(F-224): change this order.
-    log_content[serialized_event.len()] = Event::get_event_type_id().to_field();
-
-    context.emit_public_log(log_content);
+    // We prepend a domain-separated tag derived from the event type ID so that clients can filter for specific
+    // events without scanning all public logs.
+    let log_tag = compute_log_tag(
+        Event::get_event_type_id().to_field(),
+        DOM_SEP__EVENT_LOG_TAG,
+    );
+    context.emit_public_log_unsafe(log_tag, event);
 }

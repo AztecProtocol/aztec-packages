@@ -23,17 +23,17 @@ struct lookup_bc_retrieval_contract_instance_retrieval_settings_ {
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_contract_instance_retrieval_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_retrieval_address,
-        ColumnAndShifts::bc_retrieval_current_class_id,
-        ColumnAndShifts::bc_retrieval_instance_exists,
+        ColumnAndShifts::bc_retrieval_nullifier_tree_root,
         ColumnAndShifts::bc_retrieval_public_data_tree_root,
-        ColumnAndShifts::bc_retrieval_nullifier_tree_root
+        ColumnAndShifts::bc_retrieval_instance_exists,
+        ColumnAndShifts::bc_retrieval_current_class_id
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::contract_instance_retrieval_address,
-        ColumnAndShifts::contract_instance_retrieval_current_class_id,
-        ColumnAndShifts::contract_instance_retrieval_exists,
+        ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root,
         ColumnAndShifts::contract_instance_retrieval_public_data_tree_root,
-        ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root
+        ColumnAndShifts::contract_instance_retrieval_exists,
+        ColumnAndShifts::contract_instance_retrieval_current_class_id
     };
 };
 

@@ -380,6 +380,8 @@ case "$cmd" in
     build
     ;;
   "ci")
+    # Ensure CRS is downloaded before running tests
+    ../crs/bootstrap.sh
     build
     test
     ;;

@@ -92,7 +92,7 @@ describe('Deployment benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const { receipt } = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
+            const { receipt } = await deploymentInteraction.send({ ...options });
             expect(receipt.transactionFee!).toBeGreaterThan(0n);
           }
         });

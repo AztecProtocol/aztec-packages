@@ -103,13 +103,24 @@ describe('validateAndStoreEvent', () => {
     };
     aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
-    await expect(runStoreEvent).rejects.toThrow(/Could not find tx effect for tx hash .* as of block number/);
+    await expect(runStoreEvent).rejects.toThrow(
+      /Obtained a newer tx effect for .* for an event validation request than the anchor block/,
+    );
   });
 
-  it('should throw if event commitment is not in the tx effects', async () => {
-    await expect(runStoreEvent({ eventCommitment: Fr.random() })).rejects.toThrow(
-      /Event commitment .* is not present in tx/,
-    );
+  it('should not store event if event commitment is not in the tx effects', async () => {
+    // The service logs a warning and returns early rather than throwing
+    await runStoreEvent({ eventCommitment: Fr.random() });
+
+    // Verify event was not stored
+    const result = await privateEventStore.getPrivateEvents(eventSelector, {
+      contractAddress,
+      fromBlock: blockNumber,
+      toBlock: blockNumber + 1,
+      scopes: [recipient],
+    });
+
+    expect(result.length).toEqual(0);
   });
 
   it('should store event for later retrieval', async () => {
