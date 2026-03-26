@@ -166,6 +166,12 @@ function cmd_install {
 
   # Update the current symlink
   ln -sfn "$AZTEC_HOME/versions/$resolved_version" "$AZTEC_HOME/current"
+
+  if [ "$version" != "$resolved_version" ]; then
+    echo_green "Installed and activated $version ($resolved_version)"
+  else
+    echo_green "Installed and activated version $resolved_version"
+  fi
 }
 
 # Switch to a version
