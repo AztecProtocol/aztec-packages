@@ -87,7 +87,7 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
 // src_domain, const EvaluationDomain<Fr>& target_domain);
 
 fr compute_barycentric_evaluation(const fr* coeffs,
-                                  unsigned long num_coeffs,
+                                  size_t num_coeffs,
                                   const fr& z,
                                   const EvaluationDomain<fr>& domain);
 
