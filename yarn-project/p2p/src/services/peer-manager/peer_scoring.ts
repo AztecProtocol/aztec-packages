@@ -54,6 +54,7 @@ export enum PeerScoreState {
 // TODO: move into config / constants
 const MIN_SCORE_BEFORE_BAN = -100;
 const MIN_SCORE_BEFORE_DISCONNECT = -50;
+const SCORE_CLEANUP_THRESHOLD = 0.1;
 
 export class PeerScoring {
   private logger = createLogger('p2p:peer-scoring');
@@ -118,10 +119,20 @@ export class PeerScoring {
       if (decayPeriods > 0) {
         let score = this.scores.get(peerId) || 0;
         score *= Math.pow(this.decayFactor, decayPeriods);
-        this.scores.set(peerId, score);
-        this.lastUpdateTime.set(peerId, currentTime);
+        if (Math.abs(score) < SCORE_CLEANUP_THRESHOLD) {
+          this.scores.delete(peerId);
+          this.lastUpdateTime.delete(peerId);
+        } else {
+          this.scores.set(peerId, score);
+          this.lastUpdateTime.set(peerId, currentTime);
+        }
       }
     }
+  }
+
+  removePeer(peerId: string): void {
+    this.scores.delete(peerId);
+    this.lastUpdateTime.delete(peerId);
   }
 
   getScore(peerId: string): number {

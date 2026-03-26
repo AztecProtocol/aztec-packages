@@ -138,4 +138,31 @@ describe('PeerScoring', () => {
     // -60 * (0.9^10) ≈ -23.2, which is above the Disconnect threshold
     expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Healthy);
   });
+
+  test('removePeer should delete all score data for a peer', () => {
+    peerScoring.updateScore(testPeerId, -30);
+    expect(peerScoring.getScore(testPeerId)).toBe(-30);
+
+    peerScoring.removePeer(testPeerId);
+    expect(peerScoring.getScore(testPeerId)).toBe(0);
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Healthy);
+  });
+
+  test('decayAllScores should remove entries that have decayed to near-zero', () => {
+    peerScoring.updateScore(testPeerId, -2);
+    peerScoring.updateScore('otherPeer', -100);
+
+    // Advance enough time for the small score to decay below threshold
+    // -2 * 0.9^50 ≈ -0.01, which is below 0.1
+    jest.advanceTimersByTime(50 * 60 * 1000);
+    peerScoring.decayAllScores();
+
+    // Small score should be cleaned up
+    expect(peerScoring.getScore(testPeerId)).toBe(0);
+    // Large score should still exist (decayed but still significant)
+    expect(peerScoring.getScore('otherPeer')).not.toBe(0);
+
+    const stats = peerScoring.getStats();
+    expect(stats.healthyCount).toBe(1);
+  });
 });
