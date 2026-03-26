@@ -100,12 +100,13 @@ MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
     uint32_t lo = static_cast<uint32_t>(sum);
     uint32_t hi = static_cast<uint32_t>(sum >> 32);
 
-    // Do these outside of an assert, in case this gets built without assert
+    // Range-check lo via GT (matches PIL RANGE_COMP_*_RHS lookups).
     bool lo_in_range =
         gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(lo)); // Ensure the lower bits are in range
-    bool hi_in_range =
-        gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(hi)); // Ensure the upper bits are in range
-    BB_ASSERT(lo_in_range && hi_in_range, "Sum in MODULO_SUM out of range");
+    // hi is range-checked in PIL via boolean constraint (output) or range-8 lookup (compression),
+    // not via GT. We only assert here for debug purposes.
+    BB_ASSERT(lo_in_range, "Low value in MODULO_SUM out of range");
+    BB_ASSERT(hi < 256, "High value in MODULO_SUM out of range");
     return MemoryValue::from<uint32_t>(lo);
 }
 
