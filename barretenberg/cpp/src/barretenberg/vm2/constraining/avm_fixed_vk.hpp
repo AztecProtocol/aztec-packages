@@ -491,130 +491,26 @@ class AvmHardCodedVKAndHash {
         };
     }
 
-    static constexpr std::array<Commitment, NUM_PRECOMPUTED_GROUPS> get_precomputed_group_commitments()
+    static constexpr size_t HARDCODED_NUM_PRECOMPUTED_GROUPS = 8;
+    static constexpr std::array<Commitment, HARDCODED_NUM_PRECOMPUTED_GROUPS> get_precomputed_group_commitments()
     {
         return {
-            Commitment(uint256_t("0x01bf5a34598386d99b6ccc219818ab106fed52a726fb3a9c0441081da8b1c1b1"),
-                       uint256_t("0x18502ff3b8e94dd016d59c5589f6a159a111cbfec62cd8f3da448f598287c56d")), // group_0
-            Commitment(uint256_t("0x1568bcd0d50fdf5340d4df4f250a57f3d2e1aadc02663bd1a30578dfce8e9507"),
-                       uint256_t("0x23ae6c05cf791804526d0755fdaac8c1fe04f282ca98db1b5e5cb6f6c865a356")), // group_1
-            Commitment(uint256_t("0x27e2c297f76169365c9be8135fc8f80bc5ea383210650260bde74d53d7f61d4e"),
-                       uint256_t("0x00a8060a16e08eb38e3a5097bfbe0cd49f319f50222f05c900ccb7bcc60de545")), // group_2
-            Commitment(uint256_t("0x1733c2438a9243b2e779485e9ef485265f781a68bf6ec56f1094f4acd086f000"),
-                       uint256_t("0x1ea884eccfe00b826b2bdd0290850b8ca7d725890e8340d3f65304b56e652dab")), // group_3
-            Commitment(uint256_t("0x2bc2844588ce91f37ec65c71544f382924c6abda2d69d14a53028b3d060a7667"),
-                       uint256_t("0x148dc5da2a87a54d3ceab24bc8c855ec3397c93bb56da091788057c99d3d5fc6")), // group_4
-            Commitment(uint256_t("0x0fa4790a586b939ea6275ed49040d83fd78c97644965afa4a9708ce50cea36c0"),
-                       uint256_t("0x07ed953eb443e2833ec77082b8edf29f93849a35de6fb63c25e28dfac76ca34b")), // group_5
-            Commitment(uint256_t("0x01f741a91696c8740c3a91db4540297a450743a6348d09e2cf788dc91ba3796d"),
-                       uint256_t("0x2817fd2cc7f5274e27ea1823f3c44e035b98cd741309ae68144a20dfc4485881")), // group_6
-            Commitment(uint256_t("0x0ebe25da0f7e0fae8f6f425f268e8baa1b61e4fb2feb3f42f68f43c153dcb664"),
-                       uint256_t("0x107cd8ff195063a30e7ecc62dc53bbb580e1b8d9af11f1226adbdb8acfb5c41b")), // group_7
-            Commitment(uint256_t("0x263c7f6cb6af777537a832e450ec66c337b26316cd947772f7588e0de4299f90"),
-                       uint256_t("0x039675aff7911ad2110e025cda15ca93e9cf47f8ec567f49483871e2864002ec")), // group_8
-            Commitment(uint256_t("0x19e421006c9eccc143ba5ee43586cd848e1b00f1813ba003b8d2dbccc0b96d56"),
-                       uint256_t("0x0649da7a940a2472807d0c6aa6b370d08ae76841739bd769fc96a0911e384d41")), // group_9
-            Commitment(uint256_t("0x13b4b33114870c0e6b92e4be2a966481a0c9f54ca39c958ccd1f52475d0153f4"),
-                       uint256_t("0x009cc61c6710d90055fe259570671cf62dc2ab8d47edac4e47d3a8d11ba5ef08")), // group_10
-            Commitment(uint256_t("0x18767f4913191cda99ae4f952c00bce4ccb5baa2d5b34a9454dccfca2d59e432"),
-                       uint256_t("0x028f8b244065a2dbe35e64439dd3aed85df92e2e9ec32df55f6ad43dc4b311a1")), // group_11
-            Commitment(uint256_t("0x2fb831012484bd1e1528a2ad63b7ebb4a12c11a468259fada799d73b359832cd"),
-                       uint256_t("0x224ce9fd28f1aa6f57c99c77c8b427298a76f689022481700bbe12836c84a151")), // group_12
-            Commitment(uint256_t("0x16946abdbb47f1c7a928b89a860e8dbad8fd971eae0d6b3f28edf61c44d6eb48"),
-                       uint256_t("0x08b8f2c67cb3966c834f8e1046b20a849670291a58c9a676d143cdfa624c1a83")), // group_13
-            Commitment(uint256_t("0x134388370e422e35c4cf6eb969bdb3fb095bd3782f4452f52ff736aaa06212a7"),
-                       uint256_t("0x0bc3095626ee7dc28f3c8db8aac7e14be793256f74c801e9451f81837bce2418")), // group_14
-            Commitment(uint256_t("0x0a25aa4a60bbbda1150b951479c217059aa6086d6935e73cbb68e8902512e099"),
-                       uint256_t("0x0e5782a087b2ae11d31222dfbe17ef975315ed21b6fdbcb8344eb3062c115fc3")), // group_15
-            Commitment(uint256_t("0x0ef5c082198ec21a6bb45431aa09548c7c495e5d73aa9466ddcbfc291d988faa"),
-                       uint256_t("0x1c65279e11f0f2b12c5b1b8a04601f1dcd83b1e932e544008bfa816332827015")), // group_16
-            Commitment(uint256_t("0x0eafb37ce4c9a40916a0857ccf3b0b38f7677335433cd4f1b7a2461f9ee69ef2"),
-                       uint256_t("0x2b59828726b6358529429469d4f75d82d8f9357fa8982c41dd91ebe3d6e39b2a")), // group_17
-            Commitment(uint256_t("0x1e08b16d9a3f11b58d411504dff6a68e1bd2a8f870e5113044aec07d624f3ab3"),
-                       uint256_t("0x0e93c04982a71c9f8654a4a2c6037ef951db565ec346b968df768843a7a0ef69")), // group_18
-            Commitment(uint256_t("0x23886d8ce1539ab050c37aa9620b3705736fa4e9413f13bd26fda838ec0c1bbc"),
-                       uint256_t("0x2af1d1291509922531e4703fb532ac744f8a0592506a0fea57ccd14824784b58")), // group_19
-            Commitment(uint256_t("0x0b7655cc52fc9b3ce9ab87382eafd04c93d25f6d7ac31510b31f8d4631312938"),
-                       uint256_t("0x1fcbf1e8fc644fde306c936fdf00a010a2659ed89ca51d0ee1861cd305d5fe49")), // group_20
-            Commitment(uint256_t("0x0aee51d742353a73a8f6ffaf249d701bfc98e35a2bcca467eca4dc9039a23961"),
-                       uint256_t("0x07861bdb4b29d4be5b0c9706dd5b6597cde287698fd491e8c91de43655924cca")), // group_21
-            Commitment(uint256_t("0x1e12c2ca6e244f03e26edf2a38e991862b6669e39cf97ec9ec7ef230b6164425"),
-                       uint256_t("0x06dc1a13d798f4ce9fc42649c1deb5b6198e412563c3c50bf3e82b3e4a8ba6a0")), // group_22
-            Commitment(uint256_t("0x0b7b8c62af10ec9dcd209a710641600b9d7448dcda7b72b35595b5a94439950e"),
-                       uint256_t("0x20f6f19b59a13d5ce4200d4c9e55178768d0f41c34a577b00932f81c15923389")), // group_23
-            Commitment(uint256_t("0x187537e08c726656f44357a7c71c765cacc548ea73258acb2bc5b127c3341bc2"),
-                       uint256_t("0x21f73fe1e320368dbd1c223f10eeab0b54d27735a9bf6336b623970299f5abd1")), // group_24
-            Commitment(uint256_t("0x0a18a65da5ed103d32ff56ed763846d0106d6688e9b57357a4302ab691c596f2"),
-                       uint256_t("0x117c65fcca81f76a5571cc3aadbd14d6e4dabc9723754a2f913e3d3bce7288aa")), // group_25
-            Commitment::infinity(),                                                                      // group_26
-            Commitment(uint256_t("0x0ccd9c60b4f0b84798439fd9116d0717b26827ac73ad32b5527d58a57922ed98"),
-                       uint256_t("0x151da086672668b709ea89e594deb54e95f0f162ab9ea7ab51331bb95207ab2b")), // group_27
-            Commitment(uint256_t("0x1585ffac94e7a1420e1706b571946de3a90765c0ac913a366a6fe3473f5bb786"),
-                       uint256_t("0x2966ec045781f189962f2b5d108b9f49468adee3df7c61d5d405e53509d7a95f")), // group_28
-            Commitment(uint256_t("0x0e028456c27de5f392a3ff7f7313ced9c5a7cf69ca4e9cc7d76e14fb9ba3504d"),
-                       uint256_t("0x20a196120ee1f3b0089f314d51e154d6ea91c980f4955e3b993c81f34919ece8")), // group_29
-            Commitment(uint256_t("0x1424891eac7ce19c2364be9e01d51b6a49f0009ce06520100a797abbd5ea1345"),
-                       uint256_t("0x287721118e013d9ff43ff326f07861181f44984de25e5fd491183b88974f3f38")), // group_30
-            Commitment(uint256_t("0x27d491bf7e633e7878fd25d87cac7f15585d1aa2b8fddf9eadf6e33c3ed847a2"),
-                       uint256_t("0x024f72176088eafc85ab76a4c01efeb539eeee72d6e960392b0793e05985f876")), // group_31
-            Commitment(uint256_t("0x2eead2b097aeb548269460c117420bd46f782358d0c91f6397a191b8614951b9"),
-                       uint256_t("0x1b1ca85f83fe7a2f8f0cbdae73e3aadce4b1067306aa24c6f5bde0c0e65cd822")), // group_32
-            Commitment(uint256_t("0x05dde76652068c0f1161742856f5f713ea4b8b6c4ee21a9023b4c5849913d0bd"),
-                       uint256_t("0x05cd86532eb75a9479e9a98dcae465ab0f943ef9108a7e132cc11ac343b964d0")), // group_33
-            Commitment(uint256_t("0x3058b7f62cbcbdc8763b05935e9965bea86cd205281d331fb426ef4232ffe5c5"),
-                       uint256_t("0x2b312f13fea65176bc0fe06aef8724f256898d215c78835f40bfe56fbf3f0de3")), // group_34
-            Commitment(uint256_t("0x2f68d6c241f27471a82730fc42e3ec8920ffb2401f8dbe4e7cc8c621f17c6689"),
-                       uint256_t("0x251c37783763ea16355c0c4f605f9c8bd589959df2d1f6545a362809ea83cfef")), // group_35
-            Commitment(uint256_t("0x2f7a993dd20e2e6767224366974227fd036dc4d4548b31ecd13cb9ed251c855f"),
-                       uint256_t("0x1c02ad05131c8df3cf82f6c918a3f4575ecd447dba5d12bfff2eb72f4a2e0d0e")), // group_36
-            Commitment(uint256_t("0x20cb95c4e1600ceabe23ff7561bd3934ace396a1f1eaa1d7384225a749111c4a"),
-                       uint256_t("0x1d03a9c4323eb6463eebdf7bfc0c9f3bbb31fd284b4865cd82e63219ccfd94d8")), // group_37
-            Commitment(uint256_t("0x125a42a61686ac26f4e7148ad548dd9b72889a13524af2687374d476401f258d"),
-                       uint256_t("0x15e483092685e9e68ce66e2ba9370b9318683e2b08b3d083cf9caa091b658c64")), // group_38
-            Commitment(uint256_t("0x18ea3052e74827af4b11865070b6146cdbff2449fbf436692787f40b83ff2d54"),
-                       uint256_t("0x1e20a6908a664c5ec82ea32b00bc73b2132a9e339189a691fedd18668393abe5")), // group_39
-            Commitment(uint256_t("0x2b42d7bdff6515dfa966d0930e24597d09a216ba66a1ee6111991c2bd9030846"),
-                       uint256_t("0x09460e72ca33dda5ee80913ea436915df0b33e8cef2c96a78ed6c947c31c1329")), // group_40
-            Commitment(uint256_t("0x159932cd0c09a6e1a2dec07e82fda8965fda3a911e7993fe68af90a66ae8b49b"),
-                       uint256_t("0x0bd40bd842a494771bc21c4ea76efaa192a23acb80674e49ed67e03a98b63514")), // group_41
-            Commitment(uint256_t("0x18e63b62ce40a4706cc696ccb7b24da1c152c93798d3d42c44c53e28c36a831c"),
-                       uint256_t("0x0aa143a697012b7bfacc15a6668483db029d27238719b7148da83ab1eb259220")), // group_42
-            Commitment(uint256_t("0x1dc2cc0b23500bead96227de9e48c091e98b54e60f798c6e467a114765bd6e41"),
-                       uint256_t("0x24cb3d1ef29866fa24d424aded9eb45f992e2a0489d4db3fd84d606c4ca55416")), // group_43
-            Commitment(uint256_t("0x07f5b39750e967d2be1a7a840f62e58ed98b63addbf948f905af4e73345d0445"),
-                       uint256_t("0x2d90effada1d4e1e0aed989257c425331be3d0bf7eda785b8a45b7def5e20f64")), // group_44
-            Commitment(uint256_t("0x1ab1f196a0ae146cd913cfdb437fa40c04b829ca16f7fc11536c391b8559fc67"),
-                       uint256_t("0x2dbb51261a0001a9d5e33db92eb77eb359503a277ab1ee61b7c30709ec6649e3")), // group_45
-            Commitment(uint256_t("0x2eead2b097aeb548269460c117420bd46f782358d0c91f6397a191b8614951b9"),
-                       uint256_t("0x1b1ca85f83fe7a2f8f0cbdae73e3aadce4b1067306aa24c6f5bde0c0e65cd822")), // group_46
-            Commitment(uint256_t("0x0f7982848f5084e56ec82005784096c9dd2bbe205ac31e6eac8516207ee37ce7"),
-                       uint256_t("0x2ab6a2c51b18532b93a5439c556bdabc3cb9c14c08c527359091e62b5f3c84ec")), // group_47
-            Commitment(uint256_t("0x2984cab59ae22678038ec7d8e1b29d3662954caefc08a711fc88615273270d15"),
-                       uint256_t("0x2a427eb5750c8a2f07f03619d5053dd01122a713e870aae9749bde1479d73974")), // group_48
-            Commitment(uint256_t("0x03b6b5281e9434a2b96ecb8bf9fe03adad92f1b02aea6900d06c447979089d02"),
-                       uint256_t("0x0868683c68db6fccdd41c30719140ea1a6f6cebd242355b8aa9e6b2e3a9bd4ce")), // group_49
-            Commitment(uint256_t("0x03c26a42c64f0e83dd008344060c1759d2538af3e9951b51e00a219935059f38"),
-                       uint256_t("0x2cd2d92ce3d1447b37c3552f27486e800fbad270652f8b8774044f9df9ae6f5c")), // group_50
-            Commitment(uint256_t("0x17afbe0c17a9a382b342eb0a14de9d91988705bcd62b3abf9393afefef3987ce"),
-                       uint256_t("0x0c95487e54adf07f821633288e1793398910d8d294d8b474089aa6458d5ca6a6")), // group_51
-            Commitment(uint256_t("0x22ed1960f2842df75ccd1ecd17415495b858a455c67188fa23da90e45c1ee996"),
-                       uint256_t("0x0357f4bddbf02c05897bc19f178f06858df7414991d07b6186c3adc10d756b6f")), // group_52
-            Commitment(uint256_t("0x2eead2b097aeb548269460c117420bd46f782358d0c91f6397a191b8614951b9"),
-                       uint256_t("0x1b1ca85f83fe7a2f8f0cbdae73e3aadce4b1067306aa24c6f5bde0c0e65cd822")), // group_53
-            Commitment(uint256_t("0x2a254f0765a074d6c635001aeca7a97ef35a61a74c569ef9d6e5a49dd3682417"),
-                       uint256_t("0x01865e617c545d5746387bd4db397d165672fd76959b04aa2685280e37f2d694")), // group_54
-            Commitment(uint256_t("0x28df563afa2529468f586fd6fc05a2cfc0e1e42d1d25f5eaebf698e56b91138e"),
-                       uint256_t("0x0baaf2fdf01d74bb1f1b5a7868738eccbca706d2560f87891f89c988eca8a8c9")), // group_55
-            Commitment(uint256_t("0x0336411758736a7e9f99198184b4e551a4537f92d2f55aa373c36701fa77eb7b"),
-                       uint256_t("0x2ef5c4e9c7fb714ba47ea401a77a024419a2e8b051eeb01bce501a0dc0a11de4")), // group_56
-            Commitment(uint256_t("0x0ca6bda29613b577fc32afd91eb5f1b79712820d3e5c45a7347fad226c921316"),
-                       uint256_t("0x2ab3e7ff425425cc82e7e5a25661d71700c13166e5140f9ed1d51cb4e52a6216")), // group_57
-            Commitment(uint256_t("0x1419e466d28a5a270a9a12ddf9a0ae9692d38c6cd51fd73c9e16471368164647"),
-                       uint256_t("0x2f2506390b24bded124185a310186e16d37d37d6a86a35fd8b000d31b1224fe3")), // group_58
-            Commitment(uint256_t("0x2a4bc6c19eee121871c176077f1d81852e2d41a4ab30c5a949d245ef7bd5f422"),
-                       uint256_t("0x1988a43b7060a1f33f6dc9b64a00f121253a04af332c4aa19294ebe73c67b4a5")), // group_59
-            Commitment(uint256_t("0x229e17e664d44e18580ab8162bfb049c6e862134e962aea090f48c50ff8876bc"),
-                       uint256_t("0x1402e94b9002e9b06da79f16e2fb4be66ad90e708ee6c4b0687ab48589719be1")), // group_60
+            Commitment(uint256_t("0x18af63e14aba77709e747c5fcab82942c0249b62f7c2a023673b513a7960417b"),
+                       uint256_t("0x1b15b7353e09b50a5aa8d78100e494adbad432998f19afabb1bc66cd1a2e3f8c")), // group_0
+            Commitment(uint256_t("0x2aabb4d7421b5b029e7a79f86393328286b702bd70cfbd0858e3f878806d1490"),
+                       uint256_t("0x25da131ef72009e617bf0ee2b8c552940c30c8f61799340cd0fc8c0ffb3e73f4")), // group_1
+            Commitment(uint256_t("0x126db6eefa6719d77e2e942541d2162799e535f337b4a50fc07d10dbac90042b"),
+                       uint256_t("0x2a1721c60e2812feb0f5c17b83e613ce6f7805dfdab8594374b1cc514420bbcf")), // group_2
+            Commitment(uint256_t("0x077827e2d14c98b4bf6bee89b97385a58a86acb6eba29c0a6ea209a0a0527ee4"),
+                       uint256_t("0x1dbbbb9186133e6c3a38494a1938938713f95e4dd9131ca9c1895458ac76676a")), // group_3
+            Commitment(uint256_t("0x28dd2f52623d79ee40c6d8108a1ca44370c46040f1c1ff4302b3d5ca01befa0d"),
+                       uint256_t("0x2da328ab3ae9dd2c1cfd56236f0e745dbc2fcccbd61dd151169262957e40ee8a")), // group_4
+            Commitment(uint256_t("0x0564fb66ade1c6e43379ffe98a85011f4f8e681f586846d8d2dc74afd9d661e7"),
+                       uint256_t("0x098551a130829a93b9426b8c70df1c3288086d09d2bf8149bae9b46ba69fe0bb")), // group_5
+            Commitment(uint256_t("0x2e704de2273b585832e332a52f89a750d336ceb77cfd6ed82bd3803be92410b3"),
+                       uint256_t("0x091dc9b7cb4c0d1681ad700fe0d2dedc39a81cfd665ff1578ccad8e828c55f05")), // group_6
+            Commitment(uint256_t("0x1d0a066c3ecf0fecd8e5e3a3f5f4705a092d11d5803cc1db274ea00210289e9e"),
+                       uint256_t("0x1d7eaba725df4cfbe163a24e2ca682bcc54ace9f2e29afbb051991da51a52ca8")), // group_7
         };
     }
 };

@@ -112,7 +112,10 @@ int main(int argc, char** argv)
     out << "\n        };\n";
     out << "    }\n";
     out << "\n";
-    out << "    static constexpr std::array<Commitment, NUM_PRECOMPUTED_GROUPS> get_precomputed_group_commitments()\n";
+    // Use literal count (not NUM_PRECOMPUTED_GROUPS) so stale file compiles even if BS changes.
+    out << "    static constexpr size_t HARDCODED_NUM_PRECOMPUTED_GROUPS = " << group_comms.size() << ";\n";
+    out << "    static constexpr std::array<Commitment, HARDCODED_NUM_PRECOMPUTED_GROUPS> "
+           "get_precomputed_group_commitments()\n";
     out << "    {\n";
     out << "        return {\n";
     for (size_t g = 0; g < group_comms.size(); g++) {

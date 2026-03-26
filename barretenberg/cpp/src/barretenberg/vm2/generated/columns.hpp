@@ -79,8 +79,8 @@ constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM2_SHIFTED_CO
 static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());
 
 // Interleaving constants for multipcs.
-constexpr size_t INTERLEAVING_BATCH_SIZE = 2;
-constexpr size_t INTERLEAVING_LOG_K = 1;
+constexpr size_t INTERLEAVING_BATCH_SIZE = 16;
+constexpr size_t INTERLEAVING_LOG_K = 4;
 // Zero-padding inserted before shifted wires so that the shifted start is BS-aligned within wire groups.
 constexpr size_t NUM_NON_SHIFTED_WIRES = NUM_WIRE_ENTITIES - NUM_WIRES_TO_BE_SHIFTED;
 constexpr size_t NUM_SHIFT_ALIGNMENT_PADDING =
