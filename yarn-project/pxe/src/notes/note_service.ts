@@ -121,7 +121,7 @@ export class NoteService {
     noteHash: Fr,
     nullifier: Fr,
     txHash: TxHash,
-    recipient: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // We are going to store the new note in the NoteStore, which will let us later return it via `getNotes`.
     // There's two things we need to check before we do this however:
@@ -155,16 +155,28 @@ export class NoteService {
       this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
     ]);
     if (!txEffect) {
-      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+      // We error out instead of just logging a warning and skipping the note because this would indicate a bug. This
+      // is because the node has already served info about this tx either when obtaining the log (TxScopedL2Log contain
+      // tx info) or when getting metadata for the offchain message (before the message got passed to `process_log`).
+      throw new Error(`Could not find tx effect for tx hash ${txHash} when processing a note.`);
     }
 
     if (txEffect.l2BlockNumber > anchorBlockNumber) {
-      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${anchorBlockNumber}`);
+      // If the message was delivered onchain, this would indicate a bug: log sync should never load logs from blocks
+      // newer than the anchor block. If the note came via an offchain message, it would likely also be a bug, since we
+      // sync a new anchor block before calling `process_message`. For this not to be a bug, the message would need to
+      // come from a newer block than the anchor served by the node, implying the node isn't properly synced.
+      //     We therefore error out here rather than assuming the offchain message was constructed by a malicious
+      // sender with the intention of bricking recipient's PXE (if we assumed that we would just ignore the message).
+      throw new Error(
+        `Obtained a newer tx effect for ${txHash} for a note validation request than the anchor block ${anchorBlockNumber}. This is a bug as we should not ever be processing a note from a newer block than the anchor block.`,
+      );
     }
 
     // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
     const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
     if (noteIndexInTx === -1) {
+      // Similar to the comment above - we error out as this would indicate a bug in nonce discovery.
       throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
     }
 
@@ -184,8 +196,7 @@ export class NoteService {
       noteIndexInTx,
     );
 
-    // The note was found by `recipient`, so we use that as the scope when storing the note.
-    await this.noteStore.addNotes([noteDao], recipient, this.jobId);
+    await this.noteStore.addNotes([noteDao], scope, this.jobId);
 
     if (nullifierIndex !== undefined) {
       // We found nullifier index which implies that the note has already been nullified.

@@ -140,16 +140,18 @@ pol commit instance_exists; // @boolean (by lookup into contract_instance_retrie
 #[CONTRACT_INSTANCE_RETRIEVAL]
 sel {
     address,
-    current_class_id,
-    instance_exists,
+    nullifier_tree_root,
     public_data_tree_root,
-    nullifier_tree_root
+    instance_exists,
+    current_class_id
 } in contract_instance_retrieval.sel {
     contract_instance_retrieval.address,
-    contract_instance_retrieval.current_class_id,
-    contract_instance_retrieval.exists,
+    contract_instance_retrieval.nullifier_tree_root,
     contract_instance_retrieval.public_data_tree_root,
-    contract_instance_retrieval.nullifier_tree_root
+    contract_instance_retrieval.exists,
+    // Note: don't need deployer_addr for bc retrieval
+    contract_instance_retrieval.current_class_id
+    // Note: don't need init_hash for bc retrieval
 };
 
 ////////////////////////////////////////////////

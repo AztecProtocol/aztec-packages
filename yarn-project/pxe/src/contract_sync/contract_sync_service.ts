@@ -31,6 +31,7 @@ export class ContractSyncService implements StagedStore {
     private aztecNode: AztecNode,
     private contractStore: ContractStore,
     private noteStore: NoteStore,
+    private getRegisteredAccounts: () => Promise<AztecAddress[]>,
     private log: Logger,
   ) {}
 
@@ -92,18 +93,28 @@ export class ContractSyncService implements StagedStore {
     scopes: AccessScopes,
   ): Promise<void> {
     this.log.debug(`Syncing contract ${contractAddress}`);
+
+    // Resolve ALL_SCOPES to actual registered accounts, since sync_state must be called once per account.
+    const scopeAddresses = scopes === 'ALL_SCOPES' ? await this.getRegisteredAccounts() : scopes;
+
     await Promise.all([
-      syncState(
-        contractAddress,
-        this.contractStore,
-        functionToInvokeAfterSync,
-        utilityExecutor,
-        this.noteStore,
-        this.aztecNode,
-        anchorBlockHeader,
-        jobId,
-        scopes,
-      ),
+      // Call sync_state sequentially for each scope address — each invocation synchronizes one account's private
+      // state using scoped capsule arrays.
+      (async () => {
+        for (const scope of scopeAddresses) {
+          await syncState(
+            contractAddress,
+            this.contractStore,
+            functionToInvokeAfterSync,
+            utilityExecutor,
+            this.noteStore,
+            this.aztecNode,
+            anchorBlockHeader,
+            jobId,
+            scope,
+          );
+        }
+      })(),
       verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader),
     ]);
     this.log.debug(`Contract ${contractAddress} synced`);

@@ -42,7 +42,7 @@ pub contract Child {
     #[external("public")]
     fn pub_set_value(new_value: Field) -> Field {
         self.storage.current_value.write(new_value);
-        self.context.emit_public_log(new_value);
+        self.context.emit_public_log_unsafe(0, new_value);
 
         new_value
     }
@@ -71,7 +71,7 @@ pub contract Child {
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = self.storage.current_value.read();
         self.storage.current_value.write(old_value + new_value);
-        self.context.emit_public_log(new_value);
+        self.context.emit_public_log_unsafe(0, new_value);
 
         new_value
     }
@@ -80,13 +80,13 @@ pub contract Child {
     fn set_value_twice_with_nested_first() {
         let _result = self.call_self.pub_set_value(10);
         self.storage.current_value.write(20);
-        self.context.emit_public_log(20);
+        self.context.emit_public_log_unsafe(0, 20);
     }
 
     #[external("public")]
     fn set_value_twice_with_nested_last() {
         self.storage.current_value.write(20);
-        self.context.emit_public_log(20);
+        self.context.emit_public_log_unsafe(0, 20);
         let _result = self.call_self.pub_set_value(10);
     }
 
@@ -95,6 +95,6 @@ pub contract Child {
         self.call_self.set_value_twice_with_nested_first();
         self.call_self.set_value_twice_with_nested_last();
         self.storage.current_value.write(20);
-        self.context.emit_public_log(20);
+        self.context.emit_public_log_unsafe(0, 20);
     }
 }
