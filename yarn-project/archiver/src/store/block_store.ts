@@ -96,6 +96,9 @@ export class BlockStore {
   /** Stores last proven checkpoint */
   #lastProvenCheckpoint: AztecAsyncSingleton<number>;
 
+  /** Stores last finalized checkpoint (proven at or before the finalized L1 block) */
+  #lastFinalizedCheckpoint: AztecAsyncSingleton<number>;
+
   /** Stores the pending chain validation status */
   #pendingChainValidationStatus: AztecAsyncSingleton<Buffer>;
 
@@ -110,10 +113,7 @@ export class BlockStore {
 
   #log = createLogger('archiver:block_store');
 
-  constructor(
-    private db: AztecAsyncKVStore,
-    private l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
-  ) {
+  constructor(private db: AztecAsyncKVStore) {
     this.#blocks = db.openMap('archiver_blocks');
     this.#blockTxs = db.openMap('archiver_block_txs');
     this.#txEffects = db.openMap('archiver_tx_effects');
@@ -122,21 +122,27 @@ export class BlockStore {
     this.#blockArchiveIndex = db.openMap('archiver_block_archive_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
     this.#lastProvenCheckpoint = db.openSingleton('archiver_last_proven_l2_checkpoint');
+    this.#lastFinalizedCheckpoint = db.openSingleton('archiver_last_finalized_l2_checkpoint');
     this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
     this.#checkpoints = db.openMap('archiver_checkpoints');
     this.#slotToCheckpoint = db.openMap('archiver_slot_to_checkpoint');
   }
 
   /**
-   * Computes the finalized block number based on the proven block number.
-   * We approximate finalization as 2 epochs worth of checkpoints behind the proven block.
-   * Each checkpoint is assumed to contain 4 blocks, so the lookback is epochDuration * 2 * 4 blocks.
-   * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+   * Returns the finalized L2 block number. An L2 block is finalized when it was proven
+   * in an L1 block that has itself been finalized on Ethereum.
    * @returns The finalized block number.
    */
   async getFinalizedL2BlockNumber(): Promise<BlockNumber> {
-    const provenBlockNumber = await this.getProvenBlockNumber();
-    return BlockNumber(Math.max(provenBlockNumber - this.l1Constants.epochDuration * 2 * 4, 0));
+    const finalizedCheckpointNumber = await this.getFinalizedCheckpointNumber();
+    if (finalizedCheckpointNumber === INITIAL_CHECKPOINT_NUMBER - 1) {
+      return BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
+    }
+    const checkpointStorage = await this.#checkpoints.getAsync(finalizedCheckpointNumber);
+    if (!checkpointStorage) {
+      throw new CheckpointNotFoundError(finalizedCheckpointNumber);
+    }
+    return BlockNumber(checkpointStorage.startBlock + checkpointStorage.blockCount - 1);
   }
 
   /**
@@ -957,6 +963,20 @@ export class BlockStore {
   async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber) {
     const result = await this.#lastProvenCheckpoint.set(checkpointNumber);
     return result;
+  }
+
+  async getFinalizedCheckpointNumber(): Promise<CheckpointNumber> {
+    const [latestCheckpointNumber, finalizedCheckpointNumber] = await Promise.all([
+      this.getLatestCheckpointNumber(),
+      this.#lastFinalizedCheckpoint.getAsync(),
+    ]);
+    return (finalizedCheckpointNumber ?? 0) > latestCheckpointNumber
+      ? latestCheckpointNumber
+      : CheckpointNumber(finalizedCheckpointNumber ?? 0);
+  }
+
+  setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber) {
+    return this.#lastFinalizedCheckpoint.set(checkpointNumber);
   }
 
   #computeBlockRange(start: BlockNumber, limit: number): Required<Pick<Range<number>, 'start' | 'limit'>> {
