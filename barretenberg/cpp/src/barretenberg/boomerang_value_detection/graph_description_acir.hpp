@@ -10,7 +10,6 @@ using sha256_helpers::Sha256RoundState;
 using sha256_helpers::Sha256SparseFunctionParams;
 using sha256_helpers::Sha256SparseFunctionResult;
 using sha256_helpers::Sha256SparseFunctionType;
-using sha256_helpers::Sha256SubcircuitBoundaries;
 /**
  * @brief Result of find_and_validate_add_two_gate: gate index and output witness.
  */
@@ -48,9 +47,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool is_uncostrained_arithmetic_gate(size_t gate_index);
     std::optional<size_t> find_sha256_add_normalize_gate(uint32_t result_real, uint32_t hash_real);
     std::optional<std::vector<size_t>> find_sha256_decompose_gate(uint32_t result_real);
-    std::optional<AddTwoGateInfo> find_and_validate_add_two_gate(uint32_t a_real,
-                                                                 uint32_t b_real,
-                                                                 uint32_t c_real);
+    std::optional<AddTwoGateInfo> find_and_validate_add_two_gate(uint32_t a_real, uint32_t b_real, uint32_t c_real);
     std::optional<AddTwoGateWires> find_add_two_gate_by_output(uint32_t output_real);
     /**
      * @brief Find an arithmetic gate matching specified wire positions.
@@ -79,12 +76,10 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
                                       size_t gate_count,
                                       size_t expected_hash,
                                       const char* log_prefix);
-    bool process_sha256comression_round(Sha256RoundState& state,
-                                        uint32_t w_i_real,
-                                        bool w_i_const,
-                                        size_t round_idx,
-                                        uint32_t& discovered_w_i_real);
-    Sha256SparseFunctionResult validate_sha256_sparse_function(const Sha256SparseFunctionParams& params);
+    bool process_sha256comression_round(
+        Sha256RoundState& state, uint32_t w_i_real, bool w_i_const, size_t round_idx, uint32_t& discovered_w_i_real);
+    Sha256SparseFunctionResult validate_sha256_sparse_function(const Sha256SparseFunctionParams& params,
+                                                               size_t lookup_lower_bound = 0);
     /**
      * @brief Validate one extend_witness iteration for W[i] (i >= 16, non-constant).
      *
@@ -120,31 +115,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool validate_range_constraint(uint32_t witness, uint32_t num_bits);
     bool process_sha256compression_constraint(const ConstraintPtr& ptr);
 
-    /**
-     * @brief Find the exact gate boundaries of a SHA256 subcircuit in both lookup and arithmetic blocks.
-     * Uses constraint witnesses to find start positions and known gate counts for sizes.
-     */
-    std::optional<Sha256SubcircuitBoundaries> find_sha256_subcircuit_boundaries(
-        const acir_format::Sha256Compression* constraint);
-
-    /**
-     * @brief Validate that selectors within a SHA256 subcircuit match known-good hashes.
-     * Computes a deterministic hash over all selector values in the lookup and arithmetic
-     * gate ranges and compares against pinned constants.
-     */
-    bool validate_sha256_subcircuit_selectors(const Sha256SubcircuitBoundaries& boundaries);
-
-    /**
-     * @brief Find all gate indices for a set of witnesses in a specific block.
-     * Iteratively expands: when a gate is found, all wire indices from that gate
-     * are added to the search set, discovering transitively connected gates.
-     * @param seed_witnesses Real variable indices to start from
-     * @param target_block_idx Block index (0=pub_inputs, 1=lookup, 2=arithmetic, 3=delta_range, ...)
-     * @return Sorted vector of gate indices, empty if none found
-     */
-    std::vector<size_t> find_sha256_arithmetic_subtrace(const std::unordered_set<uint32_t>& seed_witnesses,
-                                                        const acir_format::Sha256Compression* constraint,
-                                                        const std::unordered_set<uint32_t>& constraint_boundary);
     bool process_blake2s_constraints(const ConstraintPtr& ptr,
                                      const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_blake3s_constraints(const ConstraintPtr& ptr,

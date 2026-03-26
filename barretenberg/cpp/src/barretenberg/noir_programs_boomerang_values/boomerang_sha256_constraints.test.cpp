@@ -76,6 +76,68 @@ WitnessOrConstant<fr> witness_from_index(uint32_t idx)
     return WitnessOrConstant<fr>::from_index(idx);
 }
 
+constexpr uint32_t INPUT_BLOCK[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+/**
+ * @brief Build SHA256 test setup with configurable constant masks.
+ * @param h_init_constant_mask Bitmask: bit i set → hash_values[i] is constant
+ * @param input_constant_mask  Bitmask: bit i set → inputs[i] is constant
+ */
+SHA256TestSetup build_sha256_setup_with_constants(uint8_t h_init_constant_mask, uint16_t input_constant_mask)
+{
+    using FF = fr;
+    SHA256TestSetup setup;
+
+    setup.input_block = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+    std::copy(std::begin(SHA256_IV), std::end(SHA256_IV), setup.hash_values.begin());
+    setup.result = crypto::sha256_block(setup.hash_values, setup.input_block);
+
+    auto make_witness = [&](uint32_t value) -> WitnessOrConstant<FF> {
+        uint32_t idx = static_cast<uint32_t>(setup.witness_values.size());
+        setup.witness_values.emplace_back(FF(value));
+        return WitnessOrConstant<FF>::from_index(idx);
+    };
+
+    auto make_constant = [](uint32_t value) -> WitnessOrConstant<FF> {
+        return WitnessOrConstant<FF>{ .index = 0, .value = FF(value), .is_constant = true };
+    };
+
+    for (size_t i = 0; i < 16; ++i) {
+        setup.constraint.inputs[i] =
+            (input_constant_mask & (1 << i)) ? make_constant(INPUT_BLOCK[i]) : make_witness(INPUT_BLOCK[i]);
+    }
+    for (size_t i = 0; i < 8; ++i) {
+        setup.constraint.hash_values[i] =
+            (h_init_constant_mask & (1 << i)) ? make_constant(SHA256_IV[i]) : make_witness(SHA256_IV[i]);
+    }
+    for (size_t i = 0; i < 8; ++i) {
+        setup.constraint.result[i] = static_cast<uint32_t>(setup.witness_values.size());
+        setup.witness_values.emplace_back(FF(setup.result[i]));
+    }
+
+    return setup;
+}
+
+/**
+ * @brief Run full ACIR pipeline validation for a SHA256 constraint with given constant masks.
+ */
+void run_sha256_acir_validation(uint8_t h_init_mask, uint16_t input_mask)
+{
+    auto setup = build_sha256_setup_with_constants(h_init_mask, input_mask);
+
+    AcirFormat constraint_system = constraint_to_acir_format(setup.constraint);
+    AcirProgram program{ constraint_system, setup.witness_values };
+    auto builder = create_circuit<UltraCircuitBuilder>(program, ProgramMetadata{});
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
 } // anonymous namespace
 
 /**
@@ -714,4 +776,33 @@ TEST_F(BoomerangSHA256ConstraintsTests, ChainedSHA256SharedWitness)
         << "Shared witness indices between constraint_1.result and constraint_2.hash_values "
         << "likely caused BFS bleed-through in find_subtrace_gates, inflating the gate set "
         << "and breaking the selector hash comparison.";
+}
+
+// --- Constant witness combination tests ---
+// These validate that the analyzer handles various combinations of constant/witness
+// hash_values and inputs correctly through the full ACIR pipeline.
+
+TEST_F(BoomerangSHA256ConstraintsTests, AllWitnessHInit_ConstantInputs)
+{
+    run_sha256_acir_validation(0x00, 0xFFFF);
+}
+
+TEST_F(BoomerangSHA256ConstraintsTests, AllConstantHInit_AllWitnessInput)
+{
+    run_sha256_acir_validation(0xFF, 0x0000);
+}
+
+TEST_F(BoomerangSHA256ConstraintsTests, ConstantEFG_AllWitnessInput)
+{
+    run_sha256_acir_validation((1 << 4) | (1 << 5) | (1 << 6), 0x0000);
+}
+
+TEST_F(BoomerangSHA256ConstraintsTests, HalfConstantInputs)
+{
+    run_sha256_acir_validation(0x00, 0x00FF);
+}
+
+TEST_F(BoomerangSHA256ConstraintsTests, AllConstant)
+{
+    run_sha256_acir_validation(0xFF, 0xFFFF);
 }

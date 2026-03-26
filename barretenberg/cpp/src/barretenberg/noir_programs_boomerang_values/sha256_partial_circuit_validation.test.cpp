@@ -17,8 +17,8 @@
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
@@ -476,71 +476,7 @@ TEST_F(SHA256PartialCircuitValidation, SingleConstantInput_ExtendWitness)
 
 // --- Full validation: compression round + extend_witness using state.w_i_real ---
 
-static void run_full_sha256_validation(uint8_t h_init_mask, uint16_t input_mask)
-{
-    auto setup = build_sha256_setup(h_init_mask, input_mask);
-    auto rt = build_round_test(setup);
-
-    EXPECT_TRUE(CircuitChecker::check(rt.builder));
-
-    StaticAnalyzerAcir analyzer(std::move(rt.constraint_system), std::move(rt.builder));
-    auto state = rt.initial_state;
-    auto w_real = rt.w_real;
-    const auto& w_const = rt.w_const;
-
-    for (size_t i = 0; i < 64; ++i) {
-        uint32_t w_i_real = w_const[i] ? CONST : w_real[i];
-        uint32_t discovered_w_i = CONST;
-
-        // Step 1: Validate compression round
-        bool round_ok = analyzer.process_sha256comression_round(state, w_i_real, w_const[i], i, discovered_w_i);
-        EXPECT_TRUE(round_ok) << "Compression round " << i << " failed";
-        if (!round_ok) break;
-
-        // Update w_real from state (state.w_i_real is set by the round function)
-        if (state.w_i_real != CONST) {
-            w_real[i] = state.w_i_real;
-        }
-
-        // Step 2: Validate extend_witness for w[i] >= 16 and non-constant
-        if (i >= 16 && !w_const[i]) {
-            ASSERT_NE(w_real[i], CONST) << "w_real[" << i << "] not discovered";
-            bool ew_ok = analyzer.validate_extend_witness_iteration(w_real[i], w_real, w_const, i);
-            EXPECT_TRUE(ew_ok) << "Extend witness iteration " << i << " failed";
-            if (!ew_ok) break;
-        }
-    }
-}
-
-TEST_F(SHA256PartialCircuitValidation, FullValidation_AllWitness)
-{
-    run_full_sha256_validation(0x00, 0x0000);
-}
-
-TEST_F(SHA256PartialCircuitValidation, FullValidation_AllWitnessHInit_ConstantInputs)
-{
-    run_full_sha256_validation(0x00, 0xFFFF);
-}
-
-TEST_F(SHA256PartialCircuitValidation, FullValidation_AllConstantHInit_AllWitnessInput)
-{
-    run_full_sha256_validation(0xFF, 0x0000);
-}
-
-TEST_F(SHA256PartialCircuitValidation, FullValidation_ConstantEFG_AllWitnessInput)
-{
-    run_full_sha256_validation((1 << 4) | (1 << 5) | (1 << 6), 0x0000);
-}
-
-TEST_F(SHA256PartialCircuitValidation, FullValidation_HalfConstantInputs)
-{
-    run_full_sha256_validation(0x00, 0x00FF);
-}
-
-TEST_F(SHA256PartialCircuitValidation, FullValidation_AllConstant)
-{
-    run_full_sha256_validation(0xFF, 0xFFFF);
-}
+// FullValidation tests moved to BoomerangSHA256ConstraintsTests (ACIR pipeline)
 
 // --- Lookup gate exploration tests ---
 
@@ -557,31 +493,10 @@ TEST_F(SHA256PartialCircuitValidation, CH_INPUT_LookupGateCount)
     size_t lookup_after = builder.blocks.lookup.size();
 
     size_t num_gates = lookup_after - lookup_before;
-    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(0, builder.blocks.lookup, lookup_before, lookup_after - 1);
+    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
+        0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
     info("CH_INPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-
-    // Print individual gate details
-    for (size_t i = lookup_before; i < lookup_after; ++i) {
-        info("  gate[", i - lookup_before, "]: wl=", builder.real_variable_index[builder.blocks.lookup.w_l()[i]],
-             " wr=", builder.real_variable_index[builder.blocks.lookup.w_r()[i]],
-             " wo=", builder.real_variable_index[builder.blocks.lookup.w_o()[i]],
-             " q3=", builder.blocks.lookup.q_3()[i]);
-    }
-
-    // Print ReadData indices
-    info("  ReadData C1 size=", lookup[bb::plookup::ColumnIdx::C1].size());
-    info("  ReadData C2 size=", lookup[bb::plookup::ColumnIdx::C2].size());
-    info("  ReadData C3 size=", lookup[bb::plookup::ColumnIdx::C3].size());
-    for (size_t i = 0; i < lookup[bb::plookup::ColumnIdx::C2].size(); ++i) {
-        auto widx = [](const field_ct& f) -> std::string {
-            return f.is_constant() ? "CONST" : std::to_string(f.get_witness_index());
-        };
-        info("  C1[", i, "]=", widx(lookup[bb::plookup::ColumnIdx::C1][i]),
-             " C2[", i, "]=", widx(lookup[bb::plookup::ColumnIdx::C2][i]),
-             " C3[", i, "]=", widx(lookup[bb::plookup::ColumnIdx::C3][i]));
-    }
-
     EXPECT_GT(num_gates, 0u);
 }
 
@@ -594,30 +509,15 @@ TEST_F(SHA256PartialCircuitValidation, MAJ_INPUT_LookupGateCount)
     field_ct a = witness_ct(&builder, SHA256_IV[0]);
 
     size_t lookup_before = builder.blocks.lookup.size();
-    [[maybe_unused]] auto lookup = plookup_read::get_lookup_accumulators(bb::plookup::MultiTableId::SHA256_MAJ_INPUT, a);
+    [[maybe_unused]] auto lookup =
+        plookup_read::get_lookup_accumulators(bb::plookup::MultiTableId::SHA256_MAJ_INPUT, a);
     size_t lookup_after = builder.blocks.lookup.size();
 
     size_t num_gates = lookup_after - lookup_before;
-    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(0, builder.blocks.lookup, lookup_before, lookup_after - 1);
+    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
+        0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
     info("MAJ_INPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-
-    for (size_t i = lookup_before; i < lookup_after; ++i) {
-        info("  gate[", i - lookup_before, "]: wl=", builder.real_variable_index[builder.blocks.lookup.w_l()[i]],
-             " wr=", builder.real_variable_index[builder.blocks.lookup.w_r()[i]],
-             " wo=", builder.real_variable_index[builder.blocks.lookup.w_o()[i]],
-             " q3=", builder.blocks.lookup.q_3()[i]);
-    }
-
-    for (size_t i = 0; i < lookup[bb::plookup::ColumnIdx::C2].size(); ++i) {
-        auto widx = [](const field_ct& f) -> std::string {
-            return f.is_constant() ? "CONST" : std::to_string(f.get_witness_index());
-        };
-        info("  C1[", i, "]=", widx(lookup[bb::plookup::ColumnIdx::C1][i]),
-             " C2[", i, "]=", widx(lookup[bb::plookup::ColumnIdx::C2][i]),
-             " C3[", i, "]=", widx(lookup[bb::plookup::ColumnIdx::C3][i]));
-    }
-
     EXPECT_GT(num_gates, 0u);
 }
 
@@ -630,11 +530,13 @@ TEST_F(SHA256PartialCircuitValidation, CH_OUTPUT_LookupGateCount)
     field_ct input = witness_ct(&builder, fr(123456));
 
     size_t lookup_before = builder.blocks.lookup.size();
-    [[maybe_unused]] auto result = plookup_read::read_from_1_to_2_table(bb::plookup::MultiTableId::SHA256_CH_OUTPUT, input);
+    [[maybe_unused]] auto result =
+        plookup_read::read_from_1_to_2_table(bb::plookup::MultiTableId::SHA256_CH_OUTPUT, input);
     size_t lookup_after = builder.blocks.lookup.size();
 
     size_t num_gates = lookup_after - lookup_before;
-    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(0, builder.blocks.lookup, lookup_before, lookup_after - 1);
+    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
+        0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
     info("CH_OUTPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
     EXPECT_GT(num_gates, 0u);
@@ -649,11 +551,13 @@ TEST_F(SHA256PartialCircuitValidation, MAJ_OUTPUT_LookupGateCount)
     field_ct input = witness_ct(&builder, fr(123456));
 
     size_t lookup_before = builder.blocks.lookup.size();
-    [[maybe_unused]] auto result = plookup_read::read_from_1_to_2_table(bb::plookup::MultiTableId::SHA256_MAJ_OUTPUT, input);
+    [[maybe_unused]] auto result =
+        plookup_read::read_from_1_to_2_table(bb::plookup::MultiTableId::SHA256_MAJ_OUTPUT, input);
     size_t lookup_after = builder.blocks.lookup.size();
 
     size_t num_gates = lookup_after - lookup_before;
-    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(0, builder.blocks.lookup, lookup_before, lookup_after - 1);
+    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
+        0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
     info("MAJ_OUTPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
     EXPECT_GT(num_gates, 0u);
@@ -668,11 +572,13 @@ TEST_F(SHA256PartialCircuitValidation, WITNESS_INPUT_LookupGateCount)
     field_ct input = witness_ct(&builder, fr(12345));
 
     size_t lookup_before = builder.blocks.lookup.size();
-    [[maybe_unused]] auto lookup = plookup_read::get_lookup_accumulators(bb::plookup::MultiTableId::SHA256_WITNESS_INPUT, input);
+    [[maybe_unused]] auto lookup =
+        plookup_read::get_lookup_accumulators(bb::plookup::MultiTableId::SHA256_WITNESS_INPUT, input);
     size_t lookup_after = builder.blocks.lookup.size();
 
     size_t num_gates = lookup_after - lookup_before;
-    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(0, builder.blocks.lookup, lookup_before, lookup_after - 1);
+    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
+        0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
     info("WITNESS_INPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
     EXPECT_GT(num_gates, 0u);
@@ -687,11 +593,13 @@ TEST_F(SHA256PartialCircuitValidation, WITNESS_OUTPUT_LookupGateCount)
     field_ct input = witness_ct(&builder, fr(12345));
 
     size_t lookup_before = builder.blocks.lookup.size();
-    [[maybe_unused]] auto result = plookup_read::read_from_1_to_2_table(bb::plookup::MultiTableId::SHA256_WITNESS_OUTPUT, input);
+    [[maybe_unused]] auto result =
+        plookup_read::read_from_1_to_2_table(bb::plookup::MultiTableId::SHA256_WITNESS_OUTPUT, input);
     size_t lookup_after = builder.blocks.lookup.size();
 
     size_t num_gates = lookup_after - lookup_before;
-    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(0, builder.blocks.lookup, lookup_before, lookup_after - 1);
+    size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
+        0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
     info("WITNESS_OUTPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
     EXPECT_GT(num_gates, 0u);
