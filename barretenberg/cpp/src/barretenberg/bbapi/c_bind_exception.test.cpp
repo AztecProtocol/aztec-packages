@@ -15,8 +15,8 @@ TEST(CBind, CatchesExceptionAndReturnsErrorResponse)
     // Create an SrsInitSrs command with invalid data that will cause an exception
     // The from_buffer calls in bbapi_srs.cpp will read past buffer boundaries
     SrsInitSrs cmd;
-    cmd.num_points = 100;                         // Request 100 points (6400 bytes needed)
-    cmd.points_buf = std::vector<uint8_t>(10, 0); // Only provide 10 bytes - will cause out of bounds access
+    cmd.num_points = 100;                         // Request 100 points (3200 bytes needed for compressed)
+    cmd.points_buf = std::vector<uint8_t>(10, 0); // Only provide 10 bytes - will fail bounds check
     cmd.g2_point = std::vector<uint8_t>(10, 0);   // Also too small (needs 128 bytes)
 
     Command command = std::move(cmd);

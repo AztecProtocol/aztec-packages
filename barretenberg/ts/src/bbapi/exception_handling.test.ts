@@ -19,7 +19,7 @@ describe('BBApi Exception Handling from bb.js', () => {
     // Create an SrsInitSrs command with invalid data that will cause an exception in C++
     // We pass buffers that are too small, which will cause validation to fail
     const invalidCommand = {
-      numPoints: 100, // Request 100 points (requires 6400 bytes)
+      numPoints: 100, // Request 100 points (requires 3200 bytes compressed)
       pointsBuf: new Uint8Array(10), // Only 10 bytes - will cause exception
       g2Point: new Uint8Array(10), // Only 10 bytes (needs 128) - will cause exception
     };
@@ -41,13 +41,13 @@ describe('BBApi Exception Handling from bb.js', () => {
 
     try {
       api.srsInitSrs(invalidCommand);
-      fail('Expected exception to be thrown');
+      throw new Error('Expected exception to be thrown');
     } catch (error) {
       // Error is catchable and contains a useful message
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toBeTruthy();
       expect((error as Error).message.length).toBeGreaterThan(0);
-      expect((error as Error).message).toContain('g1_identity');
+      expect((error as Error).message).toContain('points buffer too small');
       console.log('Successfully caught exception from bb.js with message:', (error as Error).message);
     }
   });

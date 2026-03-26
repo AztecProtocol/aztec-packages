@@ -15,6 +15,19 @@ namespace bb::bbapi {
 
 SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
+    // Validate buffer sizes before processing
+    const size_t required_g1_bytes = static_cast<size_t>(num_points) * 32;
+    const size_t required_g2_bytes = 128;
+    if (points_buf.size() < required_g1_bytes) {
+        throw_or_abort("SrsInitSrs: points buffer too small (got " + std::to_string(points_buf.size()) +
+                       " bytes, need " + std::to_string(required_g1_bytes) + " for " + std::to_string(num_points) +
+                       " compressed points)");
+    }
+    if (g2_point.size() < required_g2_bytes) {
+        throw_or_abort("SrsInitSrs: g2 point buffer too small (got " + std::to_string(g2_point.size()) +
+                       " bytes, need " + std::to_string(required_g2_bytes) + ")");
+    }
+
     // Decompress 32-byte compressed points in parallel using native field arithmetic
     std::vector<g1::affine_element> g1_points(num_points);
     parallel_for([&](ThreadChunk chunk) {
