@@ -50,8 +50,8 @@ export class LogService {
         ]);
 
         if (publicLog !== null && privateLog !== null) {
-          throw new Error(
-            `Found both a public and private log when searching for tag ${request.tag} from contract ${request.contractAddress}`,
+          this.log.warn(
+            `Found both a public and private log for tag ${request.tag} from contract ${request.contractAddress}. This may indicate a contract bug. Returning the public log.`,
           );
         }
 
@@ -73,9 +73,8 @@ export class LogService {
     if (logsForTag.length === 0) {
       return null;
     } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
+      this.log.warn(
+        `Expected at most 1 public log for tag ${tag} and contract ${contractAddress.toString()}, got ${logsForTag.length}. This may indicate a contract bug. Returning the first log.`,
       );
     }
 
@@ -97,9 +96,8 @@ export class LogService {
     if (logsForTag.length === 0) {
       return null;
     } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${siloedTag}. getPrivateLogByTag currently only supports a single log per tag`,
+      this.log.warn(
+        `Expected at most 1 private log for tag ${siloedTag}, got ${logsForTag.length}. This may indicate a contract bug. Returning the first log.`,
       );
     }
 
