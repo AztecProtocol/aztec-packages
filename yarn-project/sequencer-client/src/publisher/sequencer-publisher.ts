@@ -505,11 +505,7 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-<<<<<<< HEAD
-    const ts = await this.getNextL1SlotTimestampWithL1Floor();
-=======
     const ts = this.getSimulationTimestamp(header.slotNumber);
->>>>>>> a01ff082e7 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp)
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
@@ -659,12 +655,7 @@ export class SequencerPublisher {
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
-<<<<<<< HEAD
-  ): Promise<bigint> {
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-=======
   ): Promise<void> {
->>>>>>> a01ff082e7 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp)
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -765,37 +756,18 @@ export class SequencerPublisher {
       lastValidL2Slot: slotNumber,
     });
 
-<<<<<<< HEAD
-=======
     const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
     const timestamp = this.getSimulationTimestamp(slotNumber);
 
->>>>>>> a01ff082e7 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp)
     try {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
-<<<<<<< HEAD
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
-=======
       const viemError = formatViemError(err);
       this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError, {
         simulationTimestamp: timestamp,
         l1BlockNumber,
       });
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [action],
-          slot: slotNumber,
-          sender: this.getSenderAddress().toString(),
-        },
-      });
->>>>>>> a01ff082e7 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp)
       // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
     }
 
@@ -1251,12 +1223,9 @@ export class SequencerPublisher {
       });
     }
 
-<<<<<<< HEAD
-=======
     const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
     const simTs = this.getSimulationTimestamp(SlotNumber.fromBigInt(args[0].header.slotNumber));
 
->>>>>>> a01ff082e7 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp)
     const simulationResult = await this.l1TxUtils
       .simulate(
         {
@@ -1288,23 +1257,7 @@ export class SequencerPublisher {
             logs: [],
           };
         }
-<<<<<<< HEAD
-        this.log.error(`Failed to simulate propose tx`, viemError);
-=======
         this.log.error(`Failed to simulate propose tx`, viemError, { simulationTimestamp: simTs });
-        this.backupFailedTx({
-          id: keccak256(rollupData),
-          failureType: 'simulation',
-          request: { to: this.rollupContract.address, data: rollupData },
-          l1BlockNumber: l1BlockNumber.toString(),
-          error: { message: viemError.message, name: viemError.name },
-          context: {
-            actions: ['propose'],
-            slot: Number(args[0].header.slotNumber),
-            sender: this.getSenderAddress().toString(),
-          },
-        });
->>>>>>> a01ff082e7 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp)
         throw err;
       });
 
@@ -1396,7 +1349,13 @@ export class SequencerPublisher {
     });
   }
 
-<<<<<<< HEAD
+  /** Returns the timestamp of the last L1 slot within a given L2 slot. Used as the simulation timestamp
+   * for eth_simulateV1 calls, since it's guaranteed to be greater than any L1 block produced during the slot. */
+  private getSimulationTimestamp(slot: SlotNumber): bigint {
+    const l1Constants = this.epochCache.getL1Constants();
+    return getLastL1SlotTimestampForL2Slot(slot, l1Constants);
+  }
+
   /**
    * Returns the timestamp to use when simulating L1 proposal calls.
    * Uses the wall-clock-based next L1 slot boundary, but floors it with the latest L1 block timestamp
@@ -1407,17 +1366,6 @@ export class SequencerPublisher {
    * TODO(palla): Properly fix by keeping dateProvider synced with anvil's chain time on every block.
    */
   private async getNextL1SlotTimestampWithL1Floor(): Promise<bigint> {
-=======
-  /** Returns the timestamp of the last L1 slot within a given L2 slot. Used as the simulation timestamp
-   * for eth_simulateV1 calls, since it's guaranteed to be greater than any L1 block produced during the slot. */
-  private getSimulationTimestamp(slot: SlotNumber): bigint {
-    const l1Constants = this.epochCache.getL1Constants();
-    return getLastL1SlotTimestampForL2Slot(slot, l1Constants);
-  }
-
-  /** Returns the timestamp of the next L1 slot boundary after now. */
-  private getNextL1SlotTimestamp(): bigint {
->>>>>>> a01ff082e7 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp)
     const l1Constants = this.epochCache.getL1Constants();
     const fromWallClock = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
     const latestBlock = await this.l1TxUtils.client.getBlock();
