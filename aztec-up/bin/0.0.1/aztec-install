@@ -26,15 +26,11 @@ fi
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
 shared_bin_path="$AZTEC_HOME/bin"
 
-<<<<<<< HEAD
-VERSION="${VERSION:-nightly}"
-=======
 # Toolchain version to install (alias or semver). Replaced at release time.
-VERSION=${VERSION:-0.0.1}
+VERSION="${VERSION:-nightly}"
 # Infrastructure version: controls where to fetch installer assets (banner, aztec-up).
 # When empty, assets are fetched directly from INSTALL_URI.
 INFRA_VERSION=${INFRA_VERSION:-}
->>>>>>> b82b4baf5e (feat(aztec-up): decouple infra assets from toolchain VERSION)
 
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 INFRA_BASE_URI="$INSTALL_URI${INFRA_VERSION:+/$INFRA_VERSION}"
@@ -75,22 +71,6 @@ function print_colored() {
 
 function title {
   clear
-<<<<<<< HEAD
-=======
-  if [ "${COLORTERM:-}" = "truecolor" ] || [ "${COLORTERM:-}" = "24bit" ]; then
-    curl -fsSL "$INFRA_BASE_URI/aztec-banner-truecolor" 2>/dev/null || true
-  else
-    curl -fsSL "$INFRA_BASE_URI/aztec-banner" 2>/dev/null || true
-  fi
-  typewriter "initializing stealth protocols..." "${p}"
-  sleep 1
-  typewriter "zk loaded." "${y}"
-  sleep 1
-  typewriter "privacy restored." "${g}${bold}"
-  sleep 1
-  printf "${r}\r"
-  echo -e "Welcome to ${bold}${b}Aztec${r}! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
->>>>>>> b82b4baf5e (feat(aztec-up): decouple infra assets from toolchain VERSION)
   echo
   print_colored " █████╗ ███████╗████████╗███████╗ ██████╗"
   print_colored "██╔══██╗╚══███╔╝╚══██╔══╝██╔════╝██╔════╝"

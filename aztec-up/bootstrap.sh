@@ -122,13 +122,8 @@ function release {
 
 # This is not done by CI.
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
-<<<<<<< HEAD
-function release_aztec_up {
-    # Upload root aztec-install with VERSION defaulting to latest (instead of local nightly).
-=======
 function release_root_installer {
     # Upload root installer assets: aztec-install (with VERSION defaulting to latest), aztec-up, and banner files.
->>>>>>> b82b4baf5e (feat(aztec-up): decouple infra assets from toolchain VERSION)
     sed "s/^VERSION=.*/VERSION=\${VERSION:-latest}/" bin/0.0.1/aztec-install | \
       do_or_dryrun aws s3 cp - "s3://install.aztec.network/aztec-install"
     do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
@@ -139,8 +134,6 @@ function release_root_installer {
     do_or_dryrun aws s3 cp bin/aliases/index "s3://install.aztec.network/aliases/index"
 }
 
-<<<<<<< HEAD
-=======
 function prep_test_mac {
   local verdaccio_port=4873
   local http_port=4874
@@ -267,7 +260,6 @@ function test_macs {
   LIVE_LOGGING=1 PASS_LOG=1 parallelize < <(for mac in 14 15 26; do echo "fake_hash launch_and_install_on_mac_vm $mac"; done) | cat
 }
 
->>>>>>> b82b4baf5e (feat(aztec-up): decouple infra assets from toolchain VERSION)
 case "$cmd" in
   "")
     build
