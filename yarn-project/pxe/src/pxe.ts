@@ -214,6 +214,7 @@ export class PXE {
       node,
       contractStore,
       noteStore,
+      () => keyStore.getAccounts(),
       createLogger('pxe:contract_sync', bindings),
     );
     const messageContextService = new MessageContextService(node);
