@@ -1,8 +1,11 @@
 #pragma once
 
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs_test_serde.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -95,6 +98,8 @@ struct TestSettings {
     size_t log2_num_gates = 0;
 };
 
+enum class CircuitType : uint8_t { APP, KERNEL, GOBLIN_FLUSH_APP };
+
 /**
  * @brief Manage the construction of mock app/kernel circuits for the private function execution setting
  * @details Per the medium complexity benchmark spec, the first app circuit is size 2^19. Subsequent app and kernel
@@ -106,30 +111,50 @@ struct TestSettings {
 class PrivateFunctionExecutionMockCircuitProducer {
     using ClientCircuit = Chonk::ClientCircuit;
     using Flavor = MegaFlavor;
+    using FF = Flavor::FF;
+    using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
+    using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
 
-    size_t circuit_counter = 0;
-    std::vector<bool> is_kernel_flags;
+    std::vector<CircuitType> circuit_types;
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
     constexpr static size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
 
+    std::array<Commitment, ClientCircuit::NUM_WIRES> previous_circuit_ecc_op_tables;
+
   public:
+    size_t circuit_counter = 0;
     size_t total_num_circuits = 0;
 
-    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
+    /**
+     * @param num_app_circuits Number of app circuits (including any goblin flush apps)
+     * @param large_first_app Whether the first app should be 2^19
+     * @param flush_app_indices Vector of app indices (0-based among apps) that should be goblin flush apps.
+     *        E.g., {2} means the 3rd app (A_G) is a flush app.
+     */
+    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits,
+                                                bool large_first_app = true,
+                                                const std::vector<size_t>& flush_app_indices = {})
         : large_first_app(large_first_app)
         , total_num_circuits(num_app_circuits * 2 +
                              NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
     {
         // Set flags indicating which circuits are kernels vs apps
         for (size_t i = 0; i < num_app_circuits; ++i) {
-            is_kernel_flags.emplace_back(false); // every other circuit is an app
-            is_kernel_flags.emplace_back(true);  // every other circuit is a kernel
+            circuit_types.emplace_back(CircuitType::APP);    // every other circuit is an app
+            circuit_types.emplace_back(CircuitType::KERNEL); // every other circuit is a kernel
         }
         for (size_t i = 0; i < NUM_TRAILING_KERNELS; ++i) {
-            is_kernel_flags.emplace_back(true);
+            circuit_types.emplace_back(CircuitType::KERNEL);
+        }
+
+        // Override APP with GOBLIN_FLUSH_APP for specified indices
+        for (const auto& idx : flush_app_indices) {
+            size_t app_circuit_pos = idx * 2; // position of the app in the circuit_types vector
+            BB_ASSERT(idx < num_app_circuits, "Flush app index is out of bounds");
+            circuit_types[app_circuit_pos] = CircuitType::GOBLIN_FLUSH_APP;
         }
     }
 
@@ -137,8 +162,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @brief Precompute the verification key for the given circuit.
      *
      */
-    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
+    std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
     {
+        bool is_next_goblin_flush = false;
+        if (circuit_counter < circuit_types.size() && circuit_types[circuit_counter] == CircuitType::GOBLIN_FLUSH_APP) {
+            is_next_goblin_flush = true;
+        }
+
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
         // but this is a workaround for the test setup.
@@ -148,6 +178,17 @@ class PrivateFunctionExecutionMockCircuitProducer {
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
         std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+        if (is_next_goblin_flush) {
+            // If the next app is a goblin app, we need to extract the commitments for the ecc op wires to populate the
+            // flush app's T_prev and t
+            CommitmentKey<curve::BN254> commitment_key(prover_instance->dyadic_size());
+            for (auto [table, poly] :
+                 zip_view(previous_circuit_ecc_op_tables, prover_instance->polynomials.get_ecc_op_wires())) {
+                table = commitment_key.commit(poly);
+            }
+        }
+
         return vk;
     }
 
@@ -162,37 +203,51 @@ class PrivateFunctionExecutionMockCircuitProducer {
                                       size_t num_public_inputs = 0,
                                       bool check_circuit_sizes = false)
     {
-        const bool is_kernel = is_kernel_flags[circuit_counter++];
-        const bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
+        const bool is_kernel = circuit_types[circuit_counter] == CircuitType::KERNEL;
+        const bool is_goblin_flush = circuit_types[circuit_counter] == CircuitType::GOBLIN_FLUSH_APP;
+        const bool use_large_circuit = large_first_app && (circuit_counter == 0); // first circuit is size 2^19
+        circuit_counter++;
         // Check if this is one of the trailing kernels (reset, tail, hiding)
         const bool is_trailing_kernel = (ivc.num_circuits_accumulated >= ivc.get_num_circuits() - NUM_TRAILING_KERNELS);
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
-        // if the number of gates is specified we just add a number of arithmetic gates
-        if (log2_num_gates != 0) {
-            MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
-            // Add some public inputs
-            for (size_t i = 0; i < num_public_inputs; ++i) {
-                circuit.add_public_variable(typename Flavor::FF(13634816 + i)); // arbitrary number
-            }
+
+        if (is_goblin_flush) {
+            // Build a mock goblin flush app (A_G) with GoblinFlushIO public inputs
+            auto flush_io = build_mock_goblin_flush_app(circuit, ivc, log2_num_gates);
+            mock_databus.populate_app_databus(circuit);
+            flush_io.set_public();
         } else {
-            // If the number of gates is not specified we create a structured mock circuit
-            if (is_kernel) {
-                // For trailing kernels (reset, tail, hiding), skip the expensive mock kernel logic to match real Noir
-                // flows. These kernels are simpler and mainly contain the completion logic added by Chonk.
-                if (!is_trailing_kernel) {
-                    GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
+            if (log2_num_gates != 0) {
+                // if the number of gates is specified we just add a number of arithmetic gates
+                MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
+                // Add some public inputs
+                for (size_t i = 0; i < num_public_inputs; ++i) {
+                    circuit.add_public_variable(FF(13634816 + i)); // arbitrary number
                 }
-                mock_databus.populate_kernel_databus(circuit); // populate databus inputs/outputs
             } else {
-                GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
-                mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
+                // If the number of gates is not specified we create a structured mock circuit
+                if (is_kernel) {
+                    // For trailing kernels (reset, tail, hiding), skip the expensive mock kernel logic to match real
+                    // Noir flows. These kernels are simpler and mainly contain the completion logic added by Chonk.
+                    if (!is_trailing_kernel) {
+                        GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
+                    }
+                } else {
+                    GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
+                }
+            }
+
+            if (is_kernel) {
+                mock_databus.populate_kernel_databus(circuit);
+            } else {
+                mock_databus.populate_app_databus(circuit);
             }
         }
 
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit);
-        } else {
+        } else if (!is_goblin_flush) {
             stdlib::recursion::honk::AppIO::add_default(circuit);
         }
 
@@ -202,10 +257,10 @@ class PrivateFunctionExecutionMockCircuitProducer {
             if (log2_num_gates != 0) {
                 if (is_kernel) {
                     // There are various possibilities here, so we provide a bound
-                    BB_ASSERT_LTE(
-                        log2_dyadic_size,
-                        19UL,
-                        "Log number of gates in a kernel with fixed number of arithmetic gates has exceeded bound.");
+                    BB_ASSERT_LTE(log2_dyadic_size,
+                                  19UL,
+                                  "Log number of gates in a kernel with fixed number of arithmetic gates has "
+                                  "exceeded bound.");
                     vinfo("Log number of gates in a kernel with fixed number of arithmetic gates is: ",
                           log2_dyadic_size);
                 } else {
@@ -264,6 +319,62 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @brief Tamper with databus data to facilitate failure testing
      */
     void tamper_with_databus() { mock_databus.tamper_with_app_return_data(); }
+
+  private:
+    /**
+     * @brief Build a mock goblin flush app (A_G) circuit with GoblinFlushIO public inputs.
+     * @details Constructs a Mega circuit with GoblinFlushIO values matching the IVC state:
+     *   - T_prev = previous kernel's ecc_op_tables (from KernelIO in the verification queue)
+     *   - t = previous kernel's ecc op wire commitments (saved during accumulate)
+     *   - ipa_claim = a random valid IPA claim
+     *   - pairing_inputs = default (infinity) points
+     */
+    stdlib::recursion::honk::GoblinFlushIO<ClientCircuit> build_mock_goblin_flush_app(ClientCircuit& circuit,
+                                                                                      Chonk& ivc,
+                                                                                      size_t log2_num_gates)
+    {
+        using GoblinFlushIO = stdlib::recursion::honk::GoblinFlushIO<ClientCircuit>;
+        using GrumpkinCurve = stdlib::grumpkin<ClientCircuit>;
+        using G1 = typename GoblinFlushIO::G1;
+
+        // Add mock gates
+        if (log2_num_gates != 0) {
+            MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /*include_public_inputs=*/false);
+        } else {
+            GoblinMockCircuits::construct_mock_app_circuit(circuit, /*large=*/false);
+        }
+
+        // Extract KernelIO from the previous kernel's proof in the verification queue
+        BB_ASSERT(ivc.verification_queue.size() == 1, "Goblin flush app requires a preceding kernel in the queue");
+        auto& kernel_entry = ivc.verification_queue.front();
+        BB_ASSERT(kernel_entry.is_kernel, "Expected first queue entry to be a kernel");
+        size_t num_pub_inputs = kernel_entry.honk_vk->num_public_inputs;
+        KernelIOSerde kernel_io = KernelIOSerde::from_proof(kernel_entry.proof, num_pub_inputs);
+
+        // Construct GoblinFlushIO with values matching the IVC state
+        GoblinFlushIO flush_io;
+
+        // Pairing points: default points at infinity
+        flush_io.pairing_inputs = GoblinFlushIO::PairingInputs::construct_default();
+
+        // IPA claim: create a random valid IPA claim
+        auto [stdlib_opening_claim, flush_ipa_proof] =
+            IPA<GrumpkinCurve>::create_random_valid_ipa_claim_and_proof(circuit);
+        flush_io.ipa_claim = stdlib_opening_claim;
+        circuit.ipa_proof = flush_ipa_proof;
+
+        // T_prev: must match previous kernel's ecc_op_tables (from KernelIO)
+        for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
+            flush_io.T_prev[i] = G1::from_witness(&circuit, kernel_io.ecc_op_tables[i]);
+        }
+
+        // t: must match previous kernel's ecc op wire commitments (saved during accumulate)
+        for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
+            flush_io.t[i] = G1::from_witness(&circuit, previous_circuit_ecc_op_tables[i]);
+        }
+
+        return flush_io;
+    }
 };
 
 } // namespace

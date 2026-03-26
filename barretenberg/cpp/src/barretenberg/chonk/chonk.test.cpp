@@ -589,3 +589,27 @@ TEST_F(ChonkTests, ProofCompressionRoundtrip)
     // Verify the decompressed proof
     EXPECT_TRUE(verify_chonk(decompressed, vk_and_hash));
 }
+
+/**
+ * @brief Test the goblin flush kernel (K_G) logic with a single flush.
+ * @details Accumulates: A0, K0, A1, K1, A_G (mock flush app), K_G, K_reset, K_tail, K_hiding.
+ * The mock A_G circuit has GoblinFlushIO public inputs with values matching the IVC state.
+ * K_G's complete_kernel_circuit_logic performs flush assertions (T_prev == ecc_op_tables, t == t_K)
+ * and IPA accumulation.
+ */
+TEST_F(ChonkTests, GoblinFlushSingleFlush)
+{
+    const size_t NUM_APP_CIRCUITS = 3; // A0, A1, A_G (flush app replaces the 3rd app)
+    // The 3rd app (index 2) is a goblin flush app
+    CircuitProducer circuit_producer(NUM_APP_CIRCUITS, /*large_first_app=*/true, /*flush_app_indices=*/{ 2 });
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+    Chonk ivc{ NUM_CIRCUITS };
+    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+
+    for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
+        circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+    }
+
+    auto proof = ivc.prove();
+    EXPECT_TRUE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
+}
