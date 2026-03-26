@@ -37,6 +37,7 @@ Help shape and define:
 - The number of side-effects attached to a transaction (when sending the transaction to the mempool) is leaky. At this stage of development, this is _intentional_, so that we can gauge appropriate choices for privacy sets. We have clear plans to implement privacy sets so that side effects are much less leaky, and these will be in place for mainnet.
 - A transaction can only emit a limited number of side-effects (notes, nullifiers, logs, L2->L1 messages). See [circuit limitations](#circuit-limitations).
   - We have not settled on the final constants, since we are still in a testing phase. You could find that certain compositions of nested private function calls (for example, call stacks that are dynamic in size, based on runtime data) could accumulate so many side-effects as to exceed transaction limits. Such transactions would then be unprovable. Please open an issue if you encounter this, as it will help us decide on adequate sizes for our constants.
+- Not all Noir cryptographic primitives work in public (AVM) functions. Signature verification (ECDSA secp256k1/r1), AES-128, Blake2s, and Blake3 are not supported. See [AVM Cryptographic Compatibility](../../foundational-topics/advanced/circuits/avm_compatibility.md) for details and workarounds.
 - There are many features that we still want to implement. Check out GitHub and the forum for details. If you would like a feature, please open an issue on GitHub.
 
 ## WARNING

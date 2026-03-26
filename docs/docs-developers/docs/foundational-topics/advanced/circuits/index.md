@@ -1,6 +1,6 @@
 ---
 title: Circuits
-sidebar_position: 2
+sidebar_position: 0
 tags: [protocol, circuits]
 description: Explore Aztec's core protocol circuits that enforce privacy rules and transaction validity through zero-knowledge proofs, enabling private state and function execution.
 ---
