@@ -67,7 +67,6 @@ export class P2PInactivityTest {
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
-        validatorReexecute: false,
         sentinelEnabled: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE_IN_EPOCHS,

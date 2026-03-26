@@ -107,7 +107,6 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
     t.ctx.aztecNodeConfig.txPoolDeleteTxsAfterReorg = true;
 

@@ -56,7 +56,6 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
         slashingRoundSizeInEpochs: 2,
-        validatorReexecute: false,
         sentinelEnabled: true,
         slashInactivityPenalty: 0n, // Set to 0 to disable
       },
