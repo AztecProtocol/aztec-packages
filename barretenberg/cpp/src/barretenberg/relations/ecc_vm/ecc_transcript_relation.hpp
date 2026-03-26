@@ -49,10 +49,10 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         MSM_COUNT_ZERO_AT_TRANSITION = 4,
         // MSM transition: msm_transition = q_mul * (1 - q_mul_shift) * (1 - msm_count_zero_at_transition)
         MSM_TRANSITION = 5,
-        // MSM count reset: msm_count = 0 when not at a mul op
-        MSM_COUNT_RESET = 6,
-        // MSM count update: msm_count increments correctly during mul ops
-        MSM_COUNT_UPDATE = 7,
+        // MSM count zero when not at a mul op
+        MSM_COUNT_ZERO_WHEN_NOT_MUL = 6,
+        // MSM count increments correctly across mul rows
+        MSM_COUNT_INCREMENT_ACROSS_ROWS = 7,
         // Opcode exclusion: q_mul and q_add are mutually exclusive with other opcodes
         OPCODE_EXCLUSION = 8,
         // Equality check x-coordinate

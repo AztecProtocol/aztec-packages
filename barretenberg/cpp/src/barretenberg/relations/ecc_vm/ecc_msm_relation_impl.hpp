@@ -482,7 +482,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // SELECTORS ARE MUTUALLY EXCLUSIVE
     // at most one of q_skew, q_double, q_add can be nonzero.
     // note that as we can expect our table to be zero padded, we _do not_ insist that q_add + q_double + q_skew == 1.
-    std::get<SELECTOR_EXCLUSIVITY>(accumulator) +=
+    std::get<PHASE_SELECTOR_MUTUAL_EXCLUSIVITY>(accumulator) +=
         (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
 
     // ACCUMULATOR PRESERVATION ON NO-OP ROWS
@@ -501,8 +501,10 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     //     starts a fresh MSM whose accumulator is initialized via first_add, not by continuity.
     auto no_op_selector =
         (-q_add + 1) * (-q_double + 1) * (-q_skew + 1) * (-msm_transition + 1) * (-lagrange_first + 1); // degree 5
-    std::get<NO_OP_ACC_X>(accumulator) += no_op_selector * (acc_x_shift - acc_x) * scaling_factor;      // degree 6
-    std::get<NO_OP_ACC_Y>(accumulator) += no_op_selector * (acc_y_shift - acc_y) * scaling_factor;      // degree 6
+    std::get<IDLE_ROW_PRESERVES_ACC_X>(accumulator) +=
+        no_op_selector * (acc_x_shift - acc_x) * scaling_factor; // degree 6
+    std::get<IDLE_ROW_PRESERVES_ACC_Y>(accumulator) +=
+        no_op_selector * (acc_y_shift - acc_y) * scaling_factor; // degree 6
 
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
     // NOTE(#2222): could just get rid of add1 as a column, as it is a linear combination.
@@ -522,7 +524,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // in particular, `round_transition` is boolean. (`round_delta` is not boolean precisely one step before an MSM
     // transition, but that does not concern us here.)
     const auto round_transition = round_delta * (-msm_transition_shift + 1);
-    std::get<ROUND_TRANSITION_BOOL>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
+    std::get<ROUND_TRANSITION_FORCES_DELTA_ONE>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
 
     // If `round_transition == 1`, then `round_delta == 1` and `msm_transition_shift == 0`. Therefore, we wish to
     // constrain next row in the VM to either be a double (if `round != 31`) or skew (if `round == 31`). In either case,
@@ -537,13 +539,14 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // similarly, if q_double_shift == 1, then round_transition == 0,
     // the fact that a round_transition occurs at the first time skew_shift == 1 follows from the fact that skew == 1
     // implies round == 32 and the above three relations, together with the _definition_ of round_transition.
-    std::get<ROUND_TRANSITION_SKEW>(accumulator) += round_transition * q_skew_shift * (round - 31) * scaling_factor;
-    std::get<ROUND_TRANSITION_DOUBLE_OR_SKEW>(accumulator) +=
+    std::get<ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31>(accumulator) +=
+        round_transition * q_skew_shift * (round - 31) * scaling_factor;
+    std::get<ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW>(accumulator) +=
         round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
-    std::get<NO_ROUND_CHANGE_NO_DOUBLE>(accumulator) += (-round_delta + 1) * q_double_shift * scaling_factor;
+    std::get<DOUBLE_REQUIRES_ROUND_CHANGE>(accumulator) += (-round_delta + 1) * q_double_shift * scaling_factor;
     // if the next is neither double nor skew, and we are not at an msm_transition, then round_delta = 0 and the next
     // "row" of our VM is processing the same wNAF digit place.
-    std::get<ROUND_TRANSITION_NO_OP>(accumulator) +=
+    std::get<ROUND_TRANSITION_NEEDS_DOUBLE_OR_SKEW>(accumulator) +=
         round_transition * (-q_double_shift + 1) * (-q_skew_shift + 1) * scaling_factor;
 
     // CONSTRAINING Q_DOUBLE AND Q_SKEW
@@ -551,7 +554,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 
     // if double, next add = 1. As q_double, q_add, and q_skew are mutually exclusive, this suffices to force
     // q_double_shift == q_skew_shift == 0.
-    std::get<DOUBLE_THEN_ADD>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
+    std::get<DOUBLE_IMPLIES_NEXT_IS_ADD>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
     // if the current row has q_skew == 1 and the next row is _not_ an MSM transition, then q_skew_shift = 1.
     // this forces q_skew to precisely correspond to the rows where `round == 32`. Indeed, note that the first q_skew
     // bit is set correctly:
@@ -561,28 +564,29 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     //      == 1.)
     // this means that the first row with `round == 32` has q_skew == 1. then all subsequent q_skew entries must be 1,
     // _until_ we start our new MSM.
-    std::get<SKEW_PROPAGATION>(accumulator) +=
+    std::get<SKEW_PERSISTS_UNTIL_MSM_TRANSITION>(accumulator) +=
         (-msm_transition_shift + 1) * q_skew * (-q_skew_shift + 1) * scaling_factor;
     // if q_skew == 1, then round == 32. This is almost certainly redundant but psychologically useful to "constrain
     // both ends".
-    std::get<SKEW_ROUND_CHECK>(accumulator) += q_skew * (-round + 32) * scaling_factor;
+    std::get<SKEW_IMPLIES_ROUND_32>(accumulator) += q_skew * (-round + 32) * scaling_factor;
 
     // UPDATING THE COUNT
 
     // if we are changing the `round` (i.e., starting to process a new wNAF digit or at an msm transition), the
     // count_shift must be 0.
-    std::get<COUNT_ZERO_ON_ROUND_CHANGE>(accumulator) += round_delta * count_shift * scaling_factor;
+    std::get<COUNT_SHIFT_ZERO_ON_ROUND_CHANGE>(accumulator) += round_delta * count_shift * scaling_factor;
     // if msm_transition_shift = 0 and round_delta = 0, then the next "row" of the VM is processing the same wNAF digit.
     // this means that the count must increase: count_shift = count + add1 + add2 + add3 + add4
-    std::get<COUNT_UPDATE>(accumulator) += (-msm_transition_shift + 1) * (-round_delta + 1) *
-                                           (count_shift - count - add1 - add2 - add3 - add4) * scaling_factor;
+    std::get<COUNT_INCREMENT_WITHIN_ROUND>(accumulator) += (-msm_transition_shift + 1) * (-round_delta + 1) *
+                                                           (count_shift - count - add1 - add2 - add3 - add4) *
+                                                           scaling_factor;
 
     // at least one of the following must be true:
     //      the next step is an MSM transition;
     //      the next count is zero (meaning we are starting the processing of a new wNAF digit)
     //      the next step is processing the same wNAF digit (i.e., round_delta == 0)
     // (note that at the start of a new MSM, the count is also zero, so the above are not mutually exclusive.)
-    std::get<COUNT_SHIFT_ZERO>(accumulator) +=
+    std::get<COUNT_ZERO_AT_ROUND_BOUNDARY_OR_TRANSITION>(accumulator) +=
         is_not_first_row * (-msm_transition_shift + 1) * round_delta * count_shift * scaling_factor;
 
     // if msm_transition = 1, then round = 0.

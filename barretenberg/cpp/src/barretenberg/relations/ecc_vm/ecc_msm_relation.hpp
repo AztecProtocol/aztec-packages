@@ -69,24 +69,24 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         INACTIVE_SLICE_2 = 14,
         INACTIVE_SLICE_3 = 15,
         INACTIVE_SLICE_4 = 16,
-        // Selector mutual exclusivity: at most one of q_add, q_double, q_skew active
-        SELECTOR_EXCLUSIVITY = 17,
-        // Round transition: round_delta is boolean (when not at MSM transition)
-        ROUND_TRANSITION_BOOL = 18,
-        // Round transition -> skew: if round transition and skew_shift, then round == 31
-        ROUND_TRANSITION_SKEW = 19,
-        // Round transition -> double or skew: exactly one must be active
-        ROUND_TRANSITION_DOUBLE_OR_SKEW = 20,
-        // Round transition: if neither double nor skew shift, round_delta must be 0
-        ROUND_TRANSITION_NO_OP = 21,
-        // Double implies next row is add
-        DOUBLE_THEN_ADD = 22,
-        // Count reset on round change
-        COUNT_ZERO_ON_ROUND_CHANGE = 23,
-        // Count update within same round
-        COUNT_UPDATE = 24,
-        // Count shift must be zero at round boundary or MSM transition
-        COUNT_SHIFT_ZERO = 25,
+        // Phase selector mutual exclusivity: at most one of q_add, q_double, q_skew active
+        PHASE_SELECTOR_MUTUAL_EXCLUSIVITY = 17,
+        // Round transition forces round_delta == 1
+        ROUND_TRANSITION_FORCES_DELTA_ONE = 18,
+        // Round transition with skew implies round == 31
+        ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31 = 19,
+        // Round transition requires exactly one of double or skew on next row
+        ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW = 20,
+        // Round transition needs double or skew (cannot have neither)
+        ROUND_TRANSITION_NEEDS_DOUBLE_OR_SKEW = 21,
+        // Double implies next row is an add row
+        DOUBLE_IMPLIES_NEXT_IS_ADD = 22,
+        // Count shift must be zero when round changes
+        COUNT_SHIFT_ZERO_ON_ROUND_CHANGE = 23,
+        // Count increments within the same round by number of active adds
+        COUNT_INCREMENT_WITHIN_ROUND = 24,
+        // Count must be zero at round boundary or MSM transition
+        COUNT_ZERO_AT_ROUND_BOUNDARY_OR_TRANSITION = 25,
         // MSM transition implies round = 0
         MSM_TRANSITION_ROUND_ZERO = 26,
         // MSM transition: pc = pc_shift + msm_size
@@ -101,12 +101,12 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         ADD_CROSS_ROW_CONTINUITY = 31,
         // add1 = q_add + q_skew
         ADD1_DECOMPOSITION = 32,
-        // q_skew propagation: if not at MSM transition, q_skew implies q_skew_shift
-        SKEW_PROPAGATION = 33,
+        // q_skew persists until MSM transition: q_skew && !msm_transition_shift => q_skew_shift
+        SKEW_PERSISTS_UNTIL_MSM_TRANSITION = 33,
         // q_skew implies round == 32
-        SKEW_ROUND_CHECK = 34,
-        // If round_delta == 0, then q_double_shift == 0
-        NO_ROUND_CHANGE_NO_DOUBLE = 35,
+        SKEW_IMPLIES_ROUND_32 = 34,
+        // Doubling requires a round change (round_delta must be 1 if q_double_shift)
+        DOUBLE_REQUIRES_ROUND_CHANGE = 35,
         // Additional addition slope constraints (split to prevent cancellation)
         ADD_SLOPE_2 = 36,
         ADD_SLOPE_3 = 37,
@@ -119,9 +119,9 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         SKEW_SLOPE_2 = 42,
         SKEW_SLOPE_3 = 43,
         SKEW_SLOPE_4 = 44,
-        // No-op row: accumulator preservation when no selector is active
-        NO_OP_ACC_X = 45,
-        NO_OP_ACC_Y = 46,
+        // Idle row: accumulator preserved when no phase selector is active
+        IDLE_ROW_PRESERVES_ACC_X = 45,
+        IDLE_ROW_PRESERVES_ACC_Y = 46,
         NUM_SUBRELATIONS,
     };
 

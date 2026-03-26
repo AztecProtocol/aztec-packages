@@ -195,7 +195,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * @note this in particular "resets" the msm_count when we are done with an msm.
      */
 
-    std::get<MSM_COUNT_RESET>(accumulator) += ((-q_mul + 1) * msm_count) * scaling_factor; // degree 2
+    std::get<MSM_COUNT_ZERO_WHEN_NOT_MUL>(accumulator) += ((-q_mul + 1) * msm_count) * scaling_factor; // degree 2
 
     /**
      * @brief Validate `msm_count` updates correctly for mul operations.
@@ -203,8 +203,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * point-at-infinity and msm is not terminating at next row.
      */
     auto msm_count_delta = msm_count_shift - msm_count;
-    std::get<MSM_COUNT_UPDATE>(accumulator) += is_not_first_row * (-msm_transition + 1) *
-                                               (msm_count_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 5
+    std::get<MSM_COUNT_INCREMENT_ACROSS_ROWS>(accumulator) += is_not_first_row * (-msm_transition + 1) *
+                                                              (msm_count_delta - q_mul * num_muls_in_row) *
+                                                              scaling_factor; // degree 5
 
     /**
      * @brief Opcode exclusion tests. We have the following assertions:
