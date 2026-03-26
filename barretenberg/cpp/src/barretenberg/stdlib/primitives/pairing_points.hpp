@@ -210,13 +210,8 @@ template <typename Curve> struct PairingPoints {
         }
 
 #ifndef NDEBUG
-        try {
-            bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
-            info(
-                "Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
-        } catch (const std::exception&) {
-            info("Are aggregated Pairing Points with tag ", tag_index, " valid? false (point not on curve)");
-        }
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
+        info("Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
 
