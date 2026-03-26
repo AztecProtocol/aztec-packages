@@ -25,13 +25,8 @@ void check_bn254_consistency(const fs::path& crs_download_path, size_t num_point
 {
     NativeBn254CrsFactory file_crs(crs_download_path, allow_download);
 
-    // read compressed G1 and decompress
-    auto g1_compressed = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", num_points * sizeof(uint256_t));
-    std::vector<g1::affine_element> g1_points(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        auto c = from_buffer<uint256_t>(g1_compressed, i * sizeof(uint256_t));
-        g1_points[i] = g1::affine_element::from_compressed(c);
-    }
+    // Use get_bn254_g1_data to load reference points (handles compressed/uncompressed automatically)
+    auto g1_points = bb::get_bn254_g1_data(bb::srs::bb_crs_path(), num_points, /*allow_download=*/false);
 
     // read G2
     auto g2_buf = read_file(bb::srs::bb_crs_path() / "bn254_g2.dat", sizeof(g2::affine_element));
