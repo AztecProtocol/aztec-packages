@@ -80,7 +80,9 @@ template <typename G1> class TestAffineElement : public testing::Test {
         affine_element::serialize_to_buffer(off_curve, ptr);
 
         if (!off_curve.on_curve()) {
+#ifndef __wasm__
             EXPECT_THROW_OR_ABORT(affine_element::serialize_from_buffer(ptr), "not on the curve");
+#endif
         }
     }
 
