@@ -11,6 +11,7 @@
 #include <memory>
 #include <numeric>
 
+#include "barretenberg/commitment_schemes/interleaving_utils.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -39,6 +40,12 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
 {
     auto native_vk = std::make_shared<NativeVerificationKey>();
     key = std::make_shared<VerificationKey>(&builder, native_vk);
+    // Populate precomputed group commitments from the native VK's hardcoded values
+    for (size_t g = 0; g < Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS; g++) {
+        key->precomputed_group_commitments[g] =
+            Commitment::from_witness(&builder, native_vk->precomputed_group_commitments[g]);
+        key->precomputed_group_commitments[g].fix_witness();
+    }
 }
 
 /**
@@ -122,11 +129,15 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     // ========== Execute wire commitments round ==========
 
-    // Receive commitments to all polynomials except the logderivate ones
-    VerifierCommitments commitments{ key };
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
-        comm = transcript->template receive_from_prover<Commitment>(label);
+    constexpr size_t BS = Flavor::NativeFlavor::INTERLEAVING_BATCH_SIZE;
+
+    // Receive wire group commitments
+    std::vector<Commitment> wire_group_comms(Flavor::NativeFlavor::NUM_WIRE_GROUPS);
+    for (size_t g = 0; g < Flavor::NativeFlavor::NUM_WIRE_GROUPS; g++) {
+        wire_group_comms[g] = transcript->template receive_from_prover<Commitment>("WIRE_GROUP_" + std::to_string(g));
     }
+
+    VerifierCommitments commitments{ key };
 
     // ========== Execute log derivative inverse round ==========
 
@@ -135,9 +146,11 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
-    // Receive commitments to all logderivative inverse polynomials
-    for (auto [commitment, label] : zip_view(commitments.get_derived(), commitments.get_derived_labels())) {
-        commitment = transcript->template receive_from_prover<Commitment>(label);
+    // Receive derived group commitments
+    std::vector<Commitment> derived_group_comms(Flavor::NativeFlavor::NUM_DERIVED_GROUPS);
+    for (size_t g = 0; g < Flavor::NativeFlavor::NUM_DERIVED_GROUPS; g++) {
+        derived_group_comms[g] =
+            transcript->template receive_from_prover<Commitment>("DERIVED_GROUP_" + std::to_string(g));
     }
 
     // ========== Execute relation check rounds ==========
@@ -178,52 +191,146 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     // ========== Execute PCS verification ==========
 
-    // Batch commitments and evaluations using short scalars to reduce ECCVM circuit size
-    auto unshifted_comms = commitments.get_unshifted();
-    auto unshifted_evals = output.claimed_evaluations.get_unshifted();
-    auto shifted_comms = commitments.get_to_be_shifted();
-    auto shifted_evals = output.claimed_evaluations.get_shifted();
-
-    // Get short batching challenges from transcript
+    // Get short batching challenges from transcript (per individual entity)
     Challenges challenges;
     auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
-    // Batch to be shifted commitments
-    Commitment batched_shifted =
-        Commitment::batch_mul(std::vector<Commitment>(shifted_comms.begin(), shifted_comms.end()),
-                              std::vector<FF>(shifted_challenges.begin(), shifted_challenges.end()),
-                              128);
+    // Get individual entity evaluations from sumcheck
+    auto unshifted_evals = output.claimed_evaluations.get_unshifted();
+    auto shifted_evals = output.claimed_evaluations.get_shifted();
 
-    // Batch unshifted commitments: We reuse the calculation performed for shifted commitments.
-    Commitment batched_unshifted =
-        Commitment::batch_mul(
-            std::vector<Commitment>(unshifted_comms.begin(), unshifted_comms.begin() + WIRES_TO_BE_SHIFTED_START_IDX),
-            std::vector<FF>(unshifted_challenges.begin(), unshifted_challenges.begin() + WIRES_TO_BE_SHIFTED_START_IDX),
-            128) +
-        Commitment::batch_mul(
-            std::vector<Commitment>(unshifted_comms.begin() + WIRES_TO_BE_SHIFTED_END_IDX, unshifted_comms.end()),
-            std::vector<FF>(unshifted_challenges.begin() + WIRES_TO_BE_SHIFTED_END_IDX, unshifted_challenges.end()),
-            128) +
-        batched_shifted;
+    // ---- Combine per-entity challenges/evaluations into per-group values ----
 
-    // Batch evaluations
-    FF batched_unshifted_eval =
-        std::inner_product(unshifted_challenges.begin(), unshifted_challenges.end(), unshifted_evals.begin(), FF(0));
+    // Get interleaving challenges (0 for BS=1)
+    std::vector<FF> interleaving_challenges;
+    for (size_t i = 0; i < Flavor::NativeFlavor::INTERLEAVING_LOG_K; i++) {
+        interleaving_challenges.push_back(
+            transcript->template get_challenge<FF>("interleaving_challenge_" + std::to_string(i)));
+    }
+    auto lagrange = compute_interleaving_lagrange_basis<BS>(
+        std::span<const FF>(interleaving_challenges.data(), interleaving_challenges.size()));
 
-    FF batched_shifted_eval =
-        std::inner_product(shifted_challenges.begin(), shifted_challenges.end(), shifted_evals.begin(), FF(0));
+    auto combine_section = [&](std::span<const FF> entity_values, size_t num_groups) {
+        std::vector<FF> group_values(num_groups, FF(0));
+        for (size_t g = 0; g < num_groups; g++) {
+            for (size_t j = 0; j < BS && g * BS + j < entity_values.size(); j++) {
+                group_values[g] += entity_values[g * BS + j] * lagrange[j];
+            }
+        }
+        return group_values;
+    };
 
-    // Execute Shplemini rounds with batched claims
-    ClaimBatcher batched_claim_batcher{ .unshifted = ClaimBatch{ .commitments = RefVector(batched_unshifted),
+    auto concat_vectors = [](auto&&... vecs) {
+        std::vector<FF> result;
+        (result.insert(result.end(), vecs.begin(), vecs.end()), ...);
+        return result;
+    };
+
+    // Wire section needs zero-padding before shifted wires for BS-alignment (PAD=0 for BS=1).
+    constexpr size_t NUM_PRECOMPUTED = Flavor::NativeFlavor::NUM_PRECOMPUTED_ENTITIES;
+    constexpr size_t NUM_WIRES = Flavor::NativeFlavor::NUM_WIRES;
+    constexpr size_t NUM_DERIVED = Flavor::NativeFlavor::NUM_WITNESS_ENTITIES - Flavor::NativeFlavor::NUM_WIRES;
+    constexpr size_t PAD = Flavor::NativeFlavor::NUM_SHIFT_ALIGNMENT_PADDING;
+    constexpr size_t NON_SHIFTED_WIRES = bb::avm2::NUM_NON_SHIFTED_WIRES;
+
+    auto pad_wire_values = [&](std::span<const FF> wire_vals) {
+        std::vector<FF> padded;
+        padded.reserve(wire_vals.size() + PAD);
+        padded.insert(padded.end(), wire_vals.begin(), wire_vals.begin() + NON_SHIFTED_WIRES);
+        padded.resize(padded.size() + PAD, FF(0));
+        padded.insert(padded.end(), wire_vals.begin() + NON_SHIFTED_WIRES, wire_vals.end());
+        return padded;
+    };
+
+    auto padded_wire_challenges = pad_wire_values(unshifted_challenges.subspan(NUM_PRECOMPUTED, NUM_WIRES));
+    auto padded_wire_evals = pad_wire_values(unshifted_evals.subspan(NUM_PRECOMPUTED, NUM_WIRES));
+
+    auto group_unshifted_challenges = concat_vectors(
+        combine_section(unshifted_challenges.subspan(0, NUM_PRECOMPUTED), Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS),
+        combine_section(std::span<const FF>(padded_wire_challenges), Flavor::NativeFlavor::NUM_WIRE_GROUPS),
+        combine_section(unshifted_challenges.subspan(NUM_PRECOMPUTED + NUM_WIRES, NUM_DERIVED),
+                        Flavor::NativeFlavor::NUM_DERIVED_GROUPS));
+    auto group_shifted_challenges = combine_section(shifted_challenges, Flavor::NativeFlavor::NUM_SHIFTED_GROUPS);
+
+    auto group_unshifted_evals = concat_vectors(
+        combine_section(unshifted_evals.subspan(0, NUM_PRECOMPUTED), Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS),
+        combine_section(std::span<const FF>(padded_wire_evals), Flavor::NativeFlavor::NUM_WIRE_GROUPS),
+        combine_section(unshifted_evals.subspan(NUM_PRECOMPUTED + NUM_WIRES, NUM_DERIVED),
+                        Flavor::NativeFlavor::NUM_DERIVED_GROUPS));
+    auto group_shifted_evals = combine_section(shifted_evals, Flavor::NativeFlavor::NUM_SHIFTED_GROUPS);
+
+    // ---- Collect group commitments ----
+
+    std::vector<Commitment> all_unshifted_group_comms;
+    all_unshifted_group_comms.reserve(Flavor::NativeFlavor::NUM_UNSHIFTED_GROUPS);
+    for (size_t g = 0; g < Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS; g++) {
+        all_unshifted_group_comms.push_back(key->precomputed_group_commitments[g]);
+    }
+    for (auto& c : wire_group_comms) {
+        all_unshifted_group_comms.push_back(c);
+    }
+    for (auto& c : derived_group_comms) {
+        all_unshifted_group_comms.push_back(c);
+    }
+
+    // Shifted group commitments = subset of wire groups (with padding offset)
+    constexpr size_t SHIFTED_WIRE_OFFSET = (WIRES_TO_BE_SHIFTED_START_IDX - WIRE_START_IDX) + PAD;
+    constexpr size_t SHIFTED_WIRE_END_OFFSET = (WIRES_TO_BE_SHIFTED_END_IDX - WIRE_START_IDX) + PAD;
+    constexpr size_t SHIFTED_WIRE_GROUP_START = SHIFTED_WIRE_OFFSET / BS;
+    constexpr size_t SHIFTED_WIRE_GROUP_END = (SHIFTED_WIRE_END_OFFSET + BS - 1) / BS;
+    std::vector<Commitment> shifted_group_comms;
+    for (size_t g = SHIFTED_WIRE_GROUP_START; g < SHIFTED_WIRE_GROUP_END; g++) {
+        shifted_group_comms.push_back(wire_group_comms[g]);
+    }
+
+    // ---- Batch commitments and evaluations ----
+
+    Commitment batched_shifted_group = Commitment::batch_mul(shifted_group_comms, group_shifted_challenges, 128);
+
+    std::vector<Commitment> non_shifted_comms;
+    std::vector<FF> non_shifted_challenges;
+    for (size_t g = 0; g < Flavor::NativeFlavor::NUM_UNSHIFTED_GROUPS; g++) {
+        size_t wire_group_idx = g - Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS;
+        bool is_wire_group = g >= Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS &&
+                             g < Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS + Flavor::NativeFlavor::NUM_WIRE_GROUPS;
+        bool is_shifted_group =
+            is_wire_group && wire_group_idx >= SHIFTED_WIRE_GROUP_START && wire_group_idx < SHIFTED_WIRE_GROUP_END;
+        if (!is_shifted_group) {
+            non_shifted_comms.push_back(all_unshifted_group_comms[g]);
+            non_shifted_challenges.push_back(group_unshifted_challenges[g]);
+        }
+    }
+    Commitment batched_unshifted_group =
+        batched_shifted_group + Commitment::batch_mul(non_shifted_comms, non_shifted_challenges, 128);
+
+    FF batched_unshifted_eval = std::inner_product(
+        group_unshifted_challenges.begin(), group_unshifted_challenges.end(), group_unshifted_evals.begin(), FF(0));
+    FF batched_shifted_eval = std::inner_product(
+        group_shifted_challenges.begin(), group_shifted_challenges.end(), group_shifted_evals.begin(), FF(0));
+
+    // ---- PCS opening ----
+
+    // Extended challenge: [interleaving_challenges || sumcheck_challenges]
+    std::vector<FF> extended_challenge;
+    extended_challenge.reserve(Flavor::NativeFlavor::INTERLEAVING_LOG_K + output.challenge.size());
+    for (const auto& ic : interleaving_challenges) {
+        extended_challenge.push_back(ic);
+    }
+    extended_challenge.insert(extended_challenge.end(), output.challenge.begin(), output.challenge.end());
+    std::vector<FF> extended_padding(extended_challenge.size(), FF(1));
+
+    ClaimBatcher batched_claim_batcher{ .shift_exponent = BS,
+                                        .unshifted = ClaimBatch{ .commitments = RefVector(batched_unshifted_group),
                                                                  .evaluations = RefVector(batched_unshifted_eval) },
-                                        .shifted = ClaimBatch{ .commitments = RefVector(batched_shifted),
+                                        .shifted = ClaimBatch{ .commitments = RefVector(batched_shifted_group),
                                                                .evaluations = RefVector(batched_shifted_eval) } };
+
     auto opening_claim =
         Shplemini::compute_batch_opening_claim(
-            padding_indicator_array, batched_claim_batcher, output.challenge, Commitment::one(&builder), transcript)
+            extended_padding, batched_claim_batcher, extended_challenge, Commitment::one(&builder), transcript)
             .batch_opening_claim;
 
     PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));

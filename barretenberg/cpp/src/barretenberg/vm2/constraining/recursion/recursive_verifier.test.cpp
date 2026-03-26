@@ -140,7 +140,7 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
     vinfo("Recursive verifier",
           (pad_proof ? " (padded proof)" : ""),
           ": finalized num gates = ",
-          outer_circuit.num_gates());
+          outer_circuit.get_num_finalized_gates_inefficient());
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.

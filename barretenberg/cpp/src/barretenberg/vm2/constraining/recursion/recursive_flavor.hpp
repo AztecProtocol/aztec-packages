@@ -67,8 +67,18 @@ class AvmRecursiveFlavor {
      * stored in the selectors of the circuit that contains an AVM verifier.
      *
      */
-    using VerificationKey =
+    using VerificationKeyBase =
         FixedStdlibVKAndHash_<CircuitBuilder, AvmFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
+
+    /**
+     * @brief Extends the base stdlib VK with precomputed group commitments for multipcs interleaving.
+     * @details The group commitments are populated from the native VK's hardcoded values in the constructor.
+     */
+    class VerificationKey : public VerificationKeyBase {
+      public:
+        using VerificationKeyBase::VerificationKeyBase;
+        std::array<Commitment, NativeFlavor::NUM_PRECOMPUTED_GROUPS> precomputed_group_commitments{};
+    };
 
     template <typename Builder> class TemplatedTranscript : public StdlibTranscript<Builder> {
         using Base = StdlibTranscript<Builder>;
@@ -118,15 +128,19 @@ class AvmRecursiveFlavor {
                 }
             }
 
-            for (const auto& wire_label : challenges.get_wires_labels()) {
-                [[maybe_unused]] auto _ = transcript->template receive_from_prover<StdlibCommitment>(wire_label);
+            // Receive wire group commitments (not per-entity)
+            for (size_t g = 0; g < NativeFlavor::NUM_WIRE_GROUPS; g++) {
+                [[maybe_unused]] auto _ =
+                    transcript->template receive_from_prover<StdlibCommitment>("WIRE_GROUP_" + std::to_string(g));
             }
 
             [[maybe_unused]] auto [_beta, _gamma] =
                 transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
-            for (const auto& derived_label : challenges.get_derived_labels()) {
-                [[maybe_unused]] auto _ = transcript->template receive_from_prover<StdlibCommitment>(derived_label);
+            // Receive derived group commitments (not per-entity)
+            for (size_t g = 0; g < NativeFlavor::NUM_DERIVED_GROUPS; g++) {
+                [[maybe_unused]] auto _ =
+                    transcript->template receive_from_prover<StdlibCommitment>("DERIVED_GROUP_" + std::to_string(g));
             }
 
             [[maybe_unused]] const FF _alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -149,16 +163,26 @@ class AvmRecursiveFlavor {
             [[maybe_unused]] auto _unshifted_challenges =
                 transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
 
+            // Interleaving challenges (0 for BS=1)
+            constexpr size_t LOG_K = NativeFlavor::INTERLEAVING_LOG_K;
+            for (size_t i = 0; i < LOG_K; i++) {
+                [[maybe_unused]] FF _ic =
+                    transcript->template get_challenge<FF>("interleaving_challenge_" + std::to_string(i));
+            }
+
+            // Gemini rounds: log2(N) + LOG_K
+            constexpr size_t GEMINI_NUM_ROUNDS = MAX_AVM_TRACE_LOG_SIZE + LOG_K;
+
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
-            for (size_t i = 1; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
+            for (size_t i = 1; i < GEMINI_NUM_ROUNDS; ++i) {
                 [[maybe_unused]] auto _ =
                     transcript->template receive_from_prover<StdlibCommitment>("Gemini:FOLD_" + std::to_string(i));
             }
 
             [[maybe_unused]] const FF _gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
 
-            for (size_t i = 1; i <= MAX_AVM_TRACE_LOG_SIZE; ++i) {
+            for (size_t i = 1; i <= GEMINI_NUM_ROUNDS; ++i) {
                 [[maybe_unused]] auto _ = transcript->template receive_from_prover<FF>("Gemini:a_" + std::to_string(i));
             }
 
