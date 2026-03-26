@@ -1,6 +1,6 @@
 /* eslint-disable camelcase */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT, extractOffchainOutput } from '@aztec/aztec.js/contracts';
+import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
@@ -78,8 +78,6 @@ describe('e2e_offchain_payment', () => {
     await cheatCodes.eth.reorg(1);
     await aztecNodeAdmin.rollbackTo(Number(block) - 1);
     expect(await aztecNode.getBlockNumber()).toBe(Number(block) - 1);
-
-    await aztecNodeAdmin.resumeSync();
   }
 
   it('processes an offchain-delivered private payment via QR-style handoff', async () => {
@@ -100,6 +98,7 @@ describe('e2e_offchain_payment', () => {
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
+    // Deliver Bob's offchain message (the payment note).
     await contract.methods
       .offchain_receive([
         {
@@ -111,11 +110,27 @@ describe('e2e_offchain_payment', () => {
       ])
       .simulate({ from: bob });
 
-    // TODO(F-413): we need to implement scopes on capsules so we can check Alice's balance too here. This is not
-    // possible right now because the offchain inbox is shared for all accounts using this contract in the same PXE,
-    // which is bad.
+    // TODO(F-324): until we implement F-324, we need Alice to self-deliver her own change note
+    const messageForAlice = offchainMessages.find(msg => msg.recipient.equals(alice));
+    expect(messageForAlice).toBeTruthy();
+
+    // Deliver Alice's offchain message (the change note).
+    await contract.methods
+      .offchain_receive([
+        {
+          ciphertext: messageForAlice!.payload,
+          recipient: alice,
+          tx_hash: receipt.txHash.hash,
+          anchor_block_timestamp: messageForAlice!.anchorBlockTimestamp,
+        },
+      ])
+      .simulate({ from: alice });
+
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
+
+    const { result: aliceBalance } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceBalance).toBe(mintAmount - paymentAmount);
   });
 
   it('reprocesses an offchain-delivered payment after an L1 reorg', async () => {
@@ -135,6 +150,9 @@ describe('e2e_offchain_payment', () => {
     const txBlockNumber = receipt.blockNumber!;
     const txHash = provenTx.getTxHash();
 
+    const txEffectBeforeReorg = await aztecNode.getTxEffect(txHash);
+    expect(txEffectBeforeReorg).toBeTruthy();
+
     const { offchainMessages } = extractOffchainOutput(
       provenTx.offchainEffects,
       provenTx.data.constants.anchorBlockHeader.globalVariables.timestamp,
@@ -142,7 +160,7 @@ describe('e2e_offchain_payment', () => {
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
-    // Deliver the offchain message for eventual processing
+    // Deliver Bob's offchain message (the payment note).
     await contract.methods
       .offchain_receive([
         {
@@ -154,9 +172,27 @@ describe('e2e_offchain_payment', () => {
       ])
       .simulate({ from: bob });
 
+    // Deliver Alice's offchain message (the change note).
+    const messageForAlice = offchainMessages.find(msg => msg.recipient.equals(alice));
+    expect(messageForAlice).toBeTruthy();
+
+    await contract.methods
+      .offchain_receive([
+        {
+          ciphertext: messageForAlice!.payload,
+          recipient: alice,
+          tx_hash: txHash.hash,
+          anchor_block_timestamp: messageForAlice!.anchorBlockTimestamp,
+        },
+      ])
+      .simulate({ from: alice });
+
     // Check that Bob got the payment before a re-org
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
+
+    const { result: aliceBalance } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceBalance).toBe(mintAmount - paymentAmount);
 
     await forceReorg(txBlockNumber);
 
@@ -168,8 +204,12 @@ describe('e2e_offchain_payment', () => {
     const { result: bobAfterRollback } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobAfterRollback).toBe(0n);
 
-    // Resend the tx after the reorg and force block production so the sequencer picks it up.
-    await provenTx.send({ wait: NO_WAIT });
+    // Verify Alice's balance also rolled back to full mint amount (transfer was reverted)
+    const { result: aliceAfterRollback } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceAfterRollback).toBe(mintAmount);
+
+    // The archiver re-syncs the same checkpoints from L1 after the reorg, so the tx gets re-mined automatically.
+    // Force an empty block so the PXE re-syncs and reprocesses the offchain-delivered notes.
     await forceEmptyBlock();
 
     // Check that the message was reprocessed and Bob has his payment again.
@@ -177,5 +217,8 @@ describe('e2e_offchain_payment', () => {
     // for the system to re-process it.
     const { result: bobBalanceAfterResentTx } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalanceAfterResentTx).toBe(paymentAmount);
+
+    const { result: aliceBalanceAfterResentTx } = await contract.methods.get_balance(alice).simulate({ from: alice });
+    expect(aliceBalanceAfterResentTx).toBe(mintAmount - paymentAmount);
   });
 });

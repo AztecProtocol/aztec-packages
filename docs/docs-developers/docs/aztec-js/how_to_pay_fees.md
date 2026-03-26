@@ -38,6 +38,10 @@ Mana is Aztec's unit of computational effort (like gas on Ethereum), and Fee Jui
 
 ## Estimate mana costs
 
+:::tip Automatic estimation with EmbeddedWallet
+When using `EmbeddedWallet`, gas is estimated automatically on every `send()` call. You only need to manually estimate if you want to preview costs before sending, or if you're using a custom wallet implementation.
+:::
+
 Before sending a transaction, you can estimate the mana it will consume by simulating with `estimateGas: true`:
 
 ```typescript
@@ -266,6 +270,10 @@ const receipt = await contract.methods.myFunction().send({
 ```
 
 ### Use automatic gas estimation
+
+:::note
+When using `EmbeddedWallet`, gas estimation happens automatically on every `send()` — you don't need to pass `estimateGas`. This option is useful for custom wallet implementations or when you want to estimate gas during a `simulate()` call.
+:::
 
 ```typescript
 // contract, aliceAddress, and paymentMethod are from the examples above

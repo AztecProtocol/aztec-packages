@@ -224,7 +224,13 @@ export const FunctionDebugMetadataSchema = z.object({
     acir_locations: z.record(z.number()),
     brillig_locations: z.record(z.record(z.number())),
   }),
-  files: z.record(z.object({ source: z.string(), path: z.string() })),
+  files: z.record(
+    z.object({
+      source: z.string(),
+      path: z.string(),
+      function_locations: z.array(z.object({ start: z.number(), name: z.string() })),
+    }),
+  ),
 }) satisfies z.ZodType<FunctionDebugMetadata>;
 
 /** The artifact entry of a function. */
@@ -305,6 +311,14 @@ export interface ProgramDebugInfo {
   debug_infos: Array<DebugInfo>;
 }
 
+/** The range a function occupies in a file. */
+export type FunctionLocation = {
+  /** The byte where the function starts. */
+  start: number;
+  /** The name of the function. */
+  name: string;
+};
+
 /** Maps a file ID to its metadata for debugging purposes. */
 export type DebugFileMap = Record<
   FileId,
@@ -313,6 +327,8 @@ export type DebugFileMap = Record<
     source: string;
     /** The path of the file. */
     path: string;
+    /** The range each function occupies in the file. */
+    function_locations: FunctionLocation[];
   }
 >;
 
@@ -367,7 +383,14 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
       globals: z.record(z.array(AbiValueSchema)),
     }),
     storageLayout: z.record(z.object({ slot: schemas.Fr })),
-    fileMap: z.record(z.coerce.number(), z.object({ source: z.string(), path: z.string() })),
+    fileMap: z.record(
+      z.coerce.number(),
+      z.object({
+        source: z.string(),
+        path: z.string(),
+        function_locations: z.array(z.object({ start: z.number(), name: z.string() })),
+      }),
+    ),
   }),
 );
 

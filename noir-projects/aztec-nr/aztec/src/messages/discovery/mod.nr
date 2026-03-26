@@ -103,7 +103,8 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* msg_type_id */ u64,
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-/* message_context */ MessageContext);
+/* message_context */ MessageContext,
+/* scope */ AztecAddress);
 
 /// Synchronizes the contract's private state with the network.
 ///
@@ -119,12 +120,13 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
     compute_note_nullifier: ComputeNoteNullifier,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
+    scope: AztecAddress,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-    let logs = get_private_logs(contract_address);
+    let logs = get_private_logs(contract_address, scope);
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
             aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
@@ -141,6 +143,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
                 process_custom_message,
                 message_ciphertext,
                 pending_tagged_log.context,
+                scope,
             );
         }
 
@@ -152,7 +155,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
     });
 
     if offchain_inbox_sync.is_some() {
-        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address);
+        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address, scope);
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
@@ -161,6 +164,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
                 process_custom_message,
                 msg.message_ciphertext,
                 msg.message_context,
+                scope,
             );
             // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
             // volatile array with the to-process message, not the actual persistent storage of them.
@@ -174,11 +178,12 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
         contract_address,
         compute_note_hash,
         compute_note_nullifier,
+        scope,
     );
 
     // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
     // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
-    validate_and_store_enqueued_notes_and_events(contract_address);
+    validate_and_store_enqueued_notes_and_events(contract_address, scope);
 }
 
 mod test {
@@ -195,6 +200,8 @@ mod test {
     };
     use crate::protocol::address::AztecAddress;
 
+    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
+
     #[test]
     unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
         let env = TestEnvironment::new();
@@ -204,7 +211,7 @@ mod test {
         env.utility_context_at(contract_address, |_| {
             let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
 
-            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot);
+            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot, SCOPE);
             logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
             assert_eq(logs.len(), 1);
 
@@ -216,6 +223,7 @@ mod test {
                 dummy_compute_note_nullifier,
                 no_handler,
                 no_inbox_sync,
+                SCOPE,
             );
 
             assert_eq(logs.len(), 0);

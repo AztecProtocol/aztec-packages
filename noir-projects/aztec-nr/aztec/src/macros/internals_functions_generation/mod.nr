@@ -25,25 +25,10 @@ comptime fn make_functions_uncallable<let N: u32>(functions: [FunctionDefinition
         // directly and a std::mem::zeroed() to make the compilation fail on the static_assert and not on a missing
         // return value.
         let error_message = f"{error_message_template}{name}. See https://docs.aztec.network/errors/6";
-        let body = f"{{ std::static_assert(false, \"{error_message}\"); std::mem::zeroed() }}".quoted_contents();
-        let body_expr = body.as_expr().expect(f"Body is not an expression: {body}");
 
-        // Prefix all parameter names with "_" to suppress unused variable warnings
-        let params = function.parameters();
-        let prefixed_params = params.map(|(param_name, param_type)| {
-            let prefixed_name = f"_{param_name}".quoted_contents();
-            (prefixed_name, param_type)
-        });
-
-        function.set_body(body_expr);
-        function.set_parameters(prefixed_params);
-        // We need to add the `contract_library_method` attribute to the function to prevent this function from being
-        // compiled as an entrypoint function (function that's compiled as its own circuit).
-        function.add_attribute("contract_library_method");
-
-        // Contract functions need to have a public return type so we mark it as such to avoid undesired compilation
-        // errors.
-        function.set_return_public(true);
+        // Disabling the function also adds a `contract_library_method` attribute to the function to prevent this
+        // function from being compiled as an entrypoint function (function that's compiled as its own circuit).
+        function.disable(error_message);
     });
 }
 

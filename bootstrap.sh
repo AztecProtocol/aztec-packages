@@ -486,36 +486,22 @@ function versions {
   echo "wasi-sdk: $wasi_sdk_version"
 }
 
-function release_github {
-  # Add an easy link for comparing to previous release.
-  local compare_link=""
-  if gh release view "v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/v${CURRENT_VERSION}...${COMMIT_HASH}")
+function release_bb_github {
+  # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
+  # Users can manually create releases in aztec-packages via the GitHub UI if needed.
+  local bb_repo="AztecProtocol/barretenberg"
+  if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
+    return
   fi
-  # Legacy releases. TODO: Eventually remove.
-  if gh release view "aztec-packages-v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v${CURRENT_VERSION}...${COMMIT_HASH}")
-  fi
-  # Determine if this is a prerelease (has a prerelease tag like -rc.1, -alpha, etc.)
-  local is_prerelease=false
+  local prerelease_flag=""
   if [ -n "$(semver prerelease $REF_NAME)" ]; then
-    is_prerelease=true
+    prerelease_flag="--prerelease"
   fi
-  # Ensure we have a commit release.
-  if ! gh release view "$REF_NAME" &>/dev/null; then
-    local prerelease_flag=""
-    if $is_prerelease; then
-      prerelease_flag="--prerelease"
-    fi
-    do_or_dryrun gh release create "$REF_NAME" \
-      $prerelease_flag \
-      --target $COMMIT_HASH \
-      --title "$REF_NAME" \
-      --notes "$compare_link"
-  elif ! $is_prerelease; then
-    # Release exists but this is not a prerelease version - ensure it's marked as a full release
-    do_or_dryrun gh release edit "$REF_NAME" --prerelease=false
-  fi
+  do_or_dryrun gh release create "$REF_NAME" \
+    --repo "$bb_repo" \
+    $prerelease_flag \
+    --title "$REF_NAME" \
+    --notes "Release $REF_NAME — see https://github.com/AztecProtocol/aztec-packages/commits/$COMMIT_HASH"
 }
 
 function release {
@@ -525,9 +511,9 @@ function release {
   echo_header "release all"
   set -x
 
-  # Ensure we have a github release for our REF_NAME.
-  # This is in case were are not going through release-please.
-  release_github
+  # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
+  # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
+  release_bb_github
 
   projects=(
     barretenberg/cpp
@@ -817,8 +803,24 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build release
-    release
+    if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
+      echo_header "Private fork release: $REF_NAME"
+      echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
+      release_github
+      echo "Fetching private source from aztec-packages-private..."
+      git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
+      git fetch --depth 1 private "refs/tags/$REF_NAME"
+      git worktree add aztec-private FETCH_HEAD
+      cd aztec-private
+      echo "Initializing submodules in private worktree..."
+      git submodule update --init --recursive
+      echo "Private worktree ready at $(pwd) (HEAD=$(git rev-parse --short HEAD)). Cache uploads disabled."
+      export NO_CACHE_UPLOAD=1
+      # Unset so child bootstrap.sh re-derives these from the worktree.
+      unset COMMIT_HASH root
+    fi
+    ./bootstrap.sh build release
+    ./bootstrap.sh release
     ;;
 
   ##########################
@@ -842,7 +844,7 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
-    barretenberg/cpp/bootstrap.sh ci
+    make bb-cpp-native-tests
     ;;
   "ci-barretenberg-full")
     export CI=1
@@ -852,7 +854,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
-    barretenberg/bootstrap.sh ci
+    make bb-tests bb-full-tests
     ;;
 
   #######################

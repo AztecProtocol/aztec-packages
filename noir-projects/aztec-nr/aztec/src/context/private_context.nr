@@ -11,8 +11,8 @@ use crate::{
         logs::notify_created_contract_class_log,
         notes::notify_nullified_note,
         nullifiers::notify_created_nullifier,
-        public_call::validate_public_calldata,
-        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
+        public_call::assert_valid_public_call_data,
+        tx_phase::{is_execution_in_revertible_phase, notify_revertible_phase_start},
     },
 };
 use crate::logging::aztecnr_trace_log_format;
@@ -37,7 +37,7 @@ use crate::protocol::{
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
-        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_CIPHERTEXT_LEN,
     },
     hash::poseidon2_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -519,7 +519,7 @@ impl PrivateContext {
         let current_counter = self.side_effect_counter;
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
-        let is_revertible = unsafe { in_revertible_phase(current_counter) };
+        let is_revertible = unsafe { is_execution_in_revertible_phase(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -775,6 +775,7 @@ impl PrivateContext {
             // Safety: Kernels verify that the key validation request is valid and below we verify that a request for
             // the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
+            assert(!request.pk_m.is_infinite, "Infinite public key points are not allowed");
             assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
             self.key_validation_requests_and_separators.push(
@@ -877,22 +878,33 @@ impl PrivateContext {
     /// about _which_ function has been executed. A tx which leaks such information does not contribute to the privacy
     /// set of the network.
     ///
-    /// * Unlike `emit_raw_note_log`, this log is not tied to any specific note
+    /// * Unlike `emit_raw_note_log_unsafe`, this log is not tied to any specific note
     ///
     /// # Arguments
+    /// * `tag` - A tag placed at `fields[0]` of the emitted log. Used by recipients and nodes to identify and
+    /// filter for relevant logs without scanning all of them.
     /// * `log` - The log data that will be publicly broadcast (so make sure it's already been encrypted before you
-    /// call this function). Private logs are bounded in size (PRIVATE_LOG_SIZE_IN_FIELDS), to encourage all logs from
-    /// all smart contracts look identical.
-    /// * `length` - The actual length of the `log` (measured in number of Fields). Although the input log has a max
-    /// size of PRIVATE_LOG_SIZE_IN_FIELDS, the latter values of the array might all be 0's for small logs. This
-    /// `length` should reflect the trimmed length of the array. The protocol's kernel circuits can then append random
-    /// fields as "padding" after the `length`, so that the logs of this smart contract look indistinguishable from
-    /// (the same length as) the logs of all other applications. It's up to wallets how much padding to apply, so
-    /// ideally all wallets should agree on standards for this.
-    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
+    /// call this function). Private logs are bounded in size (`PRIVATE_LOG_CIPHERTEXT_LEN`), to encourage all logs
+    /// from all smart contracts look identical.
+    /// * `length` - The actual length of `log` (measured in number of Fields). Although the input log has a max
+    /// size of `PRIVATE_LOG_CIPHERTEXT_LEN`, the latter values of the array might all be 0's for small logs. This
+    /// `length` should reflect the trimmed length of the array. The protocol's kernel circuits can then append
+    /// random fields as "padding" after the `length`, so that the logs of this smart contract look
+    /// indistinguishable from (the same length as) the logs of all other applications. It's up to wallets how much
+    /// padding to apply, so ideally all wallets should agree on standards for this.
+    ///
+    /// ## Safety
+    ///
+    /// The `tag` should be domain-separated (e.g. via [`crate::protocol::hash::compute_log_tag`]) to prevent
+    /// collisions between logs from different sources. Without domain separation, two unrelated log types that
+    /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
+    /// ([`crate::messages::message_delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
+    /// handle tagging automatically.
+    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0 }.count(counter);
-        self.private_logs.push(private_log);
+        let full_log = [tag].concat(log);
+        self.private_logs.push(PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }
+            .count(counter));
     }
 
     // TODO: rename.
@@ -902,20 +914,31 @@ impl PrivateContext {
     /// This linkage is important in case the note gets squashed (due to being read later in this same tx), since we
     /// can then squash the log as well.
     ///
-    /// See `emit_private_log` for more info about private log emission.
+    /// See `emit_private_log_unsafe` for more info about private log emission.
     ///
     /// # Arguments
+    /// * `tag` - A tag placed at `fields[0]`. See `emit_private_log_unsafe`.
     /// * `log` - The log data as an array of Field elements
     /// * `length` - The actual length of the `log` (measured in number of Fields).
     /// * `note_hash_counter` - The side-effect counter that was assigned to the new note_hash when it was pushed to
     /// this `PrivateContext`.
     ///
     /// Important: If your application logic requires the log to always be emitted regardless of note squashing,
-    /// consider using `emit_private_log` instead, or emitting additional events.
+    /// consider using `emit_private_log_unsafe` instead, or emitting additional events.
     ///
-    pub fn emit_raw_note_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32, note_hash_counter: u32) {
+    /// ## Safety
+    ///
+    /// Same as [`PrivateContext::emit_private_log_unsafe`]: the `tag` should be domain-separated.
+    pub fn emit_raw_note_log_unsafe(
+        &mut self,
+        tag: Field,
+        log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN],
+        length: u32,
+        note_hash_counter: u32,
+    ) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter };
+        let full_log = [tag].concat(log);
+        let private_log = PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter };
         self.private_logs.push(private_log.count(counter));
     }
 
@@ -1260,7 +1283,7 @@ impl PrivateContext {
 
         let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        validate_public_calldata(calldata_hash);
+        assert_valid_public_call_data(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
@@ -1331,7 +1354,7 @@ impl PrivateContext {
     ) {
         let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        validate_public_calldata(calldata_hash);
+        assert_valid_public_call_data(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS

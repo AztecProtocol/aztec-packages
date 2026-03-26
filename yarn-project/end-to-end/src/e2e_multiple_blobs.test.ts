@@ -57,6 +57,7 @@ describe('e2e_multiple_blobs', () => {
         contract.methods.emit_nullifier(Fr.random()),
         contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random()),
         contract.methods.emit_array_as_encrypted_log(
+          0n,
           Array.from({ length: 5 }).map(() => Fr.random()),
           defaultAccountAddress,
           true,

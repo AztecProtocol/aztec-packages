@@ -49,7 +49,7 @@ cores=${CPUS:-$cores}
 # Trap function to terminate our running instance when the script exits.
 function cleanup {
   if [ -d "${state_dir:-}" ]; then
-    aws_terminate_instance "$state_dir"
+    aws_terminate_instance "$state_dir" >/dev/null 2>&1
   fi
 }
 # It's important that cleanup writes to /dev/null.
