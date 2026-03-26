@@ -416,7 +416,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
+          const calldata = await privateExecutionOracle.getHashPreimage(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
