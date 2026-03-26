@@ -95,6 +95,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION: ${{ vars.AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION }}
           # For automatic documentation updates via Claude Code
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # Nightly test env vars.
