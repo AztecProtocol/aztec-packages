@@ -496,8 +496,8 @@ TEST_F(SHA256PartialCircuitValidation, CH_INPUT_LookupGateCount)
     size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
         0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
-    info("CH_INPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-    EXPECT_GT(num_gates, 0u);
+    ASSERT_EQ(hash, sha256_helpers::SHA256_CH_INPUT_HASH);
+    ASSERT_EQ(num_gates, 3u);
 }
 
 TEST_F(SHA256PartialCircuitValidation, MAJ_INPUT_LookupGateCount)
@@ -517,8 +517,8 @@ TEST_F(SHA256PartialCircuitValidation, MAJ_INPUT_LookupGateCount)
     size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
         0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
-    info("MAJ_INPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-    EXPECT_GT(num_gates, 0u);
+    ASSERT_EQ(hash, sha256_helpers::SHA256_MAJ_INPUT_HASH);
+    ASSERT_EQ(num_gates, 3u);
 }
 
 TEST_F(SHA256PartialCircuitValidation, CH_OUTPUT_LookupGateCount)
@@ -538,8 +538,8 @@ TEST_F(SHA256PartialCircuitValidation, CH_OUTPUT_LookupGateCount)
     size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
         0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
-    info("CH_OUTPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-    EXPECT_GT(num_gates, 0u);
+    ASSERT_EQ(hash, sha256_helpers::SHA256_CH_OUTPUT_HASH);
+    ASSERT_EQ(num_gates, 16u);
 }
 
 TEST_F(SHA256PartialCircuitValidation, MAJ_OUTPUT_LookupGateCount)
@@ -559,8 +559,8 @@ TEST_F(SHA256PartialCircuitValidation, MAJ_OUTPUT_LookupGateCount)
     size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
         0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
-    info("MAJ_OUTPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-    EXPECT_GT(num_gates, 0u);
+    ASSERT_EQ(hash, sha256_helpers::SHA256_MAJ_OUTPUT_HASH);
+    ASSERT_EQ(num_gates, 11u);
 }
 
 TEST_F(SHA256PartialCircuitValidation, WITNESS_INPUT_LookupGateCount)
@@ -580,8 +580,8 @@ TEST_F(SHA256PartialCircuitValidation, WITNESS_INPUT_LookupGateCount)
     size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
         0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
-    info("WITNESS_INPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-    EXPECT_GT(num_gates, 0u);
+    ASSERT_EQ(hash, sha256_helpers::SHA256_WITNESS_INPUT_HASH);
+    ASSERT_EQ(num_gates, 4u);
 }
 
 TEST_F(SHA256PartialCircuitValidation, WITNESS_OUTPUT_LookupGateCount)
@@ -601,6 +601,6 @@ TEST_F(SHA256PartialCircuitValidation, WITNESS_OUTPUT_LookupGateCount)
     size_t hash = sha256_helpers::compute_selector_hash_without_table_index(
         0, builder.blocks.lookup, lookup_before, lookup_after - 1);
 
-    info("WITNESS_OUTPUT: lookup gates = ", num_gates, ", selector hash = ", hash);
-    EXPECT_GT(num_gates, 0u);
+    ASSERT_EQ(hash, sha256_helpers::SHA256_WITNESS_OUTPUT_HASH);
+    ASSERT_EQ(num_gates, 11u);
 }
