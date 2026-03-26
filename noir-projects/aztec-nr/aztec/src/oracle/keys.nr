@@ -4,17 +4,19 @@ use crate::protocol::{
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
 };
 
+// TODO(F-498): review naming consistency
 pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
     try_get_public_keys_and_partial_address(address).expect(f"Public keys not registered for account {address}")
 }
 
-#[oracle(aztec_utl_tryGetPublicKeysAndPartialAddress)]
-unconstrained fn try_get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 13]> {}
+#[oracle(aztec_utl_getPublicKeysAndPartialAddress)]
+unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 13]> {}
 
+// TODO(F-498): review naming consistency
 pub unconstrained fn try_get_public_keys_and_partial_address(
     address: AztecAddress,
 ) -> Option<(PublicKeys, PartialAddress)> {
-    try_get_public_keys_and_partial_address_oracle(address).map(|result: [Field; 13]| {
+    get_public_keys_and_partial_address_oracle(address).map(|result: [Field; 13]| {
         let keys = PublicKeys {
             npk_m: NpkM { inner: Point { x: result[0], y: result[1], is_infinite: result[2] != 0 } },
             ivpk_m: IvpkM { inner: Point { x: result[3], y: result[4], is_infinite: result[5] != 0 } },
