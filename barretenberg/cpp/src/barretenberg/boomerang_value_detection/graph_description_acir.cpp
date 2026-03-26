@@ -1355,10 +1355,10 @@ Sha256SparseFunctionResult StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_sha
                 // With lookup_lower_bound filtering, setup lookups are already skipped.
                 // If the INPUT hash matches but first add_two is missing, it's corruption.
                 log_error("SHA256 ",
-                     params.log_prefix,
-                     ": first add_two gate not found (INPUT hash matched at gate ",
-                     lookup_gate_idx,
-                     ")");
+                          params.log_prefix,
+                          ": first add_two gate not found (INPUT hash matched at gate ",
+                          lookup_gate_idx,
+                          ")");
                 return { false, CONST };
             }
             uint32_t xor_result = first_add_two->result_real;
@@ -1377,20 +1377,20 @@ Sha256SparseFunctionResult StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_sha
                     // Consecutive gate check: second add_two should immediately follow first
                     if (snd_add_two->gate_idx != first_gate_idx + 1) {
                         log_error("SHA256 ",
-                             params.log_prefix,
-                             ": second add_two gate not consecutive (expected ",
-                             first_gate_idx + 1,
-                             " got ",
-                             snd_add_two->gate_idx,
-                             ")");
+                                  params.log_prefix,
+                                  ": second add_two gate not consecutive (expected ",
+                                  first_gate_idx + 1,
+                                  " got ",
+                                  snd_add_two->gate_idx,
+                                  ")");
                     }
                 } else {
                     // INPUT lookup and first add_two are valid but second add_two is missing — corruption.
                     log_error("SHA256 ",
-                         params.log_prefix,
-                         ": second add_two gate not found (first add_two valid at gate ",
-                         first_gate_idx,
-                         ")");
+                              params.log_prefix,
+                              ": second add_two gate not found (first add_two valid at gate ",
+                              first_gate_idx,
+                              ")");
                     return { false, CONST };
                 }
             } else {
