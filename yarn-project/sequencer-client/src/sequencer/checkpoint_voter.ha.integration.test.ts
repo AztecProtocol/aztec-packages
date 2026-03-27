@@ -277,6 +277,7 @@ describe('CheckpointVoter HA Integration', () => {
       requiredConfirmations: 1,
       maxL1TxInclusionWaitPulseSeconds: 60,
       ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
+      aztecSlotDuration: DefaultL1ContractsConfig.aztecSlotDuration,
       fishermanMode: false,
       l1ChainId: 1,
     };

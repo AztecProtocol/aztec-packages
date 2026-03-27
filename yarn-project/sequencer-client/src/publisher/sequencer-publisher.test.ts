@@ -118,6 +118,8 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
+      ethereumSlotDuration: 12,
+      aztecSlotDuration: 24,
 
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
