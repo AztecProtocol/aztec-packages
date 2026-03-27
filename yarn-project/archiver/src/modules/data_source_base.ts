@@ -9,6 +9,7 @@ import { type BlockData, type BlockHash, CheckpointedL2Block, L2Block, type L2Ti
 import {
   Checkpoint,
   type CheckpointData,
+  type CommonCheckpointData,
   type ProposedCheckpointData,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
@@ -162,7 +163,7 @@ export abstract class ArchiverDataSourceBase
     return this.store.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
-  public getProposedCheckpoint(): Promise<ProposedCheckpointData | CheckpointData | undefined> {
+  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
     return this.store.getProposedCheckpoint();
   }
 

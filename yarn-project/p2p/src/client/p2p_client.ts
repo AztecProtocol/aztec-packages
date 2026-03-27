@@ -703,9 +703,11 @@ export class P2PClient extends WithTracer implements P2P {
   /** Checks if the slot has changed and calls prepareForSlot if so. */
   private async maybeCallPrepareForSlot(): Promise<void> {
     // If we have a proposed checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
+    const l2Tips = await this.l2Tips.getL2Tips();
+    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+
     let slot;
-    // WORKTODO: CAN THIS USE THE LOCAL TIPS STORE?????
-    if (this.epochCache.isProposerPipeliningEnabled() && (await this.l2BlockSource.getL2Tips()).proposedCheckpoint) {
+    if (this.epochCache.isProposerPipeliningEnabled() && hasProposedCheckpoint) {
       const { targetSlot } = this.epochCache.getTargetAndNextSlot();
       slot = targetSlot;
     } else {

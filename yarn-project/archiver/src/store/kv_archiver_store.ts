@@ -15,6 +15,7 @@ import {
 } from '@aztec/stdlib/block';
 import type {
   CheckpointData,
+  CommonCheckpointData,
   ProposedCheckpointData,
   ProposedCheckpointInput,
   PublishedCheckpoint,
@@ -622,14 +623,15 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Gets the number L2 Block number of the proposed checkpoint
-   * @returns The number of the pending L2 block
+   * Gets the L2 block number of the proposed checkpoint.
+   * @returns The block number of the proposed checkpoint, or the checkpointed block number if none.
    */
   public getProposedCheckpointL2BlockNumber(): Promise<BlockNumber> {
     return this.#blockStore.getProposedCheckpointL2BlockNumber();
   }
 
-  public getProposedCheckpoint(): Promise<ProposedCheckpointData | CheckpointData | undefined> {
+  /** Returns the checkpoint data at the proposed tip */
+  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
     return this.#blockStore.getProposedCheckpoint();
   }
 

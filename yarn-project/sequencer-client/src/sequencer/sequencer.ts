@@ -300,12 +300,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 
     // Guard: don't exceed 1-deep pipeline. Without a proposed checkpoint, we can only build
-    // confirmed + 1. With a proposed checkpoint, we can build confirmed + 2 and pending + 1.
+    // confirmed + 1. With a proposed checkpoint, we can build confirmed + 2.
     const confirmedCkpt = syncedTo.checkpointedCheckpointNumber;
-    const pendingCkpt = syncedTo.proposedCheckpointData?.checkpointNumber;
     if (checkpointNumber > confirmedCkpt + 2) {
       this.log.warn(
-        `Skipping slot ${targetSlot}: checkpoint ${checkpointNumber} exceeds max pipeline depth (confirmed=${confirmedCkpt}, pending=${pendingCkpt})`,
+        `Skipping slot ${targetSlot}: checkpoint ${checkpointNumber} exceeds max pipeline depth (confirmed=${confirmedCkpt})`,
       );
       return undefined;
     }

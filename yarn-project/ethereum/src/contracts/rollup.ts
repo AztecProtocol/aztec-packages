@@ -951,7 +951,8 @@ export class RollupContract {
     return value;
   }
 
-  /** Computes the fee header for a child checkpoint given parent fee header and child data. */
+  /** Computes the fee header for a child checkpoint given parent fee header and child data.
+   *  Must stay in sync with Solidity FeeLib.sol (computeNewEthPerFeeAsset, clampedAdd). */
   public static computeChildFeeHeader(
     parentFeeHeader: FeeHeader,
     childManaUsed: bigint,

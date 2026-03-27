@@ -113,6 +113,8 @@ describe('compressFeeHeader', () => {
   });
 });
 
+// These tests verify parity with Solidity FeeLib.sol (computeNewEthPerFeeAsset, clampedAdd).
+// If FeeLib.sol changes, these tests must be updated to match.
 describe('computeChildFeeHeader', () => {
   const manaTarget = 10_000n;
   const baseFeeHeader: FeeHeader = {
@@ -198,6 +200,31 @@ describe('computeChildFeeHeader', () => {
     // 5000 + 5000 = 10000 = manaTarget => excess = 0
     const result = RollupContract.computeChildFeeHeader(parent, 0n, 0n, manaTarget);
     expect(result.excessMana).toBe(0n);
+  });
+
+  it('truncates ethPerFeeAsset via integer division (matches Solidity)', () => {
+    // Solidity: 1001 * 10001 / 10000 = 10011001 / 10000 = 1001 (integer division)
+    const parent: FeeHeader = { ...baseFeeHeader, ethPerFeeAsset: 1001n };
+    const result = RollupContract.computeChildFeeHeader(parent, 0n, 1n, manaTarget);
+    expect(result.ethPerFeeAsset).toBe(1001n);
+  });
+
+  it('matches Solidity for combined excess + price computation', () => {
+    // Full round-trip: parent excess=15000, used=8000, target=10000 => excess = 13000
+    // ethPerFeeAsset: 5000 * (10000 + 250) / 10000 = 5000 * 10250 / 10000 = 5125
+    const parent: FeeHeader = {
+      manaUsed: 8000n,
+      excessMana: 15000n,
+      ethPerFeeAsset: 5000n,
+      congestionCost: 999n,
+      proverCost: 888n,
+    };
+    const result = RollupContract.computeChildFeeHeader(parent, 42n, 250n, manaTarget);
+    expect(result.excessMana).toBe(13000n);
+    expect(result.manaUsed).toBe(42n);
+    expect(result.ethPerFeeAsset).toBe(5125n);
+    expect(result.congestionCost).toBe(0n);
+    expect(result.proverCost).toBe(0n);
   });
 });
 

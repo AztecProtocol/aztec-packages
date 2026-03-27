@@ -1115,7 +1115,7 @@ export class CheckpointProposalJob implements Traceable {
           this.proposedCheckpointData.feeAssetPriceModifier,
           manaTarget,
         );
-        return { checkpointNumber: parentCheckpointNumber!, feeHeader: parentFeeHeader };
+        return { checkpointNumber: parentCheckpointNumber, feeHeader: parentFeeHeader };
       }
     } catch (err) {
       this.log.error(

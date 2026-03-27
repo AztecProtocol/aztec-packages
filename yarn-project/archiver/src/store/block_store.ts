@@ -22,6 +22,7 @@ import {
 import {
   Checkpoint,
   type CheckpointData,
+  type CommonCheckpointData,
   L1PublishedData,
   type ProposedCheckpointData,
   type ProposedCheckpointInput,
@@ -130,6 +131,7 @@ export class BlockStore {
   /** Index mapping block archive to block number */
   #blockArchiveIndex: AztecAsyncMap<string, number>;
 
+  /** Singleton: assumes max 1-deep pipeline. For deeper pipelining, replace with a map keyed by checkpoint number. */
   #proposedCheckpoint: AztecAsyncSingleton<ProposedCheckpointStorage>;
 
   #log = createLogger('archiver:block_store');
@@ -312,11 +314,8 @@ export class BlockStore {
       }
 
       // Clear the proposed checkpoint if any of the confirmed checkpoints match or supersede it
-      const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
       const lastConfirmedCheckpointNumber = checkpoints[checkpoints.length - 1].checkpoint.number;
-      if (proposedCheckpointNumber <= lastConfirmedCheckpointNumber) {
-        await this.#proposedCheckpoint.delete();
-      }
+      await this.clearProposedCheckpointIfSuperseded(lastConfirmedCheckpointNumber);
 
       await this.#lastSynchedL1Block.set(checkpoints[checkpoints.length - 1].l1.blockNumber);
       return true;
@@ -477,7 +476,7 @@ export class BlockStore {
         this.#log.debug(`Removed checkpoint ${c}`);
       }
 
-      // Clear any proposed checkpoint that was removed
+      // Clear any proposed checkpoint that was orphaned by the removal (its base chain no longer exists)
       const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
       if (proposedCheckpointNumber > checkpointNumber) {
         await this.#proposedCheckpoint.delete();
@@ -631,12 +630,20 @@ export class BlockStore {
 
   async hasProposedCheckpoint(): Promise<boolean> {
     const proposed = await this.#proposedCheckpoint.getAsync();
-    return proposed !== undefined && proposed !== null;
+    return proposed !== undefined;
   }
 
   /** Deletes the proposed checkpoint from storage. */
   async deleteProposedCheckpoint(): Promise<void> {
     await this.#proposedCheckpoint.delete();
+  }
+
+  /** Clears the proposed checkpoint if the given confirmed checkpoint number supersedes it. */
+  async clearProposedCheckpointIfSuperseded(confirmedCheckpointNumber: CheckpointNumber): Promise<void> {
+    const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
+    if (proposedCheckpointNumber <= confirmedCheckpointNumber) {
+      await this.#proposedCheckpoint.delete();
+    }
   }
 
   /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
@@ -648,7 +655,7 @@ export class BlockStore {
     return this.convertToProposedCheckpointData(stored);
   }
 
-  async getProposedCheckpoint(): Promise<ProposedCheckpointData | CheckpointData | undefined> {
+  async getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
     const stored = await this.#proposedCheckpoint.getAsync();
     if (!stored) {
       return this.getCheckpointData(await this.getLatestCheckpointNumber());
@@ -674,11 +681,11 @@ export class BlockStore {
    * @returns CheckpointNumber
    */
   async getProposedCheckpointNumber(): Promise<CheckpointNumber> {
-    const pending = await this.getProposedCheckpoint();
-    if (!pending) {
+    const proposed = await this.getProposedCheckpoint();
+    if (!proposed) {
       return await this.getLatestCheckpointNumber();
     }
-    return CheckpointNumber(pending.checkpointNumber);
+    return CheckpointNumber(proposed.checkpointNumber);
   }
 
   /**
@@ -686,11 +693,11 @@ export class BlockStore {
    * @returns BlockNumber
    */
   async getProposedCheckpointL2BlockNumber(): Promise<BlockNumber> {
-    const pending = await this.getProposedCheckpoint();
-    if (!pending) {
+    const proposed = await this.getProposedCheckpoint();
+    if (!proposed) {
       return await this.getCheckpointedL2BlockNumber();
     }
-    return BlockNumber(pending.startBlock + pending.blockCount - 1);
+    return BlockNumber(proposed.startBlock + proposed.blockCount - 1);
   }
 
   async getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
