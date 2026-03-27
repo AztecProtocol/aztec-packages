@@ -118,8 +118,6 @@ export class ArchiverDataStoreUpdater {
     return result;
   }
 
-  // WORKTODO: is there more validations that can be done here?
-  // we do need this to be done in a transaction
   public async setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
     const result = await this.store.transactionAsync(async () => {
       await this.store.setProposedCheckpoint(proposedCheckpoint);

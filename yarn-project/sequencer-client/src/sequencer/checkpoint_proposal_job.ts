@@ -190,7 +190,7 @@ export class CheckpointProposalJob implements Traceable {
       ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
       : new Date(this.dateProvider.now());
 
-    // TODO(md): should discard the pending submission if a reorg occurs underneath
+    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/21250): should discard the pending submission if a reorg occurs underneath
 
     // Schedule L1 submission in the background so the work loop returns immediately.
     // The publisher will sleep until submitAfter, then send the bundled requests.

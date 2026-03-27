@@ -174,6 +174,7 @@ export class Checkpoint {
     let lastArchive = previousArchive;
     for (let i = 0; i < numBlocks; i++) {
       const block = await L2Block.random(BlockNumber(startBlockNumber + i), {
+        checkpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(i),
         ...options,
         ...(lastArchive ? { lastArchive } : {}),

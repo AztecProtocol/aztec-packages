@@ -358,10 +358,11 @@ export class BlockStore {
         if (previousBlock.number !== block.number - 1) {
           throw new BlockNumberNotSequentialError(block.number, previousBlock.number);
         }
-        if (
-          previousBlock.checkpointNumber === block.checkpointNumber &&
-          previousBlock.indexWithinCheckpoint !== block.indexWithinCheckpoint - 1
-        ) {
+        if (previousBlock.checkpointNumber === block.checkpointNumber) {
+          if (previousBlock.indexWithinCheckpoint !== block.indexWithinCheckpoint - 1) {
+            throw new BlockIndexNotSequentialError(block.indexWithinCheckpoint, previousBlock.indexWithinCheckpoint);
+          }
+        } else if (block.indexWithinCheckpoint !== 0) {
           throw new BlockIndexNotSequentialError(block.indexWithinCheckpoint, previousBlock.indexWithinCheckpoint);
         }
         if (!previousBlock.archive.root.equals(block.header.lastArchive.root)) {

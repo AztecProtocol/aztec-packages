@@ -1,4 +1,9 @@
-import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import {
+  GENESIS_ARCHIVE_ROOT,
+  INITIAL_CHECKPOINT_NUMBER,
+  INITIAL_L2_BLOCK_NUM,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/constants';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -51,6 +56,7 @@ import {
 import { MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import {
+  makeChainedCheckpoints,
   makeCheckpointWithLogs,
   makeInboxMessage,
   makeInboxMessages,
@@ -303,6 +309,50 @@ describe('KVArchiverDataStore', () => {
       await expect(store.addCheckpoints([publishedCheckpoint2])).rejects.toThrow(
         InitialCheckpointNumberNotSequentialError,
       );
+    });
+
+    it('throws when crossing checkpoint boundary with non-zero index on first block', async () => {
+      // Checkpoint 1: block 1
+      const cp1 = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 });
+      const cp1Published = makePublishedCheckpoint(cp1, 10);
+
+      // Checkpoint 2: block 2 has indexWithinCheckpoint=1 (should be 0 for first block in new checkpoint)
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        lastArchive: cp1.blocks[0].archive,
+      });
+      const cp2 = new Checkpoint(
+        AppendOnlyTreeSnapshot.random(),
+        CheckpointHeader.random(),
+        [block2],
+        CheckpointNumber(2),
+      );
+      const cp2Published = makePublishedCheckpoint(cp2, 20);
+
+      await expect(store.addCheckpoints([cp1Published, cp2Published])).rejects.toThrow(BlockIndexNotSequentialError);
+    });
+
+    it('accepts blocks that properly cross checkpoint boundaries', async () => {
+      // Checkpoint 1: blocks 1-2, Checkpoint 2: blocks 3-4 — proper boundary crossing
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      const checkpoints = await makeChainedCheckpoints(2, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 2,
+      });
+
+      await expect(store.addCheckpoints(checkpoints)).resolves.toBe(true);
+
+      // Verify blocks have correct checkpoint assignments
+      const block1 = await store.getCheckpointedBlock(BlockNumber(1));
+      const block2 = await store.getCheckpointedBlock(BlockNumber(2));
+      const block3 = await store.getCheckpointedBlock(BlockNumber(3));
+      const block4 = await store.getCheckpointedBlock(BlockNumber(4));
+
+      expect(block1!.checkpointNumber).toBe(1);
+      expect(block2!.checkpointNumber).toBe(1);
+      expect(block3!.checkpointNumber).toBe(2);
+      expect(block4!.checkpointNumber).toBe(2);
     });
   });
 
