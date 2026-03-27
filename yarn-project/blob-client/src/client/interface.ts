@@ -9,6 +9,17 @@ export interface GetBlobSidecarOptions {
    * Historical sync uses a shorter retry backoff since blobs should already exist.
    */
   isHistoricalSync?: boolean;
+  /**
+   * The parent beacon block root for the L1 block containing the blobs.
+   * If provided, skips the eth_getBlockByHash execution RPC call inside getSlotNumber.
+   */
+  parentBeaconBlockRoot?: string;
+  /**
+   * The timestamp of the L1 execution block containing the blobs.
+   * When provided alongside a cached beacon genesis config (fetched at startup), allows computing
+   * the beacon slot directly via timestamp math, skipping the beacon headers network call entirely.
+   */
+  l1BlockTimestamp?: bigint;
 }
 
 export interface BlobClientInterface {

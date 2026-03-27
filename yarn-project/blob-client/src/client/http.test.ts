@@ -85,16 +85,22 @@ describe('HttpBlobClient', () => {
           return;
         }
 
-        if (req.url?.includes('/eth/v1/beacon/headers/')) {
+        if (req.url?.includes('/eth/v1/config/genesis')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: { genesisTime: '1000' } }));
+        } else if (req.url?.includes('/eth/v1/config/spec')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: { secondsPerSlot: '12' } }));
+        } else if (req.url?.includes('/eth/v1/beacon/headers/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: { header: { message: { slot: latestSlotNumber } } } }));
-        } else if (req.url?.includes('/eth/v1/beacon/blob_sidecars/')) {
+        } else if (req.url?.includes('/eth/v1/beacon/blobs/')) {
           if (missedSlots.some(slot => req.url?.includes(`/${slot}`))) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not Found' }));
           } else {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ data: blobData }));
+            res.end(JSON.stringify({ data: blobData.map(b => b.blob) }));
           }
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -951,9 +957,9 @@ describe('HttpBlobClient FileStore Integration', () => {
         if (req.url?.includes('/eth/v1/beacon/headers/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: { header: { message: { slot: 1 } } } }));
-        } else if (req.url?.includes('/eth/v1/beacon/blob_sidecars/')) {
+        } else if (req.url?.includes('/eth/v1/beacon/blobs/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ data: blobData }));
+          res.end(JSON.stringify({ data: blobData.map(b => b.blob) }));
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Not Found' }));
