@@ -396,8 +396,8 @@ abstract contract BaseHonkVerifier is IVerifier {
             rejectPointAtInfinity(P_1_other);
 
             // accumulate with aggregate points in proof
-            P_0_agg = mulWithSeperator(P_0_other, P_0_agg, recursionSeparator);
-            P_1_agg = mulWithSeperator(P_1_other, P_1_agg, recursionSeparator);
+            P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
+            P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
         }
 
         return pairing(P_0_agg, P_1_agg);

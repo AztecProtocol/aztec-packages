@@ -473,8 +473,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             rejectPointAtInfinity(P_1_other);
 
             // accumulate with aggregate points in proof
-            pair.P_0 = mulWithSeperator(P_0_other, pair.P_0, recursionSeparator);
-            pair.P_1 = mulWithSeperator(P_1_other, pair.P_1, recursionSeparator);
+            pair.P_0 = mulWithSeperator(pair.P_0, P_0_other, recursionSeparator);
+            pair.P_1 = mulWithSeperator(pair.P_1, P_1_other, recursionSeparator);
         }
 
         return pairing(pair.P_0, pair.P_1);
