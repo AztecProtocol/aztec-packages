@@ -111,8 +111,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * this will add a scalar mul instruction into the multiplication table, where the scalar multiplier is 0.
      * This is inefficient but will still produce the correct output.
      */
-    std::get<0>(accumulator) += (z1 * z1_zero) * scaling_factor; // if z1_zero = 1, z1 must be 0. degree 2
-    std::get<1>(accumulator) += (z2 * z2_zero) * scaling_factor; // degree 2
+    std::get<Z1_ZERO_CHECK>(accumulator) += (z1 * z1_zero) * scaling_factor; // if z1_zero = 1, z1 must be 0. degree 2
+    std::get<Z2_ZERO_CHECK>(accumulator) += (z2 * z2_zero) * scaling_factor; // degree 2
 
     /**
      * @brief Validate `op` opcode is well formed.
@@ -125,7 +125,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     tmp += q_eq;
     tmp += tmp;
     tmp += q_reset_accumulator;
-    std::get<2>(accumulator) += (tmp - op) * scaling_factor; // degree 1
+    std::get<OPCODE_WELL_FORMED>(accumulator) += (tmp - op) * scaling_factor; // degree 1
 
     /**
      * @brief Validate `pc` is updated correctly.
@@ -138,7 +138,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
     // note that the value of `pc` in the first row is 0 because `pc` is shiftable. It is the second row where it starts
     // out at its maximum value.
-    std::get<3>(accumulator) += is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 4
+    std::get<PC_UPDATE>(accumulator) +=
+        is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 4
 
     /**
      * @brief Validate `msm_transition_zero_at_transition` is well-formed enough to bear witness to a correct
@@ -173,7 +174,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     // `msm_count_zero_at_transition == 1`, then `msm_count_total == 0`. else if `msm_count_zero_at_transition == 0`,
     // then `msm_count_total != 0` and is in fact the inverse of `msm_count_at_transition_inverse` (which is a witness
     // column).
-    std::get<4>(accumulator) += msm_transition_check * msm_count_zero_at_transition_check * scaling_factor; // degree 6
+    std::get<MSM_COUNT_ZERO_AT_TRANSITION>(accumulator) +=
+        msm_transition_check * msm_count_zero_at_transition_check * scaling_factor; // degree 6
 
     /**
      * @brief Validate `msm_transition` is well-formed.
@@ -182,7 +184,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * have a positive number of terms, then msm_transition = 1. i.e., if q_mul == 1 and q_mul_shift == 0, and
      * `msm_count_total:= msm_count + num_muls_in_row > 0`, then `msm_transition` = 1, else 0.
      */
-    std::get<5>(accumulator) +=
+    std::get<MSM_TRANSITION>(accumulator) +=
         (msm_transition - msm_transition_check * (-msm_count_zero_at_transition + 1)) * scaling_factor; // degree 3
 
     /**
@@ -193,7 +195,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * @note this in particular "resets" the msm_count when we are done with an msm.
      */
 
-    std::get<6>(accumulator) += ((-q_mul + 1) * msm_count) * scaling_factor; // degree 2
+    std::get<MSM_COUNT_ZERO_WHEN_NOT_MUL>(accumulator) += ((-q_mul + 1) * msm_count) * scaling_factor; // degree 2
 
     /**
      * @brief Validate `msm_count` updates correctly for mul operations.
@@ -201,8 +203,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * point-at-infinity and msm is not terminating at next row.
      */
     auto msm_count_delta = msm_count_shift - msm_count;
-    std::get<7>(accumulator) += is_not_first_row * (-msm_transition + 1) * (msm_count_delta - q_mul * num_muls_in_row) *
-                                scaling_factor; // degree 5
+    std::get<MSM_COUNT_INCREMENT_ACROSS_ROWS>(accumulator) += is_not_first_row * (-msm_transition + 1) *
+                                                              (msm_count_delta - q_mul * num_muls_in_row) *
+                                                              scaling_factor; // degree 5
 
     /**
      * @brief Opcode exclusion tests. We have the following assertions:
@@ -212,7 +215,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      */
     auto opcode_exclusion_relation = q_mul * (q_add + q_eq + q_reset_accumulator);
     opcode_exclusion_relation += q_add * (q_mul + q_eq + q_reset_accumulator);
-    std::get<8>(accumulator) += opcode_exclusion_relation * scaling_factor; // degree 2
+    std::get<OPCODE_EXCLUSION>(accumulator) += opcode_exclusion_relation * scaling_factor; // degree 2
 
     /**
      * @brief `eq` opcode.
@@ -232,8 +235,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         q_eq * (eq_x_diff * both_not_infinity + infinity_exclusion_check) * is_not_hiding_row; // degree 5
     auto eq_y_diff_relation =
         q_eq * (eq_y_diff * both_not_infinity + infinity_exclusion_check) * is_not_hiding_row; // degree 5
-    std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;                           // degree 5
-    std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;                          // degree 5
+    std::get<EQ_X_DIFF>(accumulator) += eq_x_diff_relation * scaling_factor;                   // degree 5
+    std::get<EQ_Y_DIFF>(accumulator) += eq_y_diff_relation * scaling_factor;                   // degree 5
 
     /**
      * @brief Boundary conditions.
@@ -245,8 +248,10 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * `msm_count == 0`.
      * We also demand that `pc == 0` at the last row.
      */
-    std::get<11>(accumulator) += lagrange_third * (-is_accumulator_empty + 1) * scaling_factor;      // degree 2
-    std::get<12>(accumulator) += (lagrange_third * msm_count + lagrange_last * pc) * scaling_factor; // degree 2
+    std::get<BOUNDARY_ACCUMULATOR_EMPTY>(accumulator) +=
+        lagrange_third * (-is_accumulator_empty + 1) * scaling_factor; // degree 2
+    std::get<BOUNDARY_MSM_COUNT_AND_PC>(accumulator) +=
+        (lagrange_third * msm_count + lagrange_last * pc) * scaling_factor; // degree 2
 
     /**
      * @brief On-curve validation checks.
@@ -259,7 +264,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     const auto on_curve_check =
         transcript_Py * transcript_Py - transcript_Px * transcript_Px * transcript_Px - get_curve_b();
     // Gate on-curve check with is_not_hiding_row to skip at row 1 (hiding op row with potentially off-curve Px, Py)
-    std::get<13>(accumulator) +=
+    std::get<ON_CURVE_CHECK>(accumulator) +=
         validate_on_curve * on_curve_check * is_not_infinity * is_not_hiding_row * scaling_factor; // degree 6
 
     /**
@@ -374,7 +379,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             }
             // relation is only touched if we are at an `add` instruction.
             transcript_lambda_relation += transcript_add_lambda_relation * q_add;
-            std::get<14>(accumulator) += transcript_lambda_relation * scaling_factor; // degree 7
+            std::get<LAMBDA_RELATION>(accumulator) += transcript_lambda_relation * scaling_factor; // degree 7
         }
         /**
          * @brief Validate transcript_accumulator_x_shift / transcript_accumulator_y_shift are well formed.
@@ -424,8 +429,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             add_point_x_relation += (out_x * opcode_is_zero);                                                // degree 6
             add_point_y_relation += (out_y * opcode_is_zero);                                                // degree 6
 
-            std::get<15>(accumulator) += add_point_x_relation * scaling_factor; // degree 6
-            std::get<16>(accumulator) += add_point_y_relation * scaling_factor; // degree 6
+            std::get<ACCUMULATOR_X_UPDATE>(accumulator) += add_point_x_relation * scaling_factor; // degree 6
+            std::get<ACCUMULATOR_Y_UPDATE>(accumulator) += add_point_y_relation * scaling_factor; // degree 6
         }
 
         // subtract offset generator from msm_accumulator. this might produce a point at infinity
@@ -456,9 +461,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
                 x_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * x3; // degree 4
             const auto transcript_offset_generator_subtract_y =
                 y_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * y3; // degree 3
-            std::get<17>(accumulator) +=
+            std::get<OFFSET_GENERATOR_X>(accumulator) +=
                 msm_transition * transcript_offset_generator_subtract_x * scaling_factor; // degree 5
-            std::get<18>(accumulator) +=
+            std::get<OFFSET_GENERATOR_Y>(accumulator) +=
                 msm_transition * transcript_offset_generator_subtract_y * scaling_factor; // degree 5
 
             // validate `transcript_msm_infinity` is correct
@@ -466,12 +471,14 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             // is the negative of the offset.)
             const auto x_diff = x2 - x1;
             const auto y_sum = y2 + y1;
-            std::get<19>(accumulator) += msm_transition * transcript_msm_infinity * x_diff * scaling_factor; // degree 3
-            std::get<20>(accumulator) += msm_transition * transcript_msm_infinity * y_sum * scaling_factor;  // degree 3
+            std::get<MSM_INFINITY_X_DIFF>(accumulator) +=
+                msm_transition * transcript_msm_infinity * x_diff * scaling_factor; // degree 3
+            std::get<MSM_INFINITY_Y_SUM>(accumulator) +=
+                msm_transition * transcript_msm_infinity * y_sum * scaling_factor; // degree 3
             // if `transcript_msm_infinity == 0`, then `x_diff` must have an inverse
             const auto transcript_msm_x_inverse = View(in.transcript_msm_x_inverse);
             const auto inverse_term = (-transcript_msm_infinity + 1) * (x_diff * transcript_msm_x_inverse - 1);
-            std::get<21>(accumulator) += msm_transition * inverse_term * scaling_factor; // degree 3
+            std::get<MSM_INFINITY_INVERSE>(accumulator) += msm_transition * inverse_term * scaling_factor; // degree 3
         }
 
         /**
@@ -508,8 +515,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto accumulator_infinity_relation =
             accumulator_infinity_preserve +
             (accumulator_infinity_q_reset + accumulator_infinity_from_add) * is_not_first_row +
-            accumulator_infinity_from_noop;                                          // degree 6
-        std::get<22>(accumulator) += accumulator_infinity_relation * scaling_factor; // degree 6
+            accumulator_infinity_from_noop;                                                                // degree 6
+        std::get<ACCUMULATOR_EMPTY_UPDATE>(accumulator) += accumulator_infinity_relation * scaling_factor; // degree 6
 
         /**
          * @brief Validate `transcript_add_x_equal` is well-formed
@@ -521,7 +528,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto x_product = transcript_Px_inverse * (-transcript_add_x_equal + 1) + transcript_add_x_equal;    // degree 2
         auto x_constant = transcript_add_x_equal - 1;                                                       // degree 1
         auto transcript_add_x_equal_check_relation = (x_diff * x_product + x_constant) * any_add_is_active; // degree 5
-        std::get<23>(accumulator) += transcript_add_x_equal_check_relation * scaling_factor;                // degree 5
+        std::get<ADD_X_EQUAL_CHECK>(accumulator) += transcript_add_x_equal_check_relation * scaling_factor; // degree 5
 
         /**
          * @brief Validate `transcript_add_y_equal` is well-formed
@@ -532,7 +539,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto y_product = transcript_Py_inverse * (-transcript_add_y_equal + 1) + transcript_add_y_equal;
         auto y_constant = transcript_add_y_equal - 1;
         auto transcript_add_y_equal_check_relation = (y_diff * y_product + y_constant) * any_add_is_active;
-        std::get<24>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 5
+        std::get<ADD_Y_EQUAL_CHECK>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 5
     }
 
     /**
@@ -541,8 +548,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * q_reset = 1 is needed so the accumulator is reset to (0,0) after the hiding row,
      * ensuring the boundary condition (is_accumulator_empty = 1 at row 2) enforced by relation 11 is satisfied.
      */
-    std::get<25>(accumulator) += lagrange_second * (-q_eq + 1) * scaling_factor;                // degree 2
-    std::get<26>(accumulator) += lagrange_second * (-q_reset_accumulator + 1) * scaling_factor; // degree 2
+    std::get<HIDING_ROW_EQ>(accumulator) += lagrange_second * (-q_eq + 1) * scaling_factor; // degree 2
+    std::get<HIDING_ROW_RESET>(accumulator) +=
+        lagrange_second * (-q_reset_accumulator + 1) * scaling_factor; // degree 2
 
     /**
      * @brief Enforce that coordinates are zero when the corresponding infinity flag is set.
@@ -551,10 +559,12 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * subsequent arithmetic to create invalid proofs.
      */
     // Base point coordinates must be zero when transcript_Pinfinity is set
-    std::get<27>(accumulator) += transcript_Pinfinity * transcript_Px * scaling_factor; // degree 2
-    std::get<28>(accumulator) += transcript_Pinfinity * transcript_Py * scaling_factor; // degree 2
+    std::get<INFINITY_BASE_PX>(accumulator) += transcript_Pinfinity * transcript_Px * scaling_factor; // degree 2
+    std::get<INFINITY_BASE_PY>(accumulator) += transcript_Pinfinity * transcript_Py * scaling_factor; // degree 2
     // Accumulator coordinates must be zero when is_accumulator_empty is set
-    std::get<29>(accumulator) += is_accumulator_empty * transcript_accumulator_x * scaling_factor; // degree 2
-    std::get<30>(accumulator) += is_accumulator_empty * transcript_accumulator_y * scaling_factor; // degree 2
+    std::get<INFINITY_ACC_X>(accumulator) +=
+        is_accumulator_empty * transcript_accumulator_x * scaling_factor; // degree 2
+    std::get<INFINITY_ACC_Y>(accumulator) +=
+        is_accumulator_empty * transcript_accumulator_y * scaling_factor; // degree 2
 }
 } // namespace bb
