@@ -169,8 +169,8 @@ function cppClientTarget(opts: CppCodegenOptions, cppOutputDir: string): Languag
     generate: (compiled, schemaHash) => {
       const cppGen = new CppCodegen(opts);
       return [
-        { path: cppOutputDir + '_ipc_client_generated.hpp', content: cppGen.generateHeader(compiled, schemaHash) },
-        { path: cppOutputDir + '_ipc_client_generated.cpp', content: cppGen.generateImpl(compiled) },
+        { path: cppOutputDir + '_ipc_client_gen.hpp', content: cppGen.generateHeader(compiled, schemaHash) },
+        { path: cppOutputDir + '_ipc_client_gen.cpp', content: cppGen.generateImpl(compiled) },
       ];
     },
   };
@@ -183,8 +183,8 @@ function cppServerTarget(opts: CppCodegenOptions, cppOutputDir: string): Languag
     generate: (compiled, _schemaHash) => {
       const cppGen = new CppCodegen(opts);
       return [
-        { path: cppOutputDir + '_ipc_server_generated.hpp', content: cppGen.generateServerHeader(compiled) },
-        { path: cppOutputDir + '_ipc_server_generated.cpp', content: cppGen.generateServerImpl(compiled) },
+        { path: cppOutputDir + '_ipc_server_gen.hpp', content: cppGen.generateServerHeader(compiled) },
+        { path: cppOutputDir + '_ipc_server_gen.cpp', content: cppGen.generateServerImpl(compiled) },
       ];
     },
   };
@@ -290,7 +290,7 @@ const WSDB_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-wsdb`,
   targets: [
     tsTarget(),
-    cppStandaloneTypesTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb_types_generated.hpp'),
+    cppStandaloneTypesTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb_types_gen.hpp'),
     cppClientTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
     cppServerTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
     zigTarget(`${ZIG_IPC_BASE}/wsdb`, { prefix: 'Wsdb', clientName: 'WsdbClient' }),
@@ -304,7 +304,7 @@ const CDB_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-cdb`,
   targets: [
     tsTarget(),
-    cppStandaloneTypesTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb_types_generated.hpp'),
+    cppStandaloneTypesTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb_types_gen.hpp'),
     cppClientTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
     cppServerTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
     zigTarget(`${ZIG_IPC_BASE}/cdb`, { prefix: 'Cdb', clientName: 'CdbClient' }),
@@ -318,7 +318,7 @@ const AVM_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-avm`,
   targets: [
     tsTarget(),
-    cppStandaloneTypesTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm_types_generated.hpp'),
+    cppStandaloneTypesTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm_types_gen.hpp'),
     cppServerTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm'),
     zigTarget(`${ZIG_IPC_BASE}/avm`, { prefix: 'Avm', clientName: 'AvmClient' }),
   ],

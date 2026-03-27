@@ -8,7 +8,7 @@
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client_generated.hpp"
+#include "barretenberg/wsdb/wsdb_ipc_client_gen.hpp"
 
 #include <atomic>
 

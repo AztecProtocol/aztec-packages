@@ -11,7 +11,7 @@
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/wsdb/wsdb_commands.hpp"
 #include "barretenberg/wsdb/wsdb_execute.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client_generated.hpp"
+#include "barretenberg/wsdb/wsdb_ipc_client_gen.hpp"
 
 #include <optional>
 #include <stack>

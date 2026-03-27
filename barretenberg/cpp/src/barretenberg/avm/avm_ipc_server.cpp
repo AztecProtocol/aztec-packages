@@ -1,11 +1,11 @@
 #include "barretenberg/avm/avm_ipc_server.hpp"
 #include "barretenberg/avm/avm_execute.hpp"
-#include "barretenberg/avm/avm_ipc_server_generated.hpp"
+#include "barretenberg/avm/avm_ipc_server_gen.hpp"
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client_generated.hpp"
+#include "barretenberg/wsdb/wsdb_ipc_client_gen.hpp"
 
 #include <chrono>
 #include <csignal>

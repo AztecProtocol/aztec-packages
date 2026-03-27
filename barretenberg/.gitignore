@@ -13,7 +13,6 @@ bench-out
 rust/barretenberg-rs/src/generated_types.rs
 rust/barretenberg-rs/src/api.rs
 rust/barretenberg-rs/src/server.rs
-cpp/src/barretenberg/**/*_generated.*
 cpp/src/barretenberg/**/*_gen.*
 zig/aztec-ipc/src/**/generated_types.zig
 zig/aztec-ipc/src/**/*_gen.zig

@@ -5,7 +5,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/wsdb/wsdb_execute.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_server_generated.hpp"
+#include "barretenberg/wsdb/wsdb_ipc_server_gen.hpp"
 
 #include <csignal>
 #include <cstdint>

@@ -3,7 +3,7 @@ if(NOT(FUZZING) AND NOT(WASM))
     add_library(
         cdb_ipc_client
         STATIC
-        cdb_ipc_client_generated.cpp
+        cdb_ipc_client_gen.cpp
         cdb_ipc_client.cpp
     )
     target_link_libraries(
