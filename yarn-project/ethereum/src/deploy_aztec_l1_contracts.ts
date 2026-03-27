@@ -13,7 +13,7 @@ import { spawn } from 'child_process';
 import { dirname, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet, sepolia } from 'viem/chains';
+import { mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
