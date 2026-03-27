@@ -400,6 +400,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // like attestations or auths will fail.
       if (validatorClient) {
         watchers.push(validatorClient);
+
+        const vc = validatorClient;
+        const getValidatorAddresses = () => vc.getValidatorAddresses().map(a => a.toString());
+        validatorClient.getProposalHandler().register(p2pClient, true, archiver, getValidatorAddresses);
+
         if (!options.dontStartSequencer) {
           await validatorClient.registerHandlers();
         }
@@ -618,13 +623,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       keyStoreManager,
       debugLogStore,
     );
-
-    // For validator nodes, register the all-nodes checkpoint proposal handler via the ProposalHandler.
-    // Non-validator nodes already registered via ProposalHandler.register() above.
-    if (validatorClient) {
-      const getValidatorAddresses = () => validatorClient.getValidatorAddresses().map(a => a.toString());
-      validatorClient.getProposalHandler().register(p2pClient, false, archiver, getValidatorAddresses);
-    }
 
     return node;
   }
