@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Generate WSDB types and server dispatch from committed schema.
-# Run this before `zig build`.
+# Generate WSDB types for Zig from the committed schema.
+# Uses the codegen CLI — no custom generate scripts needed.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -9,8 +9,9 @@ CODEGEN="$REPO_ROOT/barretenberg/codegen"
 
 mkdir -p "$SCRIPT_DIR/src/generated"
 
-echo "Generating WSDB types for Zig..."
-CODEGEN_DIR="$CODEGEN" OUT_DIR="$SCRIPT_DIR/src/generated" \
-  node --experimental-strip-types --experimental-transform-types --no-warnings \
-  "$SCRIPT_DIR/generate_zig.ts"
-echo "Done."
+node --experimental-strip-types --experimental-transform-types --no-warnings \
+  "$CODEGEN/src/generate.ts" \
+  --schema "$CODEGEN/schemas/wsdb_schema.json" \
+  --lang zig \
+  --prefix Wsdb \
+  --out "$SCRIPT_DIR/src/generated"

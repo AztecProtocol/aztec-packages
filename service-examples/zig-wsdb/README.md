@@ -27,8 +27,9 @@ zig build
 ## How It Works
 
 ```
-generate.sh
-    reads: barretenberg/codegen/schemas/wsdb_schema.json
+generate.sh calls:
+    codegen/src/generate.ts --schema wsdb_schema.json --lang zig --prefix Wsdb --out src/generated/
+
     produces: src/generated/types.zig    (WSDB command/response structs)
               src/generated/server.zig   (server dispatch vtable)
 
@@ -72,8 +73,7 @@ aztec-wsdb-client --socket /tmp/wsdb.sock
 ## Project Structure
 
 ```
-├── generate.sh              # Runs codegen (Node.js) to produce types
-├── generate_zig.ts           # Codegen script (reads schema, writes Zig)
+├── generate.sh              # Invokes codegen CLI to produce types
 ├── build.zig                 # Zig build file
 ├── build.zig.zon             # Zig package manifest (depends on zig-msgpack)
 ├── src/

@@ -1,31 +1,125 @@
 /**
- * Multi-service, multi-language code generation from committed schema JSON files.
+ * IPC code generation CLI.
  *
- * Architecture:
- *   Committed JSON schemas → SchemaVisitor → CompiledSchema IR → Language Codegens → Files
+ * Two modes:
  *
- * Zero npm dependencies — runs with just Node.js (v22+ has native TS support via --experimental-strip-types).
+ * 1. Service mode (generate all targets for named services):
+ *    generate.ts [service...]         # e.g. generate.ts bb wsdb cdb avm
  *
- * Usage:
- *   node --experimental-strip-types src/generate.ts         # Node 22+
- *   npx tsx src/generate.ts                                  # With tsx
- *   npx tsx src/generate.ts bb                               # Single service
+ * 2. Single-schema mode (generate one language from any schema file):
+ *    generate.ts --schema <file> --lang <ts|rust|zig|cpp-types> --out <dir> [--prefix <Prefix>]
+ *
+ * Zero npm dependencies — runs with Node.js 22+ via --experimental-strip-types.
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { generateForService, SERVICES } from './service_codegen.ts';
+import { SchemaVisitor } from './schema_visitor.ts';
+import { TypeScriptCodegen } from './typescript_codegen.ts';
+import { RustCodegen } from './rust_codegen.ts';
+import { ZigCodegen } from './zig_codegen.ts';
+import { CppCodegen } from './cpp_codegen.ts';
+import { generateForService, computeSchemaHash, SERVICES } from './service_codegen.ts';
 
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ---------------------------------------------------------------------------
+// Argument parsing
+// ---------------------------------------------------------------------------
+
+function parseArgs(argv: string[]): { mode: 'service'; services: string[] } | { mode: 'single'; schema: string; lang: string; out: string; prefix: string } {
+  // If any --flag is present, it's single-schema mode
+  if (argv.some(a => a.startsWith('--'))) {
+    let schema = '', lang = '', out = '', prefix = '';
+    for (let i = 0; i < argv.length; i++) {
+      if (argv[i] === '--schema') schema = argv[++i];
+      else if (argv[i] === '--lang') lang = argv[++i];
+      else if (argv[i] === '--out') out = argv[++i];
+      else if (argv[i] === '--prefix') prefix = argv[++i];
+    }
+    if (!schema || !lang || !out) {
+      console.error('Usage: generate.ts --schema <file> --lang <ts|rust|zig|cpp-types> --out <dir> [--prefix <Prefix>]');
+      process.exit(1);
+    }
+    return { mode: 'single', schema, lang, out, prefix };
+  }
+  // Service mode
+  return { mode: 'service', services: argv.length > 0 ? argv : Object.keys(SERVICES) };
+}
+
+// ---------------------------------------------------------------------------
+// Single-schema generation
+// ---------------------------------------------------------------------------
+
+function generateSingle(schemaPath: string, lang: string, outDir: string, prefix: string) {
+  const absSchema = resolve(schemaPath);
+  const absOut = resolve(outDir);
+  mkdirSync(absOut, { recursive: true });
+
+  const rawJson = readFileSync(absSchema, 'utf-8').trim();
+  const schema = JSON.parse(rawJson);
+  const visitor = new SchemaVisitor();
+  const compiled = visitor.visit(schema.commands, schema.responses);
+  const schemaHash = computeSchemaHash(rawJson);
+
+  console.log(`Schema: ${absSchema} (${compiled.commands.length} commands, ${compiled.structs.size} structs)`);
+
+  function writeFile(name: string, content: string) {
+    const path = join(absOut, name);
+    writeFileSync(path, content);
+    console.log(`  ${path}`);
+  }
+
+  switch (lang) {
+    case 'ts': {
+      const gen = new TypeScriptCodegen();
+      writeFile('api_types.ts', gen.generateTypes(compiled, schemaHash));
+      writeFile('async.ts', gen.generateAsyncApi(compiled));
+      writeFile('server.ts', gen.generateServerApi(compiled));
+      break;
+    }
+    case 'rust': {
+      const gen = new RustCodegen({ prefix });
+      writeFile('generated_types.rs', gen.generateTypes(compiled, schemaHash));
+      writeFile('api.rs', gen.generateApi(compiled));
+      writeFile('server.rs', gen.generateServer(compiled));
+      break;
+    }
+    case 'zig': {
+      const gen = new ZigCodegen({ prefix, clientName: `${prefix}Client` });
+      writeFile('types.zig', gen.generateTypes(compiled, schemaHash));
+      writeFile('server.zig', gen.generateServer(compiled));
+      break;
+    }
+    case 'cpp-types': {
+      const gen = new CppCodegen({
+        namespace: prefix.toLowerCase(),
+        prefix,
+        executeHeader: '',
+        commandsHeader: '',
+      });
+      writeFile('types_generated.hpp', gen.generateStandaloneTypes(compiled));
+      break;
+    }
+    default:
+      console.error(`Unknown language: ${lang}. Available: ts, rust, zig, cpp-types`);
+      process.exit(1);
+  }
+
+  console.log('Done.');
+}
+
+// ---------------------------------------------------------------------------
+// Service mode generation (existing behavior)
+// ---------------------------------------------------------------------------
 
 /** Convert hex string to BigInt */
 function hexToBigInt(hex: string): bigint {
   return BigInt('0x' + hex);
 }
 
-/** Convert hex string to Uint8Array byte list for TS codegen */
 function hexToByteList(hex: string): string {
   const bytes: number[] = [];
   for (let i = 0; i < hex.length; i += 2) {
@@ -93,26 +187,23 @@ export const SECP256R1_G1_GENERATOR = {
   console.log(`  [curve_constants] ${join(outputDir, 'curve_constants.ts')}`);
 }
 
-function generate() {
-  const args = process.argv.slice(2);
-  const requestedServices = args.length > 0 ? args : Object.keys(SERVICES);
-
-  for (const name of requestedServices) {
+function generateServices(services: string[]) {
+  for (const name of services) {
     if (!SERVICES[name]) {
       console.error(`Unknown service: ${name}. Available: ${Object.keys(SERVICES).join(', ')}`);
       process.exit(1);
     }
   }
 
-  console.log(`Generating bindings for: ${requestedServices.join(', ')}\n`);
+  console.log(`Generating bindings for: ${services.join(', ')}\n`);
 
-  for (const name of requestedServices) {
+  for (const name of services) {
     console.log(`--- ${name} ---`);
     generateForService(SERVICES[name], __dirname);
     console.log('');
   }
 
-  if (requestedServices.includes('bb')) {
+  if (services.includes('bb')) {
     console.log('--- curve constants ---');
     generateCurveConstants(join(__dirname, '../../ts/src/cbind/generated'));
     console.log('');
@@ -121,4 +212,13 @@ function generate() {
   console.log('Generation complete.');
 }
 
-generate();
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+const parsed = parseArgs(process.argv.slice(2));
+if (parsed.mode === 'single') {
+  generateSingle(parsed.schema, parsed.lang, parsed.out, parsed.prefix);
+} else {
+  generateServices(parsed.services);
+}
