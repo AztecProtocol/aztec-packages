@@ -53,27 +53,51 @@ fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Op
     }
 }
 
-// Validates that two notes are correctly ordered according to lexicographic comparison over the sort keys.
-// If all keys are equal, any order is valid.
-fn check_notes_order<let N: u32>(fields_0: [Field; N], fields_1: [Field; N], sorts: BoundedVec<Option<Sort>, N>) {
-    let mut order_determined_as_valid = false;
-    for i in 0..sorts.len() {
-        if !order_determined_as_valid {
-            let sort = sorts.get_unchecked(i).unwrap_unchecked();
-            let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
-            let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
-            if field_0 != field_1 {
-                let lt = field_0.lt(field_1);
+// Asserts that two notes are correctly ordered given the sort criteria.
+//
+// Only the provided criteria are checked -- fields not covered by any criterion are never compared, and if
+// `sort_criteria` is empty no ordering is enforced at all. Criteria are evaluated in priority order: the first
+// criterion where the two notes differ determines whether the pair is correctly ordered. If all sorted fields are
+// equal, any order is accepted.
+//
+// For example, with criteria `[field_0 ASC, field_1 DESC]`:
+//   - `[1, 10], [2, 999]` -> passes: field_0 (1 < 2) satisfies ASC, field_1 is not checked.
+//   - `[1, 10], [1, 5]`  -> passes: field_0 ties, so field_1 (10 > 5) satisfies DESC.
+//   - `[1, 5],  [1, 10]` -> fails:  field_0 ties, so field_1 (5 < 10) violates DESC.
+//   - `[1, 10], [1, 10]` -> passes: all fields tie, any order criteria is valid.
+//
+// With criteria `[field_0 DESC]` only (partial):
+//   - `[10, 1], [5, 20]` -> passes: field_0 (10 > 5) satisfies DESC, field_1 is never compared.
+//   - `[5, 1],  [5, 20]` -> passes: field_0 ties and there are no more criteria, so any order is accepted.
+//
+// With no criteria:
+//   - `[2, 5],  [1, 10]` -> passes: nothing to check.
+//
+// This is called by [`confirm_hinted_notes`] to validate that the oracle returned notes in the requested order.
+fn assert_notes_order<let N: u32>(note_1: [Field; N], note_2: [Field; N], sort_criteria: BoundedVec<Option<Sort>, N>) {
+    let mut order_valid = false;
+    for i in 0..sort_criteria.len() {
+        if !order_valid {
+            let sort = sort_criteria.get_unchecked(i).unwrap_unchecked();
+            let field_1 = extract_property_value_from_selector(note_1, sort.property_selector);
+            let field_2 = extract_property_value_from_selector(note_2, sort.property_selector);
+            if field_1 != field_2 {
+                let lt = field_1.lt(field_2);
                 if sort.order == SortOrder.ASC {
                     assert(lt, "Return notes not sorted in ascending order.");
                 } else {
                     assert(!lt, "Return notes not sorted in descending order.");
                 }
-                // If we got here, then the order is valid and remaining sort keys can be skipped.
-                order_determined_as_valid = true;
+                order_valid = true;
             }
         }
     }
+}
+
+pub(crate) fn sort_criterion(index: u8, order: u8) -> Option<Sort> {
+    Option::some(
+        Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
+    )
 }
 
 pub fn get_note<Note>(
@@ -223,7 +247,7 @@ where
             let packed_note = hinted_note.note.pack();
             check_packed_note(packed_note, options.selects);
             if i != 0 {
-                check_notes_order(prev_packed_note, packed_note, options.sorts);
+                assert_notes_order(prev_packed_note, packed_note, options.sorts);
             }
             prev_packed_note = packed_note;
 

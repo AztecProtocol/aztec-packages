@@ -3,7 +3,8 @@ use crate::{
         ConfirmedNote,
         HintedNote,
         note_getter::{
-            check_notes_order, confirm_hinted_note, confirm_hinted_notes, extract_property_value_from_selector,
+            assert_notes_order, confirm_hinted_note, confirm_hinted_notes, extract_property_value_from_selector,
+            sort_criterion,
         },
         note_getter_options::{NoteGetterOptions, PropertySelector, Sort, SortOrder},
     },
@@ -391,95 +392,45 @@ unconstrained fn extract_property_value_fails_on_oob_index() {
     let _ = extract_property_value_from_selector(packed, selector);
 }
 
+global ASC_DESC_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([
+    sort_criterion(0, SortOrder.ASC),
+    sort_criterion(1, SortOrder.DESC),
+]);
+
 #[test]
-unconstrained fn check_notes_order_skips_later_sorts_when_first_sort_differs() {
-    let fields_0 = [1, 10];
-    let fields_1 = [2, 5];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.ASC));
-    sorts.push(make_sort(1, SortOrder.ASC));
-    check_notes_order(fields_0, fields_1, sorts);
+unconstrained fn assert_notes_order_passes_when_first_criterion_satisfied() {
+    assert_notes_order([1, 10], [2, 999], ASC_DESC_CRITERIA);
 }
 
 #[test]
-unconstrained fn check_notes_order_skips_later_sorts_when_first_sort_differs_desc() {
-    let fields_0 = [10, 1];
-    let fields_1 = [5, 20];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.DESC));
-    sorts.push(make_sort(1, SortOrder.DESC));
-    check_notes_order(fields_0, fields_1, sorts);
-}
-
-#[test]
-unconstrained fn check_notes_order_skips_later_sorts_with_mixed_directions() {
-    let fields_0 = [1, 10];
-    let fields_1 = [2, 5];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.ASC));
-    sorts.push(make_sort(1, SortOrder.DESC));
-    check_notes_order(fields_0, fields_1, sorts);
-}
-
-#[test]
-unconstrained fn check_notes_order_uses_next_sort_when_fields_equal() {
-    let fields_0 = [1, 5];
-    let fields_1 = [1, 10];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.ASC));
-    sorts.push(make_sort(1, SortOrder.ASC));
-    check_notes_order(fields_0, fields_1, sorts);
-}
-
-#[test(should_fail_with = "Return notes not sorted in ascending order.")]
-unconstrained fn check_notes_order_fails_on_next_sort_when_fields_equal() {
-    let fields_0 = [1, 10];
-    let fields_1 = [1, 5];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.ASC));
-    sorts.push(make_sort(1, SortOrder.ASC));
-    check_notes_order(fields_0, fields_1, sorts);
+unconstrained fn assert_notes_order_passes_when_second_criterion_satisfied_after_tie() {
+    assert_notes_order([1, 10], [1, 5], ASC_DESC_CRITERIA);
 }
 
 #[test(should_fail_with = "Return notes not sorted in descending order.")]
-unconstrained fn check_notes_order_fails_on_next_sort_when_fields_equal_desc() {
-    let fields_0 = [1, 5];
-    let fields_1 = [1, 10];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.DESC));
-    sorts.push(make_sort(1, SortOrder.DESC));
-    check_notes_order(fields_0, fields_1, sorts);
+unconstrained fn assert_notes_order_fails_when_second_criterion_violated_after_tie() {
+    assert_notes_order([1, 5], [1, 10], ASC_DESC_CRITERIA);
 }
 
 #[test]
-unconstrained fn check_notes_order_with_empty_sorts() {
-    let fields_0 = [1, 10];
-    let fields_1 = [2, 5];
-    let sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    check_notes_order(fields_0, fields_1, sorts);
+unconstrained fn assert_notes_order_passes_when_all_fields_equal() {
+    assert_notes_order([1, 10], [1, 10], ASC_DESC_CRITERIA);
+}
+
+global DESC_ONLY_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([sort_criterion(0, SortOrder.DESC)]);
+
+#[test]
+unconstrained fn assert_notes_order_passes_with_partial_criteria() {
+    assert_notes_order([10, 1], [5, 20], DESC_ONLY_CRITERIA);
 }
 
 #[test]
-unconstrained fn check_notes_order_with_single_sort_key() {
-    let fields_0 = [1, 10];
-    let fields_1 = [2, 5];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.ASC));
-    check_notes_order(fields_0, fields_1, sorts);
+unconstrained fn assert_notes_order_passes_with_partial_criteria_when_field_ties() {
+    assert_notes_order([5, 1], [5, 20], DESC_ONLY_CRITERIA);
 }
 
 #[test]
-unconstrained fn check_notes_order_accepts_equal_notes() {
-    let fields_0 = [5, 10];
-    let fields_1 = [5, 10];
-    let mut sorts: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
-    sorts.push(make_sort(0, SortOrder.ASC));
-    sorts.push(make_sort(1, SortOrder.ASC));
-    check_notes_order(fields_0, fields_1, sorts);
-}
-
-fn make_sort(index: u8, order: u8) -> Option<Sort> {
-    Option::some(
-        Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
-    )
+unconstrained fn assert_notes_order_passes_with_no_criteria() {
+    let criteria: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
+    assert_notes_order([2, 5], [1, 10], criteria);
 }
