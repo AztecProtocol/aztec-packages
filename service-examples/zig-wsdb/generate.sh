@@ -13,5 +13,4 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
   "$CODEGEN/src/generate.ts" \
   --schema "$CODEGEN/schemas/wsdb_schema.json" \
   --lang zig \
-  --prefix Wsdb \
   --out "$SCRIPT_DIR/src/generated"

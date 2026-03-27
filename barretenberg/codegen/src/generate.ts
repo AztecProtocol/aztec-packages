@@ -7,7 +7,8 @@
  *    generate.ts [service...]         # e.g. generate.ts bb wsdb cdb avm
  *
  * 2. Single-schema mode (generate one language from any schema file):
- *    generate.ts --schema <file> --lang <ts|rust|zig|cpp-types> --out <dir> [--prefix <Prefix>]
+ *    generate.ts --schema <file> --lang <ts|rust|zig|cpp-types> --out <dir>
+ *    Prefix is auto-detected from command names (e.g. WsdbGetTreeInfo → Wsdb).
  *
  * Zero npm dependencies — runs with Node.js 22+ via --experimental-strip-types.
  */
@@ -53,7 +54,37 @@ function parseArgs(argv: string[]): { mode: 'service'; services: string[] } | { 
 // Single-schema generation
 // ---------------------------------------------------------------------------
 
-function generateSingle(schemaPath: string, lang: string, outDir: string, prefix: string) {
+/** Detect common prefix from command names (e.g. WsdbGetTreeInfo, WsdbCreateFork → Wsdb) */
+function detectPrefix(compiled: import('./schema_visitor.ts').CompiledSchema): string {
+  const names = compiled.commands.map(c => c.name);
+  if (names.length === 0) return '';
+  let prefix = names[0];
+  for (const name of names.slice(1)) {
+    while (prefix && !name.startsWith(prefix)) {
+      prefix = prefix.slice(0, -1);
+    }
+  }
+  // Trim to a word boundary (don't split mid-word)
+  const match = prefix.match(/^[A-Z][a-z]*/);
+  if (match && match[0].length < prefix.length) {
+    // Check if all names start with at least one PascalCase word
+    const words = prefix.match(/[A-Z][a-z]*/g) || [];
+    // Use as many complete words as form a common prefix
+    let result = '';
+    for (const word of words) {
+      const candidate = result + word;
+      if (names.every(n => n.startsWith(candidate))) {
+        result = candidate;
+      } else {
+        break;
+      }
+    }
+    return result;
+  }
+  return prefix;
+}
+
+function generateSingle(schemaPath: string, lang: string, outDir: string, prefixOverride: string) {
   const absSchema = resolve(schemaPath);
   const absOut = resolve(outDir);
   mkdirSync(absOut, { recursive: true });
@@ -64,7 +95,8 @@ function generateSingle(schemaPath: string, lang: string, outDir: string, prefix
   const compiled = visitor.visit(schema.commands, schema.responses);
   const schemaHash = computeSchemaHash(rawJson);
 
-  console.log(`Schema: ${absSchema} (${compiled.commands.length} commands, ${compiled.structs.size} structs)`);
+  const prefix = prefixOverride || detectPrefix(compiled);
+  console.log(`Schema: ${absSchema} (${compiled.commands.length} commands, ${compiled.structs.size} structs, prefix=${prefix})`);
 
   function writeFile(name: string, content: string) {
     const path = join(absOut, name);
