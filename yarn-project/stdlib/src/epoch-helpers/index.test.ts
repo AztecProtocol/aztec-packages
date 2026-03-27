@@ -2,8 +2,8 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 
 import {
   type L1RollupConstants,
-  getLastL1SlotTimestampForL2Slot,
   computeQuorum,
+  getLastL1SlotTimestampForL2Slot,
   getProofSubmissionDeadlineTimestamp,
   getTimestampRangeForEpoch,
 } from './index.js';
