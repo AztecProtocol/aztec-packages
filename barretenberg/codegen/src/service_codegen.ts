@@ -264,6 +264,13 @@ const CDB_CPP_OPTS: CppCodegenOptions = {
   commandsHeader: 'barretenberg/cdb/cdb_commands.hpp',
 };
 
+const AVM_CPP_OPTS: CppCodegenOptions = {
+  namespace: 'bb::avm',
+  prefix: 'Avm',
+  executeHeader: 'barretenberg/avm/avm_execute.hpp',
+  commandsHeader: 'barretenberg/avm/avm_commands.hpp',
+};
+
 /** World State Database service */
 const WSDB_SERVICE: ServiceConfig = {
   name: 'wsdb',
@@ -315,6 +322,7 @@ const AVM_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-avm`,
   targets: [
     tsTarget(),
+    cppServerTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm'),
     rustTarget(`${RUST_IPC_BASE}/avm`, {
       prefix: 'Avm',
       apiStructName: 'AvmApi',

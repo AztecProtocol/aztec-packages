@@ -1,5 +1,6 @@
 #include "barretenberg/avm/avm_ipc_server.hpp"
 #include "barretenberg/avm/avm_execute.hpp"
+#include "barretenberg/avm/avm_ipc_server_generated.hpp"
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ipc/ipc_server.hpp"
@@ -155,72 +156,10 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
 
     std::cerr << "aztec-avm IPC server ready" << '\n';
 
-    // Run server with AVM command handler
-    server->run([&request](int client_id, std::span<const uint8_t> raw_request) -> std::vector<uint8_t> {
-        try {
-            // Deserialize msgpack command
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
-            auto obj = unpacked.get();
-
-            // Expect array of size 1 (tuple wrapping)
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-                std::cerr << "Error: Expected array of size 1 from client " << client_id << '\n';
-                return {};
-            }
-
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& command_obj = obj.via.array.ptr[0];
-
-            // Check for shutdown before converting
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (command_obj.type == msgpack::type::ARRAY && command_obj.via.array.size == 2 &&
-                command_obj.via.array.ptr[0].type == msgpack::type::STR) {
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-                std::string_view command_name(command_obj.via.array.ptr[0].via.str.ptr,
-                                              command_obj.via.array.ptr[0].via.str.size);
-                bool is_shutdown = (command_name == "AvmShutdown");
-
-                // Convert and execute
-                AvmCommand command;
-                command_obj.convert(command);
-                auto response = avm_dispatch(request, std::move(command));
-
-                // Serialize response
-                msgpack::sbuffer response_buffer;
-                msgpack::pack(response_buffer, response);
-                std::vector<uint8_t> result(response_buffer.data(), response_buffer.data() + response_buffer.size());
-
-                if (is_shutdown) {
-                    throw ipc::ShutdownRequested(std::move(result));
-                }
-
-                return result;
-            }
-
-            // Fallback: try converting directly
-            AvmCommand command;
-            command_obj.convert(command);
-            auto response = avm_dispatch(request, std::move(command));
-
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-
-        } catch (const ipc::ShutdownRequested&) {
-            throw;
-        } catch (const std::exception& e) {
-            std::cerr << "Error processing request from client " << client_id << ": " << e.what() << '\n';
-            std::cerr.flush();
-
-            AvmErrorResponse error_response{ .message = std::string(e.what()) };
-            AvmCommandResponse response = error_response;
-
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-        }
-    });
+    // Run server with generated dispatch handler.
+    // make_avm_handler() handles: msgpack deser, NamedUnion dispatch,
+    // shutdown detection, error wrapping. avm_dispatch() provides business logic.
+    server->run(make_avm_handler(request, avm_dispatch));
 
     server->close();
     return 0;

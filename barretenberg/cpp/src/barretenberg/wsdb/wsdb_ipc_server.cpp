@@ -5,6 +5,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/wsdb/wsdb_execute.hpp"
+#include "barretenberg/wsdb/wsdb_ipc_server_generated.hpp"
 
 #include <csignal>
 #include <cstdint>
@@ -266,73 +267,10 @@ int execute_wsdb_server(const std::string& input_path,
 
     std::cerr << "aztec-wsdb IPC server ready" << '\n';
 
-    // Run server with wsdb command handler
-    server->run([&request](int client_id, std::span<const uint8_t> raw_request) -> std::vector<uint8_t> {
-        try {
-            // Deserialize msgpack command
-            // Format: [["CommandName", {payload}]] - a 1-element tuple containing the NamedUnion
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
-            auto obj = unpacked.get();
-
-            // Expect array of size 1 (tuple wrapping)
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-                std::cerr << "Error: Expected array of size 1 from client " << client_id << '\n';
-                return {};
-            }
-
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& command_obj = obj.via.array.ptr[0];
-
-            // Check for shutdown before converting
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (command_obj.type == msgpack::type::ARRAY && command_obj.via.array.size == 2 &&
-                command_obj.via.array.ptr[0].type == msgpack::type::STR) {
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-                std::string_view command_name(command_obj.via.array.ptr[0].via.str.ptr,
-                                              command_obj.via.array.ptr[0].via.str.size);
-                bool is_shutdown = (command_name == "WsdbShutdown");
-
-                // Convert and execute
-                WsdbCommand command;
-                command_obj.convert(command);
-                auto response = wsdb(request, std::move(command));
-
-                // Serialize response
-                msgpack::sbuffer response_buffer;
-                msgpack::pack(response_buffer, response);
-                std::vector<uint8_t> result(response_buffer.data(), response_buffer.data() + response_buffer.size());
-
-                if (is_shutdown) {
-                    throw ipc::ShutdownRequested(std::move(result));
-                }
-
-                return result;
-            }
-
-            // Fallback: try converting directly
-            WsdbCommand command;
-            command_obj.convert(command);
-            auto response = wsdb(request, std::move(command));
-
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-
-        } catch (const ipc::ShutdownRequested&) {
-            throw;
-        } catch (const std::exception& e) {
-            std::cerr << "Error processing request from client " << client_id << ": " << e.what() << '\n';
-            std::cerr.flush();
-
-            WsdbErrorResponse error_response{ .message = std::string(e.what()) };
-            WsdbCommandResponse response = error_response;
-
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-        }
-    });
+    // Run server with generated dispatch handler.
+    // make_wsdb_handler() handles: msgpack deser, NamedUnion dispatch,
+    // shutdown detection, error wrapping. wsdb() provides business logic.
+    server->run(make_wsdb_handler(request, wsdb));
 
     server->close();
     return 0;
