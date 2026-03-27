@@ -67,17 +67,21 @@ function release {
       sleep 10
     done
 
+    # Clean up stale local manifest cache from previous runs.
+    docker manifest rm aztecprotocol/aztec:$tag 2>/dev/null || true
+    docker manifest rm aztecprotocol/aztec:$(dist_tag) 2>/dev/null || true
+
     # We release with our tag, e.g. 1.0.0
     docker manifest create aztecprotocol/aztec:$tag \
-      --amend aztecprotocol/aztec:$tag-amd64 \
-      --amend aztecprotocol/aztec:$tag-arm64
-    docker manifest push aztecprotocol/aztec:$tag
+      aztecprotocol/aztec:$tag-amd64 \
+      aztecprotocol/aztec:$tag-arm64
+    docker manifest push --purge aztecprotocol/aztec:$tag
 
     # We also release with our dist_tag, e.g. 'latest', 'staging' or 'nightly'.
     docker manifest create aztecprotocol/aztec:$(dist_tag) \
-      --amend aztecprotocol/aztec:$tag-amd64 \
-      --amend aztecprotocol/aztec:$tag-arm64
-    docker manifest push aztecprotocol/aztec:$(dist_tag)
+      aztecprotocol/aztec:$tag-amd64 \
+      aztecprotocol/aztec:$tag-arm64
+    docker manifest push --purge aztecprotocol/aztec:$(dist_tag)
   fi
 }
 
