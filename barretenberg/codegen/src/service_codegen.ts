@@ -190,6 +190,19 @@ function cppServerTarget(opts: CppCodegenOptions, cppOutputDir: string): Languag
   };
 }
 
+function cppStandaloneTypesTarget(opts: CppCodegenOptions, outputPath: string): LanguageTarget {
+  return {
+    name: 'C++ types',
+    enabled: true,
+    generate: (compiled, _schemaHash) => {
+      const cppGen = new CppCodegen(opts);
+      return [
+        { path: outputPath, content: cppGen.generateStandaloneTypes(compiled) },
+      ];
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Helper: create Rust target
 // ---------------------------------------------------------------------------
@@ -278,6 +291,7 @@ const WSDB_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-wsdb`,
   targets: [
     tsTarget(),
+    cppStandaloneTypesTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb_types_generated.hpp'),
     cppClientTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
     cppServerTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
     rustTarget(`${RUST_IPC_BASE}/wsdb`, {
@@ -300,6 +314,7 @@ const CDB_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-cdb`,
   targets: [
     tsTarget(),
+    cppStandaloneTypesTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb_types_generated.hpp'),
     cppClientTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
     cppServerTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
     rustTarget(`${RUST_IPC_BASE}/cdb`, {
@@ -322,6 +337,7 @@ const AVM_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-avm`,
   targets: [
     tsTarget(),
+    cppStandaloneTypesTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm_types_generated.hpp'),
     cppServerTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm'),
     rustTarget(`${RUST_IPC_BASE}/avm`, {
       prefix: 'Avm',
