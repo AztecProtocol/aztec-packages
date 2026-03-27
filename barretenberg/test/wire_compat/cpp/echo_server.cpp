@@ -1,10 +1,10 @@
 /**
- * Echo IPC server (C++) — uses GENERATED types for serialization.
+ * Echo IPC server (C++) — uses GENERATED types + template IPC server.
  * Usage: echo_server --socket /tmp/echo.sock
  */
 
 #include "generated/types.hpp"
-#include "echo_common.hpp"
+#include "generated/ipc_server.hpp"
 #include <iostream>
 #include <string_view>
 
@@ -22,21 +22,8 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    int server_fd = create_server_socket(socket_path);
-    std::cerr << "echo_server(cpp): listening on " << socket_path << "\n";
-
-    int client_fd = accept(server_fd, nullptr, nullptr);
-    if (client_fd < 0) { std::cerr << "accept() failed\n"; return 1; }
-
-    while (true) {
-        std::vector<uint8_t> payload;
-        try {
-            payload = recv_framed(client_fd);
-        } catch (...) {
-            break;
-        }
-
-        // Deserialize: [[commandName, {fields}]]
+    // Serve using template IPC server + generated types for dispatch
+    ipc::serve(socket_path, [](const std::vector<uint8_t>& payload) -> std::vector<uint8_t> {
         auto oh = msgpack::unpack(reinterpret_cast<const char*>(payload.data()), payload.size());
         auto obj = oh.get();
         auto& inner = obj.via.array.ptr[0];
@@ -44,54 +31,27 @@ int main(int argc, char** argv) {
         auto& cmd_payload = inner.via.array.ptr[1];
 
         msgpack::sbuffer resp_buf;
-        bool is_shutdown = false;
+        msgpack::packer<msgpack::sbuffer> pk(resp_buf);
 
-        // Dispatch using GENERATED types for deserialization/serialization
+        // Echo dispatch using GENERATED types
         if (cmd_name == "EchoBytes") {
-            EchoBytes cmd;
-            cmd_payload.convert(cmd);
-            EchoBytesResponse resp{ .data = cmd.data };
-            msgpack::packer<msgpack::sbuffer> pk(resp_buf);
-            pk.pack_array(2);
-            pk.pack(std::string("EchoBytesResponse"));
-            pk.pack(resp);
+            EchoBytes cmd; cmd_payload.convert(cmd);
+            pk.pack_array(2); pk.pack(std::string("EchoBytesResponse")); pk.pack(cmd);
         } else if (cmd_name == "EchoFields") {
-            EchoFields cmd;
-            cmd_payload.convert(cmd);
-            EchoFieldsResponse resp{ .a = cmd.a, .b = cmd.b, .name = cmd.name };
-            msgpack::packer<msgpack::sbuffer> pk(resp_buf);
-            pk.pack_array(2);
-            pk.pack(std::string("EchoFieldsResponse"));
-            pk.pack(resp);
+            EchoFields cmd; cmd_payload.convert(cmd);
+            pk.pack_array(2); pk.pack(std::string("EchoFieldsResponse")); pk.pack(cmd);
         } else if (cmd_name == "EchoNested") {
-            EchoNested cmd;
-            cmd_payload.convert(cmd);
-            EchoNestedResponse resp{ .inner = cmd.inner };
-            msgpack::packer<msgpack::sbuffer> pk(resp_buf);
-            pk.pack_array(2);
-            pk.pack(std::string("EchoNestedResponse"));
-            pk.pack(resp);
+            EchoNested cmd; cmd_payload.convert(cmd);
+            pk.pack_array(2); pk.pack(std::string("EchoNestedResponse")); pk.pack(cmd);
         } else if (cmd_name == "EchoShutdown") {
-            msgpack::packer<msgpack::sbuffer> pk(resp_buf);
-            pk.pack_array(2);
-            pk.pack(std::string("EchoShutdownResponse"));
-            pk.pack_map(0);
-            is_shutdown = true;
+            pk.pack_array(2); pk.pack(std::string("EchoShutdownResponse")); pk.pack_map(0);
         } else {
-            EchoErrorResponse err{ .message = "Unknown command: " + cmd_name };
-            msgpack::packer<msgpack::sbuffer> pk(resp_buf);
-            pk.pack_array(2);
-            pk.pack(std::string("EchoErrorResponse"));
-            pk.pack(err);
+            pk.pack_array(2); pk.pack(std::string("EchoErrorResponse"));
+            pk.pack_map(1); pk.pack(std::string("message")); pk.pack(std::string("Unknown: ") + cmd_name);
         }
 
-        send_framed(client_fd, resp_buf.data(), resp_buf.size());
-        if (is_shutdown) break;
-    }
+        return std::vector<uint8_t>(resp_buf.data(), resp_buf.data() + resp_buf.size());
+    });
 
-    close(client_fd);
-    close(server_fd);
-    unlink(socket_path);
-    std::cerr << "echo_server(cpp): shutdown\n";
     return 0;
 }

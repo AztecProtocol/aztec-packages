@@ -26,8 +26,8 @@ echo "Building Rust echo binaries..."
 echo "Building C++ echo binaries..."
 MSGPACK_INC="$(cd "$TEST_DIR/../.." && pwd)/cpp/build/_deps/msgpack-c/src/msgpack-c/include"
 if [ -d "$MSGPACK_INC" ]; then
-  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_server echo_server.cpp 2>&1)
-  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_client echo_client.cpp 2>&1)
+  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -I . -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_server echo_server.cpp 2>&1)
+  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -I . -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_client echo_client.cpp 2>&1)
   CPP_AVAILABLE=true
 else
   echo "  (skipping C++ — msgpack-c not found at $MSGPACK_INC, run cmake first)"

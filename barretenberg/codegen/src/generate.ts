@@ -120,15 +120,27 @@ function generateSingle(args: SingleArgs) {
     case 'ts': {
       const gen = new TypeScriptCodegen();
       writeFile('api_types.ts', gen.generateTypes(compiled, schemaHash));
-      if (args.client) writeFile('async.ts', gen.generateAsyncApi(compiled));
-      if (args.server) writeFile('server.ts', gen.generateServerApi(compiled));
+      if (args.server) {
+        writeFile('server.ts', gen.generateServerApi(compiled));
+        copyTemplate('ts', 'ipc_server.ts', absOut);
+      }
+      if (args.client) {
+        writeFile('async.ts', gen.generateAsyncApi(compiled));
+        copyTemplate('ts', 'ipc_client.ts', absOut);
+      }
       break;
     }
     case 'rust': {
       const gen = new RustCodegen({ prefix });
       writeFile('generated_types.rs', gen.generateTypes(compiled, schemaHash));
-      if (args.client) writeFile('api.rs', gen.generateApi(compiled));
-      if (args.server) writeFile('server.rs', gen.generateServer(compiled));
+      if (args.server) {
+        writeFile('server.rs', gen.generateServer(compiled));
+        copyTemplate('rust', 'ipc_server.rs', absOut);
+      }
+      if (args.client) {
+        writeFile('api.rs', gen.generateApi(compiled));
+        copyTemplate('rust', 'ipc_client.rs', absOut);
+      }
       break;
     }
     case 'zig': {
@@ -152,6 +164,8 @@ function generateSingle(args: SingleArgs) {
         commandsHeader: '',
       });
       writeFile('types.hpp', gen.generateStandaloneTypes(compiled));
+      if (args.server) copyTemplate('cpp', 'ipc_server.hpp', absOut);
+      if (args.client) copyTemplate('cpp', 'ipc_client.hpp', absOut);
       break;
     }
     default:
