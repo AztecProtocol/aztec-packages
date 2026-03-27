@@ -2,6 +2,7 @@
 
 #include "acir_format.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -304,4 +305,51 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKConsistentAcrossAllKernelTypes)
         << "VK differs between flush after INIT vs flush after INNER kernel";
     EXPECT_EQ(*vk_after_init.get(), *vk_after_reset.get())
         << "VK differs between flush after INIT vs flush after RESET kernel";
+}
+
+/**
+ * @brief End-to-end test: A0, K0, A1, K1, A_G, K_G, K_reset, K_tail, K_hiding.
+ * @details Builds the goblin flush app (A_G) using create_goblin_flush_recursion_constraints via the ACIR
+ * constraint system, then accumulates it alongside normal kernels. Verifies the full Chonk IVC proof.
+ */
+TEST_F(GoblinFlushRecursionConstraintTest, EndToEndSingleFlush)
+{
+    // 5 apps (A0, A1, A_G, + 0 padding) + 5 kernels (K0, K1, K_G, K_reset, K_tail) + hiding = 9 circuits
+    // Actually: A0, K0, A1, K1, A_G, K_G, K_reset, K_tail, K_hiding = 9 circuits
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/9);
+
+    // A0: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K0: init kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A1: normal app
+    construct_and_accumulate_mock_app(ivc);
+
+    // K1: inner kernel
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // A_G: goblin flush app (built from ULTRA_GOBLIN ACIR constraint)
+    {
+        AcirProgram program = construct_goblin_flush_program();
+        ProgramMetadata metadata{ ivc };
+        auto ag_circuit = acir_format::create_circuit<Builder>(program, metadata);
+        auto ag_vk = get_verification_key(ag_circuit);
+        ivc->accumulate(ag_circuit, ag_vk);
+    }
+
+    // K_G: goblin flush kernel (normal kernel - complete_kernel_circuit_logic handles the flush)
+    construct_and_accumulate_mock_kernel(ivc);
+
+    // Trailing kernels: K_reset, K_tail, K_hiding
+    construct_and_accumulate_mock_kernel(ivc); // reset
+    construct_and_accumulate_mock_kernel(ivc); // tail
+    construct_and_accumulate_mock_kernel(ivc); // hiding
+
+    auto proof = ivc->prove();
+    {
+        ChonkNativeVerifier verifier(ivc->get_hiding_kernel_vk_and_hash());
+        EXPECT_TRUE(verifier.verify(proof));
+    }
 }

@@ -36,8 +36,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
     std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
     bool is_root_rollup = false;
     bool has_goblin_flush = false; // Set when ULTRA_GOBLIN constraint was processed
-    TableCommitments T_prev_flush; // Merge T_prev commitments from Goblin flush
-    TableCommitments t_flush;      // Merge subtable commitments from Goblin flush
+    TableCommitments merged_table; // Merged table used in the Goblin flush circuit
 
     /**
      * @brief Update the current output with another recursion constraint output

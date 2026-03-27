@@ -19,31 +19,35 @@ namespace {
 /**
  * @brief Generate a real Goblin proof from mock circuits for testing/VK generation
  */
-std::pair<GoblinProof, MergeVerifier::InputCommitments> create_mock_goblin_proof_and_commitments()
+std::pair<GoblinProof, MergeVerifier::TableCommitments> create_mock_goblin_proof_and_commitments()
 {
     Goblin goblin;
     GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, 3);
-    auto proof = goblin.prove();
+    goblin.prove_merge(goblin.transcript, MergeSettings::APPEND);
 
-    MergeVerifier::InputCommitments merge_commitments;
-    auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
-    auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns();
+    // Reset the transcript as the goblin verification starts a new transcript
+    goblin.transcript = std::make_shared<NativeTranscript>();
+    goblin.prove_eccvm();
+    goblin.prove_translator();
+
+    // Extract merge commitments from op_queue
+    typename MergeVerifier::TableCommitments table_commitments;
+    auto merged_table = goblin.op_queue->construct_ultra_ops_table_columns();
     CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
     for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-        merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
-        merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
+        table_commitments[idx] = pcs_commitment_key.commit(merged_table[idx]);
     }
 
-    return { std::move(proof), merge_commitments };
+    return { goblin.goblin_proof, table_commitments };
 }
 
 /**
  * @brief Build Circuit containing the Goblin Recursive Verifier, prove it with Ultra Honk, and return the proof + VK
  */
 std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>> prove_inner_circuit(
-    const GoblinProof& goblin_proof, const MergeVerifier::InputCommitments& merge_commitments)
+    const GoblinProof& goblin_proof, const MergeVerifier::TableCommitments& merged_table)
 {
-    auto builder = build_goblin_flush_circuit(goblin_proof, merge_commitments);
+    auto builder = build_goblin_flush_circuit(goblin_proof, merged_table);
 
     using Flavor = UltraFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
@@ -76,24 +80,22 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
               "create_goblin_flush_recursion_constraints: expected ULTRA_GOBLIN proof type");
 
     GoblinProof goblin_proof;
-    MergeVerifier::InputCommitments merge_commitments;
+    MergeVerifier::TableCommitments merged_table;
 
     // Step 1: Generate a Goblin proof and build+prove Inner Circuit on-the-fly
-    // TODO(Phase 5): Extract the Goblin proof from the IVC state instead of generating from mock circuits
     if (builder.is_write_vk_mode()) {
-        std::tie(goblin_proof, merge_commitments) = create_mock_goblin_proof_and_commitments();
+        std::tie(goblin_proof, merged_table) = create_mock_goblin_proof_and_commitments();
     } else {
+        // Get the UltraOpsTable from the ivc
         CommitmentKey<curve::BN254> pcs_commitment_key(ivc_base->get_goblin().op_queue->get_ultra_ops_table_num_rows());
-        auto t = ivc_base->get_goblin().op_queue->construct_previous_ultra_ops_table_columns();
-        auto T_prev = ivc_base->get_goblin().op_queue->construct_current_ultra_ops_subtable_columns();
+        auto merged_poly = ivc_base->get_goblin().op_queue->construct_ultra_ops_table_columns();
 
-        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t[idx]);
-            merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
+        for (auto [table, poly] : zip_view(merged_table, merged_poly)) {
+            table = pcs_commitment_key.commit(poly);
         }
     }
 
-    auto [inner_circuit_proof, inner_circuit_vk] = prove_inner_circuit(goblin_proof, merge_commitments);
+    auto [inner_circuit_proof, inner_circuit_vk] = prove_inner_circuit(goblin_proof, merged_table);
 
     // Step 2: Create witnesses for Inner Circuit's VK and proof directly in the Mega builder
     // (ULTRA_GOBLIN constraints from Noir have empty proof/key - BB constructs everything on-the-fly)

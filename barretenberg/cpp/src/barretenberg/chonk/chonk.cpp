@@ -216,8 +216,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
         extracted_ipa_claim = flush_input.ipa_claim;
 
         // Store flush T_prev and t on the Chonk instance for assertions in complete_kernel_circuit_logic
-        T_prev_flush = flush_input.T_prev;
-        t_flush = flush_input.t;
+        merged_table = flush_input.merged_table;
 
         // Set the app return data commitment to be propagated via the public inputs
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
@@ -252,8 +251,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>,
            std::vector<Chonk::PairingPoints>,
            Chonk::TableCommitments,
-           std::optional<Chonk::KernelIO::IpaClaim>,
-           Chonk::TableCommitments>
+           std::optional<Chonk::KernelIO::IpaClaim>>
 Chonk::recursive_verification_and_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
@@ -315,11 +313,7 @@ Chonk::recursive_verification_and_consistency_checks(
     all_points.emplace_back(std::move(io_pairing_points));
     all_points.emplace_back(merge_pairing_points);
 
-    return { std::move(output_accumulator),
-             std::move(all_points),
-             merged_table_commitments,
-             extracted_ipa_claim,
-             merge_commitments.t_commitments };
+    return { std::move(output_accumulator), std::move(all_points), merged_table_commitments, extracted_ipa_claim };
 }
 
 /**
@@ -385,7 +379,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     std::optional<KernelIO::IpaClaim> propagated_ipa_claim;
     bool is_goblin_flush_kernel = false;
-    TableCommitments prev_kernel_t;                    // Previous kernel's ecc op wire commitments
+    TableCommitments
+        merged_tables_from_kernel; // Merged table obtained after recursive verification of kernel's merge proof
     std::optional<KernelIO::IpaClaim> flush_ipa_claim; // IPA claim from the flush app (for IPA accumulation)
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
@@ -394,11 +389,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [output_stdlib_verifier_accumulator,
-              pairing_points,
-              merged_table_commitments,
-              extracted_ipa_claim,
-              verified_t_commitments] =
+        auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments, extracted_ipa_claim] =
             recursive_verification_and_consistency_checks(circuit,
                                                           verifier_input,
                                                           current_stdlib_verifier_accumulator,
@@ -412,7 +403,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Track data needed for goblin flush assertions
         if (verifier_input.is_kernel) {
-            prev_kernel_t = verified_t_commitments;
+            merged_tables_from_kernel = merged_table_commitments;
         }
 
         if (extracted_ipa_claim.has_value()) {
@@ -436,13 +427,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         BB_ASSERT(propagated_ipa_claim.has_value(), "Goblin flush kernel must have a kernel IPA claim to accumulate");
         BB_ASSERT(flush_ipa_claim.has_value(), "Goblin flush kernel must have a flush IPA claim");
 
-        // Assert: T_pre_flush == previous kernel's ecc_op_tables
+        // Assert: merged_table == previous kernel's ecc_op_tables
         for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
-            T_prev_flush[i].incomplete_assert_equal(prev_kernel_ecc_op_tables[i]);
-        }
-        // Assert: t_flush == t (flush included kernel's own ECC ops)
-        for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
-            t_flush[i].incomplete_assert_equal(prev_kernel_t[i]);
+            info("merged_table: ", merged_table[i].get_value());
+            info("prev_kernel_ecc_op_tables: ", merged_tables_from_kernel[i].get_value());
+            merged_table[i].incomplete_assert_equal(merged_tables_from_kernel[i]);
         }
 
         // IPA accumulation: fold flush IPA claim into kernel-chain IPA claim
