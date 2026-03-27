@@ -596,28 +596,30 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
   );
 };
 
-export const makeCheckpointProposal = (options?: MakeCheckpointProposalOptions): Promise<CheckpointProposal> => {
-  const blockHeader = options?.lastBlock?.blockHeader ?? makeBlockHeader(1);
+export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOptions): Promise<CheckpointProposal> => {
   const checkpointHeader = options?.checkpointHeader ?? makeCheckpointHeader(1);
   const archiveRoot = options?.archiveRoot ?? Fr.random();
   const feeAssetPriceModifier = options?.feeAssetPriceModifier ?? 0n;
   const signer = options?.signer ?? Secp256k1Signer.random();
 
-  // Build lastBlock info if provided
-  const lastBlockInfo = options?.lastBlock
-    ? {
-        blockHeader,
-        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4), // Last block in a 5-block checkpoint
-        txHashes: options.lastBlock.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+  // Build a signed block proposal if lastBlock options are provided
+  const lastBlockProposal = options?.lastBlock
+    ? await makeBlockProposal({
+        blockHeader: options.lastBlock.blockHeader,
+        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4),
+        inHash: checkpointHeader.inHash,
+        archiveRoot,
+        txHashes: options.lastBlock.txHashes,
         txs: options.lastBlock.txs,
-      }
+        signer,
+      })
     : undefined;
 
   return CheckpointProposal.createProposalFromSigner(
     checkpointHeader,
     archiveRoot,
     feeAssetPriceModifier,
-    lastBlockInfo,
+    lastBlockProposal,
     payload => Promise.resolve(signer.signMessage(payload)),
   );
 };
