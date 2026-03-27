@@ -14,8 +14,8 @@ abstract class ExternalCall extends Instruction {
     OperandType.UINT16, // L2 gas offset
     OperandType.UINT16, // DA gas offset
     OperandType.UINT16, // Address offset
-    OperandType.UINT16, // Args offset
     OperandType.UINT16, // Args size offset
+    OperandType.UINT16, // Args offset
   ];
 
   constructor(

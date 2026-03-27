@@ -47,7 +47,7 @@ describe('BBApi Exception Handling from bb.js', () => {
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toBeTruthy();
       expect((error as Error).message.length).toBeGreaterThan(0);
-      expect((error as Error).message).toContain('g1_identity');
+      expect((error as Error).message).toContain('invalid points_buf size');
       console.log('Successfully caught exception from bb.js with message:', (error as Error).message);
     }
   });

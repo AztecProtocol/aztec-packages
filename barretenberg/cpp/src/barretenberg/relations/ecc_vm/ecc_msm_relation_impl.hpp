@@ -359,13 +359,13 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         add(x4, y4, x_t3, y_t3, lambda4, add4, x4_collision_relation); // [deg 5, deg 6]
 
     // Validate accumulator output matches ADD output if q_add = 1
-    std::get<0>(accumulator) += q_add * (acc_x_shift - x_t4) * scaling_factor;
-    std::get<1>(accumulator) += q_add * (acc_y_shift - y_t4) * scaling_factor;
+    std::get<ADD_ACC_X>(accumulator) += q_add * (acc_x_shift - x_t4) * scaling_factor;
+    std::get<ADD_ACC_Y>(accumulator) += q_add * (acc_y_shift - y_t4) * scaling_factor;
     // Validate slope relations for each addition separately to prevent cancellation attacks
-    std::get<2>(accumulator) += q_add * add_slope_relation1 * scaling_factor;
-    std::get<36>(accumulator) += q_add * add_slope_relation2 * scaling_factor;
-    std::get<37>(accumulator) += q_add * add_slope_relation3 * scaling_factor;
-    std::get<38>(accumulator) += q_add * add_slope_relation4 * scaling_factor;
+    std::get<ADD_SLOPE_1>(accumulator) += q_add * add_slope_relation1 * scaling_factor;
+    std::get<ADD_SLOPE_2>(accumulator) += q_add * add_slope_relation2 * scaling_factor;
+    std::get<ADD_SLOPE_3>(accumulator) += q_add * add_slope_relation3 * scaling_factor;
+    std::get<ADD_SLOPE_4>(accumulator) += q_add * add_slope_relation4 * scaling_factor;
 
     /**
      * @brief doubles a point.
@@ -401,13 +401,13 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     auto [x_d2, y_d2, double_slope_relation2] = dbl(x_d1, y_d1, lambda2);
     auto [x_d3, y_d3, double_slope_relation3] = dbl(x_d2, y_d2, lambda3);
     auto [x_d4, y_d4, double_slope_relation4] = dbl(x_d3, y_d3, lambda4);
-    std::get<10>(accumulator) += q_double * (acc_x_shift - x_d4) * scaling_factor;
-    std::get<11>(accumulator) += q_double * (acc_y_shift - y_d4) * scaling_factor;
+    std::get<DOUBLE_ACC_X>(accumulator) += q_double * (acc_x_shift - x_d4) * scaling_factor;
+    std::get<DOUBLE_ACC_Y>(accumulator) += q_double * (acc_y_shift - y_d4) * scaling_factor;
     // Validate slope relations for each doubling separately to prevent cancellation attacks
-    std::get<12>(accumulator) += q_double * double_slope_relation1 * scaling_factor;
-    std::get<39>(accumulator) += q_double * double_slope_relation2 * scaling_factor;
-    std::get<40>(accumulator) += q_double * double_slope_relation3 * scaling_factor;
-    std::get<41>(accumulator) += q_double * double_slope_relation4 * scaling_factor;
+    std::get<DOUBLE_SLOPE_1>(accumulator) += q_double * double_slope_relation1 * scaling_factor;
+    std::get<DOUBLE_SLOPE_2>(accumulator) += q_double * double_slope_relation2 * scaling_factor;
+    std::get<DOUBLE_SLOPE_3>(accumulator) += q_double * double_slope_relation3 * scaling_factor;
+    std::get<DOUBLE_SLOPE_4>(accumulator) += q_double * double_slope_relation4 * scaling_factor;
 
     /**
      * @brief SKEW operations
@@ -446,13 +446,13 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         add(x4, y4, x_s3, y_s3, lambda4, skew4_select, x4_skew_collision_relation);
 
     // Validate accumulator output matches SKEW output if q_skew = 1
-    std::get<3>(accumulator) += q_skew * (acc_x_shift - x_s4) * scaling_factor;
-    std::get<4>(accumulator) += q_skew * (acc_y_shift - y_s4) * scaling_factor;
+    std::get<SKEW_ACC_X>(accumulator) += q_skew * (acc_x_shift - x_s4) * scaling_factor;
+    std::get<SKEW_ACC_Y>(accumulator) += q_skew * (acc_y_shift - y_s4) * scaling_factor;
     // Validate slope relations for each skew addition separately to prevent cancellation attacks
-    std::get<5>(accumulator) += q_skew * skew_slope_relation1 * scaling_factor;
-    std::get<42>(accumulator) += q_skew * skew_slope_relation2 * scaling_factor;
-    std::get<43>(accumulator) += q_skew * skew_slope_relation3 * scaling_factor;
-    std::get<44>(accumulator) += q_skew * skew_slope_relation4 * scaling_factor;
+    std::get<SKEW_SLOPE_1>(accumulator) += q_skew * skew_slope_relation1 * scaling_factor;
+    std::get<SKEW_SLOPE_2>(accumulator) += q_skew * skew_slope_relation2 * scaling_factor;
+    std::get<SKEW_SLOPE_3>(accumulator) += q_skew * skew_slope_relation3 * scaling_factor;
+    std::get<SKEW_SLOPE_4>(accumulator) += q_skew * skew_slope_relation4 * scaling_factor;
 
     // Check x-coordinates do not collide if row is an ADD row or a SKEW row
     // if either q_add or q_skew = 1, an inverse should exist for each computed relation
@@ -468,21 +468,22 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto x3_delta = x3_skew_collision_relation * q_skew + x3_collision_relation * q_add;
     const auto x4_delta = x4_skew_collision_relation * q_skew + x4_collision_relation * q_add;
     // Step 3: x_delta * inverse - 1 = 0 if we performed a point addition (else x_delta * inverse = 0)
-    std::get<6>(accumulator) += (x1_delta * collision_inverse1 - add_first_point) * scaling_factor;
-    std::get<7>(accumulator) += (x2_delta * collision_inverse2 - add_second_point) * scaling_factor;
-    std::get<8>(accumulator) += (x3_delta * collision_inverse3 - add_third_point) * scaling_factor;
-    std::get<9>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point) * scaling_factor;
+    std::get<COLLISION_CHECK_1>(accumulator) += (x1_delta * collision_inverse1 - add_first_point) * scaling_factor;
+    std::get<COLLISION_CHECK_2>(accumulator) += (x2_delta * collision_inverse2 - add_second_point) * scaling_factor;
+    std::get<COLLISION_CHECK_3>(accumulator) += (x3_delta * collision_inverse3 - add_third_point) * scaling_factor;
+    std::get<COLLISION_CHECK_4>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point) * scaling_factor;
 
     // When add_i = 0, force slice_i to ALSO be 0
-    std::get<13>(accumulator) += (-add1 + 1) * slice1 * scaling_factor;
-    std::get<14>(accumulator) += (-add2 + 1) * slice2 * scaling_factor;
-    std::get<15>(accumulator) += (-add3 + 1) * slice3 * scaling_factor;
-    std::get<16>(accumulator) += (-add4 + 1) * slice4 * scaling_factor;
+    std::get<INACTIVE_SLICE_1>(accumulator) += (-add1 + 1) * slice1 * scaling_factor;
+    std::get<INACTIVE_SLICE_2>(accumulator) += (-add2 + 1) * slice2 * scaling_factor;
+    std::get<INACTIVE_SLICE_3>(accumulator) += (-add3 + 1) * slice3 * scaling_factor;
+    std::get<INACTIVE_SLICE_4>(accumulator) += (-add4 + 1) * slice4 * scaling_factor;
 
     // SELECTORS ARE MUTUALLY EXCLUSIVE
     // at most one of q_skew, q_double, q_add can be nonzero.
     // note that as we can expect our table to be zero padded, we _do not_ insist that q_add + q_double + q_skew == 1.
-    std::get<17>(accumulator) += (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
+    std::get<PHASE_SELECTOR_MUTUAL_EXCLUSIVITY>(accumulator) +=
+        (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
 
     // ACCUMULATOR PRESERVATION ON NO-OP ROWS
     // If no phase selector is active (q_add = q_double = q_skew = 0), the accumulator must not change.
@@ -500,12 +501,14 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     //     starts a fresh MSM whose accumulator is initialized via first_add, not by continuity.
     auto no_op_selector =
         (-q_add + 1) * (-q_double + 1) * (-q_skew + 1) * (-msm_transition + 1) * (-lagrange_first + 1); // degree 5
-    std::get<45>(accumulator) += no_op_selector * (acc_x_shift - acc_x) * scaling_factor;               // degree 6
-    std::get<46>(accumulator) += no_op_selector * (acc_y_shift - acc_y) * scaling_factor;               // degree 6
+    std::get<IDLE_ROW_PRESERVES_ACC_X>(accumulator) +=
+        no_op_selector * (acc_x_shift - acc_x) * scaling_factor; // degree 6
+    std::get<IDLE_ROW_PRESERVES_ACC_Y>(accumulator) +=
+        no_op_selector * (acc_y_shift - acc_y) * scaling_factor; // degree 6
 
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
     // NOTE(#2222): could just get rid of add1 as a column, as it is a linear combination.
-    std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
+    std::get<ADD1_DECOMPOSITION>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
 
     // ROUND TRANSITION LOGIC
     // `round_transition` describes whether we are transitioning between "rounds" of the MSM according to the Straus
@@ -521,7 +524,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // in particular, `round_transition` is boolean. (`round_delta` is not boolean precisely one step before an MSM
     // transition, but that does not concern us here.)
     const auto round_transition = round_delta * (-msm_transition_shift + 1);
-    std::get<18>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
+    std::get<ROUND_TRANSITION_FORCES_DELTA_ONE>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
 
     // If `round_transition == 1`, then `round_delta == 1` and `msm_transition_shift == 0`. Therefore, we wish to
     // constrain next row in the VM to either be a double (if `round != 31`) or skew (if `round == 31`). In either case,
@@ -536,19 +539,22 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // similarly, if q_double_shift == 1, then round_transition == 0,
     // the fact that a round_transition occurs at the first time skew_shift == 1 follows from the fact that skew == 1
     // implies round == 32 and the above three relations, together with the _definition_ of round_transition.
-    std::get<19>(accumulator) += round_transition * q_skew_shift * (round - 31) * scaling_factor;
-    std::get<20>(accumulator) += round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
-    std::get<35>(accumulator) += (-round_delta + 1) * q_double_shift * scaling_factor;
+    std::get<ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31>(accumulator) +=
+        round_transition * q_skew_shift * (round - 31) * scaling_factor;
+    std::get<ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW>(accumulator) +=
+        round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
+    std::get<DOUBLE_REQUIRES_ROUND_CHANGE>(accumulator) += (-round_delta + 1) * q_double_shift * scaling_factor;
     // if the next is neither double nor skew, and we are not at an msm_transition, then round_delta = 0 and the next
     // "row" of our VM is processing the same wNAF digit place.
-    std::get<21>(accumulator) += round_transition * (-q_double_shift + 1) * (-q_skew_shift + 1) * scaling_factor;
+    std::get<ROUND_TRANSITION_NEEDS_DOUBLE_OR_SKEW>(accumulator) +=
+        round_transition * (-q_double_shift + 1) * (-q_skew_shift + 1) * scaling_factor;
 
     // CONSTRAINING Q_DOUBLE AND Q_SKEW
     // NOTE: we have already constrained q_add, q_skew, and q_double to be mutually exclusive.
 
     // if double, next add = 1. As q_double, q_add, and q_skew are mutually exclusive, this suffices to force
     // q_double_shift == q_skew_shift == 0.
-    std::get<22>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
+    std::get<DOUBLE_IMPLIES_NEXT_IS_ADD>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
     // if the current row has q_skew == 1 and the next row is _not_ an MSM transition, then q_skew_shift = 1.
     // this forces q_skew to precisely correspond to the rows where `round == 32`. Indeed, note that the first q_skew
     // bit is set correctly:
@@ -558,35 +564,38 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     //      == 1.)
     // this means that the first row with `round == 32` has q_skew == 1. then all subsequent q_skew entries must be 1,
     // _until_ we start our new MSM.
-    std::get<33>(accumulator) += (-msm_transition_shift + 1) * q_skew * (-q_skew_shift + 1) * scaling_factor;
+    std::get<SKEW_PERSISTS_UNTIL_MSM_TRANSITION>(accumulator) +=
+        (-msm_transition_shift + 1) * q_skew * (-q_skew_shift + 1) * scaling_factor;
     // if q_skew == 1, then round == 32. This is almost certainly redundant but psychologically useful to "constrain
     // both ends".
-    std::get<34>(accumulator) += q_skew * (-round + 32) * scaling_factor;
+    std::get<SKEW_IMPLIES_ROUND_32>(accumulator) += q_skew * (-round + 32) * scaling_factor;
 
     // UPDATING THE COUNT
 
     // if we are changing the `round` (i.e., starting to process a new wNAF digit or at an msm transition), the
     // count_shift must be 0.
-    std::get<23>(accumulator) += round_delta * count_shift * scaling_factor;
+    std::get<COUNT_SHIFT_ZERO_ON_ROUND_CHANGE>(accumulator) += round_delta * count_shift * scaling_factor;
     // if msm_transition_shift = 0 and round_delta = 0, then the next "row" of the VM is processing the same wNAF digit.
     // this means that the count must increase: count_shift = count + add1 + add2 + add3 + add4
-    std::get<24>(accumulator) += (-msm_transition_shift + 1) * (-round_delta + 1) *
-                                 (count_shift - count - add1 - add2 - add3 - add4) * scaling_factor;
+    std::get<COUNT_INCREMENT_WITHIN_ROUND>(accumulator) += (-msm_transition_shift + 1) * (-round_delta + 1) *
+                                                           (count_shift - count - add1 - add2 - add3 - add4) *
+                                                           scaling_factor;
 
     // at least one of the following must be true:
     //      the next step is an MSM transition;
     //      the next count is zero (meaning we are starting the processing of a new wNAF digit)
     //      the next step is processing the same wNAF digit (i.e., round_delta == 0)
     // (note that at the start of a new MSM, the count is also zero, so the above are not mutually exclusive.)
-    std::get<25>(accumulator) +=
+    std::get<COUNT_ZERO_AT_ROUND_BOUNDARY_OR_TRANSITION>(accumulator) +=
         is_not_first_row * (-msm_transition_shift + 1) * round_delta * count_shift * scaling_factor;
 
     // if msm_transition = 1, then round = 0.
-    std::get<26>(accumulator) += msm_transition * round * scaling_factor;
+    std::get<MSM_TRANSITION_ROUND_ZERO>(accumulator) += msm_transition * round * scaling_factor;
 
     // if msm_transition_shift = 1, pc = pc_shift + msm_size
     // NB: `ecc_set_relation` ensures `msm_size` maps to `transcript.msm_count` for the current value of `pc`
-    std::get<27>(accumulator) += is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
+    std::get<MSM_TRANSITION_PC>(accumulator) +=
+        is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
 
     // Addition continuity checks
     // We want to RULE OUT the following scenarios:
@@ -596,9 +605,9 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // These checks ensure that the current row does not skip points (for both ADD and SKEW ops)
     // This is part of a wider set of checks we use to ensure that all point data is used in the assigned
     // multiscalar multiplication operation (and not in a different MSM operation).
-    std::get<28>(accumulator) += add2 * (-add1 + 1) * scaling_factor;
-    std::get<29>(accumulator) += add3 * (-add2 + 1) * scaling_factor;
-    std::get<30>(accumulator) += add4 * (-add3 + 1) * scaling_factor;
+    std::get<ADD_CONTINUITY_2>(accumulator) += add2 * (-add1 + 1) * scaling_factor;
+    std::get<ADD_CONTINUITY_3>(accumulator) += add3 * (-add2 + 1) * scaling_factor;
+    std::get<ADD_CONTINUITY_4>(accumulator) += add4 * (-add3 + 1) * scaling_factor;
 
     // Final continuity check.
     // If an addition spans two rows, we need to make sure that the following scenario is RULED OUT:
@@ -607,7 +616,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // Case 1: q_add = 1 on the CURRENT row, q_add = 1 on the NEXT row
     // Case 2: q_skew = 1 on the CURRENT row, q_skew = 1 on the NEXT row
     // (i.e. if q_skew = 1, q_add_shift = 1 this implies an MSM transition so we skip this continuity check)
-    std::get<31>(accumulator) +=
+    std::get<ADD_CROSS_ROW_CONTINUITY>(accumulator) +=
         (q_add * q_add_shift + q_skew * q_skew_shift) * (-add4 + 1) * add1_shift * scaling_factor;
 
     // remaining checks (done in ecc_set_relation.hpp, ecc_lookup_relation.hpp)

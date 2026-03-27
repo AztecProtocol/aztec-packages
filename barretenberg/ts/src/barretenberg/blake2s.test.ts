@@ -6,11 +6,11 @@ describe('blake2s async', () => {
 
   beforeAll(async () => {
     // We're going to test over a worker backend to cover more code paths.
-    api = await Barretenberg.new({ threads: 1, backend: BackendType.WasmWorker });
+    api = await Barretenberg.new({ threads: 1, backend: BackendType.WasmWorker, skipSrsInit: true });
   });
 
   afterAll(async () => {
-    await api.destroy();
+    await api?.destroy();
   });
 
   it('blake2s', async () => {

@@ -9,6 +9,7 @@ additonal
 addressnote
 airgapped
 analysed
+Aave
 Anoncast
 arithmetisation
 asymptotics
@@ -328,6 +329,7 @@ timelocked
 tonelli
 townhall
 townhalls
+TORADIXBE
 TORADIXLE
 Tpkm
 transactionfee
@@ -364,6 +366,7 @@ valuenote
 vecs
 versionˮ
 viewability
+vnext
 visualisation
 visualise
 visualised
@@ -403,6 +406,9 @@ critesjosh
 mcpServers
 NethermindEth
 Windsurf
+remappings
+atoken
+wagmi
 Uniswap
 uniswap
 WETH

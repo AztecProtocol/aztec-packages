@@ -4,6 +4,7 @@ import { publishContractClass, publishInstance } from '@aztec/aztec.js/deploymen
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
 import { InitTestContract } from '@aztec/noir-test-contracts.js/InitTest';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { PrivateInitTestContract } from '@aztec/noir-test-contracts.js/PrivateInitTest';
@@ -139,6 +140,23 @@ describe('e2e_deploy_contract private initialization', () => {
     );
   });
 
+  it('refuses to simulate a utility function that requires initialization', async () => {
+    const owner = (await wallet.createAccount()).address;
+    const initArgs: InitTestCtorArgs = [owner, 42];
+    const contract = await t.registerContract(wallet, InitTestContract, { initArgs });
+    await expect(contract.methods.utility_init_check(owner).simulate({ from: defaultAccountAddress })).rejects.toThrow(
+      /Not initialized/,
+    );
+  });
+
+  it('allows calling a utility function after initialization', async () => {
+    const { contract, initArgs } = await deployUninitialized();
+    const owner = defaultAccountAddress;
+    await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
+    const result = await contract.methods.utility_init_check(owner).simulate({ from: defaultAccountAddress });
+    expect(result.result).toEqual(2n);
+  });
+
   // A public call enqueued before the private constructor should fail the init check, even though the
   // private constructor emits the init nullifier in the same tx.
   it('refuses to call a public function enqueued before private initialization in same tx', async () => {
@@ -160,7 +178,7 @@ describe('e2e_deploy_contract private initialization', () => {
     ]);
     await batch.send({ from: defaultAccountAddress });
     expect((await contract.methods.pub_no_init_check(owner).simulate({ from: defaultAccountAddress })).result).toEqual(
-      84n,
+      1n,
     );
   });
 
@@ -222,6 +240,32 @@ describe('e2e_deploy_contract private initialization', () => {
     await expect(contract.methods.constructor(owner, 42).simulate({ from: defaultAccountAddress })).rejects.toThrow(
       /Initializer address is not the contract deployer/i,
     );
+  });
+
+  describe('initialization status', () => {
+    it('reports INITIALIZED when contract is registered and initialized', async () => {
+      const contract = await t.registerContract(wallet, PrivateInitTestContract, {
+        initArgs: [42],
+        constructorName: 'initialize',
+      });
+      await contract.methods.initialize(42).send({ from: defaultAccountAddress });
+      const metadata = await wallet.getContractMetadata(contract.address);
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.INITIALIZED);
+    });
+
+    it('reports UNINITIALIZED when contract is registered but not initialized', async () => {
+      const contract = await t.registerContract(wallet, PrivateInitTestContract, {
+        initArgs: [42],
+        constructorName: 'initialize',
+      });
+      const metadata = await wallet.getContractMetadata(contract.address);
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.UNINITIALIZED);
+    });
+
+    it('reports UNKNOWN when contract instance is not registered', async () => {
+      const metadata = await wallet.getContractMetadata(await AztecAddress.random());
+      expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.UNKNOWN);
+    });
   });
 
   /** Registers a contract instance locally and publishes it on-chain (so sequencers can find public function's bytecode). */

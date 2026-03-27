@@ -1,11 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { AztecNode } from '@aztec/aztec.js/node';
-import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
-import { MessageContext } from '@aztec/stdlib/logs';
-import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -18,20 +14,17 @@ const TIMEOUT = 120_000;
 describe('e2e_offchain_effect', () => {
   let contract1: OffchainEffectContract;
   let contract2: OffchainEffectContract;
-  let aztecNode: AztecNode;
 
   jest.setTimeout(TIMEOUT);
 
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
-
   beforeAll(async () => {
     ({
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-      aztecNode,
     } = await setup(1));
     ({ contract: contract1 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contract2 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
@@ -95,44 +88,35 @@ describe('e2e_offchain_effect', () => {
 
   it('should emit event as offchain message and process it', async () => {
     const [a, b, c] = [1n, 2n, 3n];
-    const provenTx = await proveInteraction(
-      wallet,
-      contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c),
-      { from: defaultAccountAddress },
-    );
-    const { txHash, blockNumber, blockHash } = await provenTx.send();
-
-    const offchainEffects = provenTx.offchainEffects;
-    expect(offchainEffects).toHaveLength(1);
-    const offchainEffect = offchainEffects[0];
-
-    // The data contains the ciphertext, an identifier and the recipient
-    expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
-
-    const identifier = offchainEffect.data[0];
-    expect(identifier).toEqual(OFFCHAIN_MESSAGE_IDENTIFIER);
-
-    const recipientAddressFr = offchainEffect.data[1];
-    // Recipient was set to message sender inside the emit_event_as_offchain_message_for_msg_sender function
     const recipient = defaultAccountAddress;
-    expect(recipient.toField()).toEqual(recipientAddressFr);
 
-    const ciphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
+    const { receipt, offchainMessages } = await contract1.methods
+      .emit_event_as_offchain_message_for_msg_sender(a, b, c)
+      .send({ from: defaultAccountAddress });
 
-    const txEffect = (await aztecNode.getTxEffect(txHash))!.data;
+    expect(offchainMessages).toHaveLength(1);
+    const msg = offchainMessages[0];
+    expect(msg.recipient).toEqual(recipient);
 
-    const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
-
-    // Process the message
+    // Deliver the offchain message via offchain_receive
     await contract1.methods
-      .process_message(ciphertext, messageContext.toNoirStruct())
-      .simulate({ from: defaultAccountAddress });
+      .offchain_receive([
+        {
+          ciphertext: msg.payload,
+          recipient,
+          // eslint-disable-next-line camelcase
+          tx_hash: receipt.txHash.hash,
+          // eslint-disable-next-line camelcase
+          anchor_block_timestamp: msg.anchorBlockTimestamp,
+        },
+      ])
+      .simulate({ from: recipient });
 
     // Get the event from PXE
     const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
       contractAddress: contract1.address,
-      fromBlock: BlockNumber(blockNumber!),
-      toBlock: BlockNumber(blockNumber! + 1),
+      fromBlock: BlockNumber(receipt.blockNumber!),
+      toBlock: BlockNumber(receipt.blockNumber! + 1),
       scopes: [recipient],
     });
 
@@ -144,9 +128,9 @@ describe('e2e_offchain_effect', () => {
         c,
       },
       metadata: {
-        l2BlockNumber: blockNumber,
-        l2BlockHash: blockHash,
-        txHash,
+        l2BlockNumber: receipt.blockNumber,
+        l2BlockHash: receipt.blockHash,
+        txHash: receipt.txHash,
       },
     });
   });
@@ -154,36 +138,29 @@ describe('e2e_offchain_effect', () => {
   it('should emit note as offchain message and process it', async () => {
     const value = 123n;
     const owner = defaultAccountAddress;
-    const provenTx = await proveInteraction(wallet, contract1.methods.emit_note_as_offchain_message(value, owner), {
-      from: defaultAccountAddress,
-    });
-    const { txHash } = await provenTx.send();
-
-    const offchainEffects = provenTx.offchainEffects;
-    expect(offchainEffects).toHaveLength(1);
-    const offchainEffect = offchainEffects[0];
-
-    // The data contains the ciphertext, an identifier, and the recipient
-    expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
-
-    const identifier = offchainEffect.data[0];
-    expect(identifier).toEqual(OFFCHAIN_MESSAGE_IDENTIFIER);
-
-    const recipientAddressFr = offchainEffect.data[1];
-    // Recipient was set to message sender inside the emit_note_as_offchain_message function
     const recipient = defaultAccountAddress;
-    expect(recipient.toField()).toEqual(recipientAddressFr);
 
-    const ciphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
+    const { receipt, offchainMessages } = await contract1.methods
+      .emit_note_as_offchain_message(value, owner)
+      .send({ from: defaultAccountAddress });
 
-    const txEffect = (await aztecNode.getTxEffect(txHash))!.data;
+    expect(offchainMessages).toHaveLength(1);
+    const msg = offchainMessages[0];
+    expect(msg.recipient).toEqual(recipient);
 
-    const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
-
-    // Process the message
+    // Deliver the offchain message via offchain_receive
     await contract1.methods
-      .process_message(ciphertext, messageContext.toNoirStruct())
-      .simulate({ from: defaultAccountAddress });
+      .offchain_receive([
+        {
+          ciphertext: msg.payload,
+          recipient,
+          // eslint-disable-next-line camelcase
+          tx_hash: receipt.txHash.hash,
+          // eslint-disable-next-line camelcase
+          anchor_block_timestamp: msg.anchorBlockTimestamp,
+        },
+      ])
+      .simulate({ from: recipient });
 
     // Get the note value
     const { result: noteValue } = await contract1.methods

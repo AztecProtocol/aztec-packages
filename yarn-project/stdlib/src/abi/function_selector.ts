@@ -6,7 +6,7 @@ import { type ZodFor, hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
 
 import type { ABIParameter } from './abi.js';
-import { decodeFunctionSignature } from './decoder.js';
+import { decodeFunctionSignature } from './function_signature_decoder.js';
 import { Selector } from './selector.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */

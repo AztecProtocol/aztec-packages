@@ -26,11 +26,32 @@ export function bufferAsFields(input: Buffer, targetLength: number): Fr[] {
 }
 
 /**
- * Recovers a buffer from an array of fields.
- * @param fields - An output from bufferAsFields.
- * @returns The recovered buffer.
+ * Recovers a buffer from an array of fields previously encoded with bufferAsFields.
+ *
+ * The first field encodes the byte length of the original buffer. The remaining fields
+ * each carry 31 bytes of payload (the leading byte of each 32-byte field element is skipped).
+ *
+ * If the declared byte length exceeds the bytes available from the payload fields, the result
+ * is zero-padded to the full declared length. This is important for correctness when the field
+ * array has been truncated (e.g. contract class logs reconstructed from blobs using a short
+ * emittedLength): without padding, the resulting buffer would be shorter than declared, causing
+ * bytecode commitment computations to diverge from what the circuit produced.
+ *
+ * @param fields - An output from bufferAsFields: [byteLength, ...payloadFields].
+ * @returns A buffer of exactly `byteLength` bytes.
  */
 export function bufferFromFields(fields: Fr[]): Buffer {
   const [length, ...payload] = fields;
-  return Buffer.concat(payload.map(f => f.toBuffer().subarray(1))).subarray(0, length.toNumber());
+  const byteLength = length.toNumber();
+  const raw = Buffer.concat(payload.map(f => f.toBuffer().subarray(1)));
+  if (raw.length >= byteLength) {
+    return raw.subarray(0, byteLength);
+  }
+  // Pad with zeros if the declared length exceeds the available payload bytes.
+  // This ensures the returned buffer always matches the declared length, so that
+  // downstream bytecode commitment computations are consistent even when the
+  // source field array was truncated (e.g. reconstructed from blob with a short emittedLength).
+  const result = Buffer.alloc(byteLength);
+  raw.copy(result);
+  return result;
 }

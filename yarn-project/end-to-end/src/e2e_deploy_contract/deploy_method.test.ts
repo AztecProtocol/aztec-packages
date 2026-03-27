@@ -3,7 +3,7 @@ import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import { ContractInitializationStatus, type Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { InitTestContract } from '@aztec/noir-test-contracts.js/InitTest';
@@ -139,11 +139,14 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
     const { contract } = await NoConstructorContract.deploy(wallet).send({ from: defaultAccountAddress });
+    const arbitraryTag = 99;
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
-    const { receipt } = await contract.methods.emit_public(arbitraryValue).send({ from: defaultAccountAddress });
+    const { receipt } = await contract.methods
+      .emit_public(arbitraryTag, arbitraryValue)
+      .send({ from: defaultAccountAddress });
     const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryValue)]);
+    expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryTag), new Fr(arbitraryValue)]);
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
@@ -201,7 +204,22 @@ describe('e2e_deploy_contract deploy method', () => {
       publicCallTxPromise,
     ]);
     expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
+
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
   }, 300_000);
+
+  it('reports YES for initialization status via public nullifier when instance is not registered', async () => {
+    const owner = defaultAccountAddress;
+    const { contract } = await StatefulTestContract.deploy(wallet, owner, 42).send({ from: defaultAccountAddress });
+
+    // StatefulTestContract has public functions with initialization checks, so during deployment and initialization
+    // it emits a public initialization nullifier. A wallet without the instance registered falls back to checking
+    // this nullifier.
+    const secondWallet = await TestWallet.create(aztecNode);
+    const metadata = await secondWallet.getContractMetadata(contract.address);
+    expect(metadata.instance).toBeUndefined();
+    expect(metadata.initializationStatus).toEqual(ContractInitializationStatus.INITIALIZED);
+  });
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {

@@ -62,10 +62,31 @@ You can read this output directly — no parsing needed.
 --format='table[no-heading](timestamp, resource.labels.pod_name, jsonPayload.message.slice(0,150))'
 ```
 
+## Cluster Mapping
+
+Aztec runs two GKE clusters:
+
+| Cluster | Aztec namespaces |
+|---------|-----------------|
+| `aztec-gke-private` | `mainnet` (ignition — active), `next-net`, `staging-ignition`, `staging-public`, and various test/scenario namespaces |
+| `aztec-gke-public` | `mainnet` (public — currently in standby), `testnet`, and other public-facing infrastructure |
+
+**Important: `mainnet` exists in BOTH clusters.**
+- The **private** cluster's `mainnet` runs the **ignition** network (active, fisherman mode).
+- The **public** cluster's `mainnet` is the next rollup upgrade (currently in standby, waiting for L1 contract alignment). It also runs in fisherman mode.
+
+When querying `mainnet`, you MUST include a `resource.labels.cluster_name` filter to disambiguate:
+- If the user says "mainnet" without qualification, query the **private** cluster (ignition) by default — it's the active one.
+- If the user says "mainnet public", "public cluster mainnet", or "mainnet on public", query the **public** cluster.
+- If uncertain, query **both** clusters in parallel and report results separately.
+
+For all other namespaces, the cluster filter is optional but recommended for clarity.
+
 ## GCP Log Structure
 
 Aztec network logs use:
 - `resource.type="k8s_container"`
+- `resource.labels.cluster_name` — the GKE cluster (`aztec-gke-private` or `aztec-gke-public`)
 - `resource.labels.namespace_name` — the deployment namespace
 - `resource.labels.pod_name` — the specific pod
 - `resource.labels.container_name` — usually `aztec`
@@ -91,7 +112,8 @@ Pods follow the pattern `{namespace}-{component}-{index}`:
 
 ## Deployment-Specific Notes
 
-- **next-net** redeploys every morning at ~4am UTC. Always use timestamp range filters (not `--freshness`) when querying next-net for a specific date, and expect logs to only cover a single instance of the network.
+- **next-net** redeploys every morning at ~4am UTC. Always use timestamp range filters (not `--freshness`) when querying next-net for a specific date, and expect logs to only cover a single instance of the network. Because next-net resets daily, its block height should start near 0 after ~4am UTC. If you are running a morning healthcheck and the block height is unexpectedly large (e.g., hundreds or thousands), flag this as an error — it likely means the nightly redeploy failed and the network is running a stale instance.
+- **mainnet** (both private/ignition and public) does not run sequencer validators. Both deployments run in **fisherman mode**: nodes simulate building a block for every slot but never actually submit the L1 transaction. This means you will see "built block" or similar messages but no "Published checkpoint" or L1 submission logs. Errors with hash `0xf3e591ac` are a known artifact of fisherman mode and are safe to ignore. See the Cluster Mapping section above for how to disambiguate between the two mainnet deployments.
 
 ## Filter Building
 
@@ -203,6 +225,7 @@ gcloud logging read '
   NOT jsonPayload.message=~"No active peers"
   NOT jsonPayload.message=~"Not enough txs"
   NOT jsonPayload.message=~"StateView contract not found"
+  NOT jsonPayload.message=~"[Bb]lob"
 ' --limit=100 --format='table[no-heading](timestamp.date("%H:%M:%S"), resource.labels.pod_name, jsonPayload.severity, jsonPayload.module, jsonPayload.message.slice(0,180))' --freshness=<freshness> --project=<project>
 ```
 
@@ -291,6 +314,20 @@ Then synthesize into a single status report covering:
 
 This is the most common query pattern — prefer this composite approach over individual queries when the user asks for general status.
 
+### 11. Multi-Network Healthcheck
+
+When the user asks for a healthcheck across multiple networks (e.g., "how are all the networks doing?"), query each network in parallel and present results as a **summary table**:
+
+```
+| Network   | Status | Block Height | Last Block | Proving | Notes |
+|-----------|--------|--------------|------------|---------|-------|
+| testnet   | ✅ OK  | 1234         | 2m ago     | Epoch 5 | —     |
+| next-net  | ✅ OK  | 45           | 1m ago     | Epoch 1 | —     |
+| mainnet   | ✅ OK  | 890          | 3m ago     | N/A     | Fisherman mode |
+```
+
+Use ✅ for healthy, ⚠️ for degraded, ❌ for down/erroring. Follow the table with brief per-network details only if there are issues worth calling out. Remember deployment-specific notes: next-net resets daily (check block height is reasonable for time of day), mainnet runs in fisherman mode (no L1 submissions, `0xf3e591ac` errors are expected).
+
 ## Known Noise Patterns
 
 These patterns appear frequently and are usually harmless — exclude or downplay them:
@@ -302,6 +339,8 @@ These patterns appear frequently and are usually harmless — exclude or downpla
 - `No active peers to send requests to` — P2P reqresp on isolated nodes (e.g., blob-sink)
 - `Not enough txs to build block` — Normal when transaction volume is low
 - `StateView contract not found` — Price oracle warning; Uniswap V4 StateView only exists on mainnet, so all other networks emit this. Safe to ignore unless namespace is `mainnet`
+- **Blob-related errors** — Errors related to blobs (e.g., blob fetching failures, blob unavailability) are generally expected and safe to ignore. Since the Fusaka hard fork, regular consensus nodes can no longer serve blob data, and we run a couple of these nodes. Exclude or downplay blob errors unless the user is specifically investigating blob issues.
+- `0xf3e591ac` — Fisherman mode error on mainnet. Safe to ignore (see Deployment-Specific Notes).
 
 ## Reference Tool
 

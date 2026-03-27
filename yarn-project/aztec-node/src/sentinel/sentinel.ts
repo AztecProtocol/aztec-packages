@@ -219,7 +219,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // Check that we have at least requiredConsecutiveEpochs and that all of them are above the inactivity threshold
     return pastEpochs
       .slice(0, requiredConsecutiveEpochs)
-      .every(p => p.missed / p.total >= this.config.slashInactivityTargetPercentage);
+      .every(p => (p.total === 0 ? false : p.missed / p.total >= this.config.slashInactivityTargetPercentage));
   }
 
   protected async handleProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {

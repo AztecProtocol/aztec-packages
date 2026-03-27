@@ -13,7 +13,7 @@ import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
-import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -173,16 +173,22 @@ export async function createArchiver(
   return archiver;
 }
 
-/** Registers protocol contracts in the archiver store. */
+/** Registers protocol contracts in the archiver store. Idempotent — skips contracts that already exist (e.g. on node restart). */
 export async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
     const provider = new BundledProtocolContractsProvider();
     const contract = await provider.getProtocolContractArtifact(name);
-    const contractClassPublic: ContractClassPublic = {
+
+    // Skip if already registered (happens on node restart with a persisted store).
+    if (await store.getContractClass(contract.contractClass.id)) {
+      continue;
+    }
+
+    const publicBytecodeCommitment = await computePublicBytecodeCommitment(contract.contractClass.packedBytecode);
+    const contractClassPublic: ContractClassPublicWithCommitment = {
       ...contract.contractClass,
-      privateFunctions: [],
-      utilityFunctions: [],
+      publicBytecodeCommitment,
     };
 
     const publicFunctionSignatures = contract.artifact.functions
@@ -190,8 +196,7 @@ export async function registerProtocolContracts(store: KVArchiverDataStore) {
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
     await store.registerContractFunctionSignatures(publicFunctionSignatures);
-    const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
-    await store.addContractClasses([contractClassPublic], [bytecodeCommitment], BlockNumber(blockNumber));
+    await store.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
     await store.addContractInstances([contract.instance], BlockNumber(blockNumber));
   }
 }

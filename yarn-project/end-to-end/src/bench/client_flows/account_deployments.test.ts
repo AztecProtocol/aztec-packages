@@ -1,4 +1,5 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
@@ -65,7 +66,7 @@ describe('Deployment benchmark', () => {
           // Publicly deploy the contract, but skip the class registration as that is the
           // "typical" use case
           const options: DeployAccountOptions = {
-            from: AztecAddress.ZERO, // Self deployment
+            from: NO_FROM, // Self deployment
             skipClassPublication: true,
             skipInstancePublication: false,
             skipInitialization: false,
@@ -91,7 +92,7 @@ describe('Deployment benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const { receipt } = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
+            const { receipt } = await deploymentInteraction.send({ ...options });
             expect(receipt.transactionFee!).toBeGreaterThan(0n);
           }
         });

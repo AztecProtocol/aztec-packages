@@ -781,12 +781,10 @@ export class RollupContract {
   public async canProposeAt(
     archive: Buffer,
     account: `0x${string}` | Account,
-    slotDuration: bigint,
-    slotOffset: bigint,
+    timestamp: bigint,
     opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
   ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
-    const latestBlock = await this.client.getBlock();
-    const timeOfNextL1Slot = latestBlock.timestamp + slotDuration + slotOffset;
+    const timeOfNextL1Slot = timestamp;
     const who = typeof account === 'string' ? account : account.address;
 
     try {
@@ -939,11 +937,10 @@ export class RollupContract {
     return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
   }
 
-  async getAttesters(): Promise<EthAddress[]> {
+  async getAttesters(timestamp?: bigint): Promise<EthAddress[]> {
     const attesterSize = await this.getActiveAttesterCount();
     const gse = new GSEContract(this.client, await this.getGSE());
-    const ts = (await this.client.getBlock()).timestamp;
-
+    const ts = timestamp ?? (await this.client.getBlock()).timestamp;
     const indices = Array.from({ length: attesterSize }, (_, i) => BigInt(i));
     const chunks = chunk(indices, 1000);
 

@@ -12,9 +12,11 @@ on:
         default: ""
 jobs:
   build:
+    if: github.repository == 'AztecProtocol/aztec-packages'
     runs-on: ubuntu-latest
     permissions:
       packages: write
+      id-token: write
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -32,6 +34,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: container-builds/avm-fuzzing-container/src/
@@ -41,3 +44,18 @@ jobs:
             ghcr.io/aztecprotocol/avm-fuzzing-container:${{ github.sha }}
           build-args: |
             COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}
+          labels: |
+            com.aztec.source-repo=${{ github.repository }}
+            com.aztec.source-branch=${{ github.ref_name }}
+            com.aztec.commit=${{ github.sha }}
+            com.aztec.visibility=public
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+        with:
+          cosign-release: 'v3.0.5'
+
+      - name: Sign image
+        run: |
+          cosign sign --yes \
+            ghcr.io/aztecprotocol/avm-fuzzing-container@${{ steps.build.outputs.digest }}

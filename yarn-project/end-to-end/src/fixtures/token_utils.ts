@@ -6,11 +6,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
-  const {
-    receipt: { contract, instance },
-  } = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send({
+  const { contract, instance } = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send({
     from: admin,
-    wait: { returnReceipt: true },
   });
 
   if (initialAdminBalance > 0n) {
