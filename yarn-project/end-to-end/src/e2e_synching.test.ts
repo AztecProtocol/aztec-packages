@@ -443,6 +443,7 @@ describe('e2e_synching', () => {
       {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: getL1ContractsConfigEnvVars().aztecSlotDuration,
       },
       {
         blobClient,

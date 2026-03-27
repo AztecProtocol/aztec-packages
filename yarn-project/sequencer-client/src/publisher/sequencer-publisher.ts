@@ -467,7 +467,7 @@ export class SequencerPublisher {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-    const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
+    const pipelined = opts.pipelined ?? false;
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
     const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 

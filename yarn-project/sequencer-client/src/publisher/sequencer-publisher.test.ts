@@ -122,7 +122,7 @@ describe('SequencerPublisher', () => {
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
       PublisherConfig &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
+      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> &
       L1TxUtilsConfig;
 
     rollup = mock<RollupContract>();

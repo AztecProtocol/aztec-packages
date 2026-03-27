@@ -274,6 +274,7 @@ describe('L1Publisher integration', () => {
       {
         l1ChainId: chainId,
         ethereumSlotDuration: config.ethereumSlotDuration,
+        aztecSlotDuration: config.aztecSlotDuration,
       },
       {
         blobClient,
