@@ -8,12 +8,14 @@ import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type L1RollupConstants, getNextL1SlotTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { GasFees } from '@aztec/stdlib/gas';
+import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type {
   CheckpointGlobalVariables,
   GlobalVariableBuilder as GlobalVariableBuilderInterface,
 } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
+
+import { FeePredictor } from './fee_predictor.js';
 
 /** Configuration for the GlobalVariableBuilder (excludes L1 client config). */
 export type GlobalVariableBuilderConfig = {
@@ -31,6 +33,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
+  private readonly feePredictor: FeePredictor;
   private readonly ethereumSlotDuration: number;
   private readonly aztecSlotDuration: number;
   private readonly l1GenesisTime: bigint;
@@ -51,6 +54,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.l1GenesisTime = config.l1GenesisTime;
 
     this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
+    this.feePredictor = new FeePredictor(this.rollupContract, config.slotDuration, config.l1GenesisTime);
   }
 
   /**
@@ -85,6 +89,10 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       this.currentMinFees = this.currentMinFees.then(() => this.computeCurrentMinFees());
     }
     return this.currentMinFees;
+  }
+
+  public getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
+    return this.feePredictor.getPredictedMinFees(this.publicClient, manaUsage ?? ManaUsageEstimate.Target);
   }
 
   /**

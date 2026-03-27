@@ -17,6 +17,7 @@ import {
   type Hex,
   type StateOverride,
   type WatchContractEventReturnType,
+  encodeAbiParameters,
   encodeFunctionData,
   getContract,
   hexToBigInt,
@@ -134,6 +135,17 @@ export type L1FeeData = {
   baseFee: bigint;
   blobFee: bigint;
 };
+
+/** Field offsets within the CompressedTempCheckpointLog struct in Solidity storage. */
+export enum TempCheckpointLogField {
+  HeaderHash = 0,
+  BlobCommitmentsHash = 1,
+  OutHash = 2,
+  AttestationsHash = 3,
+  PayloadDigest = 4,
+  SlotNumber = 5,
+  FeeHeader = 6,
+}
 
 /** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
 export type ManaMinFeeComponents = {
@@ -555,6 +567,17 @@ export class RollupContract {
     return {
       baseFee: result.baseFee,
       blobFee: result.blobFee,
+    };
+  }
+
+  async getFeeHeader(checkpointNumber: bigint): Promise<FeeHeader> {
+    const result = await this.rollup.read.getFeeHeader([checkpointNumber]);
+    return {
+      excessMana: result.excessMana,
+      manaUsed: result.manaUsed,
+      ethPerFeeAsset: result.ethPerFeeAsset,
+      congestionCost: result.congestionCost,
+      proverCost: result.proverCost,
     };
   }
 
@@ -1125,5 +1148,57 @@ export class RollupContract {
           })(),
         },
       }));
+  }
+
+  /** Compresses a FeeHeader into a uint256 following the FeeHeaderLib bit layout in Solidity. */
+  static compressFeeHeader(fh: FeeHeader): bigint {
+    const MASK_32 = (1n << 32n) - 1n;
+    const MASK_48 = (1n << 48n) - 1n;
+    const MASK_63 = (1n << 63n) - 1n;
+    const MASK_64 = (1n << 64n) - 1n;
+
+    let value = 0n;
+    value |= fh.manaUsed & MASK_32;
+    value |= (fh.excessMana < MASK_48 ? fh.excessMana : MASK_48) << 32n;
+    value |= (fh.ethPerFeeAsset & MASK_48) << 80n;
+    value |= (fh.congestionCost < MASK_64 ? fh.congestionCost : MASK_64) << 128n;
+    value |= (fh.proverCost < MASK_63 ? fh.proverCost : MASK_63) << 192n;
+    value |= 1n << 255n; // preheat bit
+    return value;
+  }
+
+  /** Packs pending and proven checkpoint numbers into the chain tips storage format. */
+  static packChainTips(pendingCheckpointNumber: bigint, provenCheckpointNumber: bigint): bigint {
+    return (pendingCheckpointNumber << 128n) | (provenCheckpointNumber & ((1n << 128n) - 1n));
+  }
+
+  /** Storage slot for the chain tips (offset 0 within the STF storage struct). */
+  static get chainTipsStorageSlot(): bigint {
+    return BigInt(RollupContract.stfStorageSlot);
+  }
+
+  /**
+   * Computes the storage slot for a field within a tempCheckpointLog entry.
+   * @param checkpointNumber - The checkpoint number
+   * @param field - The field within the CompressedTempCheckpointLog struct
+   */
+  async getTempCheckpointLogStorageSlot(
+    checkpointNumber: CheckpointNumber,
+    field: TempCheckpointLogField,
+  ): Promise<bigint> {
+    const fieldOffset = BigInt(field);
+    const [epochDuration, proofSubmissionEpochs] = await Promise.all([
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+    ]);
+    const roundaboutSize = BigInt(epochDuration) * (BigInt(proofSubmissionEpochs) + 1n) + 1n;
+    const tempCheckpointLogsBase = BigInt(RollupContract.stfStorageSlot) + 2n;
+    const circularIndex = BigInt(checkpointNumber) % roundaboutSize;
+    const entryBase = BigInt(
+      keccak256(
+        encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [circularIndex, tempCheckpointLogsBase]),
+      ),
+    );
+    return entryBase + fieldOffset;
   }
 }

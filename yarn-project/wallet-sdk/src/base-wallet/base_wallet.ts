@@ -52,7 +52,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
   computeSiloedPrivateInitializationNullifier,
   computeSiloedPublicInitializationNullifier,
@@ -224,8 +224,7 @@ export abstract class BaseWallet implements Wallet {
     feePayer?: AztecAddress,
     gasSettings?: Partial<FieldsOf<GasSettings>>,
   ): Promise<FeeOptions> {
-    const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
+    const maxFeesPerGas = gasSettings?.maxFeesPerGas ?? (await this.getMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
     // If from is an address, we need to determine the appropriate fee payment method options for the
     // account contract entrypoint to use
@@ -249,6 +248,24 @@ export abstract class BaseWallet implements Wallet {
       walletFeePaymentMethod: undefined,
       accountFeePaymentMethodOptions,
     };
+  }
+
+  /**
+   * Returns the worst-case min fee across predicted future slots.
+   * Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
+   * @param estimate - The mana usage estimate to use for fee prediction. Defaults to Target (steady state).
+   */
+  protected async getMinFees(estimate: ManaUsageEstimate = ManaUsageEstimate.Target): Promise<GasFees> {
+    try {
+      const predicted = await this.aztecNode.getPredictedMinFees(estimate);
+      if (predicted.length === 0) {
+        return this.aztecNode.getCurrentMinFees();
+      }
+      return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
+    } catch {
+      // Fallback for old nodes that don't support getPredictedMinFees
+      return this.aztecNode.getCurrentMinFees();
+    }
   }
 
   /**

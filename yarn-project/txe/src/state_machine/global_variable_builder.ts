@@ -10,6 +10,10 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
     return Promise.resolve(new GasFees(0, 0));
   }
 
+  public getPredictedMinFees(): Promise<GasFees[]> {
+    return Promise.resolve([new GasFees(0, 0)]);
+  }
+
   public buildGlobalVariables(
     _blockNumber: BlockNumber,
     _coinbase: EthAddress,

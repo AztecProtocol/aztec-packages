@@ -59,7 +59,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
+import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
   type AztecNode,
@@ -759,12 +759,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.blockSource.getCheckpointsDataForEpoch(epochNumber);
   }
 
-  /**
-   * Method to fetch the current min L2 fees.
-   * @returns The current min L2 fees.
-   */
   public async getCurrentMinFees(): Promise<GasFees> {
     return await this.globalVariableBuilder.getCurrentMinFees();
+  }
+
+  /** Returns predicted min fees for the current slot and next N slots. */
+  public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
+    return await this.globalVariableBuilder.getPredictedMinFees(manaUsage);
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
