@@ -28,8 +28,7 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
     // Capture Goblin flush data if present (non-default T_prev indicates flush output)
     if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
         if (!this->has_goblin_flush) {
-            this->T_prev_flush = other.T_prev_flush;
-            this->t_flush = other.t_flush;
+            this->merged_table = other.merged_table;
         } else {
             bb::assert_failure("Multiple GoblinFlush when only when is expected.");
         }
@@ -189,8 +188,7 @@ void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::finalize(MegaCircuitBui
                     ? points_accumulator
                     : stdlib::recursion::PairingPoints<stdlib::bn254<MegaCircuitBuilder>>::construct_default();
             inputs.ipa_claim = nested_ipa_claims[0];
-            inputs.T_prev = T_prev_flush;
-            inputs.t = t_flush;
+            inputs.merged_table = merged_table;
             inputs.set_public();
             builder.ipa_proof = nested_ipa_proofs[0].get_value();
         } else {

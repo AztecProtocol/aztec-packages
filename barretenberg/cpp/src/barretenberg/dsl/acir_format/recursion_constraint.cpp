@@ -228,8 +228,14 @@ void process_hn_recursion_constraints(
                       "Noir HN constraints should have empty public_inputs (public inputs are handled by IVC IO)");
 
             // Validate public input layout: IO region size must match VK's num_public_inputs
-            size_t expected_io_size =
-                queue_entry.is_kernel ? IVCType::KernelIO::PUBLIC_INPUTS_SIZE : IVCType::AppIO::PUBLIC_INPUTS_SIZE;
+            size_t expected_io_size = 0;
+            if (queue_entry.is_kernel) {
+                expected_io_size = IVCType::KernelIO::PUBLIC_INPUTS_SIZE;
+            } else if (queue_entry.is_goblin_flush_app) {
+                expected_io_size = IVCType::FlushIO::PUBLIC_INPUTS_SIZE;
+            } else {
+                expected_io_size = IVCType::AppIO::PUBLIC_INPUTS_SIZE;
+            }
             size_t vk_num_public_inputs =
                 static_cast<size_t>(uint64_t(queue_entry.honk_vk_and_hash->vk->num_public_inputs.get_value()));
             BB_ASSERT_EQ(expected_io_size,

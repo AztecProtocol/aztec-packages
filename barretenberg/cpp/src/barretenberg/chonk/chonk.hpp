@@ -67,6 +67,7 @@ class Chonk : public IVCBase {
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
+    using FlushIO = bb::stdlib::recursion::honk::GoblinFlushIO<ClientCircuit>;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
@@ -196,8 +197,7 @@ class Chonk : public IVCBase {
     HonkProof flush_ipa_proof; // IPA proof from A_G's Circuit C
     // Temporary storage for flush/kernel data extracted during perform_recursive_verification
     // (used in complete_kernel_circuit_logic for goblin flush assertions)
-    TableCommitments T_prev_flush;              // T_prev from GoblinFlushIO (accumulated table before flush)
-    TableCommitments t_flush;                   // t from GoblinFlushIO (previous kernel's ECC ops in flush)
+    TableCommitments merged_table;              // Merged table used in the Goblin flush circuit
     TableCommitments prev_kernel_ecc_op_tables; // ecc_op_tables from previous kernel's KernelIO
 
     size_t get_num_circuits() const { return num_circuits; }
@@ -214,8 +214,7 @@ class Chonk : public IVCBase {
     [[nodiscard("Pairing points should be accumulated")]] std::tuple<std::optional<RecursiveVerifierAccumulator>,
                                                                      std::vector<PairingPoints>,
                                                                      TableCommitments,
-                                                                     std::optional<KernelIO::IpaClaim>,
-                                                                     TableCommitments>
+                                                                     std::optional<KernelIO::IpaClaim>>
     recursive_verification_and_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,

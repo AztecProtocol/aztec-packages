@@ -122,8 +122,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
     bool large_first_app = true;
     constexpr static size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
 
-    std::array<Commitment, ClientCircuit::NUM_WIRES> previous_circuit_ecc_op_tables;
-
   public:
     size_t circuit_counter = 0;
     size_t total_num_circuits = 0;
@@ -162,13 +160,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @brief Precompute the verification key for the given circuit.
      *
      */
-    std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
+    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
     {
-        bool is_next_goblin_flush = false;
-        if (circuit_counter < circuit_types.size() && circuit_types[circuit_counter] == CircuitType::GOBLIN_FLUSH_APP) {
-            is_next_goblin_flush = true;
-        }
-
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
         // but this is a workaround for the test setup.
@@ -178,16 +171,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
         std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-
-        if (is_next_goblin_flush) {
-            // If the next app is a goblin app, we need to extract the commitments for the ecc op wires to populate the
-            // flush app's T_prev and t
-            CommitmentKey<curve::BN254> commitment_key(prover_instance->dyadic_size());
-            for (auto [table, poly] :
-                 zip_view(previous_circuit_ecc_op_tables, prover_instance->polynomials.get_ecc_op_wires())) {
-                table = commitment_key.commit(poly);
-            }
-        }
 
         return vk;
     }
@@ -344,13 +327,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
             GoblinMockCircuits::construct_mock_app_circuit(circuit, /*large=*/false);
         }
 
-        // Extract KernelIO from the previous kernel's proof in the verification queue
-        BB_ASSERT(ivc.verification_queue.size() == 1, "Goblin flush app requires a preceding kernel in the queue");
-        auto& kernel_entry = ivc.verification_queue.front();
-        BB_ASSERT(kernel_entry.is_kernel, "Expected first queue entry to be a kernel");
-        size_t num_pub_inputs = kernel_entry.honk_vk->num_public_inputs;
-        KernelIOSerde kernel_io = KernelIOSerde::from_proof(kernel_entry.proof, num_pub_inputs);
-
         // Construct GoblinFlushIO with values matching the IVC state
         GoblinFlushIO flush_io;
 
@@ -363,14 +339,10 @@ class PrivateFunctionExecutionMockCircuitProducer {
         flush_io.ipa_claim = stdlib_opening_claim;
         circuit.ipa_proof = flush_ipa_proof;
 
-        // T_prev: must match previous kernel's ecc_op_tables (from KernelIO)
-        for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
-            flush_io.T_prev[i] = G1::from_witness(&circuit, kernel_io.ecc_op_tables[i]);
-        }
-
-        // t: must match previous kernel's ecc op wire commitments (saved during accumulate)
-        for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
-            flush_io.t[i] = G1::from_witness(&circuit, previous_circuit_ecc_op_tables[i]);
+        CommitmentKey<curve::BN254> commitment_key(ivc.goblin.op_queue->get_ultra_ops_table_num_rows());
+        auto merged_poly = ivc.goblin.op_queue->construct_ultra_ops_table_columns();
+        for (auto [table, poly] : zip_view(flush_io.merged_table, merged_poly)) {
+            table = G1::from_witness(&circuit, commitment_key.commit(poly));
         }
 
         return flush_io;
