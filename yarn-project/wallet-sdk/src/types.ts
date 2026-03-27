@@ -17,6 +17,14 @@ export enum WalletMessageType {
   KEY_EXCHANGE_REQUEST = 'aztec-wallet-key-exchange-request',
   /** Key exchange response sent over MessageChannel */
   KEY_EXCHANGE_RESPONSE = 'aztec-wallet-key-exchange-response',
+  /** Wallet ready signal */
+  WALLET_READY = 'aztec-wallet-ready',
+  /** Encrypted wallet message wrapper */
+  SECURE_MESSAGE = 'aztec-wallet-secure-message',
+  /** Encrypted wallet response wrapper */
+  SECURE_RESPONSE = 'aztec-wallet-secure-response',
+  /** Session disconnected notification */
+  SESSION_DISCONNECTED = 'aztec-wallet-session-disconnected',
 }
 
 /**
@@ -130,3 +138,8 @@ export interface KeyExchangeResponse {
   /** Wallet's ECDH public key for deriving shared secret */
   publicKey: ExportedPublicKey;
 }
+
+/**
+ * Callback invoked when a wallet connection is disconnected.
+ */
+export type DisconnectCallback = () => void;

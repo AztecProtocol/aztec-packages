@@ -30,7 +30,7 @@ import {
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
-import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { type Anvil, EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -61,7 +61,6 @@ import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -186,6 +185,11 @@ export type SetupOptions = {
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
   anvilPort?: number;
+  /**
+   * Number of slots per epoch for Anvil's finality simulation.
+   * Anvil reports `finalized = latest - slotsInAnEpoch * 2`.
+   */
+  anvilSlotsInAnEpoch?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
   /** ZkPassport configuration (domain, scope, mock verifier) */
@@ -309,7 +313,10 @@ export async function setup(
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
         slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
+<<<<<<< HEAD
         dateProvider,
+=======
+>>>>>>> origin/backport-to-v4-next-staging
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];

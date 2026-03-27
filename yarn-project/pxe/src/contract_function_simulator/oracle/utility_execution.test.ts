@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -200,7 +201,7 @@ describe('Utility Execution test suite', () => {
       ),
     );
 
-    capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleStore.getCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     const execRequest = FunctionCall.from({
       name: artifact.name,
@@ -273,15 +274,15 @@ describe('Utility Execution test suite', () => {
         const dstSlot = Fr.random();
         const capsule = [Fr.random()];
 
-        capsuleStore.loadCapsule.mockResolvedValueOnce(capsule);
+        capsuleStore.getCapsule.mockResolvedValueOnce(capsule);
 
-        utilityExecutionOracle.storeCapsule(contractAddress, slot, capsule, scope);
-        await utilityExecutionOracle.loadCapsule(contractAddress, slot, scope);
+        utilityExecutionOracle.setCapsule(contractAddress, slot, capsule, scope);
+        await utilityExecutionOracle.getCapsule(contractAddress, slot, scope);
         utilityExecutionOracle.deleteCapsule(contractAddress, slot, scope);
         await utilityExecutionOracle.copyCapsule(contractAddress, srcSlot, dstSlot, 1, scope);
 
-        expect(capsuleStore.storeCapsule).toHaveBeenCalledWith(contractAddress, slot, capsule, 'test-job-id', scope);
-        expect(capsuleStore.loadCapsule).toHaveBeenCalledWith(contractAddress, slot, 'test-job-id', scope);
+        expect(capsuleStore.setCapsule).toHaveBeenCalledWith(contractAddress, slot, capsule, 'test-job-id', scope);
+        expect(capsuleStore.getCapsule).toHaveBeenCalledWith(contractAddress, slot, 'test-job-id', scope);
         expect(capsuleStore.deleteCapsule).toHaveBeenCalledWith(contractAddress, slot, 'test-job-id', scope);
         expect(capsuleStore.copyCapsule).toHaveBeenCalledWith(
           contractAddress,
@@ -323,15 +324,15 @@ describe('Utility Execution test suite', () => {
           scopes: 'ALL_SCOPES',
         });
 
-        capsuleStore.loadCapsule.mockResolvedValueOnce(persisted);
+        capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
 
-        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
+        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
           transientGlobal,
         );
-        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
+        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
           transientGlobal,
         );
-        expect(await utilityExecutionOracle.loadCapsule(contractAddress, slot, scope)).toEqual(transientScoped);
+        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, scope)).toEqual(transientScoped);
       });
     });
 
@@ -339,7 +340,7 @@ describe('Utility Execution test suite', () => {
       it('throws when contract address does not match', async () => {
         const otherAddress = await AztecAddress.random();
         const scope = await AztecAddress.random();
-        expect(() => utilityExecutionOracle.invalidateContractSyncCache(otherAddress, [scope])).toThrow(
+        expect(() => utilityExecutionOracle.setContractSyncCacheInvalid(otherAddress, [scope])).toThrow(
           `Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`,
         );
         expect(contractSyncService.invalidateContractForScopes).not.toHaveBeenCalled();
@@ -348,7 +349,7 @@ describe('Utility Execution test suite', () => {
       it('invalidates cache for the given scopes', async () => {
         const scopeA = await AztecAddress.random();
         const scopeB = await AztecAddress.random();
-        utilityExecutionOracle.invalidateContractSyncCache(contractAddress, [scopeA, scopeB]);
+        utilityExecutionOracle.setContractSyncCacheInvalid(contractAddress, [scopeA, scopeB]);
         expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
       });
     });
@@ -361,14 +362,14 @@ describe('Utility Execution test suite', () => {
       it('throws when contractAddress does not match', async () => {
         const wrongAddress = await AztecAddress.random();
         await expect(
-          utilityExecutionOracle.resolveMessageContexts(wrongAddress, requestSlot, responseSlot, scope),
+          utilityExecutionOracle.getMessageContextsByTxHash(wrongAddress, requestSlot, responseSlot, scope),
         ).rejects.toThrow(`Got a message context request from ${wrongAddress}, expected ${contractAddress}`);
       });
 
       it('sets null in response capsule for zero tx hashes', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[Fr.ZERO]]);
 
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
+        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
 
         const response = capsuleStore.setCapsuleArray.mock.calls.find(
           call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
@@ -392,7 +393,7 @@ describe('Utility Execution test suite', () => {
           data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
         } as any);
 
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
+        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
 
         const response = capsuleStore.setCapsuleArray.mock.calls.find(
           call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
@@ -414,7 +415,7 @@ describe('Utility Execution test suite', () => {
           data: { txHash, noteHashes: [], nullifiers: [Fr.random()] },
         } as any);
 
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
+        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
 
         const response = capsuleStore.setCapsuleArray.mock.calls.find(
           call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
@@ -427,20 +428,20 @@ describe('Utility Execution test suite', () => {
       it('throws on empty capsule entry', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[]]);
         await expect(
-          utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot, scope),
+          utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope),
         ).rejects.toThrow('Malformed message context request at index 0: expected 1 field (tx hash), got 0');
       });
 
       it('throws on capsule entry with extra fields', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[Fr.random(), Fr.random()]]);
         await expect(
-          utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot, scope),
+          utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope),
         ).rejects.toThrow('Malformed message context request at index 0: expected 1 field (tx hash), got 2');
       });
 
       it('clears the request capsule after processing', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([]);
-        await utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot, scope);
+        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
         expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
           contractAddress,
           requestSlot,
@@ -453,7 +454,7 @@ describe('Utility Execution test suite', () => {
       it('clears the request capsule even on error', async () => {
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[]]);
         await expect(
-          utilityExecutionOracle.resolveMessageContexts(contractAddress, requestSlot, responseSlot, scope),
+          utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope),
         ).rejects.toThrow();
         expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
           contractAddress,
@@ -462,6 +463,68 @@ describe('Utility Execution test suite', () => {
           'test-job-id',
           scope,
         );
+      });
+    });
+
+    describe('getSharedSecret', () => {
+      it('returns different shared secrets for different contract addresses', async () => {
+        // Generate a deterministic ephemeral public key
+        const ephSk = GrumpkinScalar.random();
+        const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
+
+        // Derive keys so we can mock getMasterSecretKey (used by getSharedSecret)
+        const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
+        keyStore.getMasterSecretKey.mockImplementation((publicKey: Point) => {
+          if (publicKey.equals(ownerCompleteAddress.publicKeys.masterIncomingViewingPublicKey)) {
+            return Promise.resolve(ownerIvskM);
+          }
+          throw new Error(`Unknown public key ${publicKey}`);
+        });
+
+        const contractAddressA = await AztecAddress.random();
+        const contractAddressB = await AztecAddress.random();
+
+        const makeOracle = (addr: AztecAddress) =>
+          new UtilityExecutionOracle({
+            contractAddress: addr,
+            authWitnesses: [],
+            capsules: [],
+            anchorBlockHeader,
+            contractStore,
+            noteStore,
+            keyStore,
+            addressStore,
+            aztecNode,
+            recipientTaggingStore,
+            senderAddressBookStore,
+            capsuleStore,
+            privateEventStore,
+            messageContextService,
+            contractSyncService,
+            jobId: 'test-job-id',
+            scopes: 'ALL_SCOPES',
+          });
+
+        const oracleA = makeOracle(contractAddressA);
+        const oracleB = makeOracle(contractAddressB);
+
+        const secretA = await oracleA.getSharedSecret(owner, ephPk, contractAddressA);
+        const secretB = await oracleB.getSharedSecret(owner, ephPk, contractAddressB);
+
+        // After app-siloing, different contracts must get different shared secrets for the same
+        // (address, ephPk) pair. This prevents cross-contract decryption attacks.
+        expect(secretA).not.toEqual(secretB);
+      });
+
+      it('rejects when contract address does not match execution context', async () => {
+        const ephSk = GrumpkinScalar.random();
+        const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
+
+        const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
+        keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
+
+        const wrongAddress = await AztecAddress.random();
+        await expect(utilityExecutionOracle.getSharedSecret(owner, ephPk, wrongAddress)).rejects.toThrow(/expected/);
       });
     });
   });

@@ -37,7 +37,7 @@ pub contract StaticChild {
     #[external("public")]
     fn pub_set_value(new_value: Field) -> Field {
         self.storage.current_value.write(new_value);
-        self.context.emit_public_log(new_value);
+        self.context.emit_public_log_unsafe(0, new_value);
         new_value
     }
 
@@ -79,7 +79,7 @@ pub contract StaticChild {
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = self.storage.current_value.read();
         self.storage.current_value.write(old_value + new_value);
-        self.context.emit_public_log(new_value);
+        self.context.emit_public_log_unsafe(0, new_value);
         new_value
     }
 
@@ -89,7 +89,7 @@ pub contract StaticChild {
     fn pub_illegal_inc_value(new_value: Field) -> Field {
         let old_value = self.storage.current_value.read();
         self.storage.current_value.write(old_value + new_value);
-        self.context.emit_public_log(new_value);
+        self.context.emit_public_log_unsafe(0, new_value);
         new_value
     }
 }

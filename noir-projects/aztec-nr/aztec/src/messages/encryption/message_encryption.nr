@@ -34,6 +34,7 @@ pub trait MessageEncryption {
     fn encrypt<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
+        contract_address: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN];
 
     /// Decrypts a message ciphertext into its original plaintext.
@@ -49,5 +50,6 @@ pub trait MessageEncryption {
     unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
+        contract_address: AztecAddress,
     ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>>;
 }

@@ -3,13 +3,19 @@ use aztec::{
     history::nullifier::assert_nullifier_existed_by,
     keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
-    messages::logs::partial_note::compute_partial_note_private_content_log,
+    messages::{
+        logs::partial_note::encode_partial_note_private_message,
+        message_delivery::{do_private_message_delivery, MessageDelivery},
+    },
     note::{note_interface::{NoteHash, NoteType}, utils::compute_note_nullifier},
     oracle::random::random,
     protocol::{
         address::AztecAddress,
-        constants::{DOM_SEP__NOTE_HASH, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT, PRIVATE_LOG_SIZE_IN_FIELDS},
-        hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
+        constants::{
+            DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__NOTE_HASH, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+            PRIVATE_LOG_CIPHERTEXT_LEN,
+        },
+        hash::{compute_log_tag, compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
     },
 };
@@ -116,17 +122,13 @@ impl UintNote {
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
         let private_log_content = UintPartialNotePrivateLogContent {};
 
-        let encrypted_log = compute_partial_note_private_content_log(
-            private_log_content,
-            owner,
-            randomness,
+        do_private_message_delivery(
+            context,
+            || encode_partial_note_private_message(private_log_content, owner, randomness, commitment),
+            Option::none(),
             recipient,
-            commitment,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
-        // Regardless of the original content size, the log is padded with random bytes up to
-        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
-        let length = encrypted_log.len();
-        context.emit_private_log(encrypted_log, length);
 
         let partial_note = PartialUintNote { commitment };
 
@@ -170,7 +172,7 @@ pub struct PartialUintNote {
 }
 // docs:end:partial_uint_note_def
 
-global NOTE_COMPLETION_LOG_LENGTH: u32 = 3;
+global NOTE_COMPLETION_PAYLOAD_LENGTH: u32 = 2;
 
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
@@ -193,11 +195,12 @@ impl PartialUintNote {
 
         // We need to do two things:
         //  - emit a public log containing the public fields (the storage slot and value). The contract will later find
-        // it by searching for the expected tag (which is simply the partial note commitment).
+        // it by searching for the domain-separated commitment as the tag.
         //  - insert the completion note hash (i.e. the hash of the note) into the note hash tree. This is typically
         // only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
         // inserted in public as the public values are provided and the note hash computed.
-        context.emit_public_log(self.compute_note_completion_log(storage_slot, value));
+        let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
+        context.emit_public_log_unsafe(log_tag, [storage_slot, value.to_field()]);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, value));
     }
 
@@ -224,15 +227,13 @@ impl PartialUintNote {
 
         // We need to do two things:
         //  - emit an unencrypted log containing the public fields (the storage slot and value) via the private log
-        // channel. The contract will later find it by searching for the expected tag (which is simply the partial note
-        // commitment).
+        // channel. The contract will later find it by searching for the domain-separated commitment as the tag.
         //  - insert the completion note hash (i.e. the hash of the note) into the note hash tree. This is typically
         // only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
         // inserted in public as the public values are provided and the note hash computed.
-        context.emit_private_log(
-            self.compute_note_completion_log_padded_for_private_log(storage_slot, value),
-            NOTE_COMPLETION_LOG_LENGTH,
-        );
+        let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
+        let padded_payload = self.compute_note_completion_payload_padded_for_private_log(storage_slot, value);
+        context.emit_private_log_unsafe(log_tag, padded_payload, NOTE_COMPLETION_PAYLOAD_LENGTH);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, value));
     }
 
@@ -248,20 +249,13 @@ impl PartialUintNote {
         )
     }
 
-    fn compute_note_completion_log(self, storage_slot: Field, value: u128) -> [Field; NOTE_COMPLETION_LOG_LENGTH] {
-        // The first field of this log must be the tag that the recipient of the partial note private field logs
-        // expects, which is equal to the partial note commitment.
-        [self.commitment, storage_slot, value.to_field()]
-    }
-
-    fn compute_note_completion_log_padded_for_private_log(
-        self,
+    fn compute_note_completion_payload_padded_for_private_log(
+        _self: Self,
         storage_slot: Field,
         value: u128,
-    ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
-        let note_completion_log = self.compute_note_completion_log(storage_slot, value);
-        let padding = [0; PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_COMPLETION_LOG_LENGTH];
-        note_completion_log.concat(padding)
+    ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN] {
+        let payload = [storage_slot, value.to_field()];
+        payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - NOTE_COMPLETION_PAYLOAD_LENGTH])
     }
 
     // docs:start:compute_complete_note_hash

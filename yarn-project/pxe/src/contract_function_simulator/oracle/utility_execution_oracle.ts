@@ -15,14 +15,14 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
-import { MessageContext, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
-import { createContractLogger, logContractMessage } from '../../contract_logging.js';
+import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
@@ -76,6 +76,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isUtility = true as const;
 
   private contractLogger: Logger | undefined;
+  private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
 
   protected readonly contractAddress: AztecAddress;
@@ -284,7 +285,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param account - The account address.
    * @returns The public keys and partial address, or `undefined` if the account is not registered.
    */
-  public async tryGetPublicKeysAndPartialAddress(
+  public async getPublicKeysAndPartialAddress(
     account: AztecAddress,
   ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
@@ -390,7 +391,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param innerNullifier - The inner nullifier.
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
-  public async checkNullifierExists(innerNullifier: Fr) {
+  public async doesNullifierExist(innerNullifier: Fr) {
     const [nullifier, anchorBlockHash] = await Promise.all([
       siloNullifier(this.contractAddress, innerNullifier!),
       this.anchorBlockHeader.hash(),
@@ -428,7 +429,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param startStorageSlot - The starting storage slot.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public storageRead(
+  public getFromPublicStorage(
     blockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
@@ -452,7 +453,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Returns a per-contract logger whose output is prefixed with `contract_log::<name>(<addrAbbrev>)`.
+   * Returns a per-contract logger whose output is prefixed with `contract:<name>(<addrAbbrev>)`.
    */
   async #getContractLogger(): Promise<Logger> {
     if (!this.contractLogger) {
@@ -461,21 +462,42 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.contractLogger = await createContractLogger(
         this.contractAddress,
         addr => this.contractStore.getDebugContractName(addr),
+        'user',
         { instanceId: this.jobId },
       );
     }
     return this.contractLogger;
   }
 
+  /**
+   * Returns a per-contract logger whose output is prefixed with `aztecnr:<name>(<addrAbbrev>)`.
+   */
+  async #getAztecnrLogger(): Promise<Logger> {
+    if (!this.aztecnrLogger) {
+      // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
+      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      this.aztecnrLogger = await createContractLogger(
+        this.contractAddress,
+        addr => this.contractStore.getDebugContractName(addr),
+        'aztecnr',
+        { instanceId: this.jobId },
+      );
+    }
+    return this.aztecnrLogger;
+  }
+
   public async log(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }
-    const logger = await this.#getContractLogger();
-    logContractMessage(logger, LogLevels[level], message, fields);
+
+    const { kind, message: strippedMessage } = stripAztecnrLogPrefix(message);
+
+    const logger = kind == 'aztecnr' ? await this.#getAztecnrLogger() : await this.#getContractLogger();
+    logContractMessage(logger, LogLevels[level], strippedMessage, fields);
   }
 
-  public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
+  public async getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
     const logService = new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
@@ -572,7 +594,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public async bulkRetrieveLogs(
+  public async getLogsByTag(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
@@ -601,7 +623,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.logger.getBindings(),
     );
 
-    const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
+    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(contractAddress, logRetrievalRequests);
 
     // Requests are cleared once we're done.
     await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId, scope);
@@ -616,7 +638,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public async resolveMessageContexts(
+  public async getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
@@ -647,7 +669,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         return fields[0];
       });
 
-      const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(
+      const maybeMessageContexts = await this.messageContextService.getMessageContextsByTxHash(
         txHashes,
         this.anchorBlockHeader.getBlockNumber(),
       );
@@ -671,15 +693,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
+  public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    this.capsuleStore.storeCapsule(contractAddress, slot, capsule, this.jobId, scope);
+    this.capsuleStore.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
-  public async loadCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
+  public async getCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -692,7 +714,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     )?.data;
 
     // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
-    return maybeTransientCapsule ?? (await this.capsuleStore.loadCapsule(contractAddress, slot, this.jobId, scope));
+    return maybeTransientCapsule ?? (await this.capsuleStore.getCapsule(contractAddress, slot, this.jobId, scope));
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
@@ -721,7 +743,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
    * stored notes or events are discovered.
    */
-  public invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
+  public setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
     if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(`Contract ${this.contractAddress} cannot invalidate sync cache of ${contractAddress}`);
     }
@@ -729,25 +751,30 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
-  public aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  public decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
   /**
-   * Retrieves the shared secret for a given address and ephemeral public key.
+   * Retrieves the app-siloed shared secret for a given address and ephemeral public key.
    * @param address - The address to get the secret for.
    * @param ephPk - The ephemeral public key to get the secret for.
-   * @returns The secret for the given address.
+   * @param contractAddress - The contract address for app-siloing (validated against execution context).
+   * @returns The app-siloed shared secret as a Field.
    */
-  public async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    // TODO(#12656): return an app-siloed secret
+  public async getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      throw new Error(
+        `getSharedSecret called with contract address ${contractAddress}, expected ${this.contractAddress}`,
+      );
+    }
     const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-    return deriveEcdhSharedSecret(addressSecret, ephPk);
+    return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {

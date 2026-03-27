@@ -34,12 +34,15 @@ export async function startAnvil(
      * L1-finality-based logic work without needing hundreds of mined blocks.
      */
     slotsInAnEpoch?: number;
+<<<<<<< HEAD
     /**
      * If provided, the date provider will be synced to anvil's block time on every mined block.
      * This keeps the dateProvider in lockstep with anvil's chain time, avoiding drift between
      * the wall clock and the L1 chain when computing L1 slot timestamps.
      */
     dateProvider?: TestDateProvider;
+=======
+>>>>>>> origin/backport-to-v4-next-staging
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
@@ -115,15 +118,23 @@ export async function startAnvil(
         child.once('close', onClose);
       });
 
+<<<<<<< HEAD
       // Continue piping for logging, method-call capture, and/or dateProvider sync after startup.
       if (logger || opts.captureMethodCalls || opts.dateProvider) {
+=======
+      // Continue piping for logging / method-call capture after startup.
+      if (logger || opts.captureMethodCalls) {
+>>>>>>> origin/backport-to-v4-next-staging
         child.stdout?.on('data', (data: Buffer) => {
           const text = data.toString();
           logger?.debug(text.trim());
           methodCalls?.push(...(text.match(/eth_[^\s]+/g) || []));
+<<<<<<< HEAD
           if (opts.dateProvider) {
             syncDateProviderFromAnvilOutput(text, opts.dateProvider);
           }
+=======
+>>>>>>> origin/backport-to-v4-next-staging
         });
         child.stderr?.on('data', (data: Buffer) => {
           logger?.debug(data.toString().trim());
@@ -170,6 +181,7 @@ export async function startAnvil(
   return { anvil: anvilObj, methodCalls, stop, rpcUrl: `http://127.0.0.1:${port}` };
 }
 
+<<<<<<< HEAD
 /** Extracts block time from anvil stdout and syncs the dateProvider. */
 function syncDateProviderFromAnvilOutput(text: string, dateProvider: TestDateProvider): void {
   // Anvil logs mined blocks as:
@@ -183,6 +195,8 @@ function syncDateProviderFromAnvilOutput(text: string, dateProvider: TestDatePro
   }
 }
 
+=======
+>>>>>>> origin/backport-to-v4-next-staging
 /** Send SIGTERM, wait up to 5 s, then SIGKILL. All timers are always cleared. */
 function killChild(child: ChildProcess): Promise<void> {
   return new Promise<void>(resolve => {

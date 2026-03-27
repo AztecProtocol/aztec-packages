@@ -6,7 +6,10 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(./bootstrap.sh --help)",
+      "Bash(gh pr:*)",
+      "Bash(git merge:*)"
     ]
   }
 }

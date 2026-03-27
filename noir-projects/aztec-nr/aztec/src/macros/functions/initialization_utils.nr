@@ -116,8 +116,9 @@ pub fn assert_is_initialized_private(context: &mut PrivateContext) {
 
 /// Asserts that the contract has been initialized, from a utility function's perspective.
 ///
-/// Only checks the private initialization nullifier in the settled nullifier tree. Since both nullifiers are emitted in
-/// the same transaction, the private nullifier's presence in settled state guarantees the public one is also settled.
+/// Only checks the private initialization nullifier in the settled nullifier tree. Since both nullifiers are emitted
+/// in the same transaction, the private nullifier's presence in settled state guarantees the public one is also
+/// settled.
 pub unconstrained fn assert_is_initialized_utility(context: UtilityContext) {
     let address = context.this_address();
     let instance = get_contract_instance(address);

@@ -1,4 +1,6 @@
-import { type EventMetadataDefinition, EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
+import { DomainSeparator } from '@aztec/constants';
+import { type EventMetadataDefinition, decodeFromAbi } from '@aztec/stdlib/abi';
+import { computeLogTag } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PublicEvent, PublicEventFilter } from '../wallet/wallet.js';
@@ -28,27 +30,26 @@ export async function getPublicEvents<T>(
   eventMetadataDef: EventMetadataDefinition,
   filter: PublicEventFilter,
 ): Promise<GetPublicEventsResult<T>> {
+  // Public events are tagged with a domain-separated hash of their event type ID, so we compute
+  // the same hash here to filter for logs of the requested event type.
+  const logTag = await computeLogTag(eventMetadataDef.eventSelector.toField(), DomainSeparator.EVENT_LOG_TAG);
+
   const { logs, maxLogsHit } = await node.getPublicLogs({
     fromBlock: filter.fromBlock ? Number(filter.fromBlock) : undefined,
     toBlock: filter.toBlock ? Number(filter.toBlock) : undefined,
     txHash: filter.txHash,
     contractAddress: filter.contractAddress,
     afterLog: filter.afterLog,
+    tag: logTag,
   });
 
   const events: PublicEvent<T>[] = [];
 
   for (const log of logs) {
-    const logFields = log.log.getEmittedFields();
-    // Event selector is at the last position of the emitted fields
-    const logEventSelector = EventSelector.fromField(logFields[logFields.length - 1]);
-
-    if (!logEventSelector.equals(eventMetadataDef.eventSelector)) {
-      continue;
-    }
+    const logFieldsWithoutTag = log.log.getEmittedFieldsWithoutTag();
 
     events.push({
-      event: decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T,
+      event: decodeFromAbi([eventMetadataDef.abiType], logFieldsWithoutTag) as T,
       metadata: {
         l2BlockNumber: log.id.blockNumber,
         l2BlockHash: log.id.blockHash,

@@ -320,7 +320,7 @@ describe('Private Execution test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     contractSyncService = mock<ContractSyncService>();
     messageContextService = mock<MessageContextService>();
-    messageContextService.resolveMessageContexts.mockResolvedValue([]);
+    messageContextService.getMessageContextsByTxHash.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
       async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId, scopes) => {
@@ -470,7 +470,7 @@ describe('Private Execution test suite', () => {
       });
     });
 
-    capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleStore.getCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     aztecNode.getPublicStorageAt.mockImplementation(
       (_block: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
@@ -497,7 +497,7 @@ describe('Private Execution test suite', () => {
 
   describe('no constructor', () => {
     it('emits a field array as an encrypted log', async () => {
-      const args = [times(5, () => Fr.random()), owner, false];
+      const args = [Fr.ZERO, times(5, () => Fr.random()), owner, false];
       const result = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'emit_array_as_encrypted_log',
