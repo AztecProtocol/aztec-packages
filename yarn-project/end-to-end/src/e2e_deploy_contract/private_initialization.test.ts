@@ -140,6 +140,23 @@ describe('e2e_deploy_contract private initialization', () => {
     );
   });
 
+  it('refuses to simulate a utility function that requires initialization', async () => {
+    const owner = (await wallet.createAccount()).address;
+    const initArgs: InitTestCtorArgs = [owner, 42];
+    const contract = await t.registerContract(wallet, InitTestContract, { initArgs });
+    await expect(contract.methods.utility_init_check(owner).simulate({ from: defaultAccountAddress })).rejects.toThrow(
+      /Not initialized/,
+    );
+  });
+
+  it('allows calling a utility function after initialization', async () => {
+    const { contract, initArgs } = await deployUninitialized();
+    const owner = defaultAccountAddress;
+    await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
+    const result = await contract.methods.utility_init_check(owner).simulate({ from: defaultAccountAddress });
+    expect(result.result).toEqual(2n);
+  });
+
   // A public call enqueued before the private constructor should fail the init check, even though the
   // private constructor emits the init nullifier in the same tx.
   it('refuses to call a public function enqueued before private initialization in same tx', async () => {
@@ -161,7 +178,7 @@ describe('e2e_deploy_contract private initialization', () => {
     ]);
     await batch.send({ from: defaultAccountAddress });
     expect((await contract.methods.pub_no_init_check(owner).simulate({ from: defaultAccountAddress })).result).toEqual(
-      84n,
+      1n,
     );
   });
 

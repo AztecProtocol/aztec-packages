@@ -321,6 +321,37 @@ let workerConfig: P2PConfig | null = null;
 let workerLogger: Logger | null = null;
 let kvStore: Awaited<ReturnType<typeof openTmpStore>> | null = null;
 
+async function stopWorker() {
+  try {
+    if (workerClient) {
+      await workerClient.stop();
+      workerClient = null;
+    }
+  } catch (e) {
+    workerLogger?.error('Error stopping worker client', e);
+  }
+  try {
+    if (kvStore?.close) {
+      await kvStore.close();
+      kvStore = null;
+    }
+  } catch (e) {
+    workerLogger?.error('Error closing kv store', e);
+  }
+}
+
+function gracefulExit(code: number = 0) {
+  try {
+    if (process.connected) {
+      process.disconnect();
+    }
+  } catch {
+    // IPC channel already closed
+  }
+  // Safety fallback if lingering handles prevent the event loop from draining
+  setTimeout(() => process.exit(code), 5000).unref();
+}
+
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const {
@@ -410,13 +441,8 @@ process.on('message', async msg => {
     const cmd = msg as any;
     switch (cmd.type) {
       case 'STOP':
-        if (workerClient) {
-          await workerClient.stop();
-        }
-        if (kvStore?.close) {
-          await kvStore.close();
-        }
-        process.exit(0);
+        await stopWorker();
+        gracefulExit(0);
         break;
 
       case 'SEND_TX':
@@ -493,7 +519,12 @@ process.on('message', async msg => {
       }
     }
   } catch (err: any) {
-    process.send!({ type: 'ERROR', error: err.message });
-    process.exit(1);
+    try {
+      process.send!({ type: 'ERROR', error: err.message });
+    } catch {
+      // IPC channel may be closed
+    }
+    await stopWorker();
+    gracefulExit(1);
   }
 });

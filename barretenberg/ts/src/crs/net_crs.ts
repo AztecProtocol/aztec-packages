@@ -27,11 +27,11 @@ export async function fetchWithFallback(
 
 /**
  * Downloader for CRS from the web or local.
+ * Downloads compressed format (32 bytes/point). Decompression happens in C++ via SrsInitSrs.
  */
 export class NetCrs {
   private data!: Uint8Array;
   private g2Data!: Uint8Array;
-
   constructor(
     /**
      * The number of circuit gates.
@@ -48,7 +48,7 @@ export class NetCrs {
   }
 
   /**
-   * Opens up a ReadableStream to the points data
+   * Opens up a ReadableStream to the compressed G1 points data (32 bytes/point).
    */
   async streamG1Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG1Data();
@@ -56,13 +56,17 @@ export class NetCrs {
   }
 
   /**
-   * Opens up a ReadableStream to the points data
+   * Opens up a ReadableStream to the G2 points data
    */
   async streamG2Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG2Data();
     return response.body!;
   }
 
+  /**
+   * Download compressed G1 data (32 bytes/point).
+   * Decompression happens in C++ via SrsInitSrs.
+   */
   async downloadG1Data() {
     const response = await this.fetchG1Data();
     return (this.data = new Uint8Array(await response.arrayBuffer()));
@@ -77,8 +81,7 @@ export class NetCrs {
   }
 
   /**
-   * G1 points data for prover key.
-   * @returns The points data.
+   * G1 points data for prover key (compressed, 32 bytes/point).
    */
   getG1Data(): Uint8Array {
     return this.data;
@@ -93,24 +96,22 @@ export class NetCrs {
   }
 
   /**
-   * Fetches the appropriate range of points from a remote source
+   * Download compressed G1 data from CDN with S3 fallback.
    */
   private async fetchG1Data(): Promise<Response> {
-    // Skip the download if numPoints is 0 (would download the entire file due to bad range header otherwise)
     if (this.numPoints === 0) {
       return new Response(new Uint8Array([]));
     }
 
-    const g1End = this.numPoints * 64 - 1;
+    const g1End = this.numPoints * 32 - 1;
     const options: RequestInit = {
-      headers: {
-        Range: `bytes=0-${g1End}`,
-      },
+      headers: { Range: `bytes=0-${g1End}` },
       cache: 'force-cache',
     };
-    return await retry(
-      () => fetchWithFallback(`${CRS_PRIMARY_HOST}/g1.dat`, `${CRS_FALLBACK_HOST}/g1.dat`, options),
-      makeBackoff([5, 5, 5]),
+    return await fetchWithFallback(
+      `${CRS_PRIMARY_HOST}/g1_compressed.dat`,
+      `${CRS_FALLBACK_HOST}/g1_compressed.dat`,
+      options,
     );
   }
 

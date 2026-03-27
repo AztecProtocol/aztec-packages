@@ -668,7 +668,6 @@ describe('sequencer', () => {
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
         governancePayload,
         SlotNumber(1),
-        expect.any(BigInt),
         expect.any(EthAddress),
         expect.any(Function),
       );

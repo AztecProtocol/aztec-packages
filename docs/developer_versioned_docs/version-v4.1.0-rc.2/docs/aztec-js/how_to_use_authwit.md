@@ -7,6 +7,14 @@ description: Step-by-step guide to implementing authentication witnesses in Azte
 
 This guide shows you how to create and use authentication witnesses (authwits) to authorize other accounts to perform actions on your behalf.
 
+:::tip Automatic private authwits with EmbeddedWallet
+
+When using `EmbeddedWallet`, **private authwits are created automatically**. The wallet simulates your transaction before sending and detects which private authwits are needed, then generates them on the fly. You don't need to create them manually.
+
+Public authwits still need to be set explicitly, as they require a separate onchain transaction before use. The manual approach described below is also relevant if you're building a custom wallet implementation.
+
+:::
+
 :::warning aztec-nr
 
 Using AuthWitnesses is always a two-part process. This guide shows how to generate and use them, but you still need to set up your contract to accept and authenticate them.
@@ -29,6 +37,10 @@ The authwit system supports different intent types depending on your use case:
 - **`IntentInnerHash`**: Use when authorizing arbitrary data. Contains `{ consumer, innerHash }` where `consumer` is the contract that will verify the authwit.
 
 ## Create private authwits
+
+:::note
+If you're using `EmbeddedWallet`, this section is handled for you automatically — see the tip above. The manual approach below is for custom wallet implementations or advanced use cases.
+:::
 
 Private authwits authorize actions in the private domain. The authorization is included directly in the transaction that uses it.
 
