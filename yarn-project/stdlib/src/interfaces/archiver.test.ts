@@ -372,6 +372,20 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
+  it('getProposedCheckpointOnly', async () => {
+    const result = await context.client.getProposedCheckpointOnly();
+    expect(result).toEqual({
+      checkpointNumber: 1,
+      header: expect.any(CheckpointHeader),
+      archive: expect.any(AppendOnlyTreeSnapshot),
+      checkpointOutHash: expect.any(Fr),
+      blockCount: 1,
+      startBlock: 1,
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
+  });
+
   it('getPendingChainValidationStatus', async () => {
     const result = await context.client.getPendingChainValidationStatus();
     expect(result).toEqual({ valid: true });
