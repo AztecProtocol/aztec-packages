@@ -1,3 +1,4 @@
+import { minBigint } from '@aztec/foundation/bigint';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -6,7 +7,6 @@ import { Gas } from '@aztec/stdlib/gas';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
-import { getTxPriorityFee } from '../tx_pool/priority.js';
 import { type PreAddResult, TxPoolRejectionCode } from './eviction/interfaces.js';
 
 /** Validator-compatible data interface, mirroring the subset of PrivateKernelTailCircuitPublicInputs used by validators. */
@@ -334,4 +334,10 @@ export function stubTxMetaData(
     estimatedSizeBytes: 0,
     data: stubTxMetaValidationData({ expirationTimestamp }),
   };
+}
+
+/** Returns the priority fee for a tx, based on the L2 priority fee capped by the max fee per gas. */
+function getTxPriorityFee(tx: Tx): bigint {
+  const { maxPriorityFeesPerGas: priorityFees, maxFeesPerGas } = tx.getGasSettings();
+  return minBigint(maxFeesPerGas.feePerL2Gas, priorityFees.feePerL2Gas);
 }

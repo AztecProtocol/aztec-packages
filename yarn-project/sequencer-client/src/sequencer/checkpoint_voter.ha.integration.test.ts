@@ -249,7 +249,6 @@ describe('CheckpointVoter HA Integration', () => {
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
-      validatorReexecute: false,
       haSigningEnabled: true,
       l1Contracts: { rollupAddress: EthAddress.fromString(rollupContract.address.toString()) },
       nodeId: config.nodeId || 'ha-node-1',
@@ -294,6 +293,7 @@ describe('CheckpointVoter HA Integration', () => {
       nowMs: BigInt(Date.now()),
     });
     epochCache.getSlotNow.mockReturnValue(slot);
+    epochCache.getL1Constants.mockReturnValue(TEST_L1_CONSTANTS as any);
 
     const slashFactoryContract = mock<SlashFactoryContract>();
 
