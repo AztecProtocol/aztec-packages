@@ -313,10 +313,7 @@ export async function setup(
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
         slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
-<<<<<<< HEAD
         dateProvider,
-=======
->>>>>>> origin/backport-to-v4-next-staging
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
