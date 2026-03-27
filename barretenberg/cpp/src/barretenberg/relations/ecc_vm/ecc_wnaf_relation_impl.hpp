@@ -99,14 +99,14 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * Doing range checks this way vs permutation-based range check removes need to create sorted list + grand product
      * polynomial. Probably cheaper even if we have to split each 4-bit WNAF slice into 2-bit chunks.
      */
-    range_constraint_slice_to_2_bits(slices[0], std::get<0>(accumulator));
-    range_constraint_slice_to_2_bits(slices[1], std::get<1>(accumulator));
-    range_constraint_slice_to_2_bits(slices[2], std::get<2>(accumulator));
-    range_constraint_slice_to_2_bits(slices[3], std::get<3>(accumulator));
-    range_constraint_slice_to_2_bits(slices[4], std::get<4>(accumulator));
-    range_constraint_slice_to_2_bits(slices[5], std::get<5>(accumulator));
-    range_constraint_slice_to_2_bits(slices[6], std::get<6>(accumulator));
-    range_constraint_slice_to_2_bits(slices[7], std::get<7>(accumulator));
+    range_constraint_slice_to_2_bits(slices[0], std::get<RANGE_S1HI>(accumulator));
+    range_constraint_slice_to_2_bits(slices[1], std::get<RANGE_S1LO>(accumulator));
+    range_constraint_slice_to_2_bits(slices[2], std::get<RANGE_S2HI>(accumulator));
+    range_constraint_slice_to_2_bits(slices[3], std::get<RANGE_S2LO>(accumulator));
+    range_constraint_slice_to_2_bits(slices[4], std::get<RANGE_S3HI>(accumulator));
+    range_constraint_slice_to_2_bits(slices[5], std::get<RANGE_S3LO>(accumulator));
+    range_constraint_slice_to_2_bits(slices[6], std::get<RANGE_S4HI>(accumulator));
+    range_constraint_slice_to_2_bits(slices[7], std::get<RANGE_S4LO>(accumulator));
 
     /**
      * @brief If we are processing a new scalar (q_transition = 1), validate that the first slice is positive.
@@ -122,7 +122,8 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     // away from row zero, add `scaled_transition * precompute_select_shift * s1hi_shift_msb_set`. however,
     // `q_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
     // `scaled_lagrange_first`.
-    std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1hi_shift_msb_set;
+    std::get<FIRST_SLICE_POSITIVE>(accumulator) +=
+        scaled_transition_plus_lagrange_first * precompute_select_shift * s1hi_shift_msb_set;
     /**
      * @brief Convert each pair of 2-bit scalar slices into a 4-bit windowed-non-adjacent-form slice.
      * Conversion from binary -> wnaf = 2 * binary - 15.
@@ -163,14 +164,14 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     row_slice += w3;
     auto sum_delta = scalar_sum * FF(1ULL << 16) + row_slice;
     const auto check_sum = scalar_sum_shift - sum_delta;
-    std::get<8>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
+    std::get<SCALAR_SUM_CHECK>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
     // We must constrain `precompute_select` to be of the correct shape: 0 1 1 ... 1 0 ...0. In other words, after the
     // first row, it is monotonically non-decreasing. In other words, a malicious prover cannot inject the value '0' in
     // the middle.
     const auto scaled_lagrange_first_minus_one =
         scaled_lagrange_first - scaling_factor; // (if not at the first row, is -1, else 0) * scaling_factor
     const auto precompute_select_check = precompute_select_shift * (precompute_select - 1);
-    std::get<22>(accumulator) += scaled_lagrange_first_minus_one * precompute_select_check;
+    std::get<PRECOMPUTE_SELECT_SHAPE>(accumulator) += scaled_lagrange_first_minus_one * precompute_select_check;
     /**
      * @brief Transition logic with `round` and `q_transition`.
      * Goal: `round` is an integer in [0, ... 7] that tracks how many slices we have processed for a given scalar.
@@ -224,10 +225,10 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     // both at the first active row AND at subsequent transitions between scalars.
     const auto precompute_select_transition_plus_lagrange_first =
         precompute_select * scaled_transition + scaled_lagrange_first;
-    std::get<9>(accumulator) +=
+    std::get<ROUND_CHECK>(accumulator) +=
         precompute_select * (scaled_transition * (round - round_check - 7) + scaling_factor * round_check);
     // At a transition (or at row 0 via lagrange_first), the next round must be 0.
-    std::get<10>(accumulator) += precompute_select_transition_plus_lagrange_first * round_shift;
+    std::get<ROUND_SHIFT_ZERO>(accumulator) += precompute_select_transition_plus_lagrange_first * round_shift;
 
     /**
      * @brief Scalar transition/PC checks.
@@ -236,11 +237,11 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * 3: if q_transition = 1, pc at next row = pc at current row - 1 (decrements by 1)
      * (we combine 2 and 3 into a single relation)
      */
-    std::get<11>(accumulator) += precompute_select_transition_plus_lagrange_first * scalar_sum_shift;
+    std::get<SCALAR_SUM_SHIFT_ZERO>(accumulator) += precompute_select_transition_plus_lagrange_first * scalar_sum_shift;
     // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)
     // => q_transition * (-2 * (pc_shift - pc) - 1) + (pc_shift - pc)
     const auto pc_delta = pc_shift - pc;
-    std::get<12>(accumulator) +=
+    std::get<PC_CHECK>(accumulator) +=
         precompute_select * (scaled_transition * ((-pc_delta - pc_delta - 1)) + pc_delta * scaling_factor);
 
     /**
@@ -252,19 +253,19 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * 1: when validating sum of wnaf slices matches input scalar (we add skew to scalar_sum in ecc_set_relation)
      * 2: in ecc_msm_relation. Final MSM round uses skew to conditionally subtract a point from the accumulator
      */
-    std::get<13>(accumulator) += precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling_factor;
+    std::get<SKEW_RANGE>(accumulator) += precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling_factor;
 
     // Set slices (a.k.a. compressed digits), pc, and round all to zero when `precompute_select == 0`.
     // (this is for one of the multiset equality checks.) Defensively, we also set precompute_point_transition to 0 when
     // precompute_select == 0.
     const auto precompute_select_zero = (-precompute_select + 1) * scaling_factor;
-    std::get<14>(accumulator) += precompute_select_zero * (w0 + 15);
-    std::get<15>(accumulator) += precompute_select_zero * (w1 + 15);
-    std::get<16>(accumulator) += precompute_select_zero * (w2 + 15);
-    std::get<17>(accumulator) += precompute_select_zero * (w3 + 15);
+    std::get<INACTIVE_SLICE_W0>(accumulator) += precompute_select_zero * (w0 + 15);
+    std::get<INACTIVE_SLICE_W1>(accumulator) += precompute_select_zero * (w1 + 15);
+    std::get<INACTIVE_SLICE_W2>(accumulator) += precompute_select_zero * (w2 + 15);
+    std::get<INACTIVE_SLICE_W3>(accumulator) += precompute_select_zero * (w3 + 15);
 
-    std::get<18>(accumulator) += precompute_select_zero * round;
-    std::get<19>(accumulator) += precompute_select_zero * pc;
-    std::get<21>(accumulator) += precompute_select_zero * q_transition;
+    std::get<INACTIVE_ROUND>(accumulator) += precompute_select_zero * round;
+    std::get<INACTIVE_PC>(accumulator) += precompute_select_zero * pc;
+    std::get<INACTIVE_POINT_TRANSITION>(accumulator) += precompute_select_zero * q_transition;
 }
 } // namespace bb

@@ -952,7 +952,7 @@ sel_exec_dispatch_calldata_copy {
         data_copy.src_context_id, data_copy.dst_context_id,
         data_copy.copy_size, data_copy.offset, data_copy.dst_addr,
         data_copy.src_addr, data_copy.src_data_size,
-        data_copy.err
+        data_copy.dst_out_of_range_err
 };
 
 #[DISPATCH_TO_RD_COPY]
@@ -967,7 +967,7 @@ sel_exec_dispatch_returndata_copy {
         data_copy.src_context_id, data_copy.dst_context_id,
         data_copy.copy_size, data_copy.offset, data_copy.dst_addr,
         data_copy.src_addr, data_copy.src_data_size,
-        data_copy.err
+        data_copy.dst_out_of_range_err
 };
 
 // SET DISPATCHING

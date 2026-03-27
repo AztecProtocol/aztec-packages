@@ -68,11 +68,8 @@ describe('Aztec persistence', () => {
     owner = initialFundedAccounts[0];
     ownerAddress = owner.address;
 
-    const {
-      receipt: { contract, instance },
-    } = await TokenBlacklistContract.deploy(wallet, ownerAddress).send({
+    const { contract, instance } = await TokenBlacklistContract.deploy(wallet, ownerAddress).send({
       from: ownerAddress,
-      wait: { returnReceipt: true },
     });
     contractInstance = instance;
     contractAddress = contract.address;

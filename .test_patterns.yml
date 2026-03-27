@@ -339,6 +339,12 @@ tests:
     owners:
       - *palla
 
+  # http://ci.aztec-labs.com/153f5dcbb0f3799c
+  - regex: "src/e2e_offchain_payment.test.ts"
+    error_regex: "✕ reprocesses an offchain-delivered payment after an L1 reorg"
+    owners:
+      - *martin
+
   - regex: "yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_"
     error_regex: "timeout: sending signal"
     owners:

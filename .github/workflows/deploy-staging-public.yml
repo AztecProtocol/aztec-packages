@@ -26,28 +26,27 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Read version from manifest
-        id: manifest
-        run: |
-          VERSION=$(jq -r '."."' .release-please-manifest.json)
-          echo "version=$VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Poll for tag at HEAD
+      - name: Poll for semver tag at HEAD
         id: poll-tag
         run: |
-          # wait for tag to be pushed (either RC or stable release)
-          VERSION="${{ steps.manifest.outputs.version }}"
           HEAD_SHA=$(git rev-parse HEAD)
           MAX_ATTEMPTS=60
-          echo "Looking for tag matching v${VERSION} or v${VERSION}-rc.* at HEAD ($HEAD_SHA)"
+          echo "Looking for any semver tag at HEAD ($HEAD_SHA)"
 
           for i in $(seq 1 $MAX_ATTEMPTS); do
             git fetch --tags --force
 
-            TAG=$(git tag --points-at HEAD | grep -E "^v${VERSION}(-rc\.[0-9]+)?$" | sort -V | tail -n 1 || true)
+            # Collect all valid semver tags pointing at HEAD
+            SEMVER_TAGS=()
+            for t in $(git tag --points-at HEAD); do
+              if ci3/semver check "$t"; then
+                SEMVER_TAGS+=("$t")
+              fi
+            done
 
-            if [ -n "$TAG" ]; then
+            # If we found valid semver tags, pick the highest
+            if [ ${#SEMVER_TAGS[@]} -gt 0 ]; then
+              TAG=$(ci3/semver sort "${SEMVER_TAGS[@]}" | tail -n 1)
               echo "Found tag: $TAG"
               SEMVER="${TAG#v}"
               echo "tag=$TAG" >> $GITHUB_OUTPUT
@@ -55,11 +54,11 @@ jobs:
               exit 0
             fi
 
-            echo "Attempt $i/$MAX_ATTEMPTS: No matching tag yet, waiting 10s..."
+            echo "Attempt $i/$MAX_ATTEMPTS: No semver tag yet, waiting 10s..."
             sleep 10
           done
 
-          echo "Error: No tag found for v${VERSION} at HEAD after 10 minutes"
+          echo "Error: No semver tag found at HEAD after 10 minutes"
           exit 1
 
   wait-for-ci3:

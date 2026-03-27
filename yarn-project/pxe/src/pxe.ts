@@ -215,6 +215,7 @@ export class PXE {
       node,
       contractStore,
       noteStore,
+      () => keyStore.getAccounts(),
       createLogger('pxe:contract_sync', bindings),
     );
     const messageContextService = new MessageContextService(node);
@@ -502,7 +503,9 @@ export class PXE {
    * @returns The synced block header
    */
   public getSyncedBlockHeader(): Promise<BlockHeader> {
-    return this.anchorBlockStore.getBlockHeader();
+    return this.#putInJobQueue(() => {
+      return this.anchorBlockStore.getBlockHeader();
+    });
   }
 
   /**

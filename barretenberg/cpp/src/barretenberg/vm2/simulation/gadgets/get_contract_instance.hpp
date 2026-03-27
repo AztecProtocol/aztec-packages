@@ -7,8 +7,8 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 

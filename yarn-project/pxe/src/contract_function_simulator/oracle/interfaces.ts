@@ -86,7 +86,7 @@ export interface IUtilityExecutionOracle {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
   getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
-  tryGetPublicKeysAndPartialAddress(
+  getPublicKeysAndPartialAddress(
     account: AztecAddress,
   ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined>;
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
@@ -107,43 +107,52 @@ export interface IUtilityExecutionOracle {
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]>;
-  checkNullifierExists(innerNullifier: Fr): Promise<boolean>;
+  doesNullifierExist(innerNullifier: Fr): Promise<boolean>;
   getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
-  storageRead(
+  getFromPublicStorage(
     anchorBlockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;
+  getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress): Promise<void>;
   validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
+    scope: AztecAddress,
   ): Promise<void>;
-  bulkRetrieveLogs(
+  getLogsByTag(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ): Promise<void>;
-  utilityResolveMessageContexts(
+  getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
+    scope: AztecAddress,
   ): Promise<void>;
-  storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
-  loadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
-  deleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;
-  copyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
-  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
-  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
-  invalidateContractSyncCache(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
+  setCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope: AztecAddress): void;
+  getCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): Promise<Fr[] | null>;
+  deleteCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): void;
+  copyCapsule(
+    contractAddress: AztecAddress,
+    srcKey: Fr,
+    dstKey: Fr,
+    numEntries: number,
+    scope: AztecAddress,
+  ): Promise<void>;
+  decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
+  getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
+  setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
 }
 
@@ -154,8 +163,8 @@ export interface IUtilityExecutionOracle {
 export interface IPrivateExecutionOracle {
   isPrivate: true;
 
-  storeInExecutionCache(values: Fr[], hash: Fr): void;
-  loadFromExecutionCache(hash: Fr): Promise<Fr[]>;
+  setHashPreimage(values: Fr[], hash: Fr): void;
+  getHashPreimage(hash: Fr): Promise<Fr[]>;
   notifyCreatedNote(
     owner: AztecAddress,
     storageSlot: Fr,
@@ -176,9 +185,9 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
-  validatePublicCalldata(calldataHash: Fr): Promise<void>;
+  assertValidPublicCalldata(calldataHash: Fr): Promise<void>;
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
-  inRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
+  isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
   getSenderForTags(): Promise<AztecAddress | undefined>;
   setSenderForTags(senderForTags: AztecAddress): Promise<void>;
   getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;

@@ -87,7 +87,7 @@ export class AmmBot extends BaseBot {
         authWitnesses: [swapAuthwit],
       });
 
-    const opts = await this.getSendMethodOpts(swapExactTokensInteraction);
+    const opts = this.getSendMethodOpts();
 
     this.log.verbose(`Sending transaction`, logCtx);
     this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });

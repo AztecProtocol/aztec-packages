@@ -15,6 +15,23 @@ on:
         description: 'Context link (e.g., PR URL, issue URL, external reference)'
         required: false
         type: string
+      profile:
+        description: 'Profile'
+        required: false
+        default: 'aztec'
+        type: choice
+        options: [aztec, barretenberg-audit, noir]
+      model:
+        description: 'Model'
+        required: false
+        default: 'sonnet'
+        type: choice
+        options: [sonnet, opus]
+      budget:
+        description: 'Budget in USD'
+        required: false
+        default: '1.00'
+        type: string
       target_ref:
         description: 'Git ref to checkout in the container (e.g., origin/backport-to-v4-next-staging)'
         required: false
@@ -33,23 +50,19 @@ jobs:
         if: github.event_name == 'issue_comment'
         run: |
           ASSOCIATION="${{ github.event.comment.author_association }}"
-          echo "Author association: $ASSOCIATION"
           if [[ "$ASSOCIATION" != "OWNER" && "$ASSOCIATION" != "MEMBER" && "$ASSOCIATION" != "COLLABORATOR" ]]; then
-            echo "ERROR: User does not have write access (association: $ASSOCIATION)"
+            echo "ERROR: No write access ($ASSOCIATION)"
             exit 1
           fi
-          echo "Access granted."
 
       - name: Add reaction
         if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          gh api \
-            repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
-            -f content='eyes' || true
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions -f content='eyes' || true
 
-      - name: Setup SSH tunnel to ClaudeBox
+      - name: Setup SSH tunnel
         env:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
         run: |
@@ -58,8 +71,8 @@ jobs:
           echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
 
-          # SSH tunnel: CI runner :4001 → bastion :3000 → (reverse tunnel) → claude-box :3001
-          ssh -f -N -L 4001:localhost:3000 \
+          # SSH tunnel: CI runner :4000 → bastion :3000 → (reverse tunnel) → claude-box :4000
+          ssh -f -N -L 4000:localhost:3000 \
             -o StrictHostKeyChecking=no \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=3 \
@@ -67,9 +80,8 @@ jobs:
             -i ~/.ssh/build_instance_key \
             ubuntu@ci.aztec-labs.com
 
-          # Wait for tunnel
           for i in $(seq 1 15); do
-            if curl -s -o /dev/null --max-time 2 http://localhost:4001/ 2>/dev/null; then
+            if curl -s -o /dev/null --max-time 2 http://localhost:4000/health 2>/dev/null; then
               echo "SSH tunnel ready"
               exit 0
             fi
@@ -84,13 +96,25 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body || '' }}
           INPUT_PROMPT: ${{ inputs.prompt || '' }}
           INPUT_LINK: ${{ inputs.link || '' }}
+          INPUT_PROFILE: ${{ inputs.profile || 'aztec' }}
+          INPUT_MODEL: ${{ inputs.model || 'sonnet' }}
+          INPUT_BUDGET: ${{ inputs.budget || '1.00' }}
+          INPUT_TARGET_REF: ${{ inputs.target_ref || '' }}
         run: |
           if [ -n "$INPUT_PROMPT" ]; then
             PROMPT="$INPUT_PROMPT"
             LINK="$INPUT_LINK"
+            echo "profile=$INPUT_PROFILE" >> "$GITHUB_OUTPUT"
+            echo "model=$INPUT_MODEL" >> "$GITHUB_OUTPUT"
+            echo "budget=$INPUT_BUDGET" >> "$GITHUB_OUTPUT"
+            echo "target_ref=$INPUT_TARGET_REF" >> "$GITHUB_OUTPUT"
           else
             PROMPT=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
             LINK=""
+            echo "profile=aztec" >> "$GITHUB_OUTPUT"
+            echo "model=sonnet" >> "$GITHUB_OUTPUT"
+            echo "budget=1.00" >> "$GITHUB_OUTPUT"
+            echo "target_ref=" >> "$GITHUB_OUTPUT"
           fi
 
           echo "link=$LINK" >> "$GITHUB_OUTPUT"
@@ -118,66 +142,45 @@ jobs:
             -f body="$BODY" \
             --jq '.id')
           echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
-          echo "Posted status comment: $COMMENT_ID"
 
-      - name: Run ClaudeBox
+      - name: Run session
         timeout-minutes: 120
         env:
-          CLAUDEBOX_URL: http://localhost:4001
-          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
+          CLAUDEBOX_URL: http://localhost:4000/${{ steps.parse.outputs.profile }}
+          CLAUDEBOX_TOKEN: ${{ secrets.CLAUDEBOX_API_SECRET }}
           CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
-          CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
-          CLAUDEBOX_TARGET_REF: ${{ inputs.target_ref || '' }}
-          COMMENT_ID: ${{ github.event.comment.id || '' }}
-          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
-          REPO: ${{ github.repository }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          AUTHOR: ${{ github.event.comment.user.login || github.actor }}
         run: |
-          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
-          echo "Creating payload..."
-          PAYLOAD=$(jq -n \
+          MODEL="${{ steps.parse.outputs.model }}"
+          BUDGET="${{ steps.parse.outputs.budget }}"
+          TARGET_REF="${{ steps.parse.outputs.target_ref }}"
+
+          BODY=$(jq -n \
             --arg prompt "$CLAUDEBOX_PROMPT" \
-            --arg user "$AUTHOR" \
-            --arg comment_id "$COMMENT_ID" \
-            --arg run_comment_id "$RUN_COMMENT_ID" \
-            --arg repo "$REPO" \
-            --arg run_url "$RUN_URL" \
-            --arg link "$CLAUDEBOX_LINK" \
-            --arg target_ref "$CLAUDEBOX_TARGET_REF" \
-            '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link, target_ref: $target_ref}')
+            --arg model "$MODEL" \
+            --arg budget "$BUDGET" \
+            --arg target_ref "$TARGET_REF" \
+            '{prompt: $prompt, model: $model, costUSD: ($budget | tonumber), user: "github-actions", name: $prompt, targetRef: $target_ref}')
 
-          echo "Sending payload..."
-          # Start session — returns 202 with log URL
-          RESPONSE=$(curl -sS -w "\n%{http_code}" \
-            -H "$AUTH" -H "Content-Type: application/json" \
-            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
+          echo "Starting session on ${{ steps.parse.outputs.profile }}..."
+          RESP=$(curl -sf -X POST "$CLAUDEBOX_URL/sessions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $CLAUDEBOX_TOKEN" \
+            -d "$BODY")
 
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
+          SID=$(echo "$RESP" | jq -r '.id // empty')
+          echo "Session: $SID"
+          echo "Status: https://claudebox.work/${{ steps.parse.outputs.profile }}/s/$SID"
 
-          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
-            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
-            exit 1
-          fi
-
-          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
-          SESSION_ID=$(basename "$LOG_URL")
-          echo "Session started: $LOG_URL"
-
-          echo "Session received, polling..."
-          # Poll until completed
           while true; do
-            sleep 30
-            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
+            sleep 10
+            STATUS_BODY=$(curl -sf "$CLAUDEBOX_URL/sessions/$SID" -H "Authorization: Bearer $CLAUDEBOX_TOKEN" || echo '{}')
             STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
-            echo "$(date -u +%H:%M:%S) status=$STATUS"
-            if [ "$STATUS" != "running" ]; then
-              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
-              echo "Session finished: status=$STATUS exit_code=$EXIT_CODE"
-              echo "Log: $LOG_URL"
-              exit "$EXIT_CODE"
-            fi
+            COST=$(echo "$STATUS_BODY" | jq -r '.costUSD // 0')
+            echo "$(date -u +%H:%M:%S) status=$STATUS cost=\$$COST"
+            case "$STATUS" in
+              completed) echo "Done. Cost: \$$COST"; exit 0 ;;
+              error|cancelled|budget_exhausted) echo "Failed: $STATUS"; exit 1 ;;
+            esac
           done
 
   claude-review:
@@ -189,7 +192,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Setup SSH tunnel to ClaudeBox
+      - name: Setup SSH tunnel
         env:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
         run: |
@@ -198,7 +201,7 @@ jobs:
           echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
 
-          ssh -f -N -L 4001:localhost:3000 \
+          ssh -f -N -L 4000:localhost:3000 \
             -o StrictHostKeyChecking=no \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=3 \
@@ -207,7 +210,7 @@ jobs:
             ubuntu@ci.aztec-labs.com
 
           for i in $(seq 1 15); do
-            if curl -s -o /dev/null --max-time 2 http://localhost:4001/ 2>/dev/null; then
+            if curl -s -o /dev/null --max-time 2 http://localhost:4000/health 2>/dev/null; then
               echo "SSH tunnel ready"
               exit 0
             fi
@@ -230,24 +233,18 @@ jobs:
             -f body="$BODY" \
             --jq '.id')
           echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
-          echo "Posted review status comment: $COMMENT_ID"
 
-      - name: Trigger ClaudeBox review
+      - name: Trigger review session
         timeout-minutes: 120
         env:
-          CLAUDEBOX_URL: http://localhost:4001
-          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
+          CLAUDEBOX_URL: http://localhost:4000/aztec
+          CLAUDEBOX_TOKEN: ${{ secrets.CLAUDEBOX_API_SECRET }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          REPO: ${{ github.repository }}
         run: |
-          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
-
           PROMPT="Review PR #${PR_NUMBER}: ${PR_TITLE}
           ${PR_URL}
 
@@ -258,43 +255,29 @@ jobs:
           Focus on non-obvious bugs: edge cases, concurrency, security, correctness, compatibility.
           If you find a direct fix, create a PR. When done, call manage_review_labels(pr_number=${PR_NUMBER})."
 
-          PAYLOAD=$(jq -n \
+          BODY=$(jq -n \
             --arg prompt "$PROMPT" \
             --arg user "review/${PR_AUTHOR}" \
-            --arg run_comment_id "$RUN_COMMENT_ID" \
-            --arg repo "$REPO" \
-            --arg run_url "$RUN_URL" \
-            --arg link "$PR_URL" \
-            --arg profile "review" \
-            '{prompt: $prompt, user: $user, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link, profile: $profile}')
+            '{prompt: $prompt, user: $user, model: "sonnet", costUSD: 1, name: $prompt}')
 
-          RESPONSE=$(curl -sS -w "\n%{http_code}" \
-            -H "$AUTH" -H "Content-Type: application/json" \
-            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
+          RESP=$(curl -sf -X POST "$CLAUDEBOX_URL/sessions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $CLAUDEBOX_TOKEN" \
+            -d "$BODY")
 
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
+          SID=$(echo "$RESP" | jq -r '.id // empty')
+          echo "Review session: $SID"
+          echo "Status: https://claudebox.work/aztec/s/$SID"
 
-          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
-            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
-            exit 1
-          fi
-
-          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
-          SESSION_ID=$(basename "$LOG_URL")
-          echo "Review session started: $LOG_URL"
-
-          # Poll until completed
           while true; do
             sleep 30
-            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
+            STATUS_BODY=$(curl -sf "$CLAUDEBOX_URL/sessions/$SID" -H "Authorization: Bearer $CLAUDEBOX_TOKEN" || echo '{}')
             STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
             echo "$(date -u +%H:%M:%S) status=$STATUS"
-            if [ "$STATUS" != "running" ]; then
-              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
-              echo "Review finished: status=$STATUS exit_code=$EXIT_CODE"
-              echo "Log: $LOG_URL"
-              # Don't fail the workflow on review errors — the review itself is informational
-              exit 0
-            fi
+            case "$STATUS" in
+              completed|error|cancelled|budget_exhausted)
+                echo "Review finished: $STATUS"
+                exit 0
+                ;;
+            esac
           done
