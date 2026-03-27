@@ -60,7 +60,77 @@ export class ZigCodegen {
     return 'void';
   }
 
-  /** Generate a Zig struct definition */
+  /** Generate a Zig field-to-payload conversion expression */
+  private fieldToPayload(fieldExpr: string, type: import('./schema_visitor.ts').Type): string {
+    switch (type.kind) {
+      case 'primitive':
+        switch (type.primitive) {
+          case 'bool': return `Payload{ .bool = ${fieldExpr} }`;
+          case 'u8': case 'u16': case 'u32': case 'u64':
+            return `Payload{ .uint = @intCast(${fieldExpr}) }`;
+          case 'f64': return `Payload{ .float = ${fieldExpr} }`;
+          case 'string': return `try Payload.strToPayload(${fieldExpr}, allocator)`;
+          case 'bytes': return `try Payload.binToPayload(${fieldExpr}, allocator)`;
+          case 'fr': return `try Payload.binToPayload(&${fieldExpr}, allocator)`;
+          case 'enum_u32': return `Payload{ .uint = @intCast(${fieldExpr}) }`;
+          default: return `Payload{ .nil = {} }`;
+        }
+      case 'optional':
+        return `if (${fieldExpr}) |v| ${this.fieldToPayload('v', type.element!)} else Payload{ .nil = {} }`;
+      case 'vector': {
+        // For vectors, build an array payload
+        return `blk: {
+                var arr = try Payload.arrPayload(${fieldExpr}.len, allocator);
+                for (${fieldExpr}, 0..) |item, i| {
+                    try arr.setArrElement(i, ${this.fieldToPayload('item', type.element!)});
+                }
+                break :blk arr;
+            }`;
+      }
+      case 'struct':
+        return `${fieldExpr}.toPayload(allocator)`;
+      default: return `Payload{ .nil = {} }`;
+    }
+  }
+
+  /** Generate a Zig payload-to-field conversion expression */
+  private fieldFromPayload(payloadExpr: string, type: import('./schema_visitor.ts').Type): string {
+    switch (type.kind) {
+      case 'primitive':
+        switch (type.primitive) {
+          case 'bool': return `try ${payloadExpr}.asBool()`;
+          case 'u8': return `@intCast(try ${payloadExpr}.asUint())`;
+          case 'u16': return `@intCast(try ${payloadExpr}.asUint())`;
+          case 'u32': return `@intCast(try ${payloadExpr}.asUint())`;
+          case 'u64': return `try ${payloadExpr}.asUint()`;
+          case 'f64': return `try ${payloadExpr}.asFloat()`;
+          case 'string': return `try ${payloadExpr}.asStr()`;
+          case 'bytes': return `${payloadExpr}.bin.value()`;
+          case 'fr': return `${payloadExpr}.bin.value()[0..32].*`;
+          case 'enum_u32': return `@intCast(try ${payloadExpr}.asUint())`;
+          default: return `undefined`;
+        }
+      case 'vector': {
+        const elemConv = this.fieldFromPayload('elem', type.element!);
+        return `blk: {
+                const arr_len = try ${payloadExpr}.getArrLen();
+                var result = try std.heap.page_allocator.alloc(${this.mapType(type.element!)}, arr_len);
+                for (0..arr_len) |i| {
+                    const elem = try ${payloadExpr}.getArrElement(i);
+                    result[i] = ${elemConv};
+                }
+                break :blk result;
+            }`;
+      }
+      case 'optional':
+        return `if (${payloadExpr} == .nil) null else ${this.fieldFromPayload(payloadExpr, type.element!)}`;
+      case 'struct':
+        return `try ${toPascalCase(type.struct!.name)}.fromPayload(${payloadExpr})`;
+      default: return `undefined`;
+    }
+  }
+
+  /** Generate a Zig struct definition with toPayload/fromPayload methods */
   private generateStruct(struct: Struct): string {
     const zigName = toPascalCase(struct.name);
     const fields = struct.fields.map(f => {
@@ -69,9 +139,51 @@ export class ZigCodegen {
       return `    ${zigFieldName}: ${zigType},`;
     }).join('\n');
 
+    // Treat structs with only void fields as empty (void comes from unmapped types)
+    const hasFields = struct.fields.length > 0 && struct.fields.some(f => this.mapType(f.type) !== 'void');
+
+    // toPayload method
+    const toPayloadFields = struct.fields.map(f => {
+      const zigFieldName = toSnakeCase(f.name);
+      return `        try map.mapPut("${f.name}", ${this.fieldToPayload(`self.${zigFieldName}`, f.type)});`;
+    }).join('\n');
+
+    // fromPayload method
+    const fromPayloadFields = struct.fields.map(f => {
+      const zigFieldName = toSnakeCase(f.name);
+      return `            .${zigFieldName} = ${this.fieldFromPayload(`(try payload.mapGet("${f.name}")).?`, f.type)},`;
+    }).join('\n');
+
+    // Empty structs: suppress unused parameter warnings
+    if (!hasFields) {
+      return `/// ${struct.name}
+pub const ${zigName} = struct {
+
+    pub fn toPayload(_: ${zigName}, allocator: std.mem.Allocator) !Payload {
+        return Payload.mapPayload(allocator);
+    }
+
+    pub fn fromPayload(_: Payload) !${zigName} {
+        return ${zigName}{};
+    }
+};`;
+    }
+
     return `/// ${struct.name}
 pub const ${zigName} = struct {
 ${fields}
+
+    pub fn toPayload(self: ${zigName}, allocator: std.mem.Allocator) !Payload {
+        var map = Payload.mapPayload(allocator);
+${toPayloadFields}
+        return map;
+    }
+
+    pub fn fromPayload(payload: Payload) !${zigName} {
+        return ${zigName}{
+${fromPayloadFields}
+        };
+    }
 };`;
   }
 
@@ -167,87 +279,17 @@ ${variants}
 
     return `//! AUTOGENERATED - DO NOT EDIT
 //! Generated from Aztec IPC msgpack schema
+//!
+//! Each struct has toPayload() and fromPayload() methods that convert
+//! to/from zig-msgpack Payload objects for serialization.
 
 const std = @import("std");
+const msgpack = @import("msgpack");
+const Payload = msgpack.Payload;
+const PackerIO = msgpack.PackerIO;
 ${hashLine}
 /// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
 pub const Fr = [32]u8;
-
-// ---------------------------------------------------------------------------
-// Helper functions for msgpack serialization
-// ---------------------------------------------------------------------------
-
-fn packField(packer: anytype, key: []const u8, value: anytype) !void {
-    try packer.writeStr(key);
-    try packValue(packer, value);
-}
-
-fn packValue(packer: anytype, value: anytype) !void {
-    const T = @TypeOf(value);
-    switch (@typeInfo(T)) {
-        .bool => try packer.writeBool(value),
-        .int => |info| {
-            if (info.signedness == .unsigned) {
-                try packer.writeUint(@as(u64, value));
-            } else {
-                try packer.writeInt(@as(i64, value));
-            }
-        },
-        .float => try packer.writeFloat(value),
-        .pointer => |ptr| {
-            if (ptr.size == .Slice and ptr.child == u8) {
-                try packer.writeBin(value);
-            } else if (ptr.size == .Slice) {
-                try packer.writeArrayHeader(value.len);
-                for (value) |item| {
-                    try packValue(packer, item);
-                }
-            }
-        },
-        .optional => {
-            if (value) |v| {
-                try packValue(packer, v);
-            } else {
-                try packer.writeNil();
-            }
-        },
-        else => @compileError("unsupported type for packValue: " ++ @typeName(T)),
-    }
-}
-
-fn readField(comptime T: type, unpacker: anytype, expected_key: []const u8) !T {
-    const key = try unpacker.readStr();
-    std.debug.assert(std.mem.eql(u8, key, expected_key));
-    return readValue(T, unpacker);
-}
-
-fn readValue(comptime T: type, unpacker: anytype) !T {
-    switch (@typeInfo(T)) {
-        .bool => return try unpacker.readBool(),
-        .int => return @intCast(try unpacker.readInt()),
-        .float => return @floatCast(try unpacker.readFloat()),
-        .pointer => |ptr| {
-            if (ptr.size == .Slice and ptr.child == u8) {
-                return try unpacker.readBin();
-            } else if (ptr.size == .Slice) {
-                const len = try unpacker.readArrayHeader();
-                var result = try std.heap.page_allocator.alloc(ptr.child, len);
-                for (result) |*item| {
-                    item.* = try readValue(ptr.child, unpacker);
-                }
-                return result;
-            }
-        },
-        .optional => |opt| {
-            if (try unpacker.isNil()) {
-                try unpacker.readNil();
-                return null;
-            }
-            return try readValue(opt.child, unpacker);
-        },
-        else => @compileError("unsupported type for readValue: " ++ @typeName(T)),
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Type definitions
