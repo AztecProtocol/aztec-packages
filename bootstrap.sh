@@ -670,7 +670,8 @@ case "$cmd" in
     echo_header "build yarn-project for p2p grind"
     make yarn-project
 
-    timeout="${1:-40m}"
+    integration_timeout="${1:-30m}"
+    e2e_timeout="${2:-50m}"
     hash="grind"
     failed=0
 
@@ -685,10 +686,10 @@ case "$cmd" in
     for test in "${integration_tests[@]}"; do
       echo_header "Grinding: $test"
       full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=debug yarn-project/scripts/run_test.sh ${test}"
-      grind_test "$full_cmd" "$timeout" || { echo "FAILED: $test"; failed=1; }
+      grind_test "$full_cmd" "$integration_timeout" || { echo "FAILED: $test"; failed=1; }
     done
 
-    # P2P e2e tests
+    # P2P e2e tests (lower parallelism — each test spins up 7 full Aztec nodes)
     e2e_tests=(
       "e2e_p2p/gossip_network.test.ts"
       "e2e_p2p/rediscovery.test.ts"
@@ -698,7 +699,7 @@ case "$cmd" in
     for test in "${e2e_tests[@]}"; do
       echo_header "Grinding: $test"
       full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=\"verbose; debug:p2p\" yarn-project/end-to-end/scripts/run_test.sh simple src/${test}"
-      grind_test "$full_cmd" "$timeout" 15 || { echo "FAILED: $test"; failed=1; }
+      grind_test "$full_cmd" "$e2e_timeout" 15 || { echo "FAILED: $test"; failed=1; }
     done
 
     exit $failed
