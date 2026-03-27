@@ -1649,24 +1649,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.ethCheatCodes;
   }
 
-  /** Updates the date provider to match the given L1 timestamp, if it supports time manipulation. */
-  #updateDateProvider(timestampInSeconds: number): void {
-    if ('setTime' in this.dateProvider) {
-      (this.dateProvider as { setTime(ms: number): void }).setTime(timestampInSeconds * 1000);
+  /** Updates the date provider to match the given timestamp, if it supports time manipulation. */
+  #updateDateProviderTimestampTo(timestampInSeconds: number): void {
+    if (!('setTime' in this.dateProvider)) {
+      throw new Error('Date provider does not support direct time manipulation.');
     }
+
+    (this.dateProvider as { setTime(ms: number): void }).setTime(timestampInSeconds * 1000);
   }
 
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
     const ethCheatCodes = this.#getEthCheatCodes();
     await ethCheatCodes.setNextBlockTimestamp(timestamp);
-    this.#updateDateProvider(timestamp);
+    this.#updateDateProviderTimestampTo(timestamp);
   }
 
   public async advanceNextBlockTimestampBy(duration: number): Promise<void> {
     const ethCheatCodes = this.#getEthCheatCodes();
     const currentL1Timestamp = await ethCheatCodes.lastBlockTimestamp();
     await ethCheatCodes.setNextBlockTimestamp(currentL1Timestamp + duration);
-    this.#updateDateProvider(currentL1Timestamp + duration);
+    this.#updateDateProviderTimestampTo(currentL1Timestamp + duration);
   }
 
   public async mineBlock(): Promise<void> {
@@ -1695,7 +1697,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Update dateProvider to match L1 time
     const newTimestamp = await ethCheatCodes.lastBlockTimestamp();
-    this.#updateDateProvider(newTimestamp);
+    this.#updateDateProviderTimestampTo(newTimestamp);
 
     // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
     const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
