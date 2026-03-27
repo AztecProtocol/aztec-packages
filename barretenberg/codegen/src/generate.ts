@@ -30,23 +30,27 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Argument parsing
 // ---------------------------------------------------------------------------
 
-function parseArgs(argv: string[]): { mode: 'service'; services: string[] } | { mode: 'single'; schema: string; lang: string; out: string; prefix: string } {
-  // If any --flag is present, it's single-schema mode
+interface SingleArgs { mode: 'single'; schema: string; lang: string; out: string; prefix: string; server: boolean; client: boolean }
+interface ServiceArgs { mode: 'service'; services: string[] }
+
+function parseArgs(argv: string[]): SingleArgs | ServiceArgs {
   if (argv.some(a => a.startsWith('--'))) {
     let schema = '', lang = '', out = '', prefix = '';
+    let server = false, client = false;
     for (let i = 0; i < argv.length; i++) {
       if (argv[i] === '--schema') schema = argv[++i];
       else if (argv[i] === '--lang') lang = argv[++i];
       else if (argv[i] === '--out') out = argv[++i];
       else if (argv[i] === '--prefix') prefix = argv[++i];
+      else if (argv[i] === '--server') server = true;
+      else if (argv[i] === '--client') client = true;
     }
     if (!schema || !lang || !out) {
-      console.error('Usage: generate.ts --schema <file> --lang <ts|rust|zig|cpp-types> --out <dir> [--prefix <Prefix>]');
+      console.error('Usage: generate.ts --schema <file> --lang <ts|rust|zig|cpp> --out <dir> [--server] [--client]');
       process.exit(1);
     }
-    return { mode: 'single', schema, lang, out, prefix };
+    return { mode: 'single', schema, lang, out, prefix, server, client };
   }
-  // Service mode
   return { mode: 'service', services: argv.length > 0 ? argv : Object.keys(SERVICES) };
 }
 
@@ -84,9 +88,17 @@ function detectPrefix(compiled: import('./schema_visitor.ts').CompiledSchema): s
   return prefix;
 }
 
-function generateSingle(schemaPath: string, lang: string, outDir: string, prefixOverride: string) {
-  const absSchema = resolve(schemaPath);
-  const absOut = resolve(outDir);
+/** Copy a template file from codegen/templates/ to the output dir */
+function copyTemplate(lang: string, filename: string, outDir: string) {
+  const templatePath = join(__dirname, '..', 'templates', lang, filename);
+  const destPath = join(outDir, filename);
+  writeFileSync(destPath, readFileSync(templatePath, 'utf-8'));
+  console.log(`  ${destPath} (template)`);
+}
+
+function generateSingle(args: SingleArgs) {
+  const absSchema = resolve(args.schema);
+  const absOut = resolve(args.out);
   mkdirSync(absOut, { recursive: true });
 
   const rawJson = readFileSync(absSchema, 'utf-8').trim();
@@ -95,7 +107,7 @@ function generateSingle(schemaPath: string, lang: string, outDir: string, prefix
   const compiled = visitor.visit(schema.commands, schema.responses);
   const schemaHash = computeSchemaHash(rawJson);
 
-  const prefix = prefixOverride || detectPrefix(compiled);
+  const prefix = args.prefix || detectPrefix(compiled);
   console.log(`Schema: ${absSchema} (${compiled.commands.length} commands, ${compiled.structs.size} structs, prefix=${prefix})`);
 
   function writeFile(name: string, content: string) {
@@ -104,25 +116,32 @@ function generateSingle(schemaPath: string, lang: string, outDir: string, prefix
     console.log(`  ${path}`);
   }
 
-  switch (lang) {
+  switch (args.lang) {
     case 'ts': {
       const gen = new TypeScriptCodegen();
       writeFile('api_types.ts', gen.generateTypes(compiled, schemaHash));
-      writeFile('async.ts', gen.generateAsyncApi(compiled));
-      writeFile('server.ts', gen.generateServerApi(compiled));
+      if (args.client) writeFile('async.ts', gen.generateAsyncApi(compiled));
+      if (args.server) writeFile('server.ts', gen.generateServerApi(compiled));
       break;
     }
     case 'rust': {
       const gen = new RustCodegen({ prefix });
       writeFile('generated_types.rs', gen.generateTypes(compiled, schemaHash));
-      writeFile('api.rs', gen.generateApi(compiled));
-      writeFile('server.rs', gen.generateServer(compiled));
+      if (args.client) writeFile('api.rs', gen.generateApi(compiled));
+      if (args.server) writeFile('server.rs', gen.generateServer(compiled));
       break;
     }
     case 'zig': {
       const gen = new ZigCodegen({ prefix, clientName: `${prefix}Client` });
       writeFile('types.zig', gen.generateTypes(compiled, schemaHash));
-      writeFile('server.zig', gen.generateServer(compiled));
+      if (args.server) {
+        writeFile('server.zig', gen.generateServer(compiled));
+        copyTemplate('zig', 'ipc_server.zig', absOut);
+      }
+      if (args.client) {
+        writeFile('client.zig', gen.generateClient(compiled));
+        copyTemplate('zig', 'ipc_client.zig', absOut);
+      }
       break;
     }
     case 'cpp': {
@@ -136,7 +155,7 @@ function generateSingle(schemaPath: string, lang: string, outDir: string, prefix
       break;
     }
     default:
-      console.error(`Unknown language: ${lang}. Available: ts, rust, zig, cpp`);
+      console.error(`Unknown language: ${args.lang}. Available: ts, rust, zig, cpp`);
       process.exit(1);
   }
 
@@ -250,7 +269,7 @@ function generateServices(services: string[]) {
 
 const parsed = parseArgs(process.argv.slice(2));
 if (parsed.mode === 'single') {
-  generateSingle(parsed.schema, parsed.lang, parsed.out, parsed.prefix);
+  generateSingle(parsed);
 } else {
   generateServices(parsed.services);
 }
