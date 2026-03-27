@@ -2030,6 +2030,24 @@ describe('NativeWorldState', () => {
       expect(committedStateRef).toEqual(forkStateRef);
     });
 
+    it('produces same state as sync_block', async () => {
+      // Build block on a fork
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 2, fork);
+      await ws.commitFork(fork);
+
+      // Get state after commitFork
+      const commitForkState = await ws.getCommitted().getStateReference();
+
+      // Create a fresh world state and sync the same block via handleL2BlockAndMessages
+      const ws2 = await NativeWorldStateService.tmp();
+      await ws2.handleL2BlockAndMessages(block, messages);
+      const syncBlockState = await ws2.getCommitted().getStateReference();
+      await ws2.close();
+
+      expect(commitForkState).toEqual(syncBlockState);
+    });
+
     it('fails if tip has moved', async () => {
       // Build and sync block 1 via handleL2BlockAndMessages
       const setupFork = await ws.fork();
