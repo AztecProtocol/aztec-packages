@@ -97,7 +97,7 @@ template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_d
     // T1 = y*y
     Fq T1 = y.sqr();
 
-    // T2 = T2*T1 = y*y*y*y
+    // T2 = T1*T1 = y*y*y*y
     Fq T2 = T1.sqr();
 
     // T1 = T1 + x = x + y*y
@@ -940,21 +940,21 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             add_chunked(&temp_point_vector[0], &work_elements[0]);
         }
         // Apply skew for the first endo scalar
+        // Use affine_element::operator+ (via Jacobian) to handle edge cases related to the point at infinity.
         if (wnaf.skew) {
             for (size_t i = start; i < end; ++i) {
-                temp_point_vector[i] = -lookup_table[0][i];
+                work_elements[i] = work_elements[i] + (-lookup_table[0][i]);
             }
-            add_chunked(&temp_point_vector[0], &work_elements[0]);
         }
         // Apply skew for the second endo scalar
         if (wnaf.endo_skew) {
             for (size_t i = start; i < end; ++i) {
-                temp_point_vector[i] = lookup_table[0][i];
-                temp_point_vector[i].x *= beta;
+                affine_element endo_point = lookup_table[0][i];
+                endo_point.x *= beta;
+                work_elements[i] = work_elements[i] + endo_point;
             }
-            add_chunked(&temp_point_vector[0], &work_elements[0]);
         }
-        // handle points at infinity explicitly
+        // Handle points at infinity explicitly
         for (size_t i = start; i < end; ++i) {
             work_elements[i] = points[i].is_point_at_infinity() ? work_elements[i].set_infinity() : work_elements[i];
         }
