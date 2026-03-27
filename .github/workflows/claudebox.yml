@@ -20,7 +20,7 @@ on:
         required: false
         default: 'aztec'
         type: choice
-        options: [aztec, barretenberg-audit, noir, aztec-audit, noir-audit]
+        options: [aztec, barretenberg-audit, noir]
       model:
         description: 'Model'
         required: false
