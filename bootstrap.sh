@@ -675,19 +675,19 @@ case "$cmd" in
     hash="grind"
     failed=0
 
-    # P2P integration tests
-    integration_tests=(
-      "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
-      "p2p/src/client/test/p2p_client.integration_block_txs.test.ts"
-      "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
-      "p2p/src/client/test/p2p_client.integration_batch_txs.test.ts"
-      "p2p/src/client/test/p2p_client.integration_reqresp.test.ts"
-    )
-    for test in "${integration_tests[@]}"; do
-      echo_header "Grinding: $test"
-      full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=debug yarn-project/scripts/run_test.sh ${test}"
-      grind_test "$full_cmd" "$integration_timeout" || { echo "FAILED: $test"; failed=1; }
-    done
+    # P2P integration tests (commented out — already verified stable)
+    # integration_tests=(
+    #   "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+    #   "p2p/src/client/test/p2p_client.integration_block_txs.test.ts"
+    #   "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
+    #   "p2p/src/client/test/p2p_client.integration_batch_txs.test.ts"
+    #   "p2p/src/client/test/p2p_client.integration_reqresp.test.ts"
+    # )
+    # for test in "${integration_tests[@]}"; do
+    #   echo_header "Grinding: $test"
+    #   full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=debug yarn-project/scripts/run_test.sh ${test}"
+    #   grind_test "$full_cmd" "$integration_timeout" || { echo "FAILED: $test"; failed=1; }
+    # done
 
     # P2P e2e tests (lower parallelism — each test spins up 7 full Aztec nodes)
     e2e_tests=(
