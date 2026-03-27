@@ -59,13 +59,18 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
     }
 
     // INNER kernel: Verifies previous kernel + new app circuit
-    if (constraints.size() == 2) {
-        BB_ASSERT(constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN),
-                  "Inner kernel first constraint must be HN type");
-        BB_ASSERT(constraint_has_type(constraints[1], Chonk::QUEUE_TYPE::HN),
-                  "Inner kernel second constraint must be HN type");
+    if (constraints.size() == 2 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN) &&
+        constraint_has_type(constraints[1], Chonk::QUEUE_TYPE::HN)) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
+        return ivc;
+    }
+
+    // GOBLIN FLUSH kernel: Verifies previous kernel + goblin flush app (A_G)
+    if (constraints.size() == 2 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN) &&
+        constraint_has_type(constraints[1], Chonk::QUEUE_TYPE::GOBLIN)) {
+        mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+        mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::GOBLIN, /*is_kernel=*/false);
         return ivc;
     }
 
@@ -118,6 +123,15 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
         proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
 
         verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size);
+    } else if (verification_type == Chonk::QUEUE_TYPE::GOBLIN) {
+        // Goblin flush app (A_G): uses GoblinFlushIO public inputs
+        using FlushIO = Chonk::FlushIO;
+
+        // Goblin flush app always has a prior accumulator (it follows a kernel)
+        constexpr bool include_fold = true;
+        proof = create_mock_hyper_nova_proof<Flavor, FlushIO>(include_fold);
+
+        verification_key = create_mock_honk_vk<Flavor, FlushIO>(dyadic_size);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
@@ -163,6 +177,11 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
+    }
+    if (type == Chonk::QUEUE_TYPE::GOBLIN) {
+        // Goblin flush app needs mock IPA proofs for IPA accumulation in the goblin flush kernel
+        ivc->ipa_proof = acir_format::create_mock_ipa_proof();
+        ivc->flush_ipa_proof = acir_format::create_mock_ipa_proof();
     }
     ivc->num_circuits_accumulated++;
 }

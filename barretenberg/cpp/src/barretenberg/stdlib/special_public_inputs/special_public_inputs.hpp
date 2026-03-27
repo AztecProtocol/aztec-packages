@@ -427,6 +427,27 @@ template <class Builder_> class GoblinFlushIO {
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
+
+    /**
+     * @brief Add default public inputs when they are not present
+     *
+     */
+    static void add_default(Builder& builder)
+    {
+        GoblinFlushIO inputs;
+        inputs.pairing_inputs = PairingInputs::construct_default();
+        auto [stdlib_opening_claim, ipa_proof] = IPA<GrumpkinCurve>::create_random_valid_ipa_claim_and_proof(builder);
+        inputs.ipa_claim = stdlib_opening_claim;
+        for (auto& table_commitment : inputs.merged_table) {
+            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                  /*assert_on_curve=*/false);
+            table_commitment.convert_constant_to_fixed_witness(&builder);
+        }
+
+        builder.ipa_proof = ipa_proof;
+        inputs.set_public();
+    };
 };
 
 /**
