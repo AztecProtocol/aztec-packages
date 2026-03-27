@@ -231,7 +231,7 @@ void process_hn_recursion_constraints(
             size_t expected_io_size = 0;
             if (queue_entry.is_kernel) {
                 expected_io_size = IVCType::KernelIO::PUBLIC_INPUTS_SIZE;
-            } else if (queue_entry.is_goblin_flush_app) {
+            } else if (queue_entry.type == Chonk::QUEUE_TYPE::GOBLIN) {
                 expected_io_size = IVCType::FlushIO::PUBLIC_INPUTS_SIZE;
             } else {
                 expected_io_size = IVCType::AppIO::PUBLIC_INPUTS_SIZE;

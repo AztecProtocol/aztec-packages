@@ -106,17 +106,18 @@ class Chonk : public IVCBase {
      *   - HN_TAIL:  Circuit n-3 (last kernel before tail) - adds ZK masking at op queue start
      *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
      *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
+     *   - GOBLIN:   App circuit preceding a Goblin flush kernel
      *
      * VERIFIER PERSPECTIVE (in `complete_kernel_circuit_logic`): Type of the proof being verified.
      *   - If verifying OINK proof → this kernel is the init kernel (circuit 1)
      *   - If verifying HN proof → this kernel is an inner/reset kernel
      *   - If verifying HN_TAIL proof → this kernel IS the tail kernel (circuit n-2)
      *   - If verifying HN_FINAL proof → this kernel IS the hiding kernel (circuit n-1)
-     *
+     *   - If verifying GOBLIN proof → this kernel is a Goblin flush kernel
      *
      * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
      */
-    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
+    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA, GOBLIN };
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -124,7 +125,6 @@ class Chonk : public IVCBase {
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
         bool is_kernel = false;
-        bool is_goblin_flush_app = false; // True for A_G (goblin flush app) circuits
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
@@ -134,19 +134,16 @@ class Chonk : public IVCBase {
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
         bool is_kernel = false;
-        bool is_goblin_flush_app = false; // True for A_G (goblin flush app) circuits
 
         // Explicit constructor needed for older libc++ (iOS SDK) compatibility with std::deque::emplace_back
         StdlibVerifierInputs(StdlibProof proof_,
                              std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash_,
                              QUEUE_TYPE type_,
-                             bool is_kernel_,
-                             bool is_goblin_flush_app_ = false)
+                             bool is_kernel_)
             : proof(std::move(proof_))
             , honk_vk_and_hash(std::move(honk_vk_and_hash_))
             , type(type_)
             , is_kernel(is_kernel_)
-            , is_goblin_flush_app(is_goblin_flush_app_)
         {}
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
@@ -280,7 +277,7 @@ class Chonk : public IVCBase {
                              QUEUE_TYPE queue_type,
                              std::shared_ptr<ProverInstance> prover_instance);
 
-    QUEUE_TYPE get_queue_type() const;
+    QUEUE_TYPE get_queue_type(bool is_next_kernel_goblin = false) const;
 };
 
 } // namespace bb

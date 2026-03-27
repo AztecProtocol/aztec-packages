@@ -42,6 +42,7 @@ enum PROOF_TYPE : uint8_t {
     HN_TAIL,
     CHONK,
     ULTRA_GOBLIN,
+    GOBLIN,
 };
 
 // Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_TAIL, HN_FINAL)
@@ -64,6 +65,8 @@ inline Chonk::QUEUE_TYPE proof_type_to_chonk_queue_type(uint32_t proof_type)
         return Chonk::QUEUE_TYPE::HN_TAIL;
     case PROOF_TYPE::HN_FINAL:
         return Chonk::QUEUE_TYPE::HN_FINAL;
+    case PROOF_TYPE::GOBLIN:
+        return Chonk::QUEUE_TYPE::GOBLIN;
     default:
         throw_or_abort("proof_type_to_chonk_queue_type: invalid type " + std::to_string(proof_type));
     }
@@ -81,6 +84,8 @@ inline PROOF_TYPE queue_type_to_proof_type(Chonk::QUEUE_TYPE queue_type)
         return PROOF_TYPE::HN_TAIL;
     case Chonk::QUEUE_TYPE::HN_FINAL:
         return PROOF_TYPE::HN_FINAL;
+    case Chonk::QUEUE_TYPE::GOBLIN:
+        return PROOF_TYPE::GOBLIN;
     case Chonk::QUEUE_TYPE::MEGA:
         throw_or_abort("queue_type_to_proof_type: MEGA has no ACIR equivalent");
     }
@@ -94,6 +99,7 @@ static_assert(PROOF_TYPE::OINK == 1);
 static_assert(PROOF_TYPE::HN == 2);
 static_assert(PROOF_TYPE::HN_FINAL == 7);
 static_assert(PROOF_TYPE::HN_TAIL == 8);
+static_assert(PROOF_TYPE::GOBLIN == 11);
 
 // QUEUE_TYPE ordering (internal, but catch unexpected changes)
 static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::OINK) == 0);
@@ -101,6 +107,7 @@ static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN) == 1);
 static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_TAIL) == 2);
 static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_FINAL) == 3);
 static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::MEGA) == 4);
+static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::GOBLIN) == 5);
 } // namespace detail
 
 /**
