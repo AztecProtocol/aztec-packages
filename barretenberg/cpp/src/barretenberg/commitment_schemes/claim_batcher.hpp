@@ -83,11 +83,7 @@ template <typename Curve> struct ClaimBatcher_ {
             // For odd k (default k=1): r⁻ᵏ ⋅ (1/(z−r) − ν/(z+r))
             // For even k: r⁻ᵏ ⋅ (1/(z−r) + ν/(z+r))
             // Compute r^(-k) where k = shift_exponent
-            Fr r_inv = r_challenge.invert();
-            Fr r_inv_shift = r_inv;
-            for (size_t k = 1; k < shift_exponent; ++k) {
-                r_inv_shift *= r_inv;
-            }
+            Fr r_inv_shift = r_challenge.invert().pow(static_cast<uint32_t>(shift_exponent));
             Fr sign = (shift_exponent % 2 == 1) ? -Fr(1) : Fr(1);
             shifted->scalar =
                 r_inv_shift * (inverse_vanishing_eval_pos + sign * nu_challenge * inverse_vanishing_eval_neg);

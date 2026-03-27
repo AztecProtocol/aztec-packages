@@ -15,7 +15,7 @@ namespace bb {
  */
 template <size_t BS, typename FF>
 static std::array<FF, BS> compute_interleaving_lagrange_basis(
-    [[maybe_unused]] std::span<const FF> interleaving_challenges)
+    [[maybe_unused]] std::span<const FF> interleaving_challenges) // [[maybe_unused]]: unused when BS==1
 {
     static_assert(BS > 0 && (BS & (BS - 1)) == 0, "BS must be a power of 2");
     if constexpr (BS == 1) {

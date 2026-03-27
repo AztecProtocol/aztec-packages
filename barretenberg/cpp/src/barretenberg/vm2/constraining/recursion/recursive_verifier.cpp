@@ -39,6 +39,8 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
     , transcript(transcript)
 {
     auto native_vk = std::make_shared<NativeVerificationKey>();
+    BB_ASSERT(!native_vk->precomputed_group_commitments[0].is_point_at_infinity(),
+              "Stale or empty AVM VK: run avm_vk_gen to regenerate avm_fixed_vk.hpp");
     key = std::make_shared<VerificationKey>(&builder, native_vk);
     // Populate precomputed group commitments from the native VK's hardcoded values
     for (size_t g = 0; g < Flavor::NativeFlavor::NUM_PRECOMPUTED_GROUPS; g++) {

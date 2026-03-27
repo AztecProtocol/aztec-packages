@@ -114,8 +114,8 @@ class AvmFlavor {
         NUM_WITNESS_GROUPS * NUM_FRS_COM +                                      // witness group commitments
         NUM_ALL_ENTITIES * NUM_FRS_FR +                                         // sumcheck evaluations (unchanged)
         MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH + // sumcheck univariates (unchanged)
-        (MAX_AVM_TRACE_LOG_SIZE + INTERLEAVING_LOG_K - 1) * NUM_FRS_COM +       // gemini fold comms (+LOG_K)
-        (MAX_AVM_TRACE_LOG_SIZE + INTERLEAVING_LOG_K) * NUM_FRS_FR +            // gemini fold evals (+LOG_K)
+        (MAX_AVM_TRACE_LOG_SIZE + INTERLEAVING_LOG_K - 1) * NUM_FRS_COM +       // gemini fold comms (log2(N*BS)-1)
+        (MAX_AVM_TRACE_LOG_SIZE + INTERLEAVING_LOG_K) * NUM_FRS_FR +            // gemini fold evals (log2(N*BS))
         2 * NUM_FRS_COM;                                                        // shplonk + kzg
 
     static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
