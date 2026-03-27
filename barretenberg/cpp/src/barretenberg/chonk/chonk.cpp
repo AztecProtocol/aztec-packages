@@ -149,6 +149,11 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     const std::optional<StdlibFF>& prev_accum_hash)
 {
     if (verifier_inputs.is_kernel) {
+        BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
+                         verifier_inputs.type == QUEUE_TYPE::HN_FINAL,
+                     true,
+                     "Kernel circuits should be folded.");
+
         // ============= Reconstruct the public inputs of the previous kernel =============
 
         KernelIO kernel_input; // pairing points, ecc op tables, databus commitments
@@ -233,6 +238,7 @@ Chonk::recursive_verification_and_consistency_checks(
     // Compute prev_accum_hash before folding (transcript state changes during verification)
     std::optional<StdlibFF> prev_accum_hash;
     if (verifier_inputs.is_kernel) {
+        BB_ASSERT(input_verifier_accumulator.has_value(), "Previous accumulator expected for kernel circuit folding");
         prev_accum_hash = input_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
     }
 
