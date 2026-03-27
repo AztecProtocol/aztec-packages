@@ -1642,7 +1642,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
   }
 
-  private getEthCheatCodes(): EthCheatCodes {
+  #getEthCheatCodes(): EthCheatCodes {
     if (!this.ethCheatCodes) {
       this.ethCheatCodes = new EthCheatCodes(this.config.l1RpcUrls, this.dateProvider);
     }
@@ -1650,23 +1650,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /** Updates the date provider to match the given L1 timestamp, if it supports time manipulation. */
-  private updateDateProvider(timestampInSeconds: number): void {
+  #updateDateProvider(timestampInSeconds: number): void {
     if ('setTime' in this.dateProvider) {
       (this.dateProvider as { setTime(ms: number): void }).setTime(timestampInSeconds * 1000);
     }
   }
 
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
-    const ethCheatCodes = this.getEthCheatCodes();
+    const ethCheatCodes = this.#getEthCheatCodes();
     await ethCheatCodes.setNextBlockTimestamp(timestamp);
-    this.updateDateProvider(timestamp);
+    this.#updateDateProvider(timestamp);
   }
 
   public async advanceNextBlockTimestampBy(duration: number): Promise<void> {
-    const ethCheatCodes = this.getEthCheatCodes();
-    const currentTimestamp = await ethCheatCodes.timestamp();
-    await ethCheatCodes.setNextBlockTimestamp(currentTimestamp + duration);
-    this.updateDateProvider(currentTimestamp + duration);
+    const ethCheatCodes = this.#getEthCheatCodes();
+    const currentL1Timestamp = await ethCheatCodes.lastBlockTimestamp();
+    await ethCheatCodes.setNextBlockTimestamp(currentL1Timestamp + duration);
+    this.#updateDateProvider(currentL1Timestamp + duration);
   }
 
   public async mineBlock(): Promise<void> {
@@ -1677,12 +1677,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const currentBlockNumber = await this.getBlockNumber();
 
     // Mine one L1 block — this uses any pending evm_setNextBlockTimestamp
-    const ethCheatCodes = this.getEthCheatCodes();
+    const ethCheatCodes = this.#getEthCheatCodes();
     await ethCheatCodes.evmMine();
 
     // Check if we're in a new L2 slot. If not, warp to the next slot's timestamp.
     const l1Constants = await this.blockSource.getL1Constants();
-    const currentL1Timestamp = BigInt(await ethCheatCodes.timestamp());
+    const currentL1Timestamp = BigInt(await ethCheatCodes.lastBlockTimestamp());
     const currentSlot = getSlotAtTimestamp(currentL1Timestamp, l1Constants);
 
     const latestBlock = await this.getBlock('latest');
@@ -1694,8 +1694,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // Update dateProvider to match L1 time
-    const newTimestamp = await ethCheatCodes.timestamp();
-    this.updateDateProvider(newTimestamp);
+    const newTimestamp = await ethCheatCodes.lastBlockTimestamp();
+    this.#updateDateProvider(newTimestamp);
 
     // Temporarily set minTxsPerBlock to 0 so the sequencer produces a block even with no txs
     const originalMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock;
