@@ -47,7 +47,7 @@ export class LogService {
   ): Promise<(LogRetrievalResponse | null)[]> {
     for (const request of logRetrievalRequests) {
       if (!contractAddress.equals(request.contractAddress)) {
-        throw new Error(`Got a note validation request from ${request.contractAddress}, expected ${contractAddress}`);
+        throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
       }
     }
 
