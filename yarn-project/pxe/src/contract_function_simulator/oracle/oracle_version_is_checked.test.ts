@@ -66,7 +66,7 @@ describe('Oracle Version Check test suite', () => {
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     anchorBlockHeader = BlockHeader.random();
-    capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleStore.getCapsule.mockImplementation((_, __) => Promise.resolve(null));
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);

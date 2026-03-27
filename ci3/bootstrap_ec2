@@ -326,6 +326,7 @@ function run {
         -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
         -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
         -e EC2_SPOT=${EC2_SPOT:-unknown} \
+        -e AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-} \
         --pids-limit=65536 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")

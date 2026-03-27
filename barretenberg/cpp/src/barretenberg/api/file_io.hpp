@@ -69,7 +69,8 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
         size_t total_written = 0;
         size_t data_size = data.size();
         while (total_written < data_size) {
-            auto written = ::write(fd, data.data() + total_written, data_size - total_written);
+            auto written =
+                ::write(fd, data.data() + total_written, static_cast<unsigned int>(data_size - total_written));
             if (written == -1) {
                 close(fd);
                 THROW std::runtime_error("Failed to write to file descriptor: " + filename);
