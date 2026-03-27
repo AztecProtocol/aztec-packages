@@ -247,7 +247,6 @@ function zigTarget(outputDir: string, opts?: ZigCodegenOptions): LanguageTarget 
 // Since codegen/src/ is at the same depth as ts/src/cbind/, most
 // paths to cpp/, rust/, zig/ are unchanged from the old layout.
 const TS_SRC = '../../ts/src';
-const RUST_IPC_BASE = '../../../rust/aztec-ipc/src';
 const ZIG_IPC_BASE = '../../../zig/aztec-ipc/src';
 
 /** The main bb binary — used for general barretenberg API */
@@ -294,15 +293,6 @@ const WSDB_SERVICE: ServiceConfig = {
     cppStandaloneTypesTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb_types_generated.hpp'),
     cppClientTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
     cppServerTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
-    rustTarget(`${RUST_IPC_BASE}/wsdb`, {
-      prefix: 'Wsdb',
-      apiStructName: 'WsdbApi',
-      backendImport: 'crate::backend::Backend',
-      errorImport: 'crate::error::{IpcError, Result}',
-      typesImport: 'super::generated_types::*',
-      typesDocComment: 'Generated types for aztec-wsdb IPC protocol',
-      apiDocComment: 'WSDB IPC client API',
-    }),
     zigTarget(`${ZIG_IPC_BASE}/wsdb`, { prefix: 'Wsdb', clientName: 'WsdbClient' }),
   ],
 };
@@ -317,15 +307,6 @@ const CDB_SERVICE: ServiceConfig = {
     cppStandaloneTypesTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb_types_generated.hpp'),
     cppClientTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
     cppServerTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
-    rustTarget(`${RUST_IPC_BASE}/cdb`, {
-      prefix: 'Cdb',
-      apiStructName: 'CdbApi',
-      backendImport: 'crate::backend::Backend',
-      errorImport: 'crate::error::{IpcError, Result}',
-      typesImport: 'super::generated_types::*',
-      typesDocComment: 'Generated types for aztec-cdb IPC protocol',
-      apiDocComment: 'CDB IPC client API',
-    }),
     zigTarget(`${ZIG_IPC_BASE}/cdb`, { prefix: 'Cdb', clientName: 'CdbClient' }),
   ],
 };
@@ -339,15 +320,6 @@ const AVM_SERVICE: ServiceConfig = {
     tsTarget(),
     cppStandaloneTypesTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm_types_generated.hpp'),
     cppServerTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm'),
-    rustTarget(`${RUST_IPC_BASE}/avm`, {
-      prefix: 'Avm',
-      apiStructName: 'AvmApi',
-      backendImport: 'crate::backend::Backend',
-      errorImport: 'crate::error::{IpcError, Result}',
-      typesImport: 'super::generated_types::*',
-      typesDocComment: 'Generated types for aztec-avm IPC protocol',
-      apiDocComment: 'AVM IPC client API',
-    }),
     zigTarget(`${ZIG_IPC_BASE}/avm`, { prefix: 'Avm', clientName: 'AvmClient' }),
   ],
 };

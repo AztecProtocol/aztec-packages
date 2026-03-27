@@ -1,0 +1,8 @@
+# Generated files — produced by generate.ts
+cpp/generated/
+ts/generated/
+zig/generated/
+zig/generated_types.zig
+rust/src/generated_types.rs
+rust/src/api.rs
+rust/src/server.rs
