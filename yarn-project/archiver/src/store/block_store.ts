@@ -628,11 +628,34 @@ export class BlockStore {
     return CheckpointNumber(latestCheckpointNumber);
   }
 
-  async getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+  async hasProposedCheckpoint(): Promise<boolean> {
+    const proposed = await this.#proposedCheckpoint.getAsync();
+    return proposed !== undefined && proposed !== null;
+  }
+
+  /** Deletes the proposed checkpoint from storage. */
+  async deleteProposedCheckpoint(): Promise<void> {
+    await this.#proposedCheckpoint.delete();
+  }
+
+  /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
+  async getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
     const stored = await this.#proposedCheckpoint.getAsync();
     if (!stored) {
       return undefined;
     }
+    return this.convertToProposedCheckpointData(stored);
+  }
+
+  async getProposedCheckpoint(): Promise<ProposedCheckpointData | CheckpointData | undefined> {
+    const stored = await this.#proposedCheckpoint.getAsync();
+    if (!stored) {
+      return this.getCheckpointData(await this.getLatestCheckpointNumber());
+    }
+    return this.convertToProposedCheckpointData(stored);
+  }
+
+  private convertToProposedCheckpointData(stored: ProposedCheckpointStorage): ProposedCheckpointData {
     return {
       checkpointNumber: CheckpointNumber(stored.checkpointNumber),
       header: CheckpointHeader.fromBuffer(stored.header),
@@ -640,19 +663,26 @@ export class BlockStore {
       checkpointOutHash: Fr.fromBuffer(stored.checkpointOutHash),
       startBlock: BlockNumber(stored.startBlock),
       blockCount: stored.blockCount,
-      totalManaUsed: BigInt(stored.totalManaUsed ?? '0'),
-      feeAssetPriceModifier: BigInt(stored.feeAssetPriceModifier ?? '0'),
+      totalManaUsed: BigInt(stored.totalManaUsed),
+      feeAssetPriceModifier: BigInt(stored.feeAssetPriceModifier),
     };
   }
 
+  /**
+   * Attempts to get the proposedCheckpoint's number, if there is not one, then fallback to the latest confirmed checkpoint number.
+   * @returns CheckpointNumber
+   */
   async getProposedCheckpointNumber(): Promise<CheckpointNumber> {
     const pending = await this.getProposedCheckpoint();
-    return CheckpointNumber(pending?.checkpointNumber ?? INITIAL_CHECKPOINT_NUMBER - 1);
+    if (!pending) {
+      return await this.getLatestCheckpointNumber();
+    }
+    return CheckpointNumber(pending.checkpointNumber);
   }
 
   /**
    * Attempts to get the proposedCheckpoint's block number, if there is not one, then fallback to the checkpointed block number
-   * @returns
+   * @returns BlockNumber
    */
   async getProposedCheckpointL2BlockNumber(): Promise<BlockNumber> {
     const pending = await this.getProposedCheckpoint();

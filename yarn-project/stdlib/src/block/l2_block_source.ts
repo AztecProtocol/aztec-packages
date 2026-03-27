@@ -13,8 +13,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
-import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
-import type { ProposedCheckpointData } from '../checkpoint/proposed_checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -230,8 +229,11 @@ export interface L2BlockSource {
    */
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
-  /** Returns the proposed checkpoint data, if set. */
-  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined>;
+  /** Returns the checkpoint at the proposed chain tip. */
+  getProposedCheckpoint(): Promise<ProposedCheckpointData | CheckpointData | undefined>;
+
+  /** Returns proposed checkpoint, if set, undefined if not*/
+  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;

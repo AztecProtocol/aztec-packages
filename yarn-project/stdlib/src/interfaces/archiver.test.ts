@@ -14,8 +14,7 @@ import { type BlockData, BlockHash, CommitteeAttestation, L2Block } from '../blo
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
-import type { ProposedCheckpointData } from '../checkpoint/proposed_checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
@@ -407,6 +406,9 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({ valid: true });
   }
   getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.getProposedCheckpointOnly();
+  }
+  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve({
       checkpointNumber: CheckpointNumber(1),
       header: CheckpointHeader.random(),

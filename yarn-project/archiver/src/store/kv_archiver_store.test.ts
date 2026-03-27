@@ -3584,7 +3584,7 @@ describe('KVArchiverDataStore', () => {
         totalManaUsed: 12345n,
         feeAssetPriceModifier: -75n,
       });
-      const pending = await store.blockStore.getProposedCheckpoint();
+      const pending = await store.blockStore.getProposedCheckpointOnly();
       expect(pending).toBeDefined();
       expect(pending!.checkpointNumber).toBe(1);
       expect(pending!.totalManaUsed).toBe(12345n);
@@ -3625,8 +3625,7 @@ describe('KVArchiverDataStore', () => {
       await store.addCheckpoints([checkpoint2]);
 
       // Proposed checkpoint should be cleared
-      const pending = await store.blockStore.getProposedCheckpointNumber();
-      expect(pending).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+      expect(await store.blockStore.hasProposedCheckpoint()).toBe(false);
     });
 
     it('throws on proposed checkpoint that is more than 1 ahead of confirmed', async () => {
@@ -3650,7 +3649,7 @@ describe('KVArchiverDataStore', () => {
       ).rejects.toThrow('not sequential');
 
       // Proposed checkpoint should remain unset (3 !== 1 + 1)
-      expect(await store.blockStore.getProposedCheckpointNumber()).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+      expect(await store.blockStore.hasProposedCheckpoint()).toBe(false);
     });
 
     it('throws on proposed checkpoint that equals the confirmed checkpoint', async () => {
@@ -3661,7 +3660,8 @@ describe('KVArchiverDataStore', () => {
       );
       await store.addCheckpoints([checkpoint1]);
 
-      // Try to set proposed checkpoint to 1 (confirmed=1, expected=2)
+      // Try to set proposed checkpoint to 1 (confirmed=1, expected=2).
+      // With fallback behavior, getProposedCheckpointNumber returns 1 (confirmed), so this triggers the stale check.
       await expect(
         store.blockStore.setProposedCheckpoint({
           checkpointNumber: CheckpointNumber(1),
@@ -3671,10 +3671,10 @@ describe('KVArchiverDataStore', () => {
           totalManaUsed: 100n,
           feeAssetPriceModifier: 50n,
         }),
-      ).rejects.toThrow('not sequential');
+      ).rejects.toThrow('Stale');
 
-      // Proposed checkpoint should remain unset (1 !== 1 + 1)
-      expect(await store.blockStore.getProposedCheckpointNumber()).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+      // Proposed checkpoint should remain unset
+      expect(await store.blockStore.hasProposedCheckpoint()).toBe(false);
     });
 
     it('clears proposed checkpoint when checkpoints are removed past it', async () => {
@@ -3709,8 +3709,7 @@ describe('KVArchiverDataStore', () => {
       // Remove checkpoints after 1 (removes checkpoint 2, and pending 3 should be cleared)
       await store.removeCheckpointsAfter(CheckpointNumber(1));
 
-      const pending = await store.blockStore.getProposedCheckpointNumber();
-      expect(pending).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+      expect(await store.blockStore.hasProposedCheckpoint()).toBe(false);
     });
 
     it('does not clear proposed checkpoint when removing checkpoints before it', async () => {

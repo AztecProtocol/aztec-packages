@@ -222,6 +222,10 @@ export class ArchiverDataStoreUpdater {
       }
 
       const result = await this.removeBlocksAfter(blockNumber);
+
+      // Clear the proposed checkpoint if it exists, since its blocks have been pruned
+      await this.store.deleteProposedCheckpoint();
+
       await this.l2TipsCache?.refresh();
       return result;
     });

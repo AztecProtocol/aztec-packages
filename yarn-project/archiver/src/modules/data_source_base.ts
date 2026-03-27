@@ -162,8 +162,12 @@ export abstract class ArchiverDataSourceBase
     return this.store.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
-  public getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
-    return this.store.blockStore.getProposedCheckpoint();
+  public getProposedCheckpoint(): Promise<ProposedCheckpointData | CheckpointData | undefined> {
+    return this.store.getProposedCheckpoint();
+  }
+
+  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return this.store.getProposedCheckpointOnly();
   }
 
   public isPendingChainInvalid(): Promise<boolean> {

@@ -562,6 +562,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
+  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return Promise.resolve(undefined);
+  }
+
   /** Returns checkpoints whose slot falls within the given epoch. */
   private getCheckpointsInEpoch(epochNumber: EpochNumber): Checkpoint[] {
     const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;

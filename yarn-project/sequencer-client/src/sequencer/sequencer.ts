@@ -570,7 +570,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => t.proposed),
       this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getProposedCheckpoint(),
+      this.l2BlockSource.getProposedCheckpointOnly(),
     ] as const);
 
     const [worldState, l2Tips, p2p, l1ToL2MessageSource, pendingChainValidationStatus, proposedCheckpointData] =
@@ -620,9 +620,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    const hasProposedCheckpoint =
-      proposedCheckpointData !== undefined &&
-      l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
 
     return {
       blockData,

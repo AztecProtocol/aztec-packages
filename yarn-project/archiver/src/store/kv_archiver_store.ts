@@ -629,8 +629,13 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#blockStore.getProposedCheckpointL2BlockNumber();
   }
 
-  public getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+  public getProposedCheckpoint(): Promise<ProposedCheckpointData | CheckpointData | undefined> {
     return this.#blockStore.getProposedCheckpoint();
+  }
+
+  /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
+  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+    return this.#blockStore.getProposedCheckpointOnly();
   }
 
   /**
@@ -640,6 +645,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   public setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
     return this.#blockStore.setProposedCheckpoint(proposedCheckpoint);
+  }
+
+  /** Deletes the proposed checkpoint from storage. */
+  public deleteProposedCheckpoint(): Promise<void> {
+    return this.#blockStore.deleteProposedCheckpoint();
   }
 
   /**
