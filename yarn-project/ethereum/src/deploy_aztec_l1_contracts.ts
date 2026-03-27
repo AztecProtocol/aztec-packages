@@ -257,9 +257,9 @@ export async function deployAztecL1Contracts(
     );
   }
 
-  // From heuristic testing. More caused issues with anvil.
-  const MAGIC_ANVIL_BATCH_SIZE = 12;
-  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
+  // From heuristic testing. Forge hangs with unbounded batch size on anvil and reth devnets.
+  // See https://github.com/foundry-rs/foundry/issues/6796
+  const BATCH_SIZE = 12;
   const forgeArgs = [
     'script',
     FORGE_SCRIPT,
@@ -270,7 +270,8 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    '--batch-size',
+    BATCH_SIZE.toString(),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
