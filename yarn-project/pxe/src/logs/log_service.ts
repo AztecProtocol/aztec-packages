@@ -41,7 +41,7 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
-  public async bulkRetrieveLogs(
+  public async fetchLogsByTag(
     contractAddress: AztecAddress,
     logRetrievalRequests: LogRetrievalRequest[],
   ): Promise<(LogRetrievalResponse | null)[]> {
