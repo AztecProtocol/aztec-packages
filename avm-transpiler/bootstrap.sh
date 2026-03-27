@@ -61,7 +61,9 @@ function build {
         fi
       done
 
-      parallel --tag --line-buffered cargo zigbuild --release --target {} --lib ::: "${targets[@]}"
+      for target in "${targets[@]}"; do
+        cargo zigbuild --release --target "$target" --lib
+      done
 
       cache_upload $cross_compile_artifact target/x86_64-apple-darwin/release/libavm_transpiler.a target/aarch64-apple-darwin/release/libavm_transpiler.a
     fi
