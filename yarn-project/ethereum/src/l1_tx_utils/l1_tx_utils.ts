@@ -4,6 +4,7 @@ import { merge, pick } from '@aztec/foundation/collection';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { Semaphore } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -47,6 +48,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected txs: L1TxState[] = [];
   /** Last nonce successfully sent to the chain. Used as a lower bound when a fallback RPC node returns a stale count. */
   private lastSentNonce: number | undefined;
+  /** Mutex to prevent concurrent sendTransaction calls from racing on the same nonce. */
+  private readonly sendMutex = new Semaphore(1);
   /** Tx delayer for testing. Only set when enableDelayer config is true. */
   public delayer?: Delayer;
   /** KZG instance for blob operations. */
@@ -253,20 +256,27 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         );
       }
 
-      const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
-      // If a fallback RPC node returns a stale count (lower than what we last sent), use our
-      // local lower bound to avoid sending a duplicate of an already-pending transaction.
-      const nonce =
-        this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
+      let txHash: Hex;
+      let nonce: number;
+      let baseState: Pick<L1TxState, 'request' | 'gasLimit' | 'blobInputs' | 'gasPrice' | 'nonce'>;
 
-      const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
-      const txData = this.makeTxData(baseState, { isCancelTx: false });
+      await this.sendMutex.acquire();
+      try {
+        const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+        // If a fallback RPC node returns a stale count (lower than what we last sent), use our
+        // local lower bound to avoid sending a duplicate of an already-pending transaction.
+        nonce =
+          this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
 
-      // Send the new tx
-      const signedRequest = await this.prepareSignedTransaction(txData);
-      const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
-      // Update after tx is sent successfully
-      this.lastSentNonce = nonce;
+        baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
+        const txData = this.makeTxData(baseState, { isCancelTx: false });
+
+        const signedRequest = await this.prepareSignedTransaction(txData);
+        txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+        this.lastSentNonce = nonce;
+      } finally {
+        this.sendMutex.release();
+      }
 
       // Create the new state for monitoring
       const l1TxState: L1TxState = {
