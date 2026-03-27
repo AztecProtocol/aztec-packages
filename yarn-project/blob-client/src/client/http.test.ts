@@ -135,8 +135,6 @@ describe('HttpBlobClient', () => {
       expect(retrievedBlobs[1].commitment).toEqual(testBlobs[1].commitment);
     });
 
-<<<<<<< HEAD
-=======
     it('should compute slot from l1BlockTimestamp without headers call when genesis config is cached', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
@@ -192,7 +190,6 @@ describe('HttpBlobClient', () => {
       expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/eth/v1/beacon/headers/'), expect.anything());
     });
 
->>>>>>> 2e33a21c93 (feat: improve blob download from filestores (#22096))
     it('should handle when multiple consensus hosts are provided', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
@@ -479,15 +476,6 @@ describe('HttpBlobClient', () => {
 
       // Verify we hit the 404 for slot 33 before trying slot 34, and that we use the api key
       // (see issue https://github.com/AztecProtocol/aztec-packages/issues/13415)
-<<<<<<< HEAD
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/eth/v1/beacon/blob_sidecars/33'),
-        expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
-      );
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/eth/v1/beacon/blob_sidecars/34'),
-        expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
-=======
       expect(fetchBlobSpy).toHaveBeenCalledWith(
         expect.stringContaining(`localhost:${consensusHostPort}`),
         33,
@@ -499,7 +487,6 @@ describe('HttpBlobClient', () => {
         34,
         0,
         expect.anything(),
->>>>>>> 2e33a21c93 (feat: improve blob download from filestores (#22096))
       );
     });
 
@@ -529,15 +516,10 @@ describe('HttpBlobClient', () => {
       // Initial attempt + one call per slot up to latestSlotNumber
       expect(fetchBlobSpy).toHaveBeenCalledTimes(latestSlotNumber - 33 + 1);
       for (let i = 33; i <= latestSlotNumber; i++) {
-<<<<<<< HEAD
-        expect(fetchSpy).toHaveBeenCalledWith(
-          expect.stringContaining(`/eth/v1/beacon/blob_sidecars/${i}`),
-=======
         expect(fetchBlobSpy).toHaveBeenCalledWith(
           expect.stringContaining(`localhost:${consensusHostPort}`),
           i,
           0,
->>>>>>> 2e33a21c93 (feat: improve blob download from filestores (#22096))
           expect.anything(),
         );
       }
@@ -1037,13 +1019,8 @@ describe('HttpBlobClient FileStore Integration', () => {
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
 
       expect(retrievedBlobs).toHaveLength(2);
-<<<<<<< HEAD
-      // Consensus should not be called for blob_sidecars since filestore had all blobs
-      expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining('blob_sidecars'), expect.anything());
-=======
       // Consensus should not be called for blobs since filestore had all blobs
       expect(fetchBlobSpy).not.toHaveBeenCalled();
->>>>>>> 2e33a21c93 (feat: improve blob download from filestores (#22096))
     });
 
     it('should fall back to consensus when filestore has partial blobs', async () => {

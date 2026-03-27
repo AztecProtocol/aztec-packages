@@ -25,8 +25,6 @@ export class HttpBlobClient implements BlobClientInterface {
   private disabled = false;
   private healthcheckUploadIntervalId?: NodeJS.Timeout;
 
-<<<<<<< HEAD
-=======
   /** Cached beacon genesis time (seconds since Unix epoch). Fetched once at startup. */
   private beaconGenesisTime?: bigint;
   /** Cached beacon slot duration in seconds. Fetched once at startup. */
@@ -35,7 +33,6 @@ export class HttpBlobClient implements BlobClientInterface {
   /** Indexes of consensus hosts that serve blob sidecars (supernodes). Populated by testSources(). */
   private superNodeHostIndexes?: Set<number>;
 
->>>>>>> 2e33a21c93 (feat: improve blob download from filestores (#22096))
   constructor(
     config?: BlobClientConfig,
     private readonly opts: {
@@ -298,19 +295,9 @@ export class HttpBlobClient implements BlobClientInterface {
       return slotNumber;
     };
 
-<<<<<<< HEAD
-    const missingAfterSink = getMissingBlobHashes();
-    if (missingAfterSink.length > 0 && l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
-      // The beacon api can query by slot number, so we get that first
-      const consensusCtx = { l1ConsensusHostUrls, ...ctx };
-      this.log.trace(`Attempting to get slot number for block hash`, consensusCtx);
-      const slotNumber = await this.getSlotNumber(blockHash);
-      this.log.debug(`Got slot number ${slotNumber} from consensus host for querying blobs`, consensusCtx);
-=======
     // Build the two source-try functions. The order depends on the config.
     const tryConsensus = () => this.tryConsensusHosts(getSlotNumber, getMissingBlobHashes, fillResults, ctx);
     const tryFilestores = () => this.tryFileStores(getMissingBlobHashes, fillResults, ctx);
->>>>>>> 2e33a21c93 (feat: improve blob download from filestores (#22096))
 
     const preferFilestores = this.config.blobPreferFilestores ?? false;
     const [trySourceA, trySourceB] = preferFilestores ? [tryFilestores, tryConsensus] : [tryConsensus, tryFilestores];
@@ -327,26 +314,8 @@ export class HttpBlobClient implements BlobClientInterface {
           if (getMissingBlobHashes().length > 0) {
             await trySourceA();
           }
-<<<<<<< HEAD
-
-          l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
-          this.log.trace(`Attempting to get ${missingHashes.length} blobs from consensus host`, {
-            slotNumber,
-            l1ConsensusHostUrl,
-            ...ctx,
-          });
-          const blobs = await this.getBlobsFromHost(l1ConsensusHostUrl, slotNumber, l1ConsensusHostIndex);
-          const result = await fillResults(blobs);
-          this.log.debug(
-            `Got ${blobs.length} blobs from consensus host (total: ${result.length}/${blobHashes.length})`,
-            { slotNumber, l1ConsensusHostUrl, ...ctx },
-          );
-          if (result.length === blobHashes.length) {
-            return returnWithCallback(result);
-=======
           if (getMissingBlobHashes().length > 0) {
             await trySourceB();
->>>>>>> 2e33a21c93 (feat: improve blob download from filestores (#22096))
           }
           if (getMissingBlobHashes().length > 0) {
             throw new Error('Still missing blobs after trying all primary sources');
@@ -512,7 +481,7 @@ export class HttpBlobClient implements BlobClientInterface {
     blobHashes: Buffer[] = [],
     l1ConsensusHostIndex?: number,
   ): Promise<Blob[]> {
-    const blobs = await this.getBlobsFromHost(hostUrl, blockHashOrSlot, l1ConsensusHostIndex);
+    const blobs = await this.getBlobsFromHost(hostUrl, blockHashOrSlot, l1ConsensusHostIndex, blobHashes);
     return (await processFetchedBlobs(blobs, blobHashes, this.log)).filter((b): b is Blob => b !== undefined);
   }
 
@@ -520,11 +489,12 @@ export class HttpBlobClient implements BlobClientInterface {
     hostUrl: string,
     blockHashOrSlot: string | number,
     l1ConsensusHostIndex?: number,
+    blobHashes?: Buffer[],
   ): Promise<BlobJson[]> {
     try {
-      let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, l1ConsensusHostIndex);
+      let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, l1ConsensusHostIndex, blobHashes);
       if (res.ok) {
-        return parseBlobJsonsFromResponse(await res.json(), this.log);
+        return await parseBlobJsonsFromResponse(await res.json(), this.log);
       }
 
       if (res.status === 404 && typeof blockHashOrSlot === 'number') {
@@ -539,9 +509,9 @@ export class HttpBlobClient implements BlobClientInterface {
         let currentSlot = blockHashOrSlot + 1;
         while (res.status === 404 && maxRetries > 0 && latestSlot !== undefined && currentSlot <= latestSlot) {
           this.log.debug(`Trying slot ${currentSlot}`);
-          res = await this.fetchBlobSidecars(hostUrl, currentSlot, l1ConsensusHostIndex);
+          res = await this.fetchBlobSidecars(hostUrl, currentSlot, l1ConsensusHostIndex, blobHashes);
           if (res.ok) {
-            return parseBlobJsonsFromResponse(await res.json(), this.log);
+            return await parseBlobJsonsFromResponse(await res.json(), this.log);
           }
           currentSlot++;
           maxRetries--;
@@ -564,8 +534,17 @@ export class HttpBlobClient implements BlobClientInterface {
     hostUrl: string,
     blockHashOrSlot: string | number,
     l1ConsensusHostIndex?: number,
+    blobHashes?: Buffer[],
   ): Promise<Response> {
-    const baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
+    let baseUrl = `${hostUrl}/eth/v1/beacon/blobs/${blockHashOrSlot}`;
+
+    if (blobHashes && blobHashes.length > 0) {
+      const params = new URLSearchParams();
+      for (const hash of blobHashes) {
+        params.append('versioned_hashes', `0x${hash.toString('hex')}`);
+      }
+      baseUrl += `?${params.toString()}`;
+    }
 
     const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
     this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
@@ -608,34 +587,50 @@ export class HttpBlobClient implements BlobClientInterface {
    * @param blockHash - The block hash
    * @returns The slot number
    */
-  private async getSlotNumber(blockHash: `0x${string}`): Promise<number | undefined> {
+  private async getSlotNumber(
+    blockHash: `0x${string}`,
+    parentBeaconBlockRoot?: string,
+    l1BlockTimestamp?: bigint,
+  ): Promise<number | undefined> {
     const { l1ConsensusHostUrls, l1RpcUrls } = this.config;
     if (!l1ConsensusHostUrls || l1ConsensusHostUrls.length === 0) {
       this.log.debug('No consensus host url configured');
       return undefined;
     }
 
-    if (!l1RpcUrls || l1RpcUrls.length === 0) {
-      this.log.debug('No execution host url configured');
-      return undefined;
+    // Primary path: compute slot from timestamp if genesis config is cached (no network call needed)
+    if (
+      l1BlockTimestamp !== undefined &&
+      this.beaconGenesisTime !== undefined &&
+      this.beaconSecondsPerSlot !== undefined
+    ) {
+      const slot = Number((l1BlockTimestamp - this.beaconGenesisTime) / BigInt(this.beaconSecondsPerSlot));
+      this.log.debug(`Computed slot ${slot} from L1 block timestamp`, { l1BlockTimestamp });
+      return slot;
     }
 
-    // Ping execution node to get the parentBeaconBlockRoot for this block
-    let parentBeaconBlockRoot: string | undefined;
-    const client = createPublicClient({
-      transport: makeL1HttpTransport(l1RpcUrls, { timeout: this.config.l1HttpTimeoutMS }),
-    });
-    try {
-      const res: RpcBlock = await client.request({
-        method: 'eth_getBlockByHash',
-        params: [blockHash, /*tx flag*/ false],
-      });
-
-      if (res.parentBeaconBlockRoot) {
-        parentBeaconBlockRoot = res.parentBeaconBlockRoot;
+    if (!parentBeaconBlockRoot) {
+      // parentBeaconBlockRoot not provided by caller — fetch it from the execution RPC
+      if (!l1RpcUrls || l1RpcUrls.length === 0) {
+        this.log.debug('No execution host url configured');
+        return undefined;
       }
-    } catch (err) {
-      this.log.error(`Error getting parent beacon block root`, err);
+
+      const client = createPublicClient({
+        transport: makeL1HttpTransport(l1RpcUrls, { timeout: this.config.l1HttpTimeoutMS }),
+      });
+      try {
+        const res: RpcBlock = await client.request({
+          method: 'eth_getBlockByHash',
+          params: [blockHash, /*tx flag*/ false],
+        });
+
+        if (res.parentBeaconBlockRoot) {
+          parentBeaconBlockRoot = res.parentBeaconBlockRoot;
+        }
+      } catch (err) {
+        this.log.error(`Error getting parent beacon block root`, err);
+      }
     }
 
     if (!parentBeaconBlockRoot) {
@@ -684,6 +679,8 @@ export class HttpBlobClient implements BlobClientInterface {
    * Uploads the initial healthcheck file (awaited) and starts periodic uploads.
    */
   public async start(): Promise<void> {
+    await this.fetchBeaconConfig();
+
     if (!this.fileStoreUploadClient) {
       return;
     }
@@ -709,6 +706,53 @@ export class HttpBlobClient implements BlobClientInterface {
   }
 
   /**
+   * Fetches and caches beacon genesis time and slot duration from the first available consensus host.
+   * These static values enable timestamp-based slot resolution, eliminating the per-fetch headers call.
+   * Logs a warning and leaves fields undefined if all hosts fail, callers fall back gracefully.
+   */
+  private async fetchBeaconConfig(): Promise<void> {
+    const { l1ConsensusHostUrls } = this.config;
+    if (!l1ConsensusHostUrls || l1ConsensusHostUrls.length === 0) {
+      return;
+    }
+
+    for (let i = 0; i < l1ConsensusHostUrls.length; i++) {
+      try {
+        const { url: genesisUrl, ...genesisOptions } = getBeaconNodeFetchOptions(
+          `${l1ConsensusHostUrls[i]}/eth/v1/config/genesis`,
+          this.config,
+          i,
+        );
+        const { url: specUrl, ...specOptions } = getBeaconNodeFetchOptions(
+          `${l1ConsensusHostUrls[i]}/eth/v1/config/spec`,
+          this.config,
+          i,
+        );
+
+        const [genesisRes, specRes] = await Promise.all([
+          this.fetch(genesisUrl, genesisOptions),
+          this.fetch(specUrl, specOptions),
+        ]);
+
+        if (genesisRes.ok && specRes.ok) {
+          const genesis = await genesisRes.json();
+          const spec = await specRes.json();
+          this.beaconGenesisTime = BigInt(genesis.data.genesisTime);
+          this.beaconSecondsPerSlot = parseInt(spec.data.secondsPerSlot);
+          this.log.debug(`Fetched beacon genesis config`, {
+            genesisTime: this.beaconGenesisTime,
+            secondsPerSlot: this.beaconSecondsPerSlot,
+          });
+          return;
+        }
+      } catch (err) {
+        this.log.warn(`Failed to fetch beacon config from host ${l1ConsensusHostUrls[i]}`, err);
+      }
+    }
+    this.log.warn('Could not fetch beacon genesis config from any consensus host — will use headers call fallback');
+  }
+
+  /**
    * Stop the blob client, clearing any periodic tasks.
    */
   public stop(): void {
@@ -719,10 +763,9 @@ export class HttpBlobClient implements BlobClientInterface {
   }
 }
 
-function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
+async function parseBlobJsonsFromResponse(response: any, logger: Logger): Promise<BlobJson[]> {
   try {
-    const blobs = response.data.map(parseBlobJson);
-    return blobs;
+    return await Promise.all((response.data as string[]).map(parseBlobJson));
   } catch (err) {
     logger.error(`Error parsing blob json from response`, err);
     return [];
@@ -731,12 +774,9 @@ function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
 
 // Blobs will be in this form when requested from the blob client, or from the beacon chain via `getBlobSidecars`:
 // https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
-// Here we attempt to parse the response data to Buffer, and check the lengths (via Blob's constructor), to avoid
-// throwing an error down the line when calling Blob.fromJson().
-function parseBlobJson(data: any): BlobJson {
-  const blobBuffer = Buffer.from(data.blob.slice(2), 'hex');
-  const commitmentBuffer = Buffer.from(data.kzg_commitment.slice(2), 'hex');
-  const blob = new Blob(blobBuffer, commitmentBuffer);
+async function parseBlobJson(rawHex: string): Promise<BlobJson> {
+  const blobBuffer = Buffer.from(rawHex.slice(2), 'hex');
+  const blob = await Blob.fromBlobBuffer(blobBuffer);
   return blob.toJSON();
 }
 
