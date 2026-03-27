@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct SingleUseClaim documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">SingleUseClaim</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct SingleUseClaim</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#assert_claimed">assert_claimed</a></li>
+<li><a href="#claim">claim</a></li>
+<li><a href="#has_claimed">has_claimed</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-OwnedStateVariable&lt;Context&gt;-for-SingleUseClaim<Context>">OwnedStateVariable&lt;Context&gt;</a></li>
+</ul>
+<h2>In module state_vars</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.Map.html">Map</a></div></li>
+<li><a href="struct.Owned.html">Owned</a></div></li>
+<li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
+<li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
+<li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
+<li><a href="struct.PublicImmutable.html">PublicImmutable</a></div></li>
+<li><a href="struct.PublicMutable.html">PublicMutable</a></div></li>
+<li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
+<li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
+<li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+<li><a href="struct.Storable.html">Storable</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
+<li><a href="trait.StateVariable.html">StateVariable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
+<h1>Struct <span id="struct" class="struct">SingleUseClaim</span></h1>
+<pre><code>pub struct SingleUseClaim&lt;Context&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>Private right to perform an action.</p>
+<p>A private state variable type that represents a right each user can exercise at most once.</p>
+<p>Because it is <em>owned</em>, you must wrap a <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html"><code>SingleUseClaim</code></a> inside an <a href="../../noir_aztec/state_vars/struct.Owned.html"><code>crate::state_vars::owned::Owned</code></a> state
+variable
+when using it in storage.</p>
+<h2>Example</h2>
+<p>The right to vote at most once can be implemented using <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html"><code>SingleUseClaim</code></a> as a primitive.</p>
+<pre><code>#[derive(Serialize, Deserialize)]
+<span class="kw">struct</span> ElectionId { id: Field }
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    <span class="comment">// election =&gt; candidate =&gt; number of votes</span>
+    tally: Map&lt;ElectionId, Map&lt;Field, PublicMutable&lt;Field, Context&gt;, Context&gt;, Context&gt;,
+    <span class="comment">// track right to vote at most once per election</span>
+    vote_claims: Map&lt;ElectionId, Owned&lt;SingleUseClaim&lt;Context&gt;, Context&gt;, Context&gt;,
+}
+
+#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> cast_vote(election_id: ElectionId, candidate: Field) {
+    <span class="kw">let</span> voter = self.msg_sender();
+
+    <span class="comment">// `claim` will only succeed if `voter` hasn't already claimed for this `election_id` before.</span>
+    self.storage.vote_claims.at(election_id).at(voter).claim();
+
+    <span class="comment">// Now that we checked that the voter is entitled to vote,</span>
+    <span class="comment">// we can enqueue the corresponding public effect</span>
+    self.enqueue_self.add_to_tally_public(election_id, candidate);
+}</code></pre>
+<p>For more details on what <em>owned</em> means, see the documentation for the <a href="../../noir_aztec/state_vars/trait.OwnedStateVariable.html"><code>OwnedStateVariable</code></a> trait.</p>
+<h2>Cost</h2>
+<p>Exercising a claim (via the <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html#claim"><code>SingleUseClaim::claim</code></a> function) emits one nullifier.</p>
+<h2>Privacy considerations</h2>
+<p>The <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html#claim"><code>SingleUseClaim::claim</code></a> function emits a public nullifier per owner: it's fully private, hidden behind the
+owner's app-siloed nullifier hiding key (aka <code>nhk</code>).</p>
+<p>Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
+infer who likely exercised the claim, so consider that when designing flows.</p></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html" class="struct">SingleUseClaim</a>&lt;<a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="has_claimed" class="code-header">pub unconstrained fn <a href="#has_claimed"><span class="fn">has_claimed</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns <code>true</code> if an owner has claimed this single use claim.</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;Context&gt; <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html" class="struct">SingleUseClaim</a>&lt;Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h3><code class="code-header">impl <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html" class="struct">SingleUseClaim</a>&lt;&mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="claim" class="code-header">pub fn <a href="#claim"><span class="fn">claim</span></a>(self)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Records the fact that the owner in scope has claimed this single use claim.</p>
+<p>This function succeeds at most once for a given <code>owner</code>. Any subsequent calls with same owner are guaranteed to
+fail.</p>
+<p>Note that, by itself, calling this function doesn't do anything other than prevent it being called again with
+the same owner. Its invocation is typically accompanied by other contract actions, e.g. minting tokens, casting
+a vote, etc.</p>
+<h4>Advanced</h4>
+<p>The implementation of this function emits a nullifier derived from the <code>owner</code>'s nullifier hiding key and the
+storage slot of the underlying state variable.</p>
+</div>
+</div><code id="assert_claimed" class="code-header">pub fn <a href="#assert_claimed"><span class="fn">assert_claimed</span></a>(self)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Asserts that the owner has already claimed this single use claim (i.e. that <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html#claim"><code>SingleUseClaim::claim</code></a> has been
+called).</p>
+<h4>Advanced</h4>
+<p>This function generates a kernel nullifier read request, so it can even assert the existence of pending claims,
+i.e. when <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html#claim"><code>SingleUseClaim::claim</code></a> was called in the same transaction as <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html#assert_claimed"><code>SingleUseClaim::assert_claimed</code></a>.</p></div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-SingleUseClaim<Context>"><code class="code-header">impl&lt;Context&gt; <a href="../../noir_aztec/state_vars/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html" class="struct">SingleUseClaim</a>&lt;Context&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+
+</div></main>
+</span>
+</body>
+</html>
