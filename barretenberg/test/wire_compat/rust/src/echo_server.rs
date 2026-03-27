@@ -1,8 +1,8 @@
 //! Echo IPC server — echoes commands back as responses.
 //! Usage: echo_server --socket /tmp/echo.sock
 
-use echo_wire_compat::generated_types::*;
-use echo_wire_compat::server::Handler;
+use echo_wire_compat::types_gen::*;
+use echo_wire_compat::server_gen::Handler;
 use echo_wire_compat::error::{EchoError, Result};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixListener;
@@ -60,7 +60,7 @@ fn main() -> Result<()> {
         let is_shutdown = matches!(&command, Command::EchoShutdown(_));
 
         // Dispatch
-        let response = match echo_wire_compat::server::dispatch(&mut handler, command) {
+        let response = match echo_wire_compat::server_gen::dispatch(&mut handler, command) {
             Ok(resp) => resp,
             Err(e) => Response::EchoErrorResponse(EchoErrorResponse {
                 message: e.to_string(),

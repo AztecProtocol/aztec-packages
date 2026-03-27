@@ -2,7 +2,7 @@
 //! Verifies Rust can deserialize the golden msgpack files.
 //! Usage: golden_test --golden-dir golden/
 
-use echo_wire_compat::generated_types::*;
+use echo_wire_compat::types_gen::*;
 use std::fs;
 
 fn main() {

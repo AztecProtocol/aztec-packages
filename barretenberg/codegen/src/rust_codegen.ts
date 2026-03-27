@@ -20,7 +20,7 @@ export interface RustCodegenOptions {
   backendImport?: string;
   /** Import path for error types. Defaults to 'crate::error::{BarretenbergError, Result}' */
   errorImport?: string;
-  /** Import path for generated types. Defaults to 'crate::generated_types::*' */
+  /** Import path for generated types. Defaults to 'crate::types_gen::*' */
   typesImport?: string;
   /** Module doc comment for types file */
   typesDocComment?: string;
@@ -40,7 +40,7 @@ export class RustCodegen {
       apiStructName: options?.apiStructName ?? `${name}Api`,
       backendImport: options?.backendImport ?? 'crate::backend::Backend',
       errorImport: options?.errorImport ?? `crate::error::{${name}Error, Result}`,
-      typesImport: options?.typesImport ?? 'crate::generated_types::*',
+      typesImport: options?.typesImport ?? 'crate::types_gen::*',
       typesDocComment: options?.typesDocComment ?? `Generated types for ${name} IPC protocol`,
       apiDocComment: options?.apiDocComment ?? `${name} IPC client API`,
     };

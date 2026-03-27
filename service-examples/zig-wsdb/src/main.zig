@@ -4,7 +4,7 @@
 /// Edit src/generated/server.zig to implement your world-state logic.
 ///
 /// Usage: zig-wsdb --socket /tmp/wsdb.sock
-const server = @import("generated/server.zig");
+const server = @import("generated/server_gen.zig");
 
 pub fn main() !void {
     var args = @import("std").process.args();

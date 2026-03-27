@@ -1,8 +1,7 @@
-# Generated files — produced by generate.ts
+# Generated files — produced by generate.sh via codegen CLI
 cpp/generated/
 ts/generated/
 zig/generated/
-zig/generated_types.zig
-rust/src/generated_types.rs
-rust/src/api.rs
-rust/src/server.rs
+rust/src/*_gen.rs
+rust/src/ipc_client.rs
+rust/src/ipc_server.rs

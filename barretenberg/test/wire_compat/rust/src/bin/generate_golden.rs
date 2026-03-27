@@ -4,7 +4,7 @@
 //! Outputs one .msgpack file per test command (request format: [[name, {fields}]])
 //! and one per response.
 
-use echo_wire_compat::generated_types::*;
+use echo_wire_compat::types_gen::*;
 use std::fs;
 use std::path::Path;
 

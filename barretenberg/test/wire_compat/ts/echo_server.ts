@@ -3,13 +3,13 @@
  * Usage: npx tsx echo_server.ts --socket /tmp/echo.sock
  */
 import { createServer } from './generated/ipc_server.js';
-import { dispatch } from './generated/server.js';
-import type { Handler } from './generated/server.js';
+import { dispatch } from './generated/server_gen.js';
+import type { Handler } from './generated/server_gen.js';
 import type {
   EchoBytes, EchoBytesResponse,
   EchoFields, EchoFieldsResponse,
   EchoNested, EchoNestedResponse,
-} from './generated/api_types.js';
+} from './generated/types_gen.js';
 
 const args = process.argv.slice(2);
 const socketIdx = args.indexOf('--socket');

@@ -3,7 +3,7 @@
  * Usage: echo_server --socket /tmp/echo.sock
  */
 
-#include "generated/types.hpp"
+#include "generated/types_gen.hpp"
 #include "generated/ipc_server.hpp"
 #include <iostream>
 #include <string_view>

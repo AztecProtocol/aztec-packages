@@ -2,7 +2,7 @@
 //! Usage: echo_client --socket /tmp/echo.sock
 //! Exits 0 on success, 1 on failure.
 
-use echo_wire_compat::generated_types::*;
+use echo_wire_compat::types_gen::*;
 use echo_wire_compat::error::{EchoError, Result};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;

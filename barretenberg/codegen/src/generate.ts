@@ -119,39 +119,39 @@ function generateSingle(args: SingleArgs) {
   switch (args.lang) {
     case 'ts': {
       const gen = new TypeScriptCodegen();
-      writeFile('api_types.ts', gen.generateTypes(compiled, schemaHash));
+      writeFile('types_gen.ts', gen.generateTypes(compiled, schemaHash));
       if (args.server) {
-        writeFile('server.ts', gen.generateServerApi(compiled));
+        writeFile('server_gen.ts', gen.generateServerApi(compiled));
         copyTemplate('ts', 'ipc_server.ts', absOut);
       }
       if (args.client) {
-        writeFile('async.ts', gen.generateAsyncApi(compiled));
+        writeFile('client_gen.ts', gen.generateAsyncApi(compiled));
         copyTemplate('ts', 'ipc_client.ts', absOut);
       }
       break;
     }
     case 'rust': {
       const gen = new RustCodegen({ prefix });
-      writeFile('generated_types.rs', gen.generateTypes(compiled, schemaHash));
+      writeFile('types_gen.rs', gen.generateTypes(compiled, schemaHash));
       if (args.server) {
-        writeFile('server.rs', gen.generateServer(compiled));
+        writeFile('server_gen.rs', gen.generateServer(compiled));
         copyTemplate('rust', 'ipc_server.rs', absOut);
       }
       if (args.client) {
-        writeFile('api.rs', gen.generateApi(compiled));
+        writeFile('client_gen.rs', gen.generateApi(compiled));
         copyTemplate('rust', 'ipc_client.rs', absOut);
       }
       break;
     }
     case 'zig': {
       const gen = new ZigCodegen({ prefix, clientName: `${prefix}Client` });
-      writeFile('types.zig', gen.generateTypes(compiled, schemaHash));
+      writeFile('types_gen.zig', gen.generateTypes(compiled, schemaHash));
       if (args.server) {
-        writeFile('server.zig', gen.generateServer(compiled));
+        writeFile('server_gen.zig', gen.generateServer(compiled));
         copyTemplate('zig', 'ipc_server.zig', absOut);
       }
       if (args.client) {
-        writeFile('client.zig', gen.generateClient(compiled));
+        writeFile('client_gen.zig', gen.generateClient(compiled));
         copyTemplate('zig', 'ipc_client.zig', absOut);
       }
       break;
@@ -163,7 +163,7 @@ function generateSingle(args: SingleArgs) {
         executeHeader: '',
         commandsHeader: '',
       });
-      writeFile('types.hpp', gen.generateStandaloneTypes(compiled));
+      writeFile('types_gen.hpp', gen.generateStandaloneTypes(compiled));
       if (args.server) copyTemplate('cpp', 'ipc_server.hpp', absOut);
       if (args.client) copyTemplate('cpp', 'ipc_client.hpp', absOut);
       break;

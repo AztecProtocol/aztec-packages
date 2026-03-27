@@ -3,7 +3,7 @@
  * Usage: echo_client --socket /tmp/echo.sock
  */
 
-#include "generated/types.hpp"
+#include "generated/types_gen.hpp"
 #include "generated/ipc_client.hpp"
 #include <iostream>
 #include <cassert>

@@ -340,7 +340,7 @@ ${this.generateResponseUnion(schema)}
 const std = @import("std");
 const msgpack = @import("msgpack");
 const Payload = msgpack.Payload;
-const types = @import("types.zig");
+const types = @import("types_gen.zig");
 const ipc = @import("ipc_client.zig");
 
 const alloc = std.heap.page_allocator;
@@ -408,7 +408,7 @@ fn ${methodName}(cmd: types.${zigCmdName}) !types.${zigRespName} {
 const std = @import("std");
 const msgpack = @import("msgpack");
 const Payload = msgpack.Payload;
-const types = @import("types.zig");
+const types = @import("types_gen.zig");
 const ipc_server = @import("ipc_server.zig");
 
 const alloc = std.heap.page_allocator;
