@@ -2,10 +2,9 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 
-import type { Anvil } from '@viem/anvil';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 
-import { startAnvil } from './start_anvil.js';
+import { type Anvil, startAnvil } from './start_anvil.js';
 
 describe('start_anvil', () => {
   let logger: Logger;

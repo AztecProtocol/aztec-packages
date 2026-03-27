@@ -9,12 +9,8 @@ describe('e2e_slasher_config', () => {
   let aztecNode: AztecNode;
 
   beforeAll(async () => {
-<<<<<<< HEAD
     ({ aztecNodeAdmin, aztecNode } = await setup(0, {
-=======
-    ({ aztecNodeAdmin, aztecNode, teardown } = await setup(0, {
       anvilSlotsInAnEpoch: 4,
->>>>>>> 5319cf3e80 (fix(e2e): set anvilSlotsInAnEpoch in slashing tests (#21869))
       slashInactivityTargetPercentage: 1,
       slashInactivityPenalty: 42n,
     }));

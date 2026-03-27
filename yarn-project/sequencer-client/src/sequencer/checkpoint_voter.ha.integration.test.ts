@@ -291,11 +291,8 @@ describe('CheckpointVoter HA Integration', () => {
       ts: BigInt(Math.floor(Date.now() / 1000)),
       nowMs: BigInt(Date.now()),
     });
-<<<<<<< HEAD
-=======
     epochCache.getSlotNow.mockReturnValue(slot);
     epochCache.getL1Constants.mockReturnValue(TEST_L1_CONSTANTS as any);
->>>>>>> e505b7dcb9 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp (#22023))
 
     const slashFactoryContract = mock<SlashFactoryContract>();
 

@@ -308,11 +308,8 @@ export async function setup(
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
-<<<<<<< HEAD
-=======
         slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
         dateProvider,
->>>>>>> 0539c7b722 (fix: sync dateProvider from anvil stdout on every mined block (#21829))
       });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];

@@ -122,6 +122,7 @@ export class SequencerPublisher {
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
+  protected aztecSlotDuration: bigint;
   private dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
@@ -153,7 +154,7 @@ export class SequencerPublisher {
 
   constructor(
     private config: Pick<SequencerPublisherConfig, 'fishermanMode'> &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration'> & { l1ChainId: number },
+      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
@@ -171,6 +172,7 @@ export class SequencerPublisher {
   ) {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
+    this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
     this.dateProvider = deps.dateProvider;
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
@@ -460,18 +462,14 @@ export class SequencerPublisher {
   public canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-<<<<<<< HEAD
-    const nextL1SlotTs = await this.getNextL1SlotTimestampWithL1Floor();
-=======
     const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
     const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
->>>>>>> 6ba3b59f83 (fix(sequencer): remove l1 block timestamp check (#21853))
 
     return this.rollupContract
       .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
@@ -661,12 +659,7 @@ export class SequencerPublisher {
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
-<<<<<<< HEAD
-  ): Promise<bigint> {
-    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-=======
   ): Promise<void> {
->>>>>>> e505b7dcb9 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp (#22023))
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -767,37 +760,16 @@ export class SequencerPublisher {
       lastValidL2Slot: slotNumber,
     });
 
-<<<<<<< HEAD
-=======
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
     const timestamp = this.getSimulationTimestamp(slotNumber);
 
->>>>>>> e505b7dcb9 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp (#22023))
     try {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
-<<<<<<< HEAD
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
-=======
       const viemError = formatViemError(err);
       this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError, {
         simulationTimestamp: timestamp,
-        l1BlockNumber,
       });
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [action],
-          slot: slotNumber,
-          sender: this.getSenderAddress().toString(),
-        },
-      });
->>>>>>> e505b7dcb9 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp (#22023))
       // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
     }
 
@@ -1253,12 +1225,8 @@ export class SequencerPublisher {
       });
     }
 
-<<<<<<< HEAD
-=======
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
     const simTs = this.getSimulationTimestamp(SlotNumber.fromBigInt(args[0].header.slotNumber));
 
->>>>>>> e505b7dcb9 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp (#22023))
     const simulationResult = await this.l1TxUtils
       .simulate(
         {
@@ -1290,23 +1258,7 @@ export class SequencerPublisher {
             logs: [],
           };
         }
-<<<<<<< HEAD
-        this.log.error(`Failed to simulate propose tx`, viemError);
-=======
         this.log.error(`Failed to simulate propose tx`, viemError, { simulationTimestamp: simTs });
-        this.backupFailedTx({
-          id: keccak256(rollupData),
-          failureType: 'simulation',
-          request: { to: this.rollupContract.address, data: rollupData },
-          l1BlockNumber: l1BlockNumber.toString(),
-          error: { message: viemError.message, name: viemError.name },
-          context: {
-            actions: ['propose'],
-            slot: Number(args[0].header.slotNumber),
-            sender: this.getSenderAddress().toString(),
-          },
-        });
->>>>>>> e505b7dcb9 (fix(sequencer): use last L1 slot of L2 slot as eth_simulateV1 timestamp (#22023))
         throw err;
       });
 

@@ -5,7 +5,8 @@
       "Bash(git cherry-pick:*)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git rm:*)"
     ]
   }
 }
