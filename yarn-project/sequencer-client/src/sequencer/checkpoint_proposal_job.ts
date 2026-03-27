@@ -960,7 +960,7 @@ export class CheckpointProposalJob implements Traceable {
    * would never receive its own block without this explicit sync.
    */
   private async syncProposedBlockToArchiver(block: L2Block): Promise<void> {
-    if (this.config.skipPushProposedBlocksToArchiver !== false) {
+    if (this.config.skipPushProposedBlocksToArchiver) {
       this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
         blockNumber: block.number,
         slot: block.header.globalVariables.slotNumber,
