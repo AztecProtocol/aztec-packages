@@ -41,7 +41,16 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
-  public async fetchLogsByTag(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
+  public async fetchLogsByTag(
+    contractAddress: AztecAddress,
+    logRetrievalRequests: LogRetrievalRequest[],
+  ): Promise<(LogRetrievalResponse | null)[]> {
+    for (const request of logRetrievalRequests) {
+      if (!contractAddress.equals(request.contractAddress)) {
+        throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
+      }
+    }
+
     return await Promise.all(
       logRetrievalRequests.map(async request => {
         const [publicLog, privateLog] = await Promise.all([
