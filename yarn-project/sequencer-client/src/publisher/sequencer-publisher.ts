@@ -821,9 +821,14 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
-    // Anchor the simulation timestamp to the checkpoint's own slot start time
-    // rather than the current L1 block timestamp, which may overshoot into the next slot if the build ran late.
-    const ts = checkpoint.header.timestamp;
+    // When pipelining, the checkpoint targets the next slot so its timestamp is in the future.
+    // Without pipelining, the checkpoint targets the current slot so its timestamp is in the past
+    // by the time we simulate (~24s of build time), causing eth_simulateV1 to reject it.
+    // In that case, use the latest L1 block timestamp + one ethereum slot, which is just ahead
+    // of L1 and still within the same L2 slot.
+    const ts = this.epochCache.isProposerPipeliningEnabled()
+      ? checkpoint.header.timestamp
+      : (await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration;
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);

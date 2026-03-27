@@ -1,24 +1,31 @@
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 
-#include <cstddef>
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_contract_instance.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_contract_instance_spec.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
 using C = Column;
 
+/**
+ * @brief Process the GetContractInstance events and populate the relevant columns in the trace.
+ *
+ * Events are emitted in the following flavors:
+ * - Out-of-bounds error: dst_offset == AVM_HIGHEST_MEM_ADDRESS. Instance retrieval fields are
+ *   unpopulated (defaults). Event is emitted before the exception is thrown.
+ * - Invalid enum error: member_enum > MAX. Instance retrieval fields are unpopulated (defaults).
+ *   Event is emitted before the exception is thrown.
+ * - Normal execution: all fields populated including instance_exists and retrieved member values.
+ *
+ * @param events Container of GetContractInstanceEvent to process.
+ * @param trace The trace container to populate.
+ */
 void GetContractInstanceTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::GetContractInstanceEvent>::Container& events,
     TraceContainer& trace)

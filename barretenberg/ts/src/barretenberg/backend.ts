@@ -276,6 +276,34 @@ export class UltraHonkBackend {
   }
 }
 
+/**
+ * Result of proving with the AztecClientBackend.
+ */
+export interface AztecClientProveResult {
+  /** Flat proof field elements (Uint8Array[] of 32-byte fields, includes public inputs). */
+  proofFields: Uint8Array[];
+  /** Msgpack-encoded ChonkProof (for verification via the bb API). */
+  proof: Uint8Array;
+  /** Verification key bytes. */
+  vk: Uint8Array;
+  /** Chonk-compressed proof bytes (point compression + u256 encoding, ~1.7x smaller). */
+  compressedProof?: Uint8Array;
+}
+
+/**
+ * Flatten a structured bb.js ChonkProof into a flat array of field element Uint8Arrays.
+ * The order matches the C++ ChonkProof::to_field_elements() layout.
+ */
+export function flattenChonkProofFields(proof: ChonkProof): Uint8Array[] {
+  return [
+    proof.hidingOinkProof,
+    proof.mergeProof,
+    proof.eccvmProof,
+    proof.ipaProof,
+    proof.jointProof,
+  ].flat();
+}
+
 export class AztecClientBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` in the constructor.
@@ -288,7 +316,12 @@ export class AztecClientBackend {
     private circuitNames: string[] = [],
   ) {}
 
-  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array[], Uint8Array, Uint8Array]> {
+  async prove(
+    witnessBuf: Uint8Array[],
+    vksBuf?: Uint8Array[],
+    options?: { compress?: boolean },
+  ): Promise<AztecClientProveResult> {
+    vksBuf = vksBuf ?? [];
     if (vksBuf.length !== 0 && this.acirBuf.length !== witnessBuf.length) {
       throw new AztecClientBackendError('Witness and bytecodes must have the same stack depth!');
     }
@@ -335,19 +368,18 @@ export class AztecClientBackend {
       },
     });
 
-    const proofFields = [
-      proveResult.proof.hidingOinkProof,
-      proveResult.proof.mergeProof,
-      proveResult.proof.eccvmProof,
-      proveResult.proof.ipaProof,
-      proveResult.proof.jointProof,
-    ].flat();
+    const proofFields = flattenChonkProofFields(proveResult.proof);
 
     // Verify using native proof directly to avoid redundant encode/decode cycle
     if (!(await this.verifyNative(proveResult.proof, vkResult.bytes))) {
       throw new AztecClientBackendError('Failed to verify the private (Chonk) transaction proof!');
     }
-    return [proofFields, proof, vkResult.bytes];
+
+    const compressedProof = options?.compress
+      ? (await this.api.chonkCompressProof({ proof: proveResult.proof })).compressedProof
+      : undefined;
+
+    return { proofFields, proof, vk: vkResult.bytes, compressedProof };
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
@@ -356,6 +388,30 @@ export class AztecClientBackend {
       vk,
     });
     return result.valid;
+  }
+
+  /**
+   * Compress a ChonkProof using point compression and u256 encoding.
+   * Reduces proof size by ~1.7x (e.g. ~60KB to ~35KB).
+   *
+   * @param proof - Structured ChonkProof from the bb API (e.g. from chonkProve)
+   * @returns Compressed proof bytes (each element encoded as 32 bytes)
+   */
+  async compressProof(proof: ChonkProof): Promise<Uint8Array> {
+    const result = await this.api.chonkCompressProof({ proof });
+    return result.compressedProof;
+  }
+
+  /**
+   * Decompress a previously compressed ChonkProof.
+   * The number of public inputs is derived automatically from the compressed size.
+   *
+   * @param compressedProof - Compressed proof bytes from compressProof()
+   * @returns Structured ChonkProof suitable for verification
+   */
+  async decompressProof(compressedProof: Uint8Array): Promise<ChonkProof> {
+    const result = await this.api.chonkDecompressProof({ compressedProof });
+    return result.proof;
   }
 
   /**

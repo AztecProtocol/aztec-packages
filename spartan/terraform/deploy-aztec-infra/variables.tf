@@ -768,6 +768,12 @@ variable "BLOB_FILE_STORE_UPLOAD_URL" {
   default     = null
 }
 
+variable "BLOB_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading blobs from filestore. Set to ',' to disable."
+  type        = string
+  default     = ""
+}
+
 variable "TX_FILE_STORE_ENABLED" {
   description = "Whether to enable uploading transactions to file storage"
   type        = bool

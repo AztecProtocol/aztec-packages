@@ -1,5 +1,11 @@
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import {
+  ExecutionPayload,
+  HashedValues,
+  TxSimulationResult,
+  UtilityExecutionResult,
+  mergeExecutionPayloads,
+} from '@aztec/stdlib/tx';
 
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
@@ -19,6 +25,7 @@ export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
     protected interactions: (BaseContractInteraction | ExecutionPayload)[],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet);
   }
@@ -34,9 +41,18 @@ export class BatchCall extends BaseContractInteraction {
     const feeExecutionPayload = options.fee?.paymentMethod
       ? await options.fee.paymentMethod.getExecutionPayload()
       : undefined;
+    const { authWitnesses, capsules } = options;
+
+    // Propagates the included authwitnesses, capsules, and extraHashedArgs potentially baked into the interaction
+    const initialExecutionPayload = new ExecutionPayload(
+      [],
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+      this.extraHashedArgs,
+    );
     const finalExecutionPayload = feeExecutionPayload
-      ? mergeExecutionPayloads([feeExecutionPayload, ...requests])
-      : mergeExecutionPayloads([...requests]);
+      ? mergeExecutionPayloads([initialExecutionPayload, feeExecutionPayload, ...requests])
+      : mergeExecutionPayloads([initialExecutionPayload, ...requests]);
     return finalExecutionPayload;
   }
 

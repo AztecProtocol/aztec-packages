@@ -3,6 +3,9 @@
 # This script installs aztec-up and then delegates to it for version installation.
 # Usage: bash -i <(curl -s https://install.aztec.network)
 #    or: VERSION=0.85.0 bash -i <(curl -s https://install.aztec.network)
+
+# Guard against truncated curl downloads: bash must parse the entire {} block before executing any of it.
+{
 set -euo pipefail
 
 # Colors (truecolor with 256-color fallback)
@@ -30,12 +33,20 @@ VERSION=${VERSION:-0.0.1}
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
+# Check if version string is valid semver
+function is_semver {
+  local version="$1"
+  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
+  [[ "$version" =~ $semver_regex ]]
+}
+
 # Resolve alias (like "nightly") to actual version number.
 function resolve_version {
   local version="$1"
-  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
-  if [[ "$version" =~ $semver_regex ]]; then
-    echo "$version"
+  # Strip leading v from semver-like inputs (v0.85.0 -> 0.85.0), but not aliases (v4-nightly)
+  local stripped="${version#v}"
+  if is_semver "$stripped"; then
+    echo "$stripped"
   else
     local resolved
     if ! resolved=$(curl -fsSL "$INSTALL_URI/aliases/$version" 2>/dev/null); then
@@ -194,7 +205,7 @@ function update_path_env_var {
   if grep -q '\.aztec' "$shell_profile" 2>/dev/null; then
     # Remove old aztec PATH entries.
     local tmp_file=$(mktemp)
-    grep -Ev 'export PATH=.*/\.aztec/' "$shell_profile" > "$tmp_file" || true
+    grep -Ev 'export PATH="\$(HOME/\.aztec/|PATH:.*\.aztec/)' "$shell_profile" > "$tmp_file" || true
     mv "$tmp_file" "$shell_profile"
   fi
 
@@ -242,3 +253,7 @@ function main {
 }
 
 main "$@"
+
+# Explicit exit prevents bash from reading past the closing brace.
+exit
+}

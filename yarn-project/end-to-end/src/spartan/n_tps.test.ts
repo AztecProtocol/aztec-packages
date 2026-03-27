@@ -2,7 +2,7 @@ import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { times, timesAsync } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -270,12 +270,17 @@ describe('sustained N TPS test', () => {
 
     await retryUntil(
       async () => {
-        const blockNumber = await aztecNode.getBlockNumber();
-        if (blockNumber > INITIAL_L2_BLOCK_NUM) {
-          return true;
+        try {
+          const blockNumber = await aztecNode.getBlockNumber();
+          if (blockNumber > INITIAL_L2_BLOCK_NUM) {
+            return true;
+          }
+          logger.info('Waiting for the first block to mine...', { blockNumber, threshold: INITIAL_L2_BLOCK_NUM });
+          return false;
+        } catch (err) {
+          logger.warn('Failed to get block number from RPC', { error: String(err) });
+          return false;
         }
-        logger.info('Waiting for the first block to mine...');
-        return false;
       },
       'get block number',
       60 * 60 * 3, // wait up to 3 hours
@@ -285,7 +290,7 @@ describe('sustained N TPS test', () => {
     const initialBlockNumber = await aztecNode.getBlockNumber();
     logger.info('Initial block mined', { blockNumber: initialBlockNumber });
 
-    testWallets = await timesAsync(lowValueAccounts + highValueAccounts, i => {
+    testWallets = await timesParallel(lowValueAccounts + highValueAccounts, i => {
       logger.info(`Creating wallet and pxe for wallet ${i + 1}/${lowValueAccounts + highValueAccounts}`);
       return createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
     });

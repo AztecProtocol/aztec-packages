@@ -25,7 +25,7 @@ describe('Batch Chonk Verifier workloads', () => {
     logger.info('Generating simple proof...');
     const [bytecodes1, witnesses1, , vks1] = await generateTestingIVCStack(1, 0);
     const backend1 = new AztecClientBackend(bytecodes1, bb);
-    const [proofFields1, , generatedVk1] = await backend1.prove(witnesses1, vks1);
+    const { proofFields: proofFields1, vk: generatedVk1 } = await backend1.prove(witnesses1, vks1);
     validProofFields = proofFields1;
     invalidProofFields = corruptProofFields(validProofFields);
     vk = generatedVk1;
@@ -33,7 +33,7 @@ describe('Batch Chonk Verifier workloads', () => {
     logger.info('Generating complex proof...');
     const [bytecodes2, witnesses2, , vks2] = await generateTestingIVCStack(1, 1);
     const backend2 = new AztecClientBackend(bytecodes2, bb);
-    const [proofFields2, , generatedVk2] = await backend2.prove(witnesses2, vks2);
+    const { proofFields: proofFields2, vk: generatedVk2 } = await backend2.prove(witnesses2, vks2);
     validProofFields2 = proofFields2;
     vk2 = generatedVk2;
 

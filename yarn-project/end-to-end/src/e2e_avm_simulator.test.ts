@@ -36,11 +36,8 @@ describe('e2e_avm_simulator', () => {
     let secondAvmContract: AvmTestContract;
 
     beforeEach(async () => {
-      ({
-        receipt: { contract: avmContract, instance: avmContractInstance },
-      } = await AvmTestContract.deploy(wallet).send({
+      ({ contract: avmContract, instance: avmContractInstance } = await AvmTestContract.deploy(wallet).send({
         from: defaultAccountAddress,
-        wait: { returnReceipt: true },
       }));
       ({ contract: secondAvmContract } = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress }));
     });

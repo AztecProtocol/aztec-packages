@@ -286,16 +286,28 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       executionSteps.map(step => step.functionName),
     );
 
-    const [proof] = await backend.prove(
+    // Use compressed prove path to get both proof fields and compressed proof bytes
+    const result = await backend.prove(
       executionSteps.map(step => ungzip(serializeWitness(step.witness))),
       executionSteps.map(step => step.vk),
+      { compress: true },
     );
     this.log.info(`Generated ClientIVC proof`, {
       eventName: 'client-ivc-proof-generation',
       duration: timer.ms(),
-      proofSize: proof.length,
+      proofSize: result.proofFields.length,
+      compressedSize: result.compressedProof?.length,
     });
-    return ChonkProofWithPublicInputs.fromBufferArray(proof);
+
+    // Create ChonkProofWithPublicInputs from the flat field elements
+    const proofWithPubInputs = ChonkProofWithPublicInputs.fromBufferArray(result.proofFields);
+
+    // Attach compressed proof bytes to the ChonkProof (without public inputs).
+    // The compressed bytes are for the full proof WITH public inputs from bb;
+    // when deserializing, the decompressor will strip them to match CHONK_PROOF_LENGTH.
+    proofWithPubInputs.compressedProof = result.compressedProof ? Buffer.from(result.compressedProof) : undefined;
+
+    return proofWithPubInputs;
   }
 
   public async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
