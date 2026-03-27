@@ -3,6 +3,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
 
+# Bare aliases ("nightly", "latest") resolve to this major version.
+DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
+
 function build {
   # Noop if user doesn't have docker.
   if ! command -v docker &>/dev/null; then
@@ -114,6 +117,10 @@ function test {
 function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
+  # e.g. "nightly", or "latest" for bare releases
+  local dist_tag=$(dist_tag)
+  # e.g. "4" from v4.1.0-nightly.20260319
+  local major=$(semver major $REF_NAME)
 
   # Upload each file in bin/0.0.1/, replacing VERSION= lines with the release version.
   for file in bin/0.0.1/*; do
@@ -121,18 +128,24 @@ function release {
       do_or_dryrun aws s3 cp - "s3://install.aztec.network/$version/$(basename $file)"
   done
 
-  # Update alias to point to new version.
-  # This has real impact outside of the version fence. i.e. if it's a nightly dist tag, it affects nightly installs.
-  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
+  # Update versioned alias (e.g. v4-nightly, v5-latest).
+  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/v${major}-${dist_tag}" <<< "$version"
+
+  # Bare alias (e.g. "nightly") should always resolve to the default major.
+  if [ "$major" = "$DEFAULT_MAJOR_VERSION" ]; then
+    do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$dist_tag" <<< "$version"
+  fi
 }
 
 # This is not done by CI.
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
 function release_root_installer {
-    # Upload root aztec-install with VERSION defaulting to nightly (instead of local 0.0.1).
-    sed "s/^VERSION=.*/VERSION=\${VERSION:-nightly}/" bin/0.0.1/aztec-install | \
+    # Upload root installer assets: aztec-install (with VERSION defaulting to latest), aztec-up, and banner files.
+    sed "s/^VERSION=\${VERSION:-.*}/VERSION=\${VERSION:-latest}/" bin/0.0.1/aztec-install | \
       do_or_dryrun aws s3 cp - "s3://install.aztec.network/aztec-install"
     do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-banner "s3://install.aztec.network/aztec-banner"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-banner-truecolor "s3://install.aztec.network/aztec-banner-truecolor"
 
     # Update alias list.
     do_or_dryrun aws s3 cp bin/aliases/index "s3://install.aztec.network/aliases/index"
@@ -205,6 +218,7 @@ function install_on_mac_vm {
     # Point npm at local Verdaccio and scripts at local HTTP server.
     export npm_config_registry=http://$host_ip:$verdaccio_port
     export INSTALL_URI=http://$host_ip:$http_port
+    export INFRA_VERSION=0.0.1
     export NO_NEW_SHELL=1
 
     touch \$HOME/.zshrc
