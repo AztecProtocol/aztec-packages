@@ -628,6 +628,10 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
 #ifndef NDEBUG
     update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
+    if (queue_type == QUEUE_TYPE::GOBLIN) {
+        // If accumulating Goblin Flush app, we need to reset the op queue
+        goblin.op_queue->reset_to_current_subtable();
+    }
     goblin.prove_merge(prover_accumulation_transcript);
 
     num_circuits_accumulated++;
