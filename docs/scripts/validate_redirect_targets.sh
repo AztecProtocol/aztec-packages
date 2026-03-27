@@ -41,12 +41,9 @@ else
   DEVELOPER_DEFAULT_VERSION=""
 fi
 
-# Get the default network version (ignition version)
+# Get the default network version (first entry = mainnet)
 if [[ -f "$NETWORK_VERSION_FILE" ]]; then
-  NETWORK_DEFAULT_VERSION=$(jq -r '.[] | select(contains("ignition"))' "$NETWORK_VERSION_FILE" | head -n1)
-  if [[ -z "$NETWORK_DEFAULT_VERSION" ]]; then
-    NETWORK_DEFAULT_VERSION=$(jq -r '.[0]' "$NETWORK_VERSION_FILE")
-  fi
+  NETWORK_DEFAULT_VERSION=$(jq -r '.[0]' "$NETWORK_VERSION_FILE")
 else
   NETWORK_DEFAULT_VERSION=""
 fi

@@ -38,7 +38,7 @@ Aztec Docs use **multi-instance versioning** with separate version tracks for de
 
 Each versioned docs folder is a complete copy of the documentation at that point in time, which allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `testnet`, `devnet`, and `nightly`, while network docs show versions like `testnet` and `ignition`.
+When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `mainnet`, `testnet`, `devnet`, and `nightly`, while network docs show versions like `mainnet` and `testnet`.
 
 - Updating files in `docs-developers/` updates the "next" developer version
 - Updating files in `docs-operate/` updates the "next" operate version
@@ -65,54 +65,59 @@ The legacy `#include_aztec_version` macro uses `COMMIT_TAG`, while `#include_ver
 
 ### How do I change the versions that show in the website
 
-When Docusaurus builds, it looks for the version files for each docs instance:
+The version system uses **config files** as the source of truth for mapping release types to version strings:
 
-- `developer_versions.json` - Controls which versions appear in the developer docs dropdown
-- `network_versions.json` - Controls which versions appear in the network docs dropdown
+- `developer_version_config.json` - Maps release types to developer doc versions (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`)
+- `network_version_config.json` - Maps release types to network doc versions
 
-You can update these files manually, or use the `scripts/update_docs_versions.sh` script:
+The Docusaurus-compatible array files (`developer_versions.json`, `network_versions.json`) are auto-generated from the config files by `docusaurus.config.js` at startup.
+
+You can update the config files manually, or use the `scripts/update_docs_versions.sh` script which reconciles the config with the versioned docs directories:
 
 ```bash
-./scripts/update_docs_versions.sh developer  # Updates developer_versions.json
-./scripts/update_docs_versions.sh network    # Updates network_versions.json
+./scripts/update_docs_versions.sh developer  # Updates developer_version_config.json
+./scripts/update_docs_versions.sh network    # Updates network_version_config.json
 ```
 
 To create a new versioned snapshot of the docs:
 
 ```bash
-yarn docusaurus docs:version:developers v3.0.0-devnet.6  # New developer version
-yarn docusaurus docs:version:network v2.1.6-ignition     # New network version
+yarn docusaurus docs:version:developer v3.0.0-devnet.6  # New developer version
+yarn docusaurus docs:version:network v4.2.0               # New network version
 ```
+
+Then update the config file to register the new version's release type.
 
 ### Version Configuration
 
-The `docusaurus.config.js` file uses dynamic version lookup instead of hard-coded array indices to gracefully handle version changes. This is critical for the nightly docs cleanup workflow, which removes old nightly versions.
+The `docusaurus.config.js` file reads from the version config files for explicit type→version mapping. Version strings do not need to self-identify their release type (e.g., a mainnet version can be `v4.2.0-aztecnr-rc.2`).
 
-Each docs instance has its own version file and lookup logic:
-
-**Developer docs** (from `developer_versions.json`):
+**Developer docs** (from `developer_version_config.json`):
 
 ```javascript
-const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-const developerTestnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
+const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
+const developerTestnetVersion = developerVersionConfig.testnet || null;
+const devnetVersion = developerVersionConfig.devnet || null;
+const nightlyVersion = developerVersionConfig.nightly || null;
 ```
 
-**Network docs** (from `network_versions.json`):
+**Network docs** (from `network_version_config.json`):
 
 ```javascript
-const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
-const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
+const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
+const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
+const testnetVersion = networkVersionConfig.testnet || null;
 ```
 
 This ensures that:
 
+- Version type detection is explicit and reliable regardless of version string format
 - When nightly versions are removed by the cleanup script, the build doesn't break
 - Version configurations are conditionally included only if they exist
-- Array index shifts don't cause mismatched version configurations
-- The llms.txt plugin always points to the correct version (testnet)
+- Mainnet versions appear first in the version dropdown when present
+- The llms.txt plugin always points to the correct version (mainnet, then testnet)
 
-**Why this matters:** The [nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs `cleanup_nightly_versions.sh` before creating new versioned docs. Without dynamic lookup, removing versions would cause array indices to point to wrong versions, breaking the build.
+**Why this matters:** The [nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs `cleanup_nightly_versions.sh` before creating new versioned docs. The config-based approach ensures that removing versions doesn't cause mismatched configurations.
 
 ## Releases
 
@@ -375,7 +380,7 @@ This value may be different from both `#include_aztec_version` and `#include_tes
 ### `#include_mainnet_version`
 
 This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.11 yarn build`). If not specified, it defaults to `2.1.11`.
-This value is used for mainnet and ignition releases.
+This value is used for mainnet releases.
 
 ### `#release_version`
 
@@ -387,7 +392,6 @@ This macro is release-type-aware and automatically resolves to the appropriate v
 | devnet       | `DEVNET_TAG`                               | `3.0.0-devnet.5`         |
 | testnet      | `TESTNET_TAG`                              | `2.1.11`                 |
 | mainnet      | `MAINNET_TAG`                              | `2.1.11`                 |
-| ignition     | `MAINNET_TAG`                              | `2.1.11`                 |
 
 Usage: `aztecprotocol/aztec:#release_version`
 
@@ -401,7 +405,6 @@ This macro resolves to the network name for use with the `--network` CLI flag:
 | devnet       | `devnet`        |
 | testnet      | `testnet`       |
 | mainnet      | `mainnet`       |
-| ignition     | `mainnet`       |
 
 Usage: `--network #release_network`
 
@@ -413,7 +416,6 @@ The `RELEASE_TYPE` environment variable controls which release type the document
 - `devnet` - For devnet releases
 - `testnet` - For testnet releases
 - `mainnet` - For mainnet releases
-- `ignition` - For ignition releases (treated as mainnet)
 
 Example build commands:
 
@@ -427,8 +429,8 @@ RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 yarn build
 # Build for testnet
 RELEASE_TYPE=testnet TESTNET_TAG=2.1.11 yarn build
 
-# Build for ignition/mainnet
-RELEASE_TYPE=ignition MAINNET_TAG=2.1.11 yarn build
+# Build for mainnet
+RELEASE_TYPE=mainnet MAINNET_TAG=2.1.11 yarn build
 ```
 
 ### Conditional Content
@@ -443,7 +445,7 @@ Content that only appears in devnet docs
 #elif(testnet)
 Content that only appears in testnet docs
 #elif(mainnet)
-Content that only appears in mainnet/ignition docs
+Content that only appears in mainnet docs
 #else
 Default content if no condition matches
 #endif
@@ -454,8 +456,7 @@ Default content if no condition matches
 - `nightly` - True when `RELEASE_TYPE=nightly`
 - `devnet` - True when `RELEASE_TYPE=devnet`
 - `testnet` - True when `RELEASE_TYPE=testnet`
-- `mainnet` - True when `RELEASE_TYPE=mainnet` or `RELEASE_TYPE=ignition`
-- `ignition` - Alias for `mainnet`
+- `mainnet` - True when `RELEASE_TYPE=mainnet`
 
 **Notes:**
 

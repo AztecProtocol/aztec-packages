@@ -18,13 +18,19 @@ YARN_PROJECT_DIR="$(cd "$DOCS_ROOT/../yarn-project" && pwd)"
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"
 
-# Determine output folder name - use stable paths for nightly/devnet/testnet
-if [[ "$VERSION" == *"nightly"* ]]; then
+# Determine output folder name - use stable paths for nightly/devnet/testnet/mainnet
+# RELEASE_TYPE env var takes precedence for explicit mapping (e.g., when version string
+# doesn't self-identify its release type)
+if [[ -n "${RELEASE_TYPE:-}" ]]; then
+    OUTPUT_FOLDER="$RELEASE_TYPE"
+elif [[ "$VERSION" == *"nightly"* ]]; then
     OUTPUT_FOLDER="nightly"
 elif [[ "$VERSION" == *"devnet"* ]]; then
     OUTPUT_FOLDER="devnet"
 elif [[ "$VERSION" == *"rc"* ]] || [[ "$VERSION" == *"testnet"* ]]; then
     OUTPUT_FOLDER="testnet"
+elif [[ "$VERSION" == *"mainnet"* ]]; then
+    OUTPUT_FOLDER="mainnet"
 else
     OUTPUT_FOLDER="$VERSION"
 fi
@@ -48,7 +54,7 @@ safe_rm_rf() {
     fi
     # Ensure path is under expected directories
     case "$dir_path" in
-        "$DOCS_ROOT"/static/typescript-api/*|/tmp/typedoc-*)
+        "$DOCS_ROOT"/static/typescript-api/*|"$DOCS_ROOT"/static/typescript-api|/tmp/typedoc-*)
             rm -rf "$dir_path"
             ;;
         *)

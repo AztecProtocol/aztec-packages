@@ -10,9 +10,10 @@ Update the Aztec developer documentation for a new release. Queries the network
 for current info, updates version defaults, contract addresses, migration notes,
 builds the docs, cuts a versioned snapshot, and prepares changes on `next`.
 
-Supports both **devnet** and **testnet** releases. The release type is auto-detected
-from the version string returned by the network (e.g. `devnet` in the version means
-devnet, `rc` or `testnet` means testnet).
+Supports **devnet**, **testnet**, and **mainnet** releases. The release type is
+auto-detected from the version string returned by the network (e.g. `devnet` in
+the version means devnet, `testnet` means testnet, `mainnet` means mainnet). If
+the version string does not self-identify its release type, ask the user to confirm.
 
 ## Usage
 
@@ -45,8 +46,9 @@ Parse the response to extract:
 **Detect release type** from the version string:
 
 - Contains `devnet` → release type is `devnet`
-- Contains `rc` or `testnet` → release type is `testnet`
-- If unclear, ask the user to confirm
+- Contains `testnet` → release type is `testnet`
+- Contains `mainnet` → release type is `mainnet`
+- If unclear, ask the user to confirm the release type
 
 Store all values (including the detected release type) for use in subsequent steps.
 
@@ -85,39 +87,52 @@ aztec get-canonical-sponsored-fpc-address
 
 Store the address for updating docs.
 
-### Step 5: Update `include_version.js` Defaults
+### Step 5: Update Version Config
 
-**File:** `docs/src/preprocess/include_version.js`
+The version config files are the source of truth. The preprocessing script
+(`include_version.js`) reads its defaults from these configs automatically,
+so you only need to update the config files.
 
-Update the default value for the tag matching the release type:
+**File:** `docs/developer_version_config.json`
 
-- **Devnet**: Update the `DEVNET_TAG` default:
-  ```javascript
-  const devnetTag = process.env.DEVNET_TAG || "4.0.0-devnet.2-patch.1";
-  ```
-- **Testnet**: Update the `TESTNET_TAG` default:
-  ```javascript
-  const testnetTag = process.env.TESTNET_TAG || "4.1.0-rc.2";
-  ```
+Update the entry matching the release type:
 
-Replace the old version string with the new `nodeVersion`.
+```bash
+node -e "
+  const fs = require('fs');
+  const config = require('./developer_version_config.json');
+  config['<release_type>'] = 'v<nodeVersion>';
+  fs.writeFileSync('./developer_version_config.json', JSON.stringify(config, null, 2) + '\n');
+"
+```
+
+For mainnet and testnet releases, also update `docs/network_version_config.json`:
+
+```bash
+node -e "
+  const fs = require('fs');
+  const config = require('./network_version_config.json');
+  config['<release_type>'] = 'v<nodeVersion>';
+  fs.writeFileSync('./network_version_config.json', JSON.stringify(config, null, 2) + '\n');
+"
+```
 
 ### Step 6: Generate API Reference Docs
 
-Generate the Aztec.nr and TypeScript API documentation for the new version. The
-generation scripts automatically map version strings to stable folder names
-(`devnet`, `testnet`, `nightly`).
+Generate the Aztec.nr and TypeScript API documentation for the new version. Pass
+`RELEASE_TYPE` as an environment variable so the scripts map the version to the
+correct stable folder name (`devnet`, `testnet`, `mainnet`, `nightly`).
 
 ```bash
 cd docs
-yarn generate:aztec-nr-api <nodeVersion>
-yarn generate:typescript-api <nodeVersion>
+RELEASE_TYPE=<release_type> yarn generate:aztec-nr-api <nodeVersion>
+RELEASE_TYPE=<release_type> yarn generate:typescript-api <nodeVersion>
 ```
 
 This creates/updates the API docs in:
 
-- `docs/static/aztec-nr-api/<folder>/` (e.g. `testnet/` for rc versions)
-- `docs/static/typescript-api/<folder>/`
+- `docs/static/aztec-nr-api/<release_type>/` (e.g. `mainnet/` for mainnet releases)
+- `docs/static/typescript-api/<release_type>/`
 
 **Prerequisites:**
 
@@ -168,7 +183,8 @@ These files are auto-generated — do not hand-edit them.
 
 **File:** `docs/docs/networks.md`
 
-Update the column matching the release type (**Devnet** or **Testnet**) in the tables:
+Update the column matching the release type (**Devnet**, **Testnet**, or **Mainnet**)
+in the tables:
 
 - **Network Technical Information table**: version, RPC endpoint, rollup version
 - **L1 Contract Addresses table**: all addresses from the `node_getNodeInfo` response
@@ -180,6 +196,9 @@ Update the column matching the release type (**Devnet** or **Testnet**) in the t
 
 Both testnet and devnet use Sepolia. Use the Sepolia etherscan URL format for L1 addresses:
 `[0xADDR](https://sepolia.etherscan.io/address/0xADDR)`
+
+For mainnet, use the mainnet etherscan URL format:
+`[0xADDR](https://etherscan.io/address/0xADDR)`
 
 Also grep for any other files referencing old addresses for this network and update:
 
@@ -207,6 +226,13 @@ There is no dedicated `getting_started_on_testnet.md` page. Instead:
 - Check `docs/docs-developers/getting_started_on_devnet.md` for any testnet references
   that also need updating
 
+**For mainnet releases:**
+
+- Update any mainnet RPC URLs or addresses in operator docs under `docs/docs-operate/`
+- Review the mainnet section of `docs/docs/networks.md` for accuracy
+- Check `docs/docs-developers/` for any mainnet-specific getting started content
+- If a dedicated getting started page exists for mainnet, update it
+
 ### Step 11: Run `yarn build` and Fix Issues
 
 Set the environment variables matching the release type so the build preprocessor
@@ -214,6 +240,7 @@ resolves version placeholders correctly:
 
 - **Devnet**: `DEVNET_TAG=<new_version> RELEASE_TYPE=devnet`
 - **Testnet**: `TESTNET_TAG=<new_version> RELEASE_TYPE=testnet`
+- **Mainnet**: `MAINNET_TAG=<new_version> RELEASE_TYPE=mainnet`
 
 ```bash
 cd docs && <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> COMMIT_TAG=<new_version> yarn build
@@ -235,7 +262,10 @@ one final time after all changes are complete.
 **For testnet releases:** Read through the testnet section of `docs/docs/networks.md`
 and any updated operator docs.
 
-In both cases verify:
+**For mainnet releases:** Read through the mainnet section of `docs/docs/networks.md`
+and any updated operator docs.
+
+In all cases verify:
 
 - CLI commands use the correct version and flags
 - Fee payment instructions are accurate
@@ -252,6 +282,7 @@ Set the environment variables matching the release type:
 
 - **Devnet**: `DEVNET_TAG=<new_version> RELEASE_TYPE=devnet`
 - **Testnet**: `TESTNET_TAG=<new_version> RELEASE_TYPE=testnet`
+- **Mainnet**: `MAINNET_TAG=<new_version> RELEASE_TYPE=mainnet`
 
 **Important:** The version string passed to `docs:version` must always be prefixed
 with `v` (e.g. `v4.1.0-rc.2`, not `4.1.0-rc.2`).
@@ -261,13 +292,30 @@ cd docs
 <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> yarn docusaurus docs:version:developer v<new_version>
 ```
 
-Then update the versions file:
+Then update the version config file:
 
 ```bash
-docs/scripts/update_docs_versions.sh developer
+node -e "
+  const fs = require('fs');
+  const config = require('./developer_version_config.json');
+  config['<release_type>'] = 'v<new_version>';
+  fs.writeFileSync('./developer_version_config.json', JSON.stringify(config, null, 2) + '\n');
+"
 ```
 
-Verify the new version appears in `docs/developer_versions.json`.
+Verify the new version appears in `docs/developer_version_config.json`.
+
+For **mainnet** and **testnet** releases, also cut network/operate docs:
+
+```bash
+<TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> yarn docusaurus docs:version:network v<new_version>
+node -e "
+  const fs = require('fs');
+  const config = require('./network_version_config.json');
+  config['<release_type>'] = 'v<new_version>';
+  fs.writeFileSync('./network_version_config.json', JSON.stringify(config, null, 2) + '\n');
+"
+```
 
 ### Step 14: Review Recent Docs Updates on `next`
 
@@ -304,19 +352,20 @@ After cutting versioned docs, check whether any recent documentation updates on
 
 ### Step 15: Clean Up Old Version
 
-Identify the previous version for this release type from `docs/developer_versions.json`
+Identify the previous version for this release type from `docs/developer_version_config.json`
 (look for the old entry being replaced — e.g. the old devnet or testnet version).
 
-**Note:** For testnet, there may not be an old developer docs version to clean up if
-this is the first testnet developer docs cut. In that case, skip this step.
+**Note:** For the first release of a given type (e.g., first mainnet developer docs cut),
+there may not be an old version to clean up. In that case, skip this step.
 
 **Ask the user for confirmation** before deleting. If approved, remove:
 
 - `docs/developer_versioned_docs/version-<old_version>/`
 - `docs/developer_versioned_sidebars/version-<old_version>-sidebars.json`
-- The old entry from `developer_versions.json`
 - Any old API docs in `docs/static/aztec-nr-api/<old_version>/`
 - Any old API docs in `docs/static/typescript-api/<old_version>/`
+
+The config file is already updated in Step 13 to point to the new version.
 
 ### Step 16: Move Changes to `next` Branch
 
@@ -348,5 +397,12 @@ Check for stash conflicts. Then report to the user:
   at the end, ready for a PR.
 - **API ref docs**: Generated in Step 6 into `docs/static/typescript-api/` and
   `docs/static/aztec-nr-api/` with stable folder names (`devnet`, `testnet`,
-  `nightly`). The `#api_ref_version` macro resolves to the matching folder name
-  for each release type (see `include_version.js`).
+  `mainnet`, `nightly`). Pass `RELEASE_TYPE=<type>` to the generation scripts
+  when the version string doesn't self-identify its release type. The
+  `#api_ref_version` macro resolves to the matching folder name for each release
+  type (see `include_version.js`).
+- **Version config files**: The source of truth for version→type mappings is
+  `developer_version_config.json` and `network_version_config.json`. These are
+  object-based JSON files (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0"}`).
+  The Docusaurus-compatible array files (`developer_versions.json`,
+  `network_versions.json`) are auto-generated from these configs.
