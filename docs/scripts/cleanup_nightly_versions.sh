@@ -2,7 +2,7 @@
 
 # Script to clean up nightly documentation versions
 # This removes all versions containing "nightly" from the Build docs
-# (Network docs don't have nightly versions - they use testnet/ignition)
+# (Network docs don't have nightly versions - they use mainnet/testnet)
 
 set -e
 
@@ -21,20 +21,22 @@ cleanup_nightly_versions() {
 
     cd "$docs_dir"
 
-    # Find nightly versions in developer_versions.json (Developer docs only)
-    NIGHTLY_VERSIONS=$(jq -r '.[] | select(test("nightly"))' developer_versions.json 2>/dev/null || echo "")
+    # Find nightly version in developer_version_config.json (Developer docs only)
+    NIGHTLY_VERSION=""
+    if [ -f developer_version_config.json ]; then
+        NIGHTLY_VERSION=$(jq -r '.nightly // empty' developer_version_config.json 2>/dev/null || echo "")
+    fi
 
-    if [ -z "$NIGHTLY_VERSIONS" ]; then
-        echo -e "${GREEN}✅ No nightly versions found in $docs_name developer_versions.json${NC}"
+    if [ -z "$NIGHTLY_VERSION" ]; then
+        echo -e "${GREEN}✅ No nightly version found in $docs_name developer_version_config.json${NC}"
     else
-        echo -e "${BLUE}🔍 Found nightly versions in $docs_name:${NC}"
-        echo "$NIGHTLY_VERSIONS" | sed 's/^/  - /'
+        echo -e "${BLUE}🔍 Found nightly version in $docs_name: $NIGHTLY_VERSION${NC}"
 
-        # Remove nightly versions from developer_versions.json
-        echo -e "${YELLOW}🗑️  Removing nightly versions from developer_versions.json...${NC}"
-        jq 'map(select(test("nightly") | not))' developer_versions.json > developer_versions.json.tmp
-        mv developer_versions.json.tmp developer_versions.json
-        echo -e "${GREEN}✅ Updated developer_versions.json${NC}"
+        # Remove nightly key from developer_version_config.json
+        echo -e "${YELLOW}🗑️  Removing nightly version from developer_version_config.json...${NC}"
+        jq 'del(.nightly)' developer_version_config.json > developer_version_config.json.tmp
+        mv developer_version_config.json.tmp developer_version_config.json
+        echo -e "${GREEN}✅ Updated developer_version_config.json${NC}"
     fi
 
     # Find and remove nightly version directories from Developer docs

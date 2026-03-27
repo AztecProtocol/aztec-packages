@@ -18,16 +18,24 @@ const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 
-// Load separate version files for each docs instance
-const developerVersions = require("./developer_versions.json");
+// Load version config for developer docs (source of truth for type→version mapping)
+const developerVersionConfig = require("./developer_version_config.json");
+
+// Auto-generate Docusaurus-compatible developer_versions.json from config
+const developerVersions = Object.values(developerVersionConfig).filter(Boolean);
+fs.writeFileSync(
+  path.join(__dirname, "developer_versions.json"),
+  JSON.stringify(developerVersions, null, 2) + "\n"
+);
+
+// Direct type-based lookups for developer docs
+const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
+const developerTestnetVersion = developerVersionConfig.testnet || null;
+const devnetVersion = developerVersionConfig.devnet || null;
+const nightlyVersion = developerVersionConfig.nightly || null;
+
+// Load network versions directly (network docs not included in this release)
 const networkVersions = require("./network_versions.json");
-
-// Find specific versions dynamically for Developer docs
-const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-const developerTestnetVersion = developerVersions.find((v) => v.includes("rc"));
-
-// Find specific versions dynamically for Network docs
 const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
 const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
 
@@ -108,7 +116,7 @@ const config = {
     },
   ],
   plugins: [
-    // Developer docs instance - testnet/devnet/nightly versions
+    // Developer docs instance - mainnet/testnet/devnet/nightly versions
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -124,19 +132,26 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: developerTestnetVersion,
+        lastVersion: mainnetDeveloperVersion || developerTestnetVersion || devnetVersion,
         versions: {
+          ...(mainnetDeveloperVersion && {
+            [mainnetDeveloperVersion]: {
+              label: `Alpha (${mainnetDeveloperVersion})`,
+              path: "",
+              banner: "none",
+            },
+          }),
           ...(developerTestnetVersion && {
             [developerTestnetVersion]: {
               label: `Testnet (${developerTestnetVersion})`,
-              path: "",
+              path: mainnetDeveloperVersion ? "testnet" : "",
               banner: "none",
             },
           }),
           ...(devnetVersion && {
             [devnetVersion]: {
               label: `Devnet (${devnetVersion})`,
-              path: "devnet",
+              path: (mainnetDeveloperVersion || developerTestnetVersion) ? "devnet" : "",
               banner: "none",
             },
           }),
@@ -237,12 +252,12 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: developerTestnetVersion
-          ? `developer_versioned_docs/version-${developerTestnetVersion}/`
+        docsDir: (mainnetDeveloperVersion || developerTestnetVersion)
+          ? `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}/`
           : `developer_versioned_docs/version-${developerVersions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        version: developerTestnetVersion || developerVersions[0],
+        version: mainnetDeveloperVersion || developerTestnetVersion || developerVersions[0],
         pathTransformation: {
           ignorePaths: ["docs"],
         },
