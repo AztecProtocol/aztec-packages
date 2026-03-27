@@ -230,6 +230,35 @@ template <typename G_> class TestElement : public testing::Test {
         }
     }
 
+    // batch_normalize must preserve infinity points and correctly normalize non-infinity ones.
+    static void test_batch_normalize_with_infinity()
+    {
+        constexpr size_t num_points = 6;
+        std::vector<element> points(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            if (i % 3 == 0) {
+                points[i] = element::infinity();
+            } else {
+                element a = element::random_element();
+                element b = element::random_element();
+                points[i] = a + b;
+            }
+        }
+        std::vector<element> normalized = points;
+        element::batch_normalize(&normalized[0], num_points);
+
+        for (size_t i = 0; i < num_points; ++i) {
+            if (i % 3 == 0) {
+                EXPECT_TRUE(normalized[i].is_point_at_infinity());
+            } else {
+                Fq zz = points[i].z.sqr();
+                Fq zzz = points[i].z * zz;
+                EXPECT_EQ(normalized[i].x * zz, points[i].x);
+                EXPECT_EQ(normalized[i].y * zzz, points[i].y);
+            }
+        }
+    }
+
     static void test_group_exponentiation_zero_and_one()
     {
         affine_element result = G::one * Fr::zero();
@@ -356,6 +385,11 @@ TYPED_TEST(TestElement, AddMixedAddConsistencyCheck)
 TYPED_TEST(TestElement, BatchNormalize)
 {
     TestFixture::test_batch_normalize();
+}
+
+TYPED_TEST(TestElement, BatchNormalizeWithInfinity)
+{
+    TestFixture::test_batch_normalize_with_infinity();
 }
 
 TYPED_TEST(TestElement, GroupExponentiationZeroAndOne)
