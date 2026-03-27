@@ -623,7 +623,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.logger.getBindings(),
     );
 
-    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(logRetrievalRequests);
+    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(contractAddress, logRetrievalRequests);
 
     // Requests are cleared once we're done.
     await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId, scope);
