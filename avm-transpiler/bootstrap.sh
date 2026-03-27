@@ -55,7 +55,7 @@ function build_cross {
     (
       flock -x 200
       if ! command -v cargo-zigbuild >/dev/null 2>&1; then
-        cargo install --locked cargo-zigbuild
+        cargo install --locked cargo-zigbuild@0.21.8
       fi
 
       if ! rustup target list --installed | grep -q "^$rust_target$"; then
