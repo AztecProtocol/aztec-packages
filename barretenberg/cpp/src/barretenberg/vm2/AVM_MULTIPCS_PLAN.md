@@ -1,119 +1,65 @@
-# AVM Multipcs — Bench & Tuning Guide
+# AVM Multipcs — Overview & Benchmarks
 
 ## What it does
 
-Groups `BATCH_SIZE` (BS) consecutive AVM polynomials into each commitment via on-the-fly interleaving.
-Reduces witness commitment count from ~3012 (BS=1) to ~1506 (BS=2) to ~753 (BS=4).
+Groups `BATCH_SIZE` (BS) consecutive AVM polynomials into each commitment via on-the-fly interleaving:
+`G(X) = f₀(X^BS) + X·f₁(X^BS) + ... + X^{BS-1}·f_{BS-1}(X^BS)`
 
-BS is controlled by codegen: regenerate with `--batch-size N` and rebuild. No C++ changes needed.
+The verifier reconstructs the group evaluation from individual sumcheck evaluations via a Lagrange combination over the interleaving challenges. The PCS extended challenge is `[interleaving_challenges || sumcheck_challenges]`, with `shift_exponent = BS`.
 
-## Current status
+BS is a codegen parameter — regenerate with `AVM_BATCH_SIZE=N ./scripts/avm2_gen.sh`. No manual C++ changes needed.
 
-- **BS=16**: Prover + native verifier + recursive verifier (Mega/Goblin) all working. All `vm2_tests` pass.
-- **Remaining**: Noir proof length constant update, Ultra recursive verifier (deferred — Mega path is production).
+## Status
 
-## Key constants (generated in `columns.hpp`)
+BS=16 is fully implemented: prover, native verifier, and recursive verifier (Mega/Goblin path) all pass `vm2_tests`.
 
-| Constant | BS=1 | BS=2 | BS=4 | BS=16 |
-|----------|------|------|------|-------|
-| `INTERLEAVING_BATCH_SIZE` | 1 | 2 | 4 | 16 |
-| `INTERLEAVING_LOG_K` | 0 | 1 | 2 | 4 |
-| Witness commitments | 3012 | ~1506 | ~753 | ~219 |
-| Gemini rounds | log₂(N) | log₂(N)+1 | log₂(N)+2 | log₂(N)+4 |
-| SRS requirement | N | 2N | 4N | 16N |
-| Wire groups | 2525 | ~1263 | ~632 | 159 |
-| Derived groups | 452 | ~226 | ~113 | 29 |
-| Shifted groups | 363 | ~182 | ~91 | 23 |
-| Precomputed groups | 122 | ~61 | ~31 | 8 |
+## Group counts (BS=16, current entity counts)
 
-Entity counts (current): precomputed=122, wire=2525, derived=452, shifted=363.
-Wire and shifted are not BS-aligned — last group in each section is zero-padded.
-`NUM_SHIFT_ALIGNMENT_PADDING` zero-polys inserted before shifted wires for BS-alignment.
+| Section | Entities | Groups (BS=16) |
+|---------|----------|----------------|
+| Precomputed | 122 | 8 |
+| Wire | 2525 | 159 |
+| Derived | 452 | 29 |
+| Shifted | 363 | 23 |
 
-## How to benchmark
+Non-BS-aligned sections get zero-padded in the last group. An alignment padding of `NUM_SHIFT_ALIGNMENT_PADDING` zero-polys is inserted before shifted wires so shifted groups are BS-aligned.
 
-```bash
-# Build
-cd barretenberg/cpp
-cmake --preset clang20-assert -DAVM=ON
-cmake --build --preset clang20-assert --target vm2_tests
+## Benchmarks
 
-# Run the two-layer recursive verifier bench (prove + recursive verify)
-# BB_VERBOSE=1 required to see mem checkpoints and prover stats
-cd build && BB_VERBOSE=1 ./bin/vm2_tests --gtest_filter="*TwoLayerAvmRecursion*Padded*" 2>&1
-
-# Run full bulk test (from repo root)
-yarn-project/end-to-end/scripts/run_test.sh simple e2e_block_building
-```
-
-**Note**: `vinfo` calls (used for mem checkpoints) only print with `BB_VERBOSE=1`. Peak RSS is appended automatically to every log line by `logstr()`.
-
-## Benchmark results
-
-`TwoLayerAvmRecursion/Padded` — minimal trace, padded proof, Mega recursive verifier. Avg of 3 runs, `BB_VERBOSE=1`.
+`TwoLayerAvmRecursion/Padded` — minimal trace, padded proof, Mega recursive verifier. Avg of 3 runs.
 
 | Metric | BS=1 | BS=16 | Δ |
 |--------|------|-------|---|
 | SRS load (one-time) | 190 ms | 2860 ms | +15× (SRS 16× larger) |
-| wire commitments (2525 → 159 groups) | 727 ms | 269 ms | **-63%** |
+| wire commitments | 727 ms | 269 ms | **-63%** |
 | log-deriv inverse | 155 ms | 127 ms | -18% |
-| log-deriv commitments (452 → 29 groups) | 757 ms | 556 ms | -27% |
+| log-deriv commitments | 757 ms | 556 ms | -27% |
 | sumcheck | 666 ms | 655 ms | ~0% |
 | pcs rounds | 493 ms | 1409 ms | +186% |
 | **construct_proof total** | **2803 ms** | **3022 ms** | **+8%** |
-| AVM native prove (wall, incl. SRS) | 3s | 6s | +3s (SRS dominates) |
 | AVM native prove (excl. SRS) | ~2.8s | ~3.1s | +8% |
 | recursive verifier circuit | ~10s | ~9s | -1s |
-| **total e2e (excl. SRS)** | **~13s** | **~12s** | **-1s** |
-
-> Note: SRS is loaded once at process startup and amortized across all proofs. The +3s wall-time difference in native prove is entirely SRS load. Excluding it, BS=16 is net faster end-to-end due to a cheaper recursive verifier circuit (-1s, -92% ultra ops).
+| **total e2e (excl. SRS)\*** | **~13s** | **~12s** | **-1s** |
 | peak RSS (SRS, one-time) | ~370 MiB | ~4207 MiB | +16× |
 | proof size (unpadded) | ~14400 fields | 4511 fields | **-69%** |
 | recursive verifier gates | 3,176,945 | 2,593,898 | **-18%** |
 | Goblin ultra ops | 3138 | 239 | **-92%** |
 | AVM verifiers per IPA budget (~4000 ops) | ~1 | **~16** | **+16×** |
 
-## What to measure
+_\* SRS is loaded once at process startup and amortized across all proofs. The native prove wall-time difference is dominated by SRS load (+2.7s). Excluding it, BS=16 is net faster end-to-end._
 
-1. **Commitment round time** — `prove/wire_commitments_round` and `prove/log_derivative_inverse_commitments_round`. Half as many commitments at BS=2, but each interleaved MSM touches the same total number of scalar-point pairs, so total MSM work is roughly unchanged. Savings come from reduced transcript hashing and fewer group additions.
-2. **PCS round time** — `prove/pcs_rounds`. Gemini does LOG_K extra fold rounds. Each fold is over a polynomial of size `actual_trace * BS`. For small traces, negligible; for full 2²¹ traces, adds one fold at size 2²².
-3. **Proof size** — Fewer commitments (2 FEs each) but more Gemini folds (2 FEs + 1 FE each). Net savings at BS=2: ~3012 fewer commitment FEs, +3 fold FEs ≈ 3009 FE reduction.
-4. **Memory** — Temporary interleaved group polynomials are allocated per-group proportional to actual trace data (not max). Gemini fold allocations also scale with actual trace.
-5. **Verifier time** — Lagrange combination is O(num_groups × BS), cheap. Shplemini/KZG pairing unchanged.
+## Notes on prover cost
 
-## Architecture (data flow)
+- **Wire/derived commitments**: fewer, larger MSMs — Pippenger overhead amortizes better, hence the speedup despite same total scalar-point work.
+- **Sumcheck**: unchanged — operates on individual entity polynomials.
+- **PCS rounds**: slower on minimal trace due to larger group polynomials and 4 extra Gemini rounds. Expected to amortize on full 2²¹ traces where PCS is already expensive.
+- **Peak RSS**: entirely dominated by SRS (2^25 G1 points × 64 B ≈ 2 GiB, peaks ~4 GiB during load). No memory growth during proving itself.
 
-```
-Individual entity polys (size N each)
-    │
-    ├── Oink: commit_interleaved<BS>() per group → group commitments
-    │
-    ├── Sumcheck: operates on individual entities (unchanged)
-    │
-    └── PCS:
-        ├── Prover: materialize interleaved groups → batch with short scalars → Gemini/Shplemini
-        └── Verifier: Lagrange-combine evals → batch group commitments → Shplemini
-```
+## SRS requirement
 
-## Tuning knobs
+Must be ≥ `MAX_AVM_TRACE_SIZE × BS = 2²¹ × 16 = 2²⁵` points. The existing file CRS (2²⁵ points) is exactly sufficient for BS=16.
 
-- **`INTERLEAVING_BATCH_SIZE`** (codegen `--batch-size`): Primary knob. 1=off, 2=halve commitments, 4=quarter. Higher BS means fewer commitments but larger PCS polynomials and SRS requirement.
-- **`AVM_MAX_MSM_BATCH_SIZE`** (env var): Controls how many groups are batch-committed together. Currently commitment rounds are per-group (no batching). Adding `batch_commit_interleaved` would improve throughput.
-- **SRS size**: Must be ≥ `actual_trace_size * BS`. The ProvingKey allocates SRS at `MAX_AVM_TRACE_SIZE * BS`. File CRS has 2²⁵ points, sufficient for BS≤16.
-
-## Protocol details
-
-**Interleaving**: Group poly `G(X) = f₀(X^BS) + X·f₁(X^BS) + ... + X^{BS-1}·f_{BS-1}(X^BS)`.
-
-**Extended challenge**: `[interleaving_challenges || sumcheck_challenges]`. Interleaving challenges are the lowest-order multilinear variables (select position within group). Generated via Fiat-Shamir after sumcheck, before PCS.
-
-**Lagrange combination**: Verifier combines BS individual sumcheck evaluations into one group evaluation: `E_g = Σⱼ L_j(u) · e_{g·BS+j}` where `L_j` is Lagrange basis over {0,1}^{LOG_K}.
-
-**Section boundaries**: Entity counts not divisible by BS require per-section combining (precomputed, wire, derived separately) to avoid cross-section indexing errors.
-
-**Shift exponent**: Shifted group polynomials have `start_index = BS`. PolynomialBatcher uses `shift_exponent = BS` (not 1). ClaimBatcher computes `r^{-BS}` scaling.
-
-## Files changed (from merge-train/avm)
+## Files changed
 
 | File | What |
 |------|------|
@@ -122,5 +68,9 @@ Individual entity polys (size N each)
 | `vm2/constraining/flavor.cpp` | SRS size = circuit_size × BS, Gemini round count |
 | `vm2/constraining/prover.cpp` | Interleaved commit rounds, materialized PCS |
 | `vm2/constraining/verifier.cpp` | Group commitments, Lagrange eval combining, extended challenge |
+| `vm2/constraining/recursion/recursive_flavor.hpp` | Group commitment transcript ops, extended Gemini rounds |
+| `vm2/constraining/recursion/recursive_verifier.cpp` | Full multipcs PCS path mirroring native verifier |
 | `vm2/proving_helper.hpp/cpp` | VK with precomputed group commitments |
-| `vm2/constraining/verifier.test.cpp` | Pass VK from prover to verifier |
+| `vm2/constraining/gen_fixed_vk.cpp` | VK generator (individual + group commitments) |
+| `vm2/constraining/avm_fixed_vk.hpp` | Auto-generated hardcoded VK |
+| `barretenberg/cpp/scripts/avm2_gen.sh` | Regeneration script (PIL codegen + VK gen) |
