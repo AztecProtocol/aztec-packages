@@ -7,7 +7,7 @@
  *    generate.ts [service...]         # e.g. generate.ts bb wsdb cdb avm
  *
  * 2. Single-schema mode (generate one language from any schema file):
- *    generate.ts --schema <file> --lang <ts|rust|zig|cpp-types> --out <dir>
+ *    generate.ts --schema <file> --lang <ts|rust|zig|cpp> --out <dir>
  *    Prefix is auto-detected from command names (e.g. WsdbGetTreeInfo → Wsdb).
  *
  * Zero npm dependencies — runs with Node.js 22+ via --experimental-strip-types.
@@ -125,18 +125,18 @@ function generateSingle(schemaPath: string, lang: string, outDir: string, prefix
       writeFile('server.zig', gen.generateServer(compiled));
       break;
     }
-    case 'cpp-types': {
+    case 'cpp': {
       const gen = new CppCodegen({
         namespace: prefix.toLowerCase(),
         prefix,
         executeHeader: '',
         commandsHeader: '',
       });
-      writeFile('types_generated.hpp', gen.generateStandaloneTypes(compiled));
+      writeFile('types.hpp', gen.generateStandaloneTypes(compiled));
       break;
     }
     default:
-      console.error(`Unknown language: ${lang}. Available: ts, rust, zig, cpp-types`);
+      console.error(`Unknown language: ${lang}. Available: ts, rust, zig, cpp`);
       process.exit(1);
   }
 
