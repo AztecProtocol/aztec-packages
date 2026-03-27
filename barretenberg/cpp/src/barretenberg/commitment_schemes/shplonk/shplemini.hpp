@@ -465,8 +465,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
 
             // Accumulate the const term contribution given by
             // v^{2j} * A_j(r^{2^j}) /(z - r^{2^j}) + v^{2j+1} * A_j(-r^{2^j}) /(z+ r^{2^j})
-            constant_term_accumulator +=
-                scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
+            // For padding rounds (j >= log_n), padding_indicator_array[j] = 0, zeroing the contribution.
+            // This ensures prover-sent negative evaluations for padding rounds don't affect the constant term.
+            constant_term_accumulator += padding_indicator_array[j] * (scaling_factor_neg * gemini_neg_evaluations[j] +
+                                                                       scaling_factor_pos * gemini_pos_evaluations[j]);
 
             // Place the scaling factor to the 'scalars' vector
             scalars.emplace_back(-padding_indicator_array[j] * (scaling_factor_neg + scaling_factor_pos));

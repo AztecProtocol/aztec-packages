@@ -1,6 +1,6 @@
 ---
 title: Rollup Circuits
-sidebar_position: 2
+sidebar_position: 4
 tags: [protocol, circuits]
 description: Learn how Rollup Circuits compress transactions into a single proof using a hierarchical tree topology for efficient verification on Ethereum.
 ---

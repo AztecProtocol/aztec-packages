@@ -3,6 +3,7 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import type { KeyStore } from '@aztec/key-store';
 import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
 import { MessageContextService } from '@aztec/pxe/simulator';
 import { L2Block } from '@aztec/stdlib/block';
@@ -35,6 +36,7 @@ export class TXEStateMachine {
     anchorBlockStore: AnchorBlockStore,
     contractStore: ContractStore,
     noteStore: NoteStore,
+    keyStore: KeyStore,
   ) {
     const synchronizer = await TXESynchronizer.create();
     const aztecNodeConfig = {} as AztecNodeConfig;
@@ -68,6 +70,7 @@ export class TXEStateMachine {
       node,
       contractStore,
       noteStore,
+      () => keyStore.getAccounts(),
       createLogger('txe:contract_sync'),
     );
 

@@ -39,7 +39,7 @@ function inject_version {
   # Re-sign after modifying the binary.
   if [[ "$(os)" == "macos" ]]; then
     codesign -s - -f "$binary" 2>/dev/null || true
-  elif llvm-objdump --macho --private-header "$binary" &>/dev/null; then
+  elif llvm-objdump-20 --macho --private-header "$binary" 2>/dev/null | grep -q "Mach header"; then
     ldid -S "$binary"
   fi
 }

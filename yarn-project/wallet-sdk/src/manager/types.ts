@@ -96,6 +96,7 @@ export interface WalletProvider {
    * matches their wallet before calling `confirm()`.
    *
    * @param appId - Application identifier for the requesting dapp
+   * @param options - Optional provider-specific options (e.g. container element for iframe wallets)
    * @returns A pending connection with verification hash and confirm/cancel methods
    *
    * @example
@@ -110,7 +111,7 @@ export interface WalletProvider {
    * const wallet = await pending.confirm();
    * ```
    */
-  establishSecureChannel(appId: string): Promise<PendingConnection>;
+  establishSecureChannel(appId: string, options?: Record<string, unknown>): Promise<PendingConnection>;
   /**
    * Disconnects the current wallet and cleans up resources.
    * After calling this, the wallet returned from confirm() should no longer be used.

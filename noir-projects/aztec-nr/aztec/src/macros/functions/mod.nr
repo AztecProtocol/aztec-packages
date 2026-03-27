@@ -231,8 +231,6 @@ pub comptime fn only_self(f: FunctionDefinition) {
             f"The #[only_self] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
         );
     }
-
-    f.add_attribute("noinitcheck");
 }
 
 /// View functions cannot modify state in any way, including performing contract calls that would in turn modify state.
