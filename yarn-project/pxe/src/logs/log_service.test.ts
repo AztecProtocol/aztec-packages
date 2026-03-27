@@ -104,7 +104,7 @@ describe('LogService', () => {
       const invalidRequest = new LogRetrievalRequest(differentContract, new Tag(Fr.random()));
 
       await expect(logService.fetchLogsByTag(contractAddress, [validRequest, invalidRequest])).rejects.toThrow(
-        /Got a note validation request from/,
+        /Got a log retrieval request from/,
       );
     });
   });
