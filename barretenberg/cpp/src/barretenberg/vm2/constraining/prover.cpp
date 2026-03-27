@@ -314,7 +314,9 @@ void AvmProver::execute_pcs_rounds()
         }
     };
 
+    vinfo("[mem] pcs: before materialize precomputed_groups");
     auto precomputed_groups = build_interleaved_groups<BS>(precomputed_polys, Flavor::NUM_PRECOMPUTED_GROUPS);
+    vinfo("[mem] pcs: after precomputed_groups (", Flavor::NUM_PRECOMPUTED_GROUPS, " groups)");
 
     std::vector<Polynomial> wire_groups;
     wire_groups.reserve(Flavor::NUM_WIRE_GROUPS);
@@ -335,10 +337,13 @@ void AvmProver::execute_pcs_rounds()
         }
         wire_groups.push_back(std::move(interleaved));
     }
+    vinfo("[mem] pcs: after wire_groups (", Flavor::NUM_WIRE_GROUPS, " groups)");
 
     auto derived_groups = build_interleaved_groups<BS>(derived_polys, Flavor::NUM_DERIVED_GROUPS);
+    vinfo("[mem] pcs: after derived_groups (", Flavor::NUM_DERIVED_GROUPS, " groups)");
     auto shifted_wire_groups =
         build_interleaved_groups<BS>(shifted_polys, Flavor::NUM_SHIFTED_GROUPS, /*shiftable=*/true);
+    vinfo("[mem] pcs: after shifted_wire_groups (", Flavor::NUM_SHIFTED_GROUPS, " groups)");
 
     // Collect all unshifted groups: precomputed + wire + derived
     std::vector<Polynomial*> all_unshifted_groups;
@@ -420,6 +425,7 @@ void AvmProver::execute_pcs_rounds()
     for (size_t g = 0; g < Flavor::NUM_SHIFTED_GROUPS; g++) {
         batched_shifted.add_scaled(shifted_wire_groups[g], group_shifted_challenges[g]);
     }
+    vinfo("[mem] pcs: after batched_shifted (size=", shifted_max_end, ")");
 
     size_t unshifted_max_end = 0;
     for (size_t g = 0; g < Flavor::NUM_UNSHIFTED_GROUPS; g++) {
@@ -435,6 +441,7 @@ void AvmProver::execute_pcs_rounds()
         }
     }
     batched_unshifted += batched_shifted;
+    vinfo("[mem] pcs: after batched_unshifted (size=", unshifted_max_end, ")");
 
     // ---- PCS opening ----
 
@@ -453,10 +460,13 @@ void AvmProver::execute_pcs_rounds()
     extended_challenge.insert(
         extended_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
+    vinfo("[mem] pcs: before Shplemini (group_circuit_size=", group_circuit_size, ")");
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
         group_circuit_size, polynomial_batcher, extended_challenge, commitment_key, transcript);
+    vinfo("[mem] pcs: after Shplemini/Gemini");
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+    vinfo("[mem] pcs: after KZG open");
 }
 
 HonkProof AvmProver::export_proof()
@@ -484,9 +494,11 @@ HonkProof AvmProver::construct_proof()
 
     // Run sumcheck subprotocol.
     AVM_TRACK_TIME("prove/sumcheck", execute_relation_check_rounds());
+    vinfo("[mem] after sumcheck");
 
     // Execute PCS.
     AVM_TRACK_TIME("prove/pcs_rounds", execute_pcs_rounds());
+    vinfo("[mem] after pcs_rounds");
 
     return export_proof();
 }

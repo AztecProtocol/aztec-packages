@@ -21,17 +21,24 @@ namespace bb::avm2 {
 
 AvmProvingHelper::Proof AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
 {
+    vinfo("[mem] before compute_polynomials");
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
+    vinfo("[mem] after compute_polynomials");
     auto proving_key =
         AVM_TRACK_TIME_V("proving/prove:proving_key", constraining::proving_key_from_polynomials(polynomials));
+    vinfo("[mem] after proving_key");
 
     // VK constructor initializes precomputed_group_commitments from hardcoded values.
     vk_ = std::make_shared<AvmVerifier::VerificationKey>();
 
     auto prover =
         AVM_TRACK_TIME_V("proving/prove:construct_prover", AvmProver(proving_key, vk_, proving_key->commitment_key));
+    vinfo("[mem] after construct_prover (SRS loaded)");
 
     auto proof = AVM_TRACK_TIME_V("proving/construct_proof", prover.construct_proof());
+    vinfo("[mem] after construct_proof");
+
+    vinfo("=== AVM Prover Stats (depth 4) ===\n", Stats::get().to_string(4));
 
     return proof;
 }
