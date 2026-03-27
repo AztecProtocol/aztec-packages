@@ -46,7 +46,7 @@ function build {
       # We build libraries to be linked by barretenberg
       # For now we only use the zig build for macOS targets
       if ! command -v cargo-zigbuild >/dev/null 2>&1; then
-        cargo install --locked cargo-zigbuild
+        cargo install --locked cargo-zigbuild@0.21.8
       fi
 
       targets=(
