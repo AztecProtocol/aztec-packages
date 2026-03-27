@@ -33,14 +33,16 @@ export class RustCodegen {
   private opts: Required<RustCodegenOptions>;
 
   constructor(options?: RustCodegenOptions) {
+    const prefix = options?.prefix ?? '';
+    const name = prefix || 'Barretenberg';
     this.opts = {
-      prefix: options?.prefix ?? '',
-      apiStructName: options?.apiStructName ?? 'BarretenbergApi',
+      prefix,
+      apiStructName: options?.apiStructName ?? `${name}Api`,
       backendImport: options?.backendImport ?? 'crate::backend::Backend',
-      errorImport: options?.errorImport ?? 'crate::error::{BarretenbergError, Result}',
+      errorImport: options?.errorImport ?? `crate::error::{${name}Error, Result}`,
       typesImport: options?.typesImport ?? 'crate::generated_types::*',
-      typesDocComment: options?.typesDocComment ?? 'Generated from Barretenberg msgpack schema',
-      apiDocComment: options?.apiDocComment ?? 'High-level Barretenberg API - msgpack details hidden',
+      typesDocComment: options?.typesDocComment ?? `Generated types for ${name} IPC protocol`,
+      apiDocComment: options?.apiDocComment ?? `${name} IPC client API`,
     };
   }
 

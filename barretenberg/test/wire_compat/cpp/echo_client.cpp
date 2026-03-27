@@ -4,7 +4,7 @@
  * Exits 0 on success, 1 on failure.
  */
 
-#include "generated/echo_types.hpp"
+#include "generated/types_generated.hpp"
 #include "echo_common.hpp"
 #include <iostream>
 #include <cassert>

@@ -15,10 +15,8 @@ PASS=0
 FAIL=0
 TOTAL=0
 
-# Generate types from echo schema
-echo "Generating echo types..."
-CODEGEN="$(cd "$TEST_DIR/../.." && pwd)/codegen"
-node --experimental-strip-types --experimental-transform-types --no-warnings "$TEST_DIR/generate.ts"
+# Generate types from echo schema using the codegen CLI
+"$TEST_DIR/generate.sh"
 
 # Build Rust binaries
 echo "Building Rust echo binaries..."
