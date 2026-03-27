@@ -119,9 +119,21 @@ async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
 }
 
 async function run() {
-  // await generateInstructionSet(); // Removed with protocol-specs
-
   const rootDir = path.join(__dirname, "../../../");
+  const docsRoot = path.join(rootDir, "docs");
+
+  // Generate Docusaurus-compatible array files from version config files.
+  // This must happen early (before validate:redirects runs) so that
+  // *_versions.json reflects the current config, not stale data.
+  for (const instance of ["developer", "network"]) {
+    const configPath = path.join(docsRoot, `${instance}_version_config.json`);
+    const arrayPath = path.join(docsRoot, `${instance}_versions.json`);
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      const versions = Object.values(config).filter(Boolean);
+      fs.writeFileSync(arrayPath, JSON.stringify(versions, null, 2) + "\n");
+    }
+  }
   const baseDestDir = path.join(rootDir, "docs", "processed-docs");
   const baseCachedDestDir = path.join(rootDir, "docs", "processed-docs-cache");
 

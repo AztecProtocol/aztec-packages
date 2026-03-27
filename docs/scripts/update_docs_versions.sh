@@ -56,7 +56,7 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
                 if (version) versionToType[version] = type;
             }
 
-            // Build new config: only keep entries whose versions still exist
+            // Build new config: keep existing type mappings for versions that still exist
             const newConfig = {};
             for (const [type, version] of Object.entries(config)) {
                 if (version && allVersions.includes(version)) {
@@ -66,10 +66,24 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
                 }
             }
 
-            // Warn about unmapped versions
+            // Register unmapped versions using best-effort type detection from the
+            // version string.  Falls back to the raw version as the key so the entry
+            // is at least present (the operator can rename the key later).
             for (const version of allVersions) {
                 if (!versionToType[version]) {
-                    console.error('WARNING: Version ' + version + ' exists in versioned_docs but has no type mapping in config');
+                    let detectedType = version;
+                    if (version.includes('nightly')) detectedType = 'nightly';
+                    else if (version.includes('devnet')) detectedType = 'devnet';
+                    else if (version.includes('testnet')) detectedType = 'testnet';
+                    else if (version.includes('mainnet')) detectedType = 'mainnet';
+
+                    // Avoid overwriting an existing type that maps to a different version
+                    if (newConfig[detectedType] && newConfig[detectedType] !== version) {
+                        console.error('WARNING: Version ' + version + ' detected as ' + detectedType + ' but that type already maps to ' + newConfig[detectedType] + '. Using version string as key.');
+                        detectedType = version;
+                    }
+                    newConfig[detectedType] = version;
+                    console.error('Added new entry: ' + detectedType + ' = ' + version);
                 }
             }
 

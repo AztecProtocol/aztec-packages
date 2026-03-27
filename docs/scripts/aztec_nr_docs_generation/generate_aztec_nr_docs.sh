@@ -27,10 +27,10 @@ elif [[ "$VERSION" == *"nightly"* ]]; then
     OUTPUT_FOLDER="nightly"
 elif [[ "$VERSION" == *"devnet"* ]]; then
     OUTPUT_FOLDER="devnet"
-elif [[ "$VERSION" == *"rc"* ]] || [[ "$VERSION" == *"testnet"* ]]; then
-    OUTPUT_FOLDER="testnet"
 elif [[ "$VERSION" == *"mainnet"* ]]; then
     OUTPUT_FOLDER="mainnet"
+elif [[ "$VERSION" == *"testnet"* ]]; then
+    OUTPUT_FOLDER="testnet"
 else
     OUTPUT_FOLDER="$VERSION"
 fi
