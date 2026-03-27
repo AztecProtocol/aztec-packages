@@ -105,7 +105,6 @@ const nightlyVersion = developerVersionConfig.nightly || null;
 
 ```javascript
 const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
-const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
 const testnetVersion = networkVersionConfig.testnet || null;
 ```
 
