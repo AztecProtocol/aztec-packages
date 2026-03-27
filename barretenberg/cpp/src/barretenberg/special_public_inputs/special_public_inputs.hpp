@@ -172,8 +172,7 @@ class GoblinFlushIO {
 
     PairingPoints<curve::BN254> pairing_inputs;
     IpaClaim ipa_claim;
-    TableCommitments T_prev;
-    TableCommitments t;
+    TableCommitments merged_table;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -191,11 +190,7 @@ class GoblinFlushIO {
         index += PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
         index += IpaClaim::PUBLIC_INPUTS_SIZE;
-        for (auto& commitment : T_prev) {
-            commitment = PublicPoint::reconstruct(public_inputs, { index });
-            index += G1::PUBLIC_INPUTS_SIZE;
-        }
-        for (auto& commitment : t) {
+        for (auto& commitment : merged_table) {
             commitment = PublicPoint::reconstruct(public_inputs, { index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }

@@ -386,10 +386,9 @@ template <class Builder_> class GoblinFlushIO {
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
     using PublicIpaClaim = stdlib::PublicInputComponent<IpaClaim>;
 
-    PairingInputs pairing_inputs; // Aggregated KZG pairing points from Merge + Translator
-    IpaClaim ipa_claim;           // IPA opening claim from ECCVM recursive verifier
-    TableCommitments T_prev;      // Merged table commitments from Merge verification
-    TableCommitments t;           // Subtable commitments (previous kernel's ECC ops)
+    PairingInputs pairing_inputs;  // Aggregated KZG pairing points from Merge + Translator
+    IpaClaim ipa_claim;            // IPA opening claim from ECCVM recursive verifier
+    TableCommitments merged_table; // Merged table commitments used in the GoblinFlush app
 
     // Total size of the Goblin flush IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_FLUSH_PUBLIC_INPUTS_SIZE;
@@ -406,11 +405,7 @@ template <class Builder_> class GoblinFlushIO {
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
         index += IpaClaim::PUBLIC_INPUTS_SIZE;
-        for (auto& commitment : T_prev) {
-            commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
-            index += G1::PUBLIC_INPUTS_SIZE;
-        }
-        for (auto& commitment : t) {
+        for (auto& commitment : merged_table) {
             commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
@@ -425,10 +420,7 @@ template <class Builder_> class GoblinFlushIO {
 
         pairing_inputs.set_public(builder);
         ipa_claim.set_public();
-        for (auto& commitment : T_prev) {
-            commitment.set_public();
-        }
-        for (auto& commitment : t) {
+        for (auto& commitment : merged_table) {
             commitment.set_public();
         }
 

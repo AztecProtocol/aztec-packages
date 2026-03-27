@@ -35,8 +35,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     G1 kernel_return_data;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments (HidingKernel/Chonk only)
     FF transcript_hash;            // The final state of the transcript of the AVM recursive verifier (GoblinAvm only)
-    TableCommitments T_prev_flush; // Merge T_prev commitments (GoblinFlush only)
-    TableCommitments t_flush;      // Merge subtable commitments (GoblinFlush only)
+    TableCommitments merged_table; // Merged table used in GoblinFlush
 
     UltraRecursiveVerifierOutput() = default;
 
@@ -51,8 +50,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
             transcript_hash = inputs.transcript_hash;
         } else if constexpr (std::is_same_v<IO, GoblinFlushIO<Builder>>) {
             ipa_claim = inputs.ipa_claim;
-            T_prev_flush = inputs.T_prev;
-            t_flush = inputs.t;
+            merged_table = inputs.merged_table;
         } else if constexpr (!std::is_same_v<IO, DefaultIO<Builder>>) {
             throw_or_abort("Invalid public input type.");
         }

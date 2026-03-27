@@ -13,32 +13,36 @@ namespace {
 
 class GoblinFlushCircuitTests : public testing::Test {
   public:
-    using MergeCommitments = MergeVerifier::InputCommitments;
+    using TableCommitments = MergeVerifier::TableCommitments;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ProverOutput {
         GoblinProof proof;
-        MergeCommitments merge_commitments;
+        TableCommitments merge_commitments;
     };
 
     static ProverOutput create_goblin_prover_output(const size_t num_circuits = 5)
     {
+        // Generate some tables and merge them
         Goblin goblin;
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, num_circuits);
-        auto goblin_proof = goblin.prove();
+        goblin.prove_merge(goblin.transcript, MergeSettings::APPEND);
+
+        // Reset the transcript as the goblin verification starts a new transcript
+        goblin.transcript = std::make_shared<NativeTranscript>();
+        goblin.prove_eccvm();
+        goblin.prove_translator();
 
         // Extract merge commitments from op_queue
-        MergeCommitments merge_commitments;
-        auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns();
+        TableCommitments table_commitments;
+        auto merged_table = goblin.op_queue->construct_ultra_ops_table_columns();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
-            merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
+            table_commitments[idx] = pcs_commitment_key.commit(merged_table[idx]);
         }
 
-        return { std::move(goblin_proof), merge_commitments };
+        return { goblin.goblin_proof, table_commitments };
     }
 };
 
@@ -47,9 +51,9 @@ class GoblinFlushCircuitTests : public testing::Test {
  */
 TEST_F(GoblinFlushCircuitTests, CircuitCorrectness)
 {
-    auto [proof, merge_commitments] = create_goblin_prover_output();
+    auto [proof, table_commitments] = create_goblin_prover_output();
 
-    auto builder = build_goblin_flush_circuit(proof, merge_commitments);
+    auto builder = build_goblin_flush_circuit(proof, table_commitments);
 
     EXPECT_FALSE(builder.failed()) << builder.err();
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -60,9 +64,9 @@ TEST_F(GoblinFlushCircuitTests, CircuitCorrectness)
  */
 TEST_F(GoblinFlushCircuitTests, ProveAndVerify)
 {
-    auto [proof, merge_commitments] = create_goblin_prover_output();
+    auto [proof, table_commitments] = create_goblin_prover_output();
 
-    auto builder = build_goblin_flush_circuit(proof, merge_commitments);
+    auto builder = build_goblin_flush_circuit(proof, table_commitments);
 
     ASSERT_FALSE(builder.failed()) << builder.err();
 
@@ -88,16 +92,25 @@ TEST_F(GoblinFlushCircuitTests, ProveAndVerify)
  */
 TEST_F(GoblinFlushCircuitTests, IpaClaimConsistency)
 {
-    auto [proof, merge_commitments] = create_goblin_prover_output();
+    auto [proof, table_commitments] = create_goblin_prover_output();
 
-    // Get the IPA claim from native Goblin verification
+    // Get the IPA claim from native Goblin verification (ECCVM and Translator only)
     auto native_transcript = std::make_shared<NativeTranscript>();
-    GoblinVerifier native_verifier(native_transcript, proof, merge_commitments, MergeSettings::APPEND);
-    auto native_result = native_verifier.reduce_to_pairing_check_and_ipa_opening();
-    ASSERT_TRUE(native_result.all_checks_passed);
+    ECCVMVerifier eccvm_verifier{ native_transcript, proof.eccvm_proof };
+    auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
+
+    auto translator_input = eccvm_verifier.get_translator_input_data();
+    TranslatorVerifier translator_verifier{ native_transcript,
+                                            proof.translator_proof,
+                                            translator_input.evaluation_challenge_x,
+                                            translator_input.batching_challenge_v,
+                                            translator_input.accumulated_result,
+                                            table_commitments };
+    auto translator_result = translator_verifier.reduce_to_pairing_check();
+    ASSERT_TRUE(eccvm_result.reduction_succeeded && translator_result.reduction_succeeded);
 
     // Build Circuit C and extract the IPA claim from public inputs
-    auto builder = build_goblin_flush_circuit(proof, merge_commitments);
+    auto builder = build_goblin_flush_circuit(proof, table_commitments);
     ASSERT_FALSE(builder.failed()) << builder.err();
 
     // Reconstruct GoblinFlushIO from the circuit's public inputs
@@ -114,7 +127,7 @@ TEST_F(GoblinFlushCircuitTests, IpaClaimConsistency)
     io.reconstruct_from_public(public_inputs);
 
     // Compare IPA claim values (convert circuit bigfield values to native for comparison)
-    auto native_claim = native_result.ipa_claim;
+    auto native_claim = eccvm_result.ipa_claim;
 
     EXPECT_EQ(fq(io.ipa_claim.opening_pair.challenge.get_value()), native_claim.opening_pair.challenge);
     EXPECT_EQ(fq(io.ipa_claim.opening_pair.evaluation.get_value()), native_claim.opening_pair.evaluation);
