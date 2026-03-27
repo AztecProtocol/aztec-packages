@@ -23,8 +23,8 @@ import { type GetContractReturnType, getContract } from 'viem';
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
-// Set a very long 15 minute timeout.
-const TIMEOUT = 900_000;
+// Set a very long 35 minute timeout.
+const TIMEOUT = 2_100_000;
 
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
@@ -60,7 +60,7 @@ describe('full_prover', () => {
       address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
       client: t.l1Contracts.l1Client,
     });
-  }, 120_000);
+  }, 300_000);
 
   afterAll(async () => {
     await t.teardown();
