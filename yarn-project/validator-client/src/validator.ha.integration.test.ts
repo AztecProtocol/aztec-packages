@@ -33,12 +33,12 @@ import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import { BlockProposalHandler } from './block_proposal_handler.js';
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorClientConfig } from './config.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
+import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient HA Integration', () => {
@@ -129,7 +129,6 @@ describe('ValidatorClient HA Integration', () => {
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
-      validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
       l1Contracts: { rollupAddress },
       slashDuplicateProposalPenalty: 1n,
@@ -196,7 +195,7 @@ describe('ValidatorClient HA Integration', () => {
       txsPermitted: true,
       maxTxsPerBlock: undefined,
     });
-    const blockProposalHandler = new BlockProposalHandler(
+    const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
       worldState,
       blockSource,
@@ -205,6 +204,7 @@ describe('ValidatorClient HA Integration', () => {
       blockProposalValidator,
       epochCache,
       config,
+      blobClient,
       metrics,
       dateProvider,
       getTelemetryClient(),
@@ -216,13 +216,10 @@ describe('ValidatorClient HA Integration', () => {
       haKeyStore,
       epochCache,
       p2pClient,
-      blockProposalHandler,
-      blockSource,
-      checkpointsBuilder,
-      worldState,
-      l1ToL2MessageSource,
+      proposalHandler,
       config,
       blobClient,
+      haSigner,
       dateProvider,
       getTelemetryClient(),
     ) as ValidatorClient;
