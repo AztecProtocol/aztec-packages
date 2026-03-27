@@ -395,7 +395,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         `Cannot propose checkpoint ${checkpointNumber} at slot ${slot} due to failed rollup contract check`,
         logCtx,
       );
-      this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed', slot: slot });
+      this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed', slot });
       this.metrics.recordCheckpointPrecheckFailed('rollup_contract_check_failed');
       return undefined;
     }

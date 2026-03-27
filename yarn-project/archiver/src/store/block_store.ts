@@ -655,6 +655,12 @@ export class BlockStore {
     return this.convertToProposedCheckpointData(stored);
   }
 
+  /**
+   * Gets the checkpoint at the proposed tip
+   * - pending checkpoint if it exists
+   * - fallsback to latest confirmed checkpoint otherwise
+   * @returns CommonCheckpointData
+   */
   async getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
     const stored = await this.#proposedCheckpoint.getAsync();
     if (!stored) {
