@@ -65,7 +65,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[]]);
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
       expect(responses.length).toEqual(1);
       expect(responses[0]).toBeNull();
     });
@@ -78,7 +78,7 @@ describe('LogService', () => {
 
       const request = new LogRetrievalRequest(contractAddress, new Tag(scopedLog.logData[0]));
 
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
@@ -92,7 +92,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
@@ -106,7 +106,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
 
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
@@ -120,7 +120,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
 
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
@@ -134,10 +134,20 @@ describe('LogService', () => {
 
       const request = new LogRetrievalRequest(contractAddress, new Tag(scopedLog.logData[0]));
 
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
+    });
+
+    it('rejects a batch where at least one request targets a different contract', async () => {
+      const differentContract = await AztecAddress.random();
+      const validRequest = new LogRetrievalRequest(contractAddress, tag);
+      const invalidRequest = new LogRetrievalRequest(differentContract, new Tag(Fr.random()));
+
+      await expect(logService.fetchLogsByTag(contractAddress, [validRequest, invalidRequest])).rejects.toThrow(
+        /Got a log retrieval request from/,
+      );
     });
   });
 });
