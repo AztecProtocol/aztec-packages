@@ -30,7 +30,9 @@ pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {
 }
 
 pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("noinitcheck")
+    // #[only_self] functions automatically skip the initialization check as the check is assumed to be done by the
+    // calling external function or explicitly skipped. See only_self function docs for more details.
+    f.has_named_attribute("noinitcheck") | is_fn_only_self(f)
 }
 
 pub(crate) comptime fn fn_has_allow_phase_change(f: FunctionDefinition) -> bool {

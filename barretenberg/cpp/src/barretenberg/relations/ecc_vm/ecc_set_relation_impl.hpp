@@ -495,11 +495,11 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& z_perm_shift_short = ShortView(in.z_perm_shift);
 
     // degree-21
-    std::get<0>(accumulator) +=
+    std::get<GRAND_PRODUCT>(accumulator) +=
         ((z_perm + lagrange_first) * numerator_evaluation - (z_perm_shift + lagrange_last) * denominator_evaluation) *
         scaling_factor;
 
     // Contribution (2)
-    std::get<1>(accumulator) += lagrange_last_short * z_perm_shift_short * scaling_factor;
+    std::get<LEFT_SHIFTABLE>(accumulator) += lagrange_last_short * z_perm_shift_short * scaling_factor;
 }
 } // namespace bb

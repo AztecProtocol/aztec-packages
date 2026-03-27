@@ -16,6 +16,7 @@ export const useApiVersion = () => {
   if (versionName === "current") return "next";
   if (versionName.includes("nightly")) return "nightly";
   if (versionName.includes("devnet")) return "devnet";
+  if (versionName.includes("rc") || versionName.includes("testnet")) return "testnet";
   return versionName;
 };
 

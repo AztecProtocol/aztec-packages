@@ -1,24 +1,24 @@
+import { ManualDateProvider } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-
-import { jest } from '@jest/globals';
 
 import { getP2PDefaultConfig } from '../../config.js';
 import { PeerScoreState, PeerScoring } from './peer_scoring.js';
 
 describe('PeerScoring', () => {
   let peerScoring: PeerScoring;
+  let dateProvider: ManualDateProvider;
   const testPeerId = 'testPeer123';
 
   beforeEach(() => {
-    peerScoring = new PeerScoring({
-      ...getP2PDefaultConfig(),
-      peerPenaltyValues: [2, 10, 50],
-    });
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
+    dateProvider = new ManualDateProvider();
+    peerScoring = new PeerScoring(
+      {
+        ...getP2PDefaultConfig(),
+        peerPenaltyValues: [2, 10, 50],
+      },
+      undefined,
+      dateProvider,
+    );
   });
 
   test('should initialize with zero score for a new peer', () => {
@@ -40,7 +40,7 @@ describe('PeerScoring', () => {
     peerScoring.updateScore(testPeerId, 10);
 
     // Advance time by 1 minute (decay interval)
-    jest.advanceTimersByTime(60000);
+    dateProvider.advanceTimeMs(60000);
 
     peerScoring.updateScore(testPeerId, 0); // Trigger decay calculation
     expect(peerScoring.getScore(testPeerId)).toBeCloseTo(9, 1); // 10 * 0.9 ≈ 9
@@ -51,7 +51,7 @@ describe('PeerScoring', () => {
     peerScoring.updateScore('anotherPeer', 20);
 
     // Advance time by 2 minutes
-    jest.advanceTimersByTime(120000);
+    dateProvider.advanceTimeMs(120000);
 
     peerScoring.decayAllScores();
     expect(peerScoring.getScore(testPeerId)).toBeCloseTo(8.1, 1); // 10 * 0.9 * 0.9 ≈ 8.1
@@ -81,7 +81,7 @@ describe('PeerScoring', () => {
 
   test('should handle score updates after long periods of inactivity', () => {
     peerScoring.updateScore(testPeerId, 100);
-    jest.advanceTimersByTime(1000 * 60 * 60 * 24); // Advance 24 hours
+    dateProvider.advanceTimeMs(1000 * 60 * 60 * 24); // Advance 24 hours
     peerScoring.updateScore(testPeerId, 10);
     expect(peerScoring.getScore(testPeerId)).toBeCloseTo(10, 1);
   });
@@ -92,16 +92,17 @@ describe('PeerScoring', () => {
       peerPenaltyValues: [50, 2, 11],
     };
 
-    const peerScoring = new PeerScoring(testConfig);
+    const localDateProvider = new ManualDateProvider();
+    const localPeerScoring = new PeerScoring(testConfig, undefined, localDateProvider);
 
-    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.HighToleranceError]);
-    expect(peerScoring.getScore(testPeerId)).toBe(-2);
+    localPeerScoring.updateScore(testPeerId, -localPeerScoring.peerPenalties[PeerErrorSeverity.HighToleranceError]);
+    expect(localPeerScoring.getScore(testPeerId)).toBe(-2);
 
-    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.MidToleranceError]);
-    expect(peerScoring.getScore(testPeerId)).toBe(-13);
+    localPeerScoring.updateScore(testPeerId, -localPeerScoring.peerPenalties[PeerErrorSeverity.MidToleranceError]);
+    expect(localPeerScoring.getScore(testPeerId)).toBe(-13);
 
-    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.LowToleranceError]);
-    expect(peerScoring.getScore(testPeerId)).toBe(-63);
+    localPeerScoring.updateScore(testPeerId, -localPeerScoring.peerPenalties[PeerErrorSeverity.LowToleranceError]);
+    expect(localPeerScoring.getScore(testPeerId)).toBe(-63);
   });
 
   test('should correctly determine peer score state', () => {
@@ -131,7 +132,7 @@ describe('PeerScoring', () => {
     expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Disconnect);
 
     // Advance time by 10 minutes (should decay score significantly)
-    jest.advanceTimersByTime(10 * 60 * 1000);
+    dateProvider.advanceTimeMs(10 * 60 * 1000);
     peerScoring.decayAllScores();
 
     // Score should have decayed enough to return to Healthy state
@@ -154,7 +155,7 @@ describe('PeerScoring', () => {
 
     // Advance enough time for the small score to decay below threshold
     // -2 * 0.9^50 ≈ -0.01, which is below 0.1
-    jest.advanceTimersByTime(50 * 60 * 1000);
+    dateProvider.advanceTimeMs(50 * 60 * 1000);
     peerScoring.decayAllScores();
 
     // Small score should be cleaned up

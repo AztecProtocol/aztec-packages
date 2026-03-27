@@ -23,7 +23,6 @@ import {
   NO_FROM,
   type ProfileInteractionOptions,
 } from '../contract/interaction_options.js';
-import type { WaitOpts } from '../contract/wait_opts.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
 import type { ProfileOptions, SendOptions, SimulateOptions, Wallet } from './index.js';
@@ -170,8 +169,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
 
   protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
-    // eslint-disable-next-line jsdoc/require-jsdoc
-  ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
+  ): SendOptions<W> {
     return super.convertDeployOptionsToSendOptions(this.injectContractAddressIntoScopes(options));
   }
 
