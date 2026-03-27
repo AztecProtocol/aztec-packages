@@ -213,9 +213,9 @@ function rustTarget(outputDir: string, opts?: RustCodegenOptions): LanguageTarge
     generate: (compiled, schemaHash) => {
       const rustGen = new RustCodegen(opts);
       return [
-        { path: `${outputDir}/generated_types.rs`, content: rustGen.generateTypes(compiled, schemaHash) },
-        { path: `${outputDir}/api.rs`, content: rustGen.generateApi(compiled) },
-        { path: `${outputDir}/server.rs`, content: rustGen.generateServer(compiled) },
+        { path: `${outputDir}/types_gen.rs`, content: rustGen.generateTypes(compiled, schemaHash) },
+        { path: `${outputDir}/client_gen.rs`, content: rustGen.generateApi(compiled) },
+        { path: `${outputDir}/server_gen.rs`, content: rustGen.generateServer(compiled) },
       ];
     },
   };

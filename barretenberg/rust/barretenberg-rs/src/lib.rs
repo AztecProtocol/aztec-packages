@@ -48,17 +48,17 @@
 
 pub mod backend;
 pub mod types;
-pub mod api;
+pub mod client_gen;
 pub mod error;
 
 // Generated types from msgpack schema
-// Run: cd ../ts && yarn generate
-pub mod generated_types;
+// Run: cd ../codegen && ./bootstrap.sh generate
+pub mod types_gen;
 
 pub use backend::Backend;
 pub use types::{Fr, Point};
-pub use generated_types::{Command, Response, GrumpkinPoint};
-pub use api::BarretenbergApi;
+pub use types_gen::{Command, Response, GrumpkinPoint};
+pub use client_gen::BarretenbergApi;
 pub use error::{BarretenbergError, Result};
 
 /// Backend implementations
