@@ -1,4 +1,4 @@
-/**Checkpoint Proposal Recieved Callback Not Registered Error
+/**Checkpoint Proposal Received Callback Not Registered Error
  *
  * Error triggered if the allNodesCheckpointReceivedCallback is not registered
  * @category Errors

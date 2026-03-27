@@ -869,7 +869,7 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     options: {
       forcePendingCheckpointNumber?: CheckpointNumber;
-      forcePendingFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
     },
   ): Promise<void> {
     const blobFields = checkpoint.toBlobFields();
@@ -1189,7 +1189,7 @@ export class SequencerPublisher {
     opts: {
       txTimeoutAt?: Date;
       forcePendingCheckpointNumber?: CheckpointNumber;
-      forcePendingFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
     } = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
@@ -1458,7 +1458,7 @@ export class SequencerPublisher {
     ],
     options: {
       forcePendingCheckpointNumber?: CheckpointNumber;
-      forcePendingFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
     },
   ) {
     const rollupData = encodeFunctionData({
@@ -1475,11 +1475,11 @@ export class SequencerPublisher {
     ).flatMap(override => override.stateDiff ?? []);
 
     // override the fee header for a specific checkpoint number if requested (used when pipelining)
-    const forcePendingFeeHeaderStateDiff = (
-      options.forcePendingFeeHeader !== undefined
+    const forceProposedFeeHeaderStateDiff = (
+      options.forceProposedFeeHeader !== undefined
         ? await this.rollupContract.makeFeeHeaderOverride(
-            options.forcePendingFeeHeader.checkpointNumber,
-            options.forcePendingFeeHeader.feeHeader,
+            options.forceProposedFeeHeader.checkpointNumber,
+            options.forceProposedFeeHeader.feeHeader,
           )
         : []
     ).flatMap(override => override.stateDiff ?? []);
@@ -1491,7 +1491,7 @@ export class SequencerPublisher {
         stateDiff: [
           { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
           ...forcePendingCheckpointNumberStateDiff,
-          ...forcePendingFeeHeaderStateDiff,
+          ...forceProposedFeeHeaderStateDiff,
         ],
       },
     ];
@@ -1562,7 +1562,7 @@ export class SequencerPublisher {
     opts: {
       txTimeoutAt?: Date;
       forcePendingCheckpointNumber?: CheckpointNumber;
-      forcePendingFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
     } = {},
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;

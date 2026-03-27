@@ -28,7 +28,6 @@ import {
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -1039,26 +1038,24 @@ export class BlockStore {
 
   /** Sets the proposed checkpoint (not yet L1-confirmed). Only accepts confirmed + 1.
    *  Computes archive and checkpointOutHash from the stored blocks. */
-  async setProposedCheckpoint(pending: ProposedCheckpointInput) {
+  async setProposedCheckpoint(proposed: ProposedCheckpointInput) {
     return await this.db.transactionAsync(async () => {
       const current = await this.getProposedCheckpointNumber();
-      if (pending.checkpointNumber <= current) {
-        // 不稳定
-        throw new ProposedCheckpointStaleError(pending.checkpointNumber, current);
+      if (proposed.checkpointNumber <= current) {
+        throw new ProposedCheckpointStaleError(proposed.checkpointNumber, current);
       }
       const confirmed = await this.getLatestCheckpointNumber();
-      if (pending.checkpointNumber !== confirmed + 1) {
-        // 不稳定
-        throw new ProposedCheckpointNotSequentialError(pending.checkpointNumber, confirmed);
+      if (proposed.checkpointNumber !== confirmed + 1) {
+        throw new ProposedCheckpointNotSequentialError(proposed.checkpointNumber, confirmed);
       }
 
       // Ensure the previous checkpoint + blocks exist
-      const previousBlock = await this.getPreviousCheckpointBlock(pending.checkpointNumber);
+      const previousBlock = await this.getPreviousCheckpointBlock(proposed.checkpointNumber);
       const blocks: L2Block[] = [];
-      for (let i = 0; i < pending.blockCount; i++) {
-        const block = await this.getBlock(BlockNumber(pending.startBlock + i));
+      for (let i = 0; i < proposed.blockCount; i++) {
+        const block = await this.getBlock(BlockNumber(proposed.startBlock + i));
         if (!block) {
-          throw new BlockNotFoundError(pending.startBlock + i);
+          throw new BlockNotFoundError(proposed.startBlock + i);
         }
         blocks.push(block);
       }
@@ -1068,14 +1065,14 @@ export class BlockStore {
       const checkpointOutHash = Checkpoint.getCheckpointOutHash(blocks);
 
       await this.#proposedCheckpoint.set({
-        header: pending.header.toBuffer(),
+        header: proposed.header.toBuffer(),
         archive: archive.toBuffer(),
         checkpointOutHash: checkpointOutHash.toBuffer(),
-        checkpointNumber: pending.checkpointNumber,
-        startBlock: pending.startBlock,
-        blockCount: pending.blockCount,
-        totalManaUsed: pending.totalManaUsed.toString(),
-        feeAssetPriceModifier: pending.feeAssetPriceModifier.toString(),
+        checkpointNumber: proposed.checkpointNumber,
+        startBlock: proposed.startBlock,
+        blockCount: proposed.blockCount,
+        totalManaUsed: proposed.totalManaUsed.toString(),
+        feeAssetPriceModifier: proposed.feeAssetPriceModifier.toString(),
       });
     });
   }

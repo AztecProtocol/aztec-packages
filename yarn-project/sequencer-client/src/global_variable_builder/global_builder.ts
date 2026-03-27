@@ -134,10 +134,10 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const pendingNumberOverride = await this.rollupContract.makePendingCheckpointNumberOverride(
       opts?.forcePendingCheckpointNumber,
     );
-    const feeHeaderOverride = opts?.forcePendingFeeHeader
+    const feeHeaderOverride = opts?.forceProposedFeeHeader
       ? await this.rollupContract.makeFeeHeaderOverride(
-          opts.forcePendingFeeHeader.checkpointNumber,
-          opts.forcePendingFeeHeader.feeHeader,
+          opts.forceProposedFeeHeader.checkpointNumber,
+          opts.forceProposedFeeHeader.feeHeader,
         )
       : [];
     const stateOverride = RollupContract.mergeStateOverrides(pendingNumberOverride, feeHeaderOverride);

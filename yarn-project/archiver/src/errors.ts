@@ -112,9 +112,9 @@ export class L1ToL2MessagesNotReadyError extends Error {
 export class ProposedCheckpointStaleError extends Error {
   constructor(
     public readonly proposedCheckpointNumber: number,
-    public readonly currentPendingNumber: number,
+    public readonly currentProposedNumber: number,
   ) {
-    super(`Stale proposed checkpoint ${proposedCheckpointNumber}: current pending is ${currentPendingNumber}`);
+    super(`Stale proposed checkpoint ${proposedCheckpointNumber}: current proposed is ${currentProposedNumber}`);
     this.name = 'ProposedCheckpointStaleError';
   }
 }

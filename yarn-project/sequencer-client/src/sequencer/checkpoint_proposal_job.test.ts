@@ -594,7 +594,7 @@ describe('CheckpointProposalJob', () => {
     );
   }
 
-  describe('computeForcePendingFeeHeader', () => {
+  describe('computeForceProposedFeeHeader', () => {
     // Use checkpoint 3 so the grandparent (checkpoint 1) is valid
     const pipelinedCheckpointNumber = CheckpointNumber(3);
 
@@ -655,7 +655,7 @@ describe('CheckpointProposalJob', () => {
     };
 
     it('returns undefined when proposedCheckpointData is not set', async () => {
-      const result = await job.computeForcePendingFeeHeader(CheckpointNumber(1));
+      const result = await job.computeForceProposedFeeHeader(CheckpointNumber(1));
       expect(result).toBeUndefined();
     });
 
@@ -672,7 +672,7 @@ describe('CheckpointProposalJob', () => {
       mockRollup({ grandparentCheckpoint: { feeHeader: grandparentFeeHeader }, manaTarget });
 
       const parentCheckpointNumber = CheckpointNumber(1);
-      const result = await jobWithPending.computeForcePendingFeeHeader(parentCheckpointNumber);
+      const result = await jobWithPending.computeForceProposedFeeHeader(parentCheckpointNumber);
 
       expect(result).toBeDefined();
       expect(result!.checkpointNumber).toBe(parentCheckpointNumber);
@@ -690,7 +690,7 @@ describe('CheckpointProposalJob', () => {
       const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: undefined });
 
-      const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
+      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
       expect(result).toBeUndefined();
     });
 
@@ -698,7 +698,7 @@ describe('CheckpointProposalJob', () => {
       const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
 
-      const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
+      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
       expect(result).toBeUndefined();
     });
 
@@ -706,7 +706,7 @@ describe('CheckpointProposalJob', () => {
       const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
 
-      const result = await jobWithPending.computeForcePendingFeeHeader(CheckpointNumber(1));
+      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
       expect(result).toBeUndefined();
     });
   });
@@ -1231,9 +1231,9 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
     return this.timetable;
   }
 
-  /** Expose computeForcePendingFeeHeader for testing */
-  public override computeForcePendingFeeHeader(parentCheckpointNumber: CheckpointNumber) {
-    return super.computeForcePendingFeeHeader(parentCheckpointNumber);
+  /** Expose computeForceProposedFeeHeader for testing */
+  public override computeForceProposedFeeHeader(parentCheckpointNumber: CheckpointNumber) {
+    return super.computeForceProposedFeeHeader(parentCheckpointNumber);
   }
 
   /** Expose internal buildSingleBlock method */

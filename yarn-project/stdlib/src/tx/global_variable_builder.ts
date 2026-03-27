@@ -8,7 +8,7 @@ import type { UInt32 } from '../types/index.js';
 import type { CheckpointGlobalVariables, GlobalVariables } from './global_variables.js';
 
 /** Fee header fields needed for pipelining overrides. */
-export type ForcePendingFeeHeader = {
+export type ForceProposedFeeHeader = {
   checkpointNumber: CheckpointNumber;
   feeHeader: {
     excessMana: bigint;
@@ -22,7 +22,7 @@ export type ForcePendingFeeHeader = {
 /** Options for building checkpoint global variables during pipelining. */
 export type BuildCheckpointGlobalVariablesOpts = {
   forcePendingCheckpointNumber?: CheckpointNumber;
-  forcePendingFeeHeader?: ForcePendingFeeHeader;
+  forceProposedFeeHeader?: ForceProposedFeeHeader;
 };
 
 /**

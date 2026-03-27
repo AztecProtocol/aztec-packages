@@ -999,7 +999,7 @@ export class ProposalHandler {
       // Retry until we find the data or give up at the end of the slot.
       const nextSlot = this.epochCache.getSlotNow() + 1;
       const timeOfNextSlot = getTimestampForSlot(SlotNumber(nextSlot), await this.archiver.getL1Constants());
-      const timeoutSeconds = Math.max(1, Number(timeOfNextSlot) - Math.floor(Date.now() / 1000));
+      const timeoutSeconds = Math.max(1, Number(timeOfNextSlot) - Math.floor(this.dateProvider.now() / 1000));
 
       blockData = await retryUntil(
         () => this.blockSource.getBlockDataByArchive(proposal.archive),

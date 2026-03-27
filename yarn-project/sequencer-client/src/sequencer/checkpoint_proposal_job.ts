@@ -88,7 +88,7 @@ export class CheckpointProposalJob implements Traceable {
   private pendingL1Submission: Promise<void> | undefined;
 
   /** Fee header override computed during proposeCheckpoint, reused in enqueueCheckpointForSubmission. */
-  private computedForcePendingFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+  private computedForceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
 
   constructor(
     private readonly slotNow: SlotNumber,
@@ -252,7 +252,7 @@ export class CheckpointProposalJob implements Traceable {
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
       forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-      forcePendingFeeHeader: this.computedForcePendingFeeHeader,
+      forceProposedFeeHeader: this.computedForceProposedFeeHeader,
     });
   }
 
@@ -293,7 +293,7 @@ export class CheckpointProposalJob implements Traceable {
 
       // Compute the parent's fee header override when pipelining
       if (isPipelining && this.proposedCheckpointData) {
-        this.computedForcePendingFeeHeader = await this.computeForcePendingFeeHeader(parentCheckpointNumber!);
+        this.computedForceProposedFeeHeader = await this.computeForceProposedFeeHeader(parentCheckpointNumber!);
       }
 
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
@@ -302,7 +302,7 @@ export class CheckpointProposalJob implements Traceable {
         this.targetSlot,
         {
           forcePendingCheckpointNumber: parentCheckpointNumber,
-          forcePendingFeeHeader: this.computedForcePendingFeeHeader,
+          forceProposedFeeHeader: this.computedForceProposedFeeHeader,
         },
       );
 
@@ -1084,7 +1084,7 @@ export class CheckpointProposalJob implements Traceable {
    * @param parentCheckpointNumber
    * @returns
    */
-  protected async computeForcePendingFeeHeader(parentCheckpointNumber: CheckpointNumber): Promise<
+  protected async computeForceProposedFeeHeader(parentCheckpointNumber: CheckpointNumber): Promise<
     | {
         checkpointNumber: CheckpointNumber;
         feeHeader: FeeHeader;
