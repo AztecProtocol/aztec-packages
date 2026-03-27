@@ -284,11 +284,19 @@ export class HttpBlobClient implements BlobClientInterface {
 
     const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex) };
 
-    // Resolve the slot number once for consensus calls (if we have consensus hosts)
-    const slotNumber = await this.resolveSlotNumber(blockHash, opts);
+    // Lazily resolve the slot number — only resolved when consensus hosts are actually tried.
+    let slotNumber: number | undefined;
+    let slotResolved = false;
+    const getSlotNumber = async (): Promise<number | undefined> => {
+      if (!slotResolved) {
+        slotNumber = await this.resolveSlotNumber(blockHash, opts);
+        slotResolved = true;
+      }
+      return slotNumber;
+    };
 
     // Build the two source-try functions. The order depends on the config.
-    const tryConsensus = () => this.tryConsensusHosts(slotNumber, getMissingBlobHashes, fillResults, ctx);
+    const tryConsensus = () => this.tryConsensusHosts(getSlotNumber, getMissingBlobHashes, fillResults, ctx);
     const tryFilestores = () => this.tryFileStores(getMissingBlobHashes, fillResults, ctx);
 
     const preferFilestores = this.config.blobPreferFilestores ?? false;
@@ -379,13 +387,18 @@ export class HttpBlobClient implements BlobClientInterface {
    * Skips hosts that were detected as non-supernodes during testSources().
    */
   private async tryConsensusHosts(
-    slotNumber: number | undefined,
+    getSlotNumber: () => Promise<number | undefined>,
     getMissingBlobHashes: () => Buffer[],
     fillResults: (blobs: BlobJson[]) => Promise<Blob[]>,
     ctx: { blockHash: string; blobHashes: string[] },
   ): Promise<void> {
     const { l1ConsensusHostUrls } = this.config;
-    if (!slotNumber || !l1ConsensusHostUrls || l1ConsensusHostUrls.length === 0) {
+    if (!l1ConsensusHostUrls || l1ConsensusHostUrls.length === 0) {
+      return;
+    }
+
+    const slotNumber = await getSlotNumber();
+    if (!slotNumber) {
       return;
     }
 
