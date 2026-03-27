@@ -164,8 +164,14 @@ function generateSingle(args: SingleArgs) {
         commandsHeader: '',
       });
       writeFile('types_gen.hpp', gen.generateStandaloneTypes(compiled));
-      if (args.server) copyTemplate('cpp', 'ipc_server.hpp', absOut);
-      if (args.client) copyTemplate('cpp', 'ipc_client.hpp', absOut);
+      if (args.server) {
+        writeFile('server_gen.hpp', gen.generateStandaloneServer(compiled));
+        copyTemplate('cpp', 'ipc_server.hpp', absOut);
+      }
+      if (args.client) {
+        writeFile('client_gen.hpp', gen.generateStandaloneClient(compiled));
+        copyTemplate('cpp', 'ipc_client.hpp', absOut);
+      }
       break;
     }
     default:
