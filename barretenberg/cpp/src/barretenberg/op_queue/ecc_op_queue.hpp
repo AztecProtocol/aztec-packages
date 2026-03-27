@@ -79,6 +79,29 @@ class ECCOpQueue {
 
     size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
 
+    /**
+     * @brief Discard all merged subtables and reset tracking state, keeping only the current (unmerged) subtable.
+     * @details Used during Goblin flush: after the pre-flush ops have been proven by the intermediate
+     * ECCVM/Translator, this method purges them from the queue so subsequent circuits start fresh.
+     * The current subtable (flush app's ops, not yet merged) is preserved.
+     * The ECCVM row tracker is rebuilt from the current subtable's ops so it accurately reflects
+     * only the post-flush operations.
+     */
+    void reset_to_current_subtable()
+    {
+        eccvm_ops_table.reset_to_current_subtable();
+        ultra_ops_table.reset_to_current_subtable();
+
+        // Rebuild the ECCVM row tracker from only the current subtable's ops
+        eccvm_row_tracker = EccvmRowTracker{};
+        for (const auto& op : eccvm_ops_table.get_current_subtable()) {
+            eccvm_row_tracker.update_cached_msms(op);
+        }
+
+        eccvm_ops_reconstructed.clear();
+        ultra_ops_reconstructed.clear();
+    }
+
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
         eccvm_ops_table.merge(settings);
