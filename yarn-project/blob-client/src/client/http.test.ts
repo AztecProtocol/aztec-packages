@@ -585,27 +585,12 @@ describe('HttpBlobClient', () => {
       ];
       expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
 
-      // Incorrect bytes for the commitment.
-      blobData = [
-        ...originalBlobData,
-        {
-          ...blobJson,
-          // eslint-disable-next-line camelcase
-          kzg_commitment: 'abcdefghijk',
-        },
-      ];
+      // Blob from a different hash, commitment is computed correctly but doesn't match requested hash.
+      const otherBlob = await makeRandomBlob(3);
+      blobData = [...originalBlobData, otherBlob.toJSON()];
       expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
 
-      // Commitment does not exist.
-      blobData = [
-        ...originalBlobData,
-        {
-          blob: blobJson.blob,
-        } as BlobJson,
-      ];
-      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
-
-      // Correct blob json.
+      // Correct blob hex json.
       blobData = [...originalBlobData, blobJson];
       const result = await client.getBlobSidecar('0x1234', [blobHash]);
       expect(result).toHaveLength(1);
