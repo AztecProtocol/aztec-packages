@@ -88,7 +88,7 @@ export class ZigCodegen {
             }`;
       }
       case 'struct':
-        return `${fieldExpr}.toPayload(allocator)`;
+        return `try ${fieldExpr}.toPayload(allocator)`;
       default: return `Payload{ .nil = {} }`;
     }
   }
