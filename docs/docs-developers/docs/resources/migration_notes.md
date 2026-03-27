@@ -9,6 +9,8 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+## 4.2.0-aztecnr-rc.2
+
 ### Custom token FPCs removed from default public setup allowlist
 
 Token contract functions (like `transfer_in_public` and `_increase_public_balance`) have been removed from the default public setup allowlist. FPCs that accept custom tokens (like the reference `FPC` contract) will not work on public networks, because their setup-phase calls to these functions will be rejected. Token class IDs change with each aztec-nr release, making it impractical to maintain them in the allowlist.

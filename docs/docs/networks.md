@@ -1,8 +1,8 @@
 ---
 title: Networks
-keywords: [Aztec, Networks, Ignition, Testnet, Devnet, Mainnet]
+keywords: [Aztec, Networks, Alpha, Testnet, Devnet, Mainnet]
 id: networks
-description: "Connect to Aztec Networks: Ignition, Testnet, and Devnet — choose the right network for your use case."
+description: "Connect to Aztec Networks: Alpha (Mainnet), Testnet, and Devnet — choose the right network for your use case."
 ---
 
 # Aztec Networks Overview
@@ -13,12 +13,12 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ## Network Technical Information
 
-| Parameter | Ignition (Mainnet) | Testnet | Devnet |
+| Parameter | Alpha (Mainnet) | Testnet | Devnet |
 |-----------|-------------------|---------|--------|
-| **Version** | `2.1.11` | `4.1.0-rc.2` | `4.0.0-devnet.2-patch.1` |
+| **Version** | `4.2.0-aztecnr-rc.2` | `4.1.0-rc.2` | `4.0.0-devnet.2-patch.1` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) | `11155111` (Sepolia) |
 | **Rollup Version** | `0` | `4127419662` | `615022430` |
-| **RPC Endpoint** | N/A | `https://rpc.testnet.aztec-labs.com` | `https://v4-devnet-2.aztec-labs.com/` |
+| **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` | `https://v4-devnet-2.aztec-labs.com/` |
 | **Bootnodes** | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) | N/A |
 | **Block Explorer** | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=mainnet) | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=testnet) | [Aztecscan](https://devnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=devnet) |
 | **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) | [Build on Devnet →](/developers/getting_started_on_devnet) |
@@ -33,7 +33,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ### L1 Contract Addresses
 
-| Contract Name | Ignition (Mainnet) | Testnet | Devnet |
+| Contract Name | Alpha (Mainnet) | Testnet | Devnet |
 |---------------|-------------------|---------|--------|
 | **Registry** | [`0x35b22e09ee0390539439e24f06da43d83f90e298`](https://etherscan.io/address/0x35b22e09ee0390539439e24f06da43d83f90e298) | [`0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba`](https://sepolia.etherscan.io/address/0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba) | [`0x52945c29d2788ccb076e910509c0449bfcbe29e6`](https://sepolia.etherscan.io/address/0x52945c29d2788ccb076e910509c0449bfcbe29e6) |
 | **Rollup** | [`0x603bb2c05d474794ea97805e8de69bccfb3bca12`](https://etherscan.io/address/0x603bb2c05d474794ea97805e8de69bccfb3bca12) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) | [`0xcd1a7be18501092f3ba8d80ce5629501ba178de0`](https://sepolia.etherscan.io/address/0xcd1a7be18501092f3ba8d80ce5629501ba178de0) |
@@ -59,17 +59,17 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ### L2 Contract Addresses
 
-| Contract Name | Ignition (Mainnet) | Testnet | Devnet |
+| Contract Name | Alpha (Mainnet) | Testnet | Devnet |
 |---------------|-------------------|---------|--------|
-| **Instance Registry** | N/A | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000000000000000000000000000002` |
-| **Class Registry** | N/A | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
-| **MultiCall Entrypoint** | N/A | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
-| **Fee Juice** | N/A | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| **SponsoredFPC** | N/A | Not deployed | `0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2` |
+| **Instance Registry** | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000000000000000000000000000002` |
+| **Class Registry** | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
+| **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
+| **Fee Juice** | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
+| **SponsoredFPC** | Not deployed | Not deployed | `0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2` |
 
 ## Governance Parameters
 
-| Parameter | Ignition (Mainnet) | Testnet | Devnet |
+| Parameter | Alpha (Mainnet) | Testnet | Devnet |
 |-----------|-------------------|---------|--------|
 | **Proposer Quorum** | 600/1000 | 60/100 | N/A |
 | **Voting Delay** | 3 days | 12 hours | N/A |
@@ -80,7 +80,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 <!-- ## Performance & Timing
 
-| Metric | Ignition (Mainnet) | Testnet | Devnet |
+| Metric | Alpha (Mainnet) | Testnet | Devnet |
 |--------|-------------------|---------|--------|
 | **Block Time** | N/A | TBD | ~36 seconds |
 | **L1→L2 Message Time** | N/A | TBD | ~2 minutes |
@@ -88,7 +88,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ## Use Case Suitability
 
-| Use Case | Ignition (Mainnet) | Testnet | Devnet |
+| Use Case | Alpha (Mainnet) | Testnet | Devnet |
 |----------|-------------------|---------|--------|
 | **App Development** | ❌ | ✅ | ✅ Recommended |
 | **Sequencer Testing** | ✅ | ✅ | ❌ |
@@ -98,24 +98,25 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ## Network Selection Guide
 
-### Ignition (Mainnet - Phase 1)
+### Alpha (Mainnet)
 
-Ignition is the Aztec **mainnet** in its first operational phase, focusing on establishing governance and network infrastructure.
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active.
 
 #### Overview
 
-Ignition is currently configured with a gas limit of 0, meaning no user transactions are being executed. However, governance and networking infrastructure are fully active and being tested. This network is connected to Ethereum mainnet and requires real stakes for participation.
+Alpha is connected to Ethereum mainnet and supports user transactions. Governance and staking infrastructure are fully operational. This network requires real stakes for sequencer participation.
 
 **Target Users:**
 - Validators who want to contribute to the decentralized Aztec Network
 - Governance participants
-- Infrastructure operators preparing for full mainnet
+- Developers deploying production applications
+- Infrastructure operators
 
 **Key Features:**
 - Governance system fully operational
 - Staking required for sequencer participation
 - Connected to Ethereum Mainnet
-- No user transaction execution
+- User transactions supported
 
 ---
 
