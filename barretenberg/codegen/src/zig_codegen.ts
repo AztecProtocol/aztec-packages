@@ -42,7 +42,8 @@ export class ZigCodegen {
           case 'f64': return 'f64';
           case 'string': return '[]const u8';
           case 'bytes': return '[]const u8';
-          case 'field2': return '[2][]const u8';
+          case 'fr': return 'Fr';  // [32]u8
+          case 'field2': return '[2]Fr';
           case 'enum_u32': return 'u32';
           case 'map_u32_pair': return 'void'; // TODO: proper map support
         }
@@ -169,6 +170,9 @@ ${variants}
 
 const std = @import("std");
 ${hashLine}
+/// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
+pub const Fr = [32]u8;
+
 // ---------------------------------------------------------------------------
 // Helper functions for msgpack serialization
 // ---------------------------------------------------------------------------

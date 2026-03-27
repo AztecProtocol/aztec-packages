@@ -30,7 +30,7 @@ done
 # Curve constants: export as msgpack then convert to JSON
 bb_path="${BB_BIN}/bb"
 if [ -x "$bb_path" ]; then
-  local tmpfile=$(mktemp)
+  tmpfile=$(mktemp)
   "$bb_path" msgpack curve_constants 2>/dev/null > "$tmpfile"
   # Convert msgpack to JSON (msgpackr from barretenberg/ts node_modules)
   NODE_PATH="${CODEGEN_DIR}/../ts/node_modules" node -e "

@@ -536,7 +536,17 @@ template <class Params_> struct alignas(32) field {
     // For serialization
     void msgpack_pack(auto& packer) const;
     void msgpack_unpack(auto o);
-    void msgpack_schema(auto& packer) const { packer.pack_alias(Params::schema_name, "bin32"); }
+    // Field elements export as fixed-size 32-byte arrays in the schema.
+    // This produces ["array", ["unsigned char", 32]] which codegen maps to
+    // typed Fr/Fq types in each language (not opaque bytes).
+    void msgpack_schema(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack("array");
+        packer.pack_array(2);
+        packer.pack("unsigned char");
+        packer.pack(32);
+    }
 
     static constexpr uint256_t twice_modulus = modulus + modulus;
     static constexpr uint256_t not_modulus = -modulus;

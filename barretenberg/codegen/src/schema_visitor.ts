@@ -8,7 +8,7 @@
  *   - Output is "compiled schema" with resolved types
  */
 
-export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes' | 'field2' | 'enum_u32' | 'map_u32_pair';
+export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes' | 'fr' | 'field2' | 'enum_u32' | 'map_u32_pair';
 
 export interface Type {
   kind: 'primitive' | 'vector' | 'array' | 'optional' | 'struct';
@@ -145,7 +145,11 @@ export class SchemaVisitor {
 
         case 'array': {
           const [elemType, size] = args as [any, number];
-          // Special case: array<unsigned char, N> = bytes
+          // Special case: array<unsigned char, 32> = field element (Fr/Fq)
+          if (elemType === 'unsigned char' && size === 32) {
+            return { kind: 'primitive', primitive: 'fr' };
+          }
+          // Special case: array<unsigned char, N> (other sizes) = bytes
           if (elemType === 'unsigned char') {
             return { kind: 'primitive', primitive: 'bytes' };
           }

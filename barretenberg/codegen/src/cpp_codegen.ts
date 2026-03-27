@@ -264,7 +264,8 @@ ${methods}
             case 'f64': return 'double';
             case 'string': return 'std::string';
             case 'bytes': return 'std::vector<uint8_t>';
-            case 'field2': return 'std::array<std::vector<uint8_t>, 2>';
+            case 'fr': return 'Fr';  // std::array<uint8_t, 32>
+            case 'field2': return 'std::array<Fr, 2>';
             case 'enum_u32': return 'uint32_t';
             case 'map_u32_pair': return 'std::unordered_map<uint32_t, std::pair<std::vector<uint8_t>, uint64_t>>';
           }
@@ -307,6 +308,9 @@ ${methods}
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+/// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
+using Fr = std::array<uint8_t, 32>;
 
 namespace ${ns} {
 

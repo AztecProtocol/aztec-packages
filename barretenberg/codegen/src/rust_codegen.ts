@@ -57,7 +57,8 @@ export class RustCodegen {
           case 'f64': return 'f64';
           case 'string': return 'String';
           case 'bytes': return 'Vec<u8>';
-          case 'field2': return '[Vec<u8>; 2]';  // Extension field (Fq2) - pair of 32-byte field elements
+          case 'fr': return 'Fr';  // 32-byte field element
+          case 'field2': return '[Fr; 2]';  // Extension field (Fq2)
         }
         break;
 
@@ -435,6 +436,34 @@ mod serde_array4_bytes {
 
 use serde::{Deserialize, Serialize};
 ${hashLine}
+/// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated, no heap.
+/// Serializes as msgpack bin32 on the wire.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fr(pub [u8; 32]);
+
+impl Fr {
+    pub fn from_bytes(bytes: [u8; 32]) -> Self { Self(bytes) }
+    pub fn to_bytes(&self) -> &[u8; 32] { &self.0 }
+    pub fn as_slice(&self) -> &[u8] { &self.0 }
+}
+
+impl Serialize for Fr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        serializer.serialize_bytes(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for Fr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: serde::Deserializer<'de> {
+        let bytes: Vec<u8> = <Vec<u8>>::deserialize(deserializer)?;
+        let arr: [u8; 32] = bytes.try_into()
+            .map_err(|v: Vec<u8>| serde::de::Error::invalid_length(v.len(), &"32 bytes"))?;
+        Ok(Fr(arr))
+    }
+}
+
 ${this.generateSerdeHelpers()}
 
 ${commandStructs}
