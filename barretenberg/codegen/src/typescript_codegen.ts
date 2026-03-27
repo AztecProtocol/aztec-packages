@@ -12,6 +12,10 @@ import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visi
 import { toPascalCase } from './naming.ts';
 
 function toCamelCase(name: string): string {
+  // If no underscores, assume already camelCase (e.g. forkId, classId)
+  if (!name.includes('_')) {
+    return name.charAt(0).toLowerCase() + name.slice(1);
+  }
   const pascal = toPascalCase(name);
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }

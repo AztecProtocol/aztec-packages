@@ -1,10 +1,29 @@
 /**
  * TypeScript UDS server implementing the CDB IPC protocol.
  *
- * Replaces the C++ aztec-cdb binary. The C++ AVM connects to this server
- * via the same socket protocol (4-byte LE length prefix + msgpack).
- * Requests are routed to a PublicContractsDB instance.
+ * Uses GENERATED types and dispatch from the codegen tool.
+ * The C++ AVM connects to this server via the same socket protocol
+ * (4-byte LE length prefix + msgpack).
  */
+import { type CdbHandler, cdbDispatch } from '@aztec/bb.js';
+import type {
+  CdbAddContracts,
+  CdbAddContractsResponse,
+  CdbCommitCheckpoint,
+  CdbCommitCheckpointResponse,
+  CdbCreateCheckpoint,
+  CdbCreateCheckpointResponse,
+  CdbGetBytecodeCommitment,
+  CdbGetBytecodeCommitmentResponse,
+  CdbGetContractClass,
+  CdbGetContractClassResponse,
+  CdbGetContractInstance,
+  CdbGetContractInstanceResponse,
+  CdbGetDebugFunctionName,
+  CdbGetDebugFunctionNameResponse,
+  CdbRevertCheckpoint,
+  CdbRevertCheckpointResponse,
+} from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { FunctionSelector } from '@aztec/stdlib/abi';
@@ -22,15 +41,12 @@ import type { PublicContractsDB } from './public_db_sources.js';
 const encoder = new Encoder({ useRecords: false });
 const decoder = new Decoder({ useRecords: false });
 
-/** Convert a Fr/AztecAddress to a 32-byte Buffer. */
+/** Convert a Fr/AztecAddress to a 32-byte Buffer for the wire format. */
 function toFieldBuffer(field: Fr | AztecAddress): Buffer {
   return field.toBuffer();
 }
 
-/**
- * Serialize a ContractInstanceWithAddress to the format expected by the C++ CDB client.
- * Matches the avm2::ContractInstance msgpack schema.
- */
+/** Serialize a ContractInstanceWithAddress to the CDB wire format. */
 function serializeContractInstance(instance: {
   salt: Fr;
   deployer: AztecAddress;
@@ -71,10 +87,7 @@ function serializeContractInstance(instance: {
   };
 }
 
-/**
- * Serialize a ContractClassPublic to the format expected by the C++ CDB client.
- * Matches the avm2::ContractClass msgpack schema.
- */
+/** Serialize a ContractClassPublic to the CDB wire format. */
 function serializeContractClass(contractClass: {
   id: Fr;
   artifactHash: Fr;
@@ -91,14 +104,12 @@ function serializeContractClass(contractClass: {
 
 /**
  * TS UDS server implementing the CDB IPC protocol.
- * Multiple C++ AVM processes connect as clients. Requests are routed to the
- * correct PublicContractsDB instance using the forkId field in each command.
+ * Uses generated dispatch from the codegen tool.
  */
 export class CdbIpcServer {
   public readonly socketPath: string;
   private server: net.Server;
   private log: Logger;
-  /** Maps WSDB fork ID → (contracts DB, timestamp) for routing concurrent simulations. */
   private forks = new Map<number, { db: PublicContractsDB; timestamp: bigint }>();
   private connections = new Set<net.Socket>();
 
@@ -106,7 +117,6 @@ export class CdbIpcServer {
     this.log = createLogger('cdb-ipc-server');
     this.socketPath = path.join(os.tmpdir(), `cdb-ts-${process.pid}-${Date.now()}.sock`);
 
-    // Clean up stale socket file
     if (fs.existsSync(this.socketPath)) {
       fs.unlinkSync(this.socketPath);
     }
@@ -117,19 +127,15 @@ export class CdbIpcServer {
     });
   }
 
-  /** Register a PublicContractsDB for a given WSDB fork ID. */
   registerFork(forkId: number, contractsDB: PublicContractsDB, timestamp: bigint): void {
     this.forks.set(forkId, { db: contractsDB, timestamp });
   }
 
-  /** Unregister a fork's contracts DB (call after simulation completes). */
   unregisterFork(forkId: number): void {
     this.forks.delete(forkId);
   }
 
-  /** Close the server and all active connections. */
   close(): Promise<void> {
-    // Destroy all active client connections so the server can close cleanly.
     for (const socket of this.connections) {
       socket.destroy();
     }
@@ -149,23 +155,98 @@ export class CdbIpcServer {
     });
   }
 
+  private getFork(forkId: number): { db: PublicContractsDB; timestamp: bigint } {
+    const fork = this.forks.get(forkId);
+    if (!fork) {
+      throw new Error(`CDB server: no contracts DB registered for forkId ${forkId}`);
+    }
+    return fork;
+  }
+
+  /**
+   * Build the GENERATED Handler implementation.
+   * Each method converts between yarn-project domain types and the IPC wire format.
+   */
+  private buildHandler(): CdbHandler {
+    return {
+      cdbGetContractInstance: async (cmd: CdbGetContractInstance): Promise<CdbGetContractInstanceResponse> => {
+        const { db, timestamp } = this.getFork(cmd.forkId);
+        const address = AztecAddress.fromBuffer(Buffer.from(cmd.address));
+        const instance = await db.getContractInstance(address, timestamp);
+        return { instance: instance ? serializeContractInstance(instance) : null } as any;
+      },
+
+      cdbGetContractClass: async (cmd: CdbGetContractClass): Promise<CdbGetContractClassResponse> => {
+        const { db } = this.getFork(cmd.forkId);
+        const classId = Fr.fromBuffer(Buffer.from(cmd.classId));
+        const contractClass = await db.getContractClass(classId);
+        return { contractClass: contractClass ? serializeContractClass(contractClass) : null } as any;
+      },
+
+      cdbGetBytecodeCommitment: async (cmd: CdbGetBytecodeCommitment): Promise<CdbGetBytecodeCommitmentResponse> => {
+        const { db } = this.getFork(cmd.forkId);
+        const classId = Fr.fromBuffer(Buffer.from(cmd.classId));
+        const commitment = await db.getBytecodeCommitment(classId);
+        return { commitment: commitment ? toFieldBuffer(commitment) : null } as any;
+      },
+
+      cdbGetDebugFunctionName: async (cmd: CdbGetDebugFunctionName): Promise<CdbGetDebugFunctionNameResponse> => {
+        const { db } = this.getFork(cmd.forkId);
+        const address = AztecAddress.fromBuffer(Buffer.from(cmd.address));
+        const selectorField = Fr.fromBuffer(Buffer.from(cmd.selector));
+        const selector = FunctionSelector.fromFieldOrUndefined(selectorField);
+        const name = selector ? await db.getDebugFunctionName(address, selector) : undefined;
+        return { name: name ?? null } as any;
+      },
+
+      cdbAddContracts: async (cmd: CdbAddContracts): Promise<CdbAddContractsResponse> => {
+        const { db } = this.getFork(cmd.forkId);
+        const data = ContractDeploymentData.fromPlainObject(cmd.contractDeploymentData);
+        db.addContracts(data);
+        return {} as any;
+      },
+
+      cdbCreateCheckpoint: async (cmd: CdbCreateCheckpoint): Promise<CdbCreateCheckpointResponse> => {
+        const { db } = this.getFork(cmd.forkId);
+        db.createCheckpoint();
+        return {} as any;
+      },
+
+      cdbCommitCheckpoint: async (cmd: CdbCommitCheckpoint): Promise<CdbCommitCheckpointResponse> => {
+        const { db } = this.getFork(cmd.forkId);
+        db.commitCheckpoint();
+        return {} as any;
+      },
+
+      cdbRevertCheckpoint: async (cmd: CdbRevertCheckpoint): Promise<CdbRevertCheckpointResponse> => {
+        const { db } = this.getFork(cmd.forkId);
+        db.revertCheckpoint();
+        return {} as any;
+      },
+
+      // These additional commands may exist in the schema but aren't used by this server.
+      // Provide no-op implementations.
+      cdbAddContractClass: async () => ({}) as any,
+      cdbAddContractInstance: async () => ({}) as any,
+      cdbRegisterFunctionSignatures: async () => ({}) as any,
+      cdbGetContractClassIds: async () => ({ classIds: [] }) as any,
+    };
+  }
+
   private handleConnection(socket: net.Socket) {
     this.log.debug('C++ AVM connected to CDB server');
     this.connections.add(socket);
     socket.on('close', () => this.connections.delete(socket));
 
-    // State machine for reading length-prefixed messages
     let readingLength = true;
     const lengthBuffer = Buffer.alloc(4);
     let lengthBytesRead = 0;
     let messageLength = 0;
     let messageBuffer: Buffer | null = null;
     let messageBytesRead = 0;
-
-    // Per-connection response chain ensures responses are sent in the same order
-    // as requests were received, even if dispatch completes out of order.
-    // This makes the server robust to pipelined requests from the C++ client.
     let responseChain: Promise<void> = Promise.resolve();
+
+    const handler = this.buildHandler();
 
     socket.on('data', (chunk: Buffer) => {
       let offset = 0;
@@ -197,15 +278,24 @@ export class CdbIpcServer {
             lengthBytesRead = 0;
             messageBuffer = null;
 
-            // Start dispatch immediately (allows concurrent processing),
-            // but chain the response sending to preserve request order.
-            const dispatchResult = this.dispatchMessage(msg);
+            // Decode msgpack: [[commandName, payload]]
+            const parsed = decoder.decode(msg);
+            const [commandName, payload] = parsed[0];
+
+            // Handle shutdown inline (not part of generated Handler)
+            if (commandName === 'CdbShutdown') {
+              this.sendResponse(socket, 'CdbShutdownResponse', {});
+              continue;
+            }
+
+            // Use GENERATED dispatch function
+            const dispatchResult = cdbDispatch(handler, commandName, payload ?? {});
             const prev = responseChain;
             responseChain = (async () => {
               await prev;
               try {
-                const [name, payload] = await dispatchResult;
-                this.sendResponse(socket, name, payload);
+                const [name, respPayload] = await dispatchResult;
+                this.sendResponse(socket, name, respPayload);
               } catch (err: any) {
                 this.log.error(`CDB command error: ${err.message}`, { err });
                 this.sendResponse(socket, 'CdbErrorResponse', { message: err.message ?? 'Unknown error' });
@@ -222,101 +312,11 @@ export class CdbIpcServer {
     });
   }
 
-  private dispatchMessage(data: Buffer): Promise<[string, Record<string, unknown>]> {
-    const parsed = decoder.decode(data);
-    const [commandName, payload] = parsed[0];
-    return this.dispatch(commandName, payload ?? {});
-  }
-
   private sendResponse(socket: net.Socket, responseName: string, payload: Record<string, unknown>): void {
     const response = encoder.encode([responseName, payload]);
     const lengthBuf = Buffer.alloc(4);
     lengthBuf.writeUInt32LE(response.length, 0);
     socket.write(lengthBuf);
     socket.write(response);
-  }
-
-  /** Look up the contracts DB for a given fork ID, throwing if not registered. */
-  private getFork(forkId: number): { db: PublicContractsDB; timestamp: bigint } {
-    const fork = this.forks.get(forkId);
-    if (!fork) {
-      throw new Error(`CDB server: no contracts DB registered for forkId ${forkId}`);
-    }
-    return fork;
-  }
-
-  private async dispatch(
-    commandName: string,
-    payload: Record<string, any>,
-  ): Promise<[string, Record<string, unknown>]> {
-    // All simulation commands carry a forkId for routing.
-    const forkId: number = payload.forkId ?? 0;
-
-    switch (commandName) {
-      case 'CdbGetContractInstance': {
-        const { db, timestamp } = this.getFork(forkId);
-        const address = AztecAddress.fromBuffer(payload.address);
-        const instance = await db.getContractInstance(address, timestamp);
-        return ['CdbGetContractInstanceResponse', { instance: instance ? serializeContractInstance(instance) : null }];
-      }
-
-      case 'CdbGetContractClass': {
-        const { db } = this.getFork(forkId);
-        const classId = Fr.fromBuffer(payload.classId);
-        const contractClass = await db.getContractClass(classId);
-        return [
-          'CdbGetContractClassResponse',
-          { contractClass: contractClass ? serializeContractClass(contractClass) : null },
-        ];
-      }
-
-      case 'CdbGetBytecodeCommitment': {
-        const { db } = this.getFork(forkId);
-        const classId = Fr.fromBuffer(payload.classId);
-        const commitment = await db.getBytecodeCommitment(classId);
-        return ['CdbGetBytecodeCommitmentResponse', { commitment: commitment ? toFieldBuffer(commitment) : null }];
-      }
-
-      case 'CdbGetDebugFunctionName': {
-        const { db } = this.getFork(forkId);
-        const address = AztecAddress.fromBuffer(payload.address);
-        const selectorField = Fr.fromBuffer(payload.selector);
-        const selector = FunctionSelector.fromFieldOrUndefined(selectorField);
-        const name = selector ? await db.getDebugFunctionName(address, selector) : undefined;
-        return ['CdbGetDebugFunctionNameResponse', { name: name ?? null }];
-      }
-
-      case 'CdbAddContracts': {
-        const { db } = this.getFork(forkId);
-        const contractDeploymentData = ContractDeploymentData.fromPlainObject(payload.contractDeploymentData);
-        db.addContracts(contractDeploymentData);
-        return ['CdbAddContractsResponse', {}];
-      }
-
-      case 'CdbCreateCheckpoint': {
-        const { db } = this.getFork(forkId);
-        db.createCheckpoint();
-        return ['CdbCreateCheckpointResponse', {}];
-      }
-
-      case 'CdbCommitCheckpoint': {
-        const { db } = this.getFork(forkId);
-        db.commitCheckpoint();
-        return ['CdbCommitCheckpointResponse', {}];
-      }
-
-      case 'CdbRevertCheckpoint': {
-        const { db } = this.getFork(forkId);
-        db.revertCheckpoint();
-        return ['CdbRevertCheckpointResponse', {}];
-      }
-
-      case 'CdbShutdown': {
-        return ['CdbShutdownResponse', {}];
-      }
-
-      default:
-        throw new Error(`Unknown CDB command: ${commandName}`);
-    }
   }
 }
