@@ -1,0 +1,1 @@
+barretenberg_module(stdlib_msm_verification common transcript ecc numeric crypto_merkle_tree)
