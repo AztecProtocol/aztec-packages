@@ -493,12 +493,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 #endif
 
         // Propagate public inputs
-        KernelIO kernel_output{ pairing_points_aggregator,
-                                kernel_return_data_commitment,
-                                app_return_data_commitment,
-                                T_prev_commitments,
-                                current_verifier_accum_hash };
-        kernel_output.ipa_claim = *propagated_ipa_claim;
+        KernelIO kernel_output{ pairing_points_aggregator, kernel_return_data_commitment, app_return_data_commitment,
+                                T_prev_commitments,        current_verifier_accum_hash,   *propagated_ipa_claim };
         kernel_output.set_public();
     }
 }

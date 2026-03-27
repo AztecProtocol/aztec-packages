@@ -45,11 +45,11 @@ enum PROOF_TYPE : uint8_t {
     GOBLIN,
 };
 
-// Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_TAIL, HN_FINAL)
+// Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_TAIL, HN_FINAL, GOBLIN)
 constexpr bool is_hypernova_proof_type(uint32_t proof_type)
 {
     return proof_type == PROOF_TYPE::OINK || proof_type == PROOF_TYPE::HN || proof_type == PROOF_TYPE::HN_TAIL ||
-           proof_type == PROOF_TYPE::HN_FINAL;
+           proof_type == PROOF_TYPE::HN_FINAL || proof_type == PROOF_TYPE::GOBLIN;
 }
 
 // Convert ACIR PROOF_TYPE to Chonk::QUEUE_TYPE. Throws for non-HyperNova types.
