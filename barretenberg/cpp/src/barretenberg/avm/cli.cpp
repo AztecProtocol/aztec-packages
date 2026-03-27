@@ -1,9 +1,6 @@
 #include "barretenberg/avm/cli.hpp"
-#include "barretenberg/avm/avm_execute.hpp"
 #include "barretenberg/avm/avm_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
 #include <iostream>
@@ -11,36 +8,15 @@
 
 namespace bb::avm {
 
-namespace {
-
-struct AvmApi {
-    AvmCommand commands;
-    AvmCommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
-};
-
-std::string get_avm_schema_as_json()
-{
-    return msgpack_schema_to_string(AvmApi{});
-}
-
-} // namespace
-
 int parse_and_run_avm(int argc, char* argv[])
 {
     CLI::App app{ "aztec-avm: Standalone AVM simulator server" };
     app.require_subcommand(1);
 
     // -----------------------------------------------------------------------
-    // Subcommand: msgpack
+    // Subcommand: msgpack run
     // -----------------------------------------------------------------------
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
-
-    // msgpack schema
-    CLI::App* msgpack_schema_command =
-        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
-
-    // msgpack run
     CLI::App* msgpack_run_command = msgpack_command->add_subcommand("run", "Start the AVM simulator IPC server.");
 
     std::string input_path;
@@ -60,11 +36,6 @@ int parse_and_run_avm(int argc, char* argv[])
     }
 
     try {
-        if (msgpack_schema_command->parsed()) {
-            std::cout << get_avm_schema_as_json() << std::endl;
-            return 0;
-        }
-
         if (msgpack_run_command->parsed()) {
             return execute_avm_server(input_path, wsdb_path, cdb_path);
         }

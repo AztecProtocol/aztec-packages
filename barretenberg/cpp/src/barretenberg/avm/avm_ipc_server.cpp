@@ -1,66 +1,21 @@
 #include "barretenberg/avm/avm_ipc_server.hpp"
 #include "barretenberg/avm/avm_execute.hpp"
-#include "barretenberg/avm/avm_ipc_server_gen.hpp"
+#include "barretenberg/avm/generated/avm_ipc_server.hpp"
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client_gen.hpp"
+#include "barretenberg/common/parent_monitor.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_client.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <csignal>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <thread>
-#include <unistd.h>
 #include <vector>
 
-#ifdef __linux__
-#include <sys/prctl.h>
-#elif defined(__APPLE__)
-#include <sys/event.h>
-#endif
-
 namespace bb::avm {
-
-// ---------------------------------------------------------------------------
-// Platform-specific parent death monitoring
-// ---------------------------------------------------------------------------
-
-static void setup_parent_death_monitoring()
-{
-#ifdef __linux__
-    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
-        std::cerr << "Warning: Could not set parent death signal" << '\n';
-    }
-#elif defined(__APPLE__)
-    pid_t parent_pid = getppid();
-    std::thread([parent_pid]() {
-        int kq = kqueue();
-        if (kq == -1) {
-            std::cerr << "Warning: Could not create kqueue for parent monitoring" << '\n';
-            return;
-        }
-        struct kevent change;
-        EV_SET(&change, parent_pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT, 0, nullptr);
-        if (kevent(kq, &change, 1, nullptr, 0, nullptr) == -1) {
-            std::cerr << "Warning: Could not monitor parent process" << '\n';
-            close(kq);
-            return;
-        }
-        struct kevent event;
-        kevent(kq, nullptr, 0, &event, 1, nullptr);
-        std::cerr << "Parent process exited, shutting down..." << '\n';
-        close(kq);
-        std::exit(0);
-    }).detach();
-#endif
-}
-
-// ---------------------------------------------------------------------------
-// IPC server execution
-// ---------------------------------------------------------------------------
 
 int execute_avm_server(const std::string& input_path, const std::string& wsdb_path, const std::string& cdb_path)
 {
@@ -102,35 +57,12 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
 
     AvmRequest request{ .cdb_client = *cdb_client, .wsdb_client = *wsdb_client };
 
-    // Create IPC server
-    std::unique_ptr<ipc::IpcServer> server;
-
-    if (input_path.size() >= 5 && input_path.substr(input_path.size() - 5) == ".sock") {
-        server = ipc::IpcServer::create_socket(input_path, 1);
-        std::cerr << "Socket server at " << input_path << '\n';
-    } else {
-        std::cerr << "Error: --input path must end with .sock" << '\n';
-        return 1;
-    }
-
-    // Set up signal handlers
-    static ipc::IpcServer* global_server = server.get();
-
-    auto graceful_shutdown_handler = [](int signal) {
-        std::cerr << "\nReceived signal " << signal << ", shutting down gracefully..." << '\n';
-        if (global_server) {
-            global_server->request_shutdown();
-        }
-    };
-
-    auto fatal_error_handler = [](int signal) {
-        const char* signal_name = (signal == SIGBUS) ? "SIGBUS" : (signal == SIGSEGV) ? "SIGSEGV" : "UNKNOWN";
-        std::cerr << "\nFatal error: received " << signal_name << '\n';
-        if (global_server) {
-            global_server->close();
-        }
-        std::exit(1);
-    };
+    // Signal handling
+    static std::atomic<bool> shutdown_flag{ false };
+    auto signal_handler = [](int) { shutdown_flag.store(true, std::memory_order_release); };
+    std::signal(SIGTERM, signal_handler);
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGPIPE, SIG_IGN);
 
     // SIGUSR1 cancels the active simulation without killing the process.
     // TypeScript sends this signal when a tx exceeds its deadline.
@@ -140,28 +72,14 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
             token->cancel();
         }
     };
+    std::signal(SIGUSR1, cancel_simulation_handler);
 
-    (void)std::signal(SIGTERM, graceful_shutdown_handler);
-    (void)std::signal(SIGINT, graceful_shutdown_handler);
-    (void)std::signal(SIGUSR1, cancel_simulation_handler);
-    (void)std::signal(SIGBUS, fatal_error_handler);
-    (void)std::signal(SIGSEGV, fatal_error_handler);
+    // Parent death monitoring (SIGTERM on Linux, kqueue on macOS)
+    bb::monitor_parent_process(shutdown_flag);
 
-    setup_parent_death_monitoring();
-
-    if (!server->listen()) {
-        std::cerr << "Error: Could not start IPC server" << '\n';
-        return 1;
-    }
-
-    std::cerr << "aztec-avm IPC server ready" << '\n';
-
-    // Run server with generated dispatch handler.
-    // make_avm_handler() handles: msgpack deser, NamedUnion dispatch,
-    // shutdown detection, error wrapping. avm_dispatch() provides business logic.
-    server->run(make_avm_handler(request, avm_dispatch));
-
-    server->close();
+    // Run server using generated dispatch.
+    std::cerr << "aztec-avm IPC server starting on " << input_path << '\n';
+    serve(input_path.c_str(), request, &shutdown_flag);
     return 0;
 }
 

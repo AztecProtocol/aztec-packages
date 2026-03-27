@@ -10,4 +10,4 @@ cmake-build-debug
 bench-out
 
 # Generated code (produced by barretenberg/codegen, not committed)
-**/*_gen.*
+**/generated/

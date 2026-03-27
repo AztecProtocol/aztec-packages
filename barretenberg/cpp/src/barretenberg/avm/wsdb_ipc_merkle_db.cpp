@@ -3,7 +3,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/wsdb/wsdb_commands.hpp"
+#include "barretenberg/wsdb/generated/wsdb_commands.hpp"
 
 namespace bb::avm {
 

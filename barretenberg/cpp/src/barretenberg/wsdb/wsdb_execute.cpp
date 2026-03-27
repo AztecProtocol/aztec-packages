@@ -2,6 +2,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/wsdb/generated/wsdb_commands.hpp"
 #include <optional>
 #include <stdexcept>
 
@@ -37,15 +38,6 @@ static std::vector<LeafType> deserialize_leaves(const std::vector<std::vector<ui
         leaves.push_back(std::move(leaf));
     }
     return leaves;
-}
-
-// ---------------------------------------------------------------------------
-// Top-level dispatch
-// ---------------------------------------------------------------------------
-
-WsdbCommandResponse wsdb(WsdbRequest& request, WsdbCommand&& command)
-{
-    return execute(request, std::move(command));
 }
 
 // ---------------------------------------------------------------------------

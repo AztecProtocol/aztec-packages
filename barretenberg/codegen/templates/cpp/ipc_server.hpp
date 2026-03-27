@@ -1,11 +1,16 @@
 /**
  * Generic IPC server over Unix Domain Sockets.
- * Handles: socket setup, accept, length-prefixed framing, msgpack decode/encode.
+ * Handles: socket setup, multi-client accept via poll(), length-prefixed framing.
  * Service-specific dispatch is injected via the handler function parameter.
+ *
+ * Does NOT handle signal handling or parent death monitoring — those are
+ * the responsibility of the binary that calls serve().
  *
  * Header-only — no separate .cpp needed.
  */
 #pragma once
+#ifndef IPC_SERVER_HPP_INCLUDED
+#define IPC_SERVER_HPP_INCLUDED
 
 #ifndef THROW
 #define THROW throw
@@ -14,22 +19,41 @@
 #define RETHROW throw
 #endif
 
-#include <msgpack.hpp>
+#include <atomic>
+#include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
+
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <cstring>
 
 namespace ipc {
 
+/// Exception thrown by handlers to trigger graceful shutdown.
+/// Carries the final response to send before closing.
+struct ShutdownRequested : std::exception {
+    std::vector<uint8_t> final_response;
+    explicit ShutdownRequested(std::vector<uint8_t> resp)
+        : final_response(std::move(resp))
+    {}
+    const char* what() const noexcept override { return "shutdown requested"; }
+};
+
 using Handler = std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)>;
 
-inline void send_frame(int fd, const std::vector<uint8_t>& data) {
+// ---------------------------------------------------------------------------
+// Framing: 4-byte little-endian length prefix
+// ---------------------------------------------------------------------------
+
+inline bool send_frame(int fd, const std::vector<uint8_t>& data)
+{
     uint32_t len = static_cast<uint32_t>(data.size());
     uint8_t header[4] = {
         static_cast<uint8_t>(len & 0xFF),
@@ -37,72 +61,171 @@ inline void send_frame(int fd, const std::vector<uint8_t>& data) {
         static_cast<uint8_t>((len >> 16) & 0xFF),
         static_cast<uint8_t>((len >> 24) & 0xFF),
     };
-    write(fd, header, 4);
+    // Write header
     size_t written = 0;
-    while (written < data.size()) {
-        auto n = write(fd, data.data() + written, data.size() - written);
-        if (n <= 0) break;
+    while (written < 4) {
+        auto n = ::write(fd, header + written, 4 - written);
+        if (n <= 0) {
+            return false;
+        }
         written += static_cast<size_t>(n);
     }
+    // Write payload
+    written = 0;
+    while (written < data.size()) {
+        auto n = ::write(fd, data.data() + written, data.size() - written);
+        if (n <= 0) {
+            return false;
+        }
+        written += static_cast<size_t>(n);
+    }
+    return true;
 }
 
-inline std::vector<uint8_t> recv_frame(int fd) {
+/// Returns empty vector on EOF/error.
+inline std::vector<uint8_t> recv_frame(int fd)
+{
     uint8_t header[4];
     size_t got = 0;
     while (got < 4) {
-        auto n = read(fd, header + got, 4 - got);
-        if (n <= 0) throw std::runtime_error("read failed");
+        auto n = ::read(fd, header + got, 4 - got);
+        if (n <= 0) {
+            return {};
+        }
         got += static_cast<size_t>(n);
     }
-    uint32_t len = header[0] | (header[1] << 8) | (header[2] << 16) | (header[3] << 24);
+    uint32_t len = static_cast<uint32_t>(header[0]) | (static_cast<uint32_t>(header[1]) << 8) |
+                   (static_cast<uint32_t>(header[2]) << 16) | (static_cast<uint32_t>(header[3]) << 24);
     std::vector<uint8_t> buf(len);
     got = 0;
     while (got < len) {
-        auto n = read(fd, buf.data() + got, len - got);
-        if (n <= 0) throw std::runtime_error("read failed");
+        auto n = ::read(fd, buf.data() + got, len - got);
+        if (n <= 0) {
+            return {};
+        }
         got += static_cast<size_t>(n);
     }
     return buf;
 }
 
-inline void serve(const char* socket_path, Handler handler) {
+// ---------------------------------------------------------------------------
+// Multi-client UDS server
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Run a multi-client UDS server.
+ *
+ * Accepts multiple client connections via poll(). Handles one request at a time
+ * (sequential, not concurrent). When a handler throws ShutdownRequested, the
+ * final response is sent and the server exits cleanly.
+ *
+ * The caller should set up signal handlers and parent death monitoring before
+ * calling this function. To request external shutdown, store true into the
+ * provided shutdown_flag (or pass nullptr to disable external shutdown).
+ *
+ * @param socket_path   Path for the Unix domain socket
+ * @param handler       Function that processes a request and returns a response
+ * @param shutdown_flag Atomic flag checked each poll cycle; serve() exits when true.
+ *                      May be nullptr if only ShutdownRequested is used.
+ * @param backlog       listen() backlog (max pending connections)
+ */
+inline void serve(const char* socket_path,
+                  Handler handler,
+                  std::atomic<bool>* shutdown_flag = nullptr,
+                  int backlog = 5)
+{
     unlink(socket_path);
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    struct sockaddr_un addr{};
+    int server_fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        throw std::runtime_error(std::string("socket() failed: ") + strerror(errno));
+    }
+
+    struct sockaddr_un addr {};
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-    bind(server_fd, (struct sockaddr*)&addr, sizeof(addr));
-    listen(server_fd, 1);
-    std::cerr << "ipc-server(cpp): listening on " << socket_path << "\n";
 
-    int client_fd = accept(server_fd, nullptr, nullptr);
+    if (::bind(server_fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+        ::close(server_fd);
+        throw std::runtime_error(std::string("bind() failed: ") + strerror(errno));
+    }
+    if (::listen(server_fd, backlog) < 0) {
+        ::close(server_fd);
+        throw std::runtime_error(std::string("listen() failed: ") + strerror(errno));
+    }
 
-    while (true) {
-        std::vector<uint8_t> payload;
-        try {
-            payload = recv_frame(client_fd);
-        } catch (...) {
+    // Poll set: [0] = server_fd, [1..N] = client fds
+    std::vector<struct pollfd> fds;
+    fds.push_back({ server_fd, POLLIN, 0 });
+
+    auto remove_client = [&](size_t idx) {
+        ::close(fds[idx].fd);
+        fds.erase(fds.begin() + static_cast<ptrdiff_t>(idx));
+    };
+
+    auto should_shutdown = [&]() {
+        return shutdown_flag != nullptr && shutdown_flag->load(std::memory_order_acquire);
+    };
+
+    while (!should_shutdown()) {
+        int ready = ::poll(fds.data(), fds.size(), 100 /* ms */);
+        if (ready < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
             break;
         }
+        if (ready == 0) {
+            continue;
+        }
 
-        bool is_shutdown = false;
-        for (size_t i = 0; i + 8 <= payload.size(); i++) {
-            if (std::memcmp(payload.data() + i, "Shutdown", 8) == 0) {
-                is_shutdown = true;
-                break;
+        // Check server fd for new connections
+        if (fds[0].revents & POLLIN) {
+            int client_fd = ::accept(server_fd, nullptr, nullptr);
+            if (client_fd >= 0) {
+                fds.push_back({ client_fd, POLLIN, 0 });
             }
         }
 
-        auto response = handler(payload);
-        send_frame(client_fd, response);
+        // Check client fds for data
+        for (size_t i = 1; i < fds.size(); /* incremented below */) {
+            if (!(fds[i].revents & POLLIN)) {
+                ++i;
+                continue;
+            }
 
-        if (is_shutdown) break;
+            auto payload = recv_frame(fds[i].fd);
+            if (payload.empty()) {
+                // Client disconnected
+                remove_client(i);
+                continue;
+            }
+
+            try {
+                auto response = handler(payload);
+                if (!send_frame(fds[i].fd, response)) {
+                    remove_client(i);
+                    continue;
+                }
+            } catch (const ShutdownRequested& shutdown) {
+                send_frame(fds[i].fd, shutdown.final_response);
+                goto done;
+            } catch (const std::exception& e) {
+                std::cerr << "ipc-server: handler error: " << e.what() << "\n";
+                remove_client(i);
+                continue;
+            }
+            ++i;
+        }
     }
 
-    close(client_fd);
-    close(server_fd);
+done:
+    // Close all client connections
+    for (size_t i = 1; i < fds.size(); ++i) {
+        ::close(fds[i].fd);
+    }
+    ::close(server_fd);
     unlink(socket_path);
-    std::cerr << "ipc-server(cpp): shutdown\n";
 }
 
 } // namespace ipc
+#endif // IPC_SERVER_HPP_INCLUDED

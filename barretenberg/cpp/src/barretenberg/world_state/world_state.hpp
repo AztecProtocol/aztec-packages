@@ -740,5 +740,3 @@ SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
     return result;
 }
 } // namespace bb::world_state
-
-MSGPACK_ADD_ENUM(bb::world_state::MerkleTreeId)

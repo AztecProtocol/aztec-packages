@@ -250,3 +250,5 @@ struct WorldStateStatusFull {
     }
 };
 } // namespace bb::world_state
+
+MSGPACK_ADD_ENUM(bb::world_state::MerkleTreeId)

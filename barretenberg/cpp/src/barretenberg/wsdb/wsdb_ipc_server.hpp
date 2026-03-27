@@ -19,8 +19,6 @@ int execute_wsdb_server(const std::string& input_path,
                         const std::string& map_sizes_json,
                         uint32_t threads,
                         uint32_t initial_header_generator_point,
-                        const std::string& prefilled_public_data_json,
-                        size_t request_ring_size,
-                        size_t response_ring_size);
+                        const std::string& prefilled_public_data_json);
 
 } // namespace bb::wsdb

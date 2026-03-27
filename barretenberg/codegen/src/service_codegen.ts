@@ -14,7 +14,8 @@
 import { createHash } from 'crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { SchemaVisitor, type CompiledSchema } from './schema_visitor.ts';
 import { TypeScriptCodegen } from './typescript_codegen.ts';
 import { RustCodegen, type RustCodegenOptions } from './rust_codegen.ts';
@@ -160,31 +161,54 @@ function tsTargetWithSync(): LanguageTarget {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: create common C++ IPC client target
+// Helper: read a codegen template file
 // ---------------------------------------------------------------------------
-function cppClientTarget(opts: CppCodegenOptions, cppOutputDir: string): LanguageTarget {
+function readTemplate(lang: string, filename: string): string {
+  const thisDir = dirname(fileURLToPath(import.meta.url));
+  const templatePath = resolve(thisDir, '..', 'templates', lang, filename);
+  return readFileSync(templatePath, 'utf-8');
+}
+
+// ---------------------------------------------------------------------------
+// Helper: create common C++ IPC client target (uses standalone ipc_client.hpp template)
+// ---------------------------------------------------------------------------
+/**
+ * C++ client target — generates typed IPC client + copies transport template.
+ * @param opts Codegen options
+ * @param generatedDir Output directory for generated files (e.g. '../../../cpp/src/barretenberg/wsdb/generated')
+ * @param prefix File prefix (e.g. 'wsdb')
+ */
+function cppClientTarget(opts: CppCodegenOptions, generatedDir: string, prefix: string): LanguageTarget {
   return {
     name: 'C++ client',
     enabled: true,
     generate: (compiled, schemaHash) => {
       const cppGen = new CppCodegen(opts);
       return [
-        { path: cppOutputDir + '_ipc_client_gen.hpp', content: cppGen.generateHeader(compiled, schemaHash) },
-        { path: cppOutputDir + '_ipc_client_gen.cpp', content: cppGen.generateImpl(compiled) },
+        { path: `${generatedDir}/ipc_client.hpp`, content: readTemplate('cpp', 'ipc_client.hpp') },
+        { path: `${generatedDir}/${prefix}_ipc_client.hpp`, content: cppGen.generateHeader(compiled, schemaHash) },
+        { path: `${generatedDir}/${prefix}_ipc_client.cpp`, content: cppGen.generateImpl(compiled) },
       ];
     },
   };
 }
 
-function cppServerTarget(opts: CppCodegenOptions, cppOutputDir: string): LanguageTarget {
+/**
+ * C++ server target — generates dispatch handler + copies transport template.
+ * @param opts Codegen options
+ * @param generatedDir Output directory for generated files
+ * @param prefix File prefix (e.g. 'wsdb')
+ */
+function cppServerTarget(opts: CppCodegenOptions, generatedDir: string, prefix: string): LanguageTarget {
   return {
     name: 'C++ server',
     enabled: true,
     generate: (compiled, _schemaHash) => {
       const cppGen = new CppCodegen(opts);
       return [
-        { path: cppOutputDir + '_ipc_server_gen.hpp', content: cppGen.generateServerHeader(compiled) },
-        { path: cppOutputDir + '_ipc_server_gen.cpp', content: cppGen.generateServerImpl(compiled) },
+        { path: `${generatedDir}/ipc_server.hpp`, content: readTemplate('cpp', 'ipc_server.hpp') },
+        { path: `${generatedDir}/${prefix}_ipc_server.hpp`, content: cppGen.generateServerHeader(compiled) },
+        { path: `${generatedDir}/${prefix}_ipc_server.cpp`, content: cppGen.generateServerImpl(compiled) },
       ];
     },
   };
@@ -198,6 +222,19 @@ function cppStandaloneTypesTarget(opts: CppCodegenOptions, outputPath: string): 
       const cppGen = new CppCodegen(opts);
       return [
         { path: outputPath, content: cppGen.generateStandaloneTypes(compiled) },
+      ];
+    },
+  };
+}
+
+function cppCommandsTarget(opts: CppCodegenOptions, outputPath: string): LanguageTarget {
+  return {
+    name: 'C++ commands',
+    enabled: true,
+    generate: (compiled, _schemaHash) => {
+      const cppGen = new CppCodegen(opts);
+      return [
+        { path: outputPath, content: cppGen.generateCommands(compiled) },
       ];
     },
   };
@@ -266,21 +303,58 @@ const WSDB_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::wsdb',
   prefix: 'Wsdb',
   executeHeader: 'barretenberg/wsdb/wsdb_execute.hpp',
-  commandsHeader: 'barretenberg/wsdb/wsdb_commands.hpp',
+  commandsHeader: 'barretenberg/wsdb/generated/wsdb_commands.hpp',
+  externals: {
+    'WorldStateRevision': 'barretenberg/world_state/types.hpp',
+    'WorldStateStatusFull': 'barretenberg/world_state/types.hpp',
+    'WorldStateStatusSummary': 'barretenberg/world_state/types.hpp',
+    'WorldStateDBStats': 'barretenberg/world_state/types.hpp',
+    'WorldStateMeta': 'barretenberg/world_state/types.hpp',
+    'NullifierLeafValue': 'barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp',
+    'PublicDataLeafValue': 'barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp',
+    'TreeMeta': 'barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp',
+    'TreeDBStats': 'barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp',
+    'DBStats': 'barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp',
+    'SiblingPathAndIndex': 'barretenberg/crypto/merkle_tree/response.hpp',
+  },
+  usingNamespaces: ['bb::world_state', 'bb::crypto::merkle_tree'],
+  additionalIncludes: [
+    'barretenberg/crypto/merkle_tree/hash_path.hpp',
+    'barretenberg/crypto/merkle_tree/response.hpp',
+    'barretenberg/crypto/merkle_tree/types.hpp',
+    'barretenberg/ecc/curves/bn254/fr.hpp',
+    'barretenberg/serialize/msgpack.hpp',
+    'barretenberg/world_state/fork.hpp',
+  ],
 };
 
 const CDB_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::cdb',
   prefix: 'Cdb',
   executeHeader: 'barretenberg/cdb/cdb_execute.hpp',
-  commandsHeader: 'barretenberg/cdb/cdb_commands.hpp',
+  commandsHeader: 'barretenberg/cdb/generated/cdb_commands.hpp',
+  externals: {
+    'ContractInstance': 'barretenberg/vm2/common/aztec_types.hpp',
+    'ContractClass': 'barretenberg/vm2/common/aztec_types.hpp',
+    'ContractDeploymentData': 'barretenberg/vm2/common/aztec_types.hpp',
+    'ContractClassLogFields': 'barretenberg/vm2/common/aztec_types.hpp',
+    'ContractClassLog': 'barretenberg/vm2/common/aztec_types.hpp',
+    'PrivateLog': 'barretenberg/vm2/common/aztec_types.hpp',
+    'GrumpkinPoint': 'barretenberg/vm2/common/aztec_types.hpp',
+    'PublicKeys': 'barretenberg/vm2/common/aztec_types.hpp',
+  },
+  usingNamespaces: ['bb::avm2'],
+  additionalIncludes: [
+    'barretenberg/ecc/curves/bn254/fr.hpp',
+    'barretenberg/serialize/msgpack.hpp',
+  ],
 };
 
 const AVM_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::avm',
   prefix: 'Avm',
   executeHeader: 'barretenberg/avm/avm_execute.hpp',
-  commandsHeader: 'barretenberg/avm/avm_commands.hpp',
+  commandsHeader: 'barretenberg/avm/generated/avm_commands.hpp',
 };
 
 /** World State Database service */
@@ -290,9 +364,10 @@ const WSDB_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-wsdb`,
   targets: [
     tsTarget(),
-    cppStandaloneTypesTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb_types_gen.hpp'),
-    cppClientTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
-    cppServerTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/wsdb'),
+    cppStandaloneTypesTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated/wsdb_types.hpp'),
+    cppCommandsTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated/wsdb_commands.hpp'),
+    cppClientTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated', 'wsdb'),
+    cppServerTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated', 'wsdb'),
     zigTarget(`${ZIG_IPC_BASE}/wsdb`, { prefix: 'Wsdb', clientName: 'WsdbClient' }),
   ],
 };
@@ -304,9 +379,10 @@ const CDB_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-cdb`,
   targets: [
     tsTarget(),
-    cppStandaloneTypesTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb_types_gen.hpp'),
-    cppClientTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
-    cppServerTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/cdb'),
+    cppStandaloneTypesTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated/cdb_types.hpp'),
+    cppCommandsTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated/cdb_commands.hpp'),
+    cppClientTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated', 'cdb'),
+    cppServerTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated', 'cdb'),
     zigTarget(`${ZIG_IPC_BASE}/cdb`, { prefix: 'Cdb', clientName: 'CdbClient' }),
   ],
 };
@@ -318,8 +394,9 @@ const AVM_SERVICE: ServiceConfig = {
   baseDir: `${TS_SRC}/aztec-avm`,
   targets: [
     tsTarget(),
-    cppStandaloneTypesTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm_types_gen.hpp'),
-    cppServerTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/avm'),
+    cppStandaloneTypesTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/generated/avm_types.hpp'),
+    cppCommandsTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/generated/avm_commands.hpp'),
+    cppServerTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/generated', 'avm'),
     zigTarget(`${ZIG_IPC_BASE}/avm`, { prefix: 'Avm', clientName: 'AvmClient' }),
   ],
 };

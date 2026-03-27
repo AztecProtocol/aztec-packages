@@ -16,6 +16,7 @@ export interface Type {
   element?: Type;  // For vector, array, optional
   size?: number;   // For array
   struct?: Struct; // For struct types
+  originalName?: string; // Original type name from schema (e.g. 'MerkleTreeId', 'unordered_map')
 }
 
 export interface Field {
@@ -219,7 +220,7 @@ export class SchemaVisitor {
 
     const primitive = primitiveMap[name];
     if (primitive) {
-      return { kind: 'primitive', primitive };
+      return { kind: 'primitive', primitive, originalName: name };
     }
 
     // Unknown primitive - treat as struct reference

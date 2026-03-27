@@ -4,7 +4,7 @@ if(NOT(FUZZING) AND NOT(WASM))
     add_library(
         wsdb_ipc_client
         STATIC
-        wsdb_ipc_client_gen.cpp
+        generated/wsdb_ipc_client.cpp
     )
     target_link_libraries(
         wsdb_ipc_client
@@ -20,7 +20,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         cli.cpp
         wsdb_execute.cpp
         wsdb_ipc_server.cpp
-        wsdb_ipc_server_gen.cpp
+        generated/wsdb_ipc_server.cpp
     )
     target_link_libraries(
         aztec-wsdb

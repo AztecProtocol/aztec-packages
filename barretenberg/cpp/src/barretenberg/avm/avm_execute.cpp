@@ -1,4 +1,5 @@
 #include "barretenberg/avm/avm_execute.hpp"
+#include "barretenberg/avm/generated/avm_commands.hpp"
 #include "barretenberg/avm/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -7,7 +8,7 @@
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
-#include "barretenberg/wsdb/wsdb_commands.hpp"
+#include "barretenberg/wsdb/generated/wsdb_commands.hpp"
 
 namespace bb::avm {
 
@@ -36,15 +37,6 @@ template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_
     T value;
     unpacked.get().convert(value);
     return value;
-}
-
-// ---------------------------------------------------------------------------
-// Top-level dispatch
-// ---------------------------------------------------------------------------
-
-AvmCommandResponse avm_dispatch(AvmRequest& request, AvmCommand&& command)
-{
-    return execute(request, std::move(command));
 }
 
 // ---------------------------------------------------------------------------

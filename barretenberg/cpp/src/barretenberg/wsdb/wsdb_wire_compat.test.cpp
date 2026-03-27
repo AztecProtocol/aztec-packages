@@ -14,7 +14,7 @@
  */
 
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/wsdb/wsdb_commands.hpp"
+#include "barretenberg/wsdb/generated/wsdb_commands.hpp"
 #include "barretenberg/wsdb/wsdb_execute.hpp"
 
 #include <gtest/gtest.h>

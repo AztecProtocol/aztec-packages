@@ -1,8 +1,7 @@
 #include "barretenberg/wsdb/cli.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/wsdb/wsdb_execute.hpp"
+#include "barretenberg/wsdb/generated/wsdb_commands.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
@@ -17,84 +16,39 @@ namespace bb::wsdb {
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 
-namespace {
-
-struct WsdbApi {
-    WsdbCommand commands;
-    WsdbCommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
-};
-
-std::string get_wsdb_schema_as_json()
-{
-    return msgpack_schema_to_string(WsdbApi{});
-}
-
-} // namespace
-
 int parse_and_run_wsdb(int argc, char* argv[])
 {
     CLI::App app{ "aztec-wsdb: Standalone world state database server" };
     app.require_subcommand(1);
 
-    // -----------------------------------------------------------------------
-    // Subcommand: msgpack
-    // -----------------------------------------------------------------------
-    CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
-
-    // msgpack schema
-    CLI::App* msgpack_schema_command =
-        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
-
-    // msgpack run
-    CLI::App* msgpack_run_command =
-        msgpack_command->add_subcommand("run", "Start the world state database IPC server.");
+    auto* msgpack_run_command = app.add_subcommand("msgpack run", "Start the IPC server");
 
     std::string input_path;
-    msgpack_run_command->add_option(
-        "-i,--input", input_path, "IPC socket/shm path (.sock for UDS, .shm for shared memory)");
+    msgpack_run_command->add_option("--input", input_path, "Socket path (.sock)")->required();
 
     std::string data_dir;
-    msgpack_run_command->add_option("-d,--data-dir", data_dir, "Data directory for LMDB stores")->required();
-
-    // Tree heights (JSON map: treeId -> height)
-    std::string tree_heights_json;
-    msgpack_run_command->add_option("--tree-heights", tree_heights_json, "Tree heights as JSON: {0:40,1:32,...}");
-
-    // Tree prefill sizes
-    std::string tree_prefill_json;
-    msgpack_run_command->add_option(
-        "--tree-prefill", tree_prefill_json, "Tree prefill sizes as JSON: {0:128,2:128,...}");
-
-    // Map sizes (KB)
-    std::string map_sizes_json;
-    msgpack_run_command->add_option("--map-sizes", map_sizes_json, "LMDB map sizes in KB as JSON: {0:1024,...}");
+    msgpack_run_command->add_option("--data-dir", data_dir, "Data directory for LMDB stores")->required();
 
     uint32_t threads = 16;
-    msgpack_run_command->add_option("-t,--threads", threads, "Thread pool size (default: 16)")
-        ->check(CLI::PositiveNumber);
+    msgpack_run_command->add_option("--threads", threads, "Number of worker threads (default: 16)");
+
+    std::string tree_heights_json;
+    msgpack_run_command->add_option("--tree-heights", tree_heights_json, "Tree heights as JSON map")->required();
+
+    std::string tree_prefill_json;
+    msgpack_run_command->add_option("--tree-prefill", tree_prefill_json, "Tree prefill counts as JSON map");
+
+    std::string map_sizes_json;
+    msgpack_run_command->add_option("--map-sizes", map_sizes_json, "LMDB map sizes as JSON map");
 
     uint32_t initial_header_generator_point = 0;
     msgpack_run_command->add_option(
-        "--initial-header-generator-point", initial_header_generator_point, "Header generator point (default: 0)");
+        "--initial-header-generator-point", initial_header_generator_point, "Initial header generator point");
 
     // Prefilled public data as JSON array of [slot_hex, value_hex] pairs
     std::string prefilled_public_data_json;
     msgpack_run_command->add_option(
         "--prefilled-public-data", prefilled_public_data_json, "Prefilled public data as JSON array");
-
-    size_t request_ring_size = 1024 * 1024;
-    msgpack_run_command
-        ->add_option(
-            "--request-ring-size", request_ring_size, "Request ring buffer size for shared memory IPC (default: 1MB)")
-        ->check(CLI::PositiveNumber);
-
-    size_t response_ring_size = 1024 * 1024;
-    msgpack_run_command
-        ->add_option("--response-ring-size",
-                     response_ring_size,
-                     "Response ring buffer size for shared memory IPC (default: 1MB)")
-        ->check(CLI::PositiveNumber);
 
     // Parse CLI
     try {
@@ -104,11 +58,6 @@ int parse_and_run_wsdb(int argc, char* argv[])
     }
 
     try {
-        if (msgpack_schema_command->parsed()) {
-            std::cout << get_wsdb_schema_as_json() << std::endl;
-            return 0;
-        }
-
         if (msgpack_run_command->parsed()) {
             return execute_wsdb_server(input_path,
                                        data_dir,
@@ -117,9 +66,7 @@ int parse_and_run_wsdb(int argc, char* argv[])
                                        map_sizes_json,
                                        threads,
                                        initial_header_generator_point,
-                                       prefilled_public_data_json,
-                                       request_ring_size,
-                                       response_ring_size);
+                                       prefilled_public_data_json);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
