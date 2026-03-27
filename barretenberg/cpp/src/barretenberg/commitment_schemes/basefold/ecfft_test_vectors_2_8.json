@@ -1,0 +1,281 @@
+{
+  "log_n": 8,
+  "n": 256,
+  "tests": [
+    {
+      "name": "degree_halving_rate1",
+      "n": 256,
+      "degree_bound": 256,
+      "challenge": "0x1c32bf76fc043f0892070158f2771f63ada584175e2ad32d31ab0b56d5c9fdc8",
+      "input_degree": 255,
+      "output_degree": 127,
+      "output_degree_bound": 128,
+      "pass": true
+    },
+    {
+      "name": "degree_halving_rate_quarter",
+      "n": 256,
+      "degree_bound": 64,
+      "challenge": "0x027d91010b9900340a4e255280051b1066c14dca8255da619a3b031932f57511",
+      "input_degree": 63,
+      "output_degree": 31,
+      "output_degree_bound": 32,
+      "pass": true
+    },
+    {
+      "name": "locality",
+      "n": 256,
+      "degree_bound": 256,
+      "challenge": "0x09883e6a74fd33d184f2fd0f79474bfacdd0b4d4554227deb6adf48b2314d0c9",
+      "checks": [
+        {
+          "j": 0,
+          "expected": "0x27c9b6608e07c83dbcd2ada0591b93a89849456f755f607d80db5695c31e9ffc",
+          "local_computed": "0x27c9b6608e07c83dbcd2ada0591b93a89849456f755f607d80db5695c31e9ffc",
+          "match": true
+        },
+        {
+          "j": 1,
+          "expected": "0x0344e43daad12f7057d0707daee68aa8ea3e14546121638f7fa270abd82cc44e",
+          "local_computed": "0x0344e43daad12f7057d0707daee68aa8ea3e14546121638f7fa270abd82cc44e",
+          "match": true
+        },
+        {
+          "j": 2,
+          "expected": "0x01a09796e52cd8ad308133df45cee82760bfc1c56a2641b5697eca8a44627487",
+          "local_computed": "0x01a09796e52cd8ad308133df45cee82760bfc1c56a2641b5697eca8a44627487",
+          "match": true
+        },
+        {
+          "j": 3,
+          "expected": "0x244c5a8f413a653583cc01b7cff1108e77086e42282db8e6eb5bf6229d3875f2",
+          "local_computed": "0x244c5a8f413a653583cc01b7cff1108e77086e42282db8e6eb5bf6229d3875f2",
+          "match": true
+        },
+        {
+          "j": 4,
+          "expected": "0x2adc5f2d6d4fd118104c1631b22d1d054bdd303d017e16f76bffe1fd9ca3b14a",
+          "local_computed": "0x2adc5f2d6d4fd118104c1631b22d1d054bdd303d017e16f76bffe1fd9ca3b14a",
+          "match": true
+        },
+        {
+          "j": 5,
+          "expected": "0x2a777f1b093ea24b549c4f4260c8f4704081134bcd1f8ac4b60e26fd8880dc7d",
+          "local_computed": "0x2a777f1b093ea24b549c4f4260c8f4704081134bcd1f8ac4b60e26fd8880dc7d",
+          "match": true
+        },
+        {
+          "j": 6,
+          "expected": "0x21ca2699a61eae664cb0789d420fbfb89ae4b6e5ba292fb415b65194d9805372",
+          "local_computed": "0x21ca2699a61eae664cb0789d420fbfb89ae4b6e5ba292fb415b65194d9805372",
+          "match": true
+        },
+        {
+          "j": 7,
+          "expected": "0x15458691e2c453143c201befa0a1a0b352ba208744af26b529b277c896994900",
+          "local_computed": "0x15458691e2c453143c201befa0a1a0b352ba208744af26b529b277c896994900",
+          "match": true
+        }
+      ],
+      "pass": true
+    },
+    {
+      "name": "multi_round_fold",
+      "n": 256,
+      "num_rounds": 8,
+      "challenges": [
+        "0x19447986143665f54c81926079ec533c3c53090ee1b41171929d674d798e1760",
+        "0x21138942e684390c923b78208089b8c508e3f771b6dcbd05da9bccc1e71c681b",
+        "0x0d8f9bbdf8dfcc3a2acb4fbdfbff8a7df2f5b1762c41cbd372f444abc1d71f4b",
+        "0x2bb853e1fcffe9e3140ff5896c624c2c0aeccec7204db9da31567f2acef7482a",
+        "0x261542c7d5881c1c25db5946a091e5b4d2938e6eff4d093033b0fb536f75ee8b",
+        "0x0591db8f1127b207ceae1325ea074d80ba236c22e92a7b9751db1a374204d734",
+        "0x2142923546b518dedb4bb8eb537d0bd18d536c7565b90e948e6de263635a775e",
+        "0x259ad8ba9f80b96bb34e356ac95b61f8032a461adf9b7c1feacb1f6d7549c9fa"
+      ],
+      "initial_evals": [
+        "0x2443132d25f06b0a264ef59d6a18e5af1cce08e96b6a8061c81c8d3185c69fc0",
+        "0x06c2b88becc817a619a6f80ef08ce6c2f6ff3521c2250530952a53459682da00",
+        "0x249c07587c4f48e4a7a02a3d620f230b439e754c693016eae0bda1ee5807cf75",
+        "0x2791515724d3875167294d3c46818a882c154804099759a37919955c9be4f1a0",
+        "0x11307c6debbbd76379a7e63bbee975da0c9e55503cd1ff3fb0c5827854dccba6",
+        "0x13e697e64d950273cb2cc805d1403430567e642e052dfb9a5f584603e5a3d8ea",
+        "0x05b6e036a543148e9adfe9816ab19e15ba92992e44f8b53c52246d05d3692868",
+        "0x1f0165e6bdae8eff683c510ed2efa93be9d6bb7e361db014711456de301c8db4"
+      ],
+      "rounds": [
+        {
+          "round": 0,
+          "size": 128,
+          "first_values": [
+            "0x12f618f89deb8c9eb9e5163be8d69535ae1e5b34b771337ff8012d7b75293bb5",
+            "0x1d77b955933466fa5012ee36ead2e716ac7bf0062bc97001b265c8835107b6cd",
+            "0x027d18f4ab077d0465504d136eb2eb4f5f5fdbafd15c8cb3133792f8d9565c92",
+            "0x205b2662364591fc828704761675328d90b4ec2d24677cdc18bf625608f979bb"
+          ]
+        },
+        {
+          "round": 1,
+          "size": 64,
+          "first_values": [
+            "0x00648ef7b4841c80d685c017fbf16e9929ff6cd707dd74f59fd9c908c55302cb",
+            "0x18751d054974662dc720fe6657d8af7aac05fd8f37b3334248ffd603dd91e1b6",
+            "0x00fa765b086931f8266d561a2af834df50ca4a7fcb10764b5392af496e5fa5b3",
+            "0x2560e6ff88ef4f14b491cf4f76c5e3a2aa018a7d7011a0eb5625ac8fde57fa68"
+          ]
+        },
+        {
+          "round": 2,
+          "size": 32,
+          "first_values": [
+            "0x14ca729f0ac9f246ed998f16dd7c9bef8ee7e3b163288ff83c23ab9ba20dda82",
+            "0x0ebbcd49fdd498adcd7e1bc7b0d801cb918ef3193a01521a4d39062ffd2ab735",
+            "0x0da25fec5e8866890019b8939beaf4a06e8377ed5b872342d97ad0f51686ac6c",
+            "0x0204b967c157ff6986000ba543d017dbea62c29b60ba64832ed714ceb934b288"
+          ]
+        },
+        {
+          "round": 3,
+          "size": 16,
+          "first_values": [
+            "0x25d7489c55eca7d29596d5e322da06713dbf53766f3e3d37d0fabef470b05d28",
+            "0x1f686c43758c81980fa4d06b3c683bfed2d00f1032da2c8403812432624c3ff8",
+            "0x28a5d6c8a7ab00ee6b36560e3868525ca668006711257f711ccd64ac72837b7c",
+            "0x0bc9d91cd1a784cc93f936dff03fbf28c7233e8cb887c0e467951edab0d3ebda"
+          ]
+        },
+        {
+          "round": 4,
+          "size": 8,
+          "first_values": [
+            "0x22217658485c20f23ab3d50afd1c58e774efe2b835b7f1678411fadd480a24aa",
+            "0x116da1a856bf6542ea8e67c7b4c28e7f398822991bbe9122db233b81f1187128",
+            "0x0692b9b32b1521b04e8a91b1a239855f55b4804ecbdbccda0acee9f43ac71115",
+            "0x1b1dcd09eb9e90752edefb0fc2cef6a2e3167b3c8cb50784d7cf776bc0c8307b"
+          ]
+        },
+        {
+          "round": 5,
+          "size": 4,
+          "first_values": [
+            "0x08f00ab4a2fe74f10d66accba0d2881362d8e345bbc86f88e3d4a237279741f0",
+            "0x0ec6462c721e8f17e74e81411ad399cf2e4846e65f09be30d638459c5bad3b2d",
+            "0x07cd9ba758eeae51e48d665991d5f43be3a102aa222cd531154bc61d3f723374",
+            "0x2416773a2ecd3bf414e3c8c1a5cf7a3528f632d4f089a4779086641f6b21851b"
+          ]
+        },
+        {
+          "round": 6,
+          "size": 2,
+          "first_values": [
+            "0x0110758e492bf15875edf9bc7cc22ea32de6d603efdb3c98e074ba435224f16d",
+            "0x29c53dd7688c55e5cbdf03eca19fa61902aca4de21feede231dd6391091f2676"
+          ]
+        },
+        {
+          "round": 7,
+          "size": 1,
+          "first_values": [
+            "0x2f00eecd607175a77f8eeb5b565ffe2974214ca8f5ab43f495127351e8d807dc"
+          ]
+        }
+      ],
+      "final_value": "0x2f00eecd607175a77f8eeb5b565ffe2974214ca8f5ab43f495127351e8d807dc"
+    },
+    {
+      "name": "verifier_query_trace",
+      "initial_query_index": 3,
+      "trace": [
+        {
+          "round": 0,
+          "pair_index": 3,
+          "s0": "0x0748ed2088f66b6ac8a17591870796f4b8cf1771cabf903593661c1fa469a7f4",
+          "s1": "0x0927fd5f5593479417b91cc1f9588c9321507cbb2b47fc640105d3118af1857e",
+          "f_s0": "0x2791515724d3875167294d3c46818a882c154804099759a37919955c9be4f1a0",
+          "f_s1": "0x090c44ff8e190d07dff0b9bf8db3c2c102dabd76f3102525f5179e725f857b22",
+          "expected_fold": "0x205b2662364591fc828704761675328d90b4ec2d24677cdc18bf625608f979bb",
+          "actual_fold": "0x205b2662364591fc828704761675328d90b4ec2d24677cdc18bf625608f979bb",
+          "match": true
+        },
+        {
+          "round": 1,
+          "pair_index": 3,
+          "s0": "0x0802844703c620a6691842c473e2086d79888d0703184dc9b50ba04a7b201eed",
+          "s1": "0x2abf8ec986430646ca066c3424a5de7e31c2503bfea685f68823adb9d4b22ac0",
+          "f_s0": "0x205b2662364591fc828704761675328d90b4ec2d24677cdc18bf625608f979bb",
+          "f_s1": "0x244c9e269fb7cc784400a81c2463fc9d39dfa302373be4747bae939e667b7edc",
+          "expected_fold": "0x2560e6ff88ef4f14b491cf4f76c5e3a2aa018a7d7011a0eb5625ac8fde57fa68",
+          "actual_fold": "0x2560e6ff88ef4f14b491cf4f76c5e3a2aa018a7d7011a0eb5625ac8fde57fa68",
+          "match": true
+        },
+        {
+          "round": 2,
+          "pair_index": 3,
+          "s0": "0x07c1f7473a3724879cd131fd570cbf2de71207bd3444c93b745ef029dd319d08",
+          "s1": "0x15148bd1babd56dfd185c8beb5843837dbf1274118220d212c467a0f51ce2a02",
+          "f_s0": "0x2560e6ff88ef4f14b491cf4f76c5e3a2aa018a7d7011a0eb5625ac8fde57fa68",
+          "f_s1": "0x1700215d2aefe808f5c6e7cc6be06b7ef183658fa22925accea69d0eaec41a65",
+          "expected_fold": "0x0204b967c157ff6986000ba543d017dbea62c29b60ba64832ed714ceb934b288",
+          "actual_fold": "0x0204b967c157ff6986000ba543d017dbea62c29b60ba64832ed714ceb934b288",
+          "match": true
+        },
+        {
+          "round": 3,
+          "pair_index": 3,
+          "s0": "0x2bedd3efac6372eb8ceb2a9853dd895587dba39dbb61ddef599b514bfb6c6d10",
+          "s1": "0x08bd1881e51c65b11ad8db6b2c595d293df2c623eb1a0288387cdac4bdba5d9a",
+          "f_s0": "0x0204b967c157ff6986000ba543d017dbea62c29b60ba64832ed714ceb934b288",
+          "f_s1": "0x26504b973c386bd20a1f21eaac41503f8ab97a974b64439225f717336681f643",
+          "expected_fold": "0x0bc9d91cd1a784cc93f936dff03fbf28c7233e8cb887c0e467951edab0d3ebda",
+          "actual_fold": "0x0bc9d91cd1a784cc93f936dff03fbf28c7233e8cb887c0e467951edab0d3ebda",
+          "match": true
+        },
+        {
+          "round": 4,
+          "pair_index": 3,
+          "s0": "0x2a00c593ce33b6ae4a4d44a37ff9895f9642acfba92cc8cabe5898288a377dc9",
+          "s1": "0x123ac98cabb482b25cf6ae93f15458d3d845870152ac15b189bd504b35395b1a",
+          "f_s0": "0x0bc9d91cd1a784cc93f936dff03fbf28c7233e8cb887c0e467951edab0d3ebda",
+          "f_s1": "0x2b6ef9e841c580067ae2d876e9de9904761091f89cb8aaf229a72486495e5d8d",
+          "expected_fold": "0x1b1dcd09eb9e90752edefb0fc2cef6a2e3167b3c8cb50784d7cf776bc0c8307b",
+          "actual_fold": "0x1b1dcd09eb9e90752edefb0fc2cef6a2e3167b3c8cb50784d7cf776bc0c8307b",
+          "match": true
+        },
+        {
+          "round": 5,
+          "pair_index": 3,
+          "s0": "0x17abebbe659e61dff0636196911a19a36a6b793fba8cf980b91cbe094898d672",
+          "s1": "0x1e02b1e5312ef7e3452f0683cd6f1dd014d1a213c4c6bd8f9082a956003cdd47",
+          "f_s0": "0x1b1dcd09eb9e90752edefb0fc2cef6a2e3167b3c8cb50784d7cf776bc0c8307b",
+          "f_s1": "0x24c1ef37c0d7e30f96103e1f9e3cd1661330c95493030f6ce7860aba0c7d577c",
+          "expected_fold": "0x2416773a2ecd3bf414e3c8c1a5cf7a3528f632d4f089a4779086641f6b21851b",
+          "actual_fold": "0x2416773a2ecd3bf414e3c8c1a5cf7a3528f632d4f089a4779086641f6b21851b",
+          "match": true
+        },
+        {
+          "round": 6,
+          "pair_index": 1,
+          "s0": "0x11185856fd8c30d0bd544caf151722a29b6151f01cd0be969542662449c0d153",
+          "s1": "0x070c299af10bc6cf5ca7fafa3bda07c65cd76dd454152ef7f297ccf89e5c548a",
+          "f_s0": "0x0ec6462c721e8f17e74e81411ad399cf2e4846e65f09be30d638459c5bad3b2d",
+          "f_s1": "0x2416773a2ecd3bf414e3c8c1a5cf7a3528f632d4f089a4779086641f6b21851b",
+          "expected_fold": "0x29c53dd7688c55e5cbdf03eca19fa61902aca4de21feede231dd6391091f2676",
+          "actual_fold": "0x29c53dd7688c55e5cbdf03eca19fa61902aca4de21feede231dd6391091f2676",
+          "match": true
+        },
+        {
+          "round": 7,
+          "pair_index": 0,
+          "s0": "0x162bda1ccb9a43f388bb4ae9ecc88b18be5528f83e18e3292ebac419eac9b7e9",
+          "s1": "0x2ede82c8a583f14753c8634ddb24d22b559dcb540ec5973dfdd9083798faefc8",
+          "f_s0": "0x0110758e492bf15875edf9bc7cc22ea32de6d603efdb3c98e074ba435224f16d",
+          "f_s1": "0x29c53dd7688c55e5cbdf03eca19fa61902aca4de21feede231dd6391091f2676",
+          "expected_fold": "0x2f00eecd607175a77f8eeb5b565ffe2974214ca8f5ab43f495127351e8d807dc",
+          "actual_fold": "0x2f00eecd607175a77f8eeb5b565ffe2974214ca8f5ab43f495127351e8d807dc",
+          "match": true
+        }
+      ],
+      "pass": true
+    }
+  ]
+}
