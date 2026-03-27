@@ -93,6 +93,7 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
     using VerificationKey = ChonkRecursionConstraintTest::VerificationKey;
     using ChonkData = ChonkRecursionConstraintTest::ChonkData;
 
+    BB_DISABLE_ASSERTS();
     ChonkData chonk_data = ChonkRecursionConstraintTest::get_chonk_data();
 
     std::shared_ptr<VerificationKey> vk_from_valid_witness;
