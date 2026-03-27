@@ -9,6 +9,25 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### Custom token FPCs removed from default public setup allowlist
+
+Token contract functions (like `transfer_in_public` and `_increase_public_balance`) have been removed from the default public setup allowlist. FPCs that accept custom tokens (like the reference `FPC` contract) will not work on public networks, because their setup-phase calls to these functions will be rejected. Token class IDs change with each aztec-nr release, making it impractical to maintain them in the allowlist.
+
+FPCs that use only Fee Juice still work on all networks, since FeeJuice is a protocol contract with a fixed address in the allowlist. Custom FPCs should only call protocol contract functions (AuthRegistry, FeeJuice) during setup.
+
+`PublicFeePaymentMethod` and `PrivateFeePaymentMethod` in aztec.js are affected, since they use the reference `FPC` contract which calls Token functions during setup. Switch to `FeeJuicePaymentMethodWithClaim` (after [bridging Fee Juice from L1](../aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1)) or write an FPC that uses Fee Juice natively.
+
+**Migration:**
+
+```diff
+- import { PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+- const paymentMethod = new PublicFeePaymentMethod(fpcAddress, senderAddress, wallet, gasSettings);
++ import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
++ const paymentMethod = new FeeJuicePaymentMethodWithClaim(senderAddress, claim);
+```
+
+Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on devnet and local network.
+
 ### [Aztec.nr] Domain-separated tags on log emission
 
 All logs emitted through the Aztec.nr framework now include a domain-separated tag at `fields[0]`. Each log category uses its own domain separator via `compute_log_tag(raw_tag, dom_sep)`:
