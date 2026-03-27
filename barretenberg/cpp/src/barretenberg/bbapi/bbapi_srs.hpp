@@ -27,7 +27,7 @@ struct SrsInitSrs {
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> points_buf; // G1 points (64 bytes each)
+    std::vector<uint8_t> points_buf; // G1 points (32 bytes each, compressed)
     uint32_t num_points;
     std::vector<uint8_t> g2_point; // G2 point (128 bytes)
     Response execute(BBApiRequest& request) &&;

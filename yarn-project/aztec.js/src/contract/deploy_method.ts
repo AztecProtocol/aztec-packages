@@ -30,7 +30,6 @@ import {
   type SimulationInteractionFeeOptions,
   type SimulationResult,
   type TxSendResultImmediate,
-  type TxSendResultMined,
   extractOffchainOutput,
   toProfileOptions,
   toSendOptions,
@@ -39,21 +38,12 @@ import {
 import type { WaitOpts } from './wait_opts.js';
 
 /**
- * Wait options specific to deployment transactions.
- * Extends WaitOpts with a flag to return the full receipt instead of just the contract.
- */
-export type DeployWaitOptions = WaitOpts & {
-  /** If true, return the full DeployTxReceipt instead of just the contract. Defaults to false. */
-  returnReceipt?: boolean;
-};
-
-/**
  * Type for wait options in deployment interactions.
  * - NO_WAIT symbol: Don't wait, return TxHash immediately
- * - DeployWaitOptions: Wait with custom options
+ * - WaitOpts: Wait with custom options
  * - undefined: Wait with default options
  */
-export type DeployInteractionWaitOptions = NoWait | DeployWaitOptions | undefined;
+export type DeployInteractionWaitOptions = NoWait | WaitOpts | undefined;
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -96,7 +86,7 @@ export type DeployOptions<W extends DeployInteractionWaitOptions = undefined> = 
   /**
    * Options for waiting for the transaction to be mined.
    * - undefined (default): wait with default options and return the contract instance
-   * - DeployWaitOptions: wait with custom options and return contract or receipt based on returnReceipt flag
+   * - WaitOpts: wait with custom options
    * - NO_WAIT: return TxHash immediately without waiting
    */
   wait?: W;
@@ -120,40 +110,20 @@ export type SimulateDeployOptions = Omit<DeployOptionsWithoutWait, 'fee'> & {
   includeMetadata?: boolean;
 };
 
-/** Receipt for a deployment transaction with the deployed contract instance. */
-export type DeployTxReceipt<TContract extends ContractBase = ContractBase> = TxReceipt & {
-  /** Type-safe wrapper around the deployed contract instance, linked to the deployment wallet */
-  contract: TContract;
-  /** The deployed contract instance with address and metadata. */
-  instance: ContractInstanceWithAddress;
-};
-
-/** Wait options that request a full receipt instead of just the contract instance. */
-type WaitWithReturnReceipt = {
-  /** Request the full receipt instead of just the contract instance. */
-  returnReceipt: true;
-};
-
-/**
- * Represents the result type of deploying a contract.
- * - If wait is NO_WAIT, returns TxHash immediately.
- * - If wait has returnReceipt: true, returns DeployTxReceipt after waiting.
- * - Otherwise (undefined or DeployWaitOptions without returnReceipt), returns TContract after waiting.
- */
 /** Result of deploying a contract when waiting for mining (default case). */
 export type DeployResultMined<TContract extends ContractBase> = {
   /** The deployed contract instance. */
   contract: TContract;
+  /** The deployed contract instance with address and metadata. */
+  instance: ContractInstanceWithAddress;
   /** The deploy transaction receipt. */
-  receipt: DeployTxReceipt<TContract>;
+  receipt: TxReceipt;
 } & OffchainOutput;
 
 /** Conditional return type for deploy based on wait options. */
 export type DeployReturn<TContract extends ContractBase, W extends DeployInteractionWaitOptions> = W extends NoWait
   ? TxSendResultImmediate
-  : W extends WaitWithReturnReceipt
-    ? TxSendResultMined<DeployTxReceipt<TContract>>
-    : DeployResultMined<TContract>;
+  : DeployResultMined<TContract>;
 
 /**
  * Contract interaction for deployment.
@@ -234,20 +204,13 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   }
 
   /**
-   * Converts DeployOptions to SendOptions, stripping out the returnReceipt flag if present.
-   * @param options - Deploy options with wait parameter
-   * @returns Send options with wait parameter
+   * Converts DeployOptions to SendOptions.
+   * @param options - Deploy options with wait parameter.
    */
   protected convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
-    // eslint-disable-next-line jsdoc/require-jsdoc
-  ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
-    return {
-      ...toSendOptions({
-        ...options,
-        wait: options.wait as any,
-      }),
-    } as any;
+  ): SendOptions<W> {
+    return toSendOptions({ ...options, wait: options.wait as any }) as any;
   }
 
   /**
@@ -354,7 +317,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * By default, waits for the transaction to be mined and returns the deployed contract instance.
    *
    * @param options - An object containing various deployment options such as contractAddressSalt and from.
-   * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
+   * @returns TxHash (if wait is NO_WAIT), or DeployResultMined with contract, receipt, and instance (otherwise)
    */
   // Overload for when wait is not specified at all - returns the contract
   public override send(options: DeployOptionsWithoutWait): Promise<DeployResultMined<TContract>>;
@@ -383,12 +346,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     const instance = await this.getInstance(options);
     const contract = this.postDeployCtor(instance, this.wallet) as TContract;
 
-    // Return full receipt if requested, otherwise just the contract
-    if (options.wait && typeof options.wait === 'object' && options.wait.returnReceipt) {
-      return { receipt: { ...receipt, contract, instance }, ...offchainOutput };
-    }
-
-    return { contract, receipt, ...offchainOutput };
+    return { contract, receipt, instance, ...offchainOutput };
   }
 
   /**

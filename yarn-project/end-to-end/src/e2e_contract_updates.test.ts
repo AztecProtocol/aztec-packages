@@ -110,12 +110,9 @@ describe('e2e_contract_updates', () => {
     }
     sequencer = maybeSequencer;
 
-    ({
-      receipt: { contract, instance },
-    } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
+    ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
       from: defaultAccountAddress,
       contractAddressSalt: salt,
-      wait: { returnReceipt: true },
     }));
 
     const registerMethod = await publishContractClass(wallet, UpdatedContractArtifact);

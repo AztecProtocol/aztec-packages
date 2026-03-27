@@ -24,7 +24,6 @@ describe('NoteValidationRequest', () => {
       '0x0000000000000000000000000000000000000000000000000000000000000006', // note hash
       '0x0000000000000000000000000000000000000000000000000000000000000007', // nullifier
       '0x0000000000000000000000000000000000000000000000000000000000000008', // tx hash
-      '0x0000000000000000000000000000000000000000000000000000000000000009', // recipient
     ].map(Fr.fromHexString);
 
     const request = NoteValidationRequest.fromFields(serialized, 8);
@@ -38,7 +37,6 @@ describe('NoteValidationRequest', () => {
     expect(request.noteHash).toEqual(new Fr(6));
     expect(request.nullifier).toEqual(new Fr(7));
     expect(request.txHash).toEqual(TxHash.fromBigInt(8n));
-    expect(request.recipient).toEqual(AztecAddress.fromBigInt(9n));
   });
 
   it('throws if fed more fields than expected', () => {
@@ -61,11 +59,10 @@ describe('NoteValidationRequest', () => {
       '0x0000000000000000000000000000000000000000000000000000000000000006', // note hash
       '0x0000000000000000000000000000000000000000000000000000000000000007', // nullifier
       '0x0000000000000000000000000000000000000000000000000000000000000008', // tx hash
-      '0x0000000000000000000000000000000000000000000000000000000000000009', // recipient
     ].map(Fr.fromHexString);
 
     expect(() => NoteValidationRequest.fromFields(serialized, 8)).toThrow(
-      'Error converting array of fields to NoteValidationRequest: expected 18 fields but received 19 (maxNotePackedLen=8).',
+      'Error converting array of fields to NoteValidationRequest: expected 17 fields but received 18 (maxNotePackedLen=8).',
     );
   });
 });
