@@ -92,7 +92,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
@@ -106,7 +106,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
 
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
@@ -120,7 +120,7 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
 
       const request = new LogRetrievalRequest(contractAddress, tag);
-      const responses = await logService.fetchLogsByTag([request]);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses.length).toEqual(1);
       expect(responses[0]).not.toBeNull();
