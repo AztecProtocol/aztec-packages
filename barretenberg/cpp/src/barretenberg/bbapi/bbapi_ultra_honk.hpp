@@ -17,11 +17,11 @@
 
 namespace bb::bbapi {
 
-struct CircuitComputeVk {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitComputeVk";
+struct BbCircuitComputeVk {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitComputeVk";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitComputeVkResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitComputeVkResponse";
 
         std::vector<uint8_t> bytes;    // Serialized verification key
         std::vector<uint256_t> fields; // VK as field elements (unless keccak, then just uint256_t's)
@@ -33,19 +33,19 @@ struct CircuitComputeVk {
     CircuitInputNoVK circuit;
     ProofSystemSettings settings;
     SERIALIZATION_FIELDS(circuit, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitComputeVk&) const = default;
+    Response execute(const BbRequest& request = {}) &&;
+    bool operator==(const BbCircuitComputeVk&) const = default;
 };
 
 /**
- * @struct CircuitProve
+ * @struct BbCircuitProve
  * @brief Represents a request to generate a proof.
  * Currently, UltraHonk is the only proving system supported by BB (after plonk was deprecated and removed).
  * This is used for one-shot proving, not our "IVC" scheme, Chonk. For that, use the Chonk*
  * commands.
  */
-struct CircuitProve {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitProve";
+struct BbCircuitProve {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitProve";
 
     /**
      * @brief Contains proof and public inputs.
@@ -53,11 +53,11 @@ struct CircuitProve {
      * Example uses of this Response would be verification in native BB, WASM BB, solidity or recursively through Noir.
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitProveResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitProveResponse";
 
         std::vector<uint256_t> public_inputs;
         std::vector<uint256_t> proof;
-        CircuitComputeVk::Response vk;
+        BbCircuitComputeVk::Response vk;
         SERIALIZATION_FIELDS(public_inputs, proof, vk);
         bool operator==(const Response&) const = default;
     };
@@ -66,20 +66,20 @@ struct CircuitProve {
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
     SERIALIZATION_FIELDS(circuit, witness, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitProve&) const = default;
+    Response execute(const BbRequest& request = {}) &&;
+    bool operator==(const BbCircuitProve&) const = default;
 };
 
 /**
- * @struct CircuitStats
+ * @struct BbCircuitStats
  * @brief Consolidated command for retrieving circuit information.
  * Combines gate count, circuit size, and other metadata into a single command.
  */
-struct CircuitStats {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitStats";
+struct BbCircuitStats {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitStats";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitInfoResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitInfoResponse";
 
         uint32_t num_gates{};
         uint32_t num_gates_dyadic{};
@@ -93,19 +93,19 @@ struct CircuitStats {
     bool include_gates_per_opcode = false;
     ProofSystemSettings settings;
     SERIALIZATION_FIELDS(circuit, include_gates_per_opcode, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitStats&) const = default;
+    Response execute(const BbRequest& request = {}) &&;
+    bool operator==(const BbCircuitStats&) const = default;
 };
 
 /**
- * @struct CircuitVerify
+ * @struct BbCircuitVerify
  * @brief Verify a proof against a verification key and public inputs.
  */
-struct CircuitVerify {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitVerify";
+struct BbCircuitVerify {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitVerify";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitVerifyResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitVerifyResponse";
 
         bool verified;
         SERIALIZATION_FIELDS(verified);
@@ -117,22 +117,22 @@ struct CircuitVerify {
     std::vector<uint256_t> proof;
     ProofSystemSettings settings;
     SERIALIZATION_FIELDS(verification_key, public_inputs, proof, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitVerify&) const = default;
+    Response execute(const BbRequest& request = {}) &&;
+    bool operator==(const BbCircuitVerify&) const = default;
 };
 
 /**
- * @struct VkAsFields
+ * @struct BbVkAsFields
  * @brief Convert a verification key to field elements representation.
  * WORKTODO(bbapi): this should become mostly obsolete with having the verification keys always reported as field
 elements as well,
  * and having a simpler serialization method.
  */
-struct VkAsFields {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "VkAsFields";
+struct BbVkAsFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbVkAsFields";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "VkAsFieldsResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbVkAsFieldsResponse";
 
         std::vector<bb::fr> fields;
         SERIALIZATION_FIELDS(fields);
@@ -141,20 +141,20 @@ struct VkAsFields {
 
     std::vector<uint8_t> verification_key;
     SERIALIZATION_FIELDS(verification_key);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const VkAsFields&) const = default;
+    Response execute(const BbRequest& request = {}) &&;
+    bool operator==(const BbVkAsFields&) const = default;
 };
 
 /**
- * @struct MegaVkAsFields
+ * @struct BbMegaVkAsFields
  * @brief Convert a MegaFlavor verification key to field elements representation.
  * Used for private function verification keys which use MegaFlavor (127 fields).
  */
-struct MegaVkAsFields {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaVkAsFields";
+struct BbMegaVkAsFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbMegaVkAsFields";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaVkAsFieldsResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbMegaVkAsFieldsResponse";
 
         std::vector<bb::fr> fields;
         SERIALIZATION_FIELDS(fields);
@@ -163,18 +163,18 @@ struct MegaVkAsFields {
 
     std::vector<uint8_t> verification_key;
     SERIALIZATION_FIELDS(verification_key);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const MegaVkAsFields&) const = default;
+    Response execute(const BbRequest& request = {}) &&;
+    bool operator==(const BbMegaVkAsFields&) const = default;
 };
 
 /**
  * @brief Command to generate Solidity verifier contract
  */
-struct CircuitWriteSolidityVerifier {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitWriteSolidityVerifier";
+struct BbCircuitWriteSolidityVerifier {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitWriteSolidityVerifier";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitWriteSolidityVerifierResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbCircuitWriteSolidityVerifierResponse";
 
         std::string solidity_code;
         SERIALIZATION_FIELDS(solidity_code);
@@ -184,8 +184,8 @@ struct CircuitWriteSolidityVerifier {
     std::vector<uint8_t> verification_key;
     ProofSystemSettings settings;
     SERIALIZATION_FIELDS(verification_key, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitWriteSolidityVerifier&) const = default;
+    Response execute(const BbRequest& request = {}) &&;
+    bool operator==(const BbCircuitWriteSolidityVerifier&) const = default;
 };
 
 } // namespace bb::bbapi

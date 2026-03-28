@@ -6,7 +6,7 @@
 
 namespace bb::bbapi {
 
-GrumpkinMul::Response GrumpkinMul::execute(BBApiRequest& request) &&
+BbGrumpkinMul::Response BbGrumpkinMul::execute(BbRequest& request) &&
 {
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
@@ -14,7 +14,7 @@ GrumpkinMul::Response GrumpkinMul::execute(BBApiRequest& request) &&
     return { point * scalar };
 }
 
-GrumpkinAdd::Response GrumpkinAdd::execute(BBApiRequest& request) &&
+BbGrumpkinAdd::Response BbGrumpkinAdd::execute(BbRequest& request) &&
 {
     if (!point_a.on_curve()) {
         BBAPI_ERROR(request, "Input point_a must be on the curve");
@@ -25,7 +25,7 @@ GrumpkinAdd::Response GrumpkinAdd::execute(BBApiRequest& request) &&
     return { point_a + point_b };
 }
 
-GrumpkinBatchMul::Response GrumpkinBatchMul::execute(BBApiRequest& request) &&
+BbGrumpkinBatchMul::Response BbGrumpkinBatchMul::execute(BbRequest& request) &&
 {
     for (const auto& p : points) {
         if (!p.on_curve()) {
@@ -36,12 +36,12 @@ GrumpkinBatchMul::Response GrumpkinBatchMul::execute(BBApiRequest& request) &&
     return { std::move(output) };
 }
 
-GrumpkinGetRandomFr::Response GrumpkinGetRandomFr::execute(BB_UNUSED BBApiRequest& request) &&
+BbGrumpkinGetRandomFr::Response BbGrumpkinGetRandomFr::execute(BB_UNUSED BbRequest& request) &&
 {
     return { bb::fr::random_element() };
 }
 
-GrumpkinReduce512::Response GrumpkinReduce512::execute(BB_UNUSED BBApiRequest& request) &&
+BbGrumpkinReduce512::Response BbGrumpkinReduce512::execute(BB_UNUSED BbRequest& request) &&
 {
     auto bigint_input = from_buffer<uint512_t>(input.data());
     uint512_t barretenberg_modulus(bb::fr::modulus);
@@ -49,7 +49,7 @@ GrumpkinReduce512::Response GrumpkinReduce512::execute(BB_UNUSED BBApiRequest& r
     return { bb::fr(target_output.lo) };
 }
 
-Secp256k1Mul::Response Secp256k1Mul::execute(BBApiRequest& request) &&
+BbSecp256k1Mul::Response BbSecp256k1Mul::execute(BbRequest& request) &&
 {
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
@@ -57,12 +57,12 @@ Secp256k1Mul::Response Secp256k1Mul::execute(BBApiRequest& request) &&
     return { point * scalar };
 }
 
-Secp256k1GetRandomFr::Response Secp256k1GetRandomFr::execute(BB_UNUSED BBApiRequest& request) &&
+BbSecp256k1GetRandomFr::Response BbSecp256k1GetRandomFr::execute(BB_UNUSED BbRequest& request) &&
 {
     return { secp256k1::fr::random_element() };
 }
 
-Secp256k1Reduce512::Response Secp256k1Reduce512::execute(BB_UNUSED BBApiRequest& request) &&
+BbSecp256k1Reduce512::Response BbSecp256k1Reduce512::execute(BB_UNUSED BbRequest& request) &&
 {
     auto bigint_input = from_buffer<uint512_t>(input.data());
     uint512_t secp256k1_modulus(secp256k1::fr::modulus);
@@ -70,19 +70,19 @@ Secp256k1Reduce512::Response Secp256k1Reduce512::execute(BB_UNUSED BBApiRequest&
     return { secp256k1::fr(target_output.lo) };
 }
 
-Bn254FrSqrt::Response Bn254FrSqrt::execute(BB_UNUSED BBApiRequest& request) &&
+BbBn254FrSqrt::Response BbBn254FrSqrt::execute(BB_UNUSED BbRequest& request) &&
 {
     auto [is_sqr, root] = input.sqrt();
     return { is_sqr, root };
 }
 
-Bn254FqSqrt::Response Bn254FqSqrt::execute(BB_UNUSED BBApiRequest& request) &&
+BbBn254FqSqrt::Response BbBn254FqSqrt::execute(BB_UNUSED BbRequest& request) &&
 {
     auto [is_sqr, root] = input.sqrt();
     return { is_sqr, root };
 }
 
-Bn254G1Mul::Response Bn254G1Mul::execute(BBApiRequest& request) &&
+BbBn254G1Mul::Response BbBn254G1Mul::execute(BbRequest& request) &&
 {
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
@@ -94,7 +94,7 @@ Bn254G1Mul::Response Bn254G1Mul::execute(BBApiRequest& request) &&
     return { result };
 }
 
-Bn254G2Mul::Response Bn254G2Mul::execute(BBApiRequest& request) &&
+BbBn254G2Mul::Response BbBn254G2Mul::execute(BbRequest& request) &&
 {
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
@@ -106,12 +106,12 @@ Bn254G2Mul::Response Bn254G2Mul::execute(BBApiRequest& request) &&
     return { result };
 }
 
-Bn254G1IsOnCurve::Response Bn254G1IsOnCurve::execute(BB_UNUSED BBApiRequest& request) &&
+BbBn254G1IsOnCurve::Response BbBn254G1IsOnCurve::execute(BB_UNUSED BbRequest& request) &&
 {
     return { point.on_curve() };
 }
 
-Bn254G1FromCompressed::Response Bn254G1FromCompressed::execute(BBApiRequest& request) &&
+BbBn254G1FromCompressed::Response BbBn254G1FromCompressed::execute(BbRequest& request) &&
 {
     // Convert 32-byte array to uint256_t
     uint256_t compressed_value = from_buffer<uint256_t>(compressed.data());

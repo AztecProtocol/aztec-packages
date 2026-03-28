@@ -13,7 +13,7 @@ namespace bb {
 
 namespace {
 
-void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
+void write_vk_outputs(const bbapi::BbCircuitComputeVk::Response& vk_response,
                       const std::filesystem::path& output_dir,
                       const API::Flags& flags)
 {
@@ -30,7 +30,7 @@ void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
     }
 }
 
-void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
+void write_proof_outputs(const bbapi::BbCircuitProve::Response& prove_response,
                          const std::filesystem::path& output_dir,
                          const API::Flags& flags)
 {
@@ -93,11 +93,11 @@ void UltraHonkAPI::prove(const Flags& flags,
     }
 
     // Prove
-    auto response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
-                                                      .bytecode = std::move(bytecode),
-                                                      .verification_key = std::move(vk_bytes) },
-                                         .witness = std::move(witness),
-                                         .settings = std::move(settings) }
+    auto response = bbapi::BbCircuitProve{ .circuit = { .name = "circuit",
+                                                        .bytecode = std::move(bytecode),
+                                                        .verification_key = std::move(vk_bytes) },
+                                           .witness = std::move(witness),
+                                           .settings = std::move(settings) }
                         .execute();
     write_proof_outputs(response, output_dir, flags);
     if (flags.write_vk) {
@@ -144,10 +144,10 @@ bool UltraHonkAPI::verify(const Flags& flags,
                                          .disable_zk = flags.disable_zk };
 
     // Execute verify command
-    auto response = bbapi::CircuitVerify{ .verification_key = std::move(vk_bytes),
-                                          .public_inputs = std::move(public_inputs),
-                                          .proof = std::move(proof),
-                                          .settings = settings }
+    auto response = bbapi::BbCircuitVerify{ .verification_key = std::move(vk_bytes),
+                                            .public_inputs = std::move(public_inputs),
+                                            .proof = std::move(proof),
+                                            .settings = settings }
                         .execute();
 
     return response.verified;
@@ -179,8 +179,8 @@ void UltraHonkAPI::write_vk(const Flags& flags,
                                          .oracle_hash_type = flags.oracle_hash_type,
                                          .disable_zk = flags.disable_zk };
 
-    auto response = bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = std::move(bytecode) },
-                                             .settings = settings }
+    auto response = bbapi::BbCircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = std::move(bytecode) },
+                                               .settings = settings }
                         .execute();
 
     write_vk_outputs(response, output_dir, flags);
@@ -202,11 +202,12 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                                          .oracle_hash_type = flags.oracle_hash_type,
                                          .disable_zk = flags.disable_zk };
 
-    // Execute CircuitStats command
-    auto response = bbapi::CircuitStats{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
-                                         .include_gates_per_opcode = flags.include_gates_per_opcode,
-                                         .settings = settings }
-                        .execute();
+    // Execute BbCircuitStats command
+    auto response =
+        bbapi::BbCircuitStats{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
+                               .include_gates_per_opcode = flags.include_gates_per_opcode,
+                               .settings = settings }
+            .execute();
 
     vinfo("Calculated circuit size in gate_count: ", response.num_gates);
 
@@ -223,7 +224,7 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
         }
     }
 
-    // For now, we'll use the CircuitStats response which includes circuit statistics
+    // For now, we'll use the BbCircuitStats response which includes circuit statistics
     // The num_acir_opcodes is not directly available from bytecode alone
     auto result_string = format(
         "{\n        \"acir_opcodes\": ",
@@ -252,7 +253,8 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
                                          .optimized_solidity_verifier = flags.optimized_solidity_verifier };
 
     // Execute solidity verifier command
-    auto response = bbapi::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute();
+    auto response =
+        bbapi::BbCircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute();
 
     // Write output
     if (output_path == "-") {

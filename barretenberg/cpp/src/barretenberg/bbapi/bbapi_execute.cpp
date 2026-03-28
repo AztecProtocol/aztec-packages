@@ -1,15 +1,140 @@
 #include "bbapi_execute.hpp"
+#include "barretenberg/common/named_union.hpp"
 
 namespace bb::bbapi {
-namespace { // anonymous
+
+// NamedUnion is used ONLY here for schema reflection (msgpack schema CLI command).
+// All runtime dispatch uses generated string-based handlers.
+namespace {
+using Command = NamedUnion<BbCircuitProve,
+                           BbCircuitComputeVk,
+                           BbCircuitStats,
+                           BbCircuitVerify,
+                           BbChonkComputeVk,
+                           BbChonkStart,
+                           BbChonkLoad,
+                           BbChonkAccumulate,
+                           BbChonkProve,
+                           BbChonkVerify,
+                           BbChonkBatchVerify,
+                           BbVkAsFields,
+                           BbMegaVkAsFields,
+                           BbCircuitWriteSolidityVerifier,
+                           BbChonkCheckPrecomputedVk,
+                           BbChonkStats,
+                           BbChonkCompressProof,
+                           BbChonkDecompressProof,
+                           BbPoseidon2Hash,
+                           BbPoseidon2Permutation,
+                           BbPedersenCommit,
+                           BbPedersenHash,
+                           BbPedersenHashBuffer,
+                           BbBlake2s,
+                           BbBlake2sToField,
+                           BbAesEncrypt,
+                           BbAesDecrypt,
+                           BbGrumpkinMul,
+                           BbGrumpkinAdd,
+                           BbGrumpkinBatchMul,
+                           BbGrumpkinGetRandomFr,
+                           BbGrumpkinReduce512,
+                           BbSecp256k1Mul,
+                           BbSecp256k1GetRandomFr,
+                           BbSecp256k1Reduce512,
+                           BbBn254FrSqrt,
+                           BbBn254FqSqrt,
+                           BbBn254G1Mul,
+                           BbBn254G2Mul,
+                           BbBn254G1IsOnCurve,
+                           BbBn254G1FromCompressed,
+                           BbSchnorrComputePublicKey,
+                           BbSchnorrConstructSignature,
+                           BbSchnorrVerifySignature,
+                           BbEcdsaSecp256k1ComputePublicKey,
+                           BbEcdsaSecp256r1ComputePublicKey,
+                           BbEcdsaSecp256k1ConstructSignature,
+                           BbEcdsaSecp256r1ConstructSignature,
+                           BbEcdsaSecp256k1RecoverPublicKey,
+                           BbEcdsaSecp256r1RecoverPublicKey,
+                           BbEcdsaSecp256k1VerifySignature,
+                           BbEcdsaSecp256r1VerifySignature,
+                           BbSrsInitSrs,
+                           BbChonkBatchVerifierStart,
+                           BbChonkBatchVerifierQueue,
+                           BbChonkBatchVerifierStop,
+                           BbSrsInitGrumpkinSrs,
+                           BbShutdown>;
+
+using CommandResponse = NamedUnion<BbErrorResponse,
+                                   BbCircuitProve::Response,
+                                   BbCircuitComputeVk::Response,
+                                   BbCircuitStats::Response,
+                                   BbCircuitVerify::Response,
+                                   BbChonkComputeVk::Response,
+                                   BbChonkStart::Response,
+                                   BbChonkLoad::Response,
+                                   BbChonkAccumulate::Response,
+                                   BbChonkProve::Response,
+                                   BbChonkVerify::Response,
+                                   BbChonkBatchVerify::Response,
+                                   BbVkAsFields::Response,
+                                   BbMegaVkAsFields::Response,
+                                   BbCircuitWriteSolidityVerifier::Response,
+                                   BbChonkCheckPrecomputedVk::Response,
+                                   BbChonkStats::Response,
+                                   BbChonkCompressProof::Response,
+                                   BbChonkDecompressProof::Response,
+                                   BbPoseidon2Hash::Response,
+                                   BbPoseidon2Permutation::Response,
+                                   BbPedersenCommit::Response,
+                                   BbPedersenHash::Response,
+                                   BbPedersenHashBuffer::Response,
+                                   BbBlake2s::Response,
+                                   BbBlake2sToField::Response,
+                                   BbAesEncrypt::Response,
+                                   BbAesDecrypt::Response,
+                                   BbGrumpkinMul::Response,
+                                   BbGrumpkinAdd::Response,
+                                   BbGrumpkinBatchMul::Response,
+                                   BbGrumpkinGetRandomFr::Response,
+                                   BbGrumpkinReduce512::Response,
+                                   BbSecp256k1Mul::Response,
+                                   BbSecp256k1GetRandomFr::Response,
+                                   BbSecp256k1Reduce512::Response,
+                                   BbBn254FrSqrt::Response,
+                                   BbBn254FqSqrt::Response,
+                                   BbBn254G1Mul::Response,
+                                   BbBn254G2Mul::Response,
+                                   BbBn254G1IsOnCurve::Response,
+                                   BbBn254G1FromCompressed::Response,
+                                   BbSchnorrComputePublicKey::Response,
+                                   BbSchnorrConstructSignature::Response,
+                                   BbSchnorrVerifySignature::Response,
+                                   BbEcdsaSecp256k1ComputePublicKey::Response,
+                                   BbEcdsaSecp256r1ComputePublicKey::Response,
+                                   BbEcdsaSecp256k1ConstructSignature::Response,
+                                   BbEcdsaSecp256r1ConstructSignature::Response,
+                                   BbEcdsaSecp256k1RecoverPublicKey::Response,
+                                   BbEcdsaSecp256r1RecoverPublicKey::Response,
+                                   BbEcdsaSecp256k1VerifySignature::Response,
+                                   BbEcdsaSecp256r1VerifySignature::Response,
+                                   BbSrsInitSrs::Response,
+                                   BbChonkBatchVerifierStart::Response,
+                                   BbChonkBatchVerifierQueue::Response,
+                                   BbChonkBatchVerifierStop::Response,
+                                   BbSrsInitGrumpkinSrs::Response,
+                                   BbShutdown::Response>;
+
 struct Api {
     Command commands;
-    bb::bbapi::CommandResponse responses;
+    CommandResponse responses;
     SERIALIZATION_FIELDS(commands, responses);
 };
 } // namespace
+
 std::string get_msgpack_schema_as_json()
 {
     return msgpack_schema_to_string(Api{});
 }
+
 } // namespace bb::bbapi

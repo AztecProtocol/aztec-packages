@@ -19,12 +19,12 @@
 
 namespace bb::bbapi {
 
-Poseidon2Hash::Response Poseidon2Hash::execute(BB_UNUSED BBApiRequest& request) &&
+BbPoseidon2Hash::Response BbPoseidon2Hash::execute(BB_UNUSED BbRequest& request) &&
 {
     return { crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs) };
 }
 
-Poseidon2Permutation::Response Poseidon2Permutation::execute(BB_UNUSED BBApiRequest& request) &&
+BbPoseidon2Permutation::Response BbPoseidon2Permutation::execute(BB_UNUSED BbRequest& request) &&
 {
     using Permutation = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
 
@@ -32,39 +32,39 @@ Poseidon2Permutation::Response Poseidon2Permutation::execute(BB_UNUSED BBApiRequ
     return { Permutation::permutation(inputs) };
 }
 
-PedersenCommit::Response PedersenCommit::execute(BB_UNUSED BBApiRequest& request) &&
+BbPedersenCommit::Response BbPedersenCommit::execute(BB_UNUSED BbRequest& request) &&
 {
     crypto::GeneratorContext<curve::Grumpkin> ctx;
     ctx.offset = static_cast<size_t>(hash_index);
     return { crypto::pedersen_commitment::commit_native(inputs, ctx) };
 }
 
-PedersenHash::Response PedersenHash::execute(BB_UNUSED BBApiRequest& request) &&
+BbPedersenHash::Response BbPedersenHash::execute(BB_UNUSED BbRequest& request) &&
 {
     crypto::GeneratorContext<curve::Grumpkin> ctx;
     ctx.offset = static_cast<size_t>(hash_index);
     return { crypto::pedersen_hash::hash(inputs, ctx) };
 }
 
-PedersenHashBuffer::Response PedersenHashBuffer::execute(BB_UNUSED BBApiRequest& request) &&
+BbPedersenHashBuffer::Response BbPedersenHashBuffer::execute(BB_UNUSED BbRequest& request) &&
 {
     crypto::GeneratorContext<curve::Grumpkin> ctx;
     ctx.offset = static_cast<size_t>(hash_index);
     return { crypto::pedersen_hash::hash_buffer(input, ctx) };
 }
 
-Blake2s::Response Blake2s::execute(BB_UNUSED BBApiRequest& request) &&
+BbBlake2s::Response BbBlake2s::execute(BB_UNUSED BbRequest& request) &&
 {
     return { crypto::blake2s(data) };
 }
 
-Blake2sToField::Response Blake2sToField::execute(BB_UNUSED BBApiRequest& request) &&
+BbBlake2sToField::Response BbBlake2sToField::execute(BB_UNUSED BbRequest& request) &&
 {
     auto hash_result = crypto::blake2s(data);
     return { fr::serialize_from_buffer(hash_result.data()) };
 }
 
-AesEncrypt::Response AesEncrypt::execute(BB_UNUSED BBApiRequest& request) &&
+BbAesEncrypt::Response BbAesEncrypt::execute(BB_UNUSED BbRequest& request) &&
 {
     // Copy plaintext as AES encrypts in-place
     std::vector<uint8_t> result = plaintext;
@@ -75,7 +75,7 @@ AesEncrypt::Response AesEncrypt::execute(BB_UNUSED BBApiRequest& request) &&
     return { std::move(result) };
 }
 
-AesDecrypt::Response AesDecrypt::execute(BB_UNUSED BBApiRequest& request) &&
+BbAesDecrypt::Response BbAesDecrypt::execute(BB_UNUSED BbRequest& request) &&
 {
     // Copy ciphertext as AES decrypts in-place
     std::vector<uint8_t> result = ciphertext;

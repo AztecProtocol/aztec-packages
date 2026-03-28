@@ -1,12 +1,5 @@
 #pragma once
-#include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/serialize/cbind_fwd.hpp"
-#include <vector>
 
-namespace bb::bbapi {
-// Function declaration for CLI usage
-CommandResponse bbapi(Command&& command);
-} // namespace bb::bbapi
-
-// Forward declaration for CBIND
+// Forward declaration for WASM export
 CBIND_DECL(bbapi)

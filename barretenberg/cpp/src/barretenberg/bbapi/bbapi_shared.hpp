@@ -175,7 +175,7 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
 class ChonkBatchVerifierService;
 #endif
 
-struct BBApiRequest {
+struct BbRequest {
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
     std::shared_ptr<IVCBase> ivc_in_progress;
@@ -198,15 +198,15 @@ struct BBApiRequest {
 /**
  * @brief Error response returned when a command fails
  */
-struct ErrorResponse {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
+struct BbErrorResponse {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbErrorResponse";
     std::string message;
     SERIALIZATION_FIELDS(message);
-    bool operator==(const ErrorResponse&) const = default;
+    bool operator==(const BbErrorResponse&) const = default;
 };
 
 /**
- * @brief Macro to set error in BBApiRequest and return default response
+ * @brief Macro to set error in BbRequest and return default response
  */
 #define BBAPI_ERROR(request, msg)                                                                                      \
     do {                                                                                                               \
@@ -214,17 +214,17 @@ struct ErrorResponse {
         return {};                                                                                                     \
     } while (0)
 
-struct Shutdown {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Shutdown";
+struct BbShutdown {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbShutdown";
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ShutdownResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbShutdownResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
     void msgpack(auto&& pack_fn) { pack_fn(); }
-    Response execute(const BBApiRequest&) && { return {}; }
-    bool operator==(const Shutdown&) const = default;
+    Response execute(const BbRequest&) && { return {}; }
+    bool operator==(const BbShutdown&) const = default;
 };
 
 /**

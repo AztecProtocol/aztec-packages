@@ -22,7 +22,7 @@
 
 namespace bb::bbapi {
 
-ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
+BbChonkStart::Response BbChonkStart::execute(BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
@@ -32,31 +32,31 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
     return Response{};
 }
 
-ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
+BbChonkLoad::Response BbChonkLoad::execute(BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("Chonk not started. Call ChonkStart first.");
+        throw_or_abort("Chonk not started. Call BbChonkStart first.");
     }
 
     request.loaded_circuit_name = circuit.name;
     request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     request.loaded_circuit_vk = circuit.verification_key;
 
-    info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
+    info("BbChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
 
     return Response{};
 }
 
-ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
+BbChonkAccumulate::Response BbChonkAccumulate::execute(BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("Chonk not started. Call ChonkStart first.");
+        throw_or_abort("Chonk not started. Call BbChonkStart first.");
     }
 
     if (!request.loaded_circuit_constraints.has_value()) {
-        throw_or_abort("No circuit loaded. Call ChonkLoad first.");
+        throw_or_abort("No circuit loaded. Call BbChonkLoad first.");
     }
 
     acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_vector(std::move(witness));
@@ -89,7 +89,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
     }
 
-    info("ChonkAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    info("BbChonkAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
     request.ivc_in_progress->accumulate(circuit, precomputed_vk);
     request.ivc_stack_depth++;
 
@@ -99,31 +99,31 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     return Response{};
 }
 
-ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
+BbChonkProve::Response BbChonkProve::execute(BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("Chonk not started. Call ChonkStart first.");
+        throw_or_abort("Chonk not started. Call BbChonkStart first.");
     }
 
     if (request.ivc_stack_depth == 0) {
-        throw_or_abort("No circuits accumulated. Call ChonkAccumulate first.");
+        throw_or_abort("No circuits accumulated. Call BbChonkAccumulate first.");
     }
 
-    info("ChonkProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
+    info("BbChonkProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
 
     // Call prove and verify using the appropriate IVC type
     Response response;
     bool verification_passed = false;
 
-    info("ChonkProve - using Chonk");
+    info("BbChonkProve - using Chonk");
     auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
     auto proof = chonk->prove();
     auto vk_and_hash = chonk->get_hiding_kernel_vk_and_hash();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
-    info("ChonkProve - verifying the generated proof as a sanity check");
+    info("BbChonkProve - verifying the generated proof as a sanity check");
     ChonkNativeVerifier verifier(vk_and_hash);
     verification_passed = verifier.verify(proof);
 
@@ -139,7 +139,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     return response;
 }
 
-ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
+BbChonkVerify::Response BbChonkVerify::execute(const BbRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
@@ -153,8 +153,8 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     const size_t expected_proof_size =
         static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
     if (proof.size() != expected_proof_size) {
-        throw_or_abort("ChonkVerify: proof has wrong size: expected " + std::to_string(expected_proof_size) + ", got " +
-                       std::to_string(proof.size()));
+        throw_or_abort("BbChonkVerify: proof has wrong size: expected " + std::to_string(expected_proof_size) +
+                       ", got " + std::to_string(proof.size()));
     }
 
     // Verify the proof using ChonkNativeVerifier
@@ -165,16 +165,16 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     return { .valid = verified };
 }
 
-ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*request*/) &&
+BbChonkBatchVerify::Response BbChonkBatchVerify::execute(const BbRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
     if (proofs.size() != vks.size()) {
-        throw_or_abort("ChonkBatchVerify: proofs.size() (" + std::to_string(proofs.size()) + ") != vks.size() (" +
+        throw_or_abort("BbChonkBatchVerify: proofs.size() (" + std::to_string(proofs.size()) + ") != vks.size() (" +
                        std::to_string(vks.size()) + ")");
     }
     if (proofs.empty()) {
-        throw_or_abort("ChonkBatchVerify: no proofs provided");
+        throw_or_abort("BbChonkBatchVerify: no proofs provided");
     }
 
     using VerificationKey = Chonk::MegaVerificationKey;
@@ -192,7 +192,7 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
         const size_t expected_proof_size =
             static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
         if (proofs[i].size() != expected_proof_size) {
-            throw_or_abort("ChonkBatchVerify: proof[" + std::to_string(i) + "] has wrong size: expected " +
+            throw_or_abort("BbChonkBatchVerify: proof[" + std::to_string(i) + "] has wrong size: expected " +
                            std::to_string(expected_proof_size) + ", got " + std::to_string(proofs[i].size()));
         }
 
@@ -221,10 +221,10 @@ static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(a
     return std::make_shared<Chonk::ProverInstance>(builder);
 }
 
-ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
+BbChonkComputeVk::Response BbChonkComputeVk::execute([[maybe_unused]] const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '", circuit.name, "'");
+    info("BbChonkComputeVk - deriving MegaVerificationKey for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
@@ -232,12 +232,12 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
     std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
     auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
 
-    info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
+    info("BbChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
 
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
 
-ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&
+BbChonkCheckPrecomputedVk::Response BbChonkCheckPrecomputedVk::execute([[maybe_unused]] const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
@@ -265,7 +265,7 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
     return response;
 }
 
-ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request) &&
+BbChonkStats::Response BbChonkStats::execute([[maybe_unused]] BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
@@ -297,7 +297,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     }
 
     // Log circuit details
-    info("ChonkStats - circuit: ",
+    info("BbChonkStats - circuit: ",
          circuit.name,
          ", acir_opcodes: ",
          response.acir_opcodes,
@@ -310,13 +310,13 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     return response;
 }
 
-ChonkCompressProof::Response ChonkCompressProof::execute(const BBApiRequest& /*request*/) &&
+BbChonkCompressProof::Response BbChonkCompressProof::execute(const BbRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     return { .compressed_proof = ProofCompressor::compress_chonk_proof(proof) };
 }
 
-ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest& /*request*/) &&
+BbChonkDecompressProof::Response BbChonkDecompressProof::execute(const BbRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     size_t mega_num_pub = ProofCompressor::compressed_mega_num_public_inputs(compressed_proof.size());
@@ -438,10 +438,10 @@ void ChonkBatchVerifierService::writer_loop(const std::string& fifo_path)
 
 // ── Batch Verifier RPC Commands ─────────────────────────────────────────────
 
-ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest& request) &&
+BbChonkBatchVerifierStart::Response BbChonkBatchVerifierStart::execute(BbRequest& request) &&
 {
     if (request.batch_verifier_service && request.batch_verifier_service->is_running()) {
-        throw_or_abort("ChonkBatchVerifierStart: service already running. Call ChonkBatchVerifierStop first.");
+        throw_or_abort("BbChonkBatchVerifierStart: service already running. Call BbChonkBatchVerifierStop first.");
     }
 
     using VerificationKey = Chonk::MegaVerificationKey;
@@ -460,10 +460,10 @@ ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest&
     return {};
 }
 
-ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& request) &&
+BbChonkBatchVerifierQueue::Response BbChonkBatchVerifierQueue::execute(BbRequest& request) &&
 {
     if (!request.batch_verifier_service || !request.batch_verifier_service->is_running()) {
-        throw_or_abort("ChonkBatchVerifierQueue: service not running. Call ChonkBatchVerifierStart first.");
+        throw_or_abort("BbChonkBatchVerifierQueue: service not running. Call BbChonkBatchVerifierStart first.");
     }
 
     request.batch_verifier_service->enqueue(VerifyRequest{
@@ -475,10 +475,10 @@ ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest&
     return {};
 }
 
-ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& request) &&
+BbChonkBatchVerifierStop::Response BbChonkBatchVerifierStop::execute(BbRequest& request) &&
 {
     if (!request.batch_verifier_service || !request.batch_verifier_service->is_running()) {
-        throw_or_abort("ChonkBatchVerifierStop: service not running.");
+        throw_or_abort("BbChonkBatchVerifierStop: service not running.");
     }
 
     request.batch_verifier_service->stop();
@@ -488,19 +488,19 @@ ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& r
 
 #else // __wasm__
 
-ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest& /*request*/) &&
+BbChonkBatchVerifierStart::Response BbChonkBatchVerifierStart::execute(BbRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStart is not supported in WASM builds");
+    throw_or_abort("BbChonkBatchVerifierStart is not supported in WASM builds");
 }
 
-ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& /*request*/) &&
+BbChonkBatchVerifierQueue::Response BbChonkBatchVerifierQueue::execute(BbRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierQueue is not supported in WASM builds");
+    throw_or_abort("BbChonkBatchVerifierQueue is not supported in WASM builds");
 }
 
-ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& /*request*/) &&
+BbChonkBatchVerifierStop::Response BbChonkBatchVerifierStop::execute(BbRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStop is not supported in WASM builds");
+    throw_or_abort("BbChonkBatchVerifierStop is not supported in WASM builds");
 }
 
 #endif // __wasm__

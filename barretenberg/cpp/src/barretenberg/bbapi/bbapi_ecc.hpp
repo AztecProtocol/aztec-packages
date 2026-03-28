@@ -20,14 +20,14 @@
 namespace bb::bbapi {
 
 /**
- * @struct GrumpkinMul
+ * @struct BbGrumpkinMul
  * @brief Multiply a Grumpkin point by a scalar
  */
-struct GrumpkinMul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinMul";
+struct BbGrumpkinMul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinMul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinMulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinMulResponse";
         grumpkin::g1::affine_element point;
         SERIALIZATION_FIELDS(point);
         bool operator==(const Response&) const = default;
@@ -35,20 +35,20 @@ struct GrumpkinMul {
 
     grumpkin::g1::affine_element point;
     grumpkin::fr scalar;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(point, scalar);
-    bool operator==(const GrumpkinMul&) const = default;
+    bool operator==(const BbGrumpkinMul&) const = default;
 };
 
 /**
- * @struct GrumpkinAdd
+ * @struct BbGrumpkinAdd
  * @brief Add two Grumpkin points
  */
-struct GrumpkinAdd {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinAdd";
+struct BbGrumpkinAdd {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinAdd";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinAddResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinAddResponse";
         grumpkin::g1::affine_element point;
         SERIALIZATION_FIELDS(point);
         bool operator==(const Response&) const = default;
@@ -56,20 +56,20 @@ struct GrumpkinAdd {
 
     grumpkin::g1::affine_element point_a;
     grumpkin::g1::affine_element point_b;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(point_a, point_b);
-    bool operator==(const GrumpkinAdd&) const = default;
+    bool operator==(const BbGrumpkinAdd&) const = default;
 };
 
 /**
- * @struct GrumpkinBatchMul
+ * @struct BbGrumpkinBatchMul
  * @brief Multiply multiple Grumpkin points by a single scalar
  */
-struct GrumpkinBatchMul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinBatchMul";
+struct BbGrumpkinBatchMul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinBatchMul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinBatchMulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinBatchMulResponse";
         std::vector<grumpkin::g1::affine_element> points;
         SERIALIZATION_FIELDS(points);
         bool operator==(const Response&) const = default;
@@ -77,20 +77,20 @@ struct GrumpkinBatchMul {
 
     std::vector<grumpkin::g1::affine_element> points;
     grumpkin::fr scalar;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(points, scalar);
-    bool operator==(const GrumpkinBatchMul&) const = default;
+    bool operator==(const BbGrumpkinBatchMul&) const = default;
 };
 
 /**
- * @struct GrumpkinGetRandomFr
+ * @struct BbGrumpkinGetRandomFr
  * @brief Get a random Grumpkin field element (BN254 Fr)
  */
-struct GrumpkinGetRandomFr {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinGetRandomFr";
+struct BbGrumpkinGetRandomFr {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinGetRandomFr";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinGetRandomFrResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinGetRandomFrResponse";
         bb::fr value;
         SERIALIZATION_FIELDS(value);
         bool operator==(const Response&) const = default;
@@ -98,40 +98,40 @@ struct GrumpkinGetRandomFr {
 
     // Empty struct for commands with no input - use a dummy field for msgpack
     uint8_t dummy = 0;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(dummy);
-    bool operator==(const GrumpkinGetRandomFr&) const = default;
+    bool operator==(const BbGrumpkinGetRandomFr&) const = default;
 };
 
 /**
- * @struct GrumpkinReduce512
+ * @struct BbGrumpkinReduce512
  * @brief Reduce a 512-bit value modulo Grumpkin scalar field (BN254 Fr)
  */
-struct GrumpkinReduce512 {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinReduce512";
+struct BbGrumpkinReduce512 {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinReduce512";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "GrumpkinReduce512Response";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbGrumpkinReduce512Response";
         bb::fr value;
         SERIALIZATION_FIELDS(value);
         bool operator==(const Response&) const = default;
     };
 
     std::array<uint8_t, 64> input;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(input);
-    bool operator==(const GrumpkinReduce512&) const = default;
+    bool operator==(const BbGrumpkinReduce512&) const = default;
 };
 
 /**
- * @struct Secp256k1Mul
+ * @struct BbSecp256k1Mul
  * @brief Multiply a Secp256k1 point by a scalar
  */
-struct Secp256k1Mul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Secp256k1Mul";
+struct BbSecp256k1Mul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSecp256k1Mul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Secp256k1MulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSecp256k1MulResponse";
         secp256k1::g1::affine_element point;
         SERIALIZATION_FIELDS(point);
         bool operator==(const Response&) const = default;
@@ -139,20 +139,20 @@ struct Secp256k1Mul {
 
     secp256k1::g1::affine_element point;
     secp256k1::fr scalar;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(point, scalar);
-    bool operator==(const Secp256k1Mul&) const = default;
+    bool operator==(const BbSecp256k1Mul&) const = default;
 };
 
 /**
- * @struct Secp256k1GetRandomFr
+ * @struct BbSecp256k1GetRandomFr
  * @brief Get a random Secp256k1 field element
  */
-struct Secp256k1GetRandomFr {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Secp256k1GetRandomFr";
+struct BbSecp256k1GetRandomFr {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSecp256k1GetRandomFr";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Secp256k1GetRandomFrResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSecp256k1GetRandomFrResponse";
         secp256k1::fr value;
         SERIALIZATION_FIELDS(value);
         bool operator==(const Response&) const = default;
@@ -160,40 +160,40 @@ struct Secp256k1GetRandomFr {
 
     // Empty struct for commands with no input - use a dummy field for msgpack
     uint8_t dummy = 0;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(dummy);
-    bool operator==(const Secp256k1GetRandomFr&) const = default;
+    bool operator==(const BbSecp256k1GetRandomFr&) const = default;
 };
 
 /**
- * @struct Secp256k1Reduce512
+ * @struct BbSecp256k1Reduce512
  * @brief Reduce a 512-bit value modulo Secp256k1 scalar field
  */
-struct Secp256k1Reduce512 {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Secp256k1Reduce512";
+struct BbSecp256k1Reduce512 {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSecp256k1Reduce512";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Secp256k1Reduce512Response";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSecp256k1Reduce512Response";
         secp256k1::fr value;
         SERIALIZATION_FIELDS(value);
         bool operator==(const Response&) const = default;
     };
 
     std::array<uint8_t, 64> input;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(input);
-    bool operator==(const Secp256k1Reduce512&) const = default;
+    bool operator==(const BbSecp256k1Reduce512&) const = default;
 };
 
 /**
- * @struct Bn254FrSqrt
+ * @struct BbBn254FrSqrt
  * @brief Compute square root of a BN254 Fr (scalar field) element
  */
-struct Bn254FrSqrt {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254FrSqrt";
+struct BbBn254FrSqrt {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254FrSqrt";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254FrSqrtResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254FrSqrtResponse";
         bool is_square_root;
         bb::fr value;
         SERIALIZATION_FIELDS(is_square_root, value);
@@ -201,20 +201,20 @@ struct Bn254FrSqrt {
     };
 
     bb::fr input;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(input);
-    bool operator==(const Bn254FrSqrt&) const = default;
+    bool operator==(const BbBn254FrSqrt&) const = default;
 };
 
 /**
- * @struct Bn254FqSqrt
+ * @struct BbBn254FqSqrt
  * @brief Compute square root of a BN254 Fq (base field) element
  */
-struct Bn254FqSqrt {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254FqSqrt";
+struct BbBn254FqSqrt {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254FqSqrt";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254FqSqrtResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254FqSqrtResponse";
         bool is_square_root;
         bb::fq value;
         SERIALIZATION_FIELDS(is_square_root, value);
@@ -222,20 +222,20 @@ struct Bn254FqSqrt {
     };
 
     bb::fq input;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(input);
-    bool operator==(const Bn254FqSqrt&) const = default;
+    bool operator==(const BbBn254FqSqrt&) const = default;
 };
 
 /**
- * @struct Bn254G1Mul
+ * @struct BbBn254G1Mul
  * @brief Multiply a BN254 G1 point by a scalar
  */
-struct Bn254G1Mul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1Mul";
+struct BbBn254G1Mul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G1Mul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1MulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G1MulResponse";
         bb::g1::affine_element point;
         SERIALIZATION_FIELDS(point);
         bool operator==(const Response&) const = default;
@@ -243,20 +243,20 @@ struct Bn254G1Mul {
 
     bb::g1::affine_element point;
     bb::fr scalar;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(point, scalar);
-    bool operator==(const Bn254G1Mul&) const = default;
+    bool operator==(const BbBn254G1Mul&) const = default;
 };
 
 /**
- * @struct Bn254G2Mul
+ * @struct BbBn254G2Mul
  * @brief Multiply a BN254 G2 point by a scalar
  */
-struct Bn254G2Mul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2Mul";
+struct BbBn254G2Mul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G2Mul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2MulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G2MulResponse";
         bb::g2::affine_element point;
         SERIALIZATION_FIELDS(point);
         bool operator==(const Response&) const = default;
@@ -264,49 +264,49 @@ struct Bn254G2Mul {
 
     bb::g2::affine_element point;
     bb::fr scalar;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(point, scalar);
-    bool operator==(const Bn254G2Mul&) const = default;
+    bool operator==(const BbBn254G2Mul&) const = default;
 };
 
 /**
- * @struct Bn254G1IsOnCurve
+ * @struct BbBn254G1IsOnCurve
  * @brief Check if a BN254 G1 point is on the curve
  */
-struct Bn254G1IsOnCurve {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1IsOnCurve";
+struct BbBn254G1IsOnCurve {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G1IsOnCurve";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1IsOnCurveResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G1IsOnCurveResponse";
         bool is_on_curve;
         SERIALIZATION_FIELDS(is_on_curve);
         bool operator==(const Response&) const = default;
     };
 
     bb::g1::affine_element point;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(point);
-    bool operator==(const Bn254G1IsOnCurve&) const = default;
+    bool operator==(const BbBn254G1IsOnCurve&) const = default;
 };
 
 /**
- * @struct Bn254G1FromCompressed
+ * @struct BbBn254G1FromCompressed
  * @brief Decompress a BN254 G1 point from compressed form
  */
-struct Bn254G1FromCompressed {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1FromCompressed";
+struct BbBn254G1FromCompressed {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G1FromCompressed";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1FromCompressedResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBn254G1FromCompressedResponse";
         bb::g1::affine_element point;
         SERIALIZATION_FIELDS(point);
         bool operator==(const Response&) const = default;
     };
 
     std::array<uint8_t, 32> compressed = {};
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(compressed);
-    bool operator==(const Bn254G1FromCompressed&) const = default;
+    bool operator==(const BbBn254G1FromCompressed&) const = default;
 };
 
 } // namespace bb::bbapi

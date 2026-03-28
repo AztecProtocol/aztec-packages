@@ -289,6 +289,16 @@ const ZIG_IPC_BASE = '../../../zig/aztec-ipc/src';
 /** The main bb binary — used for general barretenberg API */
 const SCHEMAS = '../schemas';
 
+const BB_CPP_OPTS: CppCodegenOptions = {
+  namespace: 'bb::bbapi',
+  prefix: 'Bb',
+  executeHeader: 'barretenberg/bbapi/bbapi_execute.hpp',
+  // BB keeps hand-written commands (they use grumpkin::fr, affine_element, etc.)
+  // The codegen generates only the server dispatch.
+  commandsHeader: 'barretenberg/bbapi/bbapi_execute.hpp',
+  generatedIncludeDir: 'barretenberg/bbapi/generated',
+};
+
 const BB_SERVICE: ServiceConfig = {
   name: 'bb',
   schemaFile: `${SCHEMAS}/bb_schema.json`,
@@ -296,6 +306,7 @@ const BB_SERVICE: ServiceConfig = {
   targets: [
     tsTargetWithSync(),
     rustTarget('../../../rust/barretenberg-rs/src'),
+    cppServerTarget(BB_CPP_OPTS, '../../../cpp/src/barretenberg/bbapi/generated', 'bb'),
   ],
 };
 

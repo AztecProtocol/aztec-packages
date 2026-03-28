@@ -10,7 +10,7 @@
  * @brief Cryptographic primitives command definitions for the Barretenberg RPC API.
  *
  * This file contains command structures for cryptographic operations including
- * Poseidon2, Pedersen, Blake2s, and AES.
+ * Poseidon2, Pedersen, BbBlake2s, and AES.
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/named_union.hpp"
@@ -24,54 +24,54 @@
 namespace bb::bbapi {
 
 /**
- * @struct Poseidon2Hash
+ * @struct BbPoseidon2Hash
  * @brief Compute Poseidon2 hash of input field elements
  */
-struct Poseidon2Hash {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2Hash";
+struct BbPoseidon2Hash {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPoseidon2Hash";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2HashResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPoseidon2HashResponse";
         fr hash;
         SERIALIZATION_FIELDS(hash);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<fr> inputs;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(inputs);
-    bool operator==(const Poseidon2Hash&) const = default;
+    bool operator==(const BbPoseidon2Hash&) const = default;
 };
 
 /**
- * @struct Poseidon2Permutation
+ * @struct BbPoseidon2Permutation
  * @brief Compute Poseidon2 permutation on state (4 field elements)
  */
-struct Poseidon2Permutation {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2Permutation";
+struct BbPoseidon2Permutation {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPoseidon2Permutation";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2PermutationResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPoseidon2PermutationResponse";
         std::array<fr, 4> outputs;
         SERIALIZATION_FIELDS(outputs);
         bool operator==(const Response&) const = default;
     };
 
     std::array<fr, 4> inputs;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(inputs);
-    bool operator==(const Poseidon2Permutation&) const = default;
+    bool operator==(const BbPoseidon2Permutation&) const = default;
 };
 
 /**
- * @struct PedersenCommit
+ * @struct BbPedersenCommit
  * @brief Compute Pedersen commitment to field elements
  */
-struct PedersenCommit {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenCommit";
+struct BbPedersenCommit {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPedersenCommit";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenCommitResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPedersenCommitResponse";
         grumpkin::g1::affine_element point;
         SERIALIZATION_FIELDS(point);
         bool operator==(const Response&) const = default;
@@ -79,20 +79,20 @@ struct PedersenCommit {
 
     std::vector<grumpkin::fq> inputs;
     uint32_t hash_index;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(inputs, hash_index);
-    bool operator==(const PedersenCommit&) const = default;
+    bool operator==(const BbPedersenCommit&) const = default;
 };
 
 /**
- * @struct PedersenHash
+ * @struct BbPedersenHash
  * @brief Compute Pedersen hash of field elements
  */
-struct PedersenHash {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenHash";
+struct BbPedersenHash {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPedersenHash";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenHashResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPedersenHashResponse";
         grumpkin::fq hash;
         SERIALIZATION_FIELDS(hash);
         bool operator==(const Response&) const = default;
@@ -100,20 +100,20 @@ struct PedersenHash {
 
     std::vector<grumpkin::fq> inputs;
     uint32_t hash_index;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(inputs, hash_index);
-    bool operator==(const PedersenHash&) const = default;
+    bool operator==(const BbPedersenHash&) const = default;
 };
 
 /**
- * @struct PedersenHashBuffer
+ * @struct BbPedersenHashBuffer
  * @brief Compute Pedersen hash of raw buffer
  */
-struct PedersenHashBuffer {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenHashBuffer";
+struct BbPedersenHashBuffer {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPedersenHashBuffer";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "PedersenHashBufferResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbPedersenHashBufferResponse";
         grumpkin::fq hash;
         SERIALIZATION_FIELDS(hash);
         bool operator==(const Response&) const = default;
@@ -121,60 +121,60 @@ struct PedersenHashBuffer {
 
     std::vector<uint8_t> input;
     uint32_t hash_index;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(input, hash_index);
-    bool operator==(const PedersenHashBuffer&) const = default;
+    bool operator==(const BbPedersenHashBuffer&) const = default;
 };
 
 /**
- * @struct Blake2s
- * @brief Compute Blake2s hash
+ * @struct BbBlake2s
+ * @brief Compute BbBlake2s hash
  */
-struct Blake2s {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2s";
+struct BbBlake2s {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBlake2s";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2sResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBlake2sResponse";
         std::array<uint8_t, 32> hash;
         SERIALIZATION_FIELDS(hash);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> data;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(data);
-    bool operator==(const Blake2s&) const = default;
+    bool operator==(const BbBlake2s&) const = default;
 };
 
 /**
- * @struct Blake2sToField
- * @brief Compute Blake2s hash and convert to field element
+ * @struct BbBlake2sToField
+ * @brief Compute BbBlake2s hash and convert to field element
  */
-struct Blake2sToField {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2sToField";
+struct BbBlake2sToField {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBlake2sToField";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Blake2sToFieldResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbBlake2sToFieldResponse";
         fr field;
         SERIALIZATION_FIELDS(field);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> data;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(data);
-    bool operator==(const Blake2sToField&) const = default;
+    bool operator==(const BbBlake2sToField&) const = default;
 };
 
 /**
- * @struct AesEncrypt
+ * @struct BbAesEncrypt
  * @brief AES-128 CBC encryption
  */
-struct AesEncrypt {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "AesEncrypt";
+struct BbAesEncrypt {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbAesEncrypt";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "AesEncryptResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbAesEncryptResponse";
         std::vector<uint8_t> ciphertext;
         SERIALIZATION_FIELDS(ciphertext);
         bool operator==(const Response&) const = default;
@@ -184,20 +184,20 @@ struct AesEncrypt {
     std::array<uint8_t, 16> iv;
     std::array<uint8_t, 16> key;
     uint32_t length;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(plaintext, iv, key, length);
-    bool operator==(const AesEncrypt&) const = default;
+    bool operator==(const BbAesEncrypt&) const = default;
 };
 
 /**
- * @struct AesDecrypt
+ * @struct BbAesDecrypt
  * @brief AES-128 CBC decryption
  */
-struct AesDecrypt {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "AesDecrypt";
+struct BbAesDecrypt {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbAesDecrypt";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "AesDecryptResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbAesDecryptResponse";
         std::vector<uint8_t> plaintext;
         SERIALIZATION_FIELDS(plaintext);
         bool operator==(const Response&) const = default;
@@ -207,9 +207,9 @@ struct AesDecrypt {
     std::array<uint8_t, 16> iv;
     std::array<uint8_t, 16> key;
     uint32_t length;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(ciphertext, iv, key, length);
-    bool operator==(const AesDecrypt&) const = default;
+    bool operator==(const BbAesDecrypt&) const = default;
 };
 
 } // namespace bb::bbapi

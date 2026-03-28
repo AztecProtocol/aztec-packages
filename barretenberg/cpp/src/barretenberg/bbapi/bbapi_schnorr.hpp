@@ -18,34 +18,34 @@
 namespace bb::bbapi {
 
 /**
- * @struct SchnorrComputePublicKey
+ * @struct BbSchnorrComputePublicKey
  * @brief Compute Schnorr public key from private key
  */
-struct SchnorrComputePublicKey {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrComputePublicKey";
+struct BbSchnorrComputePublicKey {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSchnorrComputePublicKey";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrComputePublicKeyResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSchnorrComputePublicKeyResponse";
         grumpkin::g1::affine_element public_key;
         SERIALIZATION_FIELDS(public_key);
         bool operator==(const Response&) const = default;
     };
 
     grumpkin::fr private_key;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(private_key);
-    bool operator==(const SchnorrComputePublicKey&) const = default;
+    bool operator==(const BbSchnorrComputePublicKey&) const = default;
 };
 
 /**
- * @struct SchnorrConstructSignature
+ * @struct BbSchnorrConstructSignature
  * @brief Construct a Schnorr signature
  */
-struct SchnorrConstructSignature {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrConstructSignature";
+struct BbSchnorrConstructSignature {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSchnorrConstructSignature";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrConstructSignatureResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSchnorrConstructSignatureResponse";
         std::array<uint8_t, 32> s;
         std::array<uint8_t, 32> e;
         SERIALIZATION_FIELDS(s, e);
@@ -54,20 +54,20 @@ struct SchnorrConstructSignature {
 
     std::vector<uint8_t> message; // Variable length
     grumpkin::fr private_key;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(message, private_key);
-    bool operator==(const SchnorrConstructSignature&) const = default;
+    bool operator==(const BbSchnorrConstructSignature&) const = default;
 };
 
 /**
- * @struct SchnorrVerifySignature
+ * @struct BbSchnorrVerifySignature
  * @brief Verify a Schnorr signature
  */
-struct SchnorrVerifySignature {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrVerifySignature";
+struct BbSchnorrVerifySignature {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSchnorrVerifySignature";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrVerifySignatureResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSchnorrVerifySignatureResponse";
         bool verified;
         SERIALIZATION_FIELDS(verified);
         bool operator==(const Response&) const = default;
@@ -77,9 +77,9 @@ struct SchnorrVerifySignature {
     grumpkin::g1::affine_element public_key;
     std::array<uint8_t, 32> s;
     std::array<uint8_t, 32> e;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(message, public_key, s, e);
-    bool operator==(const SchnorrVerifySignature&) const = default;
+    bool operator==(const BbSchnorrVerifySignature&) const = default;
 };
 
 } // namespace bb::bbapi

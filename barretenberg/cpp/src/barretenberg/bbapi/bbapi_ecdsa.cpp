@@ -8,12 +8,13 @@
 namespace bb::bbapi {
 
 // Secp256k1 implementations
-EcdsaSecp256k1ComputePublicKey::Response EcdsaSecp256k1ComputePublicKey::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256k1ComputePublicKey::Response BbEcdsaSecp256k1ComputePublicKey::execute(BB_UNUSED BbRequest& request) &&
 {
     return { secp256k1::g1::one * private_key };
 }
 
-EcdsaSecp256k1ConstructSignature::Response EcdsaSecp256k1ConstructSignature::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256k1ConstructSignature::Response BbEcdsaSecp256k1ConstructSignature::execute(
+    BB_UNUSED BbRequest& request) &&
 {
     auto pub_key = secp256k1::g1::one * private_key;
     crypto::ecdsa_key_pair<secp256k1::fr, secp256k1::g1> key_pair = { private_key, pub_key };
@@ -25,7 +26,7 @@ EcdsaSecp256k1ConstructSignature::Response EcdsaSecp256k1ConstructSignature::exe
     return { sig.r, sig.s, sig.v };
 }
 
-EcdsaSecp256k1RecoverPublicKey::Response EcdsaSecp256k1RecoverPublicKey::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256k1RecoverPublicKey::Response BbEcdsaSecp256k1RecoverPublicKey::execute(BB_UNUSED BbRequest& request) &&
 {
     crypto::ecdsa_signature sig = { r, s, v };
     std::string message_str(reinterpret_cast<const char*>(message.data()), message.size());
@@ -33,7 +34,7 @@ EcdsaSecp256k1RecoverPublicKey::Response EcdsaSecp256k1RecoverPublicKey::execute
         message_str, sig) };
 }
 
-EcdsaSecp256k1VerifySignature::Response EcdsaSecp256k1VerifySignature::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256k1VerifySignature::Response BbEcdsaSecp256k1VerifySignature::execute(BB_UNUSED BbRequest& request) &&
 {
     crypto::ecdsa_signature sig = { r, s, v };
     std::string message_str(reinterpret_cast<const char*>(message.data()), message.size());
@@ -42,12 +43,13 @@ EcdsaSecp256k1VerifySignature::Response EcdsaSecp256k1VerifySignature::execute(B
 }
 
 // Secp256r1 implementations
-EcdsaSecp256r1ComputePublicKey::Response EcdsaSecp256r1ComputePublicKey::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256r1ComputePublicKey::Response BbEcdsaSecp256r1ComputePublicKey::execute(BB_UNUSED BbRequest& request) &&
 {
     return { secp256r1::g1::one * private_key };
 }
 
-EcdsaSecp256r1ConstructSignature::Response EcdsaSecp256r1ConstructSignature::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256r1ConstructSignature::Response BbEcdsaSecp256r1ConstructSignature::execute(
+    BB_UNUSED BbRequest& request) &&
 {
     auto pub_key = secp256r1::g1::one * private_key;
     crypto::ecdsa_key_pair<secp256r1::fr, secp256r1::g1> key_pair = { private_key, pub_key };
@@ -59,7 +61,7 @@ EcdsaSecp256r1ConstructSignature::Response EcdsaSecp256r1ConstructSignature::exe
     return { sig.r, sig.s, sig.v };
 }
 
-EcdsaSecp256r1RecoverPublicKey::Response EcdsaSecp256r1RecoverPublicKey::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256r1RecoverPublicKey::Response BbEcdsaSecp256r1RecoverPublicKey::execute(BB_UNUSED BbRequest& request) &&
 {
     crypto::ecdsa_signature sig = { r, s, v };
     std::string message_str(reinterpret_cast<const char*>(message.data()), message.size());
@@ -67,7 +69,7 @@ EcdsaSecp256r1RecoverPublicKey::Response EcdsaSecp256r1RecoverPublicKey::execute
         message_str, sig) };
 }
 
-EcdsaSecp256r1VerifySignature::Response EcdsaSecp256r1VerifySignature::execute(BB_UNUSED BBApiRequest& request) &&
+BbEcdsaSecp256r1VerifySignature::Response BbEcdsaSecp256r1VerifySignature::execute(BB_UNUSED BbRequest& request) &&
 {
     crypto::ecdsa_signature sig = { r, s, v };
     std::string message_str(reinterpret_cast<const char*>(message.data()), message.size());

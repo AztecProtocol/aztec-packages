@@ -11,19 +11,19 @@ using namespace bb;
 template <typename T> class BBApiSerializationTest : public ::testing::Test {};
 
 // Enumerate each command type
-using Commands = ::testing::Types<bbapi::CircuitProve,
-                                  bbapi::CircuitComputeVk,
-                                  bbapi::CircuitStats,
-                                  bbapi::CircuitVerify,
-                                  bbapi::VkAsFields,
-                                  bbapi::CircuitWriteSolidityVerifier,
-                                  bbapi::ChonkStart,
-                                  bbapi::ChonkLoad,
-                                  bbapi::ChonkAccumulate,
-                                  bbapi::ChonkProve,
-                                  bbapi::ChonkComputeVk,
-                                  bbapi::ChonkCheckPrecomputedVk,
-                                  bbapi::ChonkBatchVerify>;
+using Commands = ::testing::Types<bbapi::BbCircuitProve,
+                                  bbapi::BbCircuitComputeVk,
+                                  bbapi::BbCircuitStats,
+                                  bbapi::BbCircuitVerify,
+                                  bbapi::BbVkAsFields,
+                                  bbapi::BbCircuitWriteSolidityVerifier,
+                                  bbapi::BbChonkStart,
+                                  bbapi::BbChonkLoad,
+                                  bbapi::BbChonkAccumulate,
+                                  bbapi::BbChonkProve,
+                                  bbapi::BbChonkComputeVk,
+                                  bbapi::BbChonkCheckPrecomputedVk,
+                                  bbapi::BbChonkBatchVerify>;
 
 // Typed test suites
 template <typename T> class BBApiMsgpack : public ::testing::Test {};

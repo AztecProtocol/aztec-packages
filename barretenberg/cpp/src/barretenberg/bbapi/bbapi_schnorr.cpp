@@ -6,12 +6,12 @@
 
 namespace bb::bbapi {
 
-SchnorrComputePublicKey::Response SchnorrComputePublicKey::execute(BB_UNUSED BBApiRequest& request) &&
+BbSchnorrComputePublicKey::Response BbSchnorrComputePublicKey::execute(BB_UNUSED BbRequest& request) &&
 {
     return { grumpkin::g1::one * private_key };
 }
 
-SchnorrConstructSignature::Response SchnorrConstructSignature::execute(BB_UNUSED BBApiRequest& request) &&
+BbSchnorrConstructSignature::Response BbSchnorrConstructSignature::execute(BB_UNUSED BbRequest& request) &&
 {
     grumpkin::g1::affine_element pub_key = grumpkin::g1::one * private_key;
     crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> key_pair = { private_key, pub_key };
@@ -23,7 +23,7 @@ SchnorrConstructSignature::Response SchnorrConstructSignature::execute(BB_UNUSED
     return { sig.s, sig.e };
 }
 
-SchnorrVerifySignature::Response SchnorrVerifySignature::execute(BB_UNUSED BBApiRequest& request) &&
+BbSchnorrVerifySignature::Response BbSchnorrVerifySignature::execute(BB_UNUSED BbRequest& request) &&
 {
     std::string message_str(reinterpret_cast<const char*>(message.data()), message.size());
     crypto::schnorr_signature sig = { s, e };

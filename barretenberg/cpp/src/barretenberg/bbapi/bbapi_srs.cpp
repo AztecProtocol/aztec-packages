@@ -13,7 +13,7 @@
 
 namespace bb::bbapi {
 
-SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
+BbSrsInitSrs::Response BbSrsInitSrs::execute(BB_UNUSED BbRequest& request) &&
 {
     // Decompress 32-byte compressed points in parallel using native field arithmetic
     std::vector<g1::affine_element> g1_points(num_points);
@@ -33,7 +33,7 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
     return {};
 }
 
-SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest& request) &&
+BbSrsInitGrumpkinSrs::Response BbSrsInitGrumpkinSrs::execute(BB_UNUSED BbRequest& request) &&
 {
     // Parse Grumpkin affine elements from buffer
     std::vector<curve::Grumpkin::AffineElement> points(num_points);

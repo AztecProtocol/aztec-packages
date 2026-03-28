@@ -39,6 +39,12 @@ export interface CppCodegenOptions {
    * Additional headers to include in generated commands file.
    */
   additionalIncludes?: string[];
+  /**
+   * Override for the generated output directory include path.
+   * Used when commandsHeader doesn't point to the generated/ directory
+   * (e.g. bb keeps hand-written commands but generates server dispatch).
+   */
+  generatedIncludeDir?: string;
 }
 
 export class CppCodegen {
@@ -244,8 +250,11 @@ ${methods}
 `;
   }
 
-  /** Get the generated/ directory path from commandsHeader */
+  /** Get the generated/ directory include path */
   private generatedDir(): string {
+    if (this.opts.generatedIncludeDir) {
+      return this.opts.generatedIncludeDir;
+    }
     return this.opts.commandsHeader.substring(0, this.opts.commandsHeader.lastIndexOf('/'));
   }
 
@@ -690,8 +699,7 @@ inline void serve(const char* socket_path,
     const shutdownName = `${prefix}Shutdown`;
     const errorTypeName = schema.errorTypeName || `${prefix}ErrorResponse`;
 
-    const dir = this.opts.commandsHeader.substring(0, this.opts.commandsHeader.lastIndexOf('/'));
-    const serverHeaderPath = `${dir}/${toSnakeCase(prefix)}_ipc_server.hpp`;
+    const serverHeaderPath = `${this.generatedDir()}/${toSnakeCase(prefix)}_ipc_server.hpp`;
 
     // Generate dispatch cases for each command
     const dispatchCases = schema.commands.map(cmd => {

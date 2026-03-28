@@ -34,7 +34,7 @@ namespace { // anonymous namespace
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) } }.execute();
+    auto response = bbapi::BbChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) } }.execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -55,23 +55,23 @@ void ChonkAPI::prove(const Flags& flags,
                      const std::filesystem::path& output_dir)
 {
     BB_BENCH_NAME("ChonkAPI::prove");
-    bbapi::BBApiRequest request;
+    bbapi::BbRequest request;
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
+    bbapi::BbChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
-        bbapi::ChonkLoad{
+        bbapi::BbChonkLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
         info("Chonk: accumulating " + step.function_name);
-        bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
+        bbapi::BbChonkAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto proof = bbapi::ChonkProve{}.execute(request).proof;
+    auto proof = bbapi::BbChonkProve{}.execute(request).proof;
 
     const bool output_to_stdout = output_dir == "-";
 
@@ -112,7 +112,7 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 
     auto vk_buffer = read_vk_file(vk_path);
 
-    auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
+    auto response = bbapi::BbChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
 }
 
@@ -142,7 +142,7 @@ bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::file
 
     info("ChonkAPI::batch_verify - found ", proofs.size(), " proof/vk pairs in ", proofs_dir.string());
 
-    auto response = bbapi::ChonkBatchVerify{ .proofs = std::move(proofs), .vks = std::move(vks) }.execute();
+    auto response = bbapi::BbChonkBatchVerify{ .proofs = std::move(proofs), .vks = std::move(vks) }.execute();
     return response.valid;
 }
 
@@ -204,7 +204,7 @@ void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
 bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
 {
     BB_BENCH_NAME("ChonkAPI::check_precomputed_vks");
-    bbapi::BBApiRequest request;
+    bbapi::BbRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::VkPolicy vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
@@ -214,7 +214,7 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        auto response = bbapi::ChonkCheckPrecomputedVk{
+        auto response = bbapi::BbChonkCheckPrecomputedVk{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute();
 
@@ -258,11 +258,11 @@ void chonk_gate_count(const std::string& bytecode_path, bool include_gates_per_o
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
 
-    bbapi::BBApiRequest request;
+    bbapi::BbRequest request;
 
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ChonkStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
-                                       .include_gates_per_opcode = include_gates_per_opcode }
+    auto response = bbapi::BbChonkStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+                                         .include_gates_per_opcode = include_gates_per_opcode }
                         .execute(request);
 
     // Build the circuit report. It always has one function, corresponding to the ACIR constraint systems.

@@ -14,14 +14,14 @@
 namespace bb::bbapi {
 
 /**
- * @struct SrsInitSrs
+ * @struct BbSrsInitSrs
  * @brief Initialize BN254 SRS with G1 and G2 points
  */
-struct SrsInitSrs {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitSrs";
+struct BbSrsInitSrs {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSrsInitSrs";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitSrsResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSrsInitSrsResponse";
         uint8_t dummy = 0; // Empty response needs a dummy field for msgpack
         SERIALIZATION_FIELDS(dummy);
         bool operator==(const Response&) const = default;
@@ -30,20 +30,20 @@ struct SrsInitSrs {
     std::vector<uint8_t> points_buf; // G1 points (32 bytes each, compressed)
     uint32_t num_points;
     std::vector<uint8_t> g2_point; // G2 point (128 bytes)
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(points_buf, num_points, g2_point);
-    bool operator==(const SrsInitSrs&) const = default;
+    bool operator==(const BbSrsInitSrs&) const = default;
 };
 
 /**
- * @struct SrsInitGrumpkinSrs
+ * @struct BbSrsInitGrumpkinSrs
  * @brief Initialize Grumpkin SRS with Grumpkin points
  */
-struct SrsInitGrumpkinSrs {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitGrumpkinSrs";
+struct BbSrsInitGrumpkinSrs {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSrsInitGrumpkinSrs";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitGrumpkinSrsResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbSrsInitGrumpkinSrsResponse";
         uint8_t dummy = 0; // Empty response needs a dummy field for msgpack
         SERIALIZATION_FIELDS(dummy);
         bool operator==(const Response&) const = default;
@@ -51,9 +51,9 @@ struct SrsInitGrumpkinSrs {
 
     std::vector<uint8_t> points_buf; // Grumpkin affine elements
     uint32_t num_points;
-    Response execute(BBApiRequest& request) &&;
+    Response execute(BbRequest& request) &&;
     SERIALIZATION_FIELDS(points_buf, num_points);
-    bool operator==(const SrsInitGrumpkinSrs&) const = default;
+    bool operator==(const BbSrsInitGrumpkinSrs&) const = default;
 };
 
 } // namespace bb::bbapi

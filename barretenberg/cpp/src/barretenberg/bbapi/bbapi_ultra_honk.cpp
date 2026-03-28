@@ -39,7 +39,7 @@ std::shared_ptr<ProverInstance_<Flavor>> _compute_prover_instance(std::vector<ui
     auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto final_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(final_time - initial_time);
-    info("CircuitProve: Proving key computed in ", duration.count(), " ms");
+    info("BbCircuitProve: Proving key computed in ", duration.count(), " ms");
 
     // Validate consistency between IO type and IPA proof presence
     // IO::HasIPA indicates the circuit type requires IPA accumulation (rollup circuits)
@@ -57,9 +57,9 @@ std::shared_ptr<ProverInstance_<Flavor>> _compute_prover_instance(std::vector<ui
     return prover_instance;
 }
 template <typename Flavor, typename IO>
-CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
-                              std::vector<uint8_t>&& witness,
-                              std::vector<uint8_t>&& vk_bytes)
+BbCircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
+                                std::vector<uint8_t>&& witness,
+                                std::vector<uint8_t>&& vk_bytes)
 {
     using Proof = typename Flavor::Transcript::Proof;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -85,7 +85,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     size_t num_inner_public_inputs = num_public_inputs - IO::PUBLIC_INPUTS_SIZE;
 
     // Optimization: if vk not provided, include it in response
-    CircuitComputeVk::Response vk_response;
+    BbCircuitComputeVk::Response vk_response;
     if (vk_bytes.empty()) {
         vk_response = { .bytes = to_buffer(*vk), .fields = vk_to_uint256_fields(*vk), .hash = to_buffer(vk->hash()) };
     }
@@ -140,7 +140,7 @@ bool _verify(const std::vector<uint8_t>& vk_bytes,
     return verified;
 }
 
-CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& request) &&
+BbCircuitProve::Response BbCircuitProve::execute(BB_UNUSED const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
@@ -148,20 +148,20 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
     });
 }
 
-CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
+BbCircuitComputeVk::Response BbCircuitComputeVk::execute(BB_UNUSED const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(circuit.bytecode), {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
-        return CircuitComputeVk::Response{ .bytes = to_buffer(*vk),
-                                           .fields = vk_to_uint256_fields(*vk),
-                                           .hash = to_buffer(vk->hash()) };
+        return BbCircuitComputeVk::Response{ .bytes = to_buffer(*vk),
+                                             .fields = vk_to_uint256_fields(*vk),
+                                             .hash = to_buffer(vk->hash()) };
     });
 }
 
 template <typename Flavor, typename IO>
-CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gates_per_opcode)
+BbCircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gates_per_opcode)
 {
     using Circuit = typename Flavor::CircuitBuilder;
     // Parse the circuit to get gate count information
@@ -169,7 +169,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
 
     acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;
-    CircuitStats::Response response;
+    BbCircuitStats::Response response;
     response.num_acir_opcodes = static_cast<uint32_t>(constraint_system.num_acir_opcodes);
 
     acir_format::AcirProgram program{ std::move(constraint_system), {} };
@@ -185,7 +185,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
     return response;
 }
 
-CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& request) &&
+BbCircuitStats::Response BbCircuitStats::execute(BB_UNUSED const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
@@ -193,7 +193,7 @@ CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& reque
     });
 }
 
-CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& request) &&
+BbCircuitVerify::Response BbCircuitVerify::execute(BB_UNUSED const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     bool verified = dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
@@ -202,7 +202,7 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
     return { verified };
 }
 
-VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+BbVkAsFields::Response BbVkAsFields::execute(BB_UNUSED const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
@@ -217,7 +217,7 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
     return { std::move(fields) };
 }
 
-MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+BbMegaVkAsFields::Response BbMegaVkAsFields::execute(BB_UNUSED const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
@@ -232,7 +232,7 @@ MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& r
     return { std::move(fields) };
 }
 
-CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
+BbCircuitWriteSolidityVerifier::Response BbCircuitWriteSolidityVerifier::execute(BB_UNUSED const BbRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     using VK = UltraKeccakFlavor::VerificationKey;
