@@ -21,6 +21,8 @@ export interface WorkPollerHandler {
   onCheckpointAvailable(epoch: EpochNumber, checkpointIndex: number, claim: ClaimResult): Promise<void>;
   onEpochReadyForTopTree(epoch: EpochNumber, claim: ClaimResult): Promise<void>;
   onEpochReadyForPublishing(epoch: EpochNumber, claim: ClaimResult): Promise<void>;
+  /** Called when epochs have been pruned. All jobs for the given epochs should be stopped. */
+  onEpochsPruned(prunedEpochs: EpochNumber[]): void;
 }
 
 /**
@@ -36,6 +38,8 @@ export interface WorkPollerHandler {
 export class WorkPoller {
   private pollPromise: RunningPromise | undefined;
   private logger: Logger;
+  /** Epochs seen as active (between proven and checkpointed) in the previous poll cycle. */
+  private previousActiveEpochs = new Set<number>();
 
   constructor(
     private l2BlockSource: L2BlockSource,
@@ -87,6 +91,28 @@ export class WorkPoller {
         return;
       }
       const currentEpoch = Number(getEpochAtSlot(checkpointedHeader.getSlot(), constants));
+
+      // Detect pruned epochs by checking if previously-active epochs still have
+      // checkpoints on chain. An epoch that was active but now has no checkpoints
+      // was pruned. An epoch that left the range because provenBlock advanced past it
+      // will still have checkpoints (it was proven, not pruned).
+      const currentActiveEpochs = new Set<number>();
+      for (let e = firstEpochToProve; e <= currentEpoch; e++) {
+        currentActiveEpochs.add(e);
+      }
+      const epochsToCheck = [...this.previousActiveEpochs].filter(e => !currentActiveEpochs.has(e));
+      const prunedEpochs: number[] = [];
+      for (const e of epochsToCheck) {
+        const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(EpochNumber(e));
+        if (checkpoints.length === 0) {
+          prunedEpochs.push(e);
+        }
+      }
+      this.previousActiveEpochs = currentActiveEpochs;
+      if (prunedEpochs.length > 0) {
+        this.logger.warn(`Detected pruned epochs: ${prunedEpochs.join(', ')}`);
+        handler.onEpochsPruned(prunedEpochs.map(e => EpochNumber(e)));
+      }
 
       const claimableItems: Array<{
         workItemId: WorkItemId;

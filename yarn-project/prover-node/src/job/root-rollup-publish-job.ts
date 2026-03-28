@@ -24,7 +24,7 @@ export class RootRollupPublishJob extends SplitProvingJob {
   private logger: Logger;
 
   constructor(
-    private epochNumber: EpochNumber,
+    epochNumber: EpochNumber,
     private checkpoints: Checkpoint[],
     private attestations: ViemCommitteeAttestation[],
     private publisher: Pick<ProverNodePublisher, 'submitEpochProof' | 'interrupt'>,
@@ -32,7 +32,7 @@ export class RootRollupPublishJob extends SplitProvingJob {
     claimToken: string,
     workItemId: string,
   ) {
-    super(workItemId, claimToken, 'publish');
+    super(epochNumber, workItemId, claimToken, 'publish');
     this.logger = createLogger('prover-node:root-rollup-publish-job');
   }
 

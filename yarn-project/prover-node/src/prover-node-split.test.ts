@@ -29,8 +29,8 @@ import type { SplitProverManager } from './split-prover-manager.js';
 class FakeJob extends SplitProvingJob {
   public readonly runControl: PromiseWithResolvers<void>;
 
-  constructor(workItemId: string, jobType: SplitProvingJobType) {
-    super(workItemId, 'token', jobType);
+  constructor(epochNumber: EpochNumber, workItemId: string, jobType: SplitProvingJobType) {
+    super(epochNumber, workItemId, 'token', jobType);
     this.runControl = promiseWithResolvers<void>();
   }
 
@@ -57,29 +57,29 @@ class TestSplitProverNode extends ProverNode {
   public createdJobs: Map<string, FakeJob> = new Map();
 
   override onCheckpointAvailable(
-    _epoch: EpochNumber,
+    epoch: EpochNumber,
     _checkpointIndex: number,
     claim: { workItemId: string; claimToken: string },
   ): Promise<void> {
-    return this.trackFakeJob(claim.workItemId, 'checkpoint');
+    return this.trackFakeJob(epoch, claim.workItemId, 'checkpoint');
   }
 
   override onEpochReadyForTopTree(
-    _epoch: EpochNumber,
+    epoch: EpochNumber,
     claim: { workItemId: string; claimToken: string },
   ): Promise<void> {
-    return this.trackFakeJob(claim.workItemId, 'top-tree');
+    return this.trackFakeJob(epoch, claim.workItemId, 'top-tree');
   }
 
   override onEpochReadyForPublishing(
-    _epoch: EpochNumber,
+    epoch: EpochNumber,
     claim: { workItemId: string; claimToken: string },
   ): Promise<void> {
-    return this.trackFakeJob(claim.workItemId, 'publish');
+    return this.trackFakeJob(epoch, claim.workItemId, 'publish');
   }
 
-  private trackFakeJob(workItemId: string, jobType: SplitProvingJobType): Promise<void> {
-    const job = new FakeJob(workItemId, jobType);
+  private trackFakeJob(epoch: EpochNumber, workItemId: string, jobType: SplitProvingJobType): Promise<void> {
+    const job = new FakeJob(epoch, workItemId, jobType);
     this.createdJobs.set(workItemId, job);
     (this as any).splitJobs.set(workItemId, job);
     void job
@@ -242,5 +242,47 @@ describe('prover-node split proving job tracking', () => {
     await proverNode.onEpochReadyForTopTree(EpochNumber(0), makeClaim('top-tree:0:0'));
     await proverNode.onEpochReadyForPublishing(EpochNumber(0), makeClaim('publish:0:0'));
     expect(proverNode.getSplitJobCounts().subTree).toBe(1); // Still 1, not affected by top-tree/publish
+  });
+
+  it('stops jobs for pruned epochs', async () => {
+    // Start jobs across two epochs
+    await proverNode.onCheckpointAvailable(EpochNumber(9), 0, makeClaim('checkpoint-sub-tree:9:0'));
+    await proverNode.onCheckpointAvailable(EpochNumber(10), 0, makeClaim('checkpoint-sub-tree:10:0'));
+    await proverNode.onEpochReadyForTopTree(EpochNumber(9), makeClaim('top-tree:9:0'));
+    expect(proverNode.getSplitJobCounts()).toEqual({ subTree: 2, topTree: 1, publish: 0 });
+
+    // Prune epoch 9 and 10
+    proverNode.onEpochsPruned([EpochNumber(9), EpochNumber(10)]);
+
+    // All jobs should be stopped
+    await retryUntil(
+      () => {
+        const counts = proverNode.getSplitJobCounts();
+        return counts.subTree === 0 && counts.topTree === 0;
+      },
+      'pruned jobs cleanup',
+      2,
+    );
+    expect(proverNode.getSplitJobCounts()).toEqual({ subTree: 0, topTree: 0, publish: 0 });
+
+    // Verify the jobs were actually stopped (not completed)
+    for (const job of proverNode.createdJobs.values()) {
+      expect(job.getState()).toBe('stopped');
+    }
+  });
+
+  it('only stops jobs for the pruned epochs, not other epochs', async () => {
+    await proverNode.onCheckpointAvailable(EpochNumber(9), 0, makeClaim('checkpoint-sub-tree:9:0'));
+    await proverNode.onCheckpointAvailable(EpochNumber(11), 0, makeClaim('checkpoint-sub-tree:11:0'));
+
+    // Prune only epoch 9
+    proverNode.onEpochsPruned([EpochNumber(9)]);
+
+    await retryUntil(() => proverNode.getSplitJobCounts().subTree === 1, 'partial prune cleanup', 2);
+    expect(proverNode.getSplitJobCounts().subTree).toBe(1);
+
+    // Epoch 9 job stopped, epoch 11 job still running
+    expect(proverNode.createdJobs.get('checkpoint-sub-tree:9:0')!.getState()).toBe('stopped');
+    expect(proverNode.createdJobs.get('checkpoint-sub-tree:11:0')!.getState()).toBe('running');
   });
 });

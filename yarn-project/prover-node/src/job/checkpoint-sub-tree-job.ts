@@ -41,7 +41,7 @@ export class CheckpointSubTreeJob extends SplitProvingJob {
   private logger: Logger;
 
   constructor(
-    private epochNumber: EpochNumber,
+    epochNumber: EpochNumber,
     private checkpointIndex: number,
     private checkpoint: Checkpoint,
     private txsByHash: Map<string, Tx>,
@@ -55,7 +55,7 @@ export class CheckpointSubTreeJob extends SplitProvingJob {
     workItemId: string,
     private config: { heartbeatIntervalMs: number },
   ) {
-    super(workItemId, claimToken, 'checkpoint');
+    super(epochNumber, workItemId, claimToken, 'checkpoint');
     this.logger = createLogger('prover-node:checkpoint-sub-tree-job');
   }
 

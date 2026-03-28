@@ -41,7 +41,7 @@ export class TopTreeJob extends SplitProvingJob {
   private logger: Logger;
 
   constructor(
-    private epochNumber: EpochNumber,
+    epochNumber: EpochNumber,
     private checkpoints: Checkpoint[],
     private previousBlockHeader: BlockHeader,
     private orchestrator: TopTreeOrchestrator,
@@ -53,7 +53,7 @@ export class TopTreeJob extends SplitProvingJob {
     workItemId: string,
     private config: { heartbeatIntervalMs: number },
   ) {
-    super(workItemId, claimToken, 'top-tree');
+    super(epochNumber, workItemId, claimToken, 'top-tree');
     this.logger = createLogger('prover-node:top-tree-job');
   }
 

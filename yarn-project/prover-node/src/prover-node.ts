@@ -217,6 +217,16 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
 
   // WorkPollerHandler implementation (split proving mode)
 
+  onEpochsPruned(prunedEpochs: EpochNumber[]): void {
+    const prunedSet = new Set(prunedEpochs.map(Number));
+    for (const [workItemId, job] of this.splitJobs) {
+      if (prunedSet.has(Number(job.epochNumber))) {
+        this.log.warn(`Stopping job ${workItemId} due to epoch ${job.epochNumber} being pruned`);
+        void job.stop();
+      }
+    }
+  }
+
   async onCheckpointAvailable(
     epoch: EpochNumber,
     checkpointIndex: number,

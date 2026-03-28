@@ -1,3 +1,4 @@
+import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { ClaimToken, WorkItemId } from '@aztec/stdlib/interfaces/server';
 
 export type SplitProvingJobType = 'checkpoint' | 'top-tree' | 'publish';
@@ -9,6 +10,7 @@ export abstract class SplitProvingJob {
   protected abortController = new AbortController();
 
   constructor(
+    public readonly epochNumber: EpochNumber,
     public readonly workItemId: WorkItemId,
     public readonly claimToken: ClaimToken,
     public readonly type: SplitProvingJobType,
