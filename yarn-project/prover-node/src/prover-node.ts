@@ -222,7 +222,9 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
     for (const [workItemId, job] of this.splitJobs) {
       if (prunedSet.has(Number(job.epochNumber))) {
         this.log.warn(`Stopping job ${workItemId} due to epoch ${job.epochNumber} being pruned`);
-        void job.stop();
+        void job.stop().catch(err => {
+          this.log.error(`Error stopping pruned job ${workItemId}`, err);
+        });
       }
     }
   }
