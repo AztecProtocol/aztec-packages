@@ -12,13 +12,11 @@ import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { schemaForPublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import {
-  type ClaimToken,
   type ForkMerkleTreeOperations,
   type ProofUri,
   type ProvingJobClaimManager,
   type ProvingJobProducer,
   type ReadonlyWorldStateAccess,
-  type WorkItemId,
   makeSubTreeCompleteJobId,
   makeTopTreeCompleteJobId,
 } from '@aztec/stdlib/interfaces/server';
@@ -27,6 +25,8 @@ import { EpochProofPayload } from '@aztec/stdlib/proofs/epoch_proof_payload';
 import { BlockRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
+
+import { SplitProvingJob } from './split-proving-job.js';
 
 /**
  * Lightweight job that proves the top tree (checkpoint roots through root rollup).
@@ -37,8 +37,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
  *
  * Does NOT re-process blocks. All block-level work was done by sub-tree jobs.
  */
-export class TopTreeJob {
-  private state: 'running' | 'completed' | 'failed' = 'running';
+export class TopTreeJob extends SplitProvingJob {
   private logger: Logger;
 
   constructor(
@@ -50,15 +49,17 @@ export class TopTreeJob {
     private l2BlockSource: L2BlockSource,
     private worldState: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
     private finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-    private claimToken: ClaimToken,
-    private workItemId: WorkItemId,
+    claimToken: string,
+    workItemId: string,
     private config: { heartbeatIntervalMs: number },
   ) {
+    super(workItemId, claimToken, 'top-tree');
     this.logger = createLogger('prover-node:top-tree-job');
   }
 
-  getState() {
-    return this.state;
+  override async stop() {
+    await super.stop();
+    await this.orchestrator.stop();
   }
 
   async run(): Promise<void> {
@@ -77,6 +78,9 @@ export class TopTreeJob {
       const previousBlockHeaders = this.gatherPreviousBlockHeaders();
 
       for (let i = 0; i < this.checkpoints.length; i++) {
+        if (this.signal.aborted) {
+          return;
+        }
         const checkpoint = this.checkpoints[i];
 
         // Load block proofs from sub-tree completion marker
@@ -149,10 +153,10 @@ export class TopTreeJob {
         inputsUri: payloadUri,
       });
 
-      this.state = 'completed';
+      this.complete();
       this.logger.info(`Completed top-tree job for epoch=${this.epochNumber}`);
     } catch (err) {
-      this.state = 'failed';
+      this.fail();
       this.logger.error(`Failed top-tree job for epoch=${this.epochNumber}`, err);
       throw err;
     } finally {

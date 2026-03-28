@@ -15,18 +15,18 @@ import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
-  type ClaimToken,
   type ForkMerkleTreeOperations,
   type ProofUri,
   type ProvingJobClaimManager,
   type ProvingJobProducer,
-  type WorkItemId,
   makeSubTreeCompleteJobId,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+
+import { SplitProvingJob } from './split-proving-job.js';
 
 /**
  * Proves a single checkpoint's block sub-tree.
@@ -37,8 +37,7 @@ import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
  *
  * Block-level proofs are also cached in the broker via BrokerCircuitProverFacade.
  */
-export class CheckpointSubTreeJob {
-  private state: 'running' | 'completed' | 'failed' = 'running';
+export class CheckpointSubTreeJob extends SplitProvingJob {
   private logger: Logger;
 
   constructor(
@@ -52,15 +51,17 @@ export class CheckpointSubTreeJob {
     private broker: ProvingJobProducer & ProvingJobClaimManager,
     private dbProvider: Pick<ForkMerkleTreeOperations, 'fork'>,
     private publicProcessorFactory: PublicProcessorFactory,
-    private claimToken: ClaimToken,
-    private workItemId: WorkItemId,
+    claimToken: string,
+    workItemId: string,
     private config: { heartbeatIntervalMs: number },
   ) {
+    super(workItemId, claimToken, 'checkpoint');
     this.logger = createLogger('prover-node:checkpoint-sub-tree-job');
   }
 
-  getState() {
-    return this.state;
+  override async stop() {
+    await super.stop();
+    await this.orchestrator.stop();
   }
 
   async run(): Promise<void> {
@@ -110,6 +111,9 @@ export class CheckpointSubTreeJob {
 
       // Process blocks
       for (let blockIndex = 0; blockIndex < this.checkpoint.blocks.length; blockIndex++) {
+        if (this.signal.aborted) {
+          return;
+        }
         const block = this.checkpoint.blocks[blockIndex];
         const globalVariables = block.header.globalVariables;
         const txs = this.getTxs(block);
@@ -151,10 +155,10 @@ export class CheckpointSubTreeJob {
         inputsUri: payloadUri as ProofUri,
       });
 
-      this.state = 'completed';
+      this.complete();
       this.logger.info(`Completed sub-tree proof for epoch=${this.epochNumber} checkpoint=${this.checkpointIndex}`);
     } catch (err) {
-      this.state = 'failed';
+      this.fail();
       this.logger.error(`Failed sub-tree proof for epoch=${this.epochNumber} checkpoint=${this.checkpointIndex}`, err);
       throw err;
     } finally {

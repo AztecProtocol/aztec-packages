@@ -4,15 +4,14 @@ import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
-  type ClaimToken,
   type ProvingJobClaimManager,
   type ProvingJobProducer,
-  type WorkItemId,
   makeTopTreeCompleteJobId,
 } from '@aztec/stdlib/interfaces/server';
 import { EpochProofPayload } from '@aztec/stdlib/proofs/epoch_proof_payload';
 
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
+import { SplitProvingJob } from './split-proving-job.js';
 
 /**
  * Publishes a completed root rollup proof to L1.
@@ -21,24 +20,25 @@ import type { ProverNodePublisher } from '../prover-node-publisher.js';
  * then submits it via the publisher. Only nodes with publisher eligibility
  * (staked prover with configured signing keys) can run this job.
  */
-export class RootRollupPublishJob {
-  private state: 'running' | 'completed' | 'failed' = 'running';
+export class RootRollupPublishJob extends SplitProvingJob {
   private logger: Logger;
 
   constructor(
     private epochNumber: EpochNumber,
     private checkpoints: Checkpoint[],
     private attestations: ViemCommitteeAttestation[],
-    private publisher: Pick<ProverNodePublisher, 'submitEpochProof'>,
+    private publisher: Pick<ProverNodePublisher, 'submitEpochProof' | 'interrupt'>,
     private broker: ProvingJobProducer & ProvingJobClaimManager,
-    private claimToken: ClaimToken,
-    private workItemId: WorkItemId,
+    claimToken: string,
+    workItemId: string,
   ) {
+    super(workItemId, claimToken, 'publish');
     this.logger = createLogger('prover-node:root-rollup-publish-job');
   }
 
-  getState() {
-    return this.state;
+  override async stop() {
+    await super.stop();
+    this.publisher.interrupt();
   }
 
   async run(): Promise<void> {
@@ -79,12 +79,12 @@ export class RootRollupPublishJob {
         throw new Error('Failed to submit epoch proof to L1');
       }
 
-      this.state = 'completed';
+      this.complete();
       this.logger.info(
         `Published proof for epoch ${this.epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`,
       );
     } catch (err) {
-      this.state = 'failed';
+      this.fail();
       this.logger.error(`Failed to publish proof for epoch=${this.epochNumber}`, err);
       throw err;
     }

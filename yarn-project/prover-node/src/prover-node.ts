@@ -44,6 +44,7 @@ import type { SpecificProverNodeConfig } from './config.js';
 import { CheckpointSubTreeJob } from './job/checkpoint-sub-tree-job.js';
 import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
+import type { SplitProvingJob } from './job/split-proving-job.js';
 import { TopTreeJob } from './job/top-tree-job.js';
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
@@ -64,6 +65,8 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
   private log = createLogger('prover-node');
 
   private jobs: Map<string, EpochProvingJob> = new Map();
+  /** All active split proving jobs, keyed by work item ID. */
+  private splitJobs: Map<string, SplitProvingJob> = new Map();
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
@@ -172,7 +175,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         this.l2BlockSource,
         this.broker,
         this.config.proverNodeWorkPollIntervalMs,
-        this.config.proverNodeMaxPendingJobs,
+        () => this.config.proverNodeMaxPendingJobs - this.getSplitJobCounts().subTree,
       );
       this.workPoller.start(this);
       await this.publisherFactory.start();
@@ -205,6 +208,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
     await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
+    await Promise.all(Array.from(this.splitJobs.values()).map(job => job.stop()));
     this.rewardsMetrics.stop();
     this.l1Metrics.stop();
     await this.telemetryClient.stop();
@@ -278,9 +282,13 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         { heartbeatIntervalMs: this.config.proverNodeClaimHeartbeatIntervalMs },
       );
 
+      this.splitJobs.set(claim.workItemId, job);
       void job
         .run()
-        .finally(() => void facade.stop())
+        .finally(() => {
+          this.splitJobs.delete(claim.workItemId);
+          void facade.stop();
+        })
         .catch(err => {
           this.log.error(`Sub-tree job failed for epoch=${epoch} checkpoint=${checkpointIndex}`, err);
         });
@@ -339,11 +347,15 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         { heartbeatIntervalMs: this.config.proverNodeClaimHeartbeatIntervalMs },
       );
 
-      void job.run().catch(err => {
-        this.log.error(`Top-tree job failed for epoch=${epoch}`, err);
-      });
+      this.splitJobs.set(claim.workItemId, job);
+      void job
+        .run()
+        .finally(() => this.splitJobs.delete(claim.workItemId))
+        .catch(err => {
+          this.log.error(`Top-tree job failed for epoch=${epoch}`, err);
+        });
     } catch (err) {
-      this.log.error(`Top-tree job failed for epoch=${epoch}`, err);
+      this.log.error(`Failed to start top-tree job for epoch=${epoch}`, err);
       await this.broker.releaseClaim(claim.workItemId, claim.claimToken);
     }
   }
@@ -376,7 +388,13 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         claim.claimToken,
         claim.workItemId,
       );
-      await job.run();
+      this.splitJobs.set(claim.workItemId, job);
+      void job
+        .run()
+        .finally(() => this.splitJobs.delete(claim.workItemId))
+        .catch(err => {
+          this.log.error(`Publish job failed for epoch=${epoch}`, err);
+        });
     } catch (err) {
       this.log.error(`Failed to start publish job for epoch=${epoch}`, err);
       await this.broker.releaseClaim(claim.workItemId, claim.claimToken);
@@ -451,6 +469,28 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
   /**
    * Returns an array of jobs being processed.
    */
+  /** Returns the number of active split proving jobs, by type. */
+  /** Returns the number of active split proving jobs, by type. */
+  public getSplitJobCounts(): { subTree: number; topTree: number; publish: number } {
+    let subTree = 0;
+    let topTree = 0;
+    let publish = 0;
+    for (const job of this.splitJobs.values()) {
+      switch (job.type) {
+        case 'checkpoint':
+          subTree++;
+          break;
+        case 'top-tree':
+          topTree++;
+          break;
+        case 'publish':
+          publish++;
+          break;
+      }
+    }
+    return { subTree, topTree, publish };
+  }
+
   public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
     return Promise.resolve(
       Array.from(this.jobs.entries()).map(([uuid, job]) => ({

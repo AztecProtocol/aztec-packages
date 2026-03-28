@@ -38,7 +38,7 @@ describe('WorkPoller', () => {
     broker.getCompletedJobs.mockResolvedValue([]);
     broker.claimN.mockResolvedValue([]);
 
-    poller = new WorkPoller(l2BlockSource, broker, 100);
+    poller = new WorkPoller(l2BlockSource, broker, 100, () => 10);
   });
 
   afterEach(async () => {

@@ -41,7 +41,7 @@ export class WorkPoller {
     private l2BlockSource: L2BlockSource,
     private broker: ProvingJobProducer & ProvingJobClaimManager,
     private pollIntervalMs: number,
-    private maxClaimsPerCycle: number = 10,
+    private getAvailableCapacity: () => number,
     private nodeId: string = 'prover-node',
   ) {
     this.logger = createLogger('prover-node:work-poller');
@@ -164,10 +164,22 @@ export class WorkPoller {
         return;
       }
 
-      // Claim up to our capacity in a single atomic request
+      // Only claim up to the number of additional jobs the node can handle.
+      // Top-tree and publish jobs don't count against capacity (lightweight orchestration only),
+      // so we separate them out and always attempt to claim those.
+      const subTreeItems = claimableItems.filter(item => item.type === 'checkpoint');
+      const otherItems = claimableItems.filter(item => item.type !== 'checkpoint');
+      const availableCapacity = this.getAvailableCapacity();
+
+      // Limit sub-tree claims to available capacity, but always try to claim top-tree/publish
+      const itemsToClaim = [...subTreeItems.slice(0, Math.max(0, availableCapacity)), ...otherItems];
+      if (itemsToClaim.length === 0) {
+        return;
+      }
+
       const claimed = await this.broker.claimN(
-        claimableItems.map(item => item.workItemId),
-        this.maxClaimsPerCycle,
+        itemsToClaim.map(item => item.workItemId),
+        itemsToClaim.length,
         this.nodeId,
       );
 
