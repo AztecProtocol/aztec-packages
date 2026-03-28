@@ -24,7 +24,7 @@ namespace bb::bbapi {
 
 BbChonkStart::Response BbChonkStart::execute(BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
 
     request.ivc_in_progress = std::make_shared<Chonk>(num_circuits);
 
@@ -34,7 +34,7 @@ BbChonkStart::Response BbChonkStart::execute(BbRequest& request) &&
 
 BbChonkLoad::Response BbChonkLoad::execute(BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call BbChonkStart first.");
     }
@@ -50,7 +50,7 @@ BbChonkLoad::Response BbChonkLoad::execute(BbRequest& request) &&
 
 BbChonkAccumulate::Response BbChonkAccumulate::execute(BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call BbChonkStart first.");
     }
@@ -101,7 +101,7 @@ BbChonkAccumulate::Response BbChonkAccumulate::execute(BbRequest& request) &&
 
 BbChonkProve::Response BbChonkProve::execute(BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call BbChonkStart first.");
     }
@@ -141,7 +141,7 @@ BbChonkProve::Response BbChonkProve::execute(BbRequest& request) &&
 
 BbChonkVerify::Response BbChonkVerify::execute(const BbRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
 
     using VerificationKey = Chonk::MegaVerificationKey;
     validate_vk_size<VerificationKey>(vk);
@@ -167,7 +167,7 @@ BbChonkVerify::Response BbChonkVerify::execute(const BbRequest& /*request*/) &&
 
 BbChonkBatchVerify::Response BbChonkBatchVerify::execute(const BbRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
 
     if (proofs.size() != vks.size()) {
         throw_or_abort("BbChonkBatchVerify: proofs.size() (" + std::to_string(proofs.size()) + ") != vks.size() (" +
@@ -223,7 +223,7 @@ static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(a
 
 BbChonkComputeVk::Response BbChonkComputeVk::execute([[maybe_unused]] const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     info("BbChonkComputeVk - deriving MegaVerificationKey for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
@@ -239,7 +239,7 @@ BbChonkComputeVk::Response BbChonkComputeVk::execute([[maybe_unused]] const BbRe
 
 BbChonkCheckPrecomputedVk::Response BbChonkCheckPrecomputedVk::execute([[maybe_unused]] const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
@@ -267,7 +267,7 @@ BbChonkCheckPrecomputedVk::Response BbChonkCheckPrecomputedVk::execute([[maybe_u
 
 BbChonkStats::Response BbChonkStats::execute([[maybe_unused]] BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     Response response;
 
     const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
@@ -312,13 +312,13 @@ BbChonkStats::Response BbChonkStats::execute([[maybe_unused]] BbRequest& request
 
 BbChonkCompressProof::Response BbChonkCompressProof::execute(const BbRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     return { .compressed_proof = ProofCompressor::compress_chonk_proof(proof) };
 }
 
 BbChonkDecompressProof::Response BbChonkDecompressProof::execute(const BbRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     size_t mega_num_pub = ProofCompressor::compressed_mega_num_public_inputs(compressed_proof.size());
     return { .proof = ProofCompressor::decompress_chonk_proof(compressed_proof, mega_num_pub) };
 }

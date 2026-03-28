@@ -142,7 +142,7 @@ bool _verify(const std::vector<uint8_t>& vk_bytes,
 
 BbCircuitProve::Response BbCircuitProve::execute(BB_UNUSED const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         return _prove<Flavor, IO>(std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     });
@@ -150,7 +150,7 @@ BbCircuitProve::Response BbCircuitProve::execute(BB_UNUSED const BbRequest& requ
 
 BbCircuitComputeVk::Response BbCircuitComputeVk::execute(BB_UNUSED const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(circuit.bytecode), {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
@@ -187,7 +187,7 @@ BbCircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_ga
 
 BbCircuitStats::Response BbCircuitStats::execute(BB_UNUSED const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         return _stats<Flavor, IO>(std::move(circuit.bytecode), include_gates_per_opcode);
     });
@@ -195,7 +195,7 @@ BbCircuitStats::Response BbCircuitStats::execute(BB_UNUSED const BbRequest& requ
 
 BbCircuitVerify::Response BbCircuitVerify::execute(BB_UNUSED const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     bool verified = dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         return _verify<Flavor, IO>(verification_key, public_inputs, proof);
     });
@@ -204,7 +204,7 @@ BbCircuitVerify::Response BbCircuitVerify::execute(BB_UNUSED const BbRequest& re
 
 BbVkAsFields::Response BbVkAsFields::execute(BB_UNUSED const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
 
     using VK = UltraFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
@@ -219,7 +219,7 @@ BbVkAsFields::Response BbVkAsFields::execute(BB_UNUSED const BbRequest& request)
 
 BbMegaVkAsFields::Response BbMegaVkAsFields::execute(BB_UNUSED const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
 
     using VK = MegaFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
@@ -234,7 +234,7 @@ BbMegaVkAsFields::Response BbMegaVkAsFields::execute(BB_UNUSED const BbRequest& 
 
 BbCircuitWriteSolidityVerifier::Response BbCircuitWriteSolidityVerifier::execute(BB_UNUSED const BbRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(__func__);
     using VK = UltraKeccakFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
 

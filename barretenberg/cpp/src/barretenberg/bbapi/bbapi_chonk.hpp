@@ -11,7 +11,6 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 
 #ifndef __wasm__
 #include "barretenberg/chonk/batch_verifier_types.hpp"
@@ -35,14 +34,12 @@ namespace bb::bbapi {
  * @note Only one IVC request can be made at a time for each batch_request.
  */
 struct BbChonkStart {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkStart";
 
     /**
      * @struct Response
      * @brief Empty response indicating successful initialization
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkStartResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
@@ -50,7 +47,6 @@ struct BbChonkStart {
     // Number of circuits to be accumulated.
     uint32_t num_circuits;
     Response execute(BbRequest& request) &&;
-    SERIALIZATION_FIELDS(num_circuits);
     bool operator==(const BbChonkStart&) const = default;
 };
 
@@ -59,14 +55,12 @@ struct BbChonkStart {
  * @brief Load a circuit into the Chonk instance for accumulation
  */
 struct BbChonkLoad {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkLoad";
 
     /**
      * @struct Response
      * @brief Empty response indicating successful circuit loading
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkLoadResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
@@ -75,7 +69,6 @@ struct BbChonkLoad {
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
     Response execute(BbRequest& request) &&;
-    SERIALIZATION_FIELDS(circuit);
     bool operator==(const BbChonkLoad&) const = default;
 };
 
@@ -84,14 +77,12 @@ struct BbChonkLoad {
  * @brief Accumulate the previously loaded circuit into the IVC proof
  */
 struct BbChonkAccumulate {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkAccumulate";
 
     /**
      * @struct Response
      * @brief Empty response indicating successful circuit accumulation
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkAccumulateResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
@@ -100,7 +91,6 @@ struct BbChonkAccumulate {
     /** @brief Serialized witness data for the last loaded circuit */
     std::vector<uint8_t> witness;
     Response execute(BbRequest& request) &&;
-    SERIALIZATION_FIELDS(witness);
     bool operator==(const BbChonkAccumulate&) const = default;
 };
 
@@ -109,18 +99,15 @@ struct BbChonkAccumulate {
  * @brief Generate a proof for all accumulated circuits
  */
 struct BbChonkProve {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkProve";
 
     /**
      * @struct Response
      * @brief Contains the generated IVC proof
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkProveResponse";
 
         /** @brief Complete IVC proof for all accumulated circuits */
         ChonkProof proof;
-        SERIALIZATION_FIELDS(proof);
         bool operator==(const Response&) const = default;
     };
     Response execute(BbRequest& request) &&;
@@ -133,18 +120,15 @@ struct BbChonkProve {
  * @brief Verify a Chonk proof with its verification key
  */
 struct BbChonkVerify {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkVerify";
 
     /**
      * @struct Response
      * @brief Contains the verification result
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkVerifyResponse";
 
         /** @brief True if the proof is valid */
         bool valid;
-        SERIALIZATION_FIELDS(valid);
         bool operator==(const Response&) const = default;
     };
 
@@ -153,7 +137,6 @@ struct BbChonkVerify {
     /** @brief The verification key */
     std::vector<uint8_t> vk;
     Response execute(const BbRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(proof, vk);
     bool operator==(const BbChonkVerify&) const = default;
 };
 
@@ -166,26 +149,22 @@ struct BbChonkVerify {
  * so a single implementation suffices for all Chonk VK computation needs.
  */
 struct BbChonkComputeVk {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkComputeVk";
 
     /**
      * @struct Response
      * @brief Contains the computed verification key in multiple formats
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkComputeVkResponse";
 
         /** @brief Serialized MegaVerificationKey in binary format */
         std::vector<uint8_t> bytes;
         /** @brief Verification key as array of field elements */
         std::vector<bb::fr> fields;
-        SERIALIZATION_FIELDS(bytes, fields);
         bool operator==(const Response&) const = default;
     };
 
     CircuitInputNoVK circuit;
     Response execute([[maybe_unused]] const BbRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit);
     bool operator==(const BbChonkComputeVk&) const = default;
 };
 
@@ -194,20 +173,17 @@ struct BbChonkComputeVk {
  * @brief Verify that a precomputed verification key matches the circuit
  */
 struct BbChonkCheckPrecomputedVk {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkCheckPrecomputedVk";
 
     /**
      * @struct Response
      * @brief Contains the validation result
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkCheckPrecomputedVkResponse";
 
         /** @brief True if the precomputed VK matches the circuit */
         bool valid;
         /** @brief The actual VK it should be. */
         std::vector<uint8_t> actual_vk;
-        SERIALIZATION_FIELDS(valid, actual_vk);
         bool operator==(const Response&) const = default;
     };
 
@@ -215,7 +191,6 @@ struct BbChonkCheckPrecomputedVk {
     CircuitInput circuit;
 
     Response execute(const BbRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit);
     bool operator==(const BbChonkCheckPrecomputedVk&) const = default;
 };
 
@@ -224,14 +199,12 @@ struct BbChonkCheckPrecomputedVk {
  * @brief Get gate counts for a circuit
  */
 struct BbChonkStats {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkStats";
 
     /**
      * @struct Response
      * @brief Contains gate count information
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkStatsResponse";
 
         /** @brief Number of ACIR opcodes */
         uint32_t acir_opcodes;
@@ -239,7 +212,6 @@ struct BbChonkStats {
         uint32_t circuit_size;
         /** @brief Optional: gate counts per opcode */
         std::vector<uint32_t> gates_per_opcode;
-        SERIALIZATION_FIELDS(acir_opcodes, circuit_size, gates_per_opcode);
         bool operator==(const Response&) const = default;
     };
 
@@ -248,7 +220,6 @@ struct BbChonkStats {
     /** @brief Whether to include detailed gate counts per opcode */
     bool include_gates_per_opcode;
     Response execute(BbRequest& request) &&;
-    SERIALIZATION_FIELDS(circuit, include_gates_per_opcode);
     bool operator==(const BbChonkStats&) const = default;
 };
 
@@ -257,19 +228,15 @@ struct BbChonkStats {
  * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
  */
 struct BbChonkBatchVerify {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerify";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerifyResponse";
         bool valid;
-        SERIALIZATION_FIELDS(valid);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<ChonkProof> proofs;
     std::vector<std::vector<uint8_t>> vks;
     Response execute(const BbRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(proofs, vks);
     bool operator==(const BbChonkBatchVerify&) const = default;
 };
 
@@ -280,18 +247,14 @@ struct BbChonkBatchVerify {
  * @details Uses point compression and uniform 32-byte encoding to reduce proof size (~1.72x).
  */
 struct BbChonkCompressProof {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkCompressProof";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkCompressProofResponse";
         std::vector<uint8_t> compressed_proof;
-        SERIALIZATION_FIELDS(compressed_proof);
         bool operator==(const Response&) const = default;
     };
 
     ChonkProof proof;
     Response execute(const BbRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(proof);
     bool operator==(const BbChonkCompressProof&) const = default;
 };
 
@@ -302,18 +265,14 @@ struct BbChonkCompressProof {
  * @details Derives mega_num_public_inputs from the compressed size automatically.
  */
 struct BbChonkDecompressProof {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkDecompressProof";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkDecompressProofResponse";
         ChonkProof proof;
-        SERIALIZATION_FIELDS(proof);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> compressed_proof;
     Response execute(const BbRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(compressed_proof);
     bool operator==(const BbChonkDecompressProof&) const = default;
 };
 
@@ -362,10 +321,8 @@ class ChonkBatchVerifierService {
  * @brief Start the batch verifier service.
  */
 struct BbChonkBatchVerifierStart {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerifierStart";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerifierStartResponse";
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
@@ -376,7 +333,6 @@ struct BbChonkBatchVerifierStart {
     std::string fifo_path;
 
     Response execute(BbRequest& request) &&;
-    SERIALIZATION_FIELDS(vks, num_cores, batch_size, fifo_path);
     bool operator==(const BbChonkBatchVerifierStart&) const = default;
 };
 
@@ -385,10 +341,8 @@ struct BbChonkBatchVerifierStart {
  * @brief Enqueue a proof for batch verification.
  */
 struct BbChonkBatchVerifierQueue {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerifierQueue";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerifierQueueResponse";
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
@@ -398,7 +352,6 @@ struct BbChonkBatchVerifierQueue {
     std::vector<bb::fr> proof_fields;
 
     Response execute(BbRequest& request) &&;
-    SERIALIZATION_FIELDS(request_id, vk_index, proof_fields);
     bool operator==(const BbChonkBatchVerifierQueue&) const = default;
 };
 
@@ -407,10 +360,8 @@ struct BbChonkBatchVerifierQueue {
  * @brief Stop the batch verifier service.
  */
 struct BbChonkBatchVerifierStop {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerifierStop";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbChonkBatchVerifierStopResponse";
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };

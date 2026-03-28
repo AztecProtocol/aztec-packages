@@ -16,9 +16,4 @@
 #include "barretenberg/bbapi/bbapi_srs.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 
-namespace bb::bbapi {
-
-// Schema export
-std::string get_msgpack_schema_as_json();
-
-} // namespace bb::bbapi
+namespace bb::bbapi {} // namespace bb::bbapi

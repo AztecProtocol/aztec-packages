@@ -74,7 +74,6 @@ struct CircuitInputNoVK {
      */
     std::vector<uint8_t> bytecode;
 
-    SERIALIZATION_FIELDS(name, bytecode);
     bool operator==(const CircuitInputNoVK& other) const = default;
 };
 
@@ -105,7 +104,6 @@ struct CircuitInput {
      */
     std::vector<uint8_t> verification_key;
 
-    SERIALIZATION_FIELDS(name, bytecode, verification_key);
     bool operator==(const CircuitInput& other) const = default;
 };
 
@@ -133,7 +131,6 @@ struct ProofSystemSettings {
     // TODO(md): remove this once considered stable
     bool optimized_solidity_verifier = false;
 
-    SERIALIZATION_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
     bool operator==(const ProofSystemSettings& other) const = default;
 };
 
@@ -199,9 +196,7 @@ struct BbRequest {
  * @brief Error response returned when a command fails
  */
 struct BbErrorResponse {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbErrorResponse";
     std::string message;
-    SERIALIZATION_FIELDS(message);
     bool operator==(const BbErrorResponse&) const = default;
 };
 
@@ -215,9 +210,7 @@ struct BbErrorResponse {
     } while (0)
 
 struct BbShutdown {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbShutdown";
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "BbShutdownResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
