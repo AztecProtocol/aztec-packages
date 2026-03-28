@@ -401,7 +401,7 @@ TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifier)
     // Load the log_n=18 domain from binary.  If the binary doesn't exist,
     // generate it using the Python script (takes ~2 minutes).
     std::string basefold_dir = std::string(std::getenv("BUILD_DIR") ? std::getenv("BUILD_DIR") : ".") +
-                               "/../src/barretenberg/stdlib/msm_verification/basefold";
+                               "/../src/barretenberg/msm_verification/basefold";
     std::string domain_path = basefold_dir + "/ecfft_domain_2_18.bin";
     std::string script_path = basefold_dir + "/ecfft_precompute.py";
 

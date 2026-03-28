@@ -190,7 +190,10 @@ inline bool verify(const EcfftDomain& domain,
         challenges[round] = transcript->template get_challenge<Fq>("basefold_challenge_" + std::to_string(round));
     }
 
-    [[maybe_unused]] auto g_final = transcript->template receive_from_prover<NativeCommitment>("basefold_final");
+    // basefold_final is absorbed into Fiat-Shamir before the query seed is derived.
+    // The verifier MUST check it matches the actual last-round fold result to prevent
+    // the prover from manipulating query indices via a fake basefold_final.
+    auto g_final = transcript->template receive_from_prover<NativeCommitment>("basefold_final");
 
     fr query_seed = transcript->template get_challenge<fr>("basefold_query_seed");
 
@@ -234,6 +237,16 @@ inline bool verify(const EcfftDomain& domain,
 
             if (NativeCommitment(expected_fold.normalize()) != claimed_fold) {
                 return false;
+            }
+
+            // At the last round, verify the fold result matches basefold_final.
+            // This binds the committed final value to the actual fold computation,
+            // preventing the prover from choosing a fake basefold_final to manipulate
+            // the Fiat-Shamir-derived query indices.
+            if (round == num_rounds - 1) {
+                if (claimed_fold != g_final) {
+                    return false;
+                }
             }
 
             current_idx = j;
@@ -309,7 +322,6 @@ template <typename Builder> class RecursiveBaseFoldVerifier {
         }
 
         auto g_final_native = native_transcript->template receive_from_prover<NativeCommitment>("basefold_final");
-        (void)g_final_native;
 
         fr query_seed_native = native_transcript->template get_challenge<fr>("basefold_query_seed");
 
@@ -321,6 +333,8 @@ template <typename Builder> class RecursiveBaseFoldVerifier {
             roots[round] = witness_ct(&builder, roots_native[round]);
             challenges_ct[round] = bigfield_ct::from_witness(&builder, challenges_native[round]);
         }
+
+        auto g_final = group_ct::from_witness(&builder, g_final_native);
 
         // === Step 3: Query phase ===
         for (size_t q = 0; q < num_queries; q++) {
@@ -370,6 +384,11 @@ template <typename Builder> class RecursiveBaseFoldVerifier {
                 auto expected_fold = fold_pair_circuit(domain, round, current_d, j, G0, G1, challenges_ct[round]);
 
                 expected_fold.assert_equal(claimed_fold);
+
+                // Check 3: At the last round, the fold result must match basefold_final
+                if (round == num_rounds - 1) {
+                    claimed_fold.assert_equal(g_final);
+                }
 
                 current_idx = j;
                 current_d /= 2;
