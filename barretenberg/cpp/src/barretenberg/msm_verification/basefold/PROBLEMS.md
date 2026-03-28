@@ -25,26 +25,38 @@ calls per level) but makes the circuit topology fixed.
 
 **Status**: Fixed.  The current implementation uses `conditional_assign`.
 
-### 2. Query index → domain pair lookup (NOT YET FIXED)
+**Concrete cost**: at blowup 8, this added ~1.1M gates (from 3.47M to 4.60M).
+This is the single largest overhead for fixed-circuit compatibility.  If the
+ROM-based approach (item 2 below) is implemented, the index bits become proper
+circuit witnesses and we could potentially use a single conditional hash per
+level instead of double-hashing, recovering most of this cost.
 
-**Problem**: the fold check reads domain points `s0 = domain[j]`, `s1 = domain[j + half]`
-and precomputed values `pair_diff_inv[j]`, where `j` depends on the query index
-(a witness value).  In the current implementation, these are read as native
-constants indexed by the native `j` — this makes the circuit topology depend
-on which `j` was chosen.
+### 2. Domain pair lookup + fold scalar lookup (NOT YET FIXED)
 
-**What's needed**: load the domain points into a **ROM table** (or plookup table)
-and index into it with the witness `j`.  `cycle_group` already uses ROM tables
-internally for Straus MSM, so the infrastructure exists.
+**Problem**: the fold check reads domain points `s0 = domain[j]`,
+`s1 = domain[j + half]`, precomputed `pair_diff_inv[j]`, and fold scalars
+`s0^{-e}`, `s1^{-e}` — all indexed by the pair index `j`, which depends on
+the query index (a witness value).  In the current implementation, these are
+read as native constants indexed by the native `j`, making the circuit topology
+depend on which `j` was chosen.
 
-**Cost estimate**: one ROM read per domain access.  Per round per query: 3 ROM
-reads (s0, s1, pair_diff_inv) × 1 gate each = 3 gates.  Negligible compared
-to the fold check (~3,000 gates).  But the ROM table construction costs ~1 gate
-per entry, and the tables have up to 2^17 entries (half the domain at round 0).
-This adds O(domain_size) one-time setup cost to the circuit.
+**What's needed**: load all per-pair data into **ROM tables** (or plookup tables)
+and index into them with the witness `j`.  `cycle_group` already uses ROM tables
+internally for Straus MSM, so the infrastructure exists.  All five values
+(s0, s1, pair_diff_inv, s0^{-e}, s1^{-e}) can share a single ROM per round,
+storing one struct per pair.
 
-For a 2^18 domain: ~2^18 gates for ROM table construction across all rounds
-(dominated by round 0).  This is ~260K gates — about 7% of the current 3.5M.
+**Cost estimate**: ROM table construction costs ~1 gate per entry.  At blowup 32
+(the recommended configuration), the domain has 2^20 entries and round 0 has
+2^19 pairs.  Total ROM construction across all rounds (dominated by round 0):
+~2^20 ≈ 1M gates.  This is significant — about 30% of the current 3.25M gate
+count.  However, the read cost is negligible (~5 ROM reads per fold check ×
+26 queries × 20 rounds ≈ 2,600 gates).
+
+Note: at smaller blowup (e.g., blowup 8, domain 2^18), the ROM cost is ~260K
+gates (~5% of the 4.6M count).  The ROM cost scales linearly with domain size,
+so higher blowup makes this overhead proportionally larger.  This trade-off
+may affect the optimal blowup choice for a production deployment.
 
 ### 3. Query index derivation (NOT YET FIXED)
 
@@ -58,36 +70,24 @@ Merkle path and domain pair.  The bits would drive conditional selects and ROM
 lookups.
 
 **Cost estimate**: one stdlib Poseidon2 hash per query (~74 gates) + bit
-decomposition (~254 gates for a full field element, or fewer if we only need
-log2(domain_size) = 18 bits).  Total: ~330 gates per query × 43 queries ≈ 14K
-gates.  Negligible.
-
-### 4. The fold scalar values depend on the pair index (NOT YET FIXED)
-
-**Problem**: the scalars in the fold check — `s0^{-e}`, `s1^{-e}`, and `diff_inv`
-— are currently constructed as bigfield constants from native values looked up
-by the native pair index `j`.  In a fixed circuit, these would need to come from
-ROM tables indexed by the witness `j`.
-
-**What's needed**: same ROM approach as item 2.  Precompute `s0^{-e}` and `s1^{-e}`
-for all pairs at each round (they depend only on the domain geometry and the
-degree bound, both known at setup time) and store them in ROM tables.
-
-**Cost**: same as item 2 — ROM construction is the main cost.  Could potentially
-share tables with item 2 since the domain points are already in ROM.
+decomposition (~20 bits for log2(domain_size) = 20).  Total: ~100 gates per
+query × 26 queries ≈ 2,600 gates.  Negligible.
 
 ## Summary
 
 | Issue | Status | Estimated cost to fix |
 |-------|--------|----------------------|
-| Merkle branch direction | **Fixed** | ~2× Merkle hash cost (already in gate count) |
-| Domain pair ROM lookup | Not fixed | ~260K gates (ROM construction) |
-| Query index derivation | Not fixed | ~14K gates (negligible) |
-| Fold scalar ROM lookup | Not fixed | Shared with domain pair ROM |
+| Merkle branch direction | **Fixed** | ~1.1M gates (already in measurements) |
+| Domain pair + fold scalar ROM | Not fixed | ~1M gates at blowup 32, ~260K at blowup 8 |
+| Query index derivation | Not fixed | ~2,600 gates (negligible) |
 
-**Total estimated overhead for a fully fixed circuit**: ~300K gates on top of
-the current 3.5M, bringing the total to ~3.8M gates.  This is still ~3× better
-than the raw batch_mul MSM (~12M gates).
+**Estimated total at blowup 32 with all fixes**: 3.25M (current) + 1M (ROM) ≈
+**4.25M gates**.  However, if the ROM enables single-hash Merkle (replacing the
+current double-hash `conditional_assign` approach), we'd recover ~1M gates,
+netting out to approximately the same ~3.25M.
+
+**Estimated total at blowup 8 with all fixes**: 4.6M + 260K ≈ 4.86M gates
+(with double-hash Merkle), or ~3.75M with single-hash Merkle.
 
 ## Alternative: accept witness-dependent topology
 
