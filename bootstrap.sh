@@ -88,7 +88,13 @@ function install_yq {
 }
 
 function install_ldid {
-  curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 \
+  local arch=$(uname -m)
+  if [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then
+    arch="aarch64"
+  else
+    arch="x86_64"
+  fi
+  curl -sL "https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_${arch}" \
     -o $AZTEC_DEV_BIN/ldid && chmod +x $AZTEC_DEV_BIN/ldid
 }
 
