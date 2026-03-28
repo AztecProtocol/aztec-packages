@@ -45,6 +45,12 @@ export interface CppCodegenOptions {
    * (e.g. bb keeps hand-written commands but generates server dispatch).
    */
   generatedIncludeDir?: string;
+  /**
+   * Sub-namespace for wire types (e.g. 'wire' → types in ns::wire).
+   * When set, standalone types are wrapped in this sub-namespace,
+   * and the server dispatch deserializes into wire types then converts to domain types.
+   */
+  wireNamespace?: string;
 }
 
 export class CppCodegen {
@@ -69,7 +75,11 @@ export class CppCodegen {
   private generateMethodSignature(command: Command, schema: CompiledSchema, className?: string): string {
     const method = this.methodName(command.name);
     const hasFields = this.hasResponseFields(command, schema);
-    const retType = hasFields ? `${command.name}::Response` : 'void';
+    // Wire types use top-level response names (BbFooResponse).
+    // Command types with nested Response use Cmd::Response.
+    const retType = hasFields
+      ? (this.opts.wireNamespace ? command.responseType : `${command.name}::Response`)
+      : 'void';
 
     // If the command has fields, take the whole command struct by value
     const params = command.fields.length > 0 ? `${command.name} cmd` : '';
@@ -133,8 +143,8 @@ class ${className} {
 ${methods}
 
   private:
-    template <typename Cmd>
-    typename Cmd::Response send(Cmd&& cmd) const;
+    template <typename Cmd, typename Resp>
+    Resp send(Cmd&& cmd) const;
 
     mutable std::unique_ptr<::ipc::IpcClient> client_;
 };
@@ -170,8 +180,8 @@ ${className}::${className}(const std::string& socket_path)
 
 ${className}::~${className}() = default;
 
-template <typename Cmd>
-typename Cmd::Response ${className}::send(Cmd&& cmd) const
+template <typename Cmd, typename Resp>
+Resp ${className}::send(Cmd&& cmd) const
 {
     // Serialize as [[CommandName, {payload}]]
     msgpack::sbuffer send_buffer;
@@ -218,7 +228,7 @@ typename Cmd::Response ${className}::send(Cmd&& cmd) const
         throw std::runtime_error("Server error: " + message);
     }
 
-    typename Cmd::Response result;
+    Resp result;
     obj.via.array.ptr[1].convert(result);
     return result;
 }
@@ -232,20 +242,21 @@ ${methods}
   private generateMethodImpl(command: Command, schema: CompiledSchema, className: string): string {
     const sig = this.generateMethodSignature(command, schema, className);
     const hasFields = this.hasResponseFields(command, schema);
+    const respType = this.opts.wireNamespace ? command.responseType : `${command.name}::Response`;
 
     const cmdExpr = command.fields.length > 0 ? 'std::move(cmd)' : `${command.name}{}`;
 
     if (!hasFields) {
       return `${sig}
 {
-    send(${cmdExpr});
+    send<${command.name}, ${respType}>(${cmdExpr});
 }
 `;
     }
 
     return `${sig}
 {
-    return send(${cmdExpr});
+    return send<${command.name}, ${respType}>(${cmdExpr});
 }
 `;
   }
@@ -303,10 +314,8 @@ ${methods}
       const fields = s.fields.map(f => `    ${mapType(f.type)} ${f.name};`).join('\n');
       const fieldNames = s.fields.map(f => f.name).join(', ');
       const schemaName = `    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${s.name}";`;
-      // Use SERIALIZATION_FIELDS (barretenberg macro, supports schema export)
-      // For standalone use without barretenberg, define SERIALIZATION_FIELDS as MSGPACK_DEFINE_MAP
       const serialization = fieldNames
-        ? `    SERIALIZATION_FIELDS(${fieldNames})`
+        ? `    MSGPACK_DEFINE_MAP(${fieldNames})`
         : `    void msgpack(auto&& pack_fn) { pack_fn(); }`;
       return `struct ${s.name} {\n${schemaName}\n${fields}\n${serialization}\n    bool operator==(const ${s.name}&) const = default;\n};`;
     }).join('\n\n');
@@ -315,7 +324,8 @@ ${methods}
 // Standalone types for ${prefix} service — no barretenberg dependencies.
 #pragma once
 
-// Aztec fork of msgpack-c uses THROW/RETHROW macros
+// When used standalone (without barretenberg), msgpack-c needs THROW/RETHROW macros.
+// Within barretenberg, these are defined by try_catch_shim.hpp (include it first).
 #ifndef THROW
 #define THROW throw
 #endif
@@ -331,19 +341,14 @@ ${methods}
 #include <unordered_map>
 #include <vector>
 
-// SERIALIZATION_FIELDS: if not defined by barretenberg, fall back to MSGPACK_DEFINE_MAP
-#ifndef SERIALIZATION_FIELDS
-#define SERIALIZATION_FIELDS(...) MSGPACK_DEFINE_MAP(__VA_ARGS__)
-#endif
-
 /// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
 using Fr = std::array<uint8_t, 32>;
 
-namespace ${ns} {
+namespace ${ns}${this.opts.wireNamespace ? '::' + this.opts.wireNamespace : ''} {
 
 ${structs}
 
-} // namespace ${ns}
+} // namespace ${ns}${this.opts.wireNamespace ? '::' + this.opts.wireNamespace : ''}
 `;
   }
 
@@ -650,12 +655,38 @@ ${commandStructs}
   generateServerHeader(schema: CompiledSchema): string {
     const { namespace: ns, prefix } = this.opts;
     const requestType = `${prefix}Request`;
+    const wireNs = this.opts.wireNamespace;
+
+    // When wireNamespace is set, include wire types and declare handler functions
+    const wireInclude = wireNs
+      ? `#include "${this.generatedDir()}/${toSnakeCase(prefix)}_types.hpp"\n`
+      : '';
+
+    // Generate handler declarations for wire/domain split
+    let handlerDecls = '';
+    if (wireNs) {
+      const decls = schema.commands
+        .filter(c => !c.name.endsWith('Shutdown'))
+        .map(c => {
+          const method = toSnakeCase(c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name);
+          return `${wireNs}::${c.responseType} handle_${method}(${requestType}& request, ${wireNs}::${c.name}&& cmd);`;
+        });
+      handlerDecls = `
+// ---------------------------------------------------------------------------
+// Handler declarations — implement these to connect wire types to business logic.
+// Each handler receives a wire command, should convert to domain types internally,
+// execute the business logic, and return a wire response.
+// ---------------------------------------------------------------------------
+
+${decls.join('\n')}
+`;
+    }
 
     return `// AUTOGENERATED FILE - DO NOT EDIT
 #pragma once
 
 #include "${this.opts.commandsHeader}"
-#include "${this.generatedDir()}/ipc_server.hpp"
+${this.opts.executeHeader ? `#include "${this.opts.executeHeader}"\n` : ''}${wireInclude}#include "${this.generatedDir()}/ipc_server.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 #include <atomic>
@@ -664,30 +695,15 @@ ${commandStructs}
 
 namespace ${ns} {
 
-/**
- * @brief Create an IPC handler that dispatches to command execute() methods.
- *
- * Returns a handler compatible with ipc::serve(). The handler:
- *   1. Deserializes the msgpack request: [[CommandName, {payload}]]
- *   2. String-matches the command name
- *   3. Deserializes payload into the specific command struct
- *   4. Calls cmd.execute(request)
- *   5. Serializes the response as [ResponseName, {fields}]
- *   6. Wraps exceptions in error responses
- */
 ::ipc::Handler make_${toSnakeCase(prefix)}_handler(${requestType}& request);
 
-/**
- * @brief Start the IPC server on the given socket path.
- * @param shutdown_flag Optional atomic flag for external shutdown (e.g. from signal handlers).
- */
 inline void serve(const char* socket_path,
                   ${requestType}& request,
                   std::atomic<bool>* shutdown_flag = nullptr)
 {
     ::ipc::serve(socket_path, make_${toSnakeCase(prefix)}_handler(request), shutdown_flag);
 }
-
+${handlerDecls}
 } // namespace ${ns}
 `;
   }
@@ -701,36 +717,64 @@ inline void serve(const char* socket_path,
     const serverHeaderPath = `${this.generatedDir()}/${toSnakeCase(prefix)}_ipc_server.hpp`;
 
     // Generate handler lambdas for each command
+    const wireNs = this.opts.wireNamespace;
     const handlerEntries = schema.commands.map(cmd => {
       const isShutdown = cmd.name.endsWith('Shutdown');
-      const deserialize = cmd.fields.length > 0
-        ? `${cmd.name} cmd; payload.convert(cmd);`
-        : `${cmd.name} cmd;`;
 
-      if (isShutdown) {
-        return `        { "${cmd.name}", [](${requestType}& request, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
-            ${deserialize}
+      // When wireNamespace is set: deserialize wire type, call handle_xxx() which returns wire response
+      // When not set: wire types ARE domain types, call cmd.execute(request) directly
+      const method = toSnakeCase(cmd.name.startsWith(prefix) ? cmd.name.slice(prefix.length) : cmd.name);
+      let body: string;
+
+      if (wireNs) {
+        if (isShutdown) {
+          // Shutdown: no handler call, just serialize empty response and throw
+          body = `msgpack::sbuffer buf;
+            msgpack::packer<msgpack::sbuffer> pk(buf);
+            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack_map(0);`;
+        } else {
+          const wireType = `${wireNs}::${cmd.name}`;
+          const deserialize = cmd.fields.length > 0
+            ? `${wireType} wire_cmd; payload.convert(wire_cmd);`
+            : `${wireType} wire_cmd;`;
+          body = `${deserialize}
+            auto wire_resp = handle_${method}(request, std::move(wire_cmd));
+            msgpack::sbuffer buf;
+            msgpack::packer<msgpack::sbuffer> pk(buf);
+            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(wire_resp);`;
+        }
+      } else {
+        const deserialize = cmd.fields.length > 0
+          ? `${cmd.name} cmd; payload.convert(cmd);`
+          : `${cmd.name} cmd;`;
+        body = `${deserialize}
             auto resp = std::move(cmd).execute(request);
             msgpack::sbuffer buf;
             msgpack::packer<msgpack::sbuffer> pk(buf);
-            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(resp);
+            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(resp);`;
+      }
+
+      if (isShutdown) {
+        return `        { "${cmd.name}", []([[maybe_unused]] ${requestType}& request, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
+            ${body}
             throw ::ipc::ShutdownRequested(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
         } }`;
       }
       return `        { "${cmd.name}", [](${requestType}& request, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
-            ${deserialize}
-            auto resp = std::move(cmd).execute(request);
-            msgpack::sbuffer buf;
-            msgpack::packer<msgpack::sbuffer> pk(buf);
-            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(resp);
+            ${body}
             return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
         } }`;
     }).join(',\n');
 
+    // Include wire types header when wire/domain split is used
+    const wireTypesInclude = wireNs
+      ? `#include "${this.generatedDir()}/${toSnakeCase(prefix)}_types.hpp"\n`
+      : '';
+
     return `// AUTOGENERATED FILE - DO NOT EDIT
 
 #include "${serverHeaderPath}"
-#include "barretenberg/serialize/msgpack.hpp"
+${wireTypesInclude}#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 
 #include <functional>

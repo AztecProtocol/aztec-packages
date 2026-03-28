@@ -294,9 +294,10 @@ const BB_CPP_OPTS: CppCodegenOptions = {
   prefix: 'Bb',
   executeHeader: 'barretenberg/bbapi/bbapi_execute.hpp',
   // BB keeps hand-written commands (they use grumpkin::fr, affine_element, etc.)
-  // The codegen generates only the server dispatch.
+  // The codegen generates wire types + server dispatch. Domain types are hand-written.
   commandsHeader: 'barretenberg/bbapi/bbapi_execute.hpp',
   generatedIncludeDir: 'barretenberg/bbapi/generated',
+  wireNamespace: 'wire',
 };
 
 const BB_SERVICE: ServiceConfig = {
@@ -311,6 +312,8 @@ const BB_SERVICE: ServiceConfig = {
   ],
 };
 
+// WSDB/CDB: keep externals for the C++ client (AVM uses barretenberg types like MerkleTreeId, bb::fr).
+// The server dispatch uses wire types directly but the client needs domain types.
 const WSDB_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::wsdb',
   prefix: 'Wsdb',
@@ -362,6 +365,7 @@ const CDB_CPP_OPTS: CppCodegenOptions = {
   ],
 };
 
+// AVM: simple types only, no externals needed
 const AVM_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::avm',
   prefix: 'Avm',
