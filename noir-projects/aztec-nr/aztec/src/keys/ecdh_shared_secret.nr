@@ -1,4 +1,11 @@
-use crate::protocol::{address::aztec_address::AztecAddress, point::Point, scalar::Scalar, traits::FromField};
+use crate::protocol::{
+    address::aztec_address::AztecAddress,
+    constants::{DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY},
+    hash::poseidon2_hash_with_separator,
+    point::Point,
+    scalar::Scalar,
+    traits::{FromField, ToField},
+};
 use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
 /// Computes a standard ECDH shared secret: secret * public_key = shared_secret.
@@ -6,11 +13,37 @@ use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 /// The input secret is known only to one party. The output shared secret can be derived given knowledge of
 /// `public_key`'s key-pair and the public ephemeral secret, using this same function (with reversed inputs).
 ///
-/// E.g.: Epk = esk * G // ephemeral key-pair Pk = sk * G // recipient key-pair Shared secret S = esk * Pk = sk * Epk
+/// E.g.: Epk = esk * G // ephemeral key-pair
+///       Pk = sk * G // recipient key-pair
+///       Shared secret S = esk * Pk = sk * Epk
 ///
 /// See also: https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman
 pub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {
     multi_scalar_mul([public_key], [secret])
+}
+
+/// Computes an app-siloed shared secret from a raw ECDH shared secret point and a contract address.
+///
+/// `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, contract_address)`
+pub(crate) fn compute_app_siloed_shared_secret(shared_secret: Point, contract_address: AztecAddress) -> Field {
+    poseidon2_hash_with_separator(
+        [shared_secret.x, shared_secret.y, contract_address.to_field()],
+        DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET,
+    )
+}
+
+/// Derives an indexed subkey from an app-siloed shared secret, used for AES key/IV derivation.
+///
+/// `s_i = h(DOM_SEP__ECDH_SUBKEY + i, s_app)`
+pub(crate) fn derive_shared_secret_subkey(s_app: Field, index: u32) -> Field {
+    poseidon2_hash_with_separator([s_app], DOM_SEP__ECDH_SUBKEY + index)
+}
+
+/// Derives an indexed field mask from an app-siloed shared secret, used for masking ciphertext fields.
+///
+/// `m_i = h(DOM_SEP__ECDH_FIELD_MASK + i, s_app)`
+pub(crate) fn derive_shared_secret_field_mask(s_app: Field, index: u32) -> Field {
+    poseidon2_hash_with_separator([s_app], DOM_SEP__ECDH_FIELD_MASK + index)
 }
 
 #[test]
@@ -80,4 +113,20 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
 
     assert_eq(shared_secret, shared_secret_alt);
+}
+
+#[test]
+unconstrained fn test_app_siloed_shared_secret_differs_per_contract() {
+    let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
+    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(Scalar { lo: 0x3456, hi: 0x4567 });
+
+    let shared_secret = derive_ecdh_shared_secret(secret_a, pk_b);
+
+    let contract_a = AztecAddress::from_field(0xAAAA);
+    let contract_b = AztecAddress::from_field(0xBBBB);
+
+    let s_app_a = compute_app_siloed_shared_secret(shared_secret, contract_a);
+    let s_app_b = compute_app_siloed_shared_secret(shared_secret, contract_b);
+
+    assert(s_app_a != s_app_b, "app-siloed secrets must differ for different contracts");
 }

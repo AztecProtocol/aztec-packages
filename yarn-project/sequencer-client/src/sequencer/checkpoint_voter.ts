@@ -2,7 +2,6 @@ import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
 import type { ValidatorClient } from '@aztec/validator-client';
 import { DutyAlreadySignedError } from '@aztec/validator-ha-signer/errors';
@@ -18,7 +17,6 @@ import type { SequencerRollupConstants } from './types.js';
  * Handles governance and slashing voting for a given slot.
  */
 export class CheckpointVoter {
-  private slotTimestamp: bigint;
   private governanceSigner: (msg: TypedDataDefinition) => Promise<`0x${string}`>;
   private slashingSigner: (msg: TypedDataDefinition) => Promise<`0x${string}`>;
 
@@ -33,8 +31,6 @@ export class CheckpointVoter {
     private readonly metrics: SequencerMetrics,
     private readonly log: Logger,
   ) {
-    this.slotTimestamp = getTimestampForSlot(this.slot, this.l1Constants);
-
     // Create separate signers with appropriate duty contexts for governance and slashing votes
     // These use HA protection to ensure only one node signs per slot/duty
     const governanceContext: SigningContext = { slot: this.slot, dutyType: DutyType.GOVERNANCE_VOTE };
@@ -77,7 +73,6 @@ export class CheckpointVoter {
       return await this.publisher.enqueueGovernanceCastSignal(
         governanceProposerPayload,
         this.slot,
-        this.slotTimestamp,
         this.attestorAddress,
         this.governanceSigner,
       );
@@ -108,13 +103,7 @@ export class CheckpointVoter {
 
       this.metrics.recordSlashingAttempt(actions.length);
 
-      return await this.publisher.enqueueSlashingActions(
-        actions,
-        this.slot,
-        this.slotTimestamp,
-        this.attestorAddress,
-        this.slashingSigner,
-      );
+      return await this.publisher.enqueueSlashingActions(actions, this.slot, this.attestorAddress, this.slashingSigner);
     } catch (err) {
       if (err instanceof DutyAlreadySignedError) {
         this.log.info(`Slashing vote already signed by another node`, {

@@ -313,15 +313,20 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
+    const peerIdStr = peerId.toString();
     this.metrics.peerDisconnected(peerId);
-    this.logger.verbose(`Disconnected from peer ${peerId.toString()}`);
-    const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerId.toString());
+    this.logger.verbose(`Disconnected from peer ${peerIdStr}`);
+    const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerIdStr);
     if (validatorAddress !== undefined) {
       this.logger.info(
-        `Removing authentication for validator ${validatorAddress} at peer id ${peerId.toString()} due to disconnection`,
+        `Removing authentication for validator ${validatorAddress} at peer id ${peerIdStr} due to disconnection`,
       );
       this.authenticatedValidatorAddressToPeerId.delete(validatorAddress.toString());
-      this.authenticatedPeerIdToValidatorAddress.delete(peerId.toString());
+      this.authenticatedPeerIdToValidatorAddress.delete(peerIdStr);
+    }
+
+    if (this.peerScoring.getScoreState(peerIdStr) === PeerScoreState.Healthy) {
+      this.peerScoring.removePeer(peerIdStr);
     }
   }
 

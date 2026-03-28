@@ -398,12 +398,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Reexecute txs if we are part of the committee, or if slashing is enabled, or if we are configured to always reexecute.
     // In fisherman mode, we always reexecute to validate proposals.
-    const { validatorReexecute, slashBroadcastedInvalidBlockPenalty, alwaysReexecuteBlockProposals, fishermanMode } =
-      this.config;
+    const { slashBroadcastedInvalidBlockPenalty, alwaysReexecuteBlockProposals, fishermanMode } = this.config;
     const shouldReexecute =
       fishermanMode ||
-      (slashBroadcastedInvalidBlockPenalty > 0n && validatorReexecute) ||
-      (partOfCommittee && validatorReexecute) ||
+      slashBroadcastedInvalidBlockPenalty > 0n ||
+      partOfCommittee ||
       alwaysReexecuteBlockProposals ||
       this.blobClient.canUpload();
 

@@ -58,7 +58,8 @@ export class P2PInactivityTest {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
-        proverNodeConfig: { proverNodeEpochProvingDelayMs: AZTEC_SLOT_DURATION * 1000 },
+        anvilSlotsInAnEpoch: 4,
+        proverNodeConfig: { proverNodeEpochProvingDelayMs: AZTEC_SLOT_DURATION * 1000, proverNodeSplitProving: false },
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
@@ -66,7 +67,6 @@ export class P2PInactivityTest {
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
-        validatorReexecute: false,
         sentinelEnabled: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE_IN_EPOCHS,

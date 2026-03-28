@@ -68,7 +68,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @brief Reconstruct a point in affine coordinates from compressed form.
      * @details #LARGE_MODULUS_AFFINE_POINT_COMPRESSION Point compression is implemented for curves of a prime
      * field F_p with p being 256 bits.
-     * TODO(Suyash): Check with kesha if this is correct.
      *
      * @param compressed compressed point
      * @return constexpr affine_element
@@ -163,6 +162,11 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         // same order in our various serialization flows
         read(buffer, write_x_first ? result.x : result.y);
         read(buffer, write_x_first ? result.y : result.x);
+
+        // Validate the deserialized point lies on the curve
+        if (!result.on_curve()) {
+            throw_or_abort("affine_element::serialize_from_buffer: point is not on the curve");
+        }
         return result;
     }
 

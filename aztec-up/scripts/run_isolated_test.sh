@@ -93,7 +93,7 @@ EOF
   else
     export NON_INTERACTIVE=1
   fi
-  VERSION=0.0.1 bash ${bash_args:-} <(curl -s $INSTALL_URI/0.0.1/aztec-install)
+  VERSION=0.0.1 INFRA_VERSION=0.0.1 bash ${bash_args:-} <(curl -s $INSTALL_URI/0.0.1/aztec-install)
 
   echo "Version information:"
 

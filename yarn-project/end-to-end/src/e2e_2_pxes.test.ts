@@ -108,11 +108,8 @@ describe('e2e_2_pxes', () => {
 
   const deployChildContractViaServerA = async () => {
     logger.info(`Deploying Child contract...`);
-    const {
-      receipt: { instance },
-    } = await ChildContract.deploy(walletA).send({
+    const { instance } = await ChildContract.deploy(walletA).send({
       from: accountAAddress,
-      wait: { returnReceipt: true },
     });
     logger.info('Child contract deployed');
 

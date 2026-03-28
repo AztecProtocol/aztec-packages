@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
-import { AztecAddress } from '../aztec-address/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { MessageContext } from './message_context.js';
 
@@ -11,10 +10,9 @@ describe('MessageContext', () => {
     const txHash = new TxHash(new Fr(123n));
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
-    const recipient = AztecAddress.fromField(new Fr(789n));
 
     // Create a MessageContext instance
-    const messageContext = new MessageContext(txHash, uniqueNoteHashes, firstNullifier, recipient);
+    const messageContext = new MessageContext(txHash, uniqueNoteHashes, firstNullifier);
 
     // Serialize the message context
     const serialized = messageContext.toFields();
@@ -89,17 +87,41 @@ describe('MessageContext', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000006",
-        "0x0000000000000000000000000000000000000000000000000000000000000315",
       ]
     `);
 
-    // Optionally update Noir test data
-    const fieldArrayStr = `[${serialized.map(f => f.toString()).join(',')}]`;
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    const fieldArrayStr = `[${serialized.map(f => f.toString()).join(',')}]`;
     updateInlineTestData(
       'noir-projects/aztec-nr/aztec/src/messages/processing/message_context.nr',
       'serialized_message_context_from_typescript',
       fieldArrayStr,
     );
+  });
+
+  it('serialization of some option matches snapshot', () => {
+    const txHash = new TxHash(new Fr(123));
+    const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
+    const firstNullifier = new Fr(6n);
+    const ctx = new MessageContext(txHash, uniqueNoteHashes, firstNullifier);
+    const serialized = MessageContext.toSerializedOption(ctx);
+    // is_some flag + fields
+    expect(serialized[0]).toEqual(new Fr(1));
+    expect(serialized.length).toEqual(1 + ctx.toFields().length);
+  });
+
+  it('serialization of none option matches snapshot', () => {
+    const serialized = MessageContext.toSerializedOption(null);
+    expect(serialized[0]).toEqual(new Fr(0));
+    // All fields should be zero
+    for (const f of serialized) {
+      expect(f).toEqual(Fr.zero());
+    }
+  });
+
+  it('serialization length of empty matches some', () => {
+    const txHash = new TxHash(new Fr(123));
+    const ctx = new MessageContext(txHash, [new Fr(4n), new Fr(5n)], new Fr(6n));
+    expect(ctx.toFields().length).toEqual(MessageContext.toEmptyFields().length);
   });
 });

@@ -1,8 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { MessageContext } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
-
-import { MessageTxContext } from '../contract_function_simulator/noir-structs/message_tx_context.js';
 
 /** Resolves transaction hashes into the context needed to process messages. */
 export class MessageContextService {
@@ -15,7 +14,7 @@ export class MessageContextService {
    * process messages that originated from that transaction. Returns `null` for tx hashes that are zero, not yet
    * available, or in blocks beyond the anchor block.
    */
-  resolveMessageContexts(txHashes: Fr[], anchorBlockNumber: number): Promise<(MessageTxContext | null)[]> {
+  getMessageContextsByTxHash(txHashes: Fr[], anchorBlockNumber: number): Promise<(MessageContext | null)[]> {
     // TODO: optimize, we might be hitting the node to get the same txHash repeatedly
     return Promise.all(
       txHashes.map(async txHashField => {
@@ -38,7 +37,7 @@ export class MessageContextService {
           throw new Error(`Tx effect for ${txHash} has no nullifiers`);
         }
 
-        return new MessageTxContext(data.txHash, data.noteHashes, data.nullifiers[0]);
+        return new MessageContext(data.txHash, data.noteHashes, data.nullifiers[0]);
       }),
     );
   }

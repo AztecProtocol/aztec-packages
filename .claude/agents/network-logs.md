@@ -62,10 +62,31 @@ You can read this output directly — no parsing needed.
 --format='table[no-heading](timestamp, resource.labels.pod_name, jsonPayload.message.slice(0,150))'
 ```
 
+## Cluster Mapping
+
+Aztec runs two GKE clusters:
+
+| Cluster | Aztec namespaces |
+|---------|-----------------|
+| `aztec-gke-private` | `mainnet` (ignition — active), `next-net`, `staging-ignition`, `staging-public`, and various test/scenario namespaces |
+| `aztec-gke-public` | `mainnet` (public — currently in standby), `testnet`, and other public-facing infrastructure |
+
+**Important: `mainnet` exists in BOTH clusters.**
+- The **private** cluster's `mainnet` runs the **ignition** network (active, fisherman mode).
+- The **public** cluster's `mainnet` is the next rollup upgrade (currently in standby, waiting for L1 contract alignment). It also runs in fisherman mode.
+
+When querying `mainnet`, you MUST include a `resource.labels.cluster_name` filter to disambiguate:
+- If the user says "mainnet" without qualification, query the **private** cluster (ignition) by default — it's the active one.
+- If the user says "mainnet public", "public cluster mainnet", or "mainnet on public", query the **public** cluster.
+- If uncertain, query **both** clusters in parallel and report results separately.
+
+For all other namespaces, the cluster filter is optional but recommended for clarity.
+
 ## GCP Log Structure
 
 Aztec network logs use:
 - `resource.type="k8s_container"`
+- `resource.labels.cluster_name` — the GKE cluster (`aztec-gke-private` or `aztec-gke-public`)
 - `resource.labels.namespace_name` — the deployment namespace
 - `resource.labels.pod_name` — the specific pod
 - `resource.labels.container_name` — usually `aztec`
@@ -92,7 +113,7 @@ Pods follow the pattern `{namespace}-{component}-{index}`:
 ## Deployment-Specific Notes
 
 - **next-net** redeploys every morning at ~4am UTC. Always use timestamp range filters (not `--freshness`) when querying next-net for a specific date, and expect logs to only cover a single instance of the network. Because next-net resets daily, its block height should start near 0 after ~4am UTC. If you are running a morning healthcheck and the block height is unexpectedly large (e.g., hundreds or thousands), flag this as an error — it likely means the nightly redeploy failed and the network is running a stale instance.
-- **mainnet** does not run sequencer validators. Instead, it runs infrastructure in **fisherman mode**: nodes simulate building a block for every slot but never actually submit the L1 transaction. This means you will see "built block" or similar messages but no "Published checkpoint" or L1 submission logs. Errors with hash `0xf3e591ac` are a known artifact of fisherman mode and are safe to ignore.
+- **mainnet** (both private/ignition and public) does not run sequencer validators. Both deployments run in **fisherman mode**: nodes simulate building a block for every slot but never actually submit the L1 transaction. This means you will see "built block" or similar messages but no "Published checkpoint" or L1 submission logs. Errors with hash `0xf3e591ac` are a known artifact of fisherman mode and are safe to ignore. See the Cluster Mapping section above for how to disambiguate between the two mainnet deployments.
 
 ## Filter Building
 

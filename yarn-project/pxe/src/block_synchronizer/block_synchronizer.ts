@@ -78,9 +78,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           if (blockHeader) {
             await this.updateAnchorBlockHeader(blockHeader);
           } else {
-            this.log.warn(
-              `Block header not found for proven block ${event.block.number}, skipping anchor block header update`,
-            );
+            this.log.warn(`Block header not found for proven block ${event.block.number}, skipping anchor update`);
           }
         }
         break;
@@ -91,9 +89,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           if (blockHeader) {
             await this.updateAnchorBlockHeader(blockHeader);
           } else {
-            this.log.warn(
-              `Block header not found for finalized block ${event.block.number}, skipping anchor block header update`,
-            );
+            this.log.warn(`Block header not found for finalized block ${event.block.number}, skipping anchor update`);
           }
         }
         break;
@@ -160,6 +156,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
 
     this.log.debug(`Syncing PXE with the node`);
+    // Capture the promise locally so we always await the exact promise we created, even if this.isSyncing is modified
+    // between assignment and await (e.g. due to future refactors introducing a yield point).
     const isSyncing = this.doSync();
     this.isSyncing = isSyncing;
     try {
