@@ -66,7 +66,12 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     expect(firstCheckpointEpoch).toEqual(EpochNumber(0));
 
     // Create prover node after test setup to avoid early proving. We ensure the prover does not retry txs.
-    const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
+    // Disable split proving — this test relies on mocking the legacy EpochProvingJob flow.
+    const proverNode = await test.createProverNode({
+      cancelTxOnTimeout: false,
+      maxSpeedUpAttempts: 0,
+      proverNodeSplitProving: false,
+    });
     context.proverNode = proverNode;
 
     // Get the prover delayer from the newly created prover node
@@ -107,8 +112,13 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   });
 
   it('aborts proving if end of next epoch is reached', async () => {
-    // Create prover node after test setup to avoid early proving
-    const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
+    // Create prover node after test setup to avoid early proving.
+    // Disable split proving — this test relies on mocking the legacy EpochProvingJob flow.
+    const proverNode = await test.createProverNode({
+      cancelTxOnTimeout: false,
+      maxSpeedUpAttempts: 0,
+      proverNodeSplitProving: false,
+    });
 
     // Get the prover delayer from the newly created prover node
     const testProverNode = proverNode.getProverNode() as TestProverNode;

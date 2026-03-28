@@ -37,7 +37,10 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     uploadPath = await mkdtemp(join(tmpdir(), 'failed-proofs-'));
     uploadUrl = `file://${uploadPath}`;
 
-    test = await EpochsTestContext.setup({ proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl } });
+    // Disable split proving — this test relies on mocking the legacy EpochProvingJob flow.
+    test = await EpochsTestContext.setup({
+      proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl, proverNodeSplitProving: false },
+    });
     ({ context, logger } = test);
     ({ config } = context);
   });
