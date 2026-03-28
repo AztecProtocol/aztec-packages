@@ -8,7 +8,9 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/wsdb/generated/wsdb_types.hpp"
 #include <cstdint>
+#include <cstring>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -72,6 +74,38 @@ struct TreeMeta {
                committedSize == other.committedSize && root == other.root && initialRoot == other.initialRoot &&
                initialSize == other.initialSize && unfinalizedBlockHeight == other.unfinalizedBlockHeight &&
                oldestHistoricBlock == other.oldestHistoricBlock && finalizedBlockHeight == other.finalizedBlockHeight;
+    }
+
+    static TreeMeta from_wire(const bb::wsdb::wire::TreeMeta& w)
+    {
+        TreeMeta r;
+        r.name = w.name;
+        r.depth = w.depth;
+        r.size = w.size;
+        r.committedSize = w.committedSize;
+        std::memcpy(&r.root, w.root.data(), 32);
+        r.initialSize = w.initialSize;
+        std::memcpy(&r.initialRoot, w.initialRoot.data(), 32);
+        r.oldestHistoricBlock = w.oldestHistoricBlock;
+        r.unfinalizedBlockHeight = w.unfinalizedBlockHeight;
+        r.finalizedBlockHeight = w.finalizedBlockHeight;
+        return r;
+    }
+
+    bb::wsdb::wire::TreeMeta to_wire() const
+    {
+        bb::wsdb::wire::TreeMeta w;
+        w.name = name;
+        w.depth = depth;
+        w.size = size;
+        w.committedSize = committedSize;
+        std::memcpy(w.root.data(), &root, 32);
+        w.initialSize = initialSize;
+        std::memcpy(w.initialRoot.data(), &initialRoot, 32);
+        w.oldestHistoricBlock = oldestHistoricBlock;
+        w.unfinalizedBlockHeight = unfinalizedBlockHeight;
+        w.finalizedBlockHeight = finalizedBlockHeight;
+        return w;
     }
 };
 

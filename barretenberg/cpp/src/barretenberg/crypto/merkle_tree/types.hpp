@@ -139,6 +139,32 @@ struct TreeDBStats {
            << stats.blockIndicesDBStats;
         return os;
     }
+
+    static TreeDBStats from_wire(const bb::wsdb::wire::TreeDBStats& w)
+    {
+        TreeDBStats r;
+        r.mapSize = w.mapSize;
+        r.physicalFileSize = w.physicalFileSize;
+        r.blocksDBStats = DBStats::from_wire(w.blocksDBStats);
+        r.nodesDBStats = DBStats::from_wire(w.nodesDBStats);
+        r.leafPreimagesDBStats = DBStats::from_wire(w.leafPreimagesDBStats);
+        r.leafIndicesDBStats = DBStats::from_wire(w.leafIndicesDBStats);
+        r.blockIndicesDBStats = DBStats::from_wire(w.blockIndicesDBStats);
+        return r;
+    }
+
+    bb::wsdb::wire::TreeDBStats to_wire() const
+    {
+        return bb::wsdb::wire::TreeDBStats{
+            .mapSize = mapSize,
+            .physicalFileSize = physicalFileSize,
+            .blocksDBStats = blocksDBStats.to_wire(),
+            .nodesDBStats = nodesDBStats.to_wire(),
+            .leafPreimagesDBStats = leafPreimagesDBStats.to_wire(),
+            .leafIndicesDBStats = leafIndicesDBStats.to_wire(),
+            .blockIndicesDBStats = blockIndicesDBStats.to_wire(),
+        };
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const TreeDBStats& stats);

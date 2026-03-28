@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/wsdb/generated/wsdb_types.hpp"
 #include "lmdb.h"
 #include <cstdint>
 #include <iostream>
@@ -63,6 +64,24 @@ struct DBStats {
         os << "DB " << stats.name << ", num items: " << stats.numDataItems
            << ", total used size: " << stats.totalUsedSize;
         return os;
+    }
+
+    static DBStats from_wire(const bb::wsdb::wire::DBStats& w)
+    {
+        DBStats r;
+        r.name = w.name;
+        r.numDataItems = w.numDataItems;
+        r.totalUsedSize = w.totalUsedSize;
+        return r;
+    }
+
+    bb::wsdb::wire::DBStats to_wire() const
+    {
+        return bb::wsdb::wire::DBStats{
+            .name = name,
+            .numDataItems = numDataItems,
+            .totalUsedSize = totalUsedSize,
+        };
     }
 };
 

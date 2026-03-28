@@ -13,6 +13,8 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/wsdb/generated/wsdb_types.hpp"
+#include <cstring>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -152,6 +154,32 @@ struct SiblingPathAndIndex {
     SiblingPathAndIndex(SiblingPathAndIndex&& other) noexcept = default;
     SiblingPathAndIndex& operator=(const SiblingPathAndIndex& other) = default;
     SiblingPathAndIndex& operator=(SiblingPathAndIndex&& other) noexcept = default;
+
+    static SiblingPathAndIndex from_wire(const bb::wsdb::wire::SiblingPathAndIndex& w)
+    {
+        SiblingPathAndIndex r;
+        r.index = w.index;
+        r.path.reserve(w.path.size());
+        for (const auto& f : w.path) {
+            bb::fr val;
+            std::memcpy(&val, f.data(), 32);
+            r.path.push_back(val);
+        }
+        return r;
+    }
+
+    bb::wsdb::wire::SiblingPathAndIndex to_wire() const
+    {
+        bb::wsdb::wire::SiblingPathAndIndex w;
+        w.index = index;
+        w.path.reserve(path.size());
+        for (const auto& f : path) {
+            Fr wire_fr;
+            std::memcpy(wire_fr.data(), &f, 32);
+            w.path.push_back(wire_fr);
+        }
+        return w;
+    }
 };
 
 struct FindLeafPathResponse {

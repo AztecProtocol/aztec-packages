@@ -11,6 +11,8 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/wsdb/generated/wsdb_types.hpp"
+#include <cstring>
 
 namespace bb::crypto::merkle_tree {
 
@@ -70,6 +72,20 @@ struct NullifierLeafValue {
     size_t hash() const noexcept { return std::hash<fr>{}(nullifier); }
 
     static std::string name() { return "NullifierLeafValue"; };
+
+    static NullifierLeafValue from_wire(const bb::wsdb::wire::NullifierLeafValue& w)
+    {
+        fr n;
+        std::memcpy(&n, w.nullifier.data(), 32);
+        return NullifierLeafValue(n);
+    }
+
+    bb::wsdb::wire::NullifierLeafValue to_wire() const
+    {
+        bb::wsdb::wire::NullifierLeafValue w;
+        std::memcpy(w.nullifier.data(), &nullifier, 32);
+        return w;
+    }
 };
 
 struct PublicDataLeafValue {
@@ -132,6 +148,22 @@ struct PublicDataLeafValue {
     size_t hash() const noexcept { return utils::hash_as_tuple(value, slot); }
 
     static std::string name() { return "PublicDataLeafValue"; };
+
+    static PublicDataLeafValue from_wire(const bb::wsdb::wire::PublicDataLeafValue& w)
+    {
+        fr s, v;
+        std::memcpy(&s, w.slot.data(), 32);
+        std::memcpy(&v, w.value.data(), 32);
+        return PublicDataLeafValue(s, v);
+    }
+
+    bb::wsdb::wire::PublicDataLeafValue to_wire() const
+    {
+        bb::wsdb::wire::PublicDataLeafValue w;
+        std::memcpy(w.slot.data(), &slot, 32);
+        std::memcpy(w.value.data(), &value, 32);
+        return w;
+    }
 };
 
 template <typename LeafType> struct IndexedLeaf {

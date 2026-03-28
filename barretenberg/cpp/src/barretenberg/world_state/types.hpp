@@ -42,6 +42,24 @@ struct WorldStateRevision {
     static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
 
     bool operator==(const WorldStateRevision& other) const = default;
+
+    static WorldStateRevision from_wire(const bb::wsdb::wire::WorldStateRevision& w)
+    {
+        return WorldStateRevision{
+            .forkId = w.forkId,
+            .blockNumber = w.blockNumber,
+            .includeUncommitted = w.includeUncommitted,
+        };
+    }
+
+    bb::wsdb::wire::WorldStateRevision to_wire() const
+    {
+        return bb::wsdb::wire::WorldStateRevision{
+            .forkId = forkId,
+            .blockNumber = blockNumber,
+            .includeUncommitted = includeUncommitted,
+        };
+    }
 };
 
 struct WorldStateStatusSummary {
@@ -90,6 +108,22 @@ struct WorldStateStatusSummary {
            << ", oldestHistoricalBlock: " << status.oldestHistoricalBlock
            << ", treesAreSynched: " << status.treesAreSynched;
         return os;
+    }
+
+    static WorldStateStatusSummary from_wire(const bb::wsdb::wire::WorldStateStatusSummary& w)
+    {
+        return WorldStateStatusSummary(
+            w.unfinalizedBlockNumber, w.finalizedBlockNumber, w.oldestHistoricalBlock, w.treesAreSynched);
+    }
+
+    bb::wsdb::wire::WorldStateStatusSummary to_wire() const
+    {
+        return bb::wsdb::wire::WorldStateStatusSummary{
+            .unfinalizedBlockNumber = unfinalizedBlockNumber,
+            .finalizedBlockNumber = finalizedBlockNumber,
+            .oldestHistoricalBlock = oldestHistoricalBlock,
+            .treesAreSynched = treesAreSynched,
+        };
     }
 };
 
@@ -148,6 +182,26 @@ struct WorldStateDBStats {
            << stats.publicDataTreeStats << ", Nullifier tree stats " << stats.nullifierTreeStats;
         return os;
     }
+
+    static WorldStateDBStats from_wire(const bb::wsdb::wire::WorldStateDBStats& w)
+    {
+        return WorldStateDBStats(TreeDBStats::from_wire(w.noteHashTreeStats),
+                                 TreeDBStats::from_wire(w.messageTreeStats),
+                                 TreeDBStats::from_wire(w.archiveTreeStats),
+                                 TreeDBStats::from_wire(w.publicDataTreeStats),
+                                 TreeDBStats::from_wire(w.nullifierTreeStats));
+    }
+
+    bb::wsdb::wire::WorldStateDBStats to_wire() const
+    {
+        return bb::wsdb::wire::WorldStateDBStats{
+            .noteHashTreeStats = noteHashTreeStats.to_wire(),
+            .messageTreeStats = messageTreeStats.to_wire(),
+            .archiveTreeStats = archiveTreeStats.to_wire(),
+            .publicDataTreeStats = publicDataTreeStats.to_wire(),
+            .nullifierTreeStats = nullifierTreeStats.to_wire(),
+        };
+    }
 };
 
 struct WorldStateMeta {
@@ -204,6 +258,26 @@ struct WorldStateMeta {
            << ", Nullifier tree meta " << stats.nullifierTreeMeta;
         return os;
     }
+
+    static WorldStateMeta from_wire(const bb::wsdb::wire::WorldStateMeta& w)
+    {
+        return WorldStateMeta(TreeMeta::from_wire(w.noteHashTreeMeta),
+                              TreeMeta::from_wire(w.messageTreeMeta),
+                              TreeMeta::from_wire(w.archiveTreeMeta),
+                              TreeMeta::from_wire(w.publicDataTreeMeta),
+                              TreeMeta::from_wire(w.nullifierTreeMeta));
+    }
+
+    bb::wsdb::wire::WorldStateMeta to_wire() const
+    {
+        return bb::wsdb::wire::WorldStateMeta{
+            .noteHashTreeMeta = noteHashTreeMeta.to_wire(),
+            .messageTreeMeta = messageTreeMeta.to_wire(),
+            .archiveTreeMeta = archiveTreeMeta.to_wire(),
+            .publicDataTreeMeta = publicDataTreeMeta.to_wire(),
+            .nullifierTreeMeta = nullifierTreeMeta.to_wire(),
+        };
+    }
 };
 
 struct WorldStateStatusFull {
@@ -247,6 +321,22 @@ struct WorldStateStatusFull {
     {
         os << "Summary: " << status.summary << ", DB Stats " << status.dbStats << ", Meta " << status.meta;
         return os;
+    }
+
+    static WorldStateStatusFull from_wire(const bb::wsdb::wire::WorldStateStatusFull& w)
+    {
+        return WorldStateStatusFull(WorldStateStatusSummary::from_wire(w.summary),
+                                    WorldStateDBStats::from_wire(w.dbStats),
+                                    WorldStateMeta::from_wire(w.meta));
+    }
+
+    bb::wsdb::wire::WorldStateStatusFull to_wire() const
+    {
+        return bb::wsdb::wire::WorldStateStatusFull{
+            .summary = summary.to_wire(),
+            .dbStats = dbStats.to_wire(),
+            .meta = meta.to_wire(),
+        };
     }
 };
 } // namespace bb::world_state
