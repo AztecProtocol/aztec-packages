@@ -329,6 +329,8 @@ export class ProvingBroker
   }
 
   public async claimWork(workItemId: WorkItemId, nodeId: string): Promise<ClaimToken | undefined> {
+    // The claimsCache check and set are synchronous (no await between them), ensuring that
+    // two concurrent callers cannot both see the work item as unclaimed.
     const existing = this.claimsCache.get(workItemId);
     if (existing && !this.isClaimExpired(existing)) {
       if (existing.nodeId === nodeId) {
@@ -342,6 +344,7 @@ export class ProvingBroker
       return undefined; // Actively claimed by a different node
     }
 
+    // Set the cache synchronously BEFORE the await to act as a lock, same pattern as #enqueueProvingJob.
     const claim: Claim = {
       workItemId,
       nodeId,
@@ -350,9 +353,13 @@ export class ProvingBroker
       claimedAt: this.msTimeSource(),
       lastActivity: this.msTimeSource(),
     };
-
     this.claimsCache.set(workItemId, claim);
-    await this.database.addClaim(claim);
+    try {
+      await this.database.addClaim(claim);
+    } catch (err) {
+      this.claimsCache.delete(workItemId);
+      throw err;
+    }
     this.logger.verbose(`Claim granted for ${workItemId} to node ${nodeId}`);
     return claim.claimToken;
   }
