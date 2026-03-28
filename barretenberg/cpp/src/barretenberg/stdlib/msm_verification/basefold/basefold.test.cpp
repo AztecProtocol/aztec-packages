@@ -112,7 +112,7 @@ TEST_F(BaseFoldTest, FoldGroupElement)
     Fq z = Fq::random_element(&engine);
 
     // Random group elements
-    std::vector<Commitment> g_oracle(n);
+    std::vector<NativeCommitment> g_oracle(n);
     for (size_t i = 0; i < n; i++) {
         g_oracle[i] = grumpkin::g1::element::random_element(&engine).normalize();
     }
@@ -123,9 +123,9 @@ TEST_F(BaseFoldTest, FoldGroupElement)
 
     // Verify fold_pair gives the same result for a few indices
     for (size_t j = 0; j < 4; j++) {
-        GroupElement expected =
-            domain.fold_pair<GroupElement>(0, n, j, GroupElement(g_oracle[j]), GroupElement(g_oracle[j + n / 2]), z);
-        EXPECT_EQ(Commitment(expected.normalize()), folded[j]);
+        NativeGroupElement expected = domain.fold_pair<NativeGroupElement>(
+            0, n, j, NativeGroupElement(g_oracle[j]), NativeGroupElement(g_oracle[j + n / 2]), z);
+        EXPECT_EQ(NativeCommitment(expected.normalize()), folded[j]);
     }
 }
 
@@ -135,7 +135,7 @@ TEST_F(BaseFoldTest, MerkleTreeRoundTrip)
 
     // Build a small Merkle tree over random group elements
     size_t n = 16;
-    std::vector<Commitment> elements(n);
+    std::vector<NativeCommitment> elements(n);
     for (size_t i = 0; i < n; i++) {
         elements[i] = grumpkin::g1::element::random_element(&engine).normalize();
     }
@@ -164,7 +164,7 @@ TEST_F(BaseFoldTest, ProverVerifierRoundTrip)
     size_t num_queries = 4; // small for testing
 
     // Random group elements as the "SRS encoding"
-    std::vector<Commitment> g0(n);
+    std::vector<NativeCommitment> g0(n);
     for (size_t i = 0; i < n; i++) {
         g0[i] = grumpkin::g1::element::random_element(&engine).normalize();
     }
@@ -187,7 +187,7 @@ TEST_F(BaseFoldTest, SoundnessRejectsTamperedOracle)
     size_t degree_bound = n;
     size_t num_queries = 4;
 
-    std::vector<Commitment> g0(n);
+    std::vector<NativeCommitment> g0(n);
     for (size_t i = 0; i < n; i++) {
         g0[i] = grumpkin::g1::element::random_element(&engine).normalize();
     }
