@@ -12,6 +12,10 @@
  *
  * Also computes native proof size.
  */
+#include "basefold.hpp"
+#include "ecfft_domain.hpp"
+#include "ecfft_domain_data_2_8.hpp"
+
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -279,6 +283,103 @@ TEST_F(BaseFoldCircuitCostTest, FullVerifierEstimate)
     // Also print proof size
     info("");
     print_proof_size();
+}
+
+/**
+ * @brief Build the ACTUAL recursive verifier circuit and count gates.
+ *
+ * Uses the log_n=8 test domain (domain size 256, 8 rounds) to construct a real
+ * native proof, then verifies it inside a UltraCircuitBuilder using
+ * RecursiveBaseFoldVerifier.  Reports the concrete gate count.
+ *
+ * The log_n=8 domain is small enough to run quickly but exercises the full
+ * prover-verifier pipeline.  Gate counts scale linearly with num_queries and
+ * per-round costs are representative of the log_n=18 production case.
+ */
+TEST_F(BaseFoldCircuitCostTest, ConcreteRecursiveVerifier)
+{
+    using namespace bb::basefold;
+
+    auto& engine = bb::numeric::get_debug_randomness();
+
+    // Build the log_n=8 test domain
+    auto build_domain = []() {
+        using namespace bb::basefold::domain_data;
+        std::vector<std::pair<const char* const*, size_t>> layer_hex;
+        std::vector<std::pair<const char* const*, size_t>> diff_inv_hex;
+        layer_hex.push_back({ LAYER_0.data(), LAYER_0.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_0.data(), PAIR_DIFF_INV_0.size() });
+        layer_hex.push_back({ LAYER_1.data(), LAYER_1.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_1.data(), PAIR_DIFF_INV_1.size() });
+        layer_hex.push_back({ LAYER_2.data(), LAYER_2.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_2.data(), PAIR_DIFF_INV_2.size() });
+        layer_hex.push_back({ LAYER_3.data(), LAYER_3.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_3.data(), PAIR_DIFF_INV_3.size() });
+        layer_hex.push_back({ LAYER_4.data(), LAYER_4.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_4.data(), PAIR_DIFF_INV_4.size() });
+        layer_hex.push_back({ LAYER_5.data(), LAYER_5.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_5.data(), PAIR_DIFF_INV_5.size() });
+        layer_hex.push_back({ LAYER_6.data(), LAYER_6.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_6.data(), PAIR_DIFF_INV_6.size() });
+        layer_hex.push_back({ LAYER_7.data(), LAYER_7.size() });
+        diff_inv_hex.push_back({ PAIR_DIFF_INV_7.data(), PAIR_DIFF_INV_7.size() });
+        layer_hex.push_back({ LAYER_8.data(), LAYER_8.size() });
+        return EcfftDomain::from_hex_arrays(domain_data::LOG_N, layer_hex, diff_inv_hex);
+    };
+
+    auto domain = build_domain();
+    size_t n = domain.levels[0].size(); // 256
+    size_t degree_bound = n;
+    size_t num_queries = 4; // small for test speed; per-query cost is representative
+
+    // Random SRS encoding
+    std::vector<NativeCommitment> g0(n);
+    for (size_t i = 0; i < n; i++) {
+        g0[i] = bb::grumpkin::g1::element::random_element(&engine).normalize();
+    }
+
+    // === Native prove ===
+    auto prover_transcript = std::make_shared<bb::NativeTranscript>();
+    prove(g0, domain, degree_bound, num_queries, prover_transcript);
+    auto native_proof = prover_transcript->export_proof();
+
+    // === Native verify (sanity check) ===
+    auto native_verifier_transcript = std::make_shared<bb::NativeTranscript>(native_proof);
+    bool native_ok = verify(domain, degree_bound, num_queries, native_verifier_transcript);
+    ASSERT_TRUE(native_ok);
+
+    // === Build recursive verifier circuit ===
+    Builder builder;
+
+    RecursiveBaseFoldVerifier<Builder>::verify(builder, domain, degree_bound, num_queries, native_proof);
+
+    builder.finalize_circuit(/*ensure_nonzero=*/false);
+    size_t num_gates = builder.get_num_finalized_gates();
+
+    info("=== Concrete Recursive Verifier (log_n=8, ", num_queries, " queries, ", domain.num_rounds, " rounds) ===");
+    info("  Gates: ", num_gates);
+    info("  Gates per query: ", num_gates / num_queries);
+    info("  Gates per query per round: ", num_gates / num_queries / domain.num_rounds);
+    info("");
+
+    // Extrapolate to production parameters (log_n=18, 43 queries, 18 rounds)
+    // Per-round fold cost is representative; Merkle cost scales with depth.
+    // We can't perfectly extrapolate Merkle (different depths), but fold dominates.
+    info("  --- Extrapolation to 2^15 MSM (blowup 8, 43 queries, 18 rounds) ---");
+    info("  NOTE: log_n=8 has 8 rounds; log_n=18 has 18 rounds.");
+    info("  Per-query cost here (8 rounds): ", num_gates / num_queries);
+    info("  Estimated per-query at 18 rounds: ", (num_gates / num_queries) * 18 / domain.num_rounds);
+    size_t estimated_total = (num_gates / num_queries) * 18 / domain.num_rounds * 43;
+    info("  Estimated total (43 queries × 18 rounds): ", estimated_total);
+    info("  Log2: ", std::log2(static_cast<double>(estimated_total)));
+
+    // Check circuit is valid (this may be slow for large circuits)
+    // Only do this for small query counts
+    if (num_queries <= 4) {
+        bool circuit_ok = bb::CircuitChecker::check(builder);
+        info("  Circuit check: ", circuit_ok ? "PASS" : "FAIL");
+        EXPECT_TRUE(circuit_ok);
+    }
 }
 
 } // anonymous namespace

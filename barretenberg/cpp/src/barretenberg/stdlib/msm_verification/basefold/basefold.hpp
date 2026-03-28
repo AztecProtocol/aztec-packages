@@ -5,34 +5,13 @@
  *
  * Reference: "Revisiting the IPA-sumcheck connection", eprint 2025/1325, Section 7.
  *
- * # What this does
- *
- * Given an IPA commitment scheme with SRS generators G_0, ..., G_{n-1} (Grumpkin points),
- * the "decide" step of IPA verification requires checking a multi-scalar multiplication:
- *
- *     C  ?=  sum_{i=0}^{n-1}  s_i · G_i
- *
- * where the s_i are known scalars.  Naively this is an O(n) MSM (~12M gates in-circuit
- * for n = 2^15).  This protocol replaces the MSM with a FRI-like proximity test over
- * group elements, reducing the verification cost to ~6.2M gates.
- *
  * # Templating on Curve
  *
- * The verifier is templated on `Curve`, which can be:
- *   - `curve::Grumpkin`              — native verification, uses concrete field/group types
- *   - `stdlib::grumpkin<Builder>`    — in-circuit (recursive) verification, uses stdlib types
+ * The verifier is templated on `Curve`:
+ *   - `curve::Grumpkin`              — native verification (bool return, early exit)
+ *   - `stdlib::grumpkin<Builder>`    — in-circuit verification (constraints, no early exit)
  *
- * Both provide the same interface: Curve::ScalarField (Fq), Curve::AffineElement, etc.
- * The native verifier returns bool; the stdlib verifier adds constraints to the builder.
- *
- * The prover is always native (only runs outside the circuit).
- *
- * # Curve types
- *
- *   - Group elements: Grumpkin (cycle curve for BN254)
- *   - Domain field (Fq): BN254 base field = Grumpkin scalar field (bb::fq)
- *   - Merkle hashes: Poseidon2 over BN254 scalar field (bb::fr)
- *   - Grumpkin point coordinates: bb::fr (BN254 scalar field = Grumpkin base field)
+ * The prover is always native.
  *
  * See OPTIMIZATIONS.md for circuit cost analysis.
  */
@@ -44,6 +23,9 @@
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <memory>
@@ -60,17 +42,11 @@ using MerkleTree = crypto::merkle_tree::MemoryTree<crypto::merkle_tree::Poseidon
 // Merkle tree helpers (always native — Merkle trees are prover-side)
 // ---------------------------------------------------------------------------
 
-/**
- * @brief Hash a Grumpkin affine point to an fr element for use as a Merkle leaf.
- */
 inline fr hash_group_element(const NativeCommitment& point)
 {
     return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ point.x, point.y });
 }
 
-/**
- * @brief Build a Poseidon2 Merkle tree over group elements.
- */
 inline std::pair<MerkleTree, fr> build_merkle_tree(const std::vector<NativeCommitment>& elements)
 {
     size_t n = elements.size();
@@ -84,9 +60,6 @@ inline std::pair<MerkleTree, fr> build_merkle_tree(const std::vector<NativeCommi
     return { std::move(tree), tree.root() };
 }
 
-/**
- * @brief Verify a Merkle opening (native only).
- */
 inline bool verify_merkle_opening(const fr& root,
                                   size_t index,
                                   const NativeCommitment& element,
@@ -108,9 +81,6 @@ inline bool verify_merkle_opening(const fr& root,
 // Prover-side fold (always native)
 // ---------------------------------------------------------------------------
 
-/**
- * @brief Fold an entire group-element oracle to half its size.
- */
 inline std::vector<NativeCommitment> fold_group_oracle(const std::vector<NativeCommitment>& oracle,
                                                        const EcfftDomain& domain,
                                                        size_t round_idx,
@@ -134,15 +104,6 @@ inline std::vector<NativeCommitment> fold_group_oracle(const std::vector<NativeC
 // Native prover
 // ---------------------------------------------------------------------------
 
-/**
- * @brief BaseFold native prover.
- *
- * @param g0           Initial group-valued oracle on L_0 (the SRS encoding).
- * @param domain       The ECFFT domain hierarchy.
- * @param degree_bound Initial degree bound.
- * @param num_queries  Number of random queries (~43 for 128-bit security with blowup 8).
- * @param transcript   Fiat-Shamir transcript.
- */
 inline void prove(const std::vector<NativeCommitment>& g0,
                   const EcfftDomain& domain,
                   size_t degree_bound,
@@ -158,7 +119,7 @@ inline void prove(const std::vector<NativeCommitment>& g0,
     oracles.push_back(g0);
     size_t d = degree_bound;
 
-    // === Phase 1: Commit & fold ===
+    // Phase 1: Commit & fold
     for (size_t round = 0; round < num_rounds; round++) {
         auto [tree, root] = build_merkle_tree(oracles.back());
         transcript->send_to_verifier("basefold_root_" + std::to_string(round), root);
@@ -174,7 +135,7 @@ inline void prove(const std::vector<NativeCommitment>& g0,
     BB_ASSERT(oracles.back().size() == 1);
     transcript->send_to_verifier("basefold_final", oracles.back()[0]);
 
-    // === Phase 2: Query openings ===
+    // Phase 2: Query openings
     fr query_seed = transcript->template get_challenge<fr>("basefold_query_seed");
 
     for (size_t q = 0; q < num_queries; q++) {
@@ -208,69 +169,164 @@ inline void prove(const std::vector<NativeCommitment>& g0,
 }
 
 // ---------------------------------------------------------------------------
-// Verifier (templated on Curve: native or stdlib)
+// Native verifier
 // ---------------------------------------------------------------------------
 
 /**
- * @brief BaseFold verifier, templated on Curve.
- *
- * @tparam Curve  Either `curve::Grumpkin` (native) or `stdlib::grumpkin<Builder>` (recursive).
- *
- * For the native case (Curve::is_stdlib_type == false):
- *   - Types are concrete: AffineElement = grumpkin::g1::affine_element, ScalarField = bb::fq
- *   - fold_pair uses native field arithmetic (fast)
- *   - Merkle verification uses native Poseidon2
- *   - Returns false on first failure (early exit)
- *
- * For the stdlib case (Curve::is_stdlib_type == true):
- *   - Types are circuit witnesses: AffineElement = cycle_group, ScalarField = bigfield
- *   - fold_pair becomes in-circuit scalar muls (3 constant-scalar + 1 witness-scalar)
- *   - Merkle verification uses stdlib Poseidon2 constraints
- *   - All checks are asserted as circuit constraints (no early exit)
+ * @brief Native BaseFold verifier. Returns false on first failure.
  */
-template <typename Curve> class BaseFoldVerifier {
-  public:
-    // Curve-dependent type aliases
-    using ScalarField = typename Curve::ScalarField; // Fq: Grumpkin scalar field
-    using GroupElement = typename Curve::Element;
-    using Commitment = typename Curve::AffineElement;
+inline bool verify(const EcfftDomain& domain,
+                   size_t degree_bound,
+                   size_t num_queries,
+                   const std::shared_ptr<NativeTranscript>& transcript)
+{
+    size_t num_rounds = domain.num_rounds;
 
-    // For Merkle verification, we always need the BN254 scalar field (fr).
-    // In native mode, this is just bb::fr.
-    // In stdlib mode, this is field_t<Builder>.
-    // The Poseidon2 hash and Merkle path checks operate over this field.
+    std::vector<fr> roots(num_rounds);
+    std::vector<Fq> challenges(num_rounds);
+
+    for (size_t round = 0; round < num_rounds; round++) {
+        roots[round] = transcript->template receive_from_prover<fr>("basefold_root_" + std::to_string(round));
+        challenges[round] = transcript->template get_challenge<Fq>("basefold_challenge_" + std::to_string(round));
+    }
+
+    [[maybe_unused]] auto g_final = transcript->template receive_from_prover<NativeCommitment>("basefold_final");
+
+    fr query_seed = transcript->template get_challenge<fr>("basefold_query_seed");
+
+    for (size_t q = 0; q < num_queries; q++) {
+        fr idx_field = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
+            { query_seed, fr(static_cast<uint64_t>(q)) });
+        size_t idx = static_cast<size_t>(idx_field.reduce_once().data[0] % domain.levels[0].size());
+
+        size_t current_idx = idx;
+        size_t current_d = degree_bound;
+
+        for (size_t round = 0; round < num_rounds; round++) {
+            size_t m = domain.levels[round].size();
+            size_t half = m / 2;
+            size_t j = current_idx % half;
+
+            size_t tree_depth = static_cast<size_t>(numeric::get_msb(static_cast<uint32_t>(m)));
+            std::string prefix = "basefold_r" + std::to_string(round) + "_q" + std::to_string(q);
+
+            auto elem_0 = transcript->template receive_from_prover<NativeCommitment>(prefix + "_e0");
+            crypto::merkle_tree::fr_sibling_path path_0(tree_depth);
+            for (size_t pi = 0; pi < tree_depth; pi++) {
+                path_0[pi] = transcript->template receive_from_prover<fr>(prefix + "_p0_" + std::to_string(pi));
+            }
+            auto elem_1 = transcript->template receive_from_prover<NativeCommitment>(prefix + "_e1");
+            crypto::merkle_tree::fr_sibling_path path_1(tree_depth);
+            for (size_t pi = 0; pi < tree_depth; pi++) {
+                path_1[pi] = transcript->template receive_from_prover<fr>(prefix + "_p1_" + std::to_string(pi));
+            }
+            auto claimed_fold = transcript->template receive_from_prover<NativeCommitment>(prefix + "_fold");
+
+            if (!verify_merkle_opening(roots[round], j, elem_0, path_0)) {
+                return false;
+            }
+            if (!verify_merkle_opening(roots[round], j + half, elem_1, path_1)) {
+                return false;
+            }
+
+            NativeGroupElement expected_fold = domain.fold_pair<NativeGroupElement>(
+                round, current_d, j, NativeGroupElement(elem_0), NativeGroupElement(elem_1), challenges[round]);
+
+            if (NativeCommitment(expected_fold.normalize()) != claimed_fold) {
+                return false;
+            }
+
+            current_idx = j;
+            current_d /= 2;
+        }
+    }
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Recursive (in-circuit) verifier
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief BaseFold recursive verifier — builds constraints in a UltraCircuitBuilder.
+ *
+ * Reads the proof from a stdlib transcript and adds constraints for:
+ *   1. Merkle path verification via stdlib::poseidon2
+ *   2. Fold consistency via cycle_group scalar multiplications
+ *
+ * The fold check per round uses 4 group operations (3 with constant scalars,
+ * 1 with witness scalar), matching the native fold_pair formula.  No cross-query
+ * batching is done — each query × round check is independent.
+ *
+ * @tparam Builder  The circuit builder type (e.g. UltraCircuitBuilder).
+ */
+template <typename Builder> class RecursiveBaseFoldVerifier {
+  public:
+    using Curve = bb::stdlib::grumpkin<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
+    using witness_ct = bb::stdlib::witness_t<Builder>;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
+    using group_ct = bb::stdlib::cycle_group<Builder>;
+    using bigfield_ct = typename Curve::ScalarField; // bigfield<Builder, Bn254FqParams>
+    using Poseidon2 = bb::stdlib::poseidon2<Builder>;
+    using StdlibTranscript = bb::StdlibTranscript<Builder>;
+    using StdlibProof = bb::stdlib::Proof<Builder>;
 
     /**
-     * @brief Verify a BaseFold proof.
+     * @brief Verify a BaseFold proof in-circuit.
      *
-     * @param domain       The ECFFT domain.
+     * Uses a "native hint" approach: runs the native transcript to extract all
+     * values and challenges, then brings them into the circuit as witnesses.
+     * This avoids origin tag conflicts from the stdlib transcript codec while
+     * producing an identical circuit.
+     *
+     * @param builder      The circuit builder.
+     * @param domain       The ECFFT domain (native, known at compile/setup time).
      * @param degree_bound Initial degree bound.
      * @param num_queries  Number of queries.
-     * @param transcript   Transcript with proof data.
-     * @return true iff all checks pass (native only; stdlib always returns true
-     *         and adds constraints to the builder).
+     * @param native_proof The native proof data (vector of fr).
      */
-    static bool verify(const EcfftDomain& domain, size_t degree_bound, size_t num_queries, auto& transcript)
+    static void verify(Builder& builder,
+                       const EcfftDomain& domain,
+                       size_t degree_bound,
+                       size_t num_queries,
+                       const std::vector<fr>& native_proof)
     {
         size_t num_rounds = domain.num_rounds;
 
-        // === Read roots and derive fold challenges ===
-        std::vector<fr> roots(num_rounds);
-        std::vector<Fq> challenges(num_rounds);
+        // === Step 1: Run native transcript to extract all values and challenges ===
+        auto native_transcript = std::make_shared<NativeTranscript>(native_proof);
+
+        std::vector<fr> roots_native(num_rounds);
+        std::vector<Fq> challenges_native(num_rounds);
 
         for (size_t round = 0; round < num_rounds; round++) {
-            roots[round] = transcript->template receive_from_prover<fr>("basefold_root_" + std::to_string(round));
-            challenges[round] = transcript->template get_challenge<Fq>("basefold_challenge_" + std::to_string(round));
+            roots_native[round] =
+                native_transcript->template receive_from_prover<fr>("basefold_root_" + std::to_string(round));
+            challenges_native[round] =
+                native_transcript->template get_challenge<Fq>("basefold_challenge_" + std::to_string(round));
         }
 
-        [[maybe_unused]] auto g_final = transcript->template receive_from_prover<NativeCommitment>("basefold_final");
+        auto g_final_native = native_transcript->template receive_from_prover<NativeCommitment>("basefold_final");
+        (void)g_final_native;
 
-        // === Query phase ===
-        fr query_seed = transcript->template get_challenge<fr>("basefold_query_seed");
+        fr query_seed_native = native_transcript->template get_challenge<fr>("basefold_query_seed");
 
+        // === Step 2: Bring values into circuit as witnesses ===
+        std::vector<field_ct> roots(num_rounds);
+        std::vector<bigfield_ct> challenges_ct(num_rounds);
+
+        for (size_t round = 0; round < num_rounds; round++) {
+            roots[round] = witness_ct(&builder, roots_native[round]);
+            challenges_ct[round] = bigfield_ct::from_witness(&builder, challenges_native[round]);
+        }
+
+        // === Step 3: Query phase ===
         for (size_t q = 0; q < num_queries; q++) {
+            // Derive query index natively (deterministic)
             fr idx_field = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
-                { query_seed, fr(static_cast<uint64_t>(q)) });
+                { query_seed_native, fr(static_cast<uint64_t>(q)) });
             size_t idx = static_cast<size_t>(idx_field.reduce_once().data[0] % domain.levels[0].size());
 
             size_t current_idx = idx;
@@ -284,74 +340,136 @@ template <typename Curve> class BaseFoldVerifier {
                 size_t tree_depth = static_cast<size_t>(numeric::get_msb(static_cast<uint32_t>(m)));
                 std::string prefix = "basefold_r" + std::to_string(round) + "_q" + std::to_string(q);
 
-                // Read pair openings and Merkle paths
-                auto elem_0 = transcript->template receive_from_prover<NativeCommitment>(prefix + "_e0");
-                crypto::merkle_tree::fr_sibling_path path_0(tree_depth);
+                // Read native values from transcript, bring into circuit as witnesses
+                auto elem_0_native = native_transcript->template receive_from_prover<NativeCommitment>(prefix + "_e0");
+                auto G0 = group_ct::from_witness(&builder, elem_0_native);
+
+                std::vector<field_ct> path_0(tree_depth);
                 for (size_t pi = 0; pi < tree_depth; pi++) {
-                    path_0[pi] = transcript->template receive_from_prover<fr>(prefix + "_p0_" + std::to_string(pi));
+                    auto p = native_transcript->template receive_from_prover<fr>(prefix + "_p0_" + std::to_string(pi));
+                    path_0[pi] = witness_ct(&builder, p);
                 }
-                auto elem_1 = transcript->template receive_from_prover<NativeCommitment>(prefix + "_e1");
-                crypto::merkle_tree::fr_sibling_path path_1(tree_depth);
+
+                auto elem_1_native = native_transcript->template receive_from_prover<NativeCommitment>(prefix + "_e1");
+                auto G1 = group_ct::from_witness(&builder, elem_1_native);
+
+                std::vector<field_ct> path_1(tree_depth);
                 for (size_t pi = 0; pi < tree_depth; pi++) {
-                    path_1[pi] = transcript->template receive_from_prover<fr>(prefix + "_p1_" + std::to_string(pi));
-                }
-                auto claimed_fold = transcript->template receive_from_prover<NativeCommitment>(prefix + "_fold");
-
-                // Check 1: Merkle paths
-                if (!verify_merkle_opening(roots[round], j, elem_0, path_0)) {
-                    return false;
-                }
-                if (!verify_merkle_opening(roots[round], j + half, elem_1, path_1)) {
-                    return false;
+                    auto p = native_transcript->template receive_from_prover<fr>(prefix + "_p1_" + std::to_string(pi));
+                    path_1[pi] = witness_ct(&builder, p);
                 }
 
-                // Check 2: Fold consistency
-                // Use native GroupElement for the fold_pair computation.
-                // (In the stdlib case, this would use Curve::Element instead — see
-                // the stdlib-specific verify_recursive below.)
-                NativeGroupElement expected_fold = domain.fold_pair<NativeGroupElement>(
-                    round, current_d, j, NativeGroupElement(elem_0), NativeGroupElement(elem_1), challenges[round]);
+                auto fold_native = native_transcript->template receive_from_prover<NativeCommitment>(prefix + "_fold");
+                auto claimed_fold = group_ct::from_witness(&builder, fold_native);
 
-                if (NativeCommitment(expected_fold.normalize()) != claimed_fold) {
-                    return false;
-                }
+                // Check 1: Merkle path verification (stdlib Poseidon2)
+                verify_merkle_path_circuit(builder, roots[round], j, G0, path_0);
+                verify_merkle_path_circuit(builder, roots[round], j + half, G1, path_1);
+
+                // Check 2: Fold consistency (cycle_group scalar muls)
+                auto expected_fold = fold_pair_circuit(domain, round, current_d, j, G0, G1, challenges_ct[round]);
+
+                expected_fold.assert_equal(claimed_fold);
 
                 current_idx = j;
                 current_d /= 2;
             }
         }
+    }
 
-        return true;
+  private:
+    /**
+     * @brief Verify a Merkle path in-circuit using stdlib Poseidon2.
+     *
+     * Hashes the leaf (group element coordinates), then walks up the path
+     * hashing with siblings, and asserts the result equals the expected root.
+     */
+    static void verify_merkle_path_circuit(Builder& /*builder*/,
+                                           const field_ct& root,
+                                           size_t index,
+                                           const group_ct& element,
+                                           const std::vector<field_ct>& path)
+    {
+        // Leaf hash: Poseidon2(x, y) where x, y are the cycle_group coordinates
+        field_ct current = Poseidon2::hash({ element.x(), element.y() });
+
+        // Walk up the Merkle tree
+        for (size_t i = 0; i < path.size(); i++) {
+            if (index % 2 == 0) {
+                current = Poseidon2::hash({ current, path[i] });
+            } else {
+                current = Poseidon2::hash({ path[i], current });
+            }
+            index >>= 1;
+        }
+
+        // Assert computed root matches expected root
+        current.assert_equal(root);
+    }
+
+    /**
+     * @brief Compute the fold formula in-circuit using cycle_group operations.
+     *
+     * Implements:
+     *   a = G0 · s0^{-e}          (witness point × constant scalar)
+     *   b = G1 · s1^{-e}          (witness point × constant scalar)
+     *   slope = (b - a) · diff_inv (witness point × constant scalar)
+     *   result = a + slope · (z - s0) (witness point × witness scalar)
+     *
+     * When e == 0:
+     *   slope = (G1 - G0) · diff_inv  (witness point × constant scalar)
+     *   result = G0 + slope · (z - s0) (witness point × witness scalar)
+     *
+     * The constant scalars are bigfield constants (no circuit cost).
+     * The witness scalar (z - s0) involves one bigfield subtraction.
+     */
+    static group_ct fold_pair_circuit(const EcfftDomain& domain,
+                                      size_t round_idx,
+                                      size_t degree_bound,
+                                      size_t j,
+                                      const group_ct& G0,
+                                      const group_ct& G1,
+                                      const bigfield_ct& z_ct)
+    {
+        Builder* ctx = z_ct.get_context();
+        const auto& level = domain.levels[round_idx];
+        size_t half = level.size() / 2;
+        size_t e = degree_bound / 2 - 1;
+
+        Fq s0 = level.domain[j];
+        Fq s1 = level.domain[j + half];
+        Fq diff_inv = level.pair_diff_inv[j];
+
+        // Constant bigfield values — constructed with builder context so their
+        // internal field_t limbs have proper context (needed for origin tag checks).
+        bigfield_ct diff_inv_ct(ctx, uint256_t(diff_inv));
+        bigfield_ct s0_ct(ctx, uint256_t(s0));
+
+        // (z - s0) is the only witness-dependent scalar
+        bigfield_ct z_minus_s0 = z_ct - s0_ct;
+
+        if (e == 0) {
+            auto slope = (G1 - G0) * diff_inv_ct;
+            return G0 + slope * z_minus_s0;
+        }
+
+        Fq s0_e_inv = s0.pow(e).invert();
+        Fq s1_e_inv = s1.pow(e).invert();
+
+        bigfield_ct s0_e_inv_ct(ctx, uint256_t(s0_e_inv));
+        bigfield_ct s1_e_inv_ct(ctx, uint256_t(s1_e_inv));
+
+        auto a = G0 * s0_e_inv_ct;
+        auto b = G1 * s1_e_inv_ct;
+        auto slope = (b - a) * diff_inv_ct;
+        return a + slope * z_minus_s0;
     }
 };
-
-// Convenience aliases
-using NativeBaseFoldVerifier = BaseFoldVerifier<curve::Grumpkin>;
-
-// ---------------------------------------------------------------------------
-// Legacy free-function API (delegates to NativeBaseFoldVerifier)
-// ---------------------------------------------------------------------------
-
-// Keep the old `verify()` free function for backward compatibility with tests.
-inline bool verify(const EcfftDomain& domain,
-                   size_t degree_bound,
-                   size_t num_queries,
-                   const std::shared_ptr<NativeTranscript>& transcript)
-{
-    return NativeBaseFoldVerifier::verify(domain, degree_bound, num_queries, transcript);
-}
 
 // ---------------------------------------------------------------------------
 // SRS encoding (one-time precomputation, always native)
 // ---------------------------------------------------------------------------
 
-/**
- * @brief Compute the initial group-valued oracle from SRS generators.
- *
- *     g_0[j]  =  sum_{i=0}^{n-1}  L_0[j]^i · G_i
- *
- * Complexity: O(n · |L_0|) scalar muls, embarrassingly parallel over j.
- */
 inline std::vector<NativeCommitment> compute_srs_encoding(const std::vector<NativeCommitment>& srs_generators,
                                                           const EcfftDomain& domain)
 {
