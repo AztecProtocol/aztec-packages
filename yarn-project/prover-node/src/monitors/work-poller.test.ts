@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type {
   ClaimResult,
@@ -22,6 +22,9 @@ describe('WorkPoller', () => {
     blocks: blockNumbers.map(n => ({ number: n })),
   });
 
+  /** Creates a mock block header that returns the given slot number. */
+  const makeHeader = (slot: number) => ({ getSlot: () => SlotNumber(slot) });
+
   beforeEach(() => {
     l2BlockSource = mock<L2BlockSource>();
     broker = mock<ProvingJobProducer & ProvingJobClaimManager>();
@@ -30,6 +33,7 @@ describe('WorkPoller', () => {
     l2BlockSource.getProvenBlockNumber.mockResolvedValue(0 as any);
     l2BlockSource.getCheckpointedL2BlockNumber.mockResolvedValue(0 as any);
     l2BlockSource.getL1Constants.mockResolvedValue({ epochDuration: 4 } as any);
+    l2BlockSource.getBlockHeader.mockResolvedValue(undefined as any);
     broker.getProvingJobStatus.mockResolvedValue({ status: 'not-found' } as any);
     broker.getCompletedJobs.mockResolvedValue([]);
     broker.claimN.mockResolvedValue([]);
@@ -42,15 +46,20 @@ describe('WorkPoller', () => {
   });
 
   it('fires onCheckpointAvailable for unclaimed checkpoints', async () => {
+    // Blocks 1-4 in epoch 0 (slots 0-3), proven up to block 0
     l2BlockSource.getProvenBlockNumber.mockResolvedValue(0 as any);
     l2BlockSource.getCheckpointedL2BlockNumber.mockResolvedValue(4 as any);
+    l2BlockSource.getBlockHeader.mockImplementation((blockNumber: any) => {
+      // Block 1 is at slot 0 (first unproven), block 4 is at slot 3 (checkpointed)
+      const slot = Number(blockNumber) - 1;
+      return Promise.resolve(makeHeader(slot) as any);
+    });
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([
       makeCheckpoint(1, [1, 2]),
       makeCheckpoint(2, [3, 4]),
     ] as any);
 
-    // All unclaimed — claimN returns claims for all requested items
     broker.claimN.mockImplementation((ids: WorkItemId[]) =>
       Promise.resolve(ids.map(id => ({ workItemId: id, claimToken: 'token' }) as ClaimResult)),
     );
@@ -67,15 +76,17 @@ describe('WorkPoller', () => {
   it('fires onEpochReadyForTopTree when all sub-trees are complete', async () => {
     l2BlockSource.getProvenBlockNumber.mockResolvedValue(0 as any);
     l2BlockSource.getCheckpointedL2BlockNumber.mockResolvedValue(4 as any);
+    l2BlockSource.getBlockHeader.mockImplementation((blockNumber: any) => {
+      const slot = Number(blockNumber) - 1;
+      return Promise.resolve(makeHeader(slot) as any);
+    });
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([makeCheckpoint(1, [1, 2])] as any);
 
-    // All sub-tree markers complete
     broker.getCompletedJobs.mockImplementation((ids: any[]) =>
       Promise.resolve(ids.filter((id: string) => id.includes('CHECKPOINT_SUB_TREE_COMPLETE'))),
     );
 
-    // claimN returns the top-tree claim
     broker.claimN.mockImplementation((ids: WorkItemId[]) =>
       Promise.resolve(ids.map(id => ({ workItemId: id, claimToken: 'token' }) as ClaimResult)),
     );
@@ -103,11 +114,14 @@ describe('WorkPoller', () => {
   it('does not fire for actively claimed work', async () => {
     l2BlockSource.getProvenBlockNumber.mockResolvedValue(0 as any);
     l2BlockSource.getCheckpointedL2BlockNumber.mockResolvedValue(4 as any);
+    l2BlockSource.getBlockHeader.mockImplementation((blockNumber: any) => {
+      const slot = Number(blockNumber) - 1;
+      return Promise.resolve(makeHeader(slot) as any);
+    });
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([makeCheckpoint(1, [1, 2])] as any);
 
     broker.getCompletedJobs.mockResolvedValue([]);
-    // claimN returns empty — all items claimed by someone else
     broker.claimN.mockResolvedValue([]);
 
     poller.start(handler);
