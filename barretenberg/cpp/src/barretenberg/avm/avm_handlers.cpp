@@ -1,5 +1,5 @@
 #include "barretenberg/avm/avm_execute.hpp"
-#include "barretenberg/avm/generated/avm_commands.hpp"
+#include "barretenberg/avm/generated/avm_ipc_server.hpp"
 #include "barretenberg/avm/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -21,7 +21,7 @@ using namespace bb::world_state;
 std::atomic<avm2::simulation::CancellationToken*> g_active_cancellation_token{ nullptr };
 
 // ---------------------------------------------------------------------------
-// Helper: serialize a value to msgpack bytes
+// Helpers
 // ---------------------------------------------------------------------------
 
 template <typename T> static std::vector<uint8_t> serialize_to_msgpack(const T& value)
@@ -40,13 +40,13 @@ template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_
 }
 
 // ---------------------------------------------------------------------------
-// AvmSimulate
+// Handlers
 // ---------------------------------------------------------------------------
 
-AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
+wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate&& cmd)
 {
     // Deserialize AvmFastSimulationInputs from opaque bytes
-    auto sim_inputs = deserialize_from_msgpack<AvmFastSimulationInputs>(inputs);
+    auto sim_inputs = deserialize_from_msgpack<AvmFastSimulationInputs>(cmd.inputs);
 
     // If a fork ID was provided (block builder's fork), use it directly.
     // Otherwise create a temporary fork for this simulation.
@@ -54,7 +54,8 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
     uint64_t fork_id = sim_inputs.ws_revision.forkId;
 
     if (!use_external_fork) {
-        auto fork_resp = request.wsdb_client.create_fork(wsdb::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
+        auto fork_resp =
+            request.wsdb_client.create_fork(wsdb::wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
         fork_id = fork_resp.forkId;
         vinfo("Created WSDB fork ", fork_id, " for AVM simulation");
     } else {
@@ -80,8 +81,7 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
         // Create IPC-backed MerkleDB and ContractDB
         WsdbIpcMerkleDB merkle_db(request.wsdb_client, revision);
 
-        // Run simulation using the helper that takes raw DB interfaces.
-        // Route to hint collection or fast path based on config.
+        // Run simulation
         AvmSimulationHelper simulation_helper;
         auto result = sim_inputs.config.collect_hints
                           ? simulation_helper.simulate_for_hint_collection_internal(request.cdb_client,
@@ -103,17 +103,16 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
 
         // Only clean up fork if we created it
         if (!use_external_fork) {
-            request.wsdb_client.delete_fork(wsdb::WsdbDeleteFork{ .forkId = fork_id });
+            request.wsdb_client.delete_fork(wsdb::wire::WsdbDeleteFork{ .forkId = fork_id });
         }
 
-        return Response{ .result = serialize_to_msgpack(result) };
+        return { .result = serialize_to_msgpack(result) };
     } catch (...) {
         g_active_cancellation_token.store(nullptr, std::memory_order_release);
 
-        // Only clean up fork on error if we created it
         if (!use_external_fork) {
             try {
-                request.wsdb_client.delete_fork(wsdb::WsdbDeleteFork{ .forkId = fork_id });
+                request.wsdb_client.delete_fork(wsdb::wire::WsdbDeleteFork{ .forkId = fork_id });
             } catch (...) {
                 // Ignore cleanup errors
             }
@@ -122,32 +121,18 @@ AvmSimulate::Response AvmSimulate::execute(AvmRequest& request) &&
     }
 }
 
-// ---------------------------------------------------------------------------
-// AvmSimulateWithHints
-// ---------------------------------------------------------------------------
-
-AvmSimulateWithHints::Response AvmSimulateWithHints::execute(AvmRequest& request) &&
+wire::AvmSimulateWithHintsResponse handle_simulate_with_hints(AvmRequest& request, wire::AvmSimulateWithHints&& cmd)
 {
     (void)request;
 
     // Deserialize AvmProvingInputs from opaque bytes
-    auto proving_inputs = deserialize_from_msgpack<AvmProvingInputs>(inputs);
+    auto proving_inputs = deserialize_from_msgpack<AvmProvingInputs>(cmd.inputs);
 
     // Run simulation with hinted DBs (self-contained, no external DB needed)
     AvmSimAPI api;
     auto result = api.simulate_with_hinted_dbs(proving_inputs);
 
-    return Response{ .result = serialize_to_msgpack(result) };
-}
-
-// ---------------------------------------------------------------------------
-// AvmShutdown
-// ---------------------------------------------------------------------------
-
-AvmShutdown::Response AvmShutdown::execute(AvmRequest& request) &&
-{
-    (void)request;
-    return Response{};
+    return { .result = serialize_to_msgpack(result) };
 }
 
 } // namespace bb::avm

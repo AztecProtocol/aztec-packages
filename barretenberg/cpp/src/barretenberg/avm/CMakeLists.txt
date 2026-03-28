@@ -19,7 +19,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         aztec-avm
         main.cpp
         cli.cpp
-        avm_execute.cpp
+        avm_handlers.cpp
         avm_ipc_server.cpp
         generated/avm_ipc_server.cpp
     )

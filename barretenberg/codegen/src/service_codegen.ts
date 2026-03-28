@@ -331,12 +331,14 @@ const CDB_CPP_OPTS: CppCodegenOptions = {
   wireNamespace: 'wire',
 };
 
-// AVM: simple types only, no externals needed
+// AVM: wire types in bb::avm::wire, handlers convert (trivial — all opaque bytes)
 const AVM_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::avm',
   prefix: 'Avm',
   executeHeader: 'barretenberg/avm/avm_execute.hpp',
-  commandsHeader: 'barretenberg/avm/generated/avm_commands.hpp',
+  commandsHeader: 'barretenberg/avm/avm_execute.hpp',
+  generatedIncludeDir: 'barretenberg/avm/generated',
+  wireNamespace: 'wire',
 };
 
 /** World State Database service */
@@ -374,7 +376,6 @@ const AVM_SERVICE: ServiceConfig = {
   targets: [
     tsTarget(),
     cppStandaloneTypesTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/generated/avm_types.hpp'),
-    cppCommandsTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/generated/avm_commands.hpp'),
     cppServerTarget(AVM_CPP_OPTS, '../../../cpp/src/barretenberg/avm/generated', 'avm'),
     zigTarget(`${ZIG_IPC_BASE}/avm`, { prefix: 'Avm', clientName: 'AvmClient' }),
   ],
