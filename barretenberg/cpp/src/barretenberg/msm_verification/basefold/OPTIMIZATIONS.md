@@ -13,27 +13,28 @@ builds the actual `RecursiveBaseFoldVerifier<UltraCircuitBuilder>` circuit:
 
 | Metric                        | Value         |
 |-------------------------------|---------------|
-| **Total gates**               | **3,468,269** |
-| **Log2(gates)**               | **21.73**     |
-| Gates per query               | 80,657        |
-| Gates per query per round     | 4,480         |
+| **Total gates**               | **4,600,813** |
+| **Log2(gates)**               | **22.13**     |
+| Gates per query               | 106,995       |
+| Gates per query per round     | 5,944         |
 | Native proof size             | 605 KiB       |
 | Raw batch_mul MSM (comparison)| ~12M gates    |
-| **Improvement over raw MSM**  | **~3.5×**     |
+| **Improvement over raw MSM**  | **~2.6×**     |
+
+Note: the Merkle path verification uses `conditional_assign` to compute BOTH
+hash orderings at each level (needed for a fixed circuit — see PROBLEMS.md).
+This doubles the Merkle hashing cost compared to a branching implementation.
 
 ### Cost breakdown per query per round
 
 Each round for each query does:
 1. **Fold check**: 4 group operations (3 constant-scalar muls + 1 witness-scalar mul)
-2. **Merkle verification**: 2 paths, each of depth = (18 - round)
+2. **Merkle verification**: 2 paths, each of depth = (18 - round), with 2×
+   Poseidon2 hashes per level (both orderings + conditional_assign)
 
 Average Merkle depth across 18 rounds: (18 + 17 + ... + 1) / 18 = 9.5.
-Average Merkle cost per round: 2 paths × (1 leaf hash + 9.5 path hashes) × ~74 gates ≈ 1,554 gates.
-Average fold cost per round: 4,480 - 1,554 ≈ **2,926 gates**.
-
-The fold cost in a real circuit (~2,926 gates) is much lower than the isolated
-measurement (~6,513 gates) because the per-circuit overhead (ROM table setup,
-Straus initialization) amortizes across all fold checks in the same builder.
+Average Merkle cost per round: 2 paths × (1 leaf hash + 9.5 × 2 path hashes) × ~74 gates ≈ 2,960 gates.
+Average fold cost per round: 5,944 - 2,960 ≈ **2,984 gates**.
 
 ### Isolated per-operation costs (for reference only)
 
@@ -57,56 +58,42 @@ They significantly overestimate the cost in a real circuit:
 
 | Blowup | Bits/query | Queries | Rounds | Estimated gates | Proof size |
 |--------|-----------|---------|--------|----------------|------------|
-| 8      | 3         | 43      | 18     | 3.47M (measured)| 605 KiB    |
-| 16     | 4         | 32      | 19     | ~2.7M           | ~470 KiB   |
-| 32     | 5         | 26      | 20     | ~2.3M           | ~400 KiB   |
-
-Estimates assume: gates scale as (queries × rounds × cost_per_round), where
-cost_per_round at blowup 16 is slightly higher (extra round, but smaller
-average Merkle depth per extra round).  These estimates should be validated.
+| 8      | 3         | 43      | 18     | 4.60M (measured)| 605 KiB    |
+| 16     | 4         | 32      | 19     | ~3.6M           | ~470 KiB   |
+| 32     | 5         | 26      | 20     | ~3.0M           | ~400 KiB   |
 
 Trade-off: larger blowup → fewer queries (cheaper verifier) but larger initial
 domain (more prover work, bigger precomputed domain data, one more fold round).
 Since prover work is native and one-time, this favors the recursive setting.
 
-### Optimization 2: paired Merkle paths
+### Optimization 2: single-hash Merkle paths (if witness-dependent topology is OK)
 
-**Impact: reduces BOTH proof size (-254 KiB) AND gate count (~10% savings).**
+**Impact: ~1.1M gate savings (~24% of total).**
 
-The two openings per round are at indices j and j+half, which are siblings at
-the bottom level of the Merkle tree.  Their two depth-d paths share d-1 sibling
-nodes.
+The current implementation computes BOTH Poseidon2 hash orderings at each Merkle
+level and selects with `conditional_assign`.  If the domain lookup issue (see
+PROBLEMS.md) is resolved via ROM tables, the Merkle index bits would be proper
+circuit witnesses and we could use a single conditional hash instead of two.
 
-**Proof size savings**: send d-1 common siblings instead of 2×d (saves ~254 KiB,
-see NATIVE_OPTIMIZATIONS.md).
+This would bring the gate count back to ~3.5M.
 
-**Gate count savings**: the verifier computes 2 leaf hashes + 1 parent hash +
-(d-1) path hashes instead of 2 × (1 leaf hash + d path hashes).  This saves
-d+1 Poseidon2 calls per round per query.  Average savings: ~10 × 74 ≈ 740 gates
-per round per query → ~43 × 18 × 740 ≈ 573K gates (~16% of total).
+### Optimization 3: paired Merkle paths
 
-### Optimization 3: eliminate redundant fold result openings
+**Impact: reduces BOTH proof size (-254 KiB) AND gate count (~10-15% savings).**
 
-**Impact: reduces proof size by ~48 KiB.  Modest gate savings.**
+The two openings per round are siblings at the bottom level of the Merkle tree.
+Instead of 2 independent paths, send 1 common path from the parent to the root.
+The verifier hashes both leaves to get the parent, then walks one shared path.
+
+Saves: (d+1) Poseidon2 calls per round per query (or (d+1)×2 with the current
+double-hash approach).
+
+### Optimization 4: eliminate redundant fold result openings
+
+**Impact: reduces proof size by ~48 KiB.  Small gate savings.**
 
 The fold result F_r at round r is already opened as one of the pair elements
-at round r+1.  Removing the redundant send saves:
-- Proof: 43 × 18 × 64 bytes ≈ 48 KiB
-- Gates: 43 × 18 × (2 field witnesses + 1 cycle_group witness) ≈ small
-
-### Optimization 4: cross-round batching via random linear combination
-
-**Estimated impact: marginal (~5%) on top of current amortization.**
-
-Instead of checking each round's fold equation independently, compress all 18
-checks per query into a single equation.  However, the concrete measurement
-shows the fold cost per round is already ~2,926 gates (much less than the ~6,513
-isolated measurement), indicating substantial amortization is already happening
-within `cycle_group`'s Straus implementation.  Additional batching across rounds
-would save mostly on ROM table construction (~370 gates per table × 4 tables
-per round = ~1,480 gates, shared across 18 rounds = ~82 gates/round savings).
-
-**Not worth the protocol complexity.**
+at round r+1.  Removing the redundant send saves 43 × 18 × 64 bytes ≈ 48 KiB.
 
 ---
 
@@ -149,19 +136,15 @@ The α,β version is **57% more expensive**.  The reasons:
 1. **Non-native field arithmetic is expensive.**  α and β live in Fq (BN254
    base field), which is non-native in a BN254 circuit.  Computing them requires
    `bigfield` multiplication (CRT reduction + range checks) at ~2,500 gates per
-   mul.  Even after precomputing constants to minimize witness-dependent ops
-   (α = C0 - c0·z, β = c1·z - C1), the 2 bigfield muls still cost ~5,100 gates.
+   mul.
 
 2. **Constant-scalar muls are cheap.**  In the original formulation, 3 of the 4
-   group operations multiply a witness point by a **constant** scalar (s0^{-e},
-   s1^{-e}, diff_inv — all deterministic from the domain).  `cycle_group`'s
-   Straus implementation bakes constant scalars directly into the ROM table
-   entries, avoiding the scalar decomposition and range-check overhead that
-   witness scalars require.
+   group operations multiply a witness point by a **constant** scalar.
+   `cycle_group`'s Straus implementation bakes constant scalars directly into
+   ROM table entries.
 
 3. **Witness-scalar muls are expensive.**  In the α,β version, both muls use
-   witness scalars (α and β depend on the witness challenge z).  This forces
-   full variable-base Straus with runtime scalar decomposition.
+   witness scalars, forcing full variable-base Straus.
 
 **Takeaway**: in the Grumpkin-in-BN254 circuit, optimizing the number of group
 operations at the expense of introducing non-native field arithmetic is a bad
@@ -173,15 +156,12 @@ trade.  The bottleneck is the non-native field, not the number of group ops.
 
 - **SRS generators**: In production, the group elements will come from the Aztec
   Grumpkin SRS, loaded via `srs::init_file_crs_factory` / `CommitmentKey<curve::Grumpkin>`.
-  The current tests use random points for benchmarking; the gate count is
-  independent of the specific point values.
 
 - **ECFFT domain binary**: The log_n=18 domain data (~25 MB) is NOT checked into
-  git.  The test generates it on first run via `ecfft_precompute.py`.  For CI,
-  either pre-generate and cache the binary, or accept the ~2 minute generation time.
+  git.  The test generates it on first run via `ecfft_precompute.py` (~2 min).
 
-- **Origin tags**: The recursive verifier uses a "native hint" approach (runs the
-  native transcript to extract values, then brings them into circuit as witnesses)
-  to avoid origin tag conflicts.  When integrating with the full IPA verification
-  flow, the transcript interaction should be refactored to use the stdlib transcript
-  directly with proper origin tag propagation.
+- **Origin tags**: The recursive verifier uses a "native hint" approach to avoid
+  origin tag conflicts.  Needs refactoring for production.
+
+- **Fixed circuit**: See PROBLEMS.md for remaining witness-dependent topology
+  issues and their estimated cost to fix (~300K additional gates).
