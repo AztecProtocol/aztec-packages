@@ -18,7 +18,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         aztec-wsdb
         main.cpp
         cli.cpp
-        wsdb_execute.cpp
+        wsdb_handlers.cpp
         wsdb_ipc_server.cpp
         generated/wsdb_ipc_server.cpp
     )

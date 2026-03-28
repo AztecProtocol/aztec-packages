@@ -1,7 +1,6 @@
 #include "barretenberg/wsdb/cli.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/wsdb/generated/wsdb_commands.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
@@ -12,9 +11,6 @@
 #include <vector>
 
 namespace bb::wsdb {
-
-using namespace bb::world_state;
-using namespace bb::crypto::merkle_tree;
 
 int parse_and_run_wsdb(int argc, char* argv[])
 {

@@ -8,7 +8,7 @@
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
-#include "barretenberg/wsdb/generated/wsdb_commands.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_client.hpp"
 
 namespace bb::avm {
 

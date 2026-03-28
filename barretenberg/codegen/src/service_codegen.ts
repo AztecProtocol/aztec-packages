@@ -312,35 +312,14 @@ const BB_SERVICE: ServiceConfig = {
   ],
 };
 
-// WSDB/CDB: keep externals for the C++ client (AVM uses barretenberg types like MerkleTreeId, bb::fr).
-// The server dispatch uses wire types directly but the client needs domain types.
+// WSDB: wire types in bb::wsdb::wire, handlers convert to domain types for world_state calls.
 const WSDB_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::wsdb',
   prefix: 'Wsdb',
   executeHeader: 'barretenberg/wsdb/wsdb_execute.hpp',
-  commandsHeader: 'barretenberg/wsdb/generated/wsdb_commands.hpp',
-  externals: {
-    'WorldStateRevision': 'barretenberg/world_state/types.hpp',
-    'WorldStateStatusFull': 'barretenberg/world_state/types.hpp',
-    'WorldStateStatusSummary': 'barretenberg/world_state/types.hpp',
-    'WorldStateDBStats': 'barretenberg/world_state/types.hpp',
-    'WorldStateMeta': 'barretenberg/world_state/types.hpp',
-    'NullifierLeafValue': 'barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp',
-    'PublicDataLeafValue': 'barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp',
-    'TreeMeta': 'barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp',
-    'TreeDBStats': 'barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp',
-    'DBStats': 'barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp',
-    'SiblingPathAndIndex': 'barretenberg/crypto/merkle_tree/response.hpp',
-  },
-  usingNamespaces: ['bb::world_state', 'bb::crypto::merkle_tree'],
-  additionalIncludes: [
-    'barretenberg/crypto/merkle_tree/hash_path.hpp',
-    'barretenberg/crypto/merkle_tree/response.hpp',
-    'barretenberg/crypto/merkle_tree/types.hpp',
-    'barretenberg/ecc/curves/bn254/fr.hpp',
-    'barretenberg/serialize/msgpack.hpp',
-    'barretenberg/world_state/fork.hpp',
-  ],
+  commandsHeader: 'barretenberg/wsdb/wsdb_execute.hpp',  // just for WsdbRequest type
+  generatedIncludeDir: 'barretenberg/wsdb/generated',
+  wireNamespace: 'wire',
 };
 
 const CDB_CPP_OPTS: CppCodegenOptions = {
@@ -381,7 +360,6 @@ const WSDB_SERVICE: ServiceConfig = {
   targets: [
     tsTarget(),
     cppStandaloneTypesTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated/wsdb_types.hpp'),
-    cppCommandsTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated/wsdb_commands.hpp'),
     cppClientTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated', 'wsdb'),
     cppServerTarget(WSDB_CPP_OPTS, '../../../cpp/src/barretenberg/wsdb/generated', 'wsdb'),
     zigTarget(`${ZIG_IPC_BASE}/wsdb`, { prefix: 'Wsdb', clientName: 'WsdbClient' }),
