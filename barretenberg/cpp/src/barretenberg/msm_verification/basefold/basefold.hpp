@@ -400,29 +400,39 @@ template <typename Builder> class RecursiveBaseFoldVerifier {
     /**
      * @brief Verify a Merkle path in-circuit using stdlib Poseidon2.
      *
-     * Hashes the leaf (group element coordinates), then walks up the path
-     * hashing with siblings, and asserts the result equals the expected root.
+     * Hashes the leaf, then walks up the path using conditional_assign to
+     * select hash argument order based on the index bit.  This produces a
+     * FIXED circuit regardless of the query index value — the same gates
+     * are created for every index, with conditional_assign selecting which
+     * value goes left vs right.
+     *
+     * Cost: 2 Poseidon2 hashes per level (both orderings) + 1 conditional_assign.
+     * This is ~2× the Merkle cost of the native verifier but ensures a
+     * witness-independent circuit topology.
      */
-    static void verify_merkle_path_circuit(Builder& /*builder*/,
+    static void verify_merkle_path_circuit(Builder& builder,
                                            const field_ct& root,
                                            size_t index,
                                            const group_ct& element,
                                            const std::vector<field_ct>& path)
     {
-        // Leaf hash: Poseidon2(x, y) where x, y are the cycle_group coordinates
+        // Leaf hash: Poseidon2(x, y)
         field_ct current = Poseidon2::hash({ element.x(), element.y() });
 
-        // Walk up the Merkle tree
+        // Walk up the Merkle tree.  At each level, compute BOTH hash orderings
+        // and select based on the index bit.  This makes the circuit topology
+        // independent of the query index.
         for (size_t i = 0; i < path.size(); i++) {
-            if (index % 2 == 0) {
-                current = Poseidon2::hash({ current, path[i] });
-            } else {
-                current = Poseidon2::hash({ path[i], current });
-            }
+            field_ct hash_left_right = Poseidon2::hash({ current, path[i] });
+            field_ct hash_right_left = Poseidon2::hash({ path[i], current });
+
+            // index_bit = 1 means current is on the right (odd index)
+            bool_ct index_bit = bool_ct(witness_ct(&builder, (index % 2 != 0)));
+            current = field_ct::conditional_assign(index_bit, hash_right_left, hash_left_right);
+
             index >>= 1;
         }
 
-        // Assert computed root matches expected root
         current.assert_equal(root);
     }
 
