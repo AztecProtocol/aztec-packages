@@ -385,24 +385,16 @@ TEST_F(BaseFoldCircuitCostTest, ConcreteRecursiveVerifier)
 }
 
 /**
- * @brief Full-size recursive verifier circuit: N=2^15 MSM, blowup 8, domain 2^18.
- *
- * Loads the precomputed log_n=18 binary domain, runs the native prover, then
- * builds the actual recursive verifier circuit and reports the gate count.
- *
- * This is the definitive measurement for the BaseFold recursive verifier cost.
+ * @brief Helper: load or generate an ECFFT domain, prove, build recursive verifier circuit, report gates.
  */
-TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifier)
+void run_full_size_benchmark(size_t log_domain, size_t num_queries)
 {
     using namespace bb::basefold;
-
     auto& engine = bb::numeric::get_debug_randomness();
 
-    // Load the log_n=18 domain from binary.  If the binary doesn't exist,
-    // generate it using the Python script (takes ~2 minutes).
     std::string basefold_dir = std::string(std::getenv("BUILD_DIR") ? std::getenv("BUILD_DIR") : ".") +
                                "/../src/barretenberg/msm_verification/basefold";
-    std::string domain_path = basefold_dir + "/ecfft_domain_2_18.bin";
+    std::string domain_path = basefold_dir + "/ecfft_domain_2_" + std::to_string(log_domain) + ".bin";
     std::string script_path = basefold_dir + "/ecfft_precompute.py";
 
     // Generate if missing
@@ -410,14 +402,12 @@ TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifier)
         std::ifstream check(domain_path);
         if (!check.good()) {
             info("Domain binary not found at ", domain_path);
-            info("Generating (this takes ~2 minutes)...");
-            std::string cmd = "python3 " + script_path + " --log-n 18 --output-bin " + domain_path;
+            info("Generating (may take several minutes for large domains)...");
+            std::string cmd =
+                "python3 " + script_path + " --log-n " + std::to_string(log_domain) + " --output-bin " + domain_path;
             int rc = std::system(cmd.c_str()); // NOLINT(cert-env33-c)
             if (rc != 0) {
-                info("Generation failed (rc=", rc, "). Skipping test.");
-                info("You can generate manually: cd ",
-                     basefold_dir,
-                     " && python3 ecfft_precompute.py --log-n 18 --output-bin ecfft_domain_2_18.bin");
+                info("Generation failed (rc=", rc, "). Skipping.");
                 GTEST_SKIP() << "Could not generate domain binary";
                 return;
             }
@@ -432,31 +422,32 @@ TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifier)
         GTEST_SKIP() << "Domain binary invalid";
         return;
     }
-    ASSERT_EQ(domain.log_n, size_t(18));
-    ASSERT_EQ(domain.levels[0].size(), size_t(1) << 18);
 
-    size_t n = domain.levels[0].size(); // 262144
+    size_t n = domain.levels[0].size();
     size_t degree_bound = n;
-    size_t num_queries = 43; // production security level
+    size_t blowup = n / (1 << LOG_MSM_SIZE);
+    size_t blowup_bits = static_cast<size_t>(std::log2(static_cast<double>(blowup)));
 
-    info("=== Full-Size Recursive Verifier (log_n=18, ", num_queries, " queries, 18 rounds) ===");
-    info("  Domain size: ", n);
+    info("=== Full-Size Recursive Verifier ===");
+    info("  MSM size: 2^", LOG_MSM_SIZE);
+    info("  Blowup: ", blowup, " = 2^", blowup_bits);
+    info("  Domain: 2^", log_domain, " = ", n);
+    info("  Rounds: ", domain.num_rounds);
+    info("  Queries: ", num_queries);
+    info("  Security: ~", num_queries * blowup_bits, " bits");
     info("  Generating random oracle...");
 
-    // Random SRS encoding (random Grumpkin points)
     std::vector<NativeCommitment> g0(n);
     for (size_t i = 0; i < n; i++) {
         g0[i] = bb::grumpkin::g1::element::random_element(&engine).normalize();
     }
 
-    // === Native prove ===
     info("  Proving...");
     auto prover_transcript = std::make_shared<bb::NativeTranscript>();
     prove(g0, domain, degree_bound, num_queries, prover_transcript);
     auto native_proof = prover_transcript->export_proof();
-    info("  Proof size: ", native_proof.size(), " Fr elements = ", native_proof.size() * 32 / 1024, " KiB");
+    info("  Proof size: ", native_proof.size(), " Fr = ", native_proof.size() * 32 / 1024, " KiB");
 
-    // === Build recursive verifier circuit ===
     info("  Building recursive verifier circuit...");
     Builder builder;
     RecursiveBaseFoldVerifier<Builder>::verify(builder, domain, degree_bound, num_queries, native_proof);
@@ -469,6 +460,24 @@ TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifier)
     info("  Log2(gates): ", std::log2(static_cast<double>(num_gates)));
     info("  Gates per query: ", num_gates / num_queries);
     info("  Gates per query per round: ", num_gates / num_queries / domain.num_rounds);
+}
+
+// N=2^15 MSM, blowup 8 = 2^3, domain 2^18, 43 queries (~129-bit security)
+TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifier)
+{
+    run_full_size_benchmark(/*log_domain=*/18, /*num_queries=*/43);
+}
+
+// N=2^15 MSM, blowup 16 = 2^4, domain 2^19, 32 queries (~128-bit security)
+TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifierBlowup16)
+{
+    run_full_size_benchmark(/*log_domain=*/19, /*num_queries=*/32);
+}
+
+// N=2^15 MSM, blowup 32 = 2^5, domain 2^20, 26 queries (~130-bit security)
+TEST_F(BaseFoldCircuitCostTest, FullSizeRecursiveVerifierBlowup32)
+{
+    run_full_size_benchmark(/*log_domain=*/20, /*num_queries=*/26);
 }
 
 } // anonymous namespace

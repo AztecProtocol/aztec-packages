@@ -331,11 +331,22 @@ class EcfftDomain:
         # Build the isogeny chain: k rational maps and k+1 curves
         self.psis, self.curves, self.hs = build_isogeny_chain(scaled_gen, log_n)
 
-        # Build L₀: x-coordinates of the coset {2G + i·scaled_gen | i = 0,…,n−1}.
-        # Using 2G (rather than G itself) avoids the point at infinity appearing
-        # in the domain (since scaled_gen has order 2^log_n, the coset offset
-        # ensures no cancellation).
-        coset = gen.double()
+        # Build L₀: x-coordinates of the coset {offset + i·scaled_gen | i = 0,…,n−1}.
+        # The offset must avoid producing any point with x = 0 (the 2-torsion
+        # point T = (0,0) is in the isogeny kernel).
+        #
+        # We use gen itself as the offset.  When k > log_n, gen is NOT a multiple
+        # of scaled_gen (gen has order 2^k, scaled_gen has order 2^log_n, so gen
+        # is not in the subgroup <scaled_gen>).  This ensures the coset doesn't
+        # contain the identity or 2-torsion points.
+        #
+        # When k == log_n, gen = scaled_gen, so we use gen.double() as fallback
+        # (this works for small domains but may hit x=0 for large ones; k > log_n
+        # is recommended for production use).
+        if params['k'] > log_n:
+            coset = gen
+        else:
+            coset = gen.double()
         L0 = []
         acc = Point.infinity(curve)
         for _ in range(n):
@@ -810,6 +821,33 @@ PARAMS_2_20 = {
     'k':  20,
 }
 
+# Found by the ecfft Rust crate (examples/find_curve_bn254_large.rs).
+# Multiple candidates; use the one whose isogeny chain extends farthest.
+PARAMS_2_22_CANDIDATES = [
+    {
+        'a':  14925974028831440472498989498448874428493852729505580740086939166720736498629,
+        'bb': 9549790640130809530714484031949839461498822953635544459671498093855825339498,
+        'gx': 360294937729954436130007569400096323964166489753278118353673070238393387007,
+        'gy': 9719321663490340041323268301967550884932495756583379914404360206753317110942,
+        'k':  22,
+    },
+    {
+        'a':  19431937952045497325475941205273591144061550730583066743028841034083879357342,
+        'bb': 10202060775725426090529509036517724253342864395770849203826939727879552035254,
+        'gx': 6986920228258601407553270092689791716122346226109788942087357003069729735907,
+        'gy': 14795898283168152019831350641736646309961800052222572354541901743934809485514,
+        'k':  22,
+    },
+    {
+        'a':  7707892530415032609275864774651616491723025938262112330135615880565858296768,
+        'bb': 4621039616553694309793664698429570572960623031453700747375451010989940605298,
+        'gx': 18287844914400233271758987982762077448596673014934826567190911847360400107318,
+        'gy': 3785840349822604081360343532146726998560798244112488404268692654634977278128,
+        'k':  22,
+    },
+]
+PARAMS_2_22 = PARAMS_2_22_CANDIDATES[1]  # Candidate 1 supports 20-level isogeny chain
+
 
 # ============================================================================
 # CLI
@@ -829,14 +867,16 @@ def main():
     args = parser.parse_args()
 
     log_n = args.log_n
-    # Pick the smallest parameter set that supports the requested log_n.
-    # Use PARAMS_2_20 for log_n >= 18 to avoid isogeny kernel hits.
+    # Pick the smallest parameter set with k > log_n (need k > log_n to avoid
+    # the isogeny kernel when constructing the coset).
     if log_n <= 17:
         params = PARAMS_2_19
-    elif log_n <= 20:
+    elif log_n <= 19:
         params = PARAMS_2_20
+    elif log_n <= 21:
+        params = PARAMS_2_22
     else:
-        raise ValueError(f"log_n={log_n} exceeds maximum supported (20)")
+        raise ValueError(f"log_n={log_n} exceeds maximum supported (21)")
 
     assert log_n <= params['k'], \
         f"Requested log_n={log_n} exceeds available subgroup order 2^{params['k']}"
