@@ -326,22 +326,9 @@ const CDB_CPP_OPTS: CppCodegenOptions = {
   namespace: 'bb::cdb',
   prefix: 'Cdb',
   executeHeader: 'barretenberg/cdb/cdb_execute.hpp',
-  commandsHeader: 'barretenberg/cdb/generated/cdb_commands.hpp',
-  externals: {
-    'ContractInstance': 'barretenberg/vm2/common/aztec_types.hpp',
-    'ContractClass': 'barretenberg/vm2/common/aztec_types.hpp',
-    'ContractDeploymentData': 'barretenberg/vm2/common/aztec_types.hpp',
-    'ContractClassLogFields': 'barretenberg/vm2/common/aztec_types.hpp',
-    'ContractClassLog': 'barretenberg/vm2/common/aztec_types.hpp',
-    'PrivateLog': 'barretenberg/vm2/common/aztec_types.hpp',
-    'GrumpkinPoint': 'barretenberg/vm2/common/aztec_types.hpp',
-    'PublicKeys': 'barretenberg/vm2/common/aztec_types.hpp',
-  },
-  usingNamespaces: ['bb::avm2'],
-  additionalIncludes: [
-    'barretenberg/ecc/curves/bn254/fr.hpp',
-    'barretenberg/serialize/msgpack.hpp',
-  ],
+  commandsHeader: 'barretenberg/cdb/cdb_execute.hpp',
+  generatedIncludeDir: 'barretenberg/cdb/generated',
+  wireNamespace: 'wire',
 };
 
 // AVM: simple types only, no externals needed
@@ -374,9 +361,7 @@ const CDB_SERVICE: ServiceConfig = {
   targets: [
     tsTarget(),
     cppStandaloneTypesTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated/cdb_types.hpp'),
-    cppCommandsTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated/cdb_commands.hpp'),
     cppClientTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated', 'cdb'),
-    cppServerTarget(CDB_CPP_OPTS, '../../../cpp/src/barretenberg/cdb/generated', 'cdb'),
     zigTarget(`${ZIG_IPC_BASE}/cdb`, { prefix: 'Cdb', clientName: 'CdbClient' }),
   ],
 };
