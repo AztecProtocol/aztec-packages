@@ -306,6 +306,7 @@ const BB_SERVICE: ServiceConfig = {
   targets: [
     tsTargetWithSync(),
     rustTarget('../../../rust/barretenberg-rs/src'),
+    cppStandaloneTypesTarget(BB_CPP_OPTS, '../../../cpp/src/barretenberg/bbapi/generated/bb_types.hpp'),
     cppServerTarget(BB_CPP_OPTS, '../../../cpp/src/barretenberg/bbapi/generated', 'bb'),
   ],
 };
