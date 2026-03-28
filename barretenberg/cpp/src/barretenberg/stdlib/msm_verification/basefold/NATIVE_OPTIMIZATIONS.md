@@ -65,28 +65,22 @@ This is a pure protocol simplification with no security impact.
 
 ---
 
-## Optimization 2: paired Merkle paths (-206 KiB)
+## Optimization 2: paired Merkle paths (-254 KiB)
 
 The two openings per round are at indices j and j + half, which are **siblings
 at the bottom level** of the Merkle tree (they share the same parent).  Their
-Merkle paths of depth d therefore share d-1 sibling nodes — only the bottom
-sibling differs.
+Merkle paths of depth d therefore share d-1 sibling nodes.
 
-Instead of sending 2 independent paths (2 × d siblings), send:
-- 1 common path from the parent to the root (d-1 siblings)
-- the leaf-level sibling pair hash is implicit (the verifier computes it)
+The verifier knows both leaf values (P_r, Q_r), so it can:
+1. Hash both leaves: h_left = hash(P_r), h_right = hash(Q_r)
+2. Compute the parent: parent = hash(h_left, h_right)
+3. Walk the common path from parent to root using d-1 siblings
 
-Total: (d-1) + 0 = d-1 siblings, plus the verifier hashes both leaves to get
-the parent and then walks the common path.
-
-Wait — more precisely: the two leaves hash to two leaf-hashes.  Their parent is
-hash(leaf_hash_left, leaf_hash_right).  From the parent, the path to the root
-has d-1 siblings.  So the optimized proof sends d-1 siblings (not 2×d).
+Instead of sending 2 × d siblings, the prover sends only d-1 siblings.
 
 ```
 Current Merkle per query:    Σ_{r=0}^{17} 2·(18-r)·32  =  10,944 bytes
-Optimized per query:         Σ_{r=0}^{17} (18-r-1)·32   =  Σ_{r=0}^{17} (17-r)·32
-                           = 32 × (17+16+...+0) = 32 × 153 = 4,896 bytes
+Optimized per query:         Σ_{r=0}^{17} (18-r-1)·32   =  32 × (17+16+...+0) = 4,896 bytes
 Savings per query: 10,944 - 4,896 = 6,048 bytes
 Total savings: 43 × 6,048 = 260,064 bytes ≈ 254 KiB
 ```
@@ -94,8 +88,10 @@ Total savings: 43 × 6,048 = 260,064 bytes ≈ 254 KiB
 **Result: ~303 KiB** (after Opt 1+2).
 
 This works because the protocol always opens pairs — it never opens a single
-element in isolation.  The verifier already knows both leaf values (P_r, Q_r)
-and can reconstruct the parent hash without any extra data.
+element in isolation.
+
+Note: this also saves circuit gates in the recursive verifier (~16% savings,
+see OPTIMIZATIONS.md).
 
 ---
 
@@ -197,7 +193,7 @@ but prover overhead grows 4× and the domain precomputation becomes heavier.
 |-----------------------------------------------|------------|----------------------|
 | Baseline (blowup 8, 43 queries)              | **605 KiB** | —                    |
 | + Opt 1: remove redundant F_r                | 557 KiB    | 48 KiB               |
-| + Opt 2: paired Merkle paths                  | 303 KiB    | 302 KiB              |
+| + Opt 2: paired Merkle paths                  | 303 KiB    | 302 KiB (cumulative) |
 | + Opt 3: x-only group elements                | 257 KiB    | 348 KiB              |
 | + Opt 4: batch Merkle opening                  | ~190 KiB   | ~415 KiB             |
 | + Opt 5: blowup 16 (32 queries)               | ~150 KiB   | ~455 KiB             |
