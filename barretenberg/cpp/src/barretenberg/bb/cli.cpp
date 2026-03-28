@@ -683,7 +683,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
 
-    // Schema export removed — use committed JSON in barretenberg/codegen/schemas/bb_schema.json
+    // Subcommand: msgpack schema
+    CLI::App* msgpack_schema_command =
+        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
+    add_verbose_flag(msgpack_schema_command);
 
     // Subcommand: msgpack curve_constants
     CLI::App* msgpack_curve_constants_command =
@@ -869,6 +872,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
         }
 
         // MSGPACK
+        if (msgpack_schema_command->parsed()) {
+            std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
+            return 0;
+        }
         if (msgpack_curve_constants_command->parsed()) {
             write_curve_constants_msgpack_to_stdout();
             return 0;

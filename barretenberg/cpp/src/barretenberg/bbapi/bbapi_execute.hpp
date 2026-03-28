@@ -16,4 +16,9 @@
 #include "barretenberg/bbapi/bbapi_srs.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 
-namespace bb::bbapi {} // namespace bb::bbapi
+namespace bb::bbapi {
+
+/// Export the msgpack schema as JSON (uses wire type reflection).
+std::string get_msgpack_schema_as_json();
+
+} // namespace bb::bbapi

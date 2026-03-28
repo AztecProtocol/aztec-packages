@@ -1,0 +1,142 @@
+#include "bbapi_execute.hpp"
+#include "barretenberg/bbapi/generated/bb_types.hpp"
+#include "barretenberg/common/named_union.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
+
+namespace bb::bbapi {
+
+// Schema export uses wire types (which have SERIALIZATION_FIELDS + MSGPACK_SCHEMA_NAME).
+// NamedUnion is used ONLY here for schema reflection — not for runtime dispatch.
+namespace {
+using Command = NamedUnion<wire::BbCircuitProve,
+                           wire::BbCircuitComputeVk,
+                           wire::BbCircuitStats,
+                           wire::BbCircuitVerify,
+                           wire::BbChonkComputeVk,
+                           wire::BbChonkStart,
+                           wire::BbChonkLoad,
+                           wire::BbChonkAccumulate,
+                           wire::BbChonkProve,
+                           wire::BbChonkVerify,
+                           wire::BbChonkBatchVerify,
+                           wire::BbVkAsFields,
+                           wire::BbMegaVkAsFields,
+                           wire::BbCircuitWriteSolidityVerifier,
+                           wire::BbChonkCheckPrecomputedVk,
+                           wire::BbChonkStats,
+                           wire::BbChonkCompressProof,
+                           wire::BbChonkDecompressProof,
+                           wire::BbPoseidon2Hash,
+                           wire::BbPoseidon2Permutation,
+                           wire::BbPedersenCommit,
+                           wire::BbPedersenHash,
+                           wire::BbPedersenHashBuffer,
+                           wire::BbBlake2s,
+                           wire::BbBlake2sToField,
+                           wire::BbAesEncrypt,
+                           wire::BbAesDecrypt,
+                           wire::BbGrumpkinMul,
+                           wire::BbGrumpkinAdd,
+                           wire::BbGrumpkinBatchMul,
+                           wire::BbGrumpkinGetRandomFr,
+                           wire::BbGrumpkinReduce512,
+                           wire::BbSecp256k1Mul,
+                           wire::BbSecp256k1GetRandomFr,
+                           wire::BbSecp256k1Reduce512,
+                           wire::BbBn254FrSqrt,
+                           wire::BbBn254FqSqrt,
+                           wire::BbBn254G1Mul,
+                           wire::BbBn254G2Mul,
+                           wire::BbBn254G1IsOnCurve,
+                           wire::BbBn254G1FromCompressed,
+                           wire::BbSchnorrComputePublicKey,
+                           wire::BbSchnorrConstructSignature,
+                           wire::BbSchnorrVerifySignature,
+                           wire::BbEcdsaSecp256k1ComputePublicKey,
+                           wire::BbEcdsaSecp256r1ComputePublicKey,
+                           wire::BbEcdsaSecp256k1ConstructSignature,
+                           wire::BbEcdsaSecp256r1ConstructSignature,
+                           wire::BbEcdsaSecp256k1RecoverPublicKey,
+                           wire::BbEcdsaSecp256r1RecoverPublicKey,
+                           wire::BbEcdsaSecp256k1VerifySignature,
+                           wire::BbEcdsaSecp256r1VerifySignature,
+                           wire::BbSrsInitSrs,
+                           wire::BbChonkBatchVerifierStart,
+                           wire::BbChonkBatchVerifierQueue,
+                           wire::BbChonkBatchVerifierStop,
+                           wire::BbSrsInitGrumpkinSrs,
+                           wire::BbShutdown>;
+
+using CommandResponse = NamedUnion<wire::BbErrorResponse,
+                                   wire::BbCircuitProveResponse,
+                                   wire::BbCircuitComputeVkResponse,
+                                   wire::BbCircuitInfoResponse,
+                                   wire::BbCircuitVerifyResponse,
+                                   wire::BbChonkComputeVkResponse,
+                                   wire::BbChonkStartResponse,
+                                   wire::BbChonkLoadResponse,
+                                   wire::BbChonkAccumulateResponse,
+                                   wire::BbChonkProveResponse,
+                                   wire::BbChonkVerifyResponse,
+                                   wire::BbChonkBatchVerifyResponse,
+                                   wire::BbVkAsFieldsResponse,
+                                   wire::BbMegaVkAsFieldsResponse,
+                                   wire::BbCircuitWriteSolidityVerifierResponse,
+                                   wire::BbChonkCheckPrecomputedVkResponse,
+                                   wire::BbChonkStatsResponse,
+                                   wire::BbChonkCompressProofResponse,
+                                   wire::BbChonkDecompressProofResponse,
+                                   wire::BbPoseidon2HashResponse,
+                                   wire::BbPoseidon2PermutationResponse,
+                                   wire::BbPedersenCommitResponse,
+                                   wire::BbPedersenHashResponse,
+                                   wire::BbPedersenHashBufferResponse,
+                                   wire::BbBlake2sResponse,
+                                   wire::BbBlake2sToFieldResponse,
+                                   wire::BbAesEncryptResponse,
+                                   wire::BbAesDecryptResponse,
+                                   wire::BbGrumpkinMulResponse,
+                                   wire::BbGrumpkinAddResponse,
+                                   wire::BbGrumpkinBatchMulResponse,
+                                   wire::BbGrumpkinGetRandomFrResponse,
+                                   wire::BbGrumpkinReduce512Response,
+                                   wire::BbSecp256k1MulResponse,
+                                   wire::BbSecp256k1GetRandomFrResponse,
+                                   wire::BbSecp256k1Reduce512Response,
+                                   wire::BbBn254FrSqrtResponse,
+                                   wire::BbBn254FqSqrtResponse,
+                                   wire::BbBn254G1MulResponse,
+                                   wire::BbBn254G2MulResponse,
+                                   wire::BbBn254G1IsOnCurveResponse,
+                                   wire::BbBn254G1FromCompressedResponse,
+                                   wire::BbSchnorrComputePublicKeyResponse,
+                                   wire::BbSchnorrConstructSignatureResponse,
+                                   wire::BbSchnorrVerifySignatureResponse,
+                                   wire::BbEcdsaSecp256k1ComputePublicKeyResponse,
+                                   wire::BbEcdsaSecp256r1ComputePublicKeyResponse,
+                                   wire::BbEcdsaSecp256k1ConstructSignatureResponse,
+                                   wire::BbEcdsaSecp256r1ConstructSignatureResponse,
+                                   wire::BbEcdsaSecp256k1RecoverPublicKeyResponse,
+                                   wire::BbEcdsaSecp256r1RecoverPublicKeyResponse,
+                                   wire::BbEcdsaSecp256k1VerifySignatureResponse,
+                                   wire::BbEcdsaSecp256r1VerifySignatureResponse,
+                                   wire::BbSrsInitSrsResponse,
+                                   wire::BbChonkBatchVerifierStartResponse,
+                                   wire::BbChonkBatchVerifierQueueResponse,
+                                   wire::BbChonkBatchVerifierStopResponse,
+                                   wire::BbSrsInitGrumpkinSrsResponse,
+                                   wire::BbShutdownResponse>;
+
+struct Api {
+    Command commands;
+    CommandResponse responses;
+    SERIALIZATION_FIELDS(commands, responses);
+};
+} // namespace
+
+std::string get_msgpack_schema_as_json()
+{
+    return msgpack_schema_to_string(Api{});
+}
+
+} // namespace bb::bbapi
