@@ -306,8 +306,17 @@ export class ProvingBroker
   // ProvingJobClaimManager implementation
 
   public async claimN(workItemIds: WorkItemId[], maxClaims: number, nodeId: string): Promise<ClaimResult[]> {
+    // Prioritize reclaiming this node's own existing claims before claiming new work.
+    // This ensures that after a restart, the node gets back its in-flight work first.
+    const ownExisting = workItemIds.filter(id => {
+      const claim = this.claimsCache.get(id);
+      return claim && claim.nodeId === nodeId && !this.isClaimExpired(claim);
+    });
+    const others = workItemIds.filter(id => !ownExisting.includes(id));
+    const ordered = [...ownExisting, ...others];
+
     const results: ClaimResult[] = [];
-    for (const workItemId of workItemIds) {
+    for (const workItemId of ordered) {
       if (results.length >= maxClaims) {
         break;
       }
@@ -322,7 +331,15 @@ export class ProvingBroker
   public async claimWork(workItemId: WorkItemId, nodeId: string): Promise<ClaimToken | undefined> {
     const existing = this.claimsCache.get(workItemId);
     if (existing && !this.isClaimExpired(existing)) {
-      return undefined; // Already actively claimed
+      if (existing.nodeId === nodeId) {
+        // Same node reclaiming (e.g. after restart) — return the existing token
+        // and refresh the activity timestamp.
+        existing.lastActivity = this.msTimeSource();
+        await this.database.addClaim(existing);
+        this.logger.verbose(`Claim reclaimed for ${workItemId} by node ${nodeId}`);
+        return existing.claimToken;
+      }
+      return undefined; // Actively claimed by a different node
     }
 
     const claim: Claim = {
