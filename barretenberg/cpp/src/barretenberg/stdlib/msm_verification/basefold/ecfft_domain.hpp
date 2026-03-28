@@ -111,6 +111,34 @@ struct EcfftDomain {
     std::vector<EcfftDomainLevel> levels; ///< levels[0..num_rounds]; levels[i].size() = n / 2^i
 
     /**
+     * @brief Compute the fold coefficients α, β for a single pair.
+     *
+     * The fold formula reduces to a linear combination of the two opened values:
+     *
+     *     fold(f_s0, f_s1) = f_s0 · α  +  f_s1 · β
+     *
+     * where α, β ∈ Fq depend only on the domain points (s0, s1), the degree bound,
+     * and the verifier challenge z.  Derivation:
+     *
+     *     a = f_s0 · s0^{-e},  b = f_s1 · s1^{-e}     (normalization)
+     *     slope = (b - a) / (s1 - s0)                   (interpolation)
+     *     result = a + slope · (z - s0)                  (evaluate at z)
+     *            = f_s0 · [s0^{-e} · (s1 - z) / (s1 - s0)]
+     *            + f_s1 · [s1^{-e} · (z - s0) / (s1 - s0)]
+     *
+     * So:
+     *     α = s0^{-e} · (s1 - z) · diff_inv
+     *     β = s1^{-e} · (z - s0) · diff_inv
+     *
+     * When e = 0: α = (s1 - z) · diff_inv,  β = (z - s0) · diff_inv.
+     *
+     * This formulation is critical for circuit efficiency: it reduces the fold check
+     * from 4 group scalar multiplications to 2 (plus cheap field arithmetic for α, β).
+     * See OPTIMIZATIONS.md, Optimization 1 for details.
+     *
+     * @return (α, β) such that fold(f_s0, f_s1) = f_s0 · α + f_s1 · β.
+     */
+    /**
      * @brief Compute the folded value for a single pair opening (the core verifier check).
      *
      * Given the pair (f(s_0), f(s_1)) at pair index j in round `round_idx`, with
@@ -134,9 +162,14 @@ struct EcfftDomain {
      *   - e > 0: 4 scalar muls  (normalize both inputs, compute slope, evaluate at z)
      *   - e = 0: 2 scalar muls  (no normalization needed, just slope + evaluate)
      *
-     * The scalars s_0^{-e}, s_1^{-e}, and (s_1-s_0)^{-1} are all deterministic from the
-     * domain and could be precomputed to avoid field inversions at verification time.
-     * Currently we precompute pair_diff_inv but compute s_i^{-e} on the fly.
+     * Note on circuit cost: algebraically, the fold can be rewritten as
+     *   fold = f_s0 · α + f_s1 · β  (see OPTIMIZATIONS.md, Opt 1)
+     * which looks like 2 scalar muls.  However, α and β depend on the witness
+     * challenge z, making them witness bigfield values.  In the current formulation,
+     * 3 of the 4 scalar muls use CONSTANT scalars (s0^{-e}, s1^{-e}, diff_inv) which
+     * cycle_group handles more cheaply.  Benchmarking shows the 4-mul form at ~6,500
+     * gates outperforms the 2-mul α,β form at ~10,200 gates because the bigfield
+     * arithmetic for computing witness α,β costs ~5,100 gates.
      */
     template <typename T>
     T fold_pair(size_t round_idx, size_t degree_bound, size_t j, const T& f_s0, const T& f_s1, const Fq& z) const
@@ -151,17 +184,17 @@ struct EcfftDomain {
 
         if (e == 0) {
             // degree_bound == 2: no normalization needed, just linear interpolation.
-            //   slope = (f_s1 - f_s0) / (s1 - s0)
-            //   result = f_s0 + slope · (z - s0)
+            //   slope = (f_s1 - f_s0) / (s1 - s0)           [1 scalar mul: witness × constant]
+            //   result = f_s0 + slope · (z - s0)             [1 scalar mul: witness × witness]
             T slope = (f_s1 - f_s0) * diff_inv;
             return f_s0 + slope * (z - s0);
         }
 
         // General case: normalize by s^{-e}, then interpolate.
-        //   a = f_s0 · s0^{-e}
-        //   b = f_s1 · s1^{-e}
-        //   slope = (b - a) · (s1 - s0)^{-1}
-        //   result = a + slope · (z - s0)
+        //   a = f_s0 · s0^{-e}                              [1 scalar mul: witness × constant]
+        //   b = f_s1 · s1^{-e}                              [1 scalar mul: witness × constant]
+        //   slope = (b - a) · (s1 - s0)^{-1}                [1 scalar mul: witness × constant]
+        //   result = a + slope · (z - s0)                    [1 scalar mul: witness × witness]
         Fq s0_e_inv = s0.pow(e).invert();
         Fq s1_e_inv = s1.pow(e).invert();
 

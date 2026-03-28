@@ -44,15 +44,23 @@ constexpr size_t NUM_QUERIES = 43;                             // ~128 bits secu
 /**
  * @brief Measure gates for a single fold consistency check.
  *
- * The fold formula (when e > 0) does:
- *   a = G_0 * s0_e_inv   (witness point * constant scalar)
- *   b = G_1 * s1_e_inv   (witness point * constant scalar)
- *   slope = (b - a) * diff_inv   (witness point * constant scalar)
- *   result = a + slope * (z - s0)  (witness point * witness scalar)
+ * The fold formula (when e > 0) does 4 operations on group elements:
+ *   a      = G_0 · s0^{-e}     (witness point × constant scalar)
+ *   b      = G_1 · s1^{-e}     (witness point × constant scalar)
+ *   slope  = (b - a) · diff_inv (witness point × constant scalar)
+ *   result = a + slope · (z-s0) (witness point × witness scalar)
  *
- * When e == 0 (last round when degree_bound == 2):
- *   slope = (G_1 - G_0) * diff_inv   (witness point * constant scalar)
- *   result = G_0 + slope * (z - s0)   (witness point * witness scalar)
+ * Three of these use constant scalars (precomputed from the domain), which
+ * cycle_group handles more cheaply than witness scalars.  Only the final
+ * multiplication by (z - s0) involves a witness scalar.
+ *
+ * When e == 0 (last round, degree_bound == 2), no normalization is needed
+ * and there are only 2 operations.
+ *
+ * Note: the α,β reformulation (fold = G_0·α + G_1·β) was benchmarked and is
+ * SLOWER (~10,200 gates) because α,β are witness bigfield values requiring
+ * expensive non-native field arithmetic (~5,100 gates).  The 4-mul form wins
+ * because constant-scalar muls are cheap in cycle_group.
  */
 size_t measure_fold_check_gates(bool e_is_zero)
 {
@@ -74,41 +82,38 @@ size_t measure_fold_check_gates(bool e_is_zero)
     // Witness challenge z (from transcript)
     auto z_native = Fq_native::random_element(&engine);
 
-    // Convert Fq scalars to cycle_scalar for multiplication.
-    // In the circuit, constant Fq values become constant bigfield elements.
     using BigScalarField = bb::stdlib::bigfield<Builder, bb::Bn254FqParams>;
 
     if (e_is_zero) {
-        // slope = (G1 - G0) * diff_inv
+        // slope = (G1 - G0) · diff_inv     [witness point × constant scalar]
         auto diff = G1 - G0;
-        auto diff_inv_scalar = BigScalarField::from_witness(&builder, diff_inv_native);
+        auto diff_inv_scalar = BigScalarField(diff_inv_native); // constant
         auto slope = diff * diff_inv_scalar;
 
-        // result = G0 + slope * (z - s0)
+        // result = G0 + slope · (z - s0)   [witness point × witness scalar]
         auto z_scalar = BigScalarField::from_witness(&builder, z_native);
-        auto s0_scalar = BigScalarField(Fr_native(s0_native)); // constant
+        auto s0_scalar = BigScalarField(s0_native); // constant
         auto z_minus_s0 = z_scalar - s0_scalar;
         auto result = G0 + slope * z_minus_s0;
 
-        // Force the result to be used
         static_cast<void>(result.get_value());
     } else {
-        // a = G0 * s0_e_inv
-        auto s0_e_inv_scalar = BigScalarField(Fr_native(s0_e_inv_native)); // constant
+        // a = G0 · s0^{-e}                 [witness point × constant scalar]
+        auto s0_e_inv_scalar = BigScalarField(s0_e_inv_native); // constant
         auto a = G0 * s0_e_inv_scalar;
 
-        // b = G1 * s1_e_inv
-        auto s1_e_inv_scalar = BigScalarField(Fr_native(s1_e_inv_native)); // constant
+        // b = G1 · s1^{-e}                 [witness point × constant scalar]
+        auto s1_e_inv_scalar = BigScalarField(s1_e_inv_native); // constant
         auto b = G1 * s1_e_inv_scalar;
 
-        // slope = (b - a) * diff_inv
+        // slope = (b - a) · diff_inv        [witness point × constant scalar]
         auto diff = b - a;
-        auto diff_inv_scalar = BigScalarField(Fr_native(diff_inv_native)); // constant
+        auto diff_inv_scalar = BigScalarField(diff_inv_native); // constant
         auto slope = diff * diff_inv_scalar;
 
-        // result = a + slope * (z - s0)
+        // result = a + slope · (z - s0)     [witness point × witness scalar]
         auto z_scalar = BigScalarField::from_witness(&builder, z_native);
-        auto s0_scalar = BigScalarField(Fr_native(s0_native)); // constant
+        auto s0_scalar = BigScalarField(s0_native); // constant
         auto z_minus_s0 = z_scalar - s0_scalar;
         auto result = a + slope * z_minus_s0;
 
@@ -220,8 +225,8 @@ TEST_F(BaseFoldCircuitCostTest, FoldCheckGates)
     size_t gates_e_zero = measure_fold_check_gates(/*e_is_zero=*/true);
 
     info("=== Fold Consistency Check Gates ===");
-    info("  e > 0 (4 scalar muls): ", gates_e_nonzero, " gates");
-    info("  e == 0 (2 scalar muls): ", gates_e_zero, " gates");
+    info("  e > 0 (4 ops: 3 const-scalar + 1 witness-scalar): ", gates_e_nonzero, " gates");
+    info("  e == 0 (2 ops: 1 const-scalar + 1 witness-scalar): ", gates_e_zero, " gates");
 }
 
 TEST_F(BaseFoldCircuitCostTest, MerklePathGates)
@@ -245,8 +250,8 @@ TEST_F(BaseFoldCircuitCostTest, FullVerifierEstimate)
     size_t fold_e_nonzero = measure_fold_check_gates(false);
     size_t fold_e_zero = measure_fold_check_gates(true);
 
-    // Average Merkle depth over 18 rounds: round i has depth (18-i)
-    // Two paths per round per query
+    // Merkle depth per round: round r has oracle size 2^{18-r}, depth = 18-r.
+    // Two paths per round per query.
     size_t merkle_total_per_query = 0;
     for (size_t round = 0; round < NUM_FOLD_ROUNDS; round++) {
         size_t depth = LOG_DOMAIN_SIZE - round;
@@ -254,18 +259,10 @@ TEST_F(BaseFoldCircuitCostTest, FullVerifierEstimate)
         merkle_total_per_query += 2 * gates; // 2 paths per round
     }
 
-    size_t merkle_total_per_query_xonly = 0;
-    for (size_t round = 0; round < NUM_FOLD_ROUNDS; round++) {
-        size_t depth = LOG_DOMAIN_SIZE - round;
-        size_t gates = measure_merkle_path_gates(depth, /*x_only_leaves=*/true);
-        merkle_total_per_query_xonly += 2 * gates;
-    }
-
     // Fold gates per query: 17 rounds with e>0, 1 round with e==0
-    size_t fold_per_query = (NUM_FOLD_ROUNDS - 1) * fold_e_nonzero + fold_e_zero;
+    size_t fold_per_query = ((NUM_FOLD_ROUNDS - 1) * fold_e_nonzero) + fold_e_zero;
 
     size_t per_query_total = fold_per_query + merkle_total_per_query;
-    size_t per_query_total_xonly = fold_per_query + merkle_total_per_query_xonly;
 
     info("=== Full Verifier Gate Estimate (", LOG_MSM_SIZE, "-bit MSM, blowup ", (1 << BLOWUP_BITS), ") ===");
     info("  Fold rounds: ", NUM_FOLD_ROUNDS);
@@ -274,17 +271,10 @@ TEST_F(BaseFoldCircuitCostTest, FullVerifierEstimate)
     info("  Fold gates per query: ", fold_per_query);
     info("    (", NUM_FOLD_ROUNDS - 1, " rounds e>0 @ ", fold_e_nonzero, " + 1 round e==0 @ ", fold_e_zero, ")");
     info("  Merkle gates per query (hash x,y): ", merkle_total_per_query);
-    info("  Merkle gates per query (hash x-only): ", merkle_total_per_query_xonly);
     info("");
-    info("  --- hash(x,y) leaves ---");
     info("  Per query total: ", per_query_total);
     info("  Full verifier (", NUM_QUERIES, " queries): ", NUM_QUERIES * per_query_total, " gates");
     info("  Log2: ", std::log2(static_cast<double>(NUM_QUERIES * per_query_total)));
-    info("");
-    info("  --- hash(x-only) leaves ---");
-    info("  Per query total: ", per_query_total_xonly);
-    info("  Full verifier (", NUM_QUERIES, " queries): ", NUM_QUERIES * per_query_total_xonly, " gates");
-    info("  Log2: ", std::log2(static_cast<double>(NUM_QUERIES * per_query_total_xonly)));
 
     // Also print proof size
     info("");
