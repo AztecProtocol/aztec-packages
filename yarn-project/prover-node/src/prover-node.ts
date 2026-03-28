@@ -39,6 +39,8 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
+import { randomUUID } from 'node:crypto';
+
 import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
 import type { SpecificProverNodeConfig } from './config.js';
 import { CheckpointSubTreeJob } from './job/checkpoint-sub-tree-job.js';
@@ -171,11 +173,15 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         throw new Error('Split proving mode requires a broker instance');
       }
       this.log.info('Starting Prover Node in split proving mode');
+      const nodeId = `prover-node-${randomUUID()}`;
+      this.log.info(`Split proving node ID: ${nodeId}`);
       this.workPoller = new WorkPoller(
         this.l2BlockSource,
         this.broker,
         this.config.proverNodeWorkPollIntervalMs,
         () => this.config.proverNodeMaxPendingJobs - this.getSplitJobCounts().subTree,
+        (workItemId: string) => this.splitJobs.has(workItemId),
+        nodeId,
       );
       this.workPoller.start(this);
       await this.publisherFactory.start();

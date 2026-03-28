@@ -46,6 +46,7 @@ export class WorkPoller {
     private broker: ProvingJobProducer & ProvingJobClaimManager,
     private pollIntervalMs: number,
     private getAvailableCapacity: () => number,
+    private isWorkItemActive: (workItemId: WorkItemId) => boolean,
     private nodeId: string = 'prover-node',
   ) {
     this.logger = createLogger('prover-node:work-poller');
@@ -186,15 +187,17 @@ export class WorkPoller {
         }
       }
 
-      if (claimableItems.length === 0) {
+      // Filter out work items that already have an active job on this node.
+      const newItems = claimableItems.filter(item => !this.isWorkItemActive(item.workItemId));
+      if (newItems.length === 0) {
         return;
       }
 
       // Only claim up to the number of additional jobs the node can handle.
       // Top-tree and publish jobs don't count against capacity (lightweight orchestration only),
       // so we separate them out and always attempt to claim those.
-      const subTreeItems = claimableItems.filter(item => item.type === 'checkpoint');
-      const otherItems = claimableItems.filter(item => item.type !== 'checkpoint');
+      const subTreeItems = newItems.filter(item => item.type === 'checkpoint');
+      const otherItems = newItems.filter(item => item.type !== 'checkpoint');
       const availableCapacity = this.getAvailableCapacity();
 
       // Limit sub-tree claims to available capacity, but always try to claim top-tree/publish
