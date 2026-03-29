@@ -33,6 +33,17 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     uint256 internal constant PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
 
+    // Precomputed barycentric weights: w_i = d_i^{-1} mod p, where d_i = prod_{j!=i}(i - j)
+    // These are the inverses of BARYCENTRIC_LAGRANGE_DENOMINATORS, verified by: w_i * d_i ≡ 1 (mod p)
+    Fr internal constant BARYCENTRIC_WEIGHT_0 = Fr.wrap(0x04285015f560f63e193b50c1ea1c3ad7a5d75ad02e9f6c76f190b8805dea0ea1);
+    Fr internal constant BARYCENTRIC_WEIGHT_1 = Fr.wrap(0x134a1dd92b8ae47707b110691abbbc779f506c97335d7950a8ecea115e99999a);
+    Fr internal constant BARYCENTRIC_WEIGHT_2 = Fr.wrap(0x26ea435a3fc292ee598d5a31b2cf7b5372768acb595a75308cfd2cf3c4333334);
+    Fr internal constant BARYCENTRIC_WEIGHT_3 = Fr.wrap(0x300e46caf884d6296e250c57042955f8f45e36ab8719ee0208be9cc2e9000001);
+    Fr internal constant BARYCENTRIC_WEIGHT_4 = Fr.wrap(0x005607a7e8acca004a2b395f7d58026433d5b19cf29f828f3b2358d107000000);
+    Fr internal constant BARYCENTRIC_WEIGHT_5 = Fr.wrap(0x097a0b18a16f0d3b5ec2eb84ceb1dd09b5bd5d7d205efb60b6e4c8a02bcccccd);
+    Fr internal constant BARYCENTRIC_WEIGHT_6 = Fr.wrap(0x1d1a3099b5a6bbb2b09f354d66c59be588e37bb1465bf7409af50b8291666667);
+    Fr internal constant BARYCENTRIC_WEIGHT_7 = Fr.wrap(0x2c3bfe5cebd0a9eb9f14f4f497651d85825c8d784b1a041a52513d139215f160);
+
     uint256 internal immutable $N;
     uint256 internal immutable $LOG_N;
     uint256 internal immutable $VK_HASH;
@@ -153,43 +164,49 @@ abstract contract BaseHonkVerifier is IVerifier {
         view
         returns (Fr targetSum)
     {
-        // TODO: inline
-        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11),
-            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000090),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000000f0),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000013b0)
-        ];
-        // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
+        // Barycentric evaluation of the univariate at roundChallenge.
+        // Uses precomputed weights w_i = 1/d_i and batch inversion for (u - i) terms.
 
-        // TODO: opt: use same array mem for each iteratioon
-        // Performing Barycentric evaluations
-        // Compute B(x)
+        // Compute B(u) = (u-0)(u-1)...(u-7) and collect (u - i) terms
         Fr numeratorValue = ONE;
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory uMinusI;
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
+            uMinusI[i] = roundChallenge - Fr.wrap(i);
+            numeratorValue = numeratorValue * uMinusI[i];
         }
 
-        // Calculate domain size $N of inverses -- TODO: montgomery's trick
-        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
-        for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
-            inv = inv * (roundChallenge - Fr.wrap(i));
-            inv = FrLib.invert(inv);
-            denominatorInverses[i] = inv;
+        // Batch-invert the (u - i) terms: 1 modexp + 3(n-1) muls instead of n modexp calls
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory uMinusIInv;
+        {
+            Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory prefix;
+            prefix[0] = uMinusI[0];
+            for (uint256 i = 1; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
+                prefix[i] = prefix[i - 1] * uMinusI[i];
+            }
+            Fr invProduct = FrLib.invert(prefix[BATCHED_RELATION_PARTIAL_LENGTH - 1]);
+            for (uint256 i = BATCHED_RELATION_PARTIAL_LENGTH - 1; i > 0; --i) {
+                uMinusIInv[i] = prefix[i - 1] * invProduct;
+                invProduct = invProduct * uMinusI[i];
+            }
+            uMinusIInv[0] = invProduct;
         }
 
+        // Accumulate: sum_i f_i * w_i / (u - i), using precomputed weight constants
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory weights = [
+            BARYCENTRIC_WEIGHT_0,
+            BARYCENTRIC_WEIGHT_1,
+            BARYCENTRIC_WEIGHT_2,
+            BARYCENTRIC_WEIGHT_3,
+            BARYCENTRIC_WEIGHT_4,
+            BARYCENTRIC_WEIGHT_5,
+            BARYCENTRIC_WEIGHT_6,
+            BARYCENTRIC_WEIGHT_7
+        ];
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr term = roundUnivariates[i];
-            term = term * denominatorInverses[i];
-            targetSum = targetSum + term;
+            targetSum = targetSum + roundUnivariates[i] * weights[i] * uMinusIInv[i];
         }
 
-        // Scale the sum by the value of B(x)
+        // Scale the sum by the value of B(u)
         targetSum = targetSum * numeratorValue;
     }
 
