@@ -2,8 +2,9 @@ import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ClaimResult,
   type ProvingJobClaimManager,
@@ -47,6 +48,7 @@ export class WorkPoller {
     private pollIntervalMs: number,
     private getAvailableCapacity: () => number,
     private isWorkItemActive: (workItemId: WorkItemId) => boolean,
+    private dateProvider: DateProvider,
     private nodeId: string = 'prover-node',
   ) {
     this.logger = createLogger('prover-node:work-poller');
@@ -124,6 +126,12 @@ export class WorkPoller {
 
       for (let epoch = firstEpochToProve; epoch <= currentEpoch; epoch++) {
         const epochNumber = EpochNumber(epoch);
+
+        // Skip epochs whose proof submission deadline has passed — no point proving or publishing.
+        const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, constants);
+        if (this.dateProvider.now() >= Number(deadlineTs) * 1000) {
+          continue;
+        }
 
         // Check if top-tree is already complete — if so, check publishing
         const topTreeMarkerId = makeTopTreeCompleteJobId(epochNumber);

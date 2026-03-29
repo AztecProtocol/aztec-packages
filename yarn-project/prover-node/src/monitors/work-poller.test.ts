@@ -1,4 +1,5 @@
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type {
   ClaimResult,
@@ -32,7 +33,12 @@ describe('WorkPoller', () => {
 
     l2BlockSource.getProvenBlockNumber.mockResolvedValue(0 as any);
     l2BlockSource.getCheckpointedL2BlockNumber.mockResolvedValue(0 as any);
-    l2BlockSource.getL1Constants.mockResolvedValue({ epochDuration: 4 } as any);
+    l2BlockSource.getL1Constants.mockResolvedValue({
+      epochDuration: 4,
+      slotDuration: 12,
+      l1GenesisTime: BigInt(Math.floor(Date.now() / 1000)),
+      proofSubmissionEpochs: 1000, // Far future deadline so existing tests pass
+    } as any);
     l2BlockSource.getBlockHeader.mockResolvedValue(undefined as any);
     broker.getProvingJobStatus.mockResolvedValue({ status: 'not-found' } as any);
     broker.getCompletedJobs.mockResolvedValue([]);
@@ -44,6 +50,7 @@ describe('WorkPoller', () => {
       100,
       () => 10,
       () => false,
+      new DateProvider(),
     );
   });
 

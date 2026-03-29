@@ -3,6 +3,7 @@ import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { P2PClient } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -30,7 +31,7 @@ class FakeJob extends SplitProvingJob {
   public readonly runControl: PromiseWithResolvers<void>;
 
   constructor(epochNumber: EpochNumber, workItemId: string, jobType: SplitProvingJobType) {
-    super(epochNumber, workItemId, 'token', jobType);
+    super(epochNumber, workItemId, 'token', jobType, new DateProvider());
     this.runControl = promiseWithResolvers<void>();
   }
 

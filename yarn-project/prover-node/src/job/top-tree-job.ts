@@ -6,6 +6,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
+import type { DateProvider } from '@aztec/foundation/timer';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import type { CheckpointTopTreeData, TopTreeOrchestrator } from '@aztec/prover-client/orchestrator';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -52,8 +53,10 @@ export class TopTreeJob extends SplitProvingJob {
     claimToken: string,
     workItemId: string,
     private config: { heartbeatIntervalMs: number },
+    dateProvider: DateProvider,
+    deadline?: Date,
   ) {
-    super(epochNumber, workItemId, claimToken, 'top-tree');
+    super(epochNumber, workItemId, claimToken, 'top-tree', dateProvider, deadline);
     this.logger = createLogger('prover-node:top-tree-job');
   }
 

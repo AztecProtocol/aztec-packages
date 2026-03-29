@@ -1,17 +1,12 @@
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
-import { BatchedBlob } from '@aztec/blob-lib/types';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import type { TestProverNode } from '@aztec/prover-node/test';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { Proof } from '@aztec/stdlib/proofs';
-import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 
@@ -65,22 +60,27 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const firstCheckpointEpoch = getEpochAtSlot(firstCheckpoint.slotNumber, test.constants);
     expect(firstCheckpointEpoch).toEqual(EpochNumber(0));
 
-    // Create prover node after test setup to avoid early proving. We ensure the prover does not retry txs.
-    // Disable split proving — this test relies on mocking the legacy EpochProvingJob flow.
+    // Create prover node but don't start it yet — we need to set up the delayer before
+    // the WorkPoller fires and proves + publishes before we can delay the TX.
     const proverNode = await test.createProverNode({
       cancelTxOnTimeout: false,
       maxSpeedUpAttempts: 0,
-      proverNodeSplitProving: false,
+      txTimeoutMs: 300_000, // Must be longer than the delayer hold time so the TX actually reaches L1
+      dontStart: true,
     });
     context.proverNode = proverNode;
 
-    // Get the prover delayer from the newly created prover node
+    // Set up the delayer to hold the proof TX until AFTER the deadline.
+    // The deadline for epoch 0 is at epoch 2 start. We push the TX one L1 block
+    // past that so L1 rejects it.
     proverDelayer = proverNode.getProverNode()!.getDelayer()!;
-
-    // Hold off prover tx until end epoch 1
     const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), constants);
-    proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
-    logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
+    proverDelayer.pauseNextTxUntilTimestamp(epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
+    logger.info(`Delayed prover tx until after epoch 2 starts at ${epoch2Start + BigInt(L1_BLOCK_TIME_IN_S)}`);
+
+    // Now start — sub-trees and top-tree prove immediately, but the publish TX is held by the delayer.
+    // The deadline enforcement (using DateProvider) will also stop jobs once the deadline passes.
+    await proverNode.getProverNode()!.start();
 
     // Wait until the start of epoch 1 and grab the checkpoint number
     await test.waitUntilEpochStarts(EpochNumber(1));
@@ -107,53 +107,25 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const lastL2BlockTxHash = sequencerDelayer.getSentTxHashes().at(-1);
     const lastL2BlockTxReceipt = await l1Client.getTransactionReceipt({ hash: lastL2BlockTxHash! });
     expect(lastL2BlockTxReceipt.status).toEqual('success');
-    expect(lastL2BlockTxReceipt.blockNumber).toBeGreaterThan(lastProverTxReceipt!.blockNumber);
+    expect(lastL2BlockTxReceipt.blockNumber).toBeGreaterThanOrEqual(lastProverTxReceipt!.blockNumber);
     logger.info(`Test succeeded`);
   });
 
   it('aborts proving if end of next epoch is reached', async () => {
-    // Create prover node after test setup to avoid early proving.
-    // Disable split proving — this test relies on mocking the legacy EpochProvingJob flow.
+    // Delay the top-tree job by longer than the proof submission window.
+    // With epochDuration=8 and proofSubmissionEpochs=1, the deadline for epoch 0 is at epoch 2 start.
+    // By delaying the top-tree by more than an epoch, the deadline fires and stops the job
+    // before it can produce a proof, so no publish TX is ever sent.
+    const proverNodeEpochProvingDelayMs = L2_SLOT_DURATION_IN_S * 1000 * (test.epochDuration + 1);
+
     const proverNode = await test.createProverNode({
       cancelTxOnTimeout: false,
       maxSpeedUpAttempts: 0,
-      proverNodeSplitProving: false,
-    });
-
-    // Get the prover delayer from the newly created prover node
-    const testProverNode = proverNode.getProverNode() as TestProverNode;
-    proverDelayer = testProverNode.getDelayer()!;
-
-    // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
-    const epochProverManager = testProverNode.prover;
-    const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
-    const finalizeEpochPromise = promiseWithResolvers<void>();
-    let hasFinalizeEpochWaited = false;
-    jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
-      const prover = originalCreate();
-      jest.spyOn(prover, 'finalizeEpoch').mockImplementation(async () => {
-        if (!hasFinalizeEpochWaited) {
-          // Note the following is very fragile, as it relies on timing.
-          const seconds = L2_SLOT_DURATION_IN_S * (test.epochDuration + 1); // Forgive me for I have sinned.
-          logger.warn(`Finalize epoch: sleeping ${seconds}s.`);
-          await sleep(seconds * 1000);
-        }
-        hasFinalizeEpochWaited = true;
-        logger.warn(`Finalize epoch: returning.`);
-        finalizeEpochPromise.resolve();
-        const ourPublicInputs = RootRollupPublicInputs.random();
-        const ourBatchedBlob = new BatchedBlob(
-          ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
-          ourPublicInputs.blobPublicInputs.z,
-          ourPublicInputs.blobPublicInputs.y,
-          ourPublicInputs.blobPublicInputs.c,
-          ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value for Q
-        );
-        return { publicInputs: ourPublicInputs, proof: Proof.empty(), batchedBlobInputs: ourBatchedBlob };
-      });
-      return prover;
+      proverNodeEpochProvingDelayMs,
     });
     context.proverNode = proverNode;
+
+    proverDelayer = proverNode.getProverNode()!.getDelayer()!;
 
     await test.waitUntilEpochStarts(1);
     logger.info(`Starting epoch 1`);
@@ -165,10 +137,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // No proof for epoch zero should have landed during epoch one
     expect(monitor.provenCheckpointNumber).toEqual(CheckpointNumber(0));
 
-    // Wait until the prover job finalizes (and a bit more) and check that it aborted and never attempted to submit a tx
-    logger.info(`Awaiting finalize epoch`);
-    await finalizeEpochPromise.promise;
-    await sleep(1000);
+    // Wait a bit past the deadline and verify no proof TX was sent.
+    // The deadline enforcement in SplitProvingJob stops all jobs for the epoch.
+    await sleep(L2_SLOT_DURATION_IN_S * 1000);
     expect(proverDelayer.getSentTxHashes().length - proverTxCount).toEqual(0);
   });
 });

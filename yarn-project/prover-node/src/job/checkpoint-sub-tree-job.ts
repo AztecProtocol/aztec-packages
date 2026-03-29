@@ -6,6 +6,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
+import type { DateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
@@ -54,8 +55,10 @@ export class CheckpointSubTreeJob extends SplitProvingJob {
     claimToken: string,
     workItemId: string,
     private config: { heartbeatIntervalMs: number },
+    dateProvider: DateProvider,
+    deadline?: Date,
   ) {
-    super(epochNumber, workItemId, claimToken, 'checkpoint');
+    super(epochNumber, workItemId, claimToken, 'checkpoint', dateProvider, deadline);
     this.logger = createLogger('prover-node:checkpoint-sub-tree-job');
   }
 

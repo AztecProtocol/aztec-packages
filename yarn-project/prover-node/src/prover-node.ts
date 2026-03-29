@@ -182,6 +182,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         this.config.proverNodeWorkPollIntervalMs,
         () => this.config.proverNodeMaxPendingJobs - this.getSplitJobCounts().subTree,
         (workItemId: string) => this.splitJobs.has(workItemId),
+        this.dateProvider,
         nodeId,
       );
       this.workPoller.start(this);
@@ -285,6 +286,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         this.telemetryClient,
       );
 
+      const epochDeadline = await this.getEpochDeadline(epoch);
       const job = new CheckpointSubTreeJob(
         epoch,
         checkpointIndex,
@@ -299,6 +301,8 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         claim.claimToken,
         claim.workItemId,
         { heartbeatIntervalMs: this.config.proverNodeClaimHeartbeatIntervalMs },
+        this.dateProvider,
+        epochDeadline,
       );
 
       this.splitJobs.set(claim.workItemId, job);
@@ -359,6 +363,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
       }
       const { orchestrator: topTreeOrchestrator } = this.prover.createTopTreeProver();
 
+      const epochDeadline = await this.getEpochDeadline(epoch);
       const job = new TopTreeJob(
         epoch,
         checkpoints,
@@ -371,6 +376,8 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         claim.claimToken,
         claim.workItemId,
         { heartbeatIntervalMs: this.config.proverNodeClaimHeartbeatIntervalMs },
+        this.dateProvider,
+        epochDeadline,
       );
 
       this.splitJobs.set(claim.workItemId, job);
@@ -404,6 +411,9 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
       const [lastPublishedCheckpoint] = await this.l2BlockSource.getCheckpoints(checkpoints.at(-1)!.number, 1);
       const attestations = lastPublishedCheckpoint?.attestations?.map(a => a.toViem()) ?? [];
 
+      // No deadline for publish jobs — the TX should be submitted and L1 decides
+      // if it's too late (matching legacy EpochProvingJob behavior where the deadline
+      // does not cancel an in-flight TX submission).
       const { RootRollupPublishJob } = await import('./job/root-rollup-publish-job.js');
       const job = new RootRollupPublishJob(
         epoch,
@@ -413,6 +423,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         this.broker,
         claim.claimToken,
         claim.workItemId,
+        this.dateProvider,
       );
       this.splitJobs.set(claim.workItemId, job);
       void job
@@ -581,6 +592,11 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
   @memoize
   private getL1Constants() {
     return this.l2BlockSource.getL1Constants();
+  }
+
+  private async getEpochDeadline(epochNumber: EpochNumber): Promise<Date> {
+    const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
+    return new Date(Number(deadlineTs) * 1000);
   }
 
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))

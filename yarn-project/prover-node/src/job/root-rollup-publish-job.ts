@@ -2,6 +2,7 @@ import type { ViemCommitteeAttestation } from '@aztec/ethereum/contracts';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
   type ProvingJobClaimManager,
@@ -31,8 +32,10 @@ export class RootRollupPublishJob extends SplitProvingJob {
     private broker: ProvingJobProducer & ProvingJobClaimManager,
     claimToken: string,
     workItemId: string,
+    dateProvider: DateProvider,
+    deadline?: Date,
   ) {
-    super(epochNumber, workItemId, claimToken, 'publish');
+    super(epochNumber, workItemId, claimToken, 'publish', dateProvider, deadline);
     this.logger = createLogger('prover-node:root-rollup-publish-job');
   }
 
