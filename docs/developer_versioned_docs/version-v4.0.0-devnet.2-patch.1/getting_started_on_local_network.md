@@ -5,9 +5,6 @@ sidebar_position: 0
 tags: [local_network, testnet]
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 Get started on your local environment using a local network. If you'd rather jump into devnet, read the [getting started on devnet guide](./getting_started_on_devnet.md).
 
 The local network is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The local network makes it faster and easier to develop and test your Aztec applications.
@@ -19,7 +16,7 @@ What's included in the local network:
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
-This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
+This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
 
 ## Prerequisites
 
@@ -40,7 +37,7 @@ VERSION=4.0.0-devnet.2-patch.1 bash -i <(curl -sL https://install.aztec.network/
 This will install the following tools:
 
 - **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
-- **aztec-up** - a version manager for the Aztec toolchain. Use `aztec-up install <version>` to install a new version, `aztec-up use <version>` to switch between installed versions, or `aztec-up list` to see installed versions.
+- **aztec-up** - a version manager for the Aztec toolchain. Use `aztec-up install <version>` to install a new version, `aztec-up use <version>` to switch between installed versions, or `aztec-up list` to see installed versions
 - **aztec-wallet** - a tool for interacting with the aztec network
 
 ### Start the local network
@@ -51,7 +48,7 @@ Once these have been installed, to start the local network, run:
 aztec start --local-network
 ```
 
-**Congratulations, you have just installed and run the Aztec local network!**
+**Congratulations, you have just installed and run the Aztec local network.**
 
 ```bash
      /\        | |
@@ -101,24 +98,25 @@ aztec-wallet create-account -a my-wallet -f test0
 You can turn off proof generation by adding the `--prover none` flag to the command or setting `PXE_PROVER=none`.
 :::
 
-This will create a new wallet with an account and give it the alias `my-wallet`. Accounts can be referenced with `accounts:<alias>`. You will see logs telling you the address, public key, secret key, and more.
+Here `-a my-wallet` gives the account an alias, and `-f test0` specifies which account pays the deployment fee (in this case, the pre funded test account).
+
+This will create a new account and register it with the alias `my-wallet`. You can reference it later with `accounts:my-wallet`. You will see logs showing the address, public key, secret key, and more.
 
 On successful deployment of the account, you should see something like this:
 
 ```bash
 New account:
 
-Address:         0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c
-Public key:      0x007343da506ea513e6c05ba4d5e92e3c682333d97447d45db357d05a28df0656181e47a6257e644c3277c0b11223b28f2b36c94f9b0a954523de61ac967b42662b60e402f55e3b7384ba61261335040fe4cd52cb0383f559a36eeea304daf67d1645b06c38ee6098f90858b21b90129e7e1fdc4666dd58d13ef8fab845b2211906656d11b257feee0e91a42cb28f46b80aabdc70baad50eaa6bb2c5a7acff4e30b5036e1eb8bdf96fad3c81e63836b8aa39759d11e1637bd71e3fc76e3119e500fbcc1a22e61df8f060004104c5a75b52a1b939d0f315ac29013e2f908ca6bc50529a5c4a2604c754d52c9e7e3dee158be21b7e8008e950991174e2765740f58
-Secret key:     0x1c94f8b19e91d23fd3ab6e15f7891fde7ba7cae01d3fa94e4c6afb4006ec0cfb
-Partial address: 0x2fd6b540a6bb129dd2c05ff91a9c981fb5aa2ac8beb4268f10b3aa5fb4a0fcd1
+Address:         0x1c87e7e741d2973f42506200b8bfa6da0acdac315077ac0f94ff438ca6d663fe
+Public key:      0x1e2662f00e236c170ea64d185207e10e48faef6c439d67f884eedcba3fd68212...
+Secret key:     0x028fbc1af347da4da75b815a93d48988c99e19063122e61c025db39b48fb9190
+Partial address: 0x1f32ba4e97f718885ba882b1adf17346200ac1d353c452dad6c80395d288246b
 Salt:            0x0000000000000000000000000000000000000000000000000000000000000000
-Init hash:       0x28df95b579a365e232e1c63316375c45a16f6a6191af86c5606c31a940262db2
-Deployer:        0x0000000000000000000000000000000000000000000000000000000000000000
+Init hash:       0x18139514e46afbaf9aa93ee43baeab74f7128328b748ac0ec8ed9d13f582286c
 
 Waiting for account contract deployment...
-Deploy tx hash:  0a632ded6269bda38ad6b54cd49bef033078218b4484b902e326c30ce9dc6a36
-Deploy tx fee:   200013616
+Deploy tx hash:  0x1f4c0d41411ce0fcd8a8e48d7d46f16cadfab34c42ca3abc9118307c2d67c1a0
+Deploy tx fee:   8748339200000
 Account stored in database with aliases last & my-wallet
 ```
 
@@ -126,11 +124,11 @@ You may need to scroll up as there are some other logs printed after it.
 
 You can double check by running `aztec-wallet get-alias accounts:my-wallet`.
 
-For simplicity we'll keep using the test account, let's deploy our own test token!
+For simplicity we'll keep using the test account. Next, let's deploy our own test token.
 
 ## Deploying a contract
 
-The local network comes with some contracts that you can deploy and play with. One of these is an example token contract.
+The local network comes with some pre-compiled contract artifacts that you can deploy and play with. One of these is an example token contract.
 
 Deploy it with this:
 
@@ -142,23 +140,23 @@ This takes
 
 - the contract artifact as the argument, which is `TokenContractArtifact`
 - the deployer account, which we used `test0`
-- the args that the contract constructor takes, which is the `admin` (`accounts:test0`), `name` (`TestToken`), `symbol` (`TST`), and `decimals` (`18`).
+- the args that the contract constructor takes, which is the `admin` (`accounts:test0`), `name` (`TestToken`), `symbol` (`TST`), and `decimals` (`18`)
 - an alias `testtoken` (`-a`) so we can easily reference it later with `contracts:testtoken`
 
 On successful deployment, you should see something like this:
 
 ```bash
-aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
-Contract deployed at 0x15ce68d4be65819fe9c335132f10643b725a9ebc7d86fb22871f6eb8bdbc3abd
-Contract partial address 0x25a91e546590d77108d7b184cb81b0a0999e8c0816da1a83a2fa6903480ea138
-Contract init hash 0x0abbaf0570bf684da355bd9a9a4b175548be6999625b9c8e0e9775d140c78506
-Deployment tx hash: 0a8ccd1f4e28092a8fa4d1cb85ef877f8533935c4e94b352a38af73eee17944f
-Deployment salt: 0x266295eb5da322aba96fbb24f9de10b2ba01575dde846b806f884f749d416707
-Deployment fee: 200943060
+Contract deployed at 0x1d833888c43bc70350d83852cef3320a9c5768f0f7fb25ef7a989932fbb2f490
+Contract partial address 0x19d1d74695b01d93257c1190a55810f5c09971c245e58f524584fada11e09ca4
+Contract init hash 0x1b312a8ca1c18785da7a5ff087d13e1ce0d2370bb79789e83fa4bc226f9c8bb9
+Deployment tx hash: 0x27e8168c81472bf76e3b37a056c4dd0d303376a1ab57997287d6bb5c6813ac6f
+Deployment salt: 0x19a2aa2f97a9af569cfb793b54eedc0db9adacff5fb823e24ca68c6c70d98960
+Deployer: 0x089323ce9a610e9f013b661ce80dde444b554e9f6ed9f5167adb234668f0af72
+Transaction fee: 12617052998800000
 Contract stored in database with aliases last & testtoken
 ```
 
-In the next step, let's mint some tokens!
+In the next step, let's mint some tokens.
 
 ## Minting public tokens
 
@@ -173,28 +171,25 @@ This takes
 - the function name as the argument, which is `mint_to_public`
 - the `from` account (caller) which is `accounts:test0`
 - the contract address, which is aliased as `contracts:testtoken` (or simply `testtoken`)
-- the args that the function takes, which is the account to mint the tokens into (`test0`), and `amount` (`100`).
+- the args that the function takes, which is the account to mint the tokens into (`test0`), and `amount` (`100`)
 
 This only works because we are using the secret key of the admin who has permissions to mint.
 
 A successful call should print something like this:
 
 ```bash
-aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
-Maximum total tx fee:   1161660
-Estimated total tx fee: 116166
-Estimated gas usage:    da=1127,l2=115039,teardownDA=0,teardownL2=0
+Estimated gas usage:    da=317,l2=185546,teardownDA=0,teardownL2=0
+Maximum total tx fee:   1882716707400000
 
-Transaction hash: 2ac383e8e2b68216cda154b52e940207a905c1c38dadba7a103c81caacec403d
+Transaction hash: 0x11337b25743bc3e9c57c93ace9d0b7c6a0c45e1de0b9f7b92b51788f1d1edd3e
 Transaction has been mined
- Tx fee: 200106180
- Status: success
- Block number: 17
- Block hash: 1e27d200600bc45ab94d467c230490808d1e7d64f5ee6cee5e94a08ee9580809
-Transaction hash stored in database with aliases last & mint_to_public-9044
+ Tx fee: 1141039198800000
+ Status: checkpointed
+ Block number: 7
+ Block hash: 0x2b39376ee9801855fc6fd01b09b1fe67ca83ab355fd86e765d45e23907edc1be
 ```
 
-You can double-check by calling the function that checks your public account balance:
+You can double check by calling the function that checks your public account balance. Unlike `send` which submits a transaction to the network, `simulate` runs a function locally and returns the result without modifying any state:
 
 ```bash
 aztec-wallet simulate balance_of_public --from test0 --contract-address testtoken --args accounts:test0
@@ -208,7 +203,7 @@ Simulation result:  100n
 
 ## Playing with hybrid state and private functions
 
-In the following steps, we'll move some tokens from public to private state and check our private and public balance.
+In the following steps, we'll move some tokens from public to private state. As covered in the [overview](./overview.md), public state works like a ledger (similar to Ethereum), while private state is stored as encrypted notes that only the owner can access. The `transfer_to_private` function reduces your public balance and creates private notes in its place.
 
 ```bash
 aztec-wallet send transfer_to_private --from accounts:test0 --contract-address testtoken --args accounts:test0 25
@@ -221,7 +216,7 @@ The arguments for `transfer_to_private` function are:
 
 A successful call should print something similar to what you've seen before.
 
-Now when you call `balance_of_public` again you will see 75!
+Now when you call `balance_of_public` again you will see 75.
 
 ```bash
 aztec-wallet simulate balance_of_public --from test0 --contract-address testtoken --args accounts:test0
@@ -233,7 +228,7 @@ This should print
 Simulation result:  75n
 ```
 
-And then call `balance_of_private` to check that you have your tokens!
+And then call `balance_of_private` to check that you have your tokens. Notice that `--from` is required when querying private state because private balances are stored as encrypted notes, and the PXE needs the account's keys to decrypt and find them.
 
 ```bash
 aztec-wallet simulate balance_of_private --from test0 --contract-address testtoken --args accounts:test0
@@ -245,11 +240,11 @@ This should print
 Simulation result:  25n
 ```
 
-**Congratulations, you now know the fundamentals of working with the Aztec local network!** You are ready to move onto the more fun stuff.
+**Congratulations, you now know the fundamentals of working with the Aztec local network.** You are ready to move onto the more fun stuff.
 
 ## What's next?
 
 Want to build something cool on Aztec?
 
 - Check out the [Token Contract Tutorial](./docs/tutorials/contract_tutorials/token_contract.md) for a beginner tutorial, or jump into more advanced ones
-- Start on your own thing and check out the How To Guides to help you!
+- Start on your own thing and check out the How To Guides to help you
