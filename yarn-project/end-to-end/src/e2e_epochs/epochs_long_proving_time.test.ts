@@ -24,13 +24,11 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     const { aztecSlotDuration } = EpochsTestContext.getSlotDurations({ aztecEpochDuration });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
-    // Disable split proving — this test relies on proverTestDelayMs and the legacy getJobs() API.
     test = await EpochsTestContext.setup({
       aztecEpochDuration,
       aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
       proverTestDelayMs,
-      proverNodeMaxPendingJobs: 1, // We test for only a single job at once
-      proverNodeSplitProving: false,
+      proverNodeMaxPendingJobs: 1, // Max 1 sub-tree job at a time
     });
     ({ logger, monitor, L1_BLOCK_TIME_IN_S } = test);
     logger.warn(`Initialized with prover delay set to ${proverTestDelayMs}ms (epoch is ${epochDurationInSeconds}s)`);
@@ -46,13 +44,14 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
     logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenBlockNumber} L2 blocks`);
 
-    // Wait until we hit the target proven block number, and keep an eye on how many proving jobs are run in parallel.
-    let maxJobCount = 0;
+    // Wait until we hit the target proven block number, and keep an eye on how many sub-tree proving jobs
+    // are run in parallel. In split proving mode, only sub-tree jobs count against maxPendingJobs.
+    let maxSubTreeJobCount = 0;
     while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < targetProvenBlockNumber) {
-      const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
-      if (jobs.length > maxJobCount) {
-        maxJobCount = jobs.length;
-        logger.info(`Updated max job count to ${maxJobCount}`, jobs);
+      const { subTree } = test.proverNodes[0].getProverNode()!.getSplitJobCounts();
+      if (subTree > maxSubTreeJobCount) {
+        maxSubTreeJobCount = subTree;
+        logger.info(`Updated max sub-tree job count to ${maxSubTreeJobCount}`);
       }
       await sleep((L1_BLOCK_TIME_IN_S * 1000) / 2);
     }
@@ -60,10 +59,9 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     // At least 3 epochs should have passed after the proven one (though we add a -1 just in case)
     expect(monitor.checkpointNumber).toBeGreaterThanOrEqual(targetProvenEpochs * test.epochDuration * 3 - 1);
 
-    // We expect maxJobCount to equal 1, since the prover node epoch monitor defines an epoch as ready to be proven
-    // only if the previous one has already been proven. We can relax this check if we want to support multiple epochs
-    // to be proven in parallel, in which case we should update the assertion below.
-    expect(maxJobCount).toEqual(1);
+    // We expect maxSubTreeJobCount to equal 1, since proverNodeMaxPendingJobs is set to 1.
+    // Top-tree and publish jobs don't count against this limit.
+    expect(maxSubTreeJobCount).toEqual(1);
     logger.info(`Test succeeded`);
   });
 });
