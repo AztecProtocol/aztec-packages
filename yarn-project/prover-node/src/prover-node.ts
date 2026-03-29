@@ -6,6 +6,7 @@ import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -322,6 +323,13 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
     }
 
     try {
+      // Optional delay before starting top-tree proving, matching the legacy
+      // EpochMonitor's provingDelayMs behavior. Paces epoch finalization.
+      if (this.config.proverNodeEpochProvingDelayMs) {
+        this.log.verbose(`Delaying top-tree job for epoch ${epoch} by ${this.config.proverNodeEpochProvingDelayMs}ms`);
+        await sleep(this.config.proverNodeEpochProvingDelayMs);
+      }
+
       // Gather checkpoint data from archiver
       const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epoch);
       if (!checkpoints.length) {
