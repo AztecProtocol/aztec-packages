@@ -3,7 +3,7 @@ import type { EpochProverManager } from '@aztec/stdlib/interfaces/server';
 
 /** Facade lifecycle handle — must be started before use and stopped when done. */
 export interface FacadeHandle {
-  start(): void;
+  start(): void | Promise<void>;
   stop(): Promise<void>;
 }
 

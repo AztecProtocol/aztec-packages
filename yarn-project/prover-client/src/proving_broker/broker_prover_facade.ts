@@ -194,12 +194,16 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     return job.deferred.promise as Promise<ProvingJobResultsMap[T]>;
   }
 
-  public start() {
+  public async start() {
     if (this.runningPromise) {
       throw new Error('BrokerCircuitProverFacade already started');
     }
 
     this.log.verbose('Starting BrokerCircuitProverFacade');
+
+    // Register this consumer's notification queue with the broker immediately,
+    // so completions are captured even before the first poll cycle.
+    await this.broker.getCompletedJobs([], this.consumerId);
 
     this.runningPromise = new RunningPromise(() => this.monitorForCompletedJobs(), this.log, this.pollIntervalMs);
     this.runningPromise.start();

@@ -277,7 +277,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
         throw new Error('Prover client does not support split proving');
       }
       const { orchestrator, facade } = this.prover.createCheckpointSubTreeProver();
-      facade.start();
+      await facade.start();
 
       const publicProcessorFactory = new PublicProcessorFactory(
         this.contractDataSource,
