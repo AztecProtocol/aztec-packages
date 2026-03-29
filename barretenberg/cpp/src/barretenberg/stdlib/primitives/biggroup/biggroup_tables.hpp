@@ -177,7 +177,7 @@ template <typename C, class Fq, class Fr, class G>
 template <size_t length>
 element<C, Fq, Fr, G>::lookup_table_plookup<length>::lookup_table_plookup(const std::array<element, length>& inputs)
 {
-    static_assert(length <= 6, "lookup_table_plookup only supports up to 6 input elements");
+    static_assert(length <= 7, "lookup_table_plookup only supports up to 7 input elements");
 
     if constexpr (length == 2) {
         auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0]);
@@ -308,7 +308,138 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length>::lookup_table_plookup(const 
         element_table[29] = W5;
         element_table[30] = W6;
         element_table[31] = W7;
+    } else if constexpr (length == 7) {
+        // 82 adds (41 add_sub ops). Split inputs as (3-point)+(4-point), build subtables, cross-combine.
+        //
+        // Index encoding: index = bits[6]*64 + bits[5]*32 + bits[4]*16 + bits[3]*8 + bits[2]*4 + bits[1]*2 + bits[0]
+        // Convention: bit[i]=0 → +inputs[i],  bit[i]=1 → -inputs[i]
+        // First 64 entries (bit[6]=0): inputs[6] positive.  Upper 64 filled by negation loop.
+        //
+        // 3-point subtable for inputs[0,1,2] → C0..C3 (bits[2..0] ∈ {000,001,010,011})
+        // C4=-C3, C5=-C2, C6=-C1, C7=-C0  (used implicitly via the cross-product pairing below)
+        auto [R0, R1] = inputs[1].checked_unconditional_add_sub(inputs[0]); // R0=A+B, R1=A-B
+        auto [C0, C3] = inputs[2].checked_unconditional_add_sub(R0);        // C0=+A+B+C, C3=-A-B+C
+        auto [C1, C2] = inputs[2].checked_unconditional_add_sub(R1);        // C1=-A+B+C, C2=+A-B+C
+
+        // 4-point subtable for inputs[3..6] → D0..D7 (bits[6..3] with bit[6]=0)
+        auto [T0, T1] = inputs[4].checked_unconditional_add_sub(inputs[3]); // T0=D+E, T1=D-E
+        auto [T2, T3] = inputs[6].checked_unconditional_add_sub(inputs[5]); // T2=F+G, T3=F-G
+        auto [D0, D3] = T2.checked_unconditional_add_sub(T0);               // D0=+D+E+F+G, D3=-D-E+F+G
+        auto [D1, D2] = T2.checked_unconditional_add_sub(T1);               // D1=-D+E+F+G, D2=+D-E+F+G
+        auto [D4, D7] = T3.checked_unconditional_add_sub(T0);               // D4=+D+E-F+G, D7=-D-E-F+G
+        auto [D5, D6] = T3.checked_unconditional_add_sub(T1);               // D5=-D+E-F+G, D6=+D-E-F+G
+
+        // Cross-combine: each D_d ± C{0,1,2,3} covers indices [8*d..8*d+7]
+        // D_d + C0 → index 8*d+0,  D_d - C0 → index 8*d+7  (since -C0 = C7)
+        // D_d + C1 → index 8*d+1,  D_d - C1 → index 8*d+6  (since -C1 = C6)
+        // D_d + C2 → index 8*d+2,  D_d - C2 → index 8*d+5  (since -C2 = C5)
+        // D_d + C3 → index 8*d+3,  D_d - C3 → index 8*d+4  (since -C3 = C4)
+        auto [E00, E07] = D0.checked_unconditional_add_sub(C0);
+        auto [E01, E06] = D0.checked_unconditional_add_sub(C1);
+        auto [E02, E05] = D0.checked_unconditional_add_sub(C2);
+        auto [E03, E04] = D0.checked_unconditional_add_sub(C3);
+
+        auto [E10, E17] = D1.checked_unconditional_add_sub(C0);
+        auto [E11, E16] = D1.checked_unconditional_add_sub(C1);
+        auto [E12, E15] = D1.checked_unconditional_add_sub(C2);
+        auto [E13, E14] = D1.checked_unconditional_add_sub(C3);
+
+        auto [E20, E27] = D2.checked_unconditional_add_sub(C0);
+        auto [E21, E26] = D2.checked_unconditional_add_sub(C1);
+        auto [E22, E25] = D2.checked_unconditional_add_sub(C2);
+        auto [E23, E24] = D2.checked_unconditional_add_sub(C3);
+
+        auto [E30, E37] = D3.checked_unconditional_add_sub(C0);
+        auto [E31, E36] = D3.checked_unconditional_add_sub(C1);
+        auto [E32, E35] = D3.checked_unconditional_add_sub(C2);
+        auto [E33, E34] = D3.checked_unconditional_add_sub(C3);
+
+        auto [E40, E47] = D4.checked_unconditional_add_sub(C0);
+        auto [E41, E46] = D4.checked_unconditional_add_sub(C1);
+        auto [E42, E45] = D4.checked_unconditional_add_sub(C2);
+        auto [E43, E44] = D4.checked_unconditional_add_sub(C3);
+
+        auto [E50, E57] = D5.checked_unconditional_add_sub(C0);
+        auto [E51, E56] = D5.checked_unconditional_add_sub(C1);
+        auto [E52, E55] = D5.checked_unconditional_add_sub(C2);
+        auto [E53, E54] = D5.checked_unconditional_add_sub(C3);
+
+        auto [E60, E67] = D6.checked_unconditional_add_sub(C0);
+        auto [E61, E66] = D6.checked_unconditional_add_sub(C1);
+        auto [E62, E65] = D6.checked_unconditional_add_sub(C2);
+        auto [E63, E64] = D6.checked_unconditional_add_sub(C3);
+
+        auto [E70, E77] = D7.checked_unconditional_add_sub(C0);
+        auto [E71, E76] = D7.checked_unconditional_add_sub(C1);
+        auto [E72, E75] = D7.checked_unconditional_add_sub(C2);
+        auto [E73, E74] = D7.checked_unconditional_add_sub(C3);
+
+        element_table[0] = E00;
+        element_table[1] = E01;
+        element_table[2] = E02;
+        element_table[3] = E03;
+        element_table[4] = E04;
+        element_table[5] = E05;
+        element_table[6] = E06;
+        element_table[7] = E07;
+        element_table[8] = E10;
+        element_table[9] = E11;
+        element_table[10] = E12;
+        element_table[11] = E13;
+        element_table[12] = E14;
+        element_table[13] = E15;
+        element_table[14] = E16;
+        element_table[15] = E17;
+        element_table[16] = E20;
+        element_table[17] = E21;
+        element_table[18] = E22;
+        element_table[19] = E23;
+        element_table[20] = E24;
+        element_table[21] = E25;
+        element_table[22] = E26;
+        element_table[23] = E27;
+        element_table[24] = E30;
+        element_table[25] = E31;
+        element_table[26] = E32;
+        element_table[27] = E33;
+        element_table[28] = E34;
+        element_table[29] = E35;
+        element_table[30] = E36;
+        element_table[31] = E37;
+        element_table[32] = E40;
+        element_table[33] = E41;
+        element_table[34] = E42;
+        element_table[35] = E43;
+        element_table[36] = E44;
+        element_table[37] = E45;
+        element_table[38] = E46;
+        element_table[39] = E47;
+        element_table[40] = E50;
+        element_table[41] = E51;
+        element_table[42] = E52;
+        element_table[43] = E53;
+        element_table[44] = E54;
+        element_table[45] = E55;
+        element_table[46] = E56;
+        element_table[47] = E57;
+        element_table[48] = E60;
+        element_table[49] = E61;
+        element_table[50] = E62;
+        element_table[51] = E63;
+        element_table[52] = E64;
+        element_table[53] = E65;
+        element_table[54] = E66;
+        element_table[55] = E67;
+        element_table[56] = E70;
+        element_table[57] = E71;
+        element_table[58] = E72;
+        element_table[59] = E73;
+        element_table[60] = E74;
+        element_table[61] = E75;
+        element_table[62] = E76;
+        element_table[63] = E77;
     }
+
     for (size_t i = 0; i < table_size / 2; ++i) {
         element_table[i + (table_size / 2)] = (-element_table[(table_size / 2) - 1 - i]);
     }
