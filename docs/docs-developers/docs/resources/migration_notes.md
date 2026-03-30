@@ -62,6 +62,7 @@ FPCs that use only Fee Juice still work on all networks, since FeeJuice is a pro
 
 `PublicFeePaymentMethod` and `PrivateFeePaymentMethod` in aztec.js are affected, since they use the reference `FPC` contract which calls Token functions during setup. Switch to `FeeJuicePaymentMethodWithClaim` (after [bridging Fee Juice from L1](../aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1)) or write an FPC that uses Fee Juice natively.
 
+**Migration:**
 
 ```diff
 - import { PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
