@@ -64,8 +64,13 @@ describe('EpochCache Integration', () => {
       bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
     }));
 
+    // Use short L2 epochs (6 slots * 24s = 144s) so mineUntilTimestamp doesn't
+    // need to mine thousands of blocks. With ethereumSlotDuration=12 and
+    // aztecSlotDuration=24, advancing one L2 epoch needs ceil(144/12) = 12 L1 blocks.
     const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKey, foundry.id, {
       ...DefaultL1ContractsConfig,
+      aztecSlotDuration: 24,
+      aztecEpochDuration: 6,
       vkTreeRoot: Fr.random(),
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
@@ -74,7 +79,11 @@ describe('EpochCache Integration', () => {
       initialValidators,
     });
 
-    rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
+    rollupCheatCodes = new RollupCheatCodes(
+      cheatCodes,
+      deployed.l1ContractAddresses,
+      DefaultL1ContractsConfig.ethereumSlotDuration,
+    );
 
     const publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: foundry.id });
     rollup = new RollupContract(publicClient, deployed.l1ContractAddresses.rollupAddress.toString());
@@ -95,13 +104,16 @@ describe('EpochCache Integration', () => {
       // Advance past the validator set lag so the epoch's data is finalized.
       const lagEpochs = Math.max(constants.lagInEpochsForValidatorSet, constants.lagInEpochsForRandao);
       const targetEpoch = EpochNumber(lagEpochs + 2);
+      // mineUntilTimestamp mines real blocks so finalized advances with them.
+      // It stops interval mining, so we must restore it before setupEpoch (which
+      // submits a transaction that needs to be mined).
       await rollupCheatCodes.advanceToEpoch(targetEpoch);
-
-      // Mine enough blocks so the finalized tag catches up (finalized = latest - 16 with slotsInAnEpoch=8).
-      await cheatCodes.mine(20);
 
       // Setup epoch so the committee commitment is stored on-chain.
       await rollupCheatCodes.setupEpoch();
+
+      // Stop interval mining to freeze the dateProvider while we run assertions.
+      await cheatCodes.setIntervalMining(0);
 
       const { committee, seed, epoch } = await epochCache.getCommittee('now');
 

@@ -29,6 +29,7 @@ export class RollupCheatCodes {
   constructor(
     private ethCheatCodes: EthCheatCodes,
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
+    private readonly ethereumSlotDuration: number = 12,
   ) {
     this.client = createPublicClient({
       chain: ethCheatCodes.chain,
@@ -45,9 +46,10 @@ export class RollupCheatCodes {
     rpcUrls: string[],
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
     dateProvider: DateProvider,
+    ethereumSlotDuration: number = 12,
   ): RollupCheatCodes {
     const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider);
-    return new RollupCheatCodes(ethCheatCodes, addresses);
+    return new RollupCheatCodes(ethCheatCodes, addresses, ethereumSlotDuration);
   }
 
   /** Returns the current slot */
@@ -136,47 +138,56 @@ export class RollupCheatCodes {
     const slotNumber = SlotNumber(Number(epoch) * Number(slotsInEpoch));
     const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
-      await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
-      this.logger.warn(`Warped to epoch ${epoch}`, { offset: opts.offset, timestamp });
+      await this.ethCheatCodes.mineUntilTimestamp(Number(timestamp), {
+        blockTimestampInterval: this.ethereumSlotDuration,
+        silent: true,
+      });
+      this.logger.warn(`Advanced to epoch ${epoch}`, { offset: opts.offset, timestamp });
     } catch (err) {
-      this.logger.warn(`Warp to epoch ${epoch} failed: ${err}`);
+      this.logger.warn(`Advance to epoch ${epoch} failed: ${err}`);
     }
     return timestamp;
   }
 
-  /** Warps time in L1 until the next epoch */
+  /** Advances L1 time until the next epoch */
   public async advanceToNextEpoch() {
     const slot = await this.getSlot();
     const { epochDuration, slotDuration } = await this.getConfig();
     const slotsUntilNextEpoch = epochDuration - (BigInt(slot) % epochDuration) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * BigInt(slotDuration);
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
-    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), {
+    await this.ethCheatCodes.mineUntilTimestamp(Number(l1Timestamp + timeToNextEpoch), {
+      blockTimestampInterval: this.ethereumSlotDuration,
       silent: true,
-      resetBlockInterval: true,
     });
     this.logger.warn(`Advanced to next epoch`);
   }
 
-  /** Warps time in L1 until the beginning of the next slot. */
+  /** Advances L1 time until the beginning of the next slot. */
   public async advanceToNextSlot() {
     const currentSlot = await this.getSlot();
     const nextSlot = SlotNumber(currentSlot + 1);
     const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]);
-    await this.ethCheatCodes.warp(Number(timestamp), { silent: true, resetBlockInterval: true });
+    await this.ethCheatCodes.mineUntilTimestamp(Number(timestamp), {
+      blockTimestampInterval: this.ethereumSlotDuration,
+      silent: true,
+    });
     this.logger.warn(`Advanced to slot ${nextSlot}`);
     return [timestamp, nextSlot];
   }
 
   /**
-   * Warps time in L1 equivalent to however many slots.
+   * Advances L1 time by the given number of slots.
    * @param howMany - The number of slots to advance.
    */
   public async advanceSlots(howMany: number) {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
     const slotDuration = Number(await this.rollup.read.getSlotDuration());
     const timeToWarp = BigInt(howMany) * BigInt(slotDuration);
-    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, { silent: true, resetBlockInterval: true });
+    await this.ethCheatCodes.mineUntilTimestamp(Number(l1Timestamp + timeToWarp), {
+      blockTimestampInterval: this.ethereumSlotDuration,
+      silent: true,
+    });
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
     this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
   }

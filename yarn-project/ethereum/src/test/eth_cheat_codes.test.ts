@@ -212,6 +212,46 @@ describe('EthCheatCodes', () => {
     });
   });
 
+  describe('mineUntilTimestamp', () => {
+    it('mines blocks until the target timestamp is reached and restores interval mining', async () => {
+      const blockInterval = 2;
+      await cheatCodes.setIntervalMining(blockInterval);
+
+      const currentTs = await cheatCodes.lastBlockTimestamp();
+      const targetTs = currentTs + 20;
+
+      await cheatCodes.mineUntilTimestamp(targetTs, { blockTimestampInterval: blockInterval });
+
+      const latestTs = await cheatCodes.lastBlockTimestamp();
+      expect(latestTs).toBeGreaterThanOrEqual(targetTs);
+
+      // The key difference from warp: finalized block timestamp also advances.
+      const finalizedBlock = await cheatCodes.publicClient.getBlock({ blockTag: 'finalized' });
+      expect(Number(finalizedBlock.timestamp)).toBeGreaterThan(currentTs);
+
+      // Interval mining should be restored.
+      const intervalAfter = await cheatCodes.getIntervalMining();
+      expect(intervalAfter).toBe(blockInterval);
+    });
+
+    it('throws when blockTimestampInterval is not positive', async () => {
+      const currentTs = await cheatCodes.lastBlockTimestamp();
+      await expect(cheatCodes.mineUntilTimestamp(currentTs + 10, { blockTimestampInterval: 0 })).rejects.toThrow(
+        'blockTimestampInterval must be a positive number',
+      );
+    });
+
+    it('does nothing if already past the target timestamp', async () => {
+      const currentTs = await cheatCodes.lastBlockTimestamp();
+      const blockNumberBefore = await cheatCodes.blockNumber();
+
+      await cheatCodes.mineUntilTimestamp(currentTs - 5, { blockTimestampInterval: 1 });
+
+      const blockNumberAfter = await cheatCodes.blockNumber();
+      expect(blockNumberAfter).toBe(blockNumberBefore);
+    });
+  });
+
   describe('mineEmptyBlock', () => {
     it('mines an empty block while preserving pending transactions', async () => {
       // Deploy a token first (with automine enabled)

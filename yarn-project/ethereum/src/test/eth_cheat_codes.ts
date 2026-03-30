@@ -280,6 +280,58 @@ export class EthCheatCodes {
   }
 
   /**
+   * Advances L1 time to the target timestamp by mining blocks at the given interval.
+   * Unlike `warp`, this mines real blocks so finalized block timestamps also advance.
+   *
+   * Stops interval mining for the burst, then restores it if it was previously enabled.
+   *
+   * @param timestamp - The target timestamp to advance to
+   * @param opts - Must include `blockTimestampInterval` (seconds between block timestamps).
+   */
+  public async mineUntilTimestamp(
+    timestamp: number | bigint,
+    opts: { blockTimestampInterval: number; silent?: boolean },
+  ): Promise<void> {
+    const targetTimestamp = Number(timestamp);
+    const blockInterval = opts.blockTimestampInterval;
+    if (blockInterval <= 0) {
+      throw new Error('blockTimestampInterval must be a positive number');
+    }
+
+    const currentTimestamp = await this.lastBlockTimestamp();
+    const blocksNeeded = Math.ceil((targetTimestamp - currentTimestamp) / blockInterval);
+    if (blocksNeeded <= 0) {
+      return;
+    }
+
+    // Save and stop interval mining so Anvil doesn't auto-mine during the burst.
+    const previousInterval = await this.getIntervalMining();
+    if (previousInterval !== null && previousInterval > 0) {
+      await this.setIntervalMining(0, { silent: true });
+    }
+
+    try {
+      // Mine all blocks at once with the correct interval between them.
+      // hardhat_mine accepts (count, interval) where interval is seconds between blocks.
+      await this.doRpcCall('hardhat_mine', [`0x${blocksNeeded.toString(16)}`, `0x${blockInterval.toString(16)}`]);
+    } finally {
+      // Restore interval mining if it was previously enabled.
+      if (previousInterval !== null && previousInterval > 0) {
+        await this.setIntervalMining(previousInterval, { silent: true });
+      }
+    }
+
+    // Query the actual last block timestamp (may overshoot the target due to rounding).
+    const actualTimestamp = await this.lastBlockTimestamp();
+    if ('setTime' in this.dateProvider) {
+      this.dateProvider.setTime(actualTimestamp * 1000);
+    }
+    if (!opts.silent) {
+      this.logger.warn(`Mined ${blocksNeeded} L1 blocks until timestamp ${actualTimestamp}`);
+    }
+  }
+
+  /**
    * Load the value at a storage slot of a contract address on eth
    * @param contract - The contract address
    * @param slot - The storage slot
