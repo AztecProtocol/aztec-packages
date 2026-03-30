@@ -203,11 +203,26 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
+    let extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
       this.contractAddress,
       sender,
       recipient,
     );
+
+    if (!extendedSecret) {
+      // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
+      // king-of-the-hill attacks, instead of failing we use a random tag. By including a correct-looking tag in the
+      // log, the transaction shape is preserved and no privacy is leaked, even if the tag is bogus.
+      this.logger.warn(
+        `Computing a tag for invalid recipient ${recipient} - using a random shared secret with index 0 instead`,
+        { contractAddress: this.contractAddress },
+      );
+      extendedSecret = new ExtendedDirectionalAppTaggingSecret(Fr.random(), this.contractAddress);
+
+      // We don't bother syncing indices or keeping track of this random shared secret - that'd just create unnecessary
+      // extra work for us.
+      return Tag.compute({ extendedSecret, index: 0 });
+    }
 
     const index = await this.#getIndexToUseForSecret(extendedSecret);
     this.logger.debug(
