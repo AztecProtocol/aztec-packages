@@ -224,7 +224,7 @@ function test_cmds {
   # Aztec CLI tests
   aztec/bootstrap.sh test_cmds
 
-  if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
+  if [[ "${TARGET_BRANCH:-}" =~ ^(v[0-9]+(-next)?|backport-to-v[0-9]+-(staging|next))$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
   fi
