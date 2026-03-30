@@ -649,6 +649,56 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_volatile_push([baseSlot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+    const newLen = this.handlerAsUtility().volatilePush(Fr.fromString(baseSlot), elements.map(Fr.fromString));
+    return Promise.resolve([toACVMField(newLen)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_pop([baseSlot]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().volatilePop(Fr.fromString(baseSlot));
+    return Promise.resolve([element.map(toACVMField)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_get([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().volatileGet(Fr.fromString(baseSlot), Fr.fromString(index).toNumber());
+    return Promise.resolve([element.map(toACVMField)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_set([baseSlot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().volatileSet(
+      Fr.fromString(baseSlot),
+      Fr.fromString(index).toNumber(),
+      elements.map(Fr.fromString),
+    );
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_len([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    const len = this.handlerAsUtility().volatileLen(Fr.fromString(baseSlot));
+    return Promise.resolve([toACVMField(len)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_remove([baseSlot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().volatileRemove(Fr.fromString(baseSlot), Fr.fromString(index).toNumber());
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_copy([srcSlot]: ACVMField[], [dstSlot]: ACVMField[], [count]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().volatileCopy(
+      Fr.fromString(srcSlot),
+      Fr.fromString(dstSlot),
+      Fr.fromString(count).toNumber(),
+    );
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_decryptAes128(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],

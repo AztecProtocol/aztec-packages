@@ -1,0 +1,316 @@
+use crate::oracle::volatile;
+use crate::protocol::traits::{Deserialize, Serialize};
+
+/// A dynamically sized array that exists only during a single contract call frame.
+///
+/// Volatile arrays are backed by in-memory storage on the PXE side rather than a persistent database. Each contract
+/// call frame gets its own isolated set of volatile arrays child simulations cannot see the parent's volatile arrays,
+/// and vice versa.
+///
+/// Each logical array operation (push, pop, get, etc.) is a single oracle call, making volatile arrays significantly
+/// cheaper than capsule arrays and more appropriate for transient data.
+///
+/// ## Use Cases
+///
+/// Volatile arrays are designed for transient communication between PXE (TypeScript) and contracts (Noir) during
+/// simulation, for example, note validation requests or event validation responses.
+///
+/// For data that needs to persist across simulations, contract calls, etc, use
+/// [`CapsuleArray`](crate::capsules::CapsuleArray) instead.
+pub struct VolatileArray<T> {
+    base_slot: Field,
+}
+
+impl<T> VolatileArray<T> {
+    /// Creates a volatile array at the given base slot.
+    ///
+    /// Multiple volatile arrays can coexist within the same call frame by using different base slots.
+    pub unconstrained fn at(base_slot: Field) -> Self {
+        Self { base_slot }
+    }
+
+    /// Returns the number of elements stored in the array.
+    pub unconstrained fn len(self) -> u32 {
+        volatile::len_oracle(self.base_slot)
+    }
+
+    /// Stores a value at the end of the array.
+    pub unconstrained fn push(self, value: T)
+    where
+        T: Serialize,
+    {
+        let serialized = value.serialize();
+        let _ = volatile::push_oracle(self.base_slot, serialized);
+    }
+
+    /// Removes and returns the last element. Panics if the array is empty.
+    pub unconstrained fn pop(self) -> T
+    where
+        T: Deserialize,
+    {
+        let serialized = volatile::pop_oracle(self.base_slot);
+        Deserialize::deserialize(serialized)
+    }
+
+    /// Retrieves the value stored at `index`. Panics if the index is out of bounds.
+    pub unconstrained fn get(self, index: u32) -> T
+    where
+        T: Deserialize,
+    {
+        let serialized = volatile::get_oracle(self.base_slot, index);
+        Deserialize::deserialize(serialized)
+    }
+
+    /// Overwrites the value stored at `index`. Panics if the index is out of bounds.
+    pub unconstrained fn set(self, index: u32, value: T)
+    where
+        T: Serialize,
+    {
+        let serialized = value.serialize();
+        volatile::set_oracle(self.base_slot, index, serialized);
+    }
+
+    /// Removes the element at `index`, shifting subsequent elements backward. Panics if out of bounds.
+    pub unconstrained fn remove(self, index: u32) {
+        volatile::remove_oracle(self.base_slot, index);
+    }
+
+    /// Calls a function on each element of the array.
+    ///
+    /// The function `f` is called once with each array value and its corresponding index. Iteration proceeds
+    /// backwards so that it is safe to remove the current element (and only the current element) inside the
+    /// callback.
+    ///
+    /// It is **not** safe to push new elements from inside the callback.
+    pub unconstrained fn for_each<Env>(self, f: unconstrained fn[Env](u32, T) -> ())
+    where
+        T: Deserialize,
+    {
+        let mut i = self.len();
+        while i > 0 {
+            i -= 1;
+            f(i, self.get(i));
+        }
+    }
+}
+
+mod test {
+    use crate::test::helpers::test_environment::TestEnvironment;
+    use super::VolatileArray;
+
+    global SLOT: Field = 1230;
+    global OTHER_SLOT: Field = 5670;
+
+    #[test]
+    unconstrained fn empty_array() {
+        let _ = TestEnvironment::new();
+
+        let array: VolatileArray<Field> = VolatileArray::at(SLOT);
+        assert_eq(array.len(), 0);
+    }
+
+    #[test(should_fail)]
+    unconstrained fn empty_array_read() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+        let _: Field = array.get(0);
+    }
+
+    #[test(should_fail)]
+    unconstrained fn empty_array_pop() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+        let _: Field = array.pop();
+    }
+
+    #[test]
+    unconstrained fn array_push() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+        array.push(5);
+
+        assert_eq(array.len(), 1);
+        assert_eq(array.get(0), 5);
+    }
+
+    #[test(should_fail)]
+    unconstrained fn read_past_len() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+        array.push(5);
+
+        let _ = array.get(1);
+    }
+
+    #[test]
+    unconstrained fn array_pop() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+        array.push(5);
+        array.push(10);
+
+        let popped: Field = array.pop();
+        assert_eq(popped, 10);
+        assert_eq(array.len(), 1);
+        assert_eq(array.get(0), 5);
+    }
+
+    #[test]
+    unconstrained fn array_set() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+        array.push(5);
+        array.set(0, 99);
+        assert_eq(array.get(0), 99);
+    }
+
+    #[test]
+    unconstrained fn array_remove_last() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+
+        array.push(5);
+        array.remove(0);
+
+        assert_eq(array.len(), 0);
+    }
+
+    #[test]
+    unconstrained fn array_remove_some() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+
+        array.push(7);
+        array.push(8);
+        array.push(9);
+
+        assert_eq(array.len(), 3);
+
+        array.remove(1);
+
+        assert_eq(array.len(), 2);
+        assert_eq(array.get(0), 7);
+        assert_eq(array.get(1), 9);
+    }
+
+    #[test]
+    unconstrained fn array_remove_all() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+
+        array.push(7);
+        array.push(8);
+        array.push(9);
+
+        array.remove(1);
+        array.remove(1);
+        array.remove(0);
+
+        assert_eq(array.len(), 0);
+    }
+
+    #[test]
+    unconstrained fn for_each_called_with_all_elements() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+
+        array.push(4);
+        array.push(5);
+        array.push(6);
+
+        let called_with = &mut BoundedVec::<(u32, Field), 3>::new();
+        array.for_each(|index, value| { called_with.push((index, value)); });
+
+        assert_eq(called_with.len(), 3);
+        assert(called_with.any(|(index, value)| (index == 0) & (value == 4)));
+        assert(called_with.any(|(index, value)| (index == 1) & (value == 5)));
+        assert(called_with.any(|(index, value)| (index == 2) & (value == 6)));
+    }
+
+    #[test]
+    unconstrained fn for_each_remove_some() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+
+        array.push(4);
+        array.push(5);
+        array.push(6);
+
+        array.for_each(|index, _| {
+            if index == 1 {
+                array.remove(index);
+            }
+        });
+
+        assert_eq(array.len(), 2);
+        assert_eq(array.get(0), 4);
+        assert_eq(array.get(1), 6);
+    }
+
+    #[test]
+    unconstrained fn for_each_remove_all() {
+        let _ = TestEnvironment::new();
+
+        let array = VolatileArray::at(SLOT);
+
+        array.push(4);
+        array.push(5);
+        array.push(6);
+
+        array.for_each(|index, _| { array.remove(index); });
+
+        assert_eq(array.len(), 0);
+    }
+
+    #[test]
+    unconstrained fn different_slots_are_isolated() {
+        let _ = TestEnvironment::new();
+
+        let array_a = VolatileArray::at(SLOT);
+        let array_b = VolatileArray::at(OTHER_SLOT);
+
+        array_a.push(10);
+        array_a.push(20);
+        array_b.push(99);
+
+        assert_eq(array_a.len(), 2);
+        assert_eq(array_a.get(0), 10);
+        assert_eq(array_a.get(1), 20);
+
+        assert_eq(array_b.len(), 1);
+        assert_eq(array_b.get(0), 99);
+    }
+
+    #[test]
+    unconstrained fn works_with_multi_field_type() {
+        let _ = TestEnvironment::new();
+
+        use crate::test::mocks::MockStruct;
+
+        let array = VolatileArray::at(SLOT);
+
+        let a = MockStruct::new(5, 6);
+        let b = MockStruct::new(7, 8);
+        array.push(a);
+        array.push(b);
+
+        assert_eq(array.len(), 2);
+        assert_eq(array.get(0), a);
+        assert_eq(array.get(1), b);
+
+        let popped: MockStruct = array.pop();
+        assert_eq(popped, b);
+        assert_eq(array.len(), 1);
+    }
+}

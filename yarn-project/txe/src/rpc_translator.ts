@@ -898,6 +898,70 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_push(foreignBaseSlot: ForeignCallSingle, foreignElements: ForeignCallArray) {
+    const baseSlot = fromSingle(foreignBaseSlot);
+    const elements = fromArray(foreignElements);
+    const newLen = this.handlerAsUtility().volatilePush(baseSlot, elements);
+    return toForeignCallResult([toSingle(new Fr(newLen))]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_pop(foreignBaseSlot: ForeignCallSingle) {
+    const baseSlot = fromSingle(foreignBaseSlot);
+    const element = this.handlerAsUtility().volatilePop(baseSlot);
+    return toForeignCallResult([toArray(element)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_get(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const baseSlot = fromSingle(foreignBaseSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    const element = this.handlerAsUtility().volatileGet(baseSlot, index);
+    return toForeignCallResult([toArray(element)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_set(
+    foreignBaseSlot: ForeignCallSingle,
+    foreignIndex: ForeignCallSingle,
+    foreignElements: ForeignCallArray,
+  ) {
+    const baseSlot = fromSingle(foreignBaseSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    const elements = fromArray(foreignElements);
+    this.handlerAsUtility().volatileSet(baseSlot, index, elements);
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_len(foreignBaseSlot: ForeignCallSingle) {
+    const baseSlot = fromSingle(foreignBaseSlot);
+    const len = this.handlerAsUtility().volatileLen(baseSlot);
+    return toForeignCallResult([toSingle(new Fr(len))]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_remove(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const baseSlot = fromSingle(foreignBaseSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    this.handlerAsUtility().volatileRemove(baseSlot, index);
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_volatile_copy(
+    foreignSrcSlot: ForeignCallSingle,
+    foreignDstSlot: ForeignCallSingle,
+    foreignCount: ForeignCallSingle,
+  ) {
+    const srcSlot = fromSingle(foreignSrcSlot);
+    const dstSlot = fromSingle(foreignDstSlot);
+    const count = fromSingle(foreignCount).toNumber();
+    this.handlerAsUtility().volatileCopy(srcSlot, dstSlot, count);
+    return toForeignCallResult([]);
+  }
+
   // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the

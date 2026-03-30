@@ -42,6 +42,7 @@ import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js'
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
+import { VolatileArrayService } from '../volatile_array_service.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -78,6 +79,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private contractLogger: Logger | undefined;
   private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
+  private readonly volatileArrayService = new VolatileArrayService();
 
   protected readonly contractAddress: AztecAddress;
   protected readonly authWitnesses: AuthWitness[];
@@ -783,6 +785,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
+  }
+
+  public volatilePush(baseSlot: Fr, elements: Fr[]): number {
+    return this.volatileArrayService.push(baseSlot, elements);
+  }
+
+  public volatilePop(baseSlot: Fr): Fr[] {
+    return this.volatileArrayService.pop(baseSlot);
+  }
+
+  public volatileGet(baseSlot: Fr, index: number): Fr[] {
+    return this.volatileArrayService.get(baseSlot, index);
+  }
+
+  public volatileSet(baseSlot: Fr, index: number, elements: Fr[]): void {
+    this.volatileArrayService.set(baseSlot, index, elements);
+  }
+
+  public volatileLen(baseSlot: Fr): number {
+    return this.volatileArrayService.len(baseSlot);
+  }
+
+  public volatileRemove(baseSlot: Fr, index: number): void {
+    this.volatileArrayService.remove(baseSlot, index);
+  }
+
+  public volatileCopy(srcSlot: Fr, dstSlot: Fr, count: number): void {
+    this.volatileArrayService.copy(srcSlot, dstSlot, count);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {
