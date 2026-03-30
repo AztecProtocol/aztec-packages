@@ -11,22 +11,23 @@ import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Hex } from '@aztec/foundation/string';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import type { P2P, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal, mockTx } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
 import { DutyAlreadySignedError } from '@aztec/validator-ha-signer/errors';
 import { createHASigner } from '@aztec/validator-ha-signer/factory';
 import { Pool } from '@aztec/validator-ha-signer/test';
+import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
@@ -36,6 +37,7 @@ import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorClientConfig } from './config.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
+import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
 import { ProposalHandler } from './proposal_handler.js';
@@ -210,22 +212,59 @@ describe('ValidatorClient HA Integration', () => {
       getTelemetryClient(),
     );
 
-    // Create validator using protected constructor via type assertion
-    // This is necessary to test HA coordination with real services
-    const validator = new (ValidatorClient as any)(
+    const validator = new TestValidatorClient(
       haKeyStore,
       epochCache,
       p2pClient,
       proposalHandler,
+      blockSource,
+      checkpointsBuilder,
+      worldState,
+      l1ToL2MessageSource,
       config,
       blobClient,
-      haSigner,
+      undefined as unknown as ValidatorHASigner,
       dateProvider,
       getTelemetryClient(),
     ) as ValidatorClient;
 
     // Note: Validator is tracked in the calling code (beforeEach)
     return validator;
+  }
+
+  // Allow access to the constructor
+  class TestValidatorClient extends ValidatorClient {
+    constructor(
+      keyStore: ExtendedValidatorKeyStore,
+      epochCache: EpochCache,
+      p2pClient: P2P,
+      proposalHandler: ProposalHandler,
+      blockSource: L2BlockSource,
+      checkpointsBuilder: FullNodeCheckpointsBuilder,
+      worldState: WorldStateSynchronizer,
+      l1ToL2MessageSource: L1ToL2MessageSource,
+      config: ValidatorClientFullConfig,
+      blobClient: BlobClientInterface,
+      slashingProtectionSigner: ValidatorHASigner,
+      dateProvider: DateProvider = new DateProvider(),
+      telemetry: TelemetryClient = getTelemetryClient(),
+    ) {
+      super(
+        keyStore,
+        epochCache,
+        p2pClient,
+        proposalHandler,
+        blockSource,
+        checkpointsBuilder,
+        worldState,
+        l1ToL2MessageSource,
+        config,
+        blobClient,
+        slashingProtectionSigner,
+        dateProvider,
+        telemetry,
+      );
+    }
   }
 
   describe('High-Availability signing coordination', () => {

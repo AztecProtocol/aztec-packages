@@ -59,6 +59,7 @@ import { ENR } from '@nethermindeth/enr';
 import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';
+import { CheckpointProposalReceivedCallbackNotRegisteredError } from '../../errors/p2p-service.error.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import {
   BlockProposalValidator,
@@ -172,7 +173,13 @@ export class LibP2PService extends WithTracer implements P2PService {
    * @param checkpoint - The checkpoint proposal received from the peer.
    * @returns The attestations for the checkpoint, if any.
    */
-  private checkpointReceivedCallback: P2PCheckpointReceivedCallback;
+  private allNodesCheckpointReceivedCallback: P2PCheckpointReceivedCallback;
+  /**
+   * Callback for when a checkpoint proposal is received - specifically for validators - from a peer.
+   * @param checkpoint - The checkpoint proposal received from the peer.
+   * @returns The attestations for the checkpoint, if any.
+   */
+  private validatorCheckpointReceivedCallback: P2PCheckpointReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
   private ipChangedHandler?: (ip: string) => void;
@@ -248,12 +255,15 @@ export class LibP2PService extends WithTracer implements P2PService {
       return true;
     };
 
-    this.checkpointReceivedCallback = (
-      checkpoint: CheckpointProposalCore,
+    this.allNodesCheckpointReceivedCallback = (
+      _checkpoint: CheckpointProposalCore,
     ): Promise<CheckpointAttestation[] | undefined> => {
-      this.logger.debug(
-        `Handler not yet registered: Checkpoint received callback not set. Received checkpoint for slot ${checkpoint.slotNumber} from peer.`,
-      );
+      throw new CheckpointProposalReceivedCallbackNotRegisteredError();
+    };
+
+    this.validatorCheckpointReceivedCallback = (
+      _checkpoint: CheckpointProposalCore,
+    ): Promise<CheckpointAttestation[] | undefined> => {
       return Promise.resolve(undefined);
     };
   }
@@ -703,8 +713,16 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.blockReceivedCallback = callback;
   }
 
-  public registerCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
-    this.checkpointReceivedCallback = callback;
+  public registerValidatorCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
+    this.validatorCheckpointReceivedCallback = callback;
+  }
+
+  public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
+    this.allNodesCheckpointReceivedCallback = callback;
+  }
+
+  public async notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void> {
+    await this.allNodesCheckpointReceivedCallback(checkpoint, this.node.peerId);
   }
 
   /**
@@ -1441,9 +1459,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       source: sender.toString(),
     });
 
+    await this.allNodesCheckpointReceivedCallback(checkpoint, sender);
+
     // Call the checkpoint received callback with the core version (without lastBlock)
     // to validate and potentially generate attestations
-    const attestations = await this.checkpointReceivedCallback(checkpoint, sender);
+    const attestations = await this.validatorCheckpointReceivedCallback(checkpoint, sender);
     if (attestations && attestations.length > 0) {
       // If the callback returned attestations, add them to the pool and propagate them
       await this.mempools.attestationPool.addOwnCheckpointAttestations(attestations);
