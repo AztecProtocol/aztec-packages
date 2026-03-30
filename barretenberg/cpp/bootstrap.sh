@@ -37,9 +37,11 @@ function inject_version {
   printf "$version\0" | dd of="$binary" bs=1 seek=$version_offset conv=notrunc 2>/dev/null
 
   # Re-sign after modifying the binary.
+  # On macOS, use codesign. On Linux amd64, use ldid for Mach-O cross-compiled binaries.
+  # ARM64 Linux instances don't need ldid — all macOS release artifacts are published from amd64.
   if [[ "$(os)" == "macos" ]]; then
     codesign -s - -f "$binary" 2>/dev/null || true
-  elif llvm-objdump-20 --macho --private-header "$binary" 2>/dev/null | grep -q "Mach header"; then
+  elif [[ "$(arch)" == "amd64" ]] && llvm-objdump-20 --macho --private-header "$binary" 2>/dev/null | grep -q "Mach header"; then
     ldid -S "$binary"
   fi
 }
