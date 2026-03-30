@@ -6,7 +6,7 @@ import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/ty
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -406,7 +406,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // Compare message count and rolling hash. If they match, no need to retrieve anything.
     if (
       remoteMessagesState.totalMessagesInserted === localMessagesInserted &&
-      remoteMessagesState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer32.ZERO)
+      remoteMessagesState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer16.ZERO)
     ) {
       this.log.trace(
         `No L1 to L2 messages to query between L1 blocks ${messagesSyncPoint.l1BlockNumber} and ${currentL1BlockNumber}.`,
