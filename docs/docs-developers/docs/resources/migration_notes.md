@@ -38,6 +38,8 @@ The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The 
 + await pxe.proveTx(txRequest, scopes);
 ```
 
+**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
+
 ### [PXE] Capsule operations are now scope-enforced at the PXE level
 
 The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
@@ -50,7 +52,6 @@ The zero address (`AztecAddress::zero()`) is always allowed regardless of the sc
 
 **Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
 
-
 ## 4.2.0-aztecnr-rc.2
 
 ### Custom token FPCs removed from default public setup allowlist
@@ -61,9 +62,6 @@ FPCs that use only Fee Juice still work on all networks, since FeeJuice is a pro
 
 `PublicFeePaymentMethod` and `PrivateFeePaymentMethod` in aztec.js are affected, since they use the reference `FPC` contract which calls Token functions during setup. Switch to `FeeJuicePaymentMethodWithClaim` (after [bridging Fee Juice from L1](../aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1)) or write an FPC that uses Fee Juice natively.
 
-
-
-**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
 
 ```diff
 - import { PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
