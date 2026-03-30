@@ -84,20 +84,11 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       secret: ACVMField[],
     ): Promise<(ACVMField | ACVMField[])[]> =>
       oracle.aztec_utl_getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
-    utilityEmitOffchainEffect: (data: ACVMField[]): Promise<ACVMField[]> => oracle.aztec_utl_emitOffchainEffect(data),
     // Renames (same signature, different oracle name)
     privateNotifySetMinRevertibleSideEffectCounter: (counter: ACVMField[]): Promise<ACVMField[]> =>
       oracle.aztec_prv_notifyRevertiblePhaseStart(counter),
-    privateIsSideEffectCounterRevertible: (sideEffectCounter: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_prv_isExecutionInRevertiblePhase(sideEffectCounter),
     // Signature changes: old 4-param oracles → new 1-param validatePublicCalldata
     privateNotifyEnqueuedPublicFunctionCall: (
-      _contractAddress: ACVMField[],
-      calldataHash: ACVMField[],
-      _sideEffectCounter: ACVMField[],
-      _isStaticCall: ACVMField[],
-    ): Promise<ACVMField[]> => oracle.aztec_prv_assertValidPublicCalldata(calldataHash),
-    privateNotifySetPublicTeardownFunctionCall: (
       _contractAddress: ACVMField[],
       calldataHash: ACVMField[],
       _sideEffectCounter: ACVMField[],
