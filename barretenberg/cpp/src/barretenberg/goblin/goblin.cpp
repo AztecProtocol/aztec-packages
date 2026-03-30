@@ -11,6 +11,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm/eccvm_trace_checker.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
@@ -38,6 +39,7 @@ void Goblin::prove_eccvm()
     // Scope the builder so it (and any circuit data) is freed before proving
     ECCVMProver eccvm_prover = [&]() {
         ECCVMBuilder eccvm_builder(op_queue);
+        info("ECCVM STATUS: ", ECCVMTraceChecker::check(eccvm_builder));
         return ECCVMProver(eccvm_builder, transcript);
     }();
     auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
