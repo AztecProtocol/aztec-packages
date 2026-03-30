@@ -115,6 +115,16 @@ describe('EpochCache Integration', () => {
       for (const v of validatorAddresses) {
         expect(committeeStrings.has(v.toString())).toBe(true);
       }
+
+      // Cross-check against the rollup contract directly.
+      const slotTs =
+        BigInt(constants.l1GenesisTime) +
+        BigInt(epoch) * BigInt(constants.epochDuration) * BigInt(constants.slotDuration);
+      const [l1Committee, l1Seed] = await Promise.all([rollup.getCommitteeAt(slotTs), rollup.getSampleSeedAt(slotTs)]);
+
+      expect(l1Committee).toBeDefined();
+      expect(l1Committee!.map(v => v.toString()).sort()).toEqual(committee!.map(v => v.toString()).sort());
+      expect(l1Seed.toBigInt()).toBe(seed);
     }, 60_000);
 
     it('caches committee and returns same result within epoch', async () => {
