@@ -14,10 +14,11 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
+            MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
             pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
+    oracle,
     utils::array,
 };
 
@@ -126,8 +127,8 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-    let logs = get_private_logs(contract_address, scope);
-    logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
+    let logs = oracle::message_processing::get_pending_tagged_logs(scope);
+    logs.for_each(|_i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
             aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
         } else {
@@ -146,12 +147,6 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
                 scope,
             );
         }
-
-        // We need to delete each log from the array so that we won't process them again. `CapsuleArray::for_each`
-        // allows deletion of the current element during iteration, so this is safe.
-        // Note that this (and all other database changes) will only be committed if contract execution succeeds,
-        // including any enqueued validation requests.
-        logs.remove(i);
     });
 
     if offchain_inbox_sync.is_some() {
@@ -187,18 +182,13 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
 }
 
 mod test {
-    use crate::{
-        capsules::CapsuleArray,
-        messages::{
-            discovery::{CustomMessageHandler, do_sync_state},
-            logs::note::MAX_NOTE_PACKED_LEN,
-            processing::{
-                offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT,
-            },
-        },
-        test::helpers::test_environment::TestEnvironment,
+    use crate::messages::{
+        discovery::{CustomMessageHandler, do_sync_state},
+        logs::note::MAX_NOTE_PACKED_LEN,
+        processing::offchain::OffchainInboxSync,
     };
     use crate::protocol::address::AztecAddress;
+    use crate::test::helpers::test_environment::TestEnvironment;
 
     global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
 
@@ -209,11 +199,9 @@ mod test {
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
-            let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
-
-            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot, SCOPE);
-            logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
-            assert_eq(logs.len(), 1);
+            // Mock the oracle call to return a base slot pointing to an empty volatile array.
+            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogs_v2");
+            let _ = mock.returns(42);
 
             let no_handler: Option<CustomMessageHandler<()>> = Option::none();
             let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
@@ -225,8 +213,6 @@ mod test {
                 no_inbox_sync,
                 SCOPE,
             );
-
-            assert_eq(logs.len(), 0);
         });
     }
 

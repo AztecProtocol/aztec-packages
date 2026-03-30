@@ -120,6 +120,7 @@ export interface IUtilityExecutionOracle {
     numberOfElements: number,
   ): Promise<Fr[]>;
   getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress): Promise<void>;
+  getPendingTaggedLogsV2(scope: AztecAddress): Promise<Fr>;
   validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,

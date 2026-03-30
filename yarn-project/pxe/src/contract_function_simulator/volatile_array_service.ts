@@ -70,6 +70,22 @@ export class VolatileArrayService {
     array.splice(index, 1);
   }
 
+  /** Allocates a fresh, unused base slot for a new volatile array. */
+  allocateSlot(): Fr {
+    let slot: Fr;
+    do {
+      slot = Fr.random();
+    } while (this.#arrays.has(slot.toString()));
+    return slot;
+  }
+
+  /** Creates a new volatile array pre-populated with the given elements and returns its base slot. */
+  newArray(elements: Fr[][]): Fr {
+    const slot = this.allocateSlot();
+    this.#setArray(slot, elements);
+    return slot;
+  }
+
   /** Copies `count` elements from the source array to the destination array (overwrites destination). */
   copy(srcSlot: Fr, dstSlot: Fr, count: number): void {
     const srcArray = this.#getArray(srcSlot);

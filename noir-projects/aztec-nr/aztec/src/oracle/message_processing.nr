@@ -1,14 +1,16 @@
+use crate::messages::processing::pending_tagged_log::PendingTaggedLog;
 use crate::protocol::address::AztecAddress;
+use crate::volatile::VolatileArray;
 
-/// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
-/// them available for later processing in Noir by storing them in a capsule array.
-// TODO(F-498): review naming consistency
-pub unconstrained fn fetch_tagged_logs(pending_tagged_log_array_base_slot: Field, scope: AztecAddress) {
-    get_pending_tagged_logs_oracle(pending_tagged_log_array_base_slot, scope);
+/// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
+/// returns them in a volatile array with an oracle-allocated base slot.
+pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> VolatileArray<PendingTaggedLog> {
+    let result_slot = get_pending_tagged_logs_oracle(scope);
+    VolatileArray::at(result_slot)
 }
 
-#[oracle(aztec_utl_getPendingTaggedLogs)]
-unconstrained fn get_pending_tagged_logs_oracle(pending_tagged_log_array_base_slot: Field, scope: AztecAddress) {}
+#[oracle(aztec_utl_getPendingTaggedLogs_v2)]
+unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> Field {}
 
 // This must be a single oracle and not one for notes and one for events because the entire point is to validate all
 // notes and events in one go, minimizing node round-trips.

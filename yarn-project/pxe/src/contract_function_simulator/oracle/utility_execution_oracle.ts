@@ -500,19 +500,35 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public async getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress) {
-    const logService = new LogService(
+    const logService = this.#createLogService();
+    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope);
+    await this.capsuleService.appendToCapsuleArray(
+      this.contractAddress,
+      pendingTaggedLogArrayBaseSlot,
+      logs.map(log => log.toFields()),
+      this.jobId,
+      scope,
+    );
+  }
+
+  /** Fetches pending tagged logs into a freshly allocated volatile array and returns its base slot. */
+  public async getPendingTaggedLogsV2(scope: AztecAddress): Promise<Fr> {
+    const logService = this.#createLogService();
+    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope);
+    return this.volatileArrayService.newArray(logs.map(log => log.toFields()));
+  }
+
+  #createLogService(): LogService {
+    return new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
       this.keyStore,
-      this.capsuleService,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
       this.logger.getBindings(),
     );
-
-    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, scope);
   }
 
   /**
@@ -623,18 +639,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleService.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId, scope)
     ).map(LogRetrievalRequest.fromFields);
 
-    const logService = new LogService(
-      this.aztecNode,
-      this.anchorBlockHeader,
-      this.keyStore,
-      this.capsuleService,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.addressStore,
-      this.jobId,
-      this.logger.getBindings(),
-    );
-
+    const logService = this.#createLogService();
     const maybeLogRetrievalResponses = await logService.fetchLogsByTag(contractAddress, logRetrievalRequests);
 
     // Requests are cleared once we're done.

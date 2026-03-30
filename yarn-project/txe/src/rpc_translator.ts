@@ -751,6 +751,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getPendingTaggedLogs_v2(foreignScope: ForeignCallSingle) {
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
+    const baseSlot = await this.handlerAsUtility().getPendingTaggedLogsV2(scope);
+    return toForeignCallResult([toSingle(baseSlot)]);
+  }
+
+  // eslint-disable-next-line camelcase
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,

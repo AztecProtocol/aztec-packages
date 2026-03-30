@@ -31,10 +31,6 @@ use crate::protocol::{
 };
 use event_validation_request::EventValidationRequest;
 
-// Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
-pub(crate) global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
-    sha256_to_field("AZTEC_NR::PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes());
-
 global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
@@ -56,18 +52,6 @@ global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
 pub struct OffchainMessageWithContext {
     pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     pub message_context: MessageContext,
-}
-
-/// Searches for private logs emitted by `contract_address` that might contain messages for the given `scope`.
-pub(crate) unconstrained fn get_private_logs(
-    contract_address: AztecAddress,
-    scope: AztecAddress,
-) -> CapsuleArray<PendingTaggedLog> {
-    // We will eventually perform log discovery via tagging here, but for now we simply call the `fetchTaggedLogs`
-    // oracle. This makes PXE synchronize tags, download logs and store the pending tagged logs in a capsule array.
-    oracle::message_processing::fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT, scope);
-
-    CapsuleArray::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT, scope)
 }
 
 /// Enqueues a note for validation and storage by PXE.

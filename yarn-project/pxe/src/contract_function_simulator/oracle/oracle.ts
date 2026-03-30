@@ -524,6 +524,12 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getPendingTaggedLogs_v2([scope]: ACVMField[]): Promise<ACVMField[]> {
+    const baseSlot = await this.handlerAsUtility().getPendingTaggedLogsV2(AztecAddress.fromString(scope));
+    return [toACVMField(baseSlot)];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
