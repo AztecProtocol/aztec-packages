@@ -237,6 +237,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   }
 
   // Use create() to instantiate.
+  get forkId(): number {
+    return this.db.forkId;
+  }
+
   private constructor(
     private db: MerkleTreeWriteOperations,
     private hints: AvmExecutionHints,

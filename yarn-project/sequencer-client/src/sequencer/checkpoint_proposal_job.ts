@@ -37,7 +37,6 @@ import { Gas } from '@aztec/stdlib/gas';
 import {
   type BlockBuilderOptions,
   InsufficientValidTxsError,
-  type MerkleTreeWriteOperations,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -320,7 +319,8 @@ export class CheckpointProposalJob implements Traceable {
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
 
       // Create a forked world state for the checkpoint builder.
-      // Fork lifecycle is managed manually: each block commits and destroys the fork, then creates a new one.
+      // The fork is registered for each built block so SYNC_BLOCK can commit it.
+      // After each block, a new fork is created at the advanced tip.
       const fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
@@ -356,7 +356,6 @@ export class CheckpointProposalJob implements Traceable {
           checkpointGlobalVariables.timestamp,
           inHash,
           blockProposalOptions,
-          fork,
         );
         blocksInCheckpoint = result.blocksInCheckpoint;
         blockPendingBroadcast = result.blockPendingBroadcast;
@@ -501,7 +500,6 @@ export class CheckpointProposalJob implements Traceable {
     timestamp: bigint,
     inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
-    fork: MerkleTreeWriteOperations,
   ): Promise<{
     blocksInCheckpoint: L2Block[];
     blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined;
@@ -571,9 +569,11 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
-      // Commit the fork to persist this block to LMDB. The fork is destroyed after this call.
-      await this.tryCommitFork(fork);
+      // Register the fork so SYNC_BLOCK can commit it instead of recalculating.
+      this.worldState.registerForkForBlock(block.archive.root, checkpointBuilder.getForkId());
       await this.syncProposedBlockToArchiver(block);
+      // Force the block stream to pick up the block and commit the fork via SYNC_BLOCK.
+      await this.worldState.syncImmediate();
 
       // If this is the last block, exit the loop so we can build the checkpoint and start collecting attestations.
       if (timingInfo.isLastBlock) {
@@ -595,9 +595,10 @@ export class CheckpointProposalJob implements Traceable {
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
       proposal && (await this.p2pClient.broadcastProposal(proposal));
 
-      // Create a new fork at the advanced tip for the next block
-      fork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
-      checkpointBuilder.setFork(fork);
+      // Create a new fork at the advanced tip for the next block.
+      // syncImmediate committed the previous fork via SYNC_BLOCK, so LMDB is up to date.
+      const newFork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
+      checkpointBuilder.setFork(newFork);
 
       // Wait until the next block's start time
       await this.waitUntilNextSubslot(timingInfo.deadline);
@@ -1011,15 +1012,6 @@ export class CheckpointProposalJob implements Traceable {
     const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
     this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
     await this.p2pClient.handleFailedExecution(failedTxHashes);
-  }
-
-  /** Commits the fork so getCommitted() immediately reflects the built blocks. The fork is destroyed after this call. */
-  private async tryCommitFork(fork: MerkleTreeWriteOperations): Promise<void> {
-    try {
-      await this.worldState.commitFork(fork);
-    } catch (err) {
-      this.log.debug(`Could not commit fork (block stream may have synced first)`, { err });
-    }
   }
 
   /**

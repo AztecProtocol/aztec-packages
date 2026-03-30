@@ -1,4 +1,5 @@
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { PromiseWithResolvers } from '@aztec/foundation/promise';
 
 import { z } from 'zod';
@@ -52,11 +53,12 @@ export interface ForkMerkleTreeOperations {
   fork(block?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations>;
 
   /**
-   * Commits a fork's state to canonical LMDB and destroys the fork.
-   * Only succeeds if the canonical tip hasn't moved since the fork was created.
-   * The fork is invalid after this call — caller must not use it.
+   * Registers a fork that has built a block. When SYNC_BLOCK is later called for a block
+   * with the same archive root, the fork will be committed instead of recalculating from scratch.
+   * @param archiveRoot - The archive root of the block built on the fork.
+   * @param forkId - The native fork ID.
    */
-  commitFork(fork: MerkleTreeWriteOperations): Promise<void>;
+  registerForkForBlock(archiveRoot: Fr, forkId: number): void;
 
   /** Backups the db to the target path. */
   backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>>;

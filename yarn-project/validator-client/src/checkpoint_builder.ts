@@ -50,6 +50,16 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   /** Persistent contracts DB shared across all blocks in this checkpoint. */
   protected contractsDB: PublicContractsDB;
 
+  /** Returns the current fork. */
+  public getFork(): MerkleTreeWriteOperations {
+    return this.fork;
+  }
+
+  /** Returns the native fork ID. */
+  public getForkId(): number {
+    return this.fork.forkId;
+  }
+
   /** Replaces the fork used for subsequent block builds. */
   public setFork(fork: MerkleTreeWriteOperations): void {
     this.fork = fork;

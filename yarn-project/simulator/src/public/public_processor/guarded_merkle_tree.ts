@@ -25,6 +25,10 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   private isStopped = false;
   private serialQueue = new SerialQueue();
 
+  get forkId(): number {
+    return this.target.forkId;
+  }
+
   constructor(private target: MerkleTreeWriteOperations) {
     this.serialQueue.start();
   }

@@ -2006,7 +2006,7 @@ describe('NativeWorldState', () => {
     });
   });
 
-  describe('commitFork', () => {
+  describe('registerForkForBlock', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
@@ -2017,147 +2017,59 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
 
-    it('makes getCommitted() return the fork state', async () => {
-      const fork = await ws.fork();
-      await mockBlock(BlockNumber(1), 1, fork);
-
-      // Snapshot the fork's state before committing (fork is destroyed after commit)
-      const forkStateRef = await fork.getStateReference();
-
-      await ws.commitFork(fork);
-
-      const committedStateRef = await ws.getCommitted().getStateReference();
-      expect(committedStateRef).toEqual(forkStateRef);
-    });
-
-    it('produces same state as sync_block', async () => {
-      // Build block on a fork
-      const fork = await ws.fork();
-      const { block, messages } = await mockBlock(BlockNumber(1), 2, fork);
-      await ws.commitFork(fork);
-
-      // Get state after commitFork
-      const commitForkState = await ws.getCommitted().getStateReference();
-
-      // Create a fresh world state and sync the same block via handleL2BlockAndMessages
-      const ws2 = await NativeWorldStateService.tmp();
-      await ws2.handleL2BlockAndMessages(block, messages);
-      const syncBlockState = await ws2.getCommitted().getStateReference();
-      await ws2.close();
-
-      expect(commitForkState).toEqual(syncBlockState);
-    });
-
-    it('fails if tip has moved', async () => {
-      // Build and sync block 1 via handleL2BlockAndMessages
-      const setupFork = await ws.fork();
-      const { block, messages } = await mockBlock(BlockNumber(1), 1, setupFork);
-      await ws.handleL2BlockAndMessages(block, messages);
-      await setupFork.close();
-
-      // Create a fork at block 0 (now stale)
-      const staleFork = await ws.fork(BlockNumber(0));
-      await mockBlock(BlockNumber(1), 1, staleFork);
-
-      // commitFork should fail because tip moved from 0 to 1
-      await expect(ws.commitFork(staleFork)).rejects.toThrow();
-    });
-
-    it('handleL2BlockAndMessages skips already committed block', async () => {
+    it('handleL2BlockAndMessages commits a registered fork', async () => {
       const fork = await ws.fork();
       const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
 
-      // Snapshot the fork's state before committing
       const forkStateRef = await fork.getStateReference();
 
-      await ws.commitFork(fork);
-
-      // getCommitted() should return the committed state
-      const committedStateRef = await ws.getCommitted().getStateReference();
-      expect(committedStateRef).toEqual(forkStateRef);
-
-      // Sync the same block via handleL2BlockAndMessages (should be skipped since already committed)
+      // Register the fork, then sync — should commit the fork instead of recalculating
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
       await ws.handleL2BlockAndMessages(block, messages);
 
-      // State should still match
-      const lmdbStateRef = await ws.getCommitted().getStateReference();
-      expect(lmdbStateRef).toEqual(forkStateRef);
-    });
-
-    it('unwindBlocks after commitFork', async () => {
-      // Sync blocks 1..3
-      const setupFork = await ws.fork();
-      for (let i = 1; i <= 3; i++) {
-        const { block, messages } = await mockBlock(BlockNumber(i), 1, setupFork);
-        await ws.handleL2BlockAndMessages(block, messages);
-      }
-      await setupFork.close();
-
-      // Snapshot state at block 2 before the reorg
-      const snapshot2StateRef = await ws.getSnapshot(BlockNumber(2)).getStateReference();
-
-      // Create fork at block 3, build block 4, commitFork
-      const fork = await ws.fork();
-      await mockBlock(BlockNumber(4), 1, fork);
-      await ws.commitFork(fork);
-
-      // Reorg back to block 2
-      await ws.unwindBlocks(BlockNumber(2));
-
-      // getCommitted() should return LMDB state at block 2
       const committedStateRef = await ws.getCommitted().getStateReference();
-      expect(committedStateRef).toEqual(snapshot2StateRef);
+      expect(committedStateRef).toEqual(forkStateRef);
     });
 
     it('commit then create new fork at advanced tip', async () => {
-      // Build and commit block 1
+      // Build and commit block 1 via registerFork + handleL2BlockAndMessages
       const fork1 = await ws.fork();
-      await mockBlock(BlockNumber(1), 1, fork1);
-      await ws.commitFork(fork1);
+      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 1, fork1);
+      ws.registerForkForBlock(block1.archive.root, (fork1 as any).forkId);
+      await ws.handleL2BlockAndMessages(block1, messages1);
 
       // Create new fork at latest (should be at block 1)
       const fork2 = await ws.fork();
-      await mockBlock(BlockNumber(2), 1, fork2);
-      await ws.commitFork(fork2);
+      const { block: block2, messages: messages2 } = await mockBlock(BlockNumber(2), 1, fork2);
+      ws.registerForkForBlock(block2.archive.root, (fork2 as any).forkId);
+      await ws.handleL2BlockAndMessages(block2, messages2);
 
       // Verify canonical is at block 2
       const status = await ws.getStatusSummary();
       expect(status.unfinalizedBlockNumber).toEqual(2);
     });
 
-    it('fork is destroyed after commitFork', async () => {
+    it('falls back to SYNC_BLOCK when no fork is registered', async () => {
       const fork = await ws.fork();
-      await mockBlock(BlockNumber(1), 1, fork);
-      await ws.commitFork(fork);
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+      await fork.close();
+
+      // No registerForkForBlock call — handleL2BlockAndMessages should use SYNC_BLOCK
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalizedBlockNumber).toEqual(1);
+    });
+
+    it('fork is destroyed after commit via handleL2BlockAndMessages', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await ws.handleL2BlockAndMessages(block, messages);
 
       // Fork should be destroyed — operations on it should fail
       await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow('Fork not found');
-    });
-
-    it('close() after commitFork', async () => {
-      const fork = await ws.fork();
-      await mockBlock(BlockNumber(1), 1, fork);
-      await ws.commitFork(fork);
-
-      await ws.close();
-
-      await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow();
-      // Recreate ws so afterEach doesn't double-close
-      ws = await NativeWorldStateService.tmp();
-    });
-
-    it('committed state survives await using dispose', async () => {
-      // Simulate: fork created with await using, then committed.
-      // asyncDispose calls close() which tolerates "Fork not found" since C++ already destroyed the fork.
-      {
-        await using fork = await ws.fork();
-        await mockBlock(BlockNumber(1), 1, fork);
-        await ws.commitFork(fork);
-      }
-
-      // The committed state should be accessible via getCommitted()
-      await expect(ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).resolves.toBeDefined();
-      await expect(ws.getCommitted().getStateReference()).resolves.toBeDefined();
     });
   });
 });

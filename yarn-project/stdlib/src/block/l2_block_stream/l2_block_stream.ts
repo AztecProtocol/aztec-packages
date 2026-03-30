@@ -285,12 +285,6 @@ export class L2BlockStream {
       args.sourceCache.add({ number: blockNumber, hash: sourceBlockHash });
     }
 
-    // If local has a block the source doesn't know about yet, local is ahead (e.g. via commitFork).
-    // This is not a reorg — the source will catch up.
-    if (localBlockHash && !sourceBlockHash) {
-      return true;
-    }
-
     this.log.trace(`Comparing block hashes for block ${blockNumber}`, { localBlockHash, sourceBlockHash });
     return localBlockHash === sourceBlockHash;
   }

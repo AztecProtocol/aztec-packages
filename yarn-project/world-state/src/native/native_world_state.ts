@@ -32,7 +32,6 @@ import {
   type WorldStateStatusFull,
   type WorldStateStatusSummary,
   blockStateReference,
-  buildEmptyWorldStateStatusFull,
   sanitizeFullStatus,
   sanitizeSummary,
   treeStateReferenceToSnapshot,
@@ -49,7 +48,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
-  private committedForkStatus: WorldStateStatusFull | undefined;
+  /** Maps archive root (hex) → fork ID for forks that have built blocks and are awaiting SYNC_BLOCK. */
+  private registeredForks = new Map<string, number>();
 
   protected constructor(
     protected instance: NativeWorldState,
@@ -194,14 +194,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async commitFork(fork: MerkleTreeWriteOperations): Promise<void> {
-    const forkFacade = fork as MerkleTreesForkFacade;
-    this.committedForkStatus = await this.instance.call(
-      WorldStateMessageType.COMMIT_FORK,
-      { forkId: forkFacade.forkId, canonical: true as const },
-      this.sanitizeAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+  public registerForkForBlock(archiveRoot: Fr, forkId: number): void {
+    this.registeredForks.set(archiveRoot.toString(), forkId);
   }
 
   public getInitialHeader(): BlockHeader {
@@ -209,17 +203,18 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    // Skip if this block is already persisted (e.g. via COMMIT_FORK).
-    // Don't skip if trees are out of sync — partial commits need to be detected.
-    const currentStatus = await this.getStatusSummary();
-    if (l2Block.number <= currentStatus.unfinalizedBlockNumber && currentStatus.treesAreSynched) {
-      this.log.debug(
-        `Skipping SYNC_BLOCK for block ${l2Block.number} — already at tip ${currentStatus.unfinalizedBlockNumber}`,
+    // Check if a fork already built this block (registered via registerForkForBlock).
+    // If so, commit the fork directly instead of recalculating via SYNC_BLOCK.
+    const registeredForkId = this.registeredForks.get(l2Block.archive.root.toString());
+    if (registeredForkId !== undefined) {
+      this.registeredForks.delete(l2Block.archive.root.toString());
+      this.log.debug(`Committing registered fork ${registeredForkId} for block ${l2Block.number}`);
+      return await this.instance.call(
+        WorldStateMessageType.COMMIT_FORK,
+        { forkId: registeredForkId, canonical: true as const },
+        this.sanitizeAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
       );
-      if (this.committedForkStatus) {
-        return this.committedForkStatus;
-      }
-      return buildEmptyWorldStateStatusFull();
     }
 
     const isFirstBlock = l2Block.indexWithinCheckpoint === 0;

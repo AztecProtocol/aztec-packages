@@ -118,7 +118,8 @@ export async function mockBlocks(
     const { block, messages } = await mockBlock(BlockNumber(blockNumber), numTxs, tempFork);
     blocks.push(block);
     messagesArray.push(messages);
-    await worldState.commitFork(tempFork);
+    worldState.registerForkForBlock(block.archive.root, tempFork.forkId);
+    await worldState.handleL2BlockAndMessages(block, messages);
   }
 
   return { blocks, messages: messagesArray };

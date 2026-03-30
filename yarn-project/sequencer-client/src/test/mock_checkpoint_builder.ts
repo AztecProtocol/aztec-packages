@@ -66,6 +66,14 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     return this;
   }
 
+  getFork(): MerkleTreeWriteOperations {
+    return {} as MerkleTreeWriteOperations;
+  }
+
+  getForkId(): number {
+    return 0;
+  }
+
   setFork(_fork: MerkleTreeWriteOperations): void {
     // No-op in mock — the mock doesn't use the fork directly
   }

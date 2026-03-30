@@ -136,6 +136,12 @@ export interface ICheckpointBlockBuilder {
     opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult>;
 
+  /** Returns the current fork. */
+  getFork(): MerkleTreeWriteOperations;
+
+  /** Returns the native fork ID of the current fork. */
+  getForkId(): number;
+
   /** Replaces the fork used for subsequent block builds. */
   setFork(fork: MerkleTreeWriteOperations): void;
 }
