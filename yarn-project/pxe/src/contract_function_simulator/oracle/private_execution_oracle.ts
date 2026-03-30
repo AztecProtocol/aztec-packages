@@ -25,7 +25,6 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../../access_scopes.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -43,7 +42,7 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   txContext: TxContext;
   callContext: CallContext;
   /** Needed to trigger contract synchronization before nested calls */
-  utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -76,7 +75,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
   private readonly callContext: CallContext;
-  private readonly utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<void>;
+  private readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;

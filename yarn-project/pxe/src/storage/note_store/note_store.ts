@@ -106,7 +106,7 @@ export class NoteStore implements StagedStore {
    * returned once if this is the case)
    */
   getNotes(filter: NotesFilter, jobId: string): Promise<NoteDao[]> {
-    if (filter.scopes !== 'ALL_SCOPES' && filter.scopes.length === 0) {
+    if (filter.scopes.length === 0) {
       return Promise.resolve([]);
     }
 
@@ -180,10 +180,7 @@ export class NoteStore implements StagedStore {
           continue;
         }
 
-        if (
-          filter.scopes !== 'ALL_SCOPES' &&
-          note.scopes.intersection(new Set(filter.scopes.map(s => s.toString()))).size === 0
-        ) {
+        if (note.scopes.intersection(new Set(filter.scopes.map(s => s.toString()))).size === 0) {
           continue;
         }
 
