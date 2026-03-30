@@ -5,7 +5,7 @@
  * Each handler:
  *  1. Takes a wire command (bb::bbapi::wire::BbFoo&&)
  *  2. Converts wire fields to domain types
- *  3. Calls std::move(domain_cmd).execute(request)
+ *  3. Calls std::move(domain_cmd).execute(ctx)
  *  4. Converts the domain response back to wire response
  *  5. Returns wire response
  */
@@ -155,7 +155,7 @@ inline wire::Bn254G2Point g2_point_to_wire(const bb::g2::affine_element& d)
 // UltraHonk handlers
 // ===========================================================================================
 
-wire::BbCircuitProveResponse handle_circuit_prove(BbRequest& request, wire::BbCircuitProve&& w)
+template <> wire::BbCircuitProveResponse handle_circuit_prove(BbRequest& ctx, wire::BbCircuitProve&& w)
 {
     auto resp =
         BbCircuitProve{
@@ -163,24 +163,24 @@ wire::BbCircuitProveResponse handle_circuit_prove(BbRequest& request, wire::BbCi
             .witness = std::move(w.witness),
             .settings = settings_from_wire(std::move(w.settings)),
         }
-            .execute(request);
+            .execute(ctx);
     return { .public_inputs = uint256_vec_to_wire(resp.public_inputs),
              .proof = uint256_vec_to_wire(resp.proof),
              .vk = compute_vk_response_to_wire(resp.vk) };
 }
 
-wire::BbCircuitComputeVkResponse handle_circuit_compute_vk(BbRequest& request, wire::BbCircuitComputeVk&& w)
+template <> wire::BbCircuitComputeVkResponse handle_circuit_compute_vk(BbRequest& ctx, wire::BbCircuitComputeVk&& w)
 {
     auto resp =
         BbCircuitComputeVk{
             .circuit = circuit_input_novk_from_wire(std::move(w.circuit)),
             .settings = settings_from_wire(std::move(w.settings)),
         }
-            .execute(request);
+            .execute(ctx);
     return compute_vk_response_to_wire(resp);
 }
 
-wire::BbCircuitInfoResponse handle_circuit_stats(BbRequest& request, wire::BbCircuitStats&& w)
+template <> wire::BbCircuitInfoResponse handle_circuit_stats(BbRequest& ctx, wire::BbCircuitStats&& w)
 {
     auto resp =
         BbCircuitStats{
@@ -188,14 +188,14 @@ wire::BbCircuitInfoResponse handle_circuit_stats(BbRequest& request, wire::BbCir
             .include_gates_per_opcode = w.include_gates_per_opcode,
             .settings = settings_from_wire(std::move(w.settings)),
         }
-            .execute(request);
+            .execute(ctx);
     return { .num_gates = resp.num_gates,
              .num_gates_dyadic = resp.num_gates_dyadic,
              .num_acir_opcodes = resp.num_acir_opcodes,
              .gates_per_opcode = std::move(resp.gates_per_opcode) };
 }
 
-wire::BbCircuitVerifyResponse handle_circuit_verify(BbRequest& request, wire::BbCircuitVerify&& w)
+template <> wire::BbCircuitVerifyResponse handle_circuit_verify(BbRequest& ctx, wire::BbCircuitVerify&& w)
 {
     auto resp =
         BbCircuitVerify{
@@ -204,39 +204,40 @@ wire::BbCircuitVerifyResponse handle_circuit_verify(BbRequest& request, wire::Bb
             .proof = uint256_vec_from_wire(w.proof),
             .settings = settings_from_wire(std::move(w.settings)),
         }
-            .execute(request);
+            .execute(ctx);
     return { .verified = resp.verified };
 }
 
-wire::BbVkAsFieldsResponse handle_vk_as_fields(BbRequest& request, wire::BbVkAsFields&& w)
+template <> wire::BbVkAsFieldsResponse handle_vk_as_fields(BbRequest& ctx, wire::BbVkAsFields&& w)
 {
     auto resp =
         BbVkAsFields{
             .verification_key = std::move(w.verification_key),
         }
-            .execute(request);
+            .execute(ctx);
     return { .fields = field_vec_to_wire<bb::fr>(resp.fields) };
 }
 
-wire::BbMegaVkAsFieldsResponse handle_mega_vk_as_fields(BbRequest& request, wire::BbMegaVkAsFields&& w)
+template <> wire::BbMegaVkAsFieldsResponse handle_mega_vk_as_fields(BbRequest& ctx, wire::BbMegaVkAsFields&& w)
 {
     auto resp =
         BbMegaVkAsFields{
             .verification_key = std::move(w.verification_key),
         }
-            .execute(request);
+            .execute(ctx);
     return { .fields = field_vec_to_wire<bb::fr>(resp.fields) };
 }
 
+template <>
 wire::BbCircuitWriteSolidityVerifierResponse handle_circuit_write_solidity_verifier(
-    BbRequest& request, wire::BbCircuitWriteSolidityVerifier&& w)
+    BbRequest& ctx, wire::BbCircuitWriteSolidityVerifier&& w)
 {
     auto resp =
         BbCircuitWriteSolidityVerifier{
             .verification_key = std::move(w.verification_key),
             .settings = settings_from_wire(std::move(w.settings)),
         }
-            .execute(request);
+            .execute(ctx);
     return { .solidity_code = std::move(resp.solidity_code) };
 }
 
@@ -244,58 +245,58 @@ wire::BbCircuitWriteSolidityVerifierResponse handle_circuit_write_solidity_verif
 // Chonk handlers
 // ===========================================================================================
 
-wire::BbChonkComputeVkResponse handle_chonk_compute_vk(BbRequest& request, wire::BbChonkComputeVk&& w)
+template <> wire::BbChonkComputeVkResponse handle_chonk_compute_vk(BbRequest& ctx, wire::BbChonkComputeVk&& w)
 {
     auto resp =
         BbChonkComputeVk{
             .circuit = circuit_input_novk_from_wire(std::move(w.circuit)),
         }
-            .execute(request);
+            .execute(ctx);
     return { .bytes = std::move(resp.bytes), .fields = field_vec_to_wire<bb::fr>(resp.fields) };
 }
 
-wire::BbChonkStartResponse handle_chonk_start(BbRequest& request, wire::BbChonkStart&& w)
+template <> wire::BbChonkStartResponse handle_chonk_start(BbRequest& ctx, wire::BbChonkStart&& w)
 {
-    BbChonkStart{ .num_circuits = w.num_circuits }.execute(request);
+    BbChonkStart{ .num_circuits = w.num_circuits }.execute(ctx);
     return {};
 }
 
-wire::BbChonkLoadResponse handle_chonk_load(BbRequest& request, wire::BbChonkLoad&& w)
+template <> wire::BbChonkLoadResponse handle_chonk_load(BbRequest& ctx, wire::BbChonkLoad&& w)
 {
     BbChonkLoad{
         .circuit = circuit_input_from_wire(std::move(w.circuit)),
     }
-        .execute(request);
+        .execute(ctx);
     return {};
 }
 
-wire::BbChonkAccumulateResponse handle_chonk_accumulate(BbRequest& request, wire::BbChonkAccumulate&& w)
+template <> wire::BbChonkAccumulateResponse handle_chonk_accumulate(BbRequest& ctx, wire::BbChonkAccumulate&& w)
 {
     BbChonkAccumulate{
         .witness = std::move(w.witness),
     }
-        .execute(request);
+        .execute(ctx);
     return {};
 }
 
-wire::BbChonkProveResponse handle_chonk_prove(BbRequest& request, wire::BbChonkProve&& /*w*/)
+template <> wire::BbChonkProveResponse handle_chonk_prove(BbRequest& ctx, wire::BbChonkProve&& /*w*/)
 {
-    auto resp = BbChonkProve{}.execute(request);
+    auto resp = BbChonkProve{}.execute(ctx);
     return { .proof = chonk_proof_to_wire(resp.proof) };
 }
 
-wire::BbChonkVerifyResponse handle_chonk_verify(BbRequest& request, wire::BbChonkVerify&& w)
+template <> wire::BbChonkVerifyResponse handle_chonk_verify(BbRequest& ctx, wire::BbChonkVerify&& w)
 {
     auto resp =
         BbChonkVerify{
             .proof = chonk_proof_from_wire(std::move(w.proof)),
             .vk = std::move(w.vk),
         }
-            .execute(request);
+            .execute(ctx);
     return { .valid = resp.valid };
 }
 
-wire::BbChonkBatchVerifyResponse handle_chonk_batch_verify(BbRequest& request, wire::BbChonkBatchVerify&& w)
+template <> wire::BbChonkBatchVerifyResponse handle_chonk_batch_verify(BbRequest& ctx, wire::BbChonkBatchVerify&& w)
 {
     std::vector<ChonkProof> proofs;
     proofs.reserve(w.proofs.size());
@@ -307,55 +308,59 @@ wire::BbChonkBatchVerifyResponse handle_chonk_batch_verify(BbRequest& request, w
             .proofs = std::move(proofs),
             .vks = std::move(w.vks),
         }
-            .execute(request);
+            .execute(ctx);
     return { .valid = resp.valid };
 }
 
-wire::BbChonkCheckPrecomputedVkResponse handle_chonk_check_precomputed_vk(BbRequest& request,
+template <>
+wire::BbChonkCheckPrecomputedVkResponse handle_chonk_check_precomputed_vk(BbRequest& ctx,
                                                                           wire::BbChonkCheckPrecomputedVk&& w)
 {
     auto resp =
         BbChonkCheckPrecomputedVk{
             .circuit = circuit_input_from_wire(std::move(w.circuit)),
         }
-            .execute(request);
+            .execute(ctx);
     return { .valid = resp.valid, .actual_vk = std::move(resp.actual_vk) };
 }
 
-wire::BbChonkStatsResponse handle_chonk_stats(BbRequest& request, wire::BbChonkStats&& w)
+template <> wire::BbChonkStatsResponse handle_chonk_stats(BbRequest& ctx, wire::BbChonkStats&& w)
 {
     auto resp =
         BbChonkStats{
             .circuit = circuit_input_novk_from_wire(std::move(w.circuit)),
             .include_gates_per_opcode = w.include_gates_per_opcode,
         }
-            .execute(request);
+            .execute(ctx);
     return { .acir_opcodes = resp.acir_opcodes,
              .circuit_size = resp.circuit_size,
              .gates_per_opcode = std::move(resp.gates_per_opcode) };
 }
 
-wire::BbChonkCompressProofResponse handle_chonk_compress_proof(BbRequest& request, wire::BbChonkCompressProof&& w)
+template <>
+wire::BbChonkCompressProofResponse handle_chonk_compress_proof(BbRequest& ctx, wire::BbChonkCompressProof&& w)
 {
     auto resp =
         BbChonkCompressProof{
             .proof = chonk_proof_from_wire(std::move(w.proof)),
         }
-            .execute(request);
+            .execute(ctx);
     return { .compressed_proof = std::move(resp.compressed_proof) };
 }
 
-wire::BbChonkDecompressProofResponse handle_chonk_decompress_proof(BbRequest& request, wire::BbChonkDecompressProof&& w)
+template <>
+wire::BbChonkDecompressProofResponse handle_chonk_decompress_proof(BbRequest& ctx, wire::BbChonkDecompressProof&& w)
 {
     auto resp =
         BbChonkDecompressProof{
             .compressed_proof = std::move(w.compressed_proof),
         }
-            .execute(request);
+            .execute(ctx);
     return { .proof = chonk_proof_to_wire(resp.proof) };
 }
 
-wire::BbChonkBatchVerifierStartResponse handle_chonk_batch_verifier_start(BbRequest& request,
+template <>
+wire::BbChonkBatchVerifierStartResponse handle_chonk_batch_verifier_start(BbRequest& ctx,
                                                                           wire::BbChonkBatchVerifierStart&& w)
 {
     BbChonkBatchVerifierStart{
@@ -364,11 +369,12 @@ wire::BbChonkBatchVerifierStartResponse handle_chonk_batch_verifier_start(BbRequ
         .batch_size = w.batch_size,
         .fifo_path = std::move(w.fifo_path),
     }
-        .execute(request);
+        .execute(ctx);
     return {};
 }
 
-wire::BbChonkBatchVerifierQueueResponse handle_chonk_batch_verifier_queue(BbRequest& request,
+template <>
+wire::BbChonkBatchVerifierQueueResponse handle_chonk_batch_verifier_queue(BbRequest& ctx,
                                                                           wire::BbChonkBatchVerifierQueue&& w)
 {
     BbChonkBatchVerifierQueue{
@@ -376,14 +382,15 @@ wire::BbChonkBatchVerifierQueueResponse handle_chonk_batch_verifier_queue(BbRequ
         .vk_index = w.vk_index,
         .proof_fields = field_vec_from_wire<bb::fr>(w.proof_fields),
     }
-        .execute(request);
+        .execute(ctx);
     return {};
 }
 
-wire::BbChonkBatchVerifierStopResponse handle_chonk_batch_verifier_stop(BbRequest& request,
+template <>
+wire::BbChonkBatchVerifierStopResponse handle_chonk_batch_verifier_stop(BbRequest& ctx,
                                                                         wire::BbChonkBatchVerifierStop&& /*w*/)
 {
-    BbChonkBatchVerifierStop{}.execute(request);
+    BbChonkBatchVerifierStop{}.execute(ctx);
     return {};
 }
 
@@ -391,17 +398,18 @@ wire::BbChonkBatchVerifierStopResponse handle_chonk_batch_verifier_stop(BbReques
 // Crypto handlers
 // ===========================================================================================
 
-wire::BbPoseidon2HashResponse handle_poseidon2_hash(BbRequest& request, wire::BbPoseidon2Hash&& w)
+template <> wire::BbPoseidon2HashResponse handle_poseidon2_hash(BbRequest& ctx, wire::BbPoseidon2Hash&& w)
 {
     auto resp =
         BbPoseidon2Hash{
             .inputs = field_vec_from_wire<bb::fr>(w.inputs),
         }
-            .execute(request);
+            .execute(ctx);
     return { .hash = field_to_wire(resp.hash) };
 }
 
-wire::BbPoseidon2PermutationResponse handle_poseidon2_permutation(BbRequest& request, wire::BbPoseidon2Permutation&& w)
+template <>
+wire::BbPoseidon2PermutationResponse handle_poseidon2_permutation(BbRequest& ctx, wire::BbPoseidon2Permutation&& w)
 {
     auto resp =
         BbPoseidon2Permutation{
@@ -410,68 +418,69 @@ wire::BbPoseidon2PermutationResponse handle_poseidon2_permutation(BbRequest& req
                         field_from_wire<bb::fr>(w.inputs[2]),
                         field_from_wire<bb::fr>(w.inputs[3]) },
         }
-            .execute(request);
+            .execute(ctx);
     return { .outputs = { field_to_wire(resp.outputs[0]),
                           field_to_wire(resp.outputs[1]),
                           field_to_wire(resp.outputs[2]),
                           field_to_wire(resp.outputs[3]) } };
 }
 
-wire::BbPedersenCommitResponse handle_pedersen_commit(BbRequest& request, wire::BbPedersenCommit&& w)
+template <> wire::BbPedersenCommitResponse handle_pedersen_commit(BbRequest& ctx, wire::BbPedersenCommit&& w)
 {
     auto resp =
         BbPedersenCommit{
             .inputs = field_vec_from_wire<grumpkin::fq>(w.inputs),
             .hash_index = w.hash_index,
         }
-            .execute(request);
+            .execute(ctx);
     return { .point = point_to_wire<wire::GrumpkinPoint>(resp.point) };
 }
 
-wire::BbPedersenHashResponse handle_pedersen_hash(BbRequest& request, wire::BbPedersenHash&& w)
+template <> wire::BbPedersenHashResponse handle_pedersen_hash(BbRequest& ctx, wire::BbPedersenHash&& w)
 {
     auto resp =
         BbPedersenHash{
             .inputs = field_vec_from_wire<grumpkin::fq>(w.inputs),
             .hash_index = w.hash_index,
         }
-            .execute(request);
+            .execute(ctx);
     return { .hash = field_to_wire(resp.hash) };
 }
 
-wire::BbPedersenHashBufferResponse handle_pedersen_hash_buffer(BbRequest& request, wire::BbPedersenHashBuffer&& w)
+template <>
+wire::BbPedersenHashBufferResponse handle_pedersen_hash_buffer(BbRequest& ctx, wire::BbPedersenHashBuffer&& w)
 {
     auto resp =
         BbPedersenHashBuffer{
             .input = std::move(w.input),
             .hash_index = w.hash_index,
         }
-            .execute(request);
+            .execute(ctx);
     return { .hash = field_to_wire(resp.hash) };
 }
 
-wire::BbBlake2sResponse handle_blake2s(BbRequest& request, wire::BbBlake2s&& w)
+template <> wire::BbBlake2sResponse handle_blake2s(BbRequest& ctx, wire::BbBlake2s&& w)
 {
     auto resp =
         BbBlake2s{
             .data = std::move(w.data),
         }
-            .execute(request);
+            .execute(ctx);
     // Domain: std::array<uint8_t,32>, Wire: Fr = std::array<uint8_t,32> — same type
     return { .hash = resp.hash };
 }
 
-wire::BbBlake2sToFieldResponse handle_blake2s_to_field(BbRequest& request, wire::BbBlake2sToField&& w)
+template <> wire::BbBlake2sToFieldResponse handle_blake2s_to_field(BbRequest& ctx, wire::BbBlake2sToField&& w)
 {
     auto resp =
         BbBlake2sToField{
             .data = std::move(w.data),
         }
-            .execute(request);
+            .execute(ctx);
     return { .field = field_to_wire(resp.field) };
 }
 
-wire::BbAesEncryptResponse handle_aes_encrypt(BbRequest& request, wire::BbAesEncrypt&& w)
+template <> wire::BbAesEncryptResponse handle_aes_encrypt(BbRequest& ctx, wire::BbAesEncrypt&& w)
 {
     auto resp =
         BbAesEncrypt{
@@ -480,11 +489,11 @@ wire::BbAesEncryptResponse handle_aes_encrypt(BbRequest& request, wire::BbAesEnc
             .key = vec_to_array<16>(w.key),
             .length = w.length,
         }
-            .execute(request);
+            .execute(ctx);
     return { .ciphertext = std::move(resp.ciphertext) };
 }
 
-wire::BbAesDecryptResponse handle_aes_decrypt(BbRequest& request, wire::BbAesDecrypt&& w)
+template <> wire::BbAesDecryptResponse handle_aes_decrypt(BbRequest& ctx, wire::BbAesDecrypt&& w)
 {
     auto resp =
         BbAesDecrypt{
@@ -493,7 +502,7 @@ wire::BbAesDecryptResponse handle_aes_decrypt(BbRequest& request, wire::BbAesDec
             .key = vec_to_array<16>(w.key),
             .length = w.length,
         }
-            .execute(request);
+            .execute(ctx);
     return { .plaintext = std::move(resp.plaintext) };
 }
 
@@ -501,29 +510,29 @@ wire::BbAesDecryptResponse handle_aes_decrypt(BbRequest& request, wire::BbAesDec
 // ECC handlers — Grumpkin
 // ===========================================================================================
 
-wire::BbGrumpkinMulResponse handle_grumpkin_mul(BbRequest& request, wire::BbGrumpkinMul&& w)
+template <> wire::BbGrumpkinMulResponse handle_grumpkin_mul(BbRequest& ctx, wire::BbGrumpkinMul&& w)
 {
     auto resp =
         BbGrumpkinMul{
             .point = point_from_wire<grumpkin::g1::affine_element>(w.point),
             .scalar = field_from_wire<grumpkin::fr>(w.scalar),
         }
-            .execute(request);
+            .execute(ctx);
     return { .point = point_to_wire<wire::GrumpkinPoint>(resp.point) };
 }
 
-wire::BbGrumpkinAddResponse handle_grumpkin_add(BbRequest& request, wire::BbGrumpkinAdd&& w)
+template <> wire::BbGrumpkinAddResponse handle_grumpkin_add(BbRequest& ctx, wire::BbGrumpkinAdd&& w)
 {
     auto resp =
         BbGrumpkinAdd{
             .point_a = point_from_wire<grumpkin::g1::affine_element>(w.point_a),
             .point_b = point_from_wire<grumpkin::g1::affine_element>(w.point_b),
         }
-            .execute(request);
+            .execute(ctx);
     return { .point = point_to_wire<wire::GrumpkinPoint>(resp.point) };
 }
 
-wire::BbGrumpkinBatchMulResponse handle_grumpkin_batch_mul(BbRequest& request, wire::BbGrumpkinBatchMul&& w)
+template <> wire::BbGrumpkinBatchMulResponse handle_grumpkin_batch_mul(BbRequest& ctx, wire::BbGrumpkinBatchMul&& w)
 {
     std::vector<grumpkin::g1::affine_element> points;
     points.reserve(w.points.size());
@@ -535,7 +544,7 @@ wire::BbGrumpkinBatchMulResponse handle_grumpkin_batch_mul(BbRequest& request, w
             .points = std::move(points),
             .scalar = field_from_wire<grumpkin::fr>(w.scalar),
         }
-            .execute(request);
+            .execute(ctx);
     std::vector<wire::GrumpkinPoint> wire_points;
     wire_points.reserve(resp.points.size());
     for (const auto& p : resp.points) {
@@ -544,19 +553,20 @@ wire::BbGrumpkinBatchMulResponse handle_grumpkin_batch_mul(BbRequest& request, w
     return { .points = std::move(wire_points) };
 }
 
-wire::BbGrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BbRequest& request, wire::BbGrumpkinGetRandomFr&& w)
+template <>
+wire::BbGrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BbRequest& ctx, wire::BbGrumpkinGetRandomFr&& w)
 {
-    auto resp = BbGrumpkinGetRandomFr{ .dummy = w.dummy }.execute(request);
+    auto resp = BbGrumpkinGetRandomFr{ .dummy = w.dummy }.execute(ctx);
     return { .value = field_to_wire(resp.value) };
 }
 
-wire::BbGrumpkinReduce512Response handle_grumpkin_reduce512(BbRequest& request, wire::BbGrumpkinReduce512&& w)
+template <> wire::BbGrumpkinReduce512Response handle_grumpkin_reduce512(BbRequest& ctx, wire::BbGrumpkinReduce512&& w)
 {
     auto resp =
         BbGrumpkinReduce512{
             .input = vec_to_array<64>(w.input),
         }
-            .execute(request);
+            .execute(ctx);
     return { .value = field_to_wire(resp.value) };
 }
 
@@ -564,31 +574,32 @@ wire::BbGrumpkinReduce512Response handle_grumpkin_reduce512(BbRequest& request, 
 // ECC handlers — Secp256k1
 // ===========================================================================================
 
-wire::BbSecp256k1MulResponse handle_secp256k1_mul(BbRequest& request, wire::BbSecp256k1Mul&& w)
+template <> wire::BbSecp256k1MulResponse handle_secp256k1_mul(BbRequest& ctx, wire::BbSecp256k1Mul&& w)
 {
     auto resp =
         BbSecp256k1Mul{
             .point = point_from_wire<secp256k1::g1::affine_element>(w.point),
             .scalar = field_from_wire<secp256k1::fr>(w.scalar),
         }
-            .execute(request);
+            .execute(ctx);
     return { .point = point_to_wire<wire::Secp256k1Point>(resp.point) };
 }
 
-wire::BbSecp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BbRequest& request,
-                                                                    wire::BbSecp256k1GetRandomFr&& w)
+template <>
+wire::BbSecp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BbRequest& ctx, wire::BbSecp256k1GetRandomFr&& w)
 {
-    auto resp = BbSecp256k1GetRandomFr{ .dummy = w.dummy }.execute(request);
+    auto resp = BbSecp256k1GetRandomFr{ .dummy = w.dummy }.execute(ctx);
     return { .value = field_to_wire(resp.value) };
 }
 
-wire::BbSecp256k1Reduce512Response handle_secp256k1_reduce512(BbRequest& request, wire::BbSecp256k1Reduce512&& w)
+template <>
+wire::BbSecp256k1Reduce512Response handle_secp256k1_reduce512(BbRequest& ctx, wire::BbSecp256k1Reduce512&& w)
 {
     auto resp =
         BbSecp256k1Reduce512{
             .input = vec_to_array<64>(w.input),
         }
-            .execute(request);
+            .execute(ctx);
     return { .value = field_to_wire(resp.value) };
 }
 
@@ -596,67 +607,67 @@ wire::BbSecp256k1Reduce512Response handle_secp256k1_reduce512(BbRequest& request
 // ECC handlers — BN254
 // ===========================================================================================
 
-wire::BbBn254FrSqrtResponse handle_bn254_fr_sqrt(BbRequest& request, wire::BbBn254FrSqrt&& w)
+template <> wire::BbBn254FrSqrtResponse handle_bn254_fr_sqrt(BbRequest& ctx, wire::BbBn254FrSqrt&& w)
 {
     auto resp =
         BbBn254FrSqrt{
             .input = field_from_wire<bb::fr>(w.input),
         }
-            .execute(request);
+            .execute(ctx);
     return { .is_square_root = resp.is_square_root, .value = field_to_wire(resp.value) };
 }
 
-wire::BbBn254FqSqrtResponse handle_bn254_fq_sqrt(BbRequest& request, wire::BbBn254FqSqrt&& w)
+template <> wire::BbBn254FqSqrtResponse handle_bn254_fq_sqrt(BbRequest& ctx, wire::BbBn254FqSqrt&& w)
 {
     auto resp =
         BbBn254FqSqrt{
             .input = field_from_wire<bb::fq>(w.input),
         }
-            .execute(request);
+            .execute(ctx);
     return { .is_square_root = resp.is_square_root, .value = field_to_wire(resp.value) };
 }
 
-wire::BbBn254G1MulResponse handle_bn254_g1_mul(BbRequest& request, wire::BbBn254G1Mul&& w)
+template <> wire::BbBn254G1MulResponse handle_bn254_g1_mul(BbRequest& ctx, wire::BbBn254G1Mul&& w)
 {
     auto resp =
         BbBn254G1Mul{
             .point = point_from_wire<bb::g1::affine_element>(w.point),
             .scalar = field_from_wire<bb::fr>(w.scalar),
         }
-            .execute(request);
+            .execute(ctx);
     return { .point = point_to_wire<wire::Bn254G1Point>(resp.point) };
 }
 
-wire::BbBn254G2MulResponse handle_bn254_g2_mul(BbRequest& request, wire::BbBn254G2Mul&& w)
+template <> wire::BbBn254G2MulResponse handle_bn254_g2_mul(BbRequest& ctx, wire::BbBn254G2Mul&& w)
 {
     auto resp =
         BbBn254G2Mul{
             .point = g2_point_from_wire(w.point),
             .scalar = field_from_wire<bb::fr>(w.scalar),
         }
-            .execute(request);
+            .execute(ctx);
     return { .point = g2_point_to_wire(resp.point) };
 }
 
-wire::BbBn254G1IsOnCurveResponse handle_bn254_g1_is_on_curve(BbRequest& request, wire::BbBn254G1IsOnCurve&& w)
+template <> wire::BbBn254G1IsOnCurveResponse handle_bn254_g1_is_on_curve(BbRequest& ctx, wire::BbBn254G1IsOnCurve&& w)
 {
     auto resp =
         BbBn254G1IsOnCurve{
             .point = point_from_wire<bb::g1::affine_element>(w.point),
         }
-            .execute(request);
+            .execute(ctx);
     return { .is_on_curve = resp.is_on_curve };
 }
 
-wire::BbBn254G1FromCompressedResponse handle_bn254_g1_from_compressed(BbRequest& request,
-                                                                      wire::BbBn254G1FromCompressed&& w)
+template <>
+wire::BbBn254G1FromCompressedResponse handle_bn254_g1_from_compressed(BbRequest& ctx, wire::BbBn254G1FromCompressed&& w)
 {
     // Wire: Fr compressed (array<uint8_t,32>), Domain: std::array<uint8_t,32> — same type
     auto resp =
         BbBn254G1FromCompressed{
             .compressed = w.compressed,
         }
-            .execute(request);
+            .execute(ctx);
     return { .point = point_to_wire<wire::Bn254G1Point>(resp.point) };
 }
 
@@ -664,18 +675,20 @@ wire::BbBn254G1FromCompressedResponse handle_bn254_g1_from_compressed(BbRequest&
 // Schnorr handlers
 // ===========================================================================================
 
-wire::BbSchnorrComputePublicKeyResponse handle_schnorr_compute_public_key(BbRequest& request,
+template <>
+wire::BbSchnorrComputePublicKeyResponse handle_schnorr_compute_public_key(BbRequest& ctx,
                                                                           wire::BbSchnorrComputePublicKey&& w)
 {
     auto resp =
         BbSchnorrComputePublicKey{
             .private_key = field_from_wire<grumpkin::fr>(w.private_key),
         }
-            .execute(request);
+            .execute(ctx);
     return { .public_key = point_to_wire<wire::GrumpkinPoint>(resp.public_key) };
 }
 
-wire::BbSchnorrConstructSignatureResponse handle_schnorr_construct_signature(BbRequest& request,
+template <>
+wire::BbSchnorrConstructSignatureResponse handle_schnorr_construct_signature(BbRequest& ctx,
                                                                              wire::BbSchnorrConstructSignature&& w)
 {
     auto resp =
@@ -683,12 +696,13 @@ wire::BbSchnorrConstructSignatureResponse handle_schnorr_construct_signature(BbR
             .message = std::move(w.message),
             .private_key = field_from_wire<grumpkin::fr>(w.private_key),
         }
-            .execute(request);
+            .execute(ctx);
     // Domain response: std::array<uint8_t,32> s, e  — Wire: Fr (= array<uint8_t,32>) s, e — same type
     return { .s = resp.s, .e = resp.e };
 }
 
-wire::BbSchnorrVerifySignatureResponse handle_schnorr_verify_signature(BbRequest& request,
+template <>
+wire::BbSchnorrVerifySignatureResponse handle_schnorr_verify_signature(BbRequest& ctx,
                                                                        wire::BbSchnorrVerifySignature&& w)
 {
     // Wire s, e are Fr (array<uint8_t,32>), domain s, e are std::array<uint8_t,32> — same type
@@ -699,7 +713,7 @@ wire::BbSchnorrVerifySignatureResponse handle_schnorr_verify_signature(BbRequest
             .s = w.s,
             .e = w.e,
         }
-            .execute(request);
+            .execute(ctx);
     return { .verified = resp.verified };
 }
 
@@ -707,55 +721,60 @@ wire::BbSchnorrVerifySignatureResponse handle_schnorr_verify_signature(BbRequest
 // ECDSA handlers
 // ===========================================================================================
 
+template <>
 wire::BbEcdsaSecp256k1ComputePublicKeyResponse handle_ecdsa_secp256k1_compute_public_key(
-    BbRequest& request, wire::BbEcdsaSecp256k1ComputePublicKey&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256k1ComputePublicKey&& w)
 {
     auto resp =
         BbEcdsaSecp256k1ComputePublicKey{
             .private_key = field_from_wire<secp256k1::fr>(w.private_key),
         }
-            .execute(request);
+            .execute(ctx);
     return { .public_key = point_to_wire<wire::Secp256k1Point>(resp.public_key) };
 }
 
+template <>
 wire::BbEcdsaSecp256r1ComputePublicKeyResponse handle_ecdsa_secp256r1_compute_public_key(
-    BbRequest& request, wire::BbEcdsaSecp256r1ComputePublicKey&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256r1ComputePublicKey&& w)
 {
     auto resp =
         BbEcdsaSecp256r1ComputePublicKey{
             .private_key = field_from_wire<secp256r1::fr>(w.private_key),
         }
-            .execute(request);
+            .execute(ctx);
     return { .public_key = point_to_wire<wire::Secp256r1Point>(resp.public_key) };
 }
 
+template <>
 wire::BbEcdsaSecp256k1ConstructSignatureResponse handle_ecdsa_secp256k1_construct_signature(
-    BbRequest& request, wire::BbEcdsaSecp256k1ConstructSignature&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256k1ConstructSignature&& w)
 {
     auto resp =
         BbEcdsaSecp256k1ConstructSignature{
             .message = std::move(w.message),
             .private_key = field_from_wire<secp256k1::fr>(w.private_key),
         }
-            .execute(request);
+            .execute(ctx);
     // Domain r,s: array<uint8_t,32>  Wire r,s: Fr = array<uint8_t,32> — same type
     return { .r = resp.r, .s = resp.s, .v = resp.v };
 }
 
+template <>
 wire::BbEcdsaSecp256r1ConstructSignatureResponse handle_ecdsa_secp256r1_construct_signature(
-    BbRequest& request, wire::BbEcdsaSecp256r1ConstructSignature&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256r1ConstructSignature&& w)
 {
     auto resp =
         BbEcdsaSecp256r1ConstructSignature{
             .message = std::move(w.message),
             .private_key = field_from_wire<secp256r1::fr>(w.private_key),
         }
-            .execute(request);
+            .execute(ctx);
     return { .r = resp.r, .s = resp.s, .v = resp.v };
 }
 
+template <>
 wire::BbEcdsaSecp256k1RecoverPublicKeyResponse handle_ecdsa_secp256k1_recover_public_key(
-    BbRequest& request, wire::BbEcdsaSecp256k1RecoverPublicKey&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256k1RecoverPublicKey&& w)
 {
     // Wire r,s: Fr = array<uint8_t,32>; Domain r,s: array<uint8_t,32> — same type
     auto resp =
@@ -765,12 +784,13 @@ wire::BbEcdsaSecp256k1RecoverPublicKeyResponse handle_ecdsa_secp256k1_recover_pu
             .s = w.s,
             .v = w.v,
         }
-            .execute(request);
+            .execute(ctx);
     return { .public_key = point_to_wire<wire::Secp256k1Point>(resp.public_key) };
 }
 
+template <>
 wire::BbEcdsaSecp256r1RecoverPublicKeyResponse handle_ecdsa_secp256r1_recover_public_key(
-    BbRequest& request, wire::BbEcdsaSecp256r1RecoverPublicKey&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256r1RecoverPublicKey&& w)
 {
     auto resp =
         BbEcdsaSecp256r1RecoverPublicKey{
@@ -779,12 +799,13 @@ wire::BbEcdsaSecp256r1RecoverPublicKeyResponse handle_ecdsa_secp256r1_recover_pu
             .s = w.s,
             .v = w.v,
         }
-            .execute(request);
+            .execute(ctx);
     return { .public_key = point_to_wire<wire::Secp256r1Point>(resp.public_key) };
 }
 
+template <>
 wire::BbEcdsaSecp256k1VerifySignatureResponse handle_ecdsa_secp256k1_verify_signature(
-    BbRequest& request, wire::BbEcdsaSecp256k1VerifySignature&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256k1VerifySignature&& w)
 {
     auto resp =
         BbEcdsaSecp256k1VerifySignature{
@@ -794,12 +815,13 @@ wire::BbEcdsaSecp256k1VerifySignatureResponse handle_ecdsa_secp256k1_verify_sign
             .s = w.s,
             .v = w.v,
         }
-            .execute(request);
+            .execute(ctx);
     return { .verified = resp.verified };
 }
 
+template <>
 wire::BbEcdsaSecp256r1VerifySignatureResponse handle_ecdsa_secp256r1_verify_signature(
-    BbRequest& request, wire::BbEcdsaSecp256r1VerifySignature&& w)
+    BbRequest& ctx, wire::BbEcdsaSecp256r1VerifySignature&& w)
 {
     auto resp =
         BbEcdsaSecp256r1VerifySignature{
@@ -809,7 +831,7 @@ wire::BbEcdsaSecp256r1VerifySignatureResponse handle_ecdsa_secp256r1_verify_sign
             .s = w.s,
             .v = w.v,
         }
-            .execute(request);
+            .execute(ctx);
     return { .verified = resp.verified };
 }
 
@@ -817,7 +839,7 @@ wire::BbEcdsaSecp256r1VerifySignatureResponse handle_ecdsa_secp256r1_verify_sign
 // SRS handlers
 // ===========================================================================================
 
-wire::BbSrsInitSrsResponse handle_srs_init_srs(BbRequest& request, wire::BbSrsInitSrs&& w)
+template <> wire::BbSrsInitSrsResponse handle_srs_init_srs(BbRequest& ctx, wire::BbSrsInitSrs&& w)
 {
     auto resp =
         BbSrsInitSrs{
@@ -825,19 +847,23 @@ wire::BbSrsInitSrsResponse handle_srs_init_srs(BbRequest& request, wire::BbSrsIn
             .num_points = w.num_points,
             .g2_point = std::move(w.g2_point),
         }
-            .execute(request);
+            .execute(ctx);
     return { .dummy = resp.dummy };
 }
 
-wire::BbSrsInitGrumpkinSrsResponse handle_srs_init_grumpkin_srs(BbRequest& request, wire::BbSrsInitGrumpkinSrs&& w)
+template <>
+wire::BbSrsInitGrumpkinSrsResponse handle_srs_init_grumpkin_srs(BbRequest& ctx, wire::BbSrsInitGrumpkinSrs&& w)
 {
     auto resp =
         BbSrsInitGrumpkinSrs{
             .points_buf = std::move(w.points_buf),
             .num_points = w.num_points,
         }
-            .execute(request);
+            .execute(ctx);
     return { .dummy = resp.dummy };
 }
+
+// Explicit instantiation of the dispatch handler for BbRequest
+template ::ipc::Handler make_bb_handler(BbRequest& ctx);
 
 } // namespace bb::bbapi

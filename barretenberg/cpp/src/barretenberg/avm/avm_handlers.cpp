@@ -1,6 +1,7 @@
-#include "barretenberg/avm/avm_execute.hpp"
+#include "barretenberg/avm/avm_context.hpp"
 #include "barretenberg/avm/generated/avm_ipc_server.hpp"
 #include "barretenberg/avm/wsdb_ipc_merkle_db.hpp"
+#include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -14,6 +15,7 @@ namespace bb::avm {
 
 using namespace bb::avm2;
 using namespace bb::world_state;
+using AvmContext = bb::avm::AvmContext;
 
 // Global cancellation token for the currently active simulation.
 // Set before simulation starts, cleared after. SIGUSR1 handler reads this to cancel.
@@ -40,10 +42,10 @@ template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_
 }
 
 // ---------------------------------------------------------------------------
-// Handlers
+// Handlers (template specializations for AvmContext)
 // ---------------------------------------------------------------------------
 
-wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate&& cmd)
+template <> wire::AvmSimulateResponse handle_simulate(AvmContext& ctx, wire::AvmSimulate&& cmd)
 {
     // Deserialize AvmFastSimulationInputs from opaque bytes
     auto sim_inputs = deserialize_from_msgpack<AvmFastSimulationInputs>(cmd.inputs);
@@ -54,8 +56,7 @@ wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate
     uint64_t fork_id = sim_inputs.ws_revision.forkId;
 
     if (!use_external_fork) {
-        auto fork_resp =
-            request.wsdb_client.create_fork(wsdb::wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
+        auto fork_resp = ctx.wsdb_client.create_fork(wsdb::wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
         fork_id = fork_resp.forkId;
         vinfo("Created WSDB fork ", fork_id, " for AVM simulation");
     } else {
@@ -63,7 +64,7 @@ wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate
     }
 
     // Route CDB requests to the correct PublicContractsDB via fork ID
-    request.cdb_client.set_fork_id(fork_id);
+    ctx.cdb_client.set_fork_id(fork_id);
 
     // Create a cancellation token for this simulation and expose it globally
     // so the SIGUSR1 handler can signal cancellation from TypeScript.
@@ -79,19 +80,19 @@ wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate
         };
 
         // Create IPC-backed MerkleDB and ContractDB
-        WsdbIpcMerkleDB merkle_db(request.wsdb_client, revision);
+        WsdbIpcMerkleDB merkle_db(ctx.wsdb_client, revision);
 
         // Run simulation
         AvmSimulationHelper simulation_helper;
         auto result = sim_inputs.config.collect_hints
-                          ? simulation_helper.simulate_for_hint_collection_internal(request.cdb_client,
+                          ? simulation_helper.simulate_for_hint_collection_internal(ctx.cdb_client,
                                                                                     merkle_db,
                                                                                     sim_inputs.config,
                                                                                     sim_inputs.tx,
                                                                                     sim_inputs.global_variables,
                                                                                     sim_inputs.protocol_contracts,
                                                                                     cancellation_token)
-                          : simulation_helper.simulate_fast_internal(request.cdb_client,
+                          : simulation_helper.simulate_fast_internal(ctx.cdb_client,
                                                                      merkle_db,
                                                                      sim_inputs.config,
                                                                      sim_inputs.tx,
@@ -103,7 +104,7 @@ wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate
 
         // Only clean up fork if we created it
         if (!use_external_fork) {
-            request.wsdb_client.delete_fork(wsdb::wire::WsdbDeleteFork{ .forkId = fork_id });
+            ctx.wsdb_client.delete_fork(wsdb::wire::WsdbDeleteFork{ .forkId = fork_id });
         }
 
         return { .result = serialize_to_msgpack(result) };
@@ -112,7 +113,7 @@ wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate
 
         if (!use_external_fork) {
             try {
-                request.wsdb_client.delete_fork(wsdb::wire::WsdbDeleteFork{ .forkId = fork_id });
+                ctx.wsdb_client.delete_fork(wsdb::wire::WsdbDeleteFork{ .forkId = fork_id });
             } catch (...) {
                 // Ignore cleanup errors
             }
@@ -121,9 +122,10 @@ wire::AvmSimulateResponse handle_simulate(AvmRequest& request, wire::AvmSimulate
     }
 }
 
-wire::AvmSimulateWithHintsResponse handle_simulate_with_hints(AvmRequest& request, wire::AvmSimulateWithHints&& cmd)
+template <>
+wire::AvmSimulateWithHintsResponse handle_simulate_with_hints(AvmContext& ctx, wire::AvmSimulateWithHints&& cmd)
 {
-    (void)request;
+    (void)ctx;
 
     // Deserialize AvmProvingInputs from opaque bytes
     auto proving_inputs = deserialize_from_msgpack<AvmProvingInputs>(cmd.inputs);
@@ -134,5 +136,8 @@ wire::AvmSimulateWithHintsResponse handle_simulate_with_hints(AvmRequest& reques
 
     return { .result = serialize_to_msgpack(result) };
 }
+
+// Explicit instantiation of the dispatch handler for AvmContext
+template ::ipc::Handler make_avm_handler(AvmContext& ctx);
 
 } // namespace bb::avm

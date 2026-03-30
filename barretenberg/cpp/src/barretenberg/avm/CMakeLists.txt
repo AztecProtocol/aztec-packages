@@ -21,7 +21,6 @@ if(NOT(FUZZING) AND NOT(WASM))
         cli.cpp
         avm_handlers.cpp
         avm_ipc_server.cpp
-        generated/avm_ipc_server.cpp
     )
     target_link_libraries(
         aztec-avm

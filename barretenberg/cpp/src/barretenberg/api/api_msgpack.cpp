@@ -1,6 +1,10 @@
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
+
+// Suppress implicit instantiation — explicit instantiation is in bbapi_handlers.cpp
+extern template ::ipc::Handler bb::bbapi::make_bb_handler(bb::bbapi::BbRequest& ctx);
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>

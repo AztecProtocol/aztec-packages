@@ -20,7 +20,6 @@ if(NOT(FUZZING) AND NOT(WASM))
         cli.cpp
         wsdb_handlers.cpp
         wsdb_ipc_server.cpp
-        generated/wsdb_ipc_server.cpp
     )
     target_link_libraries(
         aztec-wsdb

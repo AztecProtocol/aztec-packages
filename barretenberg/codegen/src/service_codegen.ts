@@ -208,7 +208,6 @@ function cppServerTarget(opts: CppCodegenOptions, generatedDir: string, prefix: 
       return [
         { path: `${generatedDir}/ipc_server.hpp`, content: readTemplate('cpp', 'ipc_server.hpp') },
         { path: `${generatedDir}/${prefix}_ipc_server.hpp`, content: cppGen.generateServerHeader(compiled) },
-        { path: `${generatedDir}/${prefix}_ipc_server.cpp`, content: cppGen.generateServerImpl(compiled) },
       ];
     },
   };

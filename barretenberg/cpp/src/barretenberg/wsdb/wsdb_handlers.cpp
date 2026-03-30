@@ -19,10 +19,20 @@
 #include <optional>
 #include <stdexcept>
 
+#include "barretenberg/wsdb/wsdb_context.hpp"
+
 namespace bb::wsdb {
+
+using WsdbContext = bb::wsdb::WsdbContext;
 
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
+
+// ---------------------------------------------------------------------------
+// Context type for WSDB handlers
+// ---------------------------------------------------------------------------
+
+// WsdbContext defined in wsdb_context.hpp
 
 // ---------------------------------------------------------------------------
 // Wire <-> Domain conversion helpers
@@ -126,14 +136,14 @@ std::vector<LeafType> deserialize_leaves(const std::vector<std::vector<uint8_t>>
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
-// Handler implementations
+// Handler implementations (template specializations for WsdbContext)
 // ---------------------------------------------------------------------------
 
-wire::WsdbGetTreeInfoResponse handle_get_tree_info(WsdbRequest& request, wire::WsdbGetTreeInfo&& cmd)
+template <> wire::WsdbGetTreeInfoResponse handle_get_tree_info(WsdbContext& ctx, wire::WsdbGetTreeInfo&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
-    auto info = request.world_state.get_tree_info(revision, tree_id);
+    auto info = ctx.world_state.get_tree_info(revision, tree_id);
     return wire::WsdbGetTreeInfoResponse{
         .treeId = cmd.treeId,
         .root = fr_to_wire(info.meta.root),
@@ -142,21 +152,23 @@ wire::WsdbGetTreeInfoResponse handle_get_tree_info(WsdbRequest& request, wire::W
     };
 }
 
-wire::WsdbGetStateReferenceResponse handle_get_state_reference(WsdbRequest& request, wire::WsdbGetStateReference&& cmd)
+template <>
+wire::WsdbGetStateReferenceResponse handle_get_state_reference(WsdbContext& ctx, wire::WsdbGetStateReference&& cmd)
 {
     auto revision = WorldStateRevision::from_wire(cmd.revision);
-    auto state = request.world_state.get_state_reference(revision);
+    auto state = ctx.world_state.get_state_reference(revision);
     return wire::WsdbGetStateReferenceResponse{ .state = state_ref_to_wire(state) };
 }
 
+template <>
 wire::WsdbGetInitialStateReferenceResponse handle_get_initial_state_reference(
-    WsdbRequest& request, [[maybe_unused]] wire::WsdbGetInitialStateReference&& cmd)
+    WsdbContext& ctx, [[maybe_unused]] wire::WsdbGetInitialStateReference&& cmd)
 {
-    auto state = request.world_state.get_initial_state_reference();
+    auto state = ctx.world_state.get_initial_state_reference();
     return wire::WsdbGetInitialStateReferenceResponse{ .state = state_ref_to_wire(state) };
 }
 
-wire::WsdbGetLeafValueResponse handle_get_leaf_value(WsdbRequest& request, wire::WsdbGetLeafValue&& cmd)
+template <> wire::WsdbGetLeafValueResponse handle_get_leaf_value(WsdbContext& ctx, wire::WsdbGetLeafValue&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
@@ -165,21 +177,21 @@ wire::WsdbGetLeafValueResponse handle_get_leaf_value(WsdbRequest& request, wire:
     case MerkleTreeId::NOTE_HASH_TREE:
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
-        auto leaf = request.world_state.get_leaf<bb::fr>(revision, tree_id, cmd.leafIndex);
+        auto leaf = ctx.world_state.get_leaf<bb::fr>(revision, tree_id, cmd.leafIndex);
         if (!leaf.has_value()) {
             return wire::WsdbGetLeafValueResponse{ .value = std::nullopt };
         }
         return wire::WsdbGetLeafValueResponse{ .value = serialize_to_msgpack(leaf.value()) };
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        auto leaf = request.world_state.get_leaf<PublicDataLeafValue>(revision, tree_id, cmd.leafIndex);
+        auto leaf = ctx.world_state.get_leaf<PublicDataLeafValue>(revision, tree_id, cmd.leafIndex);
         if (!leaf.has_value()) {
             return wire::WsdbGetLeafValueResponse{ .value = std::nullopt };
         }
         return wire::WsdbGetLeafValueResponse{ .value = serialize_to_msgpack(leaf.value()) };
     }
     case MerkleTreeId::NULLIFIER_TREE: {
-        auto leaf = request.world_state.get_leaf<NullifierLeafValue>(revision, tree_id, cmd.leafIndex);
+        auto leaf = ctx.world_state.get_leaf<NullifierLeafValue>(revision, tree_id, cmd.leafIndex);
         if (!leaf.has_value()) {
             return wire::WsdbGetLeafValueResponse{ .value = std::nullopt };
         }
@@ -190,21 +202,22 @@ wire::WsdbGetLeafValueResponse handle_get_leaf_value(WsdbRequest& request, wire:
     }
 }
 
-wire::WsdbGetLeafPreimageResponse handle_get_leaf_preimage(WsdbRequest& request, wire::WsdbGetLeafPreimage&& cmd)
+template <>
+wire::WsdbGetLeafPreimageResponse handle_get_leaf_preimage(WsdbContext& ctx, wire::WsdbGetLeafPreimage&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
 
     switch (tree_id) {
     case MerkleTreeId::NULLIFIER_TREE: {
-        auto leaf = request.world_state.get_indexed_leaf<NullifierLeafValue>(revision, tree_id, cmd.leafIndex);
+        auto leaf = ctx.world_state.get_indexed_leaf<NullifierLeafValue>(revision, tree_id, cmd.leafIndex);
         if (!leaf.has_value()) {
             return wire::WsdbGetLeafPreimageResponse{ .preimage = std::nullopt };
         }
         return wire::WsdbGetLeafPreimageResponse{ .preimage = serialize_to_msgpack(leaf.value()) };
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        auto leaf = request.world_state.get_indexed_leaf<PublicDataLeafValue>(revision, tree_id, cmd.leafIndex);
+        auto leaf = ctx.world_state.get_indexed_leaf<PublicDataLeafValue>(revision, tree_id, cmd.leafIndex);
         if (!leaf.has_value()) {
             return wire::WsdbGetLeafPreimageResponse{ .preimage = std::nullopt };
         }
@@ -215,26 +228,28 @@ wire::WsdbGetLeafPreimageResponse handle_get_leaf_preimage(WsdbRequest& request,
     }
 }
 
-wire::WsdbGetSiblingPathResponse handle_get_sibling_path(WsdbRequest& request, wire::WsdbGetSiblingPath&& cmd)
+template <> wire::WsdbGetSiblingPathResponse handle_get_sibling_path(WsdbContext& ctx, wire::WsdbGetSiblingPath&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
-    fr_sibling_path path = request.world_state.get_sibling_path(revision, tree_id, cmd.leafIndex);
+    fr_sibling_path path = ctx.world_state.get_sibling_path(revision, tree_id, cmd.leafIndex);
     return wire::WsdbGetSiblingPathResponse{ .path = fr_vec_to_wire(path) };
 }
 
+template <>
 wire::WsdbGetBlockNumbersForLeafIndicesResponse handle_get_block_numbers_for_leaf_indices(
-    WsdbRequest& request, wire::WsdbGetBlockNumbersForLeafIndices&& cmd)
+    WsdbContext& ctx, wire::WsdbGetBlockNumbersForLeafIndices&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
     std::vector<std::optional<block_number_t>> block_numbers;
-    request.world_state.get_block_numbers_for_leaf_indices(revision, tree_id, cmd.leafIndices, block_numbers);
+    ctx.world_state.get_block_numbers_for_leaf_indices(revision, tree_id, cmd.leafIndices, block_numbers);
     // Wire type uses optional<uint32_t> which is the same as optional<block_number_t>
     return wire::WsdbGetBlockNumbersForLeafIndicesResponse{ .blockNumbers = block_numbers };
 }
 
-wire::WsdbFindLeafIndicesResponse handle_find_leaf_indices(WsdbRequest& request, wire::WsdbFindLeafIndices&& cmd)
+template <>
+wire::WsdbFindLeafIndicesResponse handle_find_leaf_indices(WsdbContext& ctx, wire::WsdbFindLeafIndices&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
@@ -245,19 +260,18 @@ wire::WsdbFindLeafIndicesResponse handle_find_leaf_indices(WsdbRequest& request,
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
         auto typed_leaves = deserialize_leaves<bb::fr>(cmd.leaves);
-        request.world_state.find_leaf_indices<bb::fr>(revision, tree_id, typed_leaves, indices, cmd.startIndex);
+        ctx.world_state.find_leaf_indices<bb::fr>(revision, tree_id, typed_leaves, indices, cmd.startIndex);
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         auto typed_leaves = deserialize_leaves<PublicDataLeafValue>(cmd.leaves);
-        request.world_state.find_leaf_indices<PublicDataLeafValue>(
+        ctx.world_state.find_leaf_indices<PublicDataLeafValue>(
             revision, tree_id, typed_leaves, indices, cmd.startIndex);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         auto typed_leaves = deserialize_leaves<NullifierLeafValue>(cmd.leaves);
-        request.world_state.find_leaf_indices<NullifierLeafValue>(
-            revision, tree_id, typed_leaves, indices, cmd.startIndex);
+        ctx.world_state.find_leaf_indices<NullifierLeafValue>(revision, tree_id, typed_leaves, indices, cmd.startIndex);
         break;
     }
     default:
@@ -266,19 +280,20 @@ wire::WsdbFindLeafIndicesResponse handle_find_leaf_indices(WsdbRequest& request,
     return wire::WsdbFindLeafIndicesResponse{ .indices = indices };
 }
 
-wire::WsdbFindLowLeafResponse handle_find_low_leaf(WsdbRequest& request, wire::WsdbFindLowLeaf&& cmd)
+template <> wire::WsdbFindLowLeafResponse handle_find_low_leaf(WsdbContext& ctx, wire::WsdbFindLowLeaf&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
     auto key = fr_from_wire(cmd.key);
-    auto low_leaf_info = request.world_state.find_low_leaf_index(revision, tree_id, key);
+    auto low_leaf_info = ctx.world_state.find_low_leaf_index(revision, tree_id, key);
     return wire::WsdbFindLowLeafResponse{
         .alreadyPresent = low_leaf_info.is_already_present,
         .index = low_leaf_info.index,
     };
 }
 
-wire::WsdbFindSiblingPathsResponse handle_find_sibling_paths(WsdbRequest& request, wire::WsdbFindSiblingPaths&& cmd)
+template <>
+wire::WsdbFindSiblingPathsResponse handle_find_sibling_paths(WsdbContext& ctx, wire::WsdbFindSiblingPaths&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
     auto revision = WorldStateRevision::from_wire(cmd.revision);
@@ -289,17 +304,17 @@ wire::WsdbFindSiblingPathsResponse handle_find_sibling_paths(WsdbRequest& reques
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
         auto typed_leaves = deserialize_leaves<bb::fr>(cmd.leaves);
-        request.world_state.find_sibling_paths<bb::fr>(revision, tree_id, typed_leaves, paths);
+        ctx.world_state.find_sibling_paths<bb::fr>(revision, tree_id, typed_leaves, paths);
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         auto typed_leaves = deserialize_leaves<PublicDataLeafValue>(cmd.leaves);
-        request.world_state.find_sibling_paths<PublicDataLeafValue>(revision, tree_id, typed_leaves, paths);
+        ctx.world_state.find_sibling_paths<PublicDataLeafValue>(revision, tree_id, typed_leaves, paths);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         auto typed_leaves = deserialize_leaves<NullifierLeafValue>(cmd.leaves);
-        request.world_state.find_sibling_paths<NullifierLeafValue>(revision, tree_id, typed_leaves, paths);
+        ctx.world_state.find_sibling_paths<NullifierLeafValue>(revision, tree_id, typed_leaves, paths);
         break;
     }
     default:
@@ -319,7 +334,7 @@ wire::WsdbFindSiblingPathsResponse handle_find_sibling_paths(WsdbRequest& reques
     return wire::WsdbFindSiblingPathsResponse{ .paths = std::move(wire_paths) };
 }
 
-wire::WsdbAppendLeavesResponse handle_append_leaves(WsdbRequest& request, wire::WsdbAppendLeaves&& cmd)
+template <> wire::WsdbAppendLeavesResponse handle_append_leaves(WsdbContext& ctx, wire::WsdbAppendLeaves&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
 
@@ -328,17 +343,17 @@ wire::WsdbAppendLeavesResponse handle_append_leaves(WsdbRequest& request, wire::
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
         auto typed_leaves = deserialize_leaves<bb::fr>(cmd.leaves);
-        request.world_state.append_leaves<bb::fr>(tree_id, typed_leaves, cmd.forkId);
+        ctx.world_state.append_leaves<bb::fr>(tree_id, typed_leaves, cmd.forkId);
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         auto typed_leaves = deserialize_leaves<PublicDataLeafValue>(cmd.leaves);
-        request.world_state.append_leaves<PublicDataLeafValue>(tree_id, typed_leaves, cmd.forkId);
+        ctx.world_state.append_leaves<PublicDataLeafValue>(tree_id, typed_leaves, cmd.forkId);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         auto typed_leaves = deserialize_leaves<NullifierLeafValue>(cmd.leaves);
-        request.world_state.append_leaves<NullifierLeafValue>(tree_id, typed_leaves, cmd.forkId);
+        ctx.world_state.append_leaves<NullifierLeafValue>(tree_id, typed_leaves, cmd.forkId);
         break;
     }
     default:
@@ -347,20 +362,20 @@ wire::WsdbAppendLeavesResponse handle_append_leaves(WsdbRequest& request, wire::
     return wire::WsdbAppendLeavesResponse{};
 }
 
-wire::WsdbBatchInsertResponse handle_batch_insert(WsdbRequest& request, wire::WsdbBatchInsert&& cmd)
+template <> wire::WsdbBatchInsertResponse handle_batch_insert(WsdbContext& ctx, wire::WsdbBatchInsert&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
 
     switch (tree_id) {
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         auto typed_leaves = deserialize_leaves<PublicDataLeafValue>(cmd.leaves);
-        auto result = request.world_state.batch_insert_indexed_leaves<PublicDataLeafValue>(
+        auto result = ctx.world_state.batch_insert_indexed_leaves<PublicDataLeafValue>(
             tree_id, typed_leaves, cmd.subtreeDepth, cmd.forkId);
         return wire::WsdbBatchInsertResponse{ .result = serialize_to_msgpack(result) };
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         auto typed_leaves = deserialize_leaves<NullifierLeafValue>(cmd.leaves);
-        auto result = request.world_state.batch_insert_indexed_leaves<NullifierLeafValue>(
+        auto result = ctx.world_state.batch_insert_indexed_leaves<NullifierLeafValue>(
             tree_id, typed_leaves, cmd.subtreeDepth, cmd.forkId);
         return wire::WsdbBatchInsertResponse{ .result = serialize_to_msgpack(result) };
     }
@@ -369,19 +384,20 @@ wire::WsdbBatchInsertResponse handle_batch_insert(WsdbRequest& request, wire::Ws
     }
 }
 
-wire::WsdbSequentialInsertResponse handle_sequential_insert(WsdbRequest& request, wire::WsdbSequentialInsert&& cmd)
+template <>
+wire::WsdbSequentialInsertResponse handle_sequential_insert(WsdbContext& ctx, wire::WsdbSequentialInsert&& cmd)
 {
     auto tree_id = tree_id_from_wire(cmd.treeId);
 
     switch (tree_id) {
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         auto typed_leaves = deserialize_leaves<PublicDataLeafValue>(cmd.leaves);
-        auto result = request.world_state.insert_indexed_leaves<PublicDataLeafValue>(tree_id, typed_leaves, cmd.forkId);
+        auto result = ctx.world_state.insert_indexed_leaves<PublicDataLeafValue>(tree_id, typed_leaves, cmd.forkId);
         return wire::WsdbSequentialInsertResponse{ .result = serialize_to_msgpack(result) };
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         auto typed_leaves = deserialize_leaves<NullifierLeafValue>(cmd.leaves);
-        auto result = request.world_state.insert_indexed_leaves<NullifierLeafValue>(tree_id, typed_leaves, cmd.forkId);
+        auto result = ctx.world_state.insert_indexed_leaves<NullifierLeafValue>(tree_id, typed_leaves, cmd.forkId);
         return wire::WsdbSequentialInsertResponse{ .result = serialize_to_msgpack(result) };
     }
     default:
@@ -389,28 +405,28 @@ wire::WsdbSequentialInsertResponse handle_sequential_insert(WsdbRequest& request
     }
 }
 
-wire::WsdbUpdateArchiveResponse handle_update_archive(WsdbRequest& request, wire::WsdbUpdateArchive&& cmd)
+template <> wire::WsdbUpdateArchiveResponse handle_update_archive(WsdbContext& ctx, wire::WsdbUpdateArchive&& cmd)
 {
     auto block_state_ref = state_ref_from_wire(cmd.blockStateRef);
     auto block_header_hash = fr_from_wire(cmd.blockHeaderHash);
-    request.world_state.update_archive(block_state_ref, block_header_hash, cmd.forkId);
+    ctx.world_state.update_archive(block_state_ref, block_header_hash, cmd.forkId);
     return wire::WsdbUpdateArchiveResponse{};
 }
 
-wire::WsdbCommitResponse handle_commit(WsdbRequest& request, [[maybe_unused]] wire::WsdbCommit&& cmd)
+template <> wire::WsdbCommitResponse handle_commit(WsdbContext& ctx, [[maybe_unused]] wire::WsdbCommit&& cmd)
 {
     WorldStateStatusFull status;
-    request.world_state.commit(status);
+    ctx.world_state.commit(status);
     return wire::WsdbCommitResponse{ .status = status.to_wire() };
 }
 
-wire::WsdbRollbackResponse handle_rollback(WsdbRequest& request, [[maybe_unused]] wire::WsdbRollback&& cmd)
+template <> wire::WsdbRollbackResponse handle_rollback(WsdbContext& ctx, [[maybe_unused]] wire::WsdbRollback&& cmd)
 {
-    request.world_state.rollback();
+    ctx.world_state.rollback();
     return wire::WsdbRollbackResponse{};
 }
 
-wire::WsdbSyncBlockResponse handle_sync_block(WsdbRequest& request, wire::WsdbSyncBlock&& cmd)
+template <> wire::WsdbSyncBlockResponse handle_sync_block(WsdbContext& ctx, wire::WsdbSyncBlock&& cmd)
 {
     auto block_state_ref = state_ref_from_wire(cmd.blockStateRef);
     auto block_header_hash = fr_from_wire(cmd.blockHeaderHash);
@@ -427,90 +443,99 @@ wire::WsdbSyncBlockResponse handle_sync_block(WsdbRequest& request, wire::WsdbSy
         public_data_writes.push_back(PublicDataLeafValue::from_wire(w));
     }
 
-    WorldStateStatusFull status = request.world_state.sync_block(block_state_ref,
-                                                                 block_header_hash,
-                                                                 padded_note_hashes,
-                                                                 padded_l1_to_l2_messages,
-                                                                 padded_nullifiers,
-                                                                 public_data_writes);
+    WorldStateStatusFull status = ctx.world_state.sync_block(block_state_ref,
+                                                             block_header_hash,
+                                                             padded_note_hashes,
+                                                             padded_l1_to_l2_messages,
+                                                             padded_nullifiers,
+                                                             public_data_writes);
     return wire::WsdbSyncBlockResponse{ .status = status.to_wire() };
 }
 
-wire::WsdbCreateForkResponse handle_create_fork(WsdbRequest& request, wire::WsdbCreateFork&& cmd)
+template <> wire::WsdbCreateForkResponse handle_create_fork(WsdbContext& ctx, wire::WsdbCreateFork&& cmd)
 {
     std::optional<block_number_t> block = cmd.latest ? std::nullopt : std::optional<block_number_t>(cmd.blockNumber);
-    uint64_t id = request.world_state.create_fork(block);
+    uint64_t id = ctx.world_state.create_fork(block);
     return wire::WsdbCreateForkResponse{ .forkId = id };
 }
 
-wire::WsdbDeleteForkResponse handle_delete_fork(WsdbRequest& request, wire::WsdbDeleteFork&& cmd)
+template <> wire::WsdbDeleteForkResponse handle_delete_fork(WsdbContext& ctx, wire::WsdbDeleteFork&& cmd)
 {
-    request.world_state.delete_fork(cmd.forkId);
+    ctx.world_state.delete_fork(cmd.forkId);
     return wire::WsdbDeleteForkResponse{};
 }
 
-wire::WsdbFinalizeBlocksResponse handle_finalize_blocks(WsdbRequest& request, wire::WsdbFinalizeBlocks&& cmd)
+template <> wire::WsdbFinalizeBlocksResponse handle_finalize_blocks(WsdbContext& ctx, wire::WsdbFinalizeBlocks&& cmd)
 {
-    WorldStateStatusSummary status = request.world_state.set_finalized_blocks(cmd.toBlockNumber);
+    WorldStateStatusSummary status = ctx.world_state.set_finalized_blocks(cmd.toBlockNumber);
     return wire::WsdbFinalizeBlocksResponse{ .status = status.to_wire() };
 }
 
-wire::WsdbUnwindBlocksResponse handle_unwind_blocks(WsdbRequest& request, wire::WsdbUnwindBlocks&& cmd)
+template <> wire::WsdbUnwindBlocksResponse handle_unwind_blocks(WsdbContext& ctx, wire::WsdbUnwindBlocks&& cmd)
 {
-    WorldStateStatusFull status = request.world_state.unwind_blocks(cmd.toBlockNumber);
+    WorldStateStatusFull status = ctx.world_state.unwind_blocks(cmd.toBlockNumber);
     return wire::WsdbUnwindBlocksResponse{ .status = status.to_wire() };
 }
 
-wire::WsdbRemoveHistoricalBlocksResponse handle_remove_historical_blocks(WsdbRequest& request,
+template <>
+wire::WsdbRemoveHistoricalBlocksResponse handle_remove_historical_blocks(WsdbContext& ctx,
                                                                          wire::WsdbRemoveHistoricalBlocks&& cmd)
 {
-    WorldStateStatusFull status = request.world_state.remove_historical_blocks(cmd.toBlockNumber);
+    WorldStateStatusFull status = ctx.world_state.remove_historical_blocks(cmd.toBlockNumber);
     return wire::WsdbRemoveHistoricalBlocksResponse{ .status = status.to_wire() };
 }
 
-wire::WsdbGetStatusResponse handle_get_status(WsdbRequest& request, [[maybe_unused]] wire::WsdbGetStatus&& cmd)
+template <> wire::WsdbGetStatusResponse handle_get_status(WsdbContext& ctx, [[maybe_unused]] wire::WsdbGetStatus&& cmd)
 {
     WorldStateStatusSummary status;
-    request.world_state.get_status_summary(status);
+    ctx.world_state.get_status_summary(status);
     return wire::WsdbGetStatusResponse{ .status = status.to_wire() };
 }
 
-wire::WsdbCreateCheckpointResponse handle_create_checkpoint(WsdbRequest& request, wire::WsdbCreateCheckpoint&& cmd)
+template <>
+wire::WsdbCreateCheckpointResponse handle_create_checkpoint(WsdbContext& ctx, wire::WsdbCreateCheckpoint&& cmd)
 {
-    request.world_state.checkpoint(cmd.forkId);
+    ctx.world_state.checkpoint(cmd.forkId);
     return wire::WsdbCreateCheckpointResponse{};
 }
 
-wire::WsdbCommitCheckpointResponse handle_commit_checkpoint(WsdbRequest& request, wire::WsdbCommitCheckpoint&& cmd)
+template <>
+wire::WsdbCommitCheckpointResponse handle_commit_checkpoint(WsdbContext& ctx, wire::WsdbCommitCheckpoint&& cmd)
 {
-    request.world_state.commit_checkpoint(cmd.forkId);
+    ctx.world_state.commit_checkpoint(cmd.forkId);
     return wire::WsdbCommitCheckpointResponse{};
 }
 
-wire::WsdbRevertCheckpointResponse handle_revert_checkpoint(WsdbRequest& request, wire::WsdbRevertCheckpoint&& cmd)
+template <>
+wire::WsdbRevertCheckpointResponse handle_revert_checkpoint(WsdbContext& ctx, wire::WsdbRevertCheckpoint&& cmd)
 {
-    request.world_state.revert_checkpoint(cmd.forkId);
+    ctx.world_state.revert_checkpoint(cmd.forkId);
     return wire::WsdbRevertCheckpointResponse{};
 }
 
-wire::WsdbCommitAllCheckpointsResponse handle_commit_all_checkpoints(WsdbRequest& request,
+template <>
+wire::WsdbCommitAllCheckpointsResponse handle_commit_all_checkpoints(WsdbContext& ctx,
                                                                      wire::WsdbCommitAllCheckpoints&& cmd)
 {
-    request.world_state.commit_all_checkpoints_to(cmd.forkId, 0);
+    ctx.world_state.commit_all_checkpoints_to(cmd.forkId, 0);
     return wire::WsdbCommitAllCheckpointsResponse{};
 }
 
-wire::WsdbRevertAllCheckpointsResponse handle_revert_all_checkpoints(WsdbRequest& request,
+template <>
+wire::WsdbRevertAllCheckpointsResponse handle_revert_all_checkpoints(WsdbContext& ctx,
                                                                      wire::WsdbRevertAllCheckpoints&& cmd)
 {
-    request.world_state.revert_all_checkpoints_to(cmd.forkId, 0);
+    ctx.world_state.revert_all_checkpoints_to(cmd.forkId, 0);
     return wire::WsdbRevertAllCheckpointsResponse{};
 }
 
-wire::WsdbCopyStoresResponse handle_copy_stores(WsdbRequest& request, wire::WsdbCopyStores&& cmd)
+template <> wire::WsdbCopyStoresResponse handle_copy_stores(WsdbContext& ctx, wire::WsdbCopyStores&& cmd)
 {
-    request.world_state.copy_stores(cmd.dstPath, cmd.compact.value_or(false));
+    ctx.world_state.copy_stores(cmd.dstPath, cmd.compact.value_or(false));
     return wire::WsdbCopyStoresResponse{};
 }
+
+// Explicit instantiation of the dispatch handler for WsdbContext
+template ::ipc::Handler make_wsdb_handler(WsdbContext& ctx);
 
 } // namespace bb::wsdb

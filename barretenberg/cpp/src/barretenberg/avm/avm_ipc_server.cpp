@@ -1,6 +1,12 @@
 #include "barretenberg/avm/avm_ipc_server.hpp"
 #include "barretenberg/avm/avm_execute.hpp"
 #include "barretenberg/avm/generated/avm_ipc_server.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
+
+#include "barretenberg/avm/avm_context.hpp"
+using bb::avm::AvmContext;
+extern template ::ipc::Handler bb::avm::make_avm_handler(AvmContext& ctx);
+
 #include "barretenberg/cdb/cdb_ipc_client.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/parent_monitor.hpp"
@@ -16,6 +22,10 @@
 #include <vector>
 
 namespace bb::avm {
+
+// Forward declaration — defined in avm_handlers.cpp
+#include "barretenberg/avm/avm_context.hpp"
+using bb::avm::AvmContext;
 
 int execute_avm_server(const std::string& input_path, const std::string& wsdb_path, const std::string& cdb_path)
 {
@@ -55,7 +65,7 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
         }
     }
 
-    AvmRequest request{ .cdb_client = *cdb_client, .wsdb_client = *wsdb_client };
+    AvmContext ctx{ .cdb_client = *cdb_client, .wsdb_client = *wsdb_client };
 
     // Signal handling
     static std::atomic<bool> shutdown_flag{ false };
@@ -79,7 +89,7 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
 
     // Run server using generated dispatch.
     std::cerr << "aztec-avm IPC server starting on " << input_path << '\n';
-    serve(input_path.c_str(), request, &shutdown_flag);
+    ::ipc::serve(input_path.c_str(), make_avm_handler(ctx), &shutdown_flag);
     return 0;
 }
 

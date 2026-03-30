@@ -1,10 +1,15 @@
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/parent_monitor.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
-#include "barretenberg/wsdb/wsdb_execute.hpp"
+
+// Suppress implicit instantiation — explicit instantiation is in wsdb_handlers.cpp
+#include "barretenberg/wsdb/wsdb_context.hpp"
+using bb::wsdb::WsdbContext;
+extern template ::ipc::Handler bb::wsdb::make_wsdb_handler(WsdbContext& ctx);
 
 #include <atomic>
 #include <csignal>
@@ -21,6 +26,10 @@ namespace bb::wsdb {
 
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
+
+// Forward declaration — defined in wsdb_handlers.cpp
+#include "barretenberg/wsdb/wsdb_context.hpp"
+using bb::wsdb::WsdbContext;
 
 // ---------------------------------------------------------------------------
 // Simple JSON-like parsing for config maps
@@ -170,7 +179,7 @@ int execute_wsdb_server(const std::string& input_path,
     auto ws = std::make_unique<WorldState>(
         threads, data_dir, map_size, tree_height, tree_prefill, prefilled_public_data, initial_header_generator_point);
 
-    WsdbRequest request{ .world_state = *ws };
+    WsdbContext ctx{ .world_state = *ws };
 
     // Signal handling: SIGTERM/SIGINT trigger graceful shutdown via atomic flag.
     static std::atomic<bool> shutdown_flag{ false };
@@ -183,8 +192,9 @@ int execute_wsdb_server(const std::string& input_path,
     bb::monitor_parent_process(shutdown_flag);
 
     // Run server using generated dispatch.
+    // make_wsdb_handler<WsdbContext> is explicitly instantiated in wsdb_handlers.cpp.
     std::cerr << "aztec-wsdb IPC server starting on " << input_path << '\n';
-    serve(input_path.c_str(), request, &shutdown_flag);
+    ::ipc::serve(input_path.c_str(), make_wsdb_handler(ctx), &shutdown_flag);
     return 0;
 }
 
