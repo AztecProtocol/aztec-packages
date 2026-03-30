@@ -4,13 +4,19 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
-import { EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from './epoch_cache.js';
+import {
+  EpochCache,
+  type EpochCacheConstants,
+  type EpochCommitteeInfo,
+  EpochNotFinalizedError,
+  EpochNotStableError,
+  PROPOSER_PIPELINING_SLOT_OFFSET,
+} from './epoch_cache.js';
 
 class TestEpochCache extends EpochCache {
   public seedCache(epoch: EpochNumber, committeeInfo: EpochCommitteeInfo): void {
@@ -56,12 +62,13 @@ describe('EpochCache', () => {
 
     l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
 
-    // Mock the client.getBlock method for timestamp retrieval
-    // Return a timestamp far enough in the future to accommodate test queries
-    // lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds
+    // Mock the client.getBlock method for finalized timestamp retrieval.
+    // The epoch cache queries the finalized block to ensure RANDAO and validator set data
+    // are settled before caching a committee.
+    // lagInEpochsForRandao * epochDuration * slotDuration = 1 * 32 * 12 = 384 seconds
     // Add extra buffer for random slots in tests (e.g., 1000 slots = 12000 seconds)
     client = mock<ViemPublicClient>();
-    const futureTimestamp = l1GenesisTime + BigInt(768 + 12000);
+    const futureTimestamp = l1GenesisTime + BigInt(384 + 12000);
     client.getBlock.mockResolvedValue({ timestamp: futureTimestamp } as GetBlockReturnType);
     (rollupContract as any).client = client;
 
@@ -69,7 +76,7 @@ describe('EpochCache', () => {
     jest.useFakeTimers();
 
     // Initialize with test constants
-    const testConstants: L1RollupConstants & { lagInEpochsForValidatorSet: number; lagInEpochsForRandao: number } = {
+    const testConstants: EpochCacheConstants = {
       l1StartBlock: 0n,
       l1GenesisTime,
       slotDuration: SLOT_DURATION,
@@ -79,7 +86,7 @@ describe('EpochCache', () => {
       targetCommitteeSize: 48,
       rollupManaLimit: Number.MAX_SAFE_INTEGER,
       lagInEpochsForValidatorSet: 2,
-      lagInEpochsForRandao: 2,
+      lagInEpochsForRandao: 1,
     };
 
     epochCache = new TestEpochCache(rollupContract, testConstants);
@@ -270,22 +277,65 @@ describe('EpochCache', () => {
     expect(rollupContract.getAttesters).toHaveBeenCalledTimes(2);
   });
 
-  it('should throw error when querying committee for future epoch beyond lag', async () => {
+  it('should throw error when querying committee for epoch beyond finalized L1 block', async () => {
     const { l1GenesisTime, epochDuration } = epochCache.getL1Constants();
 
-    // Mock the client to return a current L1 timestamp that's close to genesis
-    const currentL1Timestamp = l1GenesisTime + BigInt(100); // Just 100 seconds after genesis
-    client.getBlock.mockResolvedValue({ timestamp: currentL1Timestamp } as GetBlockReturnType);
+    // Mock the finalized L1 block to be close to genesis
+    const finalizedL1Timestamp = l1GenesisTime + BigInt(100);
+    client.getBlock.mockResolvedValue({ timestamp: finalizedL1Timestamp } as GetBlockReturnType);
 
     // Calculate a slot far in the future (epoch 100) that's definitely not cached
-    // and is beyond the allowed lag (lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds)
+    // and is beyond the finalized point.
+    // lagInEpochsForRandao * epochDuration * slotDuration = 1 * 32 * 12 = 384 seconds
     const futureEpoch = BigInt(100);
     const futureSlot = futureEpoch * BigInt(epochDuration);
 
-    // Attempt to get committee for this future slot should throw
-    await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(
-      /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
-    );
+    // Attempt to get committee for this future slot should throw an EpochNotFinalizedError
+    await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(EpochNotFinalizedError);
+  });
+
+  it('should use lagInEpochsForRandao (not lagInEpochsForValidatorSet) as the binding constraint', async () => {
+    const { l1GenesisTime, slotDuration, epochDuration } = epochCache.getL1Constants();
+
+    // Set the finalized L1 timestamp such that:
+    //   - lagInEpochsForRandao (1) allows the query (epoch sampling ts is in the past)
+    //   - lagInEpochsForValidatorSet (2) would also allow it (even further in the past)
+    // But if we made randao lag = 2 and validator lag = 2, the threshold would be different.
+    //
+    // We test an epoch where the randao sampling timestamp is just barely beyond finalized:
+    //   epoch 5, ts = genesis + 5 * 32 * 12 = genesis + 1920
+    //   randao sampling ts = ts - 1 * 32 * 12 = genesis + 1920 - 384 = genesis + 1536
+    //   validator set sampling ts = ts - 2 * 32 * 12 = genesis + 1920 - 768 = genesis + 1152
+    //
+    // If finalized L1 time = genesis + 1500:
+    //   randao check: 1536 > 1500 → FAIL (guard should fire)
+    //   validator set check: 1152 <= 1500 → would pass (old buggy behavior)
+    const epoch5Slot = BigInt(5) * BigInt(epochDuration);
+    const epoch5Ts = l1GenesisTime + epoch5Slot * BigInt(slotDuration);
+    const randaoSamplingTs = epoch5Ts - BigInt(1 * epochDuration * slotDuration);
+
+    // Set finalized just below the randao sampling timestamp
+    const finalizedTs = randaoSamplingTs - 1n;
+    client.getBlock.mockResolvedValue({ timestamp: finalizedTs } as GetBlockReturnType);
+
+    // The guard should fire because the randao data is not finalized
+    await expect(epochCache.getCommittee(SlotNumber.fromBigInt(epoch5Slot))).rejects.toThrow(EpochNotFinalizedError);
+  });
+
+  it('should wrap L1 EpochNotStable revert into EpochNotStableError', async () => {
+    // Mock getSampleSeedAt to reject with an error containing the L1 revert message
+    const l1Revert = new Error('ContractFunctionExecutionError: ValidatorSelection__EpochNotStable(999, 1000)');
+    rollupContract.getSampleSeedAt.mockRejectedValue(l1Revert);
+
+    const { epochDuration } = epochCache.getL1Constants();
+    const futureSlot = SlotNumber(100 * epochDuration);
+
+    const rejection = epochCache.getCommittee(futureSlot);
+    await expect(rejection).rejects.toThrow(EpochNotStableError);
+    await expect(rejection).rejects.toMatchObject({
+      name: 'EpochNotStableError',
+      l1Error: l1Revert,
+    });
   });
 
   describe('proposer pipelining', () => {

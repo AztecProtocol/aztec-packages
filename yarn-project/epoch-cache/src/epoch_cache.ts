@@ -2,6 +2,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { NoCommitteeError, RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -19,50 +20,25 @@ import {
 import { createPublicClient, encodeAbiParameters, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
+import { EpochNotFinalizedError, EpochNotStableError } from './errors.js';
+import {
+  type EpochAndSlot,
+  type EpochCacheConstants,
+  type EpochCacheInterface,
+  type EpochCommitteeInfo,
+  PROPOSER_PIPELINING_SLOT_OFFSET,
+  type SlotTag,
+} from './types.js';
 
-/** When proposer pipelining is enabled, the proposer builds one slot ahead. */
-export const PROPOSER_PIPELINING_SLOT_OFFSET = 1;
-
-/** Flat return type for compound epoch/slot getters. */
-export type EpochAndSlot = {
-  slot: SlotNumber;
-  epoch: EpochNumber;
-  ts: bigint;
-};
-
-export type EpochCommitteeInfo = {
-  committee: EthAddress[] | undefined;
-  seed: bigint;
-  epoch: EpochNumber;
-  /** True if the epoch is within an open escape hatch window. */
-  isEscapeHatchOpen: boolean;
-};
-
-export type SlotTag = 'now' | 'next' | SlotNumber;
-
-export interface EpochCacheInterface {
-  getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
-  getSlotNow(): SlotNumber;
-  getTargetSlot(): SlotNumber;
-  getEpochNow(): EpochNumber;
-  getTargetEpoch(): EpochNumber;
-  getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint };
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
-  /** Returns epoch/slot info for the next L1 slot with pipeline offset applied. */
-  getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
-  isProposerPipeliningEnabled(): boolean;
-  isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean>;
-  isEscapeHatchOpenAtSlot(slot: SlotTag): Promise<boolean>;
-  getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
-  computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
-  getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber };
-  getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber };
-  getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined>;
-  getRegisteredValidators(): Promise<EthAddress[]>;
-  isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
-  filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
-  getL1Constants(): L1RollupConstants;
-}
+export { EpochNotFinalizedError, EpochNotStableError } from './errors.js';
+export {
+  type EpochAndSlot,
+  type EpochCacheConstants,
+  type EpochCacheInterface,
+  type EpochCommitteeInfo,
+  PROPOSER_PIPELINING_SLOT_OFFSET,
+  type SlotTag,
+} from './types.js';
 
 /**
  * Epoch cache
@@ -84,10 +60,7 @@ export class EpochCache implements EpochCacheInterface {
 
   constructor(
     private rollup: RollupContract,
-    private readonly l1constants: L1RollupConstants & {
-      lagInEpochsForValidatorSet: number;
-      lagInEpochsForRandao: number;
-    },
+    private readonly l1constants: EpochCacheConstants,
     private readonly dateProvider: DateProvider = new DateProvider(),
     protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, enableProposerPipelining: false },
   ) {
@@ -162,6 +135,11 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   public getL1Constants(): L1RollupConstants {
+    return this.l1constants;
+  }
+
+  /** Returns L1 constants including the lag parameters used for committee computation. */
+  public getEpochCacheConstants(): EpochCacheConstants {
     return this.l1constants;
   }
 
@@ -300,18 +278,34 @@ export class EpochCache implements EpochCacheInterface {
 
   private async computeCommittee(when: { epoch: EpochNumber; ts: bigint }): Promise<EpochCommitteeInfo> {
     const { ts, epoch } = when;
-    const [committee, seedBuffer, l1Timestamp, isEscapeHatchOpen] = await Promise.all([
-      this.rollup.getCommitteeAt(ts),
-      this.rollup.getSampleSeedAt(ts),
-      this.rollup.client.getBlock({ includeTransactions: false }).then(b => b.timestamp),
-      this.rollup.isEscapeHatchOpen(epoch),
-    ]);
-    const { lagInEpochsForValidatorSet, epochDuration, slotDuration } = this.l1constants;
-    const sub = BigInt(lagInEpochsForValidatorSet) * BigInt(epochDuration) * BigInt(slotDuration);
-    if (ts - sub > l1Timestamp) {
-      throw new Error(
-        `Cannot query committee for future epoch ${epoch} with timestamp ${ts} (current L1 time is ${l1Timestamp}). Check your Ethereum node is synced.`,
-      );
+    let committee: EthAddress[] | undefined;
+    let seedBuffer: Buffer32;
+    let l1FinalizedTimestamp: bigint;
+    let isEscapeHatchOpen: boolean;
+    try {
+      [committee, seedBuffer, l1FinalizedTimestamp, isEscapeHatchOpen] = await Promise.all([
+        this.rollup.getCommitteeAt(ts),
+        this.rollup.getSampleSeedAt(ts),
+        this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }).then(b => b.timestamp),
+        this.rollup.isEscapeHatchOpen(epoch),
+      ]);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('ValidatorSelection__EpochNotStable')) {
+        throw new EpochNotStableError(epoch, err);
+      }
+      throw err;
+    }
+    // Use the finalized block tag to ensure the RANDAO seed and validator set snapshot
+    // fall within finalized L1 history, protecting against L1 reorgs that could change
+    // the committee after we cache it. Uses lagInEpochsForRandao as the binding constraint
+    // (it's always <= lagInEpochsForValidatorSet). The sampling timestamp is computed from
+    // the epoch start (not the individual slot timestamp) to match the L1 contract's logic.
+    const { lagInEpochsForRandao, epochDuration, slotDuration } = this.l1constants;
+    const epochStartTs = getTimestampForSlot(getSlotRangeForEpoch(epoch, this.l1constants)[0], this.l1constants);
+    const lagSeconds = BigInt(lagInEpochsForRandao) * BigInt(epochDuration) * BigInt(slotDuration);
+    const samplingTs = epochStartTs - lagSeconds;
+    if (samplingTs > l1FinalizedTimestamp) {
+      throw new EpochNotFinalizedError(epoch, samplingTs, l1FinalizedTimestamp);
     }
     return { committee, seed: seedBuffer.toBigInt(), epoch, isEscapeHatchOpen };
   }
@@ -331,7 +325,7 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   public computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint {
-    // if committe size is 0, then mod 1 is 0
+    // if committee size is 0, then mod 1 is 0
     if (size === 0n) {
       return 0n;
     }
@@ -349,7 +343,7 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  /** Returns the target and next L2 slot in the next L1 slot. */
+  /** Returns the target and next L2 slot in the next L1 slot */
   public getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber } {
     const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
     const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
