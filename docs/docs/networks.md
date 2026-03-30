@@ -11,11 +11,15 @@ The Aztec Protocol operates across multiple networks, each serving specific purp
 
 Not sure which network to use? Jump to our [Network Selection Guide](#network-selection-guide).
 
+:::note Developer SDK vs Node Versions
+The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. For example, aztec-nr `4.2.0-aztecnr-rc.2` and other versions may be compatible with node version `4.1.2`. Use the version from the developer docs for contract development — use the version below for running nodes.
+:::
+
 ## Network Technical Information
 
 | Parameter | Alpha (Mainnet) | Testnet | Devnet |
 |-----------|-------------------|---------|--------|
-| **Version** | `4.2.0-aztecnr-rc.2` | `4.1.0-rc.2` | `4.0.0-devnet.2-patch.1` |
+| **Version** | `4.1.2` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.0-rc.2` | `4.0.0-devnet.2-patch.1` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) | `11155111` (Sepolia) |
 | **Rollup Version** | `0` | `4127419662` | `615022430` |
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` | `https://v4-devnet-2.aztec-labs.com/` |

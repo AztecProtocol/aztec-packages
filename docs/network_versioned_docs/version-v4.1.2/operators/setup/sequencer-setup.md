@@ -320,7 +320,7 @@ Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
 ```yaml
 services:
   aztec-sequencer:
-    image: "aztecprotocol/aztec:2.1.11"
+    image: "aztecprotocol/aztec:4.1.2"
     container_name: "aztec-sequencer"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -557,6 +557,7 @@ After setting up and registering your sequencer:
 - **[Monitor Sequencer Status](#monitoring-sequencer-status)** - Track performance and attestation rate
 - **[Operator FAQ](../operator-faq.md)** - Common issues and resolutions
 - **[Governance Participation](../sequencer-management/governance-participation.md)** - Participate in governance
+- **[High Availability Setup](./high-availability.md)** - Run your sequencer across multiple nodes for redundancy
 - **[Advanced Keystore Patterns](../keystore/advanced-patterns.md)** - Manage multiple sequencer identities
 
 **Community support:**

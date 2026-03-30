@@ -22,7 +22,7 @@ This tutorial is compatible with the Aztec version `4.2.0-aztecnr-rc.2`. Install
 Run this to create a new contract project:
 
 ```bash
-aztec new --contract counter
+aztec new counter
 ```
 
 Your structure should look like this:
