@@ -305,6 +305,7 @@ Look for log entries related to:
 ## Next steps
 
 - Review [How to Run a Sequencer Node](../setup/sequencer-setup.md) for operational guidance
+- Learn about [High Availability Sequencers](../setup/high-availability.md) for production redundancy configurations
 - Explore [Advanced Keystore Patterns](../keystore/advanced-patterns.md) for complex key management
 - Check [Useful Commands](../sequencer-management/useful-commands.md) for monitoring tools
 - Join the [Aztec Discord](https://discord.gg/aztec) for infrastructure support

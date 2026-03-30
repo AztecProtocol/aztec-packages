@@ -370,18 +370,17 @@
 # This MUST come AFTER specific path redirects above
 [[redirects]]
     from = "/the_aztec_network/*"
-    to = "/network/:splat"
+    to = "/operate/:splat"
     status = 301
 
-# Versioned network docs redirects
 [[redirects]]
     from = "/testnet/the_aztec_network/*"
-    to = "/network/testnet/:splat"
+    to = "/operate/testnet/:splat"
     status = 301
 
 [[redirects]]
     from = "/ignition/the_aztec_network/*"
-    to = "/network/:splat"
+    to = "/operate/:splat"
     status = 301
 
 # =============================================================================
@@ -489,11 +488,6 @@
 [[redirects]]
     from = "/operate/testnet/operators/sequencer_management/*"
     to = "/operate/testnet/operators/sequencer-management/:splat"
-    status = 301
-
-[[redirects]]
-    from = "/operate/ignition/operators/sequencer_management/*"
-    to = "/operate/ignition/operators/sequencer-management/:splat"
     status = 301
 
 # =============================================================================
