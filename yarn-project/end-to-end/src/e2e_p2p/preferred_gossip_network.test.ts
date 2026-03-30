@@ -6,7 +6,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload, TopicType } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -116,6 +116,19 @@ describe('e2e_p2p_preferred_network', () => {
     });
     // @ts-expect-error - replace with our own handler
     p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
+  };
+
+  /** Log gossipsub diagnostics for a node to help diagnose message relay issues. */
+  const logGossipDiagnostics = (node: AztecNodeService, label: string) => {
+    const p2pService = (node.getP2P() as any).p2pService as P2PService;
+    const diag = (p2pService as any).getGossipSubDiagnostics(TopicType.tx);
+    t.logger.info(`GossipSub diagnostics for ${label} (tx topic)`, {
+      meshPeers: diag.meshPeers.length,
+      topicPeers: diag.topicPeers.length,
+      directPeers: diag.directPeers,
+      allPeers: diag.allPeers.length,
+      backoffPeers: diag.backoffPeers.length,
+    });
   };
 
   const mockFailedAuthHandler = (node: AztecNodeService) => {
@@ -332,6 +345,14 @@ describe('e2e_p2p_preferred_network', () => {
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
+
+    // Log gossipsub diagnostics to diagnose potential relay issues
+    t.logger.info('=== GossipSub diagnostics before setupAccount ===');
+    preferredNodes.forEach((node, i) => logGossipDiagnostics(node, `Preferred Node ${i + 1}`));
+    validators.forEach((node, i) => logGossipDiagnostics(node, `Validator ${i + 1}`));
+    noDiscoveryValidators.forEach((node, i) => logGossipDiagnostics(node, `Picky Validator ${i + 1}`));
+    logGossipDiagnostics(t.ctx.aztecNodeService, 'Default Node');
+
     await t.setupAccount();
 
     // Send the required number of transactions to each node
@@ -342,12 +363,17 @@ describe('e2e_p2p_preferred_network', () => {
     }
 
     t.logger.info('Waiting for transactions to be mined');
+    // Use a longer timeout (6 slots instead of 3) because the picky validator relies on
+    // IHAVE/IWANT gossip relay through preferred nodes, adding latency. When the picky
+    // validator is proposer for consecutive slots, the default 3-slot timeout may not
+    // be enough for the tx to propagate and get included.
+    const extendedTxTimeout = WAIT_FOR_TX_TIMEOUT * 2;
     // now ensure that all txs were successfully mined
     const receipts = await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
         txs.map((txHash, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
-          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
+          return waitForTx(nodes[0], txHash, { timeout: extendedTxTimeout });
         }),
       ),
     );
