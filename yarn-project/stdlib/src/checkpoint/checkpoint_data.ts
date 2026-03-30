@@ -14,17 +14,53 @@ import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { L1PublishedData } from './published_checkpoint.js';
 
-/** Lightweight checkpoint metadata without full block data. */
-export type CheckpointData = {
+/** Base type for checkpoint data */
+export type CommonCheckpointData = {
   checkpointNumber: CheckpointNumber;
   header: CheckpointHeader;
-  archive: AppendOnlyTreeSnapshot;
-  checkpointOutHash: Fr;
   startBlock: BlockNumber;
   blockCount: number;
+};
+
+/** Data stored with checkpoint data after publishing on l1 */
+export type L1EnrichedCheckpointData = {
   attestations: CommitteeAttestation[];
   l1: L1PublishedData;
 };
+
+/** Data stored alongside checkpoint data in storage */
+export type StorageEnrichedCheckpointData = {
+  archive: AppendOnlyTreeSnapshot;
+  checkpointOutHash: Fr;
+};
+
+/** Data stored only with proposed checkpoint data  */
+export type ProposedOnlyCheckpointData = {
+  totalManaUsed: bigint;
+  feeAssetPriceModifier: bigint;
+};
+
+/** Lightweight checkpoint metadata without full block data. */
+export type CheckpointData = CommonCheckpointData & StorageEnrichedCheckpointData & L1EnrichedCheckpointData;
+
+/** Input for setting a proposed checkpoint. The archive and checkpointOutHash are computed
+ *  internally by the block store from the stored blocks. */
+export type ProposedCheckpointInput = CommonCheckpointData & ProposedOnlyCheckpointData;
+
+/** Full data for a proposed checkpoint (proposed but not yet L1-confirmed).
+ *  Includes fee-relevant fields used during pipelining to compute the fee header override. */
+export type ProposedCheckpointData = ProposedCheckpointInput & StorageEnrichedCheckpointData;
+
+export const ProposedCheckpointDataSchema = z.object({
+  checkpointNumber: CheckpointNumberSchema,
+  header: CheckpointHeader.schema,
+  archive: AppendOnlyTreeSnapshot.schema,
+  checkpointOutHash: schemas.Fr,
+  startBlock: BlockNumberSchema,
+  blockCount: z.number(),
+  totalManaUsed: schemas.BigInt,
+  feeAssetPriceModifier: schemas.BigInt,
+});
 
 export const CheckpointDataSchema = z
   .object({
