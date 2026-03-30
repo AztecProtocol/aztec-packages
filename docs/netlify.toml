@@ -805,8 +805,6 @@
     # PXE: incompatible oracle version between contract and PXE
     from = "/errors/8"
     to = "/developers/docs/foundational-topics/pxe"
-<<<<<<< HEAD
-=======
 
 [[redirects]]
     # CLI: aztec dep version in Nargo.toml does not match the CLI version
@@ -817,4 +815,3 @@
     # PXE: capsule operation attempted with a scope not in the allowed scopes list
     from = "/errors/10"
     to = "/developers/docs/aztec-nr/framework-description/advanced/how_to_use_capsules"
->>>>>>> 57d3bd09cf (fix: restrict access to scoped capsules (#22113))
