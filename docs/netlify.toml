@@ -810,3 +810,8 @@
     # CLI: aztec dep version in Nargo.toml does not match the CLI version
     from = "/errors/9"
     to = "/developers/docs/aztec-nr/framework-description/dependencies#updating-your-aztec-dependencies"
+
+[[redirects]]
+    # PXE: capsule operation attempted with a scope not in the allowed scopes list
+    from = "/errors/10"
+    to = "/developers/docs/aztec-nr/framework-description/advanced/how_to_use_capsules"
