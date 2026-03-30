@@ -662,6 +662,31 @@ case "$cmd" in
 
     grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
     ;;
+  "ci-grind-p2p")
+    # Temporary: grind p2p tests to check for flakes after libp2p upgrade.
+    export CI=1
+    export USE_TEST_CACHE=0
+    prep
+    echo_header "build yarn-project for p2p grind"
+    make yarn-project
+
+    integration_timeout="${1:-30m}"
+    e2e_timeout="${2:-60m}"
+    hash="grind"
+    failed=0
+
+    # P2P e2e tests (lower parallelism — each test spins up 7 full Aztec nodes)
+    e2e_tests=(
+      "e2e_p2p/preferred_gossip_network.test.ts"
+    )
+    for test in "${e2e_tests[@]}"; do
+      echo_header "Grinding: $test"
+      full_cmd="${hash}:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=${test} LOG_LEVEL=\"verbose; debug:p2p\" yarn-project/end-to-end/scripts/run_test.sh simple src/${test}"
+      grind_test "$full_cmd" "$e2e_timeout" 10 || { echo "FAILED: $test"; failed=1; }
+    done
+
+    exit $failed
+    ;;
 
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
