@@ -50,7 +50,14 @@ export class CheatCodes {
 
     // Mine real L1 blocks to the target timestamp so finalized also advances,
     // preventing EpochNotFinalizedError when the sequencer queries the committee.
-    await this.eth.mineUntilTimestamp(targetTimestamp, { blockTimestampInterval: this.ethereumSlotDuration });
+    // For large time jumps (e.g., 1 day), mining at the ethereum slot interval (12s)
+    // would require thousands of blocks. Instead, cap at ~100 blocks and spread
+    // the interval to cover the full jump.
+    const currentTimestamp = await this.eth.lastBlockTimestamp();
+    const jump = Number(targetTimestamp) - currentTimestamp;
+    const maxBlocks = 100;
+    const interval = Math.max(this.ethereumSlotDuration, Math.ceil(jump / maxBlocks));
+    await this.eth.mineUntilTimestamp(targetTimestamp, { blockTimestampInterval: interval });
 
     // Wait until an L2 block is mined
     const sequencer = sequencerClient.getSequencer();
