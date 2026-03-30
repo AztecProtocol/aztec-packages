@@ -70,8 +70,11 @@ template <typename Fq_, typename Fr_, typename Params> class group {
      *              (d), invert y-coordinate.
      *           j. return (x, y)
      *
-     * NOTE: In step 3b it is sufficient to use 1 byte to store `count`.
-     *       Step 3 has a 50% chance of returning, the probability of `count` exceeding 256 is 1 in 2^256
+     * NOTE: In step 3b it is sufficient to use 1 byte (uint8_t) to store `count` (called
+     *       `attempt_count` in hash_to_curve). For BN254/Grumpkin, approximately half of all Fq field
+     *       elements are quadratic residues, so each attempt succeeds with probability ~1/2. The
+     *       probability of needing more than N attempts is ~2^-N, making P(count > 255) ≈ 2^-255 —
+     *       negligible for any practical use. The type uint8_t is therefore intentional, not a bug.
      * NOTE: The domain separator is included to ensure that it is possible to derive independent sets of
      * index-addressable generators.
      * NOTE: we produce 64 bytes of BLAKE3 output when producing x-coordinate field

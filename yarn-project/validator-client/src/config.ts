@@ -49,11 +49,6 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Interval between polling for new attestations',
     ...numberConfigHelper(200),
   },
-  validatorReexecute: {
-    env: 'VALIDATOR_REEXECUTE',
-    description: 'Re-execute transactions before attesting',
-    ...booleanConfigHelper(true),
-  },
   alwaysReexecuteBlockProposals: {
     description:
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',

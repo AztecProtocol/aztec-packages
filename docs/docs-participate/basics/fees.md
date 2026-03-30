@@ -62,10 +62,7 @@ Aztec offers flexible fee payment:
 If you have $AZTEC, pay for your own transactions directly from your account.
 
 ### Sponsored Transactions
-Some applications pay fees on behalf of their users, enabling "free" transactions. The application covers the cost, not you.
-
-### Fee-Paying Contracts
-Specialized contracts can accept other tokens and pay fees in $AZTEC for you. This is useful if you only hold other tokens.
+Fee-paying contracts can pay fees on your behalf. For example, on devnet and local network, a sponsored fee-paying contract covers transaction costs for free. FPCs can also accept other tokens on L1 and bridge $AZTEC to pay fees.
 
 ## Understanding Your Fee
 
