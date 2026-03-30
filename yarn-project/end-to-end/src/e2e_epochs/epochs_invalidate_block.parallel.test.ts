@@ -375,12 +375,27 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   it('proposer invalidates multiple checkpoints', async () => {
     const initialSlot = (await test.monitor.run()).l2SlotNumber;
 
-    // Disable validation and attestation gathering for the proposers of two consecutive slots
-    // Note that we dont do this on the immediate next slot in case it has already started being built
-    const badProposers = await Promise.all([
-      test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + 2)),
-      test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + 3)),
-    ]);
+    // Disable validation and attestation gathering for the proposers of two consecutive slots.
+    // We skip slot+1 since it may be right about to start. We also ensure that the proposer of
+    // slot+1 is not the same as either bad proposer.
+    let badSlotOffset = 2;
+    let badProposers: (EthAddress | undefined)[];
+    let slotBeforeProposer: EthAddress | undefined;
+    do {
+      slotBeforeProposer = await test.epochCache.getProposerAttesterAddressInSlot(
+        SlotNumber(initialSlot + badSlotOffset - 1),
+      );
+      badProposers = await Promise.all([
+        test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + badSlotOffset)),
+        test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + badSlotOffset + 1)),
+      ]);
+      if (badProposers.some(p => p?.equals(slotBeforeProposer!))) {
+        logger.warn(
+          `Proposer of slot ${initialSlot + badSlotOffset - 1} collides with bad proposers, advancing offset`,
+        );
+        badSlotOffset++;
+      }
+    } while (badProposers.some(p => p?.equals(slotBeforeProposer!)));
 
     const badNodes = [];
     for (const badProposer of badProposers) {
@@ -406,8 +421,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // We should see two invalid blocks being proposed by the bad proposers in those two slots
     const firstCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
     const secondCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
-    const expectedFirstSlot = Number(BigInt(initialSlot) + 2n);
-    const expectedSecondSlot = Number(BigInt(initialSlot) + 3n);
+    const expectedFirstSlot = Number(BigInt(initialSlot) + BigInt(badSlotOffset));
+    const expectedSecondSlot = Number(BigInt(initialSlot) + BigInt(badSlotOffset + 1));
     test.monitor.on('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
       logger.warn(`Checkpoint ${checkpointNumber} at slot ${l2SlotNumber} has been mined`);
       if (l2SlotNumber === expectedFirstSlot) {
