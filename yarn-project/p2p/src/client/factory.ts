@@ -142,6 +142,7 @@ export async function createP2PClient(
     proofVerifier,
     worldStateSynchronizer,
     epochCache,
+    blockMinFeesProvider,
     store,
     peerStore,
     mempools,
@@ -218,6 +219,7 @@ async function createP2PService(
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
+  blockMinFeesProvider: BlockMinFeesProvider,
   store: AztecAsyncKVStore,
   peerStore: AztecLMDBStoreV2,
   mempools: MemPools,
@@ -245,6 +247,7 @@ async function createP2PService(
     proofVerifier,
     worldStateSynchronizer,
     peerStore,
+    blockMinFeesProvider,
     telemetry,
     logger: logger.createChild(`libp2p_service`),
   });

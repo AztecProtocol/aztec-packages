@@ -8,6 +8,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
@@ -991,6 +992,149 @@ describe('LibP2PService', () => {
       expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), expect.anything());
     });
   });
+
+  describe('discv5 ip:changed bridge (queryForIp)', () => {
+    const p2pPort = 40400;
+    const firstIp = '203.0.113.5';
+    const secondIp = '198.51.100.2';
+
+    function createQueryForIpService() {
+      const peerDiscovery = new DummyPeerDiscoveryService();
+      const addressManager = {
+        removeObservedAddr: jest.fn(),
+        addObservedAddr: jest.fn(),
+        confirmObservedAddr: jest.fn(),
+      };
+      const mockPeerId = mock<PeerId>({ toString: () => MOCK_PEER_ID });
+      const nodeState = { status: 'stopped' as string };
+      const mockNode = {
+        get status() {
+          return nodeState.status;
+        },
+        set status(v: string) {
+          nodeState.status = v;
+        },
+        peerId: mockPeerId,
+        start: jest.fn(() => {
+          nodeState.status = 'started';
+        }),
+        stop: jest.fn(() => {
+          nodeState.status = 'stopped';
+        }),
+        services: {
+          pubsub: {
+            subscribe: jest.fn(),
+            addEventListener: jest.fn(),
+            removeEventListener: jest.fn(),
+            getMeshPeers: jest.fn(() => []),
+          },
+          components: {
+            addressManager,
+            connectionManager: {} as unknown as ConnectionManager,
+          },
+        },
+      } as unknown as PubSubLibp2p;
+
+      const config: P2PConfig = {
+        ...getDefaultConfig(p2pConfigMappings),
+        seenMessageCacheSize: 1000,
+        debugP2PInstrumentMessages: false,
+        disableTransactions: true,
+        l1ChainId: 1,
+        rollupVersion: 1,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+        queryForIp: true,
+        p2pIp: undefined,
+        p2pPort,
+        p2pDiscoveryDisabled: true,
+        peerCheckIntervalMS: 60_000, // Long enough that heartbeat won't run during this unit test
+      };
+
+      const mockPeerManager = mock<PeerManagerInterface>();
+      mockPeerManager.initializePeers.mockResolvedValue(undefined);
+      mockPeerManager.stop.mockResolvedValue(undefined);
+      mockPeerManager.heartbeat.mockResolvedValue(undefined);
+
+      const mockReqResp = mock<ReqRespInterface>();
+      mockReqResp.start.mockResolvedValue(undefined);
+      mockReqResp.stop.mockResolvedValue(undefined);
+
+      const mempools = mock<MemPools>();
+      const archiver = mock<L2BlockSource & ContractDataSource>();
+      const epochCache = mock<EpochCacheInterface>();
+      const mockProofVerifier = mock<ClientProtocolCircuitVerifier>({
+        verifyProof: () => Promise.resolve({ valid: true, durationMs: 1, totalDurationMs: 1 }),
+      });
+      const mockWorldStateSynchronizer = mock<ServerWorldStateSynchronizer>();
+
+      const service = new LibP2PService(
+        config,
+        mockNode,
+        peerDiscovery,
+        mockReqResp,
+        mockPeerManager,
+        mempools,
+        archiver,
+        epochCache,
+        mockProofVerifier,
+        mockWorldStateSynchronizer,
+        { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
+        getTelemetryClient(),
+        createLogger('p2p:test:queryForIp'),
+      );
+
+      return { service, peerDiscovery, addressManager, config };
+    }
+
+    it('registers observed announce address when discv5 emits ip:changed', async () => {
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
+      const expectedAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
+
+      await service.start();
+      peerDiscovery.emit('ip:changed', firstIp);
+
+      expect(addressManager.addObservedAddr).toHaveBeenCalledWith(expectedAddr);
+      expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(expectedAddr);
+      expect(addressManager.removeObservedAddr).not.toHaveBeenCalled();
+
+      await service.stop();
+    });
+
+    it('removes previous observed address when ip:changed fires again with a new IP', async () => {
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
+      const firstAddr = multiaddr(convertToMultiaddr(firstIp, p2pPort, 'tcp'));
+      const secondAddr = multiaddr(convertToMultiaddr(secondIp, p2pPort, 'tcp'));
+
+      await service.start();
+      peerDiscovery.emit('ip:changed', firstIp);
+      addressManager.removeObservedAddr.mockClear();
+      addressManager.addObservedAddr.mockClear();
+      addressManager.confirmObservedAddr.mockClear();
+
+      peerDiscovery.emit('ip:changed', secondIp);
+
+      expect(addressManager.removeObservedAddr).toHaveBeenCalledWith(firstAddr);
+      expect(addressManager.addObservedAddr).toHaveBeenCalledWith(secondAddr);
+      expect(addressManager.confirmObservedAddr).toHaveBeenCalledWith(secondAddr);
+
+      await service.stop();
+    });
+
+    it('unsubscribes from ip:changed on stop so later emits are ignored', async () => {
+      const { service, peerDiscovery, addressManager } = createQueryForIpService();
+
+      await service.start();
+      peerDiscovery.emit('ip:changed', firstIp);
+      addressManager.addObservedAddr.mockClear();
+      addressManager.confirmObservedAddr.mockClear();
+
+      await service.stop();
+      peerDiscovery.emit('ip:changed', secondIp);
+
+      expect(addressManager.addObservedAddr).not.toHaveBeenCalled();
+      expect(addressManager.confirmObservedAddr).not.toHaveBeenCalled();
+    });
+  });
 });
 
 /** Mock type for tx objects used in block txs validation tests. */
@@ -1082,6 +1226,7 @@ class TestLibP2PService extends LibP2PService {
       epochCache,
       mockProofVerifier,
       mockWorldStateSynchronizer,
+      { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       telemetry,
       logger,
     );

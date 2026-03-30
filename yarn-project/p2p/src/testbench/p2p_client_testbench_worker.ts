@@ -117,6 +117,7 @@ class TestLibP2PService extends LibP2PService {
       epochCache,
       proofVerifier,
       worldStateSynchronizer,
+      { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       telemetry,
       logger,
     );
