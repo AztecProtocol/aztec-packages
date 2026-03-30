@@ -16,6 +16,7 @@ import type { ContractSyncService } from '../../contract_sync/contract_sync_serv
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
+import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -200,7 +201,7 @@ describe('Oracle Version Check test suite', () => {
         aztecNode,
         recipientTaggingStore,
         senderAddressBookStore,
-        capsuleStore,
+        capsuleService: new CapsuleService(capsuleStore, []),
         privateEventStore,
         messageContextService,
         contractSyncService,

@@ -15,6 +15,7 @@ import type { KeyStore } from '@aztec/key-store';
 import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
+  CapsuleService,
   CapsuleStore,
   type ContractStore,
   type ContractSyncService,
@@ -382,7 +383,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, effectiveScopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId,
@@ -748,7 +749,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         aztecNode: this.stateMachine.node,
         recipientTaggingStore: this.recipientTaggingStore,
         senderAddressBookStore: this.senderAddressBookStore,
-        capsuleStore: this.capsuleStore,
+        capsuleService: new CapsuleService(this.capsuleStore, scopes),
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
         contractSyncService: this.contractSyncService,
