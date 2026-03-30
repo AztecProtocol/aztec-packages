@@ -131,6 +131,8 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     // Represents the idx of a variable in circuit_constructor.variables
     std::span<const uint32_t> real_variable_tags = circuit_constructor.real_variable_tags;
 
+    BB_BENCH_NAME("compute_permutation_mapping cycle loop");
+
     // Go through each cycle
     for (size_t cycle_idx = 0; cycle_idx < wire_copy_cycles.size(); ++cycle_idx) {
         // We go through the cycle and fill-out/modify `mapping`. Following the generalized permutation algorithm, we
