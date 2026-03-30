@@ -3,6 +3,7 @@
     "arcanis.vscode-zipfs",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
+    "editorconfig.editorconfig",
     "eamodio.gitlens",
     "ms-vsliveshare.vsliveshare",
     "juanblanco.solidity",
