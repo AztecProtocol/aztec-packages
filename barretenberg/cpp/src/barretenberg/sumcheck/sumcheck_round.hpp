@@ -285,43 +285,6 @@ template <typename Flavor> class SumcheckProverRound {
     };
 
     /**
-     * @brief Helper struct that will, given a vector of BlockOfContiguousRows, return the edge indices that correspond
-     * to the nonzero rows
-     */
-    struct RowIterator {
-        const std::vector<BlockOfContiguousRows>* blocks;
-        size_t current_block_index = 0;
-        size_t current_block_count = 0;
-        RowIterator(const std::vector<BlockOfContiguousRows>& _blocks, size_t starting_index = 0)
-            : blocks(&_blocks)
-        {
-            size_t count = 0;
-            for (size_t i = 0; i < blocks->size(); ++i) {
-                const BlockOfContiguousRows block = blocks->at(i);
-                if (count + (block.size / 2) > starting_index) {
-                    current_block_index = i;
-                    current_block_count = (starting_index - count) * 2;
-                    break;
-                }
-                count += (block.size / 2);
-            }
-        }
-
-        size_t get_next_edge()
-        {
-            const BlockOfContiguousRows& block = blocks->at(current_block_index);
-            size_t edge = block.starting_edge_idx + current_block_count;
-            if (current_block_count + 2 >= block.size) {
-                current_block_index += 1;
-                current_block_count = 0;
-            } else {
-                current_block_count += 2;
-            }
-            return edge;
-        }
-    };
-
-    /**
      * @brief Compute the number of unskippable rows we must iterate over
      * @details Some circuits have a circuit size much larger than the number of used rows (ECCVM, Translator).
      *          For relevant flavors, we have a `skip_entire_row` method that can be used to check whether to skip.
