@@ -60,7 +60,11 @@ class ECCOpQueue {
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
+    bool is_zk = false;
+
   public:
+    void set_is_zk(bool _is_zk) { is_zk = _is_zk; }
+
     static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
     /**
      * @brief Instantiate an initial ECC op subtable.
@@ -147,11 +151,22 @@ class ECCOpQueue {
     {
         if (eccvm_ops_reconstructed.empty()) {
             construct_full_eccvm_ops_table();
-            // Prepend the hiding op at index 0 (required for ZK)
-            if (!has_hiding_op) {
-                throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
+            if (is_zk) {
+                // Prepend the hiding op at index 0 (required for ZK)
+                if (!has_hiding_op) {
+                    throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
+                }
+                eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
+            } else {
+                // Point base_point;
+                // base_point.x = Fq(0);
+                // base_point.y = Fq(0);
+
+                // ECCVMOperation eccvm_ops =
+                //     ECCVMOperation{ .op_code = { .eq = true, .reset = true }, .base_point = base_point };
+
+                // eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), eccvm_ops);
             }
-            eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
         }
         return eccvm_ops_reconstructed;
     }
@@ -301,6 +316,10 @@ class ECCOpQueue {
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();
+        if (expected.is_point_at_infinity()) {
+            expected.x = Fq(0);
+            expected.y = Fq(0);
+        }
         EccOpCode op_code{ .eq = true, .reset = true };
         // Store eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });
