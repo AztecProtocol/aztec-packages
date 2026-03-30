@@ -36,7 +36,7 @@ function test {
     source "$HOME/.cargo/env"
   fi
 
-  # Run PipeBackend tests (spawns bb binary)
+  # Run UdsBackend tests (requires a running bb server on a socket)
   # Use --no-default-features to skip FFI (which requires libbb-external.a)
   denoise "cargo test --release --no-default-features --features native"
 

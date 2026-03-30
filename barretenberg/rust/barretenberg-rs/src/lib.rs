@@ -3,13 +3,13 @@
 //! High-performance Rust bindings to the Barretenberg cryptographic library
 //! using msgpack protocol over pluggable backends.
 //!
-//! ## Usage with PipeBackend
+//! ## Usage with UdsBackend (Unix Domain Socket)
 //!
 //! ```ignore
-//! use barretenberg_rs::{BarretenbergApi, backends::PipeBackend};
+//! use barretenberg_rs::{BarretenbergApi, backends::UdsBackend};
 //!
-//! // Create a pipe backend (requires BB binary)
-//! let backend = PipeBackend::new("/path/to/bb", Some(4))?;
+//! // Connect to a running BB server
+//! let backend = UdsBackend::connect("/tmp/bb.sock")?;
 //! let mut api = BarretenbergApi::new(backend);
 //!
 //! // Use the API
@@ -34,13 +34,10 @@
 //! impl Backend for MyBackend {
 //!     fn call(&mut self, request: &[u8]) -> Result<Vec<u8>> {
 //!         // Send msgpack request, receive msgpack response
-//!         // The request is a msgpack-encoded Vec<Command>
-//!         // The response should be a msgpack-encoded Response
 //!         todo!()
 //!     }
 //!
 //!     fn destroy(&mut self) -> Result<()> {
-//!         // Cleanup resources
 //!         Ok(())
 //!     }
 //! }
@@ -65,11 +62,15 @@ pub use error::{BarretenbergError, Result};
 
 /// Backend implementations
 pub mod backends {
+    /// UDS (Unix Domain Socket) backend — connects to a running BB server.
+    /// Uses the standard 4-byte LE length-prefixed msgpack protocol.
     #[cfg(feature = "native")]
-    pub mod pipe;
+    pub mod uds;
     #[cfg(feature = "native")]
-    pub use pipe::PipeBackend;
+    pub use uds::UdsBackend;
 
+    /// FFI backend — calls into libbarretenberg.a directly via C FFI.
+    /// Avoids IPC overhead but requires linking against the library.
     #[cfg(feature = "ffi")]
     pub mod ffi;
     #[cfg(feature = "ffi")]
