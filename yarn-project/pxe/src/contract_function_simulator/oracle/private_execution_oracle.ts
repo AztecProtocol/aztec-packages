@@ -555,7 +555,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,

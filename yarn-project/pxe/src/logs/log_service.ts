@@ -15,7 +15,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
-import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
+import type { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import {
@@ -31,7 +31,7 @@ export class LogService {
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
     private readonly keyStore: KeyStore,
-    private readonly capsuleStore: CapsuleStore,
+    private readonly capsuleService: CapsuleService,
     private readonly recipientTaggingStore: RecipientTaggingStore,
     private readonly senderAddressBookStore: SenderAddressBookStore,
     private readonly addressStore: AddressStore,
@@ -207,7 +207,7 @@ export class LogService {
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(
+    return this.capsuleService.appendToCapsuleArray(
       contractAddress,
       capsuleArrayBaseSlot,
       pendingTaggedLogs,
