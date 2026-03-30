@@ -11,8 +11,13 @@ import type { CapsuleStore } from './capsule_store.js';
 export class CapsuleService {
   constructor(
     private readonly capsuleStore: CapsuleStore,
-    private readonly allowedScopes: AztecAddress[],
+    private readonly allowedScopes: AztecAddress[] | 'unrestricted',
   ) {}
+
+  /** Creates a CapsuleService that allows all scopes without restriction. Intended for test environments (TXE). */
+  static unrestricted(capsuleStore: CapsuleStore): CapsuleService {
+    return new CapsuleService(capsuleStore, 'unrestricted');
+  }
 
   setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
     assertAllowedScope(scope, this.allowedScopes);
@@ -78,7 +83,10 @@ export class CapsuleService {
   }
 }
 
-function assertAllowedScope(scope: AztecAddress, allowedScopes: AztecAddress[]) {
+function assertAllowedScope(scope: AztecAddress, allowedScopes: AztecAddress[] | 'unrestricted') {
+  if (allowedScopes === 'unrestricted') {
+    return;
+  }
   if (scope.equals(AztecAddress.ZERO)) {
     return;
   }
