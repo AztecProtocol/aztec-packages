@@ -572,11 +572,10 @@ export class CheckpointProposalJob implements Traceable {
       // Register the fork so SYNC_BLOCK can commit it instead of recalculating.
       this.worldState.registerForkForBlock(block.archive.root, checkpointBuilder.getForkId());
 
-      // If this is the last block, sync to archiver and exit the loop
-      // so we can build the checkpoint and start collecting attestations.
+      // If this is the last block, exit the loop so we can build the checkpoint and start collecting attestations.
+      // The block will be synced to LMDB when the block stream picks it up from the archiver.
       if (timingInfo.isLastBlock) {
         await this.syncProposedBlockToArchiver(block);
-        await this.worldState.syncImmediate(blockNumber);
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.targetSlot}`, {
           slot: this.targetSlot,
           blockNumber,
@@ -600,11 +599,13 @@ export class CheckpointProposalJob implements Traceable {
 
       // Wait for LMDB to reach this block before creating the next fork.
       // In HA mode, another peer's proposal may arrive via gossip and be committed instead of ours.
-      await this.worldState.syncImmediate(blockNumber);
-
-      // Create a new fork at the advanced tip for the next block.
-      const newFork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
-      checkpointBuilder.setFork(newFork);
+      // If the block was not pushed to the archiver (e.g. skipPushProposedBlocksToArchiver), skip the
+      // sync and reuse the current fork for the next block.
+      if (!this.config.skipPushProposedBlocksToArchiver) {
+        await this.worldState.syncImmediate(blockNumber);
+        const newFork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
+        checkpointBuilder.setFork(newFork);
+      }
 
       // Wait until the next block's start time
       await this.waitUntilNextSubslot(timingInfo.deadline);
