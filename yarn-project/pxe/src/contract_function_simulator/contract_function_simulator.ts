@@ -89,7 +89,6 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../access_scopes.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { MessageContextService } from '../messages/message_context_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
@@ -123,7 +122,7 @@ export type ContractSimulatorRunOpts = {
   /** The address used as a tagging sender when emitting private logs. */
   senderForTags?: AztecAddress;
   /** The accounts whose notes we can access in this call. */
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
   /** The job ID for staged writes. */
   jobId: string;
 };
@@ -320,7 +319,7 @@ export class ContractFunctionSimulator {
     call: FunctionCall,
     authwits: AuthWitness[],
     anchorBlockHeader: BlockHeader,
-    scopes: AccessScopes,
+    scopes: AztecAddress[],
     jobId: string,
   ): Promise<{ result: Fr[]; offchainEffects: OffchainEffect[] }> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);

@@ -54,7 +54,7 @@ describe('LogService', () => {
         aztecNode,
         anchorBlockHeader,
         keyStore,
-        new CapsuleService(capsuleStore, 'ALL_SCOPES'),
+        new CapsuleService(capsuleStore, []),
         recipientTaggingStore,
         senderAddressBookStore,
         addressStore,

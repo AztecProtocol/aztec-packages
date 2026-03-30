@@ -9,6 +9,37 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] `simulateTx`, `executeUtility`, `profileTx`, and `proveTx` no longer accept `scopes: 'ALL_SCOPES'`
+
+The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The `scopes` field in `SimulateTxOpts`,
+`ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
+`'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
+
+**Migration:**
+
+```diff
++ const accounts = await pxe.getRegisteredAccounts();
++ const scopes = accounts.map(a => a.address);
+
+  // simulateTx
+- await pxe.simulateTx(txRequest, { simulatePublic: true, scopes: 'ALL_SCOPES' });
++ await pxe.simulateTx(txRequest, { simulatePublic: true, scopes });
+
+  // executeUtility
+- await pxe.executeUtility(call, { scopes: 'ALL_SCOPES' });
++ await pxe.executeUtility(call, { scopes });
+
+  // profileTx
+- await pxe.profileTx(txRequest, { profileMode: 'full', scopes: 'ALL_SCOPES' });
++ await pxe.profileTx(txRequest, { profileMode: 'full', scopes });
+
+  // proveTx
+- await pxe.proveTx(txRequest, 'ALL_SCOPES');
++ await pxe.proveTx(txRequest, scopes);
+```
+
+**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
+
 ### [PXE] Capsule operations are now scope-enforced at the PXE level
 
 The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
