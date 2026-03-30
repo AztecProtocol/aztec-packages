@@ -254,7 +254,7 @@ describe('Utility Execution test suite', () => {
         messageContextService,
         contractSyncService,
         jobId: 'test-job-id',
-        scopes: 'ALL_SCOPES',
+        scopes: [],
       });
     });
 
@@ -321,7 +321,7 @@ describe('Utility Execution test suite', () => {
           messageContextService,
           contractSyncService,
           jobId: 'test-job-id',
-          scopes: 'ALL_SCOPES',
+          scopes: [],
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -502,7 +502,7 @@ describe('Utility Execution test suite', () => {
             messageContextService,
             contractSyncService,
             jobId: 'test-job-id',
-            scopes: 'ALL_SCOPES',
+            scopes: [],
           });
 
         const oracleA = makeOracle(contractAddressA);

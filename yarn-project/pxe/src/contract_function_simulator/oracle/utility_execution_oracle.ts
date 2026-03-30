@@ -21,7 +21,6 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
@@ -65,7 +64,7 @@ export type UtilityExecutionOracleArgs = {
   contractSyncService: ContractSyncService;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };
 
 /**
@@ -96,7 +95,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly contractSyncService: ContractSyncService;
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
-  protected readonly scopes: AccessScopes;
+  protected readonly scopes: AztecAddress[];
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -166,17 +165,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @throws If scopes are defined and the account is not in the scopes.
    */
   public async getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
-    // If scopes are defined, check that the key belongs to an account in the scopes.
-    if (this.scopes !== 'ALL_SCOPES' && this.scopes.length > 0) {
-      let hasAccess = false;
-      for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
-        if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
-          hasAccess = true;
-        }
+    let hasAccess = false;
+    for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
+      if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
+        hasAccess = true;
       }
-      if (!hasAccess) {
-        throw new Error(`Key validation request denied: no scoped account has a key with hash ${pkMHash.toString()}.`);
-      }
+    }
+    if (!hasAccess) {
+      throw new Error(`Key validation request denied: no scoped account has a key with hash ${pkMHash.toString()}.`);
     }
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }

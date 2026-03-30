@@ -9,6 +9,37 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] `simulateTx`, `executeUtility`, `profileTx`, and `proveTx` no longer accept `scopes: 'ALL_SCOPES'`
+
+The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The `scopes` field in `SimulateTxOpts`,
+`ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
+`'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
+
+**Migration:**
+
+```diff
++ const accounts = await pxe.getRegisteredAccounts();
++ const scopes = accounts.map(a => a.address);
+
+  // simulateTx
+- await pxe.simulateTx(txRequest, { simulatePublic: true, scopes: 'ALL_SCOPES' });
++ await pxe.simulateTx(txRequest, { simulatePublic: true, scopes });
+
+  // executeUtility
+- await pxe.executeUtility(call, { scopes: 'ALL_SCOPES' });
++ await pxe.executeUtility(call, { scopes });
+
+  // profileTx
+- await pxe.profileTx(txRequest, { profileMode: 'full', scopes: 'ALL_SCOPES' });
++ await pxe.profileTx(txRequest, { profileMode: 'full', scopes });
+
+  // proveTx
+- await pxe.proveTx(txRequest, 'ALL_SCOPES');
++ await pxe.proveTx(txRequest, scopes);
+```
+
+**Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
+
 ### [Aztec.nr] Domain-separated tags on log emission
 
 All logs emitted through the Aztec.nr framework now include a domain-separated tag at `fields[0]`. Each log category uses its own domain separator via `compute_log_tag(raw_tag, dom_sep)`:

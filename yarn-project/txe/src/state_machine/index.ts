@@ -70,7 +70,6 @@ export class TXEStateMachine {
       node,
       contractStore,
       noteStore,
-      () => keyStore.getAccounts(),
       createLogger('txe:contract_sync'),
     );
 

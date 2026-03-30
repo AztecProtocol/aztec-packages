@@ -12,7 +12,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   CapsuleStore,
@@ -328,7 +327,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const effectiveScopes = from.isZero() ? [] : [from];
 
     // Sync notes before executing private function to discover notes from previous transactions
-    const utilityExecutor = async (call: FunctionCall, execScopes: AccessScopes) => {
+    const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
       await this.executeUtilityCall(call, execScopes, jobId);
     };
 
@@ -706,7 +705,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       },
       blockHeader,
       jobId,
-      'ALL_SCOPES',
+      await this.keyStore.getAccounts(),
     );
 
     const call = FunctionCall.from({
@@ -720,10 +719,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       returnTypes: [],
     });
 
-    return this.executeUtilityCall(call, 'ALL_SCOPES', jobId);
+    return this.executeUtilityCall(call, await this.keyStore.getAccounts(), jobId);
   }
 
-  private async executeUtilityCall(call: FunctionCall, scopes: AccessScopes, jobId: string): Promise<Fr[]> {
+  private async executeUtilityCall(call: FunctionCall, scopes: AztecAddress[], jobId: string): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
