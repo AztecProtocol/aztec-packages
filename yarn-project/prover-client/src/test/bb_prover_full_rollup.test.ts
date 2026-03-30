@@ -53,7 +53,7 @@ describe('prover/bb_prover/full-rollup', () => {
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+      await context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];

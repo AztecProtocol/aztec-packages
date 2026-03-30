@@ -89,7 +89,10 @@ export class ProverClient implements EpochProverManager {
   }
 
   /** Creates a TopTreeOrchestrator with a started facade for split proving mode. */
-  public createTopTreeProver(): { orchestrator: TopTreeOrchestrator; facade: BrokerCircuitProverFacade } {
+  public async createTopTreeProver(): Promise<{
+    orchestrator: TopTreeOrchestrator;
+    facade: BrokerCircuitProverFacade;
+  }> {
     const bindings = this.log.getBindings();
     const facade = new BrokerCircuitProverFacade(
       this.orchestratorClient,
@@ -99,7 +102,7 @@ export class ProverClient implements EpochProverManager {
       bindings,
       1_000, // Fast snapshot sync — multiple facades share the broker
     );
-    facade.start();
+    await facade.start();
     const orchestrator = new TopTreeOrchestrator(
       facade,
       this.config.proverId,

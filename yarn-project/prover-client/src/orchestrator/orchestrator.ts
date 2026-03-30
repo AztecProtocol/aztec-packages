@@ -154,6 +154,7 @@ export class ProvingOrchestrator implements EpochProver {
       reject,
     );
     this.provingPromise = promise;
+    return Promise.resolve();
   }
 
   /**

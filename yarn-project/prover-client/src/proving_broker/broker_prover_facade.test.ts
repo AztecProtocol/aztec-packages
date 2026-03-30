@@ -30,7 +30,7 @@ describe('BrokerCircuitProverFacade', () => {
     facade = new BrokerCircuitProverFacade(broker, proofStore, errorProofStore);
 
     await broker.start();
-    facade.start();
+    await facade.start();
   });
 
   afterEach(async () => {

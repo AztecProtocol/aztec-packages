@@ -361,7 +361,7 @@ export class ProverNode implements EpochMonitorHandler, WorkPollerHandler, Prove
       if (!isSplitProverManager(this.prover)) {
         throw new Error('Prover client does not support split proving');
       }
-      const { orchestrator: topTreeOrchestrator } = this.prover.createTopTreeProver();
+      const { orchestrator: topTreeOrchestrator } = await this.prover.createTopTreeProver();
 
       const epochDeadline = await this.getEpochDeadline(epoch);
       const job = new TopTreeJob(

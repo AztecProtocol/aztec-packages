@@ -10,7 +10,7 @@ export interface FacadeHandle {
 /** Extended prover manager with split proving support. */
 export interface SplitProverManager extends EpochProverManager {
   createCheckpointSubTreeProver(): { orchestrator: CheckpointSubTreeOrchestrator; facade: FacadeHandle };
-  createTopTreeProver(): { orchestrator: TopTreeOrchestrator; facade: FacadeHandle };
+  createTopTreeProver(): Promise<{ orchestrator: TopTreeOrchestrator; facade: FacadeHandle }>;
 }
 
 /** Type guard to check if a prover manager supports split proving. */

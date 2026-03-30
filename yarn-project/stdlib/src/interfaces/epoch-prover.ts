@@ -23,7 +23,7 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
     epochNumber: EpochNumber,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-  ): void;
+  ): Promise<void>;
 
   /**
    * Starts a new checkpoint.

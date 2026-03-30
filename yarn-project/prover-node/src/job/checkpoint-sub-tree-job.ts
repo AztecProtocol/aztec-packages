@@ -84,7 +84,7 @@ export class CheckpointSubTreeJob extends SplitProvingJob {
       const localBlobChallenges = await buildFinalBlobChallenges(blobFields);
 
       // Create a 1-checkpoint epoch just to drive the orchestrator's block proving flow.
-      this.orchestrator.startNewEpoch(this.epochNumber, 1, localBlobChallenges);
+      await this.orchestrator.startNewEpoch(this.epochNumber, 1, localBlobChallenges);
 
       await this.orchestrator.startChonkVerifierCircuits(Array.from(this.txsByHash.values()));
 

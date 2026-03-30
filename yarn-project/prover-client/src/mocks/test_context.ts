@@ -121,7 +121,7 @@ export class TestContext {
     const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO, false, 10);
 
     await broker.start();
-    facade.start();
+    await facade.start();
 
     return new this(
       ws,

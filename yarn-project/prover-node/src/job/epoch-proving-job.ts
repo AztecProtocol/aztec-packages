@@ -154,7 +154,7 @@ export class EpochProvingJob implements Traceable {
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
       this.metrics.recordBlobProcessing(blobTimer.ms());
 
-      this.prover.startNewEpoch(epochNumber, epochSizeCheckpoints, finalBlobBatchingChallenges);
+      await this.prover.startNewEpoch(epochNumber, epochSizeCheckpoints, finalBlobBatchingChallenges);
       const chonkTimer = new Timer();
       await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
       this.metrics.recordChonkVerifier(chonkTimer.ms());
