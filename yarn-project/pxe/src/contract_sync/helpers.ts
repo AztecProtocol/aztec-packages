@@ -6,7 +6,6 @@ import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../access_scopes.js';
 import { NoteService } from '../notes/note_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -43,7 +42,7 @@ export async function syncState(
   contractAddress: AztecAddress,
   contractStore: ContractStore,
   functionToInvokeAfterSync: FunctionSelector | null,
-  utilityExecutor: (privateSyncCall: FunctionCall, scopes: AccessScopes) => Promise<any>,
+  utilityExecutor: (privateSyncCall: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
   noteStore: NoteStore,
   aztecNode: AztecNode,
   anchorBlockHeader: BlockHeader,
@@ -60,7 +59,7 @@ export async function syncState(
     }
 
     const noteService = new NoteService(noteStore, aztecNode, anchorBlockHeader, jobId);
-    const scopes: AccessScopes = [scope];
+    const scopes: AztecAddress[] = [scope];
 
     // Both sync_state and syncNoteNullifiers interact with the note store, but running them in parallel is safe
     // because note store is designed to handle concurrent operations.

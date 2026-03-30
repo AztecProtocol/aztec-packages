@@ -36,7 +36,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import { type AccessScopes, displayDebugLogs } from '@aztec/pxe/client/lazy';
+import { displayDebugLogs } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -94,7 +94,7 @@ export type SimulateViaEntrypointOptions = Pick<
   /** Fee options for the entrypoint */
   feeOptions: FeeOptions;
   /** Scopes to use for the simulation */
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
 };
 /**
  * A base class for Wallet implementations
