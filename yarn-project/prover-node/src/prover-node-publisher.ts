@@ -168,7 +168,7 @@ export class ProverNodePublisher {
     // toCheckpoint can't be greater than pending
     if (toCheckpoint > pending) {
       throw new Error(
-        `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as pending checkpoint is ${pending}`,
+        `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as proposed checkpoint is ${pending}`,
       );
     }
 

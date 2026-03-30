@@ -2,7 +2,13 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
@@ -120,6 +126,25 @@ describe('ValidatorClient', () => {
     epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
       typeof getEpochAtSlot
     >[1] as any);
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(1),
+      ts: 0n,
+      nowMs: 0n,
+    });
+    epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(1),
+      ts: 0n,
+      nowSeconds: 0n,
+    });
+    epochCache.getTargetSlot.mockReturnValue(SlotNumber(1));
+    epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(2),
+      ts: 0n,
+      nowSeconds: 0n,
+    });
 
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
@@ -334,6 +359,25 @@ describe('ValidatorClient', () => {
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: proposal.slotNumber,
         nextSlot: SlotNumber(proposal.slotNumber + 1),
+      });
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: proposal.slotNumber,
+        ts: 0n,
+        nowMs: 0n,
+      });
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: proposal.slotNumber,
+        ts: 0n,
+        nowSeconds: 0n,
+      });
+      epochCache.getTargetSlot.mockReturnValue(proposal.slotNumber);
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 1),
+        ts: 0n,
+        nowSeconds: 0n,
       });
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
@@ -699,6 +743,25 @@ describe('ValidatorClient', () => {
         targetSlot: SlotNumber(proposal.slotNumber + 20),
         nextSlot: SlotNumber(proposal.slotNumber + 21),
       });
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 20),
+        ts: 0n,
+        nowMs: 0n,
+      });
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 20),
+        ts: 0n,
+        nowSeconds: 0n,
+      });
+      epochCache.getTargetSlot.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(proposal.slotNumber + 21),
+        ts: 0n,
+        nowSeconds: 0n,
+      });
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -758,6 +821,25 @@ describe('ValidatorClient', () => {
         epochCache.getTargetAndNextSlot.mockReturnValue({
           targetSlot: nonFirstBlockProposal.slotNumber,
           nextSlot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
+        });
+        epochCache.getEpochAndSlotNow.mockReturnValue({
+          epoch: EpochNumber(1),
+          slot: nonFirstBlockProposal.slotNumber,
+          ts: 0n,
+          nowMs: 0n,
+        });
+        epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+          epoch: EpochNumber(1),
+          slot: nonFirstBlockProposal.slotNumber,
+          ts: 0n,
+          nowSeconds: 0n,
+        });
+        epochCache.getTargetSlot.mockReturnValue(nonFirstBlockProposal.slotNumber);
+        epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
+          ts: 0n,
+          nowSeconds: 0n,
         });
 
         // Mock parent block data returned by getBlockDataByArchive

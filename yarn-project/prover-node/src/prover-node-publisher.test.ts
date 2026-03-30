@@ -65,7 +65,7 @@ describe('prover-node-publisher', () => {
       fromCheckpoint: 33,
       toCheckpoint: 66,
       expectedPublish: false,
-      message: 'Cannot submit epoch proof for 33-66 as pending checkpoint is 65',
+      message: 'Cannot submit epoch proof for 33-66 as proposed checkpoint is 65',
     },
     // Some successful partial epochs
     { pending: 33, proven: 32, fromCheckpoint: 33, toCheckpoint: 33, expectedPublish: true, message: '' },
@@ -125,7 +125,7 @@ describe('prover-node-publisher', () => {
   ];
 
   test.each(testCases)(
-    'submits proof for epoch with pending checkpoint: $pending, proven checkpoint: $proven, fromCheckpoint: $fromCheckpoint, toCheckpoint: $toCheckpoint',
+    'submits proof for epoch with proposed checkpoint: $pending, proven checkpoint: $proven, fromCheckpoint: $fromCheckpoint, toCheckpoint: $toCheckpoint',
     async ({ pending, proven, fromCheckpoint, toCheckpoint, expectedPublish, message }) => {
       // Create public inputs for every checkpoint
       const checkpoints = Array.from({ length: 100 }, () => {

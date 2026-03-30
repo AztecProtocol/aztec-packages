@@ -5,6 +5,7 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
   FeeAssetPriceOracle,
+  type FeeHeader,
   type GovernanceProposerContract,
   type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
@@ -36,8 +37,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
@@ -62,6 +64,20 @@ import {
 import type { SequencerPublisherConfig } from './config.js';
 import { type FailedL1Tx, type L1TxFailedStore, createL1TxFailedStore } from './l1_tx_failed_store/index.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
+
+/** Result of a sendRequests call, returned by both sendRequests() and sendRequestsAt(). */
+export type SendRequestsResult = {
+  /** The L1 transaction receipt or error from the bundled multicall. */
+  result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError;
+  /** Actions that expired (past their deadline) before the request was sent. */
+  expiredActions: Action[];
+  /** Actions that were included in the sent L1 transaction. */
+  sentActions: Action[];
+  /** Actions whose L1 simulation succeeded (subset of sentActions). */
+  successfulActions: Action[];
+  /** Actions whose L1 simulation failed (subset of sentActions). */
+  failedActions: Action[];
+};
 
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
@@ -104,6 +120,8 @@ export type InvalidateCheckpointRequest = {
   gasUsed: bigint;
   checkpointNumber: CheckpointNumber;
   forcePendingCheckpointNumber: CheckpointNumber;
+  /** Archive at the rollback target checkpoint (checkpoint N-1). */
+  lastArchive: Fr;
 };
 
 interface RequestWithExpiry {
@@ -135,7 +153,9 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
   protected aztecSlotDuration: bigint;
-  private dateProvider: DateProvider;
+
+  /** Date provider for wall-clock time. */
+  private readonly dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
 
@@ -150,6 +170,9 @@ export class SequencerPublisher {
 
   /** Fee asset price oracle for computing price modifiers from Uniswap V4 */
   private feeAssetPriceOracle: FeeAssetPriceOracle;
+
+  /** Interruptible sleep used by sendRequestsAt to wait until a target timestamp. */
+  private readonly interruptibleSleep = new InterruptibleSleep();
 
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
@@ -194,6 +217,7 @@ export class SequencerPublisher {
     this.lastActions = deps.lastActions;
 
     this.blobClient = deps.blobClient;
+    this.dateProvider = deps.dateProvider;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -369,9 +393,10 @@ export class SequencerPublisher {
    * - undefined if no valid requests are found OR the tx failed to send.
    */
   @trackSpan('SequencerPublisher.sendRequests')
-  public async sendRequests() {
+  public async sendRequests(): Promise<SendRequestsResult | undefined> {
     const requestsToProcess = [...this.requests];
     this.requests = [];
+
     if (this.interrupted || requestsToProcess.length === 0) {
       return undefined;
     }
@@ -530,6 +555,23 @@ export class SequencerPublisher {
     }
   }
 
+  /*
+   * Schedules sending all enqueued requests at (or after) the given timestamp.
+   * Uses InterruptibleSleep so it can be cancelled via interrupt().
+   * Returns the promise for the L1 response (caller should NOT await this in the work loop).
+   */
+  public async sendRequestsAt(submitAfter: Date): Promise<SendRequestsResult | undefined> {
+    const ms = submitAfter.getTime() - this.dateProvider.now();
+    if (ms > 0) {
+      this.log.debug(`Sleeping ${ms}ms before sending requests`, { submitAfter });
+      await this.interruptibleSleep.sleep(ms);
+    }
+    if (this.interrupted) {
+      return undefined;
+    }
+    return this.sendRequests();
+  }
+
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
     result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError | undefined,
@@ -608,7 +650,11 @@ export class SequencerPublisher {
   public canProposeAt(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber; pipelined?: boolean } = {},
+    opts: {
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
+      pipelined?: boolean;
+    } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
@@ -620,6 +666,7 @@ export class SequencerPublisher {
     return this.rollupContract
       .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
+        forceArchive: opts.forceArchive,
       })
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
@@ -732,6 +779,7 @@ export class SequencerPublisher {
         gasUsed,
         checkpointNumber,
         forcePendingCheckpointNumber: CheckpointNumber(checkpointNumber - 1),
+        lastArchive: validationResult.checkpoint.lastArchive,
         reason,
       };
     } catch (err) {
@@ -744,8 +792,8 @@ export class SequencerPublisher {
           `Simulation for invalidate checkpoint ${checkpointNumber} failed due to checkpoint not being in pending chain`,
           { ...logData, request, error: viemError.message },
         );
-        const latestPendingCheckpointNumber = await this.rollupContract.getCheckpointNumber();
-        if (latestPendingCheckpointNumber < checkpointNumber) {
+        const latestProposedCheckpointNumber = await this.rollupContract.getCheckpointNumber();
+        if (latestProposedCheckpointNumber < checkpointNumber) {
           this.log.verbose(`Checkpoint ${checkpointNumber} has already been invalidated`, { ...logData });
           return undefined;
         } else {
@@ -819,7 +867,10 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
+    options: {
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    },
   ): Promise<void> {
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
@@ -1135,7 +1186,11 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: {
+      txTimeoutAt?: Date;
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    } = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
 
@@ -1293,6 +1348,7 @@ export class SequencerPublisher {
    */
   public interrupt() {
     this.interrupted = true;
+    this.interruptibleSleep.interrupt();
     this.l1TxUtils.interrupt();
   }
 
@@ -1400,7 +1456,10 @@ export class SequencerPublisher {
       ViemSignature,
       `0x${string}`,
     ],
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
+    options: {
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    },
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1408,10 +1467,20 @@ export class SequencerPublisher {
       args,
     });
 
-    // override the pending checkpoint number if requested
+    // override the proposed checkpoint number if requested
     const forcePendingCheckpointNumberStateDiff = (
       options.forcePendingCheckpointNumber !== undefined
         ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingCheckpointNumber)
+        : []
+    ).flatMap(override => override.stateDiff ?? []);
+
+    // override the fee header for a specific checkpoint number if requested (used when pipelining)
+    const forceProposedFeeHeaderStateDiff = (
+      options.forceProposedFeeHeader !== undefined
+        ? await this.rollupContract.makeFeeHeaderOverride(
+            options.forceProposedFeeHeader.checkpointNumber,
+            options.forceProposedFeeHeader.feeHeader,
+          )
         : []
     ).flatMap(override => override.stateDiff ?? []);
 
@@ -1422,6 +1491,7 @@ export class SequencerPublisher {
         stateDiff: [
           { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
           ...forcePendingCheckpointNumberStateDiff,
+          ...forceProposedFeeHeaderStateDiff,
         ],
       },
     ];
@@ -1489,7 +1559,11 @@ export class SequencerPublisher {
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: {
+      txTimeoutAt?: Date;
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+    } = {},
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
