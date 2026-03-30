@@ -182,8 +182,7 @@ describe('EpochCache Integration', () => {
      */
 
     afterEach(async () => {
-      // Ensure mining is restored even if a test assertion fails mid-way.
-      await cheatCodes.setAutomine(true);
+      // Restore interval mining even if a test assertion fails mid-way.
       await cheatCodes.setIntervalMining(1);
     });
 
@@ -195,8 +194,9 @@ describe('EpochCache Integration', () => {
       const epochSeconds = BigInt(epochDuration) * BigInt(slotDuration);
 
       // Stop interval mining so we control exactly how many blocks exist.
+      // warp() mines a single block at the target timestamp, creating a large gap
+      // between latest and finalized since no intermediate blocks are produced.
       await cheatCodes.setIntervalMining(0);
-      await cheatCodes.setAutomine(false);
 
       // Warp latest forward by many epochs in a single block, creating a large gap.
       const latestTs = (await rollup.client.getBlock()).timestamp;
