@@ -7,6 +7,7 @@
 #include "ultra_prover.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -78,15 +79,30 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
     vinfo("created oink proof");
+    if (detail::use_memory_profile) {
+        size_t circuit_idx =
+            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_oink", circuit_idx);
+    }
 
     generate_gate_challenges();
 
     // Run sumcheck
     execute_sumcheck_iop();
     vinfo("finished relation check rounds");
+    if (detail::use_memory_profile) {
+        size_t circuit_idx =
+            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_sumcheck", circuit_idx);
+    }
     // Execute Shplemini PCS
     execute_pcs();
     vinfo("finished PCS rounds");
+    if (detail::use_memory_profile) {
+        size_t circuit_idx =
+            detail::GLOBAL_MEMORY_PROFILE.circuits.empty() ? 0 : detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1;
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_pcs", circuit_idx);
+    }
 
     return export_proof();
 }

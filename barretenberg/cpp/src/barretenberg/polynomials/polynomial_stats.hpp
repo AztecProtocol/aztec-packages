@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -163,6 +164,105 @@ template <typename ProverPolynomials> void analyze_prover_polynomials(ProverPoly
     oss << "Potential savings:       " << std::fixed << std::setprecision(1) << savings_pct << "%\n";
 
     info(oss.str());
+}
+
+/**
+ * @brief Classify a polynomial label into a memory category.
+ */
+inline std::string classify_polynomial(const std::string& label)
+{
+    if (label.starts_with("w_")) {
+        return "wires";
+    }
+    if (label.starts_with("sigma_")) {
+        return "sigmas";
+    }
+    if (label.starts_with("id_")) {
+        return "ids";
+    }
+    if (label.starts_with("q_")) {
+        return "selectors";
+    }
+    if (label.starts_with("table_value")) {
+        return "tables";
+    }
+    if (label.find("lookup") != std::string::npos || label == "z_lookup") {
+        return "lookup";
+    }
+    if (label.find("ecc_op") != std::string::npos) {
+        return "ecc_op";
+    }
+    if (label.find("databus") != std::string::npos || label.find("calldata") != std::string::npos ||
+        label.find("return_data") != std::string::npos) {
+        return "databus";
+    }
+    if (label.find("lagrange") != std::string::npos) {
+        return "lagrange";
+    }
+    if (label == "z_perm") {
+        return "z_perm";
+    }
+    return "other";
+}
+
+/**
+ * @brief Analyze prover polynomials and return categorized memory statistics.
+ * @details Groups polynomials by category (wires, sigmas, ids, selectors, etc.) and computes
+ * actual and compressed memory usage per category. Used by the --memory_profile_out flag.
+ */
+template <typename ProverPolynomials>
+CircuitMemoryStats analyze_prover_polynomials_categorized(ProverPolynomials& polynomials)
+{
+    using Polynomial = std::remove_reference_t<decltype(*polynomials.get_unshifted().begin())>;
+    using Fr = typename Polynomial::FF;
+
+    auto unshifted = polynomials.get_unshifted();
+    auto all_labels = polynomials.get_labels();
+
+    auto mb = [](auto bytes) { return static_cast<double>(bytes) / (1024.0 * 1024.0); };
+
+    CircuitMemoryStats result;
+
+    size_t idx = 0;
+    for (auto& poly : unshifted) {
+        std::string label = (idx < all_labels.size()) ? all_labels[idx] : "unknown_" + std::to_string(idx);
+        idx++;
+
+        if (poly.is_empty()) {
+            continue;
+        }
+
+        std::string category = classify_polynomial(label);
+        size_t actual_bytes = poly.size() * sizeof(Fr);
+        double compressed_bytes = 0;
+
+        const Fr* data = poly.data();
+        for (size_t i = 0; i < poly.size(); ++i) {
+            const Fr& elem = data[i];
+            if (elem.data[0] == 0 && elem.data[1] == 0 && elem.data[2] == 0 && elem.data[3] == 0) {
+                continue; // zero contributes 0 compressed bytes
+            }
+            Fr standard = elem.from_montgomery_form();
+            size_t bytes_needed = min_bytes_for_value(standard);
+            if (bytes_needed <= 4) {
+                compressed_bytes += 4;
+            } else if (bytes_needed <= 8) {
+                compressed_bytes += 8;
+            } else if (bytes_needed <= 16) {
+                compressed_bytes += 16;
+            } else {
+                compressed_bytes += 32;
+            }
+        }
+
+        auto& cat = result.categories[category];
+        cat.actual_mb += mb(actual_bytes);
+        cat.compressed_mb += mb(compressed_bytes);
+        result.total.actual_mb += mb(actual_bytes);
+        result.total.compressed_mb += mb(compressed_bytes);
+    }
+
+    return result;
 }
 
 } // namespace bb

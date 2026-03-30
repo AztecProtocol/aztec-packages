@@ -100,6 +100,12 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     if (std::getenv("BB_POLY_STATS")) {
         analyze_prover_polynomials(polynomials);
     }
+    if (detail::use_memory_profile) {
+        auto stats = analyze_prover_polynomials_categorized(polynomials);
+        detail::GLOBAL_MEMORY_PROFILE.add_circuit(std::move(stats));
+        detail::GLOBAL_MEMORY_PROFILE.add_rss_checkpoint("after_poly_allocation",
+                                                         detail::GLOBAL_MEMORY_PROFILE.circuits.size() - 1);
+    }
 }
 
 /**
