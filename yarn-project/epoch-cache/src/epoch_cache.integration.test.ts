@@ -48,10 +48,11 @@ describe('EpochCache Integration', () => {
   beforeAll(async () => {
     dateProvider = new TestDateProvider();
 
-    // Start Anvil with slotsInAnEpoch=1 so finalized block advances quickly (finalized = latest - 2).
+    // Start Anvil with slotsInAnEpoch=8 so finalized = latest - 16 blocks.
+    // A larger value (vs 1) avoids tests passing due to off-by-one near the finality boundary.
     ({ anvil, rpcUrl } = await startAnvil({
       l1BlockTime: 1,
-      slotsInAnEpoch: 1,
+      slotsInAnEpoch: 8,
       dateProvider,
     }));
 
@@ -96,8 +97,8 @@ describe('EpochCache Integration', () => {
       const targetEpoch = EpochNumber(lagEpochs + 2);
       await rollupCheatCodes.advanceToEpoch(targetEpoch);
 
-      // Mine a few extra blocks so the finalized tag catches up (finalized = latest - 2 with slotsInAnEpoch=1).
-      await cheatCodes.mine(5);
+      // Mine enough blocks so the finalized tag catches up (finalized = latest - 16 with slotsInAnEpoch=8).
+      await cheatCodes.mine(20);
 
       // Setup epoch so the committee commitment is stored on-chain.
       await rollupCheatCodes.setupEpoch();
