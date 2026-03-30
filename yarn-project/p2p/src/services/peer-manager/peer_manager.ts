@@ -37,7 +37,7 @@ const DEFAULT_FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout afte
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 const AUTH_HANDSHAKE_RETRY_DELAY_MS = 500;
-const AUTH_HANDSHAKE_MAX_RETRIES = 1;
+const AUTH_HANDSHAKE_MAX_RETRIES = 3;
 
 type CachedPeer = {
   peerId: PeerId;
