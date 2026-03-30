@@ -209,12 +209,19 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     if (registeredForkId !== undefined) {
       this.registeredForks.delete(l2Block.archive.root.toString());
       this.log.debug(`Committing registered fork ${registeredForkId} for block ${l2Block.number}`);
-      return await this.instance.call(
-        WorldStateMessageType.COMMIT_FORK,
-        { forkId: registeredForkId, canonical: true as const },
-        this.sanitizeAndCacheSummaryFromFull.bind(this),
-        this.deleteCachedSummary.bind(this),
-      );
+      try {
+        return await this.instance.call(
+          WorldStateMessageType.COMMIT_FORK,
+          { forkId: registeredForkId, canonical: true as const },
+          this.sanitizeAndCacheSummaryFromFull.bind(this),
+          this.deleteCachedSummary.bind(this),
+        );
+      } catch (err) {
+        this.log.warn(
+          `Failed to commit registered fork ${registeredForkId} for block ${l2Block.number}, falling back to SYNC_BLOCK`,
+          { err },
+        );
+      }
     }
 
     const isFirstBlock = l2Block.indexWithinCheckpoint === 0;
@@ -347,6 +354,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: BlockNumber) {
+    // Clear any registered forks — they're invalid after a reorg.
+    this.registeredForks.clear();
     try {
       const result = await this.instance.call(
         WorldStateMessageType.UNWIND_BLOCKS,
