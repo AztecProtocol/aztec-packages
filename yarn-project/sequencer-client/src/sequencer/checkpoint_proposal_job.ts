@@ -679,9 +679,9 @@ export class CheckpointProposalJob implements Traceable {
         tx => !txHashesAlreadyIncluded.has(tx.txHash.toString()),
       );
 
-      this.log.debug(
-        `Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.targetSlot} with ${availableTxs} available txs`,
-        { slot: this.targetSlot, blockNumber, indexWithinCheckpoint },
+      this.log.info(
+        `Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.targetSlot} with ${availableTxs} available txs (min: ${minTxs})`,
+        { slot: this.targetSlot, blockNumber, indexWithinCheckpoint, availableTxs, minTxs },
       );
       this.setStateFn(SequencerState.CREATING_BLOCK, this.targetSlot);
 
