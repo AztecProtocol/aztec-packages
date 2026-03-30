@@ -1,0 +1,324 @@
+import type { BlobClientInterface } from '@aztec/blob-client/client';
+import type { EpochCache } from '@aztec/epoch-cache';
+import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import type { FieldsOf } from '@aztec/foundation/types';
+import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { GlobalVariables } from '@aztec/stdlib/tx';
+
+import { describe, expect, it, jest } from '@jest/globals';
+import { type MockProxy, mock } from 'jest-mock-extended';
+
+import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { ProposalHandler } from './proposal_handler.js';
+
+/** Creates a checkpoint proposal core with the given overrides. */
+async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>[0] = {}) {
+  return (
+    await makeCheckpointProposal({
+      checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(1) }),
+      ...overrides,
+    })
+  ).toCore();
+}
+
+describe('ProposalHandler checkpoint validation', () => {
+  let handler: ProposalHandler;
+  let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let epochCache: MockProxy<EpochCache>;
+  let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
+  let dateProvider: TestDateProvider;
+  let config: ValidatorClientFullConfig;
+
+  const proposalInfo = {};
+
+  beforeEach(() => {
+    blockSource = mock<L2BlockSource & L2BlockSink>();
+    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    blockSource.getBlocksForSlot.mockResolvedValue([]);
+    blockSource.syncImmediate.mockResolvedValue(undefined);
+
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
+
+    checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
+    checkpointsBuilder.getConfig.mockReturnValue({
+      l1GenesisTime: 1n,
+      slotDuration: 24,
+      l1ChainId: 1,
+      rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
+    });
+
+    epochCache = mock<EpochCache>();
+    epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
+      typeof getEpochAtSlot
+    >[1] as any);
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+
+    dateProvider = new TestDateProvider();
+
+    config = {} as ValidatorClientFullConfig;
+
+    handler = new ProposalHandler(
+      checkpointsBuilder,
+      mock<WorldStateSynchronizer>(),
+      blockSource,
+      l1ToL2MessageSource,
+      mock<ITxProvider>(),
+      mock<BlockProposalValidator>(),
+      epochCache,
+      config,
+      mock<BlobClientInterface>(),
+      undefined, // metrics
+      dateProvider,
+    );
+  });
+
+  describe('handleCheckpointProposal', () => {
+    it('rejects proposals with invalid signature', async () => {
+      const proposal = await makeProposal();
+      jest.spyOn(proposal, 'getSender').mockReturnValue(undefined);
+
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'invalid_signature' });
+    });
+
+    it('rejects proposals with invalid feeAssetPriceModifier (too negative)', async () => {
+      const proposal = await makeProposal({ feeAssetPriceModifier: -MAX_FEE_ASSET_PRICE_MODIFIER_BPS - 1n });
+
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'invalid_fee_asset_price_modifier' });
+    });
+
+    it('rejects proposals with invalid feeAssetPriceModifier (too positive)', async () => {
+      const proposal = await makeProposal({ feeAssetPriceModifier: MAX_FEE_ASSET_PRICE_MODIFIER_BPS + 1n });
+
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'invalid_fee_asset_price_modifier' });
+    });
+
+    it('returns last_block_not_found when block is not found before timeout', async () => {
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
+    });
+
+    it('returns no_blocks_for_slot when no blocks exist for the slot', async () => {
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue([]);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot' });
+    });
+
+    it('returns last_block_archive_mismatch when last block archive does not match', async () => {
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      const blocks = [
+        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
+        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
+      ] as unknown as L2Block[];
+      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+      const proposal = await makeProposal({ archiveRoot: Fr.random() });
+
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'last_block_archive_mismatch' });
+    });
+
+    it('caches validation result and returns it on second call', async () => {
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+      const proposal = await makeProposal();
+
+      const result1 = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result1.isValid).toBe(false);
+
+      // Reset mocks to verify they're NOT called again
+      blockSource.getBlockHeaderByArchive.mockClear();
+      blockSource.syncImmediate.mockClear();
+
+      const result2 = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result2).toEqual(result1);
+      expect(blockSource.syncImmediate).not.toHaveBeenCalled();
+    });
+
+    it('does not use cache for a different proposal', async () => {
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+
+      await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }), proposalInfo);
+      blockSource.syncImmediate.mockClear();
+
+      await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }), proposalInfo);
+      expect(blockSource.syncImmediate).toHaveBeenCalled();
+    });
+
+    it('returns block_fetch_error when getBlockHeaderByArchive throws', async () => {
+      blockSource.getBlockHeaderByArchive.mockRejectedValue(new Error('db connection failed'));
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'block_fetch_error' });
+    });
+  });
+
+  describe('deep validation (openCheckpoint + completeCheckpoint)', () => {
+    const archiveRoot = Fr.random();
+    const checkpointOutHash = Fr.random();
+    let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
+    let mockDispose: jest.Mock;
+
+    /** Sets up mocks so the handler passes all early checks and reaches the checkpoint rebuild path. */
+    function setupDeepValidationMocks(computedCheckpoint: Partial<Checkpoint>) {
+      // Block with matching archive so the early archive check passes
+      const block = {
+        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+        number: 1,
+        checkpointNumber: CheckpointNumber(1),
+        header: { globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }) },
+      } as unknown as L2Block;
+
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue([block]);
+
+      mockDispose = jest.fn();
+      checkpointsBuilder.getFork.mockResolvedValue({ [Symbol.asyncDispose]: mockDispose } as any);
+
+      mockCheckpointBuilder = mock<CheckpointBuilder>();
+      mockCheckpointBuilder.completeCheckpoint.mockResolvedValue({
+        header: CheckpointHeader.empty(),
+        archive: new AppendOnlyTreeSnapshot(Fr.ZERO, 0),
+        getCheckpointOutHash: () => checkpointOutHash,
+        blocks: [],
+        number: CheckpointNumber(1),
+        slot: SlotNumber(1),
+        ...computedCheckpoint,
+      } as unknown as Checkpoint);
+      checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);
+    }
+
+    /** Creates a CheckpointHeader.empty at slot 1 with the given overrides. */
+    function makeHeader(overrides: Partial<FieldsOf<CheckpointHeader>> = {}) {
+      return CheckpointHeader.empty({ slotNumber: SlotNumber(1), ...overrides });
+    }
+
+    /** Creates a header with a matching epoch out hash (passes the out_hash check). */
+    function makeMatchingHeader(overrides: Partial<FieldsOf<CheckpointHeader>> = {}) {
+      const epochOutHash = accumulateCheckpointOutHashes([checkpointOutHash]);
+      return makeHeader({ epochOutHash, ...overrides });
+    }
+
+    it('returns checkpoint_header_mismatch when headers differ', async () => {
+      const proposalHeader = makeHeader();
+      const computedHeader = makeHeader({ totalManaUsed: new Fr(999) });
+
+      setupDeepValidationMocks({ header: computedHeader });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: proposalHeader });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'checkpoint_header_mismatch' });
+      expect(mockDispose).toHaveBeenCalled();
+    });
+
+    it('returns archive_mismatch when computed archive differs from proposal', async () => {
+      const header = makeHeader();
+
+      setupDeepValidationMocks({
+        header,
+        archive: new AppendOnlyTreeSnapshot(Fr.random(), 1),
+      });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch' });
+    });
+
+    it('returns out_hash_mismatch when epoch out hash differs', async () => {
+      const header = makeHeader({ epochOutHash: Fr.random() });
+
+      setupDeepValidationMocks({
+        header,
+        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+      });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch' });
+    });
+
+    it('returns checkpoint_validation_failed when validateCheckpoint throws', async () => {
+      const header = makeMatchingHeader();
+
+      setupDeepValidationMocks({
+        header,
+        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+        // Empty blocks array triggers validateCheckpointStructure failure ("Checkpoint has no blocks")
+        blocks: [],
+      });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'checkpoint_validation_failed' });
+    });
+
+    it('returns isValid true when everything matches', async () => {
+      const lastArchiveRoot = Fr.random();
+      const header = makeMatchingHeader({ lastArchiveRoot });
+
+      // Block global variables must match the checkpoint header fields
+      const blockHeader = makeBlockHeader(1, {
+        slotNumber: SlotNumber(1),
+        coinbase: header.coinbase,
+        feeRecipient: header.feeRecipient,
+        gasFees: header.gasFees,
+        timestamp: header.timestamp,
+      });
+      (blockHeader as any).lastArchive = new AppendOnlyTreeSnapshot(lastArchiveRoot, 0);
+
+      const minimalBlock = {
+        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+        number: 1,
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+        slot: SlotNumber(1),
+        header: blockHeader,
+        body: { txEffects: [] },
+        computeDAGasUsed: () => 0,
+        toBlobFields: () => [],
+      } as unknown as L2Block;
+
+      setupDeepValidationMocks({
+        header,
+        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+        blocks: [minimalBlock],
+        number: CheckpointNumber(1),
+        slot: SlotNumber(1),
+        toBlobFields: () => [],
+      });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: true });
+      expect(mockDispose).toHaveBeenCalled();
+    });
+
+    it('disposes fork even when validation fails', async () => {
+      setupDeepValidationMocks({ header: CheckpointHeader.empty() });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(mockDispose).toHaveBeenCalled();
+    });
+  });
+});

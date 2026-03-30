@@ -26,9 +26,13 @@ export class InitialCheckpointNumberNotSequentialError extends Error {
 }
 
 export class CheckpointNumberNotSequentialError extends Error {
-  constructor(newCheckpointNumber: number, previous: number | undefined) {
+  constructor(
+    newCheckpointNumber: number,
+    previous: number | undefined,
+    source: 'confirmed' | 'proposed' = 'confirmed',
+  ) {
     super(
-      `Cannot insert new checkpoint ${newCheckpointNumber} given previous checkpoint number in batch is ${previous ?? 'undefined'}`,
+      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${source} checkpoint number is ${previous ?? 'undefined'}`,
     );
   }
 }
@@ -101,6 +105,30 @@ export class L1ToL2MessagesNotReadyError extends Error {
         `inbox tree in progress is ${inboxTreeInProgress}, messages not yet sealed`,
     );
     this.name = 'L1ToL2MessagesNotReadyError';
+  }
+}
+
+/** Thrown when a proposed checkpoint number is stale (already processed). */
+export class ProposedCheckpointStaleError extends Error {
+  constructor(
+    public readonly proposedCheckpointNumber: number,
+    public readonly currentProposedNumber: number,
+  ) {
+    super(`Stale proposed checkpoint ${proposedCheckpointNumber}: current proposed is ${currentProposedNumber}`);
+    this.name = 'ProposedCheckpointStaleError';
+  }
+}
+
+/** Thrown when a proposed checkpoint number is not the expected confirmed + 1. */
+export class ProposedCheckpointNotSequentialError extends Error {
+  constructor(
+    public readonly proposedCheckpointNumber: number,
+    public readonly confirmedCheckpointNumber: number,
+  ) {
+    super(
+      `Proposed checkpoint ${proposedCheckpointNumber} is not sequential: expected ${confirmedCheckpointNumber + 1} (confirmed + 1)`,
+    );
+    this.name = 'ProposedCheckpointNotSequentialError';
   }
 }
 
