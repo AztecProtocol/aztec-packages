@@ -251,8 +251,11 @@ export class ArchiverL1Synchronizer implements Traceable {
           finalizedL1BlockNumber,
         });
       }
-    } catch (err) {
-      this.log.warn(`Failed to update finalized checkpoint: ${err}`);
+    } catch (err: any) {
+      // The rollup contract may not exist at the finalized L1 block right after deployment.
+      if (!err?.message?.includes('returned no data')) {
+        this.log.warn(`Failed to update finalized checkpoint: ${err}`);
+      }
     }
   }
 
