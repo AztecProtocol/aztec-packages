@@ -1688,10 +1688,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const currentSlot = getSlotAtTimestamp(currentL1Timestamp, l1Constants);
 
     const latestBlock = await this.getBlock('latest');
-    const lastBlockSlot = latestBlock ? BigInt(latestBlock.header.globalVariables.slotNumber) : 0n;
+    const lastBlockSlot = latestBlock ? BigInt(latestBlock.header.globalVariables.slotNumber) : SlotNumber(0);
 
-    if (BigInt(currentSlot) <= lastBlockSlot) {
+    if (currentSlot < lastBlockSlot) {
+      // Both Anvil and Hardhat enforce that evm_setNextBlockTimestamp only accepts timestamps strictly greater than
+      // the current block's timestamp, so L1 time cannot go backwards. If the current slot is behind the last block's
+      // slot, something has gone wrong.
+      throw new Error(
+        `Current slot ${currentSlot} is behind the last block's slot ${lastBlockSlot}. ` +
+          `L1 time cannot be warped backwards.`,
+      );
+    }
+
+    if (currentSlot === lastBlockSlot) {
+      // A block was already produced in this slot. Warp L1 time forward to the next slot so we can mine another block.
       const nextSlotTimestamp = getTimestampForSlot(SlotNumber(Number(lastBlockSlot) + 1), l1Constants);
+      this.log.info(
+        `Current slot ${currentSlot} already has a block, warping L1 time to slot ${BigInt(lastBlockSlot) + 1n}`,
+      );
+      // warp mines a block - hence we don't need to do it manually here
       await ethCheatCodes.warp(Number(nextSlotTimestamp));
     }
 
