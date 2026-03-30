@@ -373,29 +373,27 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   // second invalid checkpoint will also have invalid attestations, we are *not* testing the scenario where the
   // committee is malicious (or incompetent) and attests for the descendent of an invalid checkpoint.
   it('proposer invalidates multiple checkpoints', async () => {
-    const initialSlot = (await test.monitor.run()).l2SlotNumber;
+    // Start all sequencers with default (good) config, wait for the first checkpoint to land,
+    // then apply the bad config to the proposers of the next two slots. This avoids the race
+    // where a bad proposer is also the proposer of slot+1 and gets the bad config too early.
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    sequencers.forEach(s => s.updateConfig({ minTxsPerBlock: 0 }));
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers, waiting for first checkpoint before applying malicious config`);
 
-    // Disable validation and attestation gathering for the proposers of two consecutive slots.
-    // We skip slot+1 since it may be right about to start. We also ensure that the proposer of
-    // slot+1 is not the same as either bad proposer.
-    let badSlotOffset = 2;
-    let badProposers: (EthAddress | undefined)[];
-    let slotBeforeProposer: EthAddress | undefined;
-    do {
-      slotBeforeProposer = await test.epochCache.getProposerAttesterAddressInSlot(
-        SlotNumber(initialSlot + badSlotOffset - 1),
-      );
-      badProposers = await Promise.all([
-        test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + badSlotOffset)),
-        test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + badSlotOffset + 1)),
-      ]);
-      if (badProposers.some(p => p?.equals(slotBeforeProposer!))) {
-        logger.warn(
-          `Proposer of slot ${initialSlot + badSlotOffset - 1} collides with bad proposers, advancing offset`,
-        );
-        badSlotOffset++;
-      }
-    } while (badProposers.some(p => p?.equals(slotBeforeProposer!)));
+    // Wait for at least one checkpoint to be mined so that any in-progress slot has completed
+    const initialCheckpointNumber = (await nodes[0].getL2Tips()).checkpointed.checkpoint.number;
+    await test.waitUntilCheckpointNumber(CheckpointNumber(initialCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 4);
+    const { l2SlotNumber: currentSlot } = await test.monitor.run();
+    logger.warn(`First checkpoint mined, current slot is ${currentSlot}`);
+
+    // Pick the next two slots after the current one
+    const badSlot1 = currentSlot + 1;
+    const badSlot2 = currentSlot + 2;
+    const badProposers = await Promise.all([
+      test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(badSlot1)),
+      test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(badSlot2)),
+    ]);
 
     const badNodes = [];
     for (const badProposer of badProposers) {
@@ -412,17 +410,13 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
         minTxsPerBlock: 0,
       });
     }
-
-    // Start all sequencers
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    await Promise.all(sequencers.map(s => s.start()));
-    logger.warn(`Started all sequencers`);
+    logger.warn(`Applied malicious config to proposers of slots ${badSlot1} and ${badSlot2}`);
 
     // We should see two invalid blocks being proposed by the bad proposers in those two slots
     const firstCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
     const secondCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
-    const expectedFirstSlot = Number(BigInt(initialSlot) + BigInt(badSlotOffset));
-    const expectedSecondSlot = Number(BigInt(initialSlot) + BigInt(badSlotOffset + 1));
+    const expectedFirstSlot = badSlot1;
+    const expectedSecondSlot = badSlot2;
     test.monitor.on('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
       logger.warn(`Checkpoint ${checkpointNumber} at slot ${l2SlotNumber} has been mined`);
       if (l2SlotNumber === expectedFirstSlot) {
