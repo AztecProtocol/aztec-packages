@@ -179,10 +179,24 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('mineBlock without setting timestamp still produces a new block', async () => {
-      const blockNumberBefore = await aztecNode.getBlockNumber();
+      const firstBlockNumber = await aztecNode.getBlockNumber();
+      const firstBlock = await aztecNode.getBlock(firstBlockNumber);
+      const firstSlot = firstBlock!.header.globalVariables.slotNumber;
+
       await aztecNodeAdmin.mineBlock();
-      const blockNumberAfter = await aztecNode.getBlockNumber();
-      expect(blockNumberAfter).toBeGreaterThan(blockNumberBefore);
+      const secondBlockNumber = await aztecNode.getBlockNumber();
+      const secondBlock = await aztecNode.getBlock(secondBlockNumber);
+      const secondSlot = secondBlock!.header.globalVariables.slotNumber;
+
+      expect(secondSlot).toBeGreaterThan(firstSlot);
+
+      // Second call is still in the same slot, so mineBlock must warp to the next slot
+      await aztecNodeAdmin.mineBlock();
+      const thirdBlockNumber = await aztecNode.getBlockNumber();
+      const thirdBlock = await aztecNode.getBlock(thirdBlockNumber);
+      const thirdSlot = thirdBlock!.header.globalVariables.slotNumber;
+
+      expect(thirdSlot).toBeGreaterThan(secondSlot);
     });
   });
 });

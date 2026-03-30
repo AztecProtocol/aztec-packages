@@ -1,19 +1,20 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { EthCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import type { Hex } from '@aztec/foundation/string';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager, RemoteSigner, type ValidatorKeyStore } from '@aztec/node-keystore';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
+import type { GlobalVariableBuilder, Sequencer, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter, CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
@@ -957,6 +958,170 @@ describe('aztec node', () => {
 
         // reload rejected before mutation
         expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('time manipulation', () => {
+    const INITIAL_MIN_TXS_PER_BLOCK = 1;
+
+    let mockEthCheatCodes: MockProxy<EthCheatCodes>;
+    let sequencerClient: MockProxy<SequencerClient>;
+    let sequencer: MockProxy<Sequencer>;
+    let testDateProvider: TestDateProvider;
+    let nodeWithSequencer: AztecNodeService;
+
+    beforeEach(() => {
+      mockEthCheatCodes = mock<EthCheatCodes>();
+      sequencer = mock<Sequencer>();
+      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
+
+      sequencerClient = mock<SequencerClient>();
+      sequencerClient.getSequencer.mockReturnValue(sequencer);
+      sequencerClient.trigger.mockReturnValue(Promise.resolve());
+
+      testDateProvider = new TestDateProvider();
+
+      nodeWithSequencer = new AztecNodeService(
+        nodeConfig,
+        p2p,
+        l2BlockSource,
+        mock(),
+        mock(),
+        mock(),
+        worldState,
+        sequencerClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        12345,
+        rollupVersion.toNumber(),
+        globalVariablesBuilder,
+        epochCache,
+        getPackageVersion() ?? '',
+        new TestCircuitVerifier(),
+        new TestCircuitVerifier(),
+        testDateProvider,
+      );
+
+      // Pre-inject mock to avoid #getEthCheatCodes() creating a real EthCheatCodes with HTTP clients
+      (nodeWithSequencer as any).ethCheatCodes = mockEthCheatCodes;
+    });
+
+    // Slot calculation: slot = (timestamp - l1GenesisTime) / slotDuration
+    // With genesis=1000, slotDuration=12: timestamp 1060 → slot 5, timestamp 1120 → slot 10
+    const l1Constants = { ...EmptyL1RollupConstants, l1GenesisTime: 1000n, slotDuration: 12 };
+
+    const makeBlockInSlot = (slot: number) =>
+      L2Block.empty(
+        BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(slot) }),
+        }),
+      );
+
+    /** Simulates block number advancing from `from` to `to` after the first call. */
+    const mockBlockNumberAdvancing = (from: number, to: number) => {
+      let callCount = 0;
+      l2BlockSource.getBlockNumber.mockImplementation(() => {
+        callCount++;
+        return Promise.resolve(callCount > 1 ? BlockNumber(to) : BlockNumber(from));
+      });
+    };
+
+    describe('mineBlock', () => {
+      it('throws when no sequencer is running', async () => {
+        // The default `node` has no sequencer (undefined)
+        (node as any).ethCheatCodes = mockEthCheatCodes;
+        await expect(node.mineBlock()).rejects.toThrow('Cannot mine block: no sequencer is running');
+      });
+
+      // mineBlock slot-handling logic (new slot and same slot) is tested in e2e_cheat_codes.test.ts
+
+      it('throws when currentSlot is behind lastBlockSlot', async () => {
+        mockEthCheatCodes.evmMine.mockResolvedValue();
+        // Timestamp 1036 → slot (1036-1000)/12 = 3, behind latest block's slot 5
+        mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(1036);
+        l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
+        l2BlockSource.getL2Block.mockResolvedValue(makeBlockInSlot(5));
+        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(5));
+
+        await expect(nodeWithSequencer.mineBlock()).rejects.toThrow("Current slot 3 is behind the last block's slot 5");
+      });
+
+      it('restores minTxsPerBlock after successful block production', async () => {
+        mockEthCheatCodes.evmMine.mockResolvedValue();
+        mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(1120);
+        l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
+        l2BlockSource.getL2Block.mockResolvedValue(makeBlockInSlot(5));
+        mockBlockNumberAdvancing(5, 6);
+
+        await nodeWithSequencer.mineBlock();
+
+        const updateCalls = sequencerClient.updateConfig.mock.calls;
+        expect(updateCalls[0][0]).toEqual({ minTxsPerBlock: 0 });
+        // Last call to update calls should revert the value to the original
+        expect(updateCalls[-1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
+      });
+    });
+
+    describe('setNextBlockTimestamp', () => {
+      it('sets timestamp on ethCheatCodes and updates dateProvider', async () => {
+        mockEthCheatCodes.setNextBlockTimestamp.mockResolvedValue();
+
+        const targetTimestamp = 1_000_000;
+        await nodeWithSequencer.setNextBlockTimestamp(targetTimestamp);
+
+        expect(mockEthCheatCodes.setNextBlockTimestamp).toHaveBeenCalledWith(targetTimestamp);
+        // TestDateProvider uses offsets from wall clock, so allow small drift
+        const targetMs = targetTimestamp * 1000;
+        expect(testDateProvider.now()).toBeGreaterThanOrEqual(targetMs);
+        expect(testDateProvider.now()).toBeLessThan(targetMs + 100);
+      });
+    });
+
+    describe('advanceNextBlockTimestampBy', () => {
+      it('advances timestamp by duration from current L1 timestamp', async () => {
+        mockEthCheatCodes.lastBlockTimestamp.mockResolvedValue(500);
+        mockEthCheatCodes.setNextBlockTimestamp.mockResolvedValue();
+
+        await nodeWithSequencer.advanceNextBlockTimestampBy(100);
+
+        expect(mockEthCheatCodes.setNextBlockTimestamp).toHaveBeenCalledWith(600);
+        expect(testDateProvider.now()).toBe(600_000);
+      });
+    });
+
+    describe('updateDateProviderTimestampTo', () => {
+      it('throws when dateProvider does not support setTime', async () => {
+        const nodeWithPlainDateProvider = new AztecNodeService(
+          nodeConfig,
+          p2p,
+          l2BlockSource,
+          mock(),
+          mock(),
+          mock(),
+          worldState,
+          sequencerClient,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          12345,
+          rollupVersion.toNumber(),
+          globalVariablesBuilder,
+          epochCache,
+          getPackageVersion() ?? '',
+          new TestCircuitVerifier(),
+          new TestCircuitVerifier(),
+          new DateProvider(),
+        );
+        (nodeWithPlainDateProvider as any).ethCheatCodes = mockEthCheatCodes;
+        mockEthCheatCodes.setNextBlockTimestamp.mockResolvedValue();
+
+        await expect(nodeWithPlainDateProvider.setNextBlockTimestamp(1000)).rejects.toThrow(
+          'Date provider does not support direct time manipulation',
+        );
       });
     });
   });
