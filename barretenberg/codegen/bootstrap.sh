@@ -28,6 +28,8 @@ function generate {
     --server --cpp-namespace bb::bbapi --prefix Bb --cpp-include-dir barretenberg/bbapi/generated
   gen --schema $S/bb_schema.json --lang ts --out $TS/cbind/generated \
     --server --client --prefix Bb --curve-constants
+  gen --schema $S/bb_schema.json --lang rust --out ../rust/barretenberg-rs/src/generated \
+    --server --client --prefix Bb
 
   # --- WSDB ---
   gen --schema $S/wsdb_schema.json --lang cpp --out $CPP/wsdb/generated \
