@@ -23,8 +23,8 @@
 //! println!("Hash: {:?}", response.hash);
 //! ```
 
-use crate::backend::Backend;
-use crate::error::{BarretenbergError, Result};
+use super::backend::Backend;
+use super::error::{BarretenbergError, Result};
 use std::ptr;
 
 // C API exported by Barretenberg

@@ -1,78 +1,53 @@
 //! # Barretenberg Rust Bindings
 //!
-//! High-performance Rust bindings to the Barretenberg cryptographic library
-//! using msgpack protocol over pluggable backends.
+//! High-performance Rust bindings to the Barretenberg cryptographic library.
+//! Two backends available:
 //!
-//! ## Usage with UdsBackend (Unix Domain Socket)
+//! - **UDS** (`--features uds`): Connect to a running BB server via Unix domain socket
+//! - **FFI** (`--features ffi`): Link against libbarretenberg.a, call directly (no IPC)
+//!
+//! ## Example (UDS)
 //!
 //! ```ignore
-//! use barretenberg_rs::{BarretenbergApi, backends::UdsBackend};
+//! use barretenberg_rs::generated::{uds_backend::UdsBackend, bb_client::BarretenbergApi};
 //!
-//! // Connect to a running BB server
 //! let backend = UdsBackend::connect("/tmp/bb.sock")?;
 //! let mut api = BarretenbergApi::new(backend);
-//!
-//! // Use the API
-//! let response = api.blake2s(b"hello world")?;
-//! println!("Hash: {:?}", response.hash);
-//!
-//! // Cleanup
-//! api.destroy()?;
+//! let resp = api.blake2s(b"hello")?;
 //! ```
 //!
-//! ## Custom Backend
+//! ## Example (FFI)
 //!
-//! Implement the `Backend` trait for custom IPC strategies:
+//! ```ignore
+//! use barretenberg_rs::generated::{ffi_backend::FfiBackend, bb_client::BarretenbergApi};
 //!
-//! ```
-//! use barretenberg_rs::{Backend, BarretenbergError, Result};
-//!
-//! struct MyBackend {
-//!     // Your implementation (WASM module, FFI handle, network connection, etc.)
-//! }
-//!
-//! impl Backend for MyBackend {
-//!     fn call(&mut self, request: &[u8]) -> Result<Vec<u8>> {
-//!         // Send msgpack request, receive msgpack response
-//!         todo!()
-//!     }
-//!
-//!     fn destroy(&mut self) -> Result<()> {
-//!         Ok(())
-//!     }
-//! }
+//! let mut api = BarretenbergApi::new(FfiBackend);
+//! let resp = api.blake2s(b"hello")?;
 //! ```
 
-pub mod backend;
-pub mod types;
-pub mod error;
-
-// Generated code from msgpack schema (in generated/ subdirectory).
-// Run: cd ../codegen && ./bootstrap.sh generate
+// Everything is codegen-generated or template-copied into generated/.
+// Run: cd barretenberg/codegen && ./bootstrap.sh generate
 pub mod generated {
     pub mod bb_types;
     pub mod bb_client;
+    pub mod backend;
+    pub mod error;
+
+    #[cfg(feature = "uds")]
+    pub mod uds_backend;
+
+    #[cfg(feature = "ffi")]
+    pub mod ffi_backend;
 }
 
-pub use backend::Backend;
-pub use types::{Fr, Point};
-pub use generated::bb_types::BbGrumpkinPoint;
+// Re-exports for convenience
+pub use generated::backend::Backend;
+pub use generated::error::{BarretenbergError, Result};
 pub use generated::bb_client::BarretenbergApi;
-pub use error::{BarretenbergError, Result};
+pub use generated::bb_types::BbGrumpkinPoint;
 
-/// Backend implementations
-pub mod backends {
-    /// UDS (Unix Domain Socket) backend — connects to a running BB server.
-    /// Uses the standard 4-byte LE length-prefixed msgpack protocol.
-    #[cfg(feature = "native")]
-    pub mod uds;
-    #[cfg(feature = "native")]
-    pub use uds::UdsBackend;
+#[cfg(feature = "uds")]
+pub use generated::uds_backend::UdsBackend;
 
-    /// FFI backend — calls into libbarretenberg.a directly via C FFI.
-    /// Avoids IPC overhead but requires linking against the library.
-    #[cfg(feature = "ffi")]
-    pub mod ffi;
-    #[cfg(feature = "ffi")]
-    pub use ffi::FfiBackend;
-}
+#[cfg(feature = "ffi")]
+pub use generated::ffi_backend::FfiBackend;

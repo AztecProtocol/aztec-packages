@@ -29,8 +29,8 @@ thiserror.workspace = true
 hex.workspace = true
 
 [features]
-default = ["native", "ffi"]
+default = ["uds", "ffi"]
 # UDS backend — connects to a running BB server via Unix domain socket
-native = []
+uds = []
 # FFI backend — links against libbarretenberg from cpp build
 ffi = []

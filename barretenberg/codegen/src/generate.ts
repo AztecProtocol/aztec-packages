@@ -51,6 +51,8 @@ interface Args {
   cppNamespace: string;
   cppWireNamespace: string;
   cppIncludeDir: string;
+  uds: boolean;
+  ffi: boolean;
   curveConstants: boolean;
 }
 
@@ -59,6 +61,7 @@ function parseArgs(argv: string[]): Args {
     schema: '', lang: '', out: '', prefix: '',
     server: false, client: false, skeleton: '',
     cppNamespace: '', cppWireNamespace: 'wire', cppIncludeDir: '',
+    uds: false, ffi: false,
     curveConstants: false,
   };
 
@@ -74,6 +77,8 @@ function parseArgs(argv: string[]): Args {
       case '--cpp-namespace': args.cppNamespace = argv[++i]; break;
       case '--cpp-wire-namespace': args.cppWireNamespace = argv[++i]; break;
       case '--cpp-include-dir': args.cppIncludeDir = argv[++i]; break;
+      case '--uds': args.uds = true; break;
+      case '--ffi': args.ffi = true; break;
       case '--curve-constants': args.curveConstants = true; break;
       default:
         console.error(`Unknown flag: ${argv[i]}`);
@@ -155,6 +160,16 @@ function copyTemplate(lang: string, filename: string, outDir: string) {
   console.log(`  ${destPath} (template)`);
 }
 
+/** Copy template only if destination doesn't exist (idempotent, one-time) */
+function copyTemplateOnce(lang: string, filename: string, outDir: string) {
+  const destPath = join(outDir, filename);
+  if (existsSync(destPath)) {
+    console.log(`  ${destPath} (exists, skipped)`);
+    return;
+  }
+  copyTemplate(lang, filename, outDir);
+}
+
 // ---------------------------------------------------------------------------
 // C++ clang-format
 // ---------------------------------------------------------------------------
@@ -219,7 +234,17 @@ function generate(args: Args) {
       }
       if (args.client) {
         writeFile(`${toSnakeCase(prefix)}_client.rs`, gen.generateApi(compiled));
-        copyTemplate('rust', 'ipc_client.rs', absOut);
+      }
+      // Backend templates (copied once, not overwritten)
+      if (args.uds || args.ffi) {
+        copyTemplateOnce('rust', 'backend.rs', absOut);
+        copyTemplateOnce('rust', 'error.rs', absOut);
+      }
+      if (args.uds) {
+        copyTemplateOnce('rust', 'uds_backend.rs', absOut);
+      }
+      if (args.ffi) {
+        copyTemplateOnce('rust', 'ffi_backend.rs', absOut);
       }
       break;
     }
@@ -232,7 +257,12 @@ function generate(args: Args) {
       }
       if (args.client) {
         writeFile(`${toSnakeCase(prefix)}_client.zig`, gen.generateClient(compiled));
-        copyTemplate('zig', 'ipc_client.zig', absOut);
+      }
+      if (args.uds) {
+        copyTemplateOnce('zig', 'ipc_client.zig', absOut);
+      }
+      if (args.ffi) {
+        copyTemplateOnce('zig', 'ffi_client.zig', absOut);
       }
       break;
     }

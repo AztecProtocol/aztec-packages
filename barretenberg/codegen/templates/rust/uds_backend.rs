@@ -4,8 +4,8 @@
 //! using the standard 4-byte LE length-prefixed msgpack protocol.
 //! Same wire format as C++/TS/Zig IPC clients.
 
-use crate::backend::Backend;
-use crate::error::{BarretenbergError, Result};
+use super::backend::Backend;
+use super::error::{BarretenbergError, Result};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
