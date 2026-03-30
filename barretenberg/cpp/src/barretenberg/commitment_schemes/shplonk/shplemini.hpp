@@ -368,8 +368,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        // Currently, only used in ECCVM
+        // Used in ECCVM and BatchedHonkTranslator. The nu power offset in batch_sumcheck_round_claims
+        // assumes ZK claims (NUM_SMALL_IPA_EVALUATIONS) precede sumcheck round claims in the batching order.
         if (committed_sumcheck) {
+            BB_ASSERT(HasZK, "committed sumcheck requires ZK for correct nu power indexing");
             batch_sumcheck_round_claims(commitments,
                                         scalars,
                                         constant_term_accumulator,
