@@ -13,6 +13,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
+import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
@@ -53,7 +54,7 @@ describe('LogService', () => {
         aztecNode,
         anchorBlockHeader,
         keyStore,
-        capsuleStore,
+        new CapsuleService(capsuleStore, 'ALL_SCOPES'),
         recipientTaggingStore,
         senderAddressBookStore,
         addressStore,
