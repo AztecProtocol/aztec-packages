@@ -1,5 +1,6 @@
 #include "ecfft_domain.hpp"
 #include "barretenberg/common/assert.hpp"
+#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 
@@ -52,6 +53,7 @@ EcfftDomain EcfftDomain::from_hex_arrays(size_t log_n,
         }
     }
 
+    domain.precompute_round_constants();
     return domain;
 }
 
@@ -102,7 +104,31 @@ EcfftDomain EcfftDomain::load_binary(const std::string& path)
         }
     }
 
+    domain.precompute_round_constants();
     return domain;
+}
+
+void EcfftDomain::precompute_round_constants()
+{
+    for (size_t round = 0; round < num_rounds; round++) {
+        auto& level = levels[round];
+        const size_t half = level.size() / 2;
+        const size_t e = half - 1;
+
+        level.pair_s0_e_inv.resize(half);
+        level.pair_s1_e_inv.resize(half);
+
+        if (e == 0) {
+            std::fill(level.pair_s0_e_inv.begin(), level.pair_s0_e_inv.end(), Fq::one());
+            std::fill(level.pair_s1_e_inv.begin(), level.pair_s1_e_inv.end(), Fq::one());
+            continue;
+        }
+
+        for (size_t j = 0; j < half; j++) {
+            level.pair_s0_e_inv[j] = level.domain[j].pow(e).invert();
+            level.pair_s1_e_inv[j] = level.domain[j + half].pow(e).invert();
+        }
+    }
 }
 
 } // namespace bb::basefold

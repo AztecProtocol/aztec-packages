@@ -23,11 +23,13 @@
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -87,17 +89,51 @@ inline std::vector<NativeCommitment> fold_group_oracle(const std::vector<NativeC
                                                        size_t degree_bound,
                                                        const Fq& z)
 {
-    size_t m = oracle.size();
-    size_t half = m / 2;
-    std::vector<NativeCommitment> folded(half);
+    using BatchMSM = scalar_multiplication::MSM<curve::Grumpkin>;
 
-    parallel_for(half, [&](size_t j) {
-        NativeGroupElement result = domain.fold_pair<NativeGroupElement>(
-            round_idx, degree_bound, j, NativeGroupElement(oracle[j]), NativeGroupElement(oracle[j + half]), z);
-        folded[j] = result.normalize();
-    });
+    const auto& level = domain.levels[round_idx];
+    const size_t m = oracle.size();
+    const size_t half = m / 2;
+    const size_t e = degree_bound / 2 - 1;
 
-    return folded;
+    // Batch each fold output as a 2-point MSM:
+    //   fold = G0 * alpha + G1 * beta
+    //
+    // Using batch_multi_scalar_mul lets us amortize the scalar multiplication scheduling
+    // across all pairs in the round instead of doing millions of standalone muls.
+    std::vector<std::array<Fq, 2>> scalars_storage(half);
+    std::vector<std::span<Fq>> scalar_spans;
+    std::vector<std::array<NativeCommitment, 2>> points_storage(half);
+    std::vector<std::span<const NativeCommitment>> point_spans;
+    scalar_spans.reserve(half);
+    point_spans.reserve(half);
+
+    for (size_t j = 0; j < half; j++) {
+        const Fq s0 = level.domain[j];
+        const Fq s1 = level.domain[j + half];
+        const Fq diff_inv = level.pair_diff_inv[j];
+        const Fq z_minus_s0 = z - s0;
+
+        Fq alpha;
+        Fq beta;
+        if (e == 0) {
+            alpha = (s1 - z) * diff_inv;
+            beta = z_minus_s0 * diff_inv;
+        } else {
+            const bool use_precomputed = (degree_bound == level.size()) && !level.pair_s0_e_inv.empty();
+            const Fq s0_e_inv = use_precomputed ? level.pair_s0_e_inv[j] : s0.pow(e).invert();
+            const Fq s1_e_inv = use_precomputed ? level.pair_s1_e_inv[j] : s1.pow(e).invert();
+            alpha = s0_e_inv * (s1 - z) * diff_inv;
+            beta = s1_e_inv * z_minus_s0 * diff_inv;
+        }
+
+        scalars_storage[j] = { alpha, beta };
+        points_storage[j] = { oracle[j], oracle[j + half] };
+        scalar_spans.emplace_back(scalars_storage[j]);
+        point_spans.emplace_back(points_storage[j]);
+    }
+
+    return BatchMSM::batch_multi_scalar_mul(point_spans, scalar_spans);
 }
 
 // ---------------------------------------------------------------------------
@@ -482,8 +518,9 @@ template <typename Builder> class RecursiveBaseFoldVerifier {
             return G0 + slope * z_minus_s0;
         }
 
-        Fq s0_e_inv = s0.pow(e).invert();
-        Fq s1_e_inv = s1.pow(e).invert();
+        const bool use_precomputed = (degree_bound == level.size()) && !level.pair_s0_e_inv.empty();
+        Fq s0_e_inv = use_precomputed ? level.pair_s0_e_inv[j] : s0.pow(e).invert();
+        Fq s1_e_inv = use_precomputed ? level.pair_s1_e_inv[j] : s1.pow(e).invert();
 
         bigfield_ct s0_e_inv_ct(ctx, uint256_t(s0_e_inv));
         bigfield_ct s1_e_inv_ct(ctx, uint256_t(s1_e_inv));

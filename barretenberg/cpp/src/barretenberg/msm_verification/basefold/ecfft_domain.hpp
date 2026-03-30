@@ -85,6 +85,8 @@ using Fq = bb::fq;
 struct EcfftDomainLevel {
     std::vector<Fq> domain;        ///< L_i: domain points, size m
     std::vector<Fq> pair_diff_inv; ///< 1/(L_i[j + m/2] - L_i[j]) for each pair j, size m/2
+    std::vector<Fq> pair_s0_e_inv; ///< s0^(-(m/2 - 1)) for each pair j under the canonical degree schedule
+    std::vector<Fq> pair_s1_e_inv; ///< s1^(-(m/2 - 1)) for each pair j under the canonical degree schedule
 
     size_t size() const { return domain.size(); }
     size_t num_pairs() const { return domain.size() / 2; }
@@ -216,6 +218,14 @@ struct EcfftDomain {
     static EcfftDomain from_hex_arrays(size_t log_n,
                                        const std::vector<std::pair<const char* const*, size_t>>& layer_hex,
                                        const std::vector<std::pair<const char* const*, size_t>>& diff_inv_hex);
+
+    /**
+     * @brief Precompute the per-pair normalization inverses for the canonical degree schedule.
+     *
+     * For round i with layer size m, the canonical degree bound is d = m, hence e = d/2 - 1 = m/2 - 1.
+     * These constants are reused by both the native prover and recursive verifier.
+     */
+    void precompute_round_constants();
 };
 
 } // namespace bb::basefold
