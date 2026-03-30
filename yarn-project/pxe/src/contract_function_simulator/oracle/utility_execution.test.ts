@@ -26,6 +26,7 @@ import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
+import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -249,7 +250,7 @@ describe('Utility Execution test suite', () => {
         aztecNode,
         recipientTaggingStore,
         senderAddressBookStore,
-        capsuleStore,
+        capsuleService: new CapsuleService(capsuleStore, 'ALL_SCOPES'),
         privateEventStore,
         messageContextService,
         contractSyncService,
@@ -316,7 +317,7 @@ describe('Utility Execution test suite', () => {
           aztecNode,
           recipientTaggingStore,
           senderAddressBookStore,
-          capsuleStore,
+          capsuleService: new CapsuleService(capsuleStore, 'ALL_SCOPES'),
           privateEventStore,
           messageContextService,
           contractSyncService,
@@ -497,7 +498,7 @@ describe('Utility Execution test suite', () => {
             aztecNode,
             recipientTaggingStore,
             senderAddressBookStore,
-            capsuleStore,
+            capsuleService: new CapsuleService(capsuleStore, 'ALL_SCOPES'),
             privateEventStore,
             messageContextService,
             contractSyncService,

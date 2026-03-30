@@ -25,8 +25,12 @@ This project uses Yarn 4.5.2 as specified in the `packageManager` field of packa
 
 - `yarn generate:aztec-nr-api` - Generate Aztec.nr API docs (requires `nargo`)
 - `yarn generate:aztec-nr-api v1.0.0` - Generate for a specific version
+- `RELEASE_TYPE=mainnet yarn generate:aztec-nr-api v4.2.0` - Generate with explicit release type
 - `yarn generate:typescript-api` - Generate TypeScript API docs (requires yarn-project to be built)
 - `yarn generate:typescript-api v3.0.0-devnet.6` - Generate for a specific version
+- `RELEASE_TYPE=mainnet yarn generate:typescript-api v4.2.0` - Generate with explicit release type
+
+The `RELEASE_TYPE` env var overrides version string pattern matching for output folder selection. This is useful when the version string doesn't self-identify its release type.
 
 ### Development Workflow
 
@@ -48,23 +52,23 @@ For development:
 
 The preprocessing system uses these environment variables:
 
-| Variable       | Description                                                         | Default           |
-| -------------- | ------------------------------------------------------------------- | ----------------- |
-| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`, `ignition` | `nightly`         |
-| `NIGHTLY_TAG`  | Version for nightly builds (falls back to `COMMIT_TAG`)             | `0.0.0-nightly.0` |
-| `DEVNET_TAG`   | Version for devnet builds                                           | `3.0.0-devnet.5`  |
-| `TESTNET_TAG`  | Version for testnet builds                                          | `2.1.11`          |
-| `MAINNET_TAG`  | Version for mainnet/ignition builds                                 | `2.1.11`          |
-| `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`                 | `next`            |
+| Variable       | Description                                                         | Default                                  |
+| -------------- | ------------------------------------------------------------------- | ---------------------------------------- |
+| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`             | `nightly`                                |
+| `NIGHTLY_TAG`  | Version for nightly builds (falls back to `COMMIT_TAG`)             | from `developer_version_config.json`     |
+| `DEVNET_TAG`   | Version for devnet builds                                           | from `developer_version_config.json`     |
+| `TESTNET_TAG`  | Version for testnet builds                                          | from `developer_version_config.json`     |
+| `MAINNET_TAG`  | Version for mainnet builds                                          | from `developer_version_config.json`     |
+| `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`                 | `next`                                   |
 
 ### Preprocessing Macros
 
 **Release-type-aware macros:**
 
 - `#release_version` - Resolves to the version for the current `RELEASE_TYPE`:
-  - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet`/`ignition` → `MAINNET_TAG`
+  - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet` → `MAINNET_TAG`
 - `#release_network` - Resolves to the network name for CLI `--network` flag:
-  - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet`/`ignition` → `mainnet`
+  - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet` → `mainnet`
 
 **Legacy macros:**
 
@@ -85,7 +89,7 @@ Default content
 #endif
 ```
 
-**Supported conditions** (matching `RELEASE_TYPE` values): `nightly`, `devnet`, `testnet`, `mainnet`, `ignition`
+**Supported conditions** (matching `RELEASE_TYPE` values): `nightly`, `devnet`, `testnet`, `mainnet`
 
 **Notes:**
 
@@ -120,8 +124,8 @@ Default content
 
 This site uses **Docusaurus multi-instance docs** with independent versioning:
 
-- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (testnet + devnet + nightly versions)
-- **Network Guides** (`/network/`) - Node operation and network participation (testnet + ignition versions)
+- **Developer Guides** (`/developers/`) - Getting started, tutorials, references (mainnet + testnet + devnet + nightly versions)
+- **Network Guides** (`/network/`) - Node operation and network participation (mainnet + testnet versions)
 
 ### Auto-Generated API Documentation
 
@@ -139,8 +143,10 @@ The TypeScript API generation is configured in `scripts/typescript_api_generatio
 
 Uses Docusaurus multi-instance versioning with separate version tracks:
 
-- **Developer docs**: Versions in `developer_versions.json`, stored in `developer_versioned_docs/`
+- **Developer docs**: Version config in `developer_version_config.json`, stored in `developer_versioned_docs/`
 - **Network docs**: Versions in `network_versions.json`, stored in `network_versioned_docs/`
+- Developer version config is an object mapping release type to version string (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`)
+- `developer_versions.json` is auto-generated from the config file; `network_versions.json` is managed directly
 - Each docs instance has its own version dropdown in the navbar
 - Preprocessing macros (`#include_code`, `#release_version`, conditionals, etc.) only work in source folders, not in versioned copies
 - Create new versions with: `yarn docusaurus docs:version:<instance-id> <version>`
@@ -350,5 +356,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-02-23
-Version: 1.5
+Last updated: 2026-03-27
+Version: 1.6

@@ -15,6 +15,18 @@ The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The 
 `ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
 `'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
 
+### [PXE] Capsule operations are now scope-enforced at the PXE level
+
+The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
+
+```
+Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
+```
+
+The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
+
+**Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
+
 **Migration:**
 
 ```diff
@@ -38,7 +50,28 @@ The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The 
 + await pxe.proveTx(txRequest, scopes);
 ```
 
+## 4.2.0-aztecnr-rc.2
+
+### Custom token FPCs removed from default public setup allowlist
+
+Token contract functions (like `transfer_in_public` and `_increase_public_balance`) have been removed from the default public setup allowlist. FPCs that accept custom tokens (like the reference `FPC` contract) will not work on public networks, because their setup-phase calls to these functions will be rejected. Token class IDs change with each aztec-nr release, making it impractical to maintain them in the allowlist.
+
+FPCs that use only Fee Juice still work on all networks, since FeeJuice is a protocol contract with a fixed address in the allowlist. Custom FPCs should only call protocol contract functions (AuthRegistry, FeeJuice) during setup.
+
+`PublicFeePaymentMethod` and `PrivateFeePaymentMethod` in aztec.js are affected, since they use the reference `FPC` contract which calls Token functions during setup. Switch to `FeeJuicePaymentMethodWithClaim` (after [bridging Fee Juice from L1](../aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1)) or write an FPC that uses Fee Juice natively.
+
+
+
 **Impact**: Any code passing `'ALL_SCOPES'` to `simulateTx`, `executeUtility`, `profileTx`, or `proveTx` will fail to compile. Replace with an explicit array of account addresses.
+
+```diff
+- import { PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+- const paymentMethod = new PublicFeePaymentMethod(fpcAddress, senderAddress, wallet, gasSettings);
++ import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
++ const paymentMethod = new FeeJuicePaymentMethodWithClaim(senderAddress, claim);
+```
+
+Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on devnet and local network.
 
 ### [Aztec.nr] Domain-separated tags on log emission
 
