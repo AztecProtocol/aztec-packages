@@ -357,6 +357,8 @@ export class P2PClient extends WithTracer implements P2P {
       // Store our own last-block proposal so we can respond to req/resp requests for it.
       await this.attestationPool.tryAddBlockProposal(blockProposal);
     }
+    // Gossipsub doesn't deliver own messages, so fire the all-nodes handler locally
+    await this.p2pService.notifyOwnCheckpointProposal(proposal.toCore());
     return this.p2pService.propagate(proposal);
   }
 
@@ -388,8 +390,12 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
-  public registerCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
-    this.p2pService.registerCheckpointReceivedCallback(handler);
+  public registerValidatorCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
+    this.p2pService.registerValidatorCheckpointReceivedCallback(handler);
+  }
+
+  public registerAllNodesCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
+    this.p2pService.registerAllNodesCheckpointReceivedCallback(handler);
   }
 
   public registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void {
@@ -696,14 +702,23 @@ export class P2PClient extends WithTracer implements P2P {
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */
   private async maybeCallPrepareForSlot(): Promise<void> {
-    // If we have a pending checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
-    // Knowledege of pending checkpoints is in the PR above
-    const { targetSlot } = this.epochCache.getTargetAndNextSlot();
-    if (targetSlot <= this.lastSlotProcessed) {
+    // If we have a proposed checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
+    const l2Tips = await this.l2Tips.getL2Tips();
+    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+
+    let slot;
+    if (this.epochCache.isProposerPipeliningEnabled() && hasProposedCheckpoint) {
+      const { targetSlot } = this.epochCache.getTargetAndNextSlot();
+      slot = targetSlot;
+    } else {
+      const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
+      slot = currentSlot;
+    }
+    if (slot <= this.lastSlotProcessed) {
       return;
     }
-    this.lastSlotProcessed = targetSlot;
-    await this.txPool.prepareForSlot(targetSlot);
+    this.lastSlotProcessed = slot;
+    await this.txPool.prepareForSlot(slot);
   }
 
   private async startServiceIfSynched() {

@@ -236,7 +236,13 @@ describe('L1Publisher integration', () => {
           checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
         };
 
-        return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };
+        return {
+          proposed: blockId,
+          checkpointed: tipId,
+          proven: tipId,
+          finalized: tipId,
+          proposedCheckpoint: tipId,
+        };
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
