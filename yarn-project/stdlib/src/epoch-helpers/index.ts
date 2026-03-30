@@ -162,6 +162,11 @@ export function getProofSubmissionDeadlineTimestamp(
   return getTimestampForSlot(deadlineSlot, constants);
 }
 
+/** Computes the quorum size required for a committee (⌊2n/3⌋ + 1). */
+export function computeQuorum(committeeSize: number): number {
+  return Math.floor((committeeSize * 2) / 3) + 1;
+}
+
 /** Returns the timestamp to start building a block for a given L2 slot. Computed as the start timestamp of the slot minus one L1 slot duration. */
 export function getSlotStartBuildTimestamp(
   slotNumber: SlotNumber,
