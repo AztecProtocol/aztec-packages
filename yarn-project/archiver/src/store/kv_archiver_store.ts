@@ -559,13 +559,6 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Stores the l1 block that messages have been synched until
-   */
-  async setMessageSynchedL1Block(l1Block: L1BlockId) {
-    await this.#messageStore.setSynchedL1Block(l1Block);
-  }
-
-  /**
    * Returns the number of the most recent proven block
    * @returns The number of the most recent proven block
    */
@@ -597,9 +590,9 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
-  /** Persists the inbox tree-in-progress checkpoint number from L1 state. */
-  public setInboxTreeInProgress(value: bigint): Promise<void> {
-    return this.#messageStore.setInboxTreeInProgress(value);
+  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
+  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
+    return this.#messageStore.setMessageSyncState(l1Block, treeInProgress);
   }
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */
