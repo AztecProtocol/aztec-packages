@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 /** In-memory array service for transient data during a single contract call frame. */
-export class VolatileArrayService {
+export class EphemeralArrayService {
   /** Maps base slot to array of elements, where each element is a serialized Fr[]. */
   #arrays: Map<string, Fr[][]> = new Map();
 
@@ -30,7 +30,7 @@ export class VolatileArrayService {
   pop(baseSlot: Fr): Fr[] {
     const array = this.#getArray(baseSlot);
     if (array.length === 0) {
-      throw new Error(`Volatile array at slot ${baseSlot} is empty`);
+      throw new Error(`Ephemeral array at slot ${baseSlot} is empty`);
     }
     const element = array.pop()!;
     this.#setArray(baseSlot, array);
@@ -42,7 +42,7 @@ export class VolatileArrayService {
     const array = this.#getArray(baseSlot);
     if (index < 0 || index >= array.length) {
       throw new Error(
-        `Volatile array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
+        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
       );
     }
     return array[index];
@@ -53,7 +53,7 @@ export class VolatileArrayService {
     const array = this.#getArray(baseSlot);
     if (index < 0 || index >= array.length) {
       throw new Error(
-        `Volatile array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
+        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
       );
     }
     array[index] = value;
@@ -64,13 +64,13 @@ export class VolatileArrayService {
     const array = this.#getArray(baseSlot);
     if (index < 0 || index >= array.length) {
       throw new Error(
-        `Volatile array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
+        `Ephemeral array index ${index} out of bounds for array of length ${array.length} at slot ${baseSlot}`,
       );
     }
     array.splice(index, 1);
   }
 
-  /** Allocates a fresh, unused base slot for a new volatile array. */
+  /** Allocates a fresh, unused base slot for a new ephemeral array. */
   allocateSlot(): Fr {
     let slot: Fr;
     do {
@@ -79,7 +79,7 @@ export class VolatileArrayService {
     return slot;
   }
 
-  /** Creates a new volatile array pre-populated with the given elements and returns its base slot. */
+  /** Creates a new ephemeral array pre-populated with the given elements and returns its base slot. */
   newArray(elements: Fr[][]): Fr {
     const slot = this.allocateSlot();
     this.#setArray(slot, elements);
@@ -91,7 +91,7 @@ export class VolatileArrayService {
     const srcArray = this.#getArray(srcSlot);
     if (count > srcArray.length) {
       throw new Error(
-        `Cannot copy ${count} elements from volatile array of length ${srcArray.length} at slot ${srcSlot}`,
+        `Cannot copy ${count} elements from ephemeral array of length ${srcArray.length} at slot ${srcSlot}`,
       );
     }
     // Deep copy the elements to avoid aliasing

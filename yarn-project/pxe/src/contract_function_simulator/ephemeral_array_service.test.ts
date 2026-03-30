@@ -1,14 +1,14 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import { VolatileArrayService } from './volatile_array_service.js';
+import { EphemeralArrayService } from './ephemeral_array_service.js';
 
-describe('VolatileArrayService', () => {
-  let service: VolatileArrayService;
+describe('EphemeralArrayService', () => {
+  let service: EphemeralArrayService;
   const slot = Fr.fromString('0x01');
   const otherSlot = Fr.fromString('0x02');
 
   beforeEach(() => {
-    service = new VolatileArrayService();
+    service = new EphemeralArrayService();
   });
 
   describe('len', () => {

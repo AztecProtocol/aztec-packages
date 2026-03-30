@@ -1,12 +1,12 @@
+use crate::ephemeral::EphemeralArray;
 use crate::messages::processing::pending_tagged_log::PendingTaggedLog;
 use crate::protocol::address::AztecAddress;
-use crate::volatile::VolatileArray;
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
-/// returns them in a volatile array with an oracle-allocated base slot.
-pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> VolatileArray<PendingTaggedLog> {
+/// returns them in an ephemeral array with an oracle-allocated base slot.
+pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> EphemeralArray<PendingTaggedLog> {
     let result_slot = get_pending_tagged_logs_oracle(scope);
-    VolatileArray::at(result_slot)
+    EphemeralArray::at(result_slot)
 }
 
 #[oracle(aztec_utl_getPendingTaggedLogs_v2)]

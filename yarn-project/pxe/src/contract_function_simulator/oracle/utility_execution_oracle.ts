@@ -36,13 +36,13 @@ import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
+import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import { VolatileArrayService } from '../volatile_array_service.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -79,7 +79,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private contractLogger: Logger | undefined;
   private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
-  private readonly volatileArrayService = new VolatileArrayService();
+  private readonly ephemeralArrayService = new EphemeralArrayService();
 
   protected readonly contractAddress: AztecAddress;
   protected readonly authWitnesses: AuthWitness[];
@@ -511,11 +511,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  /** Fetches pending tagged logs into a freshly allocated volatile array and returns its base slot. */
+  /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns its base slot. */
   public async getPendingTaggedLogsV2(scope: AztecAddress): Promise<Fr> {
     const logService = this.#createLogService();
     const logs = await logService.fetchTaggedLogs(this.contractAddress, scope);
-    return this.volatileArrayService.newArray(logs.map(log => log.toFields()));
+    return this.ephemeralArrayService.newArray(logs.map(log => log.toFields()));
   }
 
   #createLogService(): LogService {
@@ -672,7 +672,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
       }
 
-      // TODO(@mverzilli): this is a prime example of where using a volatile array would make much more sense, we don't
+      // TODO(@mverzilli): this is a prime example of where using an ephemeral array would make much more sense, we don't
       // need scopes here, we just need a bit of shared memory to cross boundaries between Noir and TS.
       // At the same time, we don't want to allow any global scope access other than where backwards compatibility
       // forces us to. Hence we need the scope here to be artificial.
@@ -792,32 +792,32 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
   }
 
-  public volatilePush(baseSlot: Fr, elements: Fr[]): number {
-    return this.volatileArrayService.push(baseSlot, elements);
+  public ephemeralPush(baseSlot: Fr, elements: Fr[]): number {
+    return this.ephemeralArrayService.push(baseSlot, elements);
   }
 
-  public volatilePop(baseSlot: Fr): Fr[] {
-    return this.volatileArrayService.pop(baseSlot);
+  public ephemeralPop(baseSlot: Fr): Fr[] {
+    return this.ephemeralArrayService.pop(baseSlot);
   }
 
-  public volatileGet(baseSlot: Fr, index: number): Fr[] {
-    return this.volatileArrayService.get(baseSlot, index);
+  public ephemeralGet(baseSlot: Fr, index: number): Fr[] {
+    return this.ephemeralArrayService.get(baseSlot, index);
   }
 
-  public volatileSet(baseSlot: Fr, index: number, elements: Fr[]): void {
-    this.volatileArrayService.set(baseSlot, index, elements);
+  public ephemeralSet(baseSlot: Fr, index: number, elements: Fr[]): void {
+    this.ephemeralArrayService.set(baseSlot, index, elements);
   }
 
-  public volatileLen(baseSlot: Fr): number {
-    return this.volatileArrayService.len(baseSlot);
+  public ephemeralLen(baseSlot: Fr): number {
+    return this.ephemeralArrayService.len(baseSlot);
   }
 
-  public volatileRemove(baseSlot: Fr, index: number): void {
-    this.volatileArrayService.remove(baseSlot, index);
+  public ephemeralRemove(baseSlot: Fr, index: number): void {
+    this.ephemeralArrayService.remove(baseSlot, index);
   }
 
-  public volatileCopy(srcSlot: Fr, dstSlot: Fr, count: number): void {
-    this.volatileArrayService.copy(srcSlot, dstSlot, count);
+  public ephemeralCopy(srcSlot: Fr, dstSlot: Fr, count: number): void {
+    this.ephemeralArrayService.copy(srcSlot, dstSlot, count);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {

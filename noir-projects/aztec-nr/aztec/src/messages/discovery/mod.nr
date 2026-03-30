@@ -162,7 +162,7 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
                 scope,
             );
             // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
-            // volatile array with the to-process message, not the actual persistent storage of them.
+            // ephemeral array with the to-process message, not the actual persistent storage of them.
             msgs.remove(i);
         });
     }
@@ -199,7 +199,7 @@ mod test {
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
-            // Mock the oracle call to return a base slot pointing to an empty volatile array.
+            // Mock the oracle call to return a base slot pointing to an empty ephemeral array.
             let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogs_v2");
             let _ = mock.returns(42);
 

@@ -98,7 +98,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
 
     maybe_completion_logs.for_each(|i, maybe_log: Option<LogRetrievalResponse>| {
         // We clear the completion logs as we read them so that the array is empty by the time we next query it.
-        // TODO(#14943): use volatile arrays to avoid having to manually clear this.
+        // TODO(#14943): use ephemeral arrays to avoid having to manually clear this.
         maybe_completion_logs.remove(i);
 
         let pending_partial_note = pending_partial_notes.get(i);

@@ -906,30 +906,30 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_volatile_push(foreignBaseSlot: ForeignCallSingle, foreignElements: ForeignCallArray) {
+  aztec_utl_ephemeral_push(foreignBaseSlot: ForeignCallSingle, foreignElements: ForeignCallArray) {
     const baseSlot = fromSingle(foreignBaseSlot);
     const elements = fromArray(foreignElements);
-    const newLen = this.handlerAsUtility().volatilePush(baseSlot, elements);
+    const newLen = this.handlerAsUtility().ephemeralPush(baseSlot, elements);
     return toForeignCallResult([toSingle(new Fr(newLen))]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_volatile_pop(foreignBaseSlot: ForeignCallSingle) {
+  aztec_utl_ephemeral_pop(foreignBaseSlot: ForeignCallSingle) {
     const baseSlot = fromSingle(foreignBaseSlot);
-    const element = this.handlerAsUtility().volatilePop(baseSlot);
+    const element = this.handlerAsUtility().ephemeralPop(baseSlot);
     return toForeignCallResult([toArray(element)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_volatile_get(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+  aztec_utl_ephemeral_get(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
     const baseSlot = fromSingle(foreignBaseSlot);
     const index = fromSingle(foreignIndex).toNumber();
-    const element = this.handlerAsUtility().volatileGet(baseSlot, index);
+    const element = this.handlerAsUtility().ephemeralGet(baseSlot, index);
     return toForeignCallResult([toArray(element)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_volatile_set(
+  aztec_utl_ephemeral_set(
     foreignBaseSlot: ForeignCallSingle,
     foreignIndex: ForeignCallSingle,
     foreignElements: ForeignCallArray,
@@ -937,27 +937,27 @@ export class RPCTranslator {
     const baseSlot = fromSingle(foreignBaseSlot);
     const index = fromSingle(foreignIndex).toNumber();
     const elements = fromArray(foreignElements);
-    this.handlerAsUtility().volatileSet(baseSlot, index, elements);
+    this.handlerAsUtility().ephemeralSet(baseSlot, index, elements);
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_volatile_len(foreignBaseSlot: ForeignCallSingle) {
+  aztec_utl_ephemeral_len(foreignBaseSlot: ForeignCallSingle) {
     const baseSlot = fromSingle(foreignBaseSlot);
-    const len = this.handlerAsUtility().volatileLen(baseSlot);
+    const len = this.handlerAsUtility().ephemeralLen(baseSlot);
     return toForeignCallResult([toSingle(new Fr(len))]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_volatile_remove(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+  aztec_utl_ephemeral_remove(foreignBaseSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
     const baseSlot = fromSingle(foreignBaseSlot);
     const index = fromSingle(foreignIndex).toNumber();
-    this.handlerAsUtility().volatileRemove(baseSlot, index);
+    this.handlerAsUtility().ephemeralRemove(baseSlot, index);
     return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_volatile_copy(
+  aztec_utl_ephemeral_copy(
     foreignSrcSlot: ForeignCallSingle,
     foreignDstSlot: ForeignCallSingle,
     foreignCount: ForeignCallSingle,
@@ -965,7 +965,7 @@ export class RPCTranslator {
     const srcSlot = fromSingle(foreignSrcSlot);
     const dstSlot = fromSingle(foreignDstSlot);
     const count = fromSingle(foreignCount).toNumber();
-    this.handlerAsUtility().volatileCopy(srcSlot, dstSlot, count);
+    this.handlerAsUtility().ephemeralCopy(srcSlot, dstSlot, count);
     return toForeignCallResult([]);
   }
 

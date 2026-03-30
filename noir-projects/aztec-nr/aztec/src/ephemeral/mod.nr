@@ -1,37 +1,37 @@
-use crate::oracle::volatile;
+use crate::oracle::ephemeral;
 use crate::protocol::traits::{Deserialize, Serialize};
 
 /// A dynamically sized array that exists only during a single contract call frame.
 ///
-/// Volatile arrays are backed by in-memory storage on the PXE side rather than a persistent database. Each contract
-/// call frame gets its own isolated set of volatile arrays child simulations cannot see the parent's volatile arrays,
+/// Ephemeral arrays are backed by in-memory storage on the PXE side rather than a persistent database. Each contract
+/// call frame gets its own isolated set of ephemeral arrays child simulations cannot see the parent's ephemeral arrays,
 /// and vice versa.
 ///
-/// Each logical array operation (push, pop, get, etc.) is a single oracle call, making volatile arrays significantly
+/// Each logical array operation (push, pop, get, etc.) is a single oracle call, making ephemeral arrays significantly
 /// cheaper than capsule arrays and more appropriate for transient data.
 ///
 /// ## Use Cases
 ///
-/// Volatile arrays are designed for transient communication between PXE (TypeScript) and contracts (Noir) during
+/// Ephemeral arrays are designed for transient communication between PXE (TypeScript) and contracts (Noir) during
 /// simulation, for example, note validation requests or event validation responses.
 ///
 /// For data that needs to persist across simulations, contract calls, etc, use
 /// [`CapsuleArray`](crate::capsules::CapsuleArray) instead.
-pub struct VolatileArray<T> {
+pub struct EphemeralArray<T> {
     base_slot: Field,
 }
 
-impl<T> VolatileArray<T> {
-    /// Creates a volatile array at the given base slot.
+impl<T> EphemeralArray<T> {
+    /// Creates an ephemeral array at the given base slot.
     ///
-    /// Multiple volatile arrays can coexist within the same call frame by using different base slots.
+    /// Multiple ephemeral arrays can coexist within the same call frame by using different base slots.
     pub unconstrained fn at(base_slot: Field) -> Self {
         Self { base_slot }
     }
 
     /// Returns the number of elements stored in the array.
     pub unconstrained fn len(self) -> u32 {
-        volatile::len_oracle(self.base_slot)
+        ephemeral::len_oracle(self.base_slot)
     }
 
     /// Stores a value at the end of the array.
@@ -40,7 +40,7 @@ impl<T> VolatileArray<T> {
         T: Serialize,
     {
         let serialized = value.serialize();
-        let _ = volatile::push_oracle(self.base_slot, serialized);
+        let _ = ephemeral::push_oracle(self.base_slot, serialized);
     }
 
     /// Removes and returns the last element. Panics if the array is empty.
@@ -48,7 +48,7 @@ impl<T> VolatileArray<T> {
     where
         T: Deserialize,
     {
-        let serialized = volatile::pop_oracle(self.base_slot);
+        let serialized = ephemeral::pop_oracle(self.base_slot);
         Deserialize::deserialize(serialized)
     }
 
@@ -57,7 +57,7 @@ impl<T> VolatileArray<T> {
     where
         T: Deserialize,
     {
-        let serialized = volatile::get_oracle(self.base_slot, index);
+        let serialized = ephemeral::get_oracle(self.base_slot, index);
         Deserialize::deserialize(serialized)
     }
 
@@ -67,12 +67,12 @@ impl<T> VolatileArray<T> {
         T: Serialize,
     {
         let serialized = value.serialize();
-        volatile::set_oracle(self.base_slot, index, serialized);
+        ephemeral::set_oracle(self.base_slot, index, serialized);
     }
 
     /// Removes the element at `index`, shifting subsequent elements backward. Panics if out of bounds.
     pub unconstrained fn remove(self, index: u32) {
-        volatile::remove_oracle(self.base_slot, index);
+        ephemeral::remove_oracle(self.base_slot, index);
     }
 
     /// Calls a function on each element of the array.
@@ -96,7 +96,7 @@ impl<T> VolatileArray<T> {
 
 mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::VolatileArray;
+    use super::EphemeralArray;
 
     global SLOT: Field = 1230;
     global OTHER_SLOT: Field = 5670;
@@ -105,7 +105,7 @@ mod test {
     unconstrained fn empty_array() {
         let _ = TestEnvironment::new();
 
-        let array: VolatileArray<Field> = VolatileArray::at(SLOT);
+        let array: EphemeralArray<Field> = EphemeralArray::at(SLOT);
         assert_eq(array.len(), 0);
     }
 
@@ -113,7 +113,7 @@ mod test {
     unconstrained fn empty_array_read() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
         let _: Field = array.get(0);
     }
 
@@ -121,7 +121,7 @@ mod test {
     unconstrained fn empty_array_pop() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
         let _: Field = array.pop();
     }
 
@@ -129,7 +129,7 @@ mod test {
     unconstrained fn array_push() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
         array.push(5);
 
         assert_eq(array.len(), 1);
@@ -140,7 +140,7 @@ mod test {
     unconstrained fn read_past_len() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
         array.push(5);
 
         let _ = array.get(1);
@@ -150,7 +150,7 @@ mod test {
     unconstrained fn array_pop() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
         array.push(5);
         array.push(10);
 
@@ -164,7 +164,7 @@ mod test {
     unconstrained fn array_set() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
         array.push(5);
         array.set(0, 99);
         assert_eq(array.get(0), 99);
@@ -174,7 +174,7 @@ mod test {
     unconstrained fn array_remove_last() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
 
         array.push(5);
         array.remove(0);
@@ -186,7 +186,7 @@ mod test {
     unconstrained fn array_remove_some() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
 
         array.push(7);
         array.push(8);
@@ -205,7 +205,7 @@ mod test {
     unconstrained fn array_remove_all() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
 
         array.push(7);
         array.push(8);
@@ -222,7 +222,7 @@ mod test {
     unconstrained fn for_each_called_with_all_elements() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
 
         array.push(4);
         array.push(5);
@@ -241,7 +241,7 @@ mod test {
     unconstrained fn for_each_remove_some() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
 
         array.push(4);
         array.push(5);
@@ -262,7 +262,7 @@ mod test {
     unconstrained fn for_each_remove_all() {
         let _ = TestEnvironment::new();
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
 
         array.push(4);
         array.push(5);
@@ -277,8 +277,8 @@ mod test {
     unconstrained fn different_slots_are_isolated() {
         let _ = TestEnvironment::new();
 
-        let array_a = VolatileArray::at(SLOT);
-        let array_b = VolatileArray::at(OTHER_SLOT);
+        let array_a = EphemeralArray::at(SLOT);
+        let array_b = EphemeralArray::at(OTHER_SLOT);
 
         array_a.push(10);
         array_a.push(20);
@@ -298,7 +298,7 @@ mod test {
 
         use crate::test::mocks::MockStruct;
 
-        let array = VolatileArray::at(SLOT);
+        let array = EphemeralArray::at(SLOT);
 
         let a = MockStruct::new(5, 6);
         let b = MockStruct::new(7, 8);
