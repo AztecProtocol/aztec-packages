@@ -598,9 +598,8 @@ class ECCVMFlavor {
 #endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
-            // Note: the first operation (index 0) is always a hiding op with random Px, Py values
-            const auto transcript_rows =
-                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls());
+            const auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(
+                builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls(), builder.op_queue->get_is_zk());
             const std::vector<MSM> msms = builder.get_msms();
             const auto point_table_rows =
                 ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));

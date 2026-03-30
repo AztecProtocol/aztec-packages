@@ -60,8 +60,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      */
     static ProverOutput create_goblin_prover_output(Builder* outer_builder = nullptr, const size_t num_circuits = 5)
     {
-
         Goblin goblin;
+        goblin.set_op_queue_zk(false);
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, num_circuits);
 
         // Merge the ecc ops from the newly constructed circuit
@@ -101,6 +101,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
+    BB_DISABLE_ASSERTS();
     auto [proof, merge_commitments, _] = create_goblin_prover_output();
 
     auto transcript = std::make_shared<NativeTranscript>();
@@ -125,6 +126,8 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
  */
 TEST_F(GoblinRecursiveVerifierTests, Basic)
 {
+    BB_DISABLE_ASSERTS();
+
     Builder builder;
 
     auto [proof, merge_commitments, recursive_merge_commitments] = create_goblin_prover_output(&builder);

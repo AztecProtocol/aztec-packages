@@ -64,6 +64,7 @@ class ECCOpQueue {
 
   public:
     void set_is_zk(bool _is_zk) { is_zk = _is_zk; }
+    bool get_is_zk() const { return is_zk; }
 
     static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
     /**
@@ -316,10 +317,6 @@ class ECCOpQueue {
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();
-        if (expected.is_point_at_infinity()) {
-            expected.x = Fq(0);
-            expected.y = Fq(0);
-        }
         EccOpCode op_code{ .eq = true, .reset = true };
         // Store eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });

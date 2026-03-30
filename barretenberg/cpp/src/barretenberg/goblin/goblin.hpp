@@ -30,6 +30,8 @@ class Goblin {
     bool avm_mode = false;
 
   public:
+    void set_op_queue_zk(bool is_zk) { op_queue->set_is_zk(is_zk); }
+
     using MegaBuilder = MegaCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
