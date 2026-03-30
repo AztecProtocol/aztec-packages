@@ -277,6 +277,7 @@ describe('CheckpointVoter HA Integration', () => {
       requiredConfirmations: 1,
       maxL1TxInclusionWaitPulseSeconds: 60,
       ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
+      aztecSlotDuration: DefaultL1ContractsConfig.aztecSlotDuration,
       fishermanMode: false,
       l1ChainId: 1,
     };
@@ -291,6 +292,7 @@ describe('CheckpointVoter HA Integration', () => {
       ts: BigInt(Math.floor(Date.now() / 1000)),
       nowMs: BigInt(Date.now()),
     });
+    epochCache.getL1Constants.mockReturnValue(TEST_L1_CONSTANTS as any);
 
     const slashFactoryContract = mock<SlashFactoryContract>();
 
