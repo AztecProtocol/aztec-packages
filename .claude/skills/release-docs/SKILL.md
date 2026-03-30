@@ -90,9 +90,9 @@ Store the address for updating docs.
 **Note:** The Sponsored FPC is only deployed on devnet. For mainnet and testnet releases,
 mark the SponsoredFPC row as "Not deployed" in the L2 Contract Addresses table.
 
-### Step 5: Update Version Config
+### Step 5: Update Version Configs
 
-**File:** `docs/developer_version_config.json`
+**Developer docs:** `docs/developer_version_config.json`
 
 This file maps release types to version strings. Update the entry matching the
 release type with the new version (prefixed with `v`):
@@ -110,6 +110,9 @@ For example, for a devnet release of `4.1.0-devnet.1`, update `"devnet": "v4.1.0
 
 The preprocessor (`include_version.js`) reads defaults from this config file, so
 updating it is sufficient — you no longer need to edit hardcoded defaults in JS.
+
+**Network/operator docs** are updated separately in Step 13 after the version
+snapshot is created (the config update requires the versioned docs directory to exist).
 
 ### Step 6: Generate API Reference Docs
 
@@ -279,13 +282,21 @@ cd docs
 <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> yarn docusaurus docs:version:developer v<new_version>
 ```
 
-Then update the versions file:
+Then update the versions files:
 
 ```bash
-docs/scripts/update_docs_versions.sh developer
+scripts/update_docs_versions.sh developer
 ```
 
-Verify the new version appears in `docs/developer_version_config.json`.
+For **mainnet** and **testnet** releases, also cut and configure the network/operator docs:
+
+```bash
+<TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> yarn docusaurus docs:version:network v<new_version>
+scripts/update_docs_versions.sh network <release_type> v<new_version>
+```
+
+Verify the new version appears in both `docs/developer_version_config.json` and
+`docs/network_version_config.json`.
 
 ### Step 14: Review Recent Docs Updates on `next`
 
