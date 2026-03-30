@@ -84,6 +84,8 @@ function assertAllowedScope(scope: AztecAddress, allowedScopes: AccessScopes) {
     return;
   }
   if (!allowedScopes.some(allowed => allowed.equals(scope))) {
-    throw new Error(`Scope ${scope.toString()} is not in the allowed scopes list`);
+    throw new Error(
+      `Scope ${scope.toString()} is not in the allowed scopes list: [${allowedScopes.map(s => s.toString()).join(', ')}]. See https://docs.aztec.network/errors/10`,
+    );
   }
 }
