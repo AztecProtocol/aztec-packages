@@ -55,7 +55,6 @@ pub mod error;
 pub mod generated {
     pub mod bb_types;
     pub mod bb_client;
-    pub mod bb_server;
 }
 
 pub use backend::Backend;
