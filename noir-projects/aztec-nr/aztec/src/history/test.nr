@@ -6,22 +6,24 @@ use crate::{
     },
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
-use crate::protocol::{address::AztecAddress, traits::FromField};
 
 pub(crate) global NOTE_STORAGE_SLOT: Field = 420;
 pub(crate) global NOTE_CREATED_AT: u32 = 2;
 pub(crate) global NOTE_NULLIFIED_AT: u32 = 3;
-pub(crate) global NOTE_OWNER: AztecAddress = AztecAddress::from_field(50);
 
 pub(crate) unconstrained fn create_note() -> (TestEnvironment, HintedNote<MockNote>) {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+
+    // Create a light account so the owner is registered in the keystore and included in the
+    // allowed scopes list, which is required for note operations.
+    let note_owner = env.create_light_account();
 
     let note_message = env.private_context(|context| {
         let mock_note = MockNote::new(69);
 
         lifecycle_create_note(
             context,
-            NOTE_OWNER,
+            note_owner,
             NOTE_STORAGE_SLOT,
             mock_note.build_note(),
         )
@@ -32,7 +34,8 @@ pub(crate) unconstrained fn create_note() -> (TestEnvironment, HintedNote<MockNo
 
     env.discover_note(note_message);
 
-    let hinted_note = env.utility_context(|_| view_note(Option::some(NOTE_OWNER), NOTE_STORAGE_SLOT));
+    let hinted_note =
+        env.utility_context(|_| view_note(Option::some(note_owner), NOTE_STORAGE_SLOT));
 
     (env, hinted_note)
 }
