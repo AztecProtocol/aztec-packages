@@ -139,16 +139,22 @@ class GoblinMockCircuits {
 
     static void construct_and_merge_mock_circuits(Goblin& goblin, const size_t num_circuits = 3)
     {
-        using Fq = curve::Grumpkin::ScalarField;
+        // using Fq = curve::Grumpkin::ScalarField;
         for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
             MegaCircuitBuilder builder{ goblin.op_queue };
-            if (idx == num_circuits - 2) {
+            if (idx <= num_circuits - 2) {
                 // Last circuit appended needs to begin with a no-op for translator to be shiftable
                 builder.queue_ecc_no_op();
                 // Add random ops at START for Translator ZK (lands at beginning of op queue table)
-                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
+                // randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
+                builder.queue_ecc_no_op();
+                builder.queue_ecc_no_op();
+                builder.queue_ecc_no_op();
                 // Add hiding op for ECCVM ZK (prepended to ECCVM ops at row 1)
-                builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
+                // builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
+                info("OUR EQ AND RESET ============\n");
+                builder.queue_ecc_eq();
+                info("END ============\n");
             }
             construct_simple_circuit(builder);
             goblin.prove_merge();
