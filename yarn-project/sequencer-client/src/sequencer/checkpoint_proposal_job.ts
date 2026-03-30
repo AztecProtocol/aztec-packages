@@ -571,12 +571,12 @@ export class CheckpointProposalJob implements Traceable {
 
       // Register the fork so SYNC_BLOCK can commit it instead of recalculating.
       this.worldState.registerForkForBlock(block.archive.root, checkpointBuilder.getForkId());
-      await this.syncProposedBlockToArchiver(block);
-      // Force the block stream to pick up the block and commit the fork via SYNC_BLOCK.
-      await this.worldState.syncImmediate();
 
-      // If this is the last block, exit the loop so we can build the checkpoint and start collecting attestations.
+      // If this is the last block, sync to archiver and exit the loop
+      // so we can build the checkpoint and start collecting attestations.
       if (timingInfo.isLastBlock) {
+        await this.syncProposedBlockToArchiver(block);
+        await this.worldState.syncImmediate(blockNumber);
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.targetSlot}`, {
           slot: this.targetSlot,
           blockNumber,
@@ -592,11 +592,17 @@ export class CheckpointProposalJob implements Traceable {
       // a HA error we don't pollute our archiver with a block that won't make it to the chain.
       const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
 
+      // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal.
+      await this.syncProposedBlockToArchiver(block);
+
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
       proposal && (await this.p2pClient.broadcastProposal(proposal));
 
+      // Wait for LMDB to reach this block before creating the next fork.
+      // In HA mode, another peer's proposal may arrive via gossip and be committed instead of ours.
+      await this.worldState.syncImmediate(blockNumber);
+
       // Create a new fork at the advanced tip for the next block.
-      // syncImmediate committed the previous fork via SYNC_BLOCK, so LMDB is up to date.
       const newFork = await this.worldState.fork(undefined, { closeDelayMs: 12_000 });
       checkpointBuilder.setFork(newFork);
 
