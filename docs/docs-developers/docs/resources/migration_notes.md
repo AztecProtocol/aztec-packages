@@ -15,18 +15,6 @@ The `AccessScopes` type (`'ALL_SCOPES' | AztecAddress[]`) has been removed. The 
 `ExecuteUtilityOpts`, and `ProfileTxOpts` now requires an explicit `AztecAddress[]`. Callers that previously passed
 `'ALL_SCOPES'` must now specify which addresses will be in scope for the call.
 
-### [PXE] Capsule operations are now scope-enforced at the PXE level
-
-The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
-
-```
-Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
-```
-
-The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
-
-**Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
-
 **Migration:**
 
 ```diff
@@ -49,6 +37,19 @@ The zero address (`AztecAddress::zero()`) is always allowed regardless of the sc
 - await pxe.proveTx(txRequest, 'ALL_SCOPES');
 + await pxe.proveTx(txRequest, scopes);
 ```
+
+### [PXE] Capsule operations are now scope-enforced at the PXE level
+
+The PXE now enforces that capsule operations can only access scopes that were authorized for the current execution. If a contract attempts to access a capsule scope that is not in its allowed scopes list, the PXE will throw an error:
+
+```
+Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
+```
+
+The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
+
+**Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
+
 
 ## 4.2.0-aztecnr-rc.2
 
