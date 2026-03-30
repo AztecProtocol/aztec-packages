@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
@@ -24,16 +25,27 @@ template <typename Flavor>
 void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit)
 {
+    // Pre-compute cumulative offsets, then process tables in parallel (disjoint offset ranges)
+    const auto& tables = circuit.get_lookup_tables();
+    const size_t num_tables = tables.size();
+
+    std::vector<size_t> table_offsets(num_tables);
     size_t offset = 0;
-    for (const auto& table : circuit.get_lookup_tables()) {
-        for (size_t i = 0; i < table.size(); ++i) {
-            table_polynomials[0].at(offset) = table.column_1[i];
-            table_polynomials[1].at(offset) = table.column_2[i];
-            table_polynomials[2].at(offset) = table.column_3[i];
-            table_polynomials[3].at(offset) = table.table_index;
-            offset++;
-        }
+    for (size_t i = 0; i < num_tables; i++) {
+        table_offsets[i] = offset;
+        offset += tables[i].size();
     }
+
+    parallel_for(num_tables, [&](size_t table_idx) {
+        const auto& table = tables[table_idx];
+        size_t tbl_offset = table_offsets[table_idx];
+        for (size_t i = 0; i < table.size(); ++i) {
+            table_polynomials[0].at(tbl_offset + i) = table.column_1[i];
+            table_polynomials[1].at(tbl_offset + i) = table.column_2[i];
+            table_polynomials[2].at(tbl_offset + i) = table.column_3[i];
+            table_polynomials[3].at(tbl_offset + i) = table.table_index;
+        }
+    });
 }
 
 /**
@@ -48,25 +60,31 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit)
 {
-    // loop over all tables used in the circuit; each table contains data about the lookups made on it
+    // Process each table independently in parallel (each table writes to disjoint offset ranges)
+    auto& tables = circuit.get_lookup_tables();
+    const size_t num_tables = tables.size();
+
+    // Pre-compute cumulative offsets (sequential, trivially fast)
+    std::vector<size_t> table_offsets(num_tables);
     size_t table_offset = 0;
-    for (auto& table : circuit.get_lookup_tables()) {
+    for (size_t i = 0; i < num_tables; i++) {
+        table_offsets[i] = table_offset;
+        table_offset += tables[i].size();
+    }
+
+    // Process each table independently
+    parallel_for(num_tables, [&](size_t table_idx) {
+        auto& table = tables[table_idx];
         table.initialize_index_map();
 
         for (auto& gate_data : table.lookup_gates) {
-            // convert lookup gate data to an array of three field elements, one for each of the 3 columns
             auto table_entry = gate_data.to_table_components(table.use_twin_keys);
-
-            // find the index of the entry in the table
             auto index_in_table = table.index_map[table_entry];
-
-            // increment the read count at the corresponding index in the full polynomial
-            size_t index_in_poly = table_offset + index_in_table;
+            size_t index_in_poly = table_offsets[table_idx] + index_in_table;
             read_counts.at(index_in_poly)++;
-            read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
+            read_tags.at(index_in_poly) = 1;
         }
-        table_offset += table.size(); // set the offset of the next table within the polynomials
-    }
+    });
 }
 
 } // namespace bb
