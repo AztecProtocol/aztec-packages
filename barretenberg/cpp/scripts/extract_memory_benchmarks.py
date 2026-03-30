@@ -34,7 +34,7 @@ try:
                 "name": f"{name_path}/memory/{category}_MB",
                 "unit": "MB",
                 "value": round(stats["actual_mb"], 2),
-                "extra": f"stacked:{name_path}/memory/polynomial_categories"
+                "extra": f"stacked-area:{name_path}/memory/polynomial_categories"
             })
 
         # Total polynomial memory (peak circuit)
