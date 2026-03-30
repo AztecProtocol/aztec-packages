@@ -58,8 +58,8 @@ export class CLIWallet extends BaseWallet {
     const accounts = (await this.db?.listAliases('accounts')) ?? [];
     return Promise.resolve(
       accounts.map(({ key, value }) => {
-        const address = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
-        return { alias: value, item: AztecAddress.fromString(address) };
+        const alias = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
+        return { alias, item: AztecAddress.fromString(value) };
       }),
     );
   }
