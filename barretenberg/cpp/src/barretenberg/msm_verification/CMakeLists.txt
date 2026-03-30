@@ -1,1 +1,1 @@
-barretenberg_module(msm_verification common transcript ecc numeric crypto_merkle_tree)
+barretenberg_module(msm_verification common transcript ecc numeric crypto_merkle_tree commitment_schemes srs)
