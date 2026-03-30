@@ -17,15 +17,23 @@ export class CheatCodes {
     public eth: EthCheatCodes,
     /** Cheat codes for the Aztec Rollup contract on L1. */
     public rollup: RollupCheatCodes,
+    /** Ethereum slot duration in seconds, used for mineUntilTimestamp. */
+    private readonly ethereumSlotDuration: number = 12,
   ) {}
 
-  static async create(rpcUrls: string[], node: AztecNode, dateProvider: DateProvider): Promise<CheatCodes> {
+  static async create(
+    rpcUrls: string[],
+    node: AztecNode,
+    dateProvider: DateProvider,
+    ethereumSlotDuration: number = 12,
+  ): Promise<CheatCodes> {
     const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await node.getNodeInfo().then(n => n.l1ContractAddresses),
+      ethereumSlotDuration,
     );
-    return new CheatCodes(ethCheatCodes, rollupCheatCodes);
+    return new CheatCodes(ethCheatCodes, rollupCheatCodes, ethereumSlotDuration);
   }
 
   /**
@@ -40,8 +48,9 @@ export class CheatCodes {
   async warpL2TimeAtLeastTo(sequencerClient: SequencerClient, node: AztecNode, targetTimestamp: bigint | number) {
     const currentL2BlockNumber: BlockNumber = await node.getBlockNumber();
 
-    // We warp the L1 timestamp
-    await this.eth.warp(targetTimestamp, { resetBlockInterval: true });
+    // Mine real L1 blocks to the target timestamp so finalized also advances,
+    // preventing EpochNotFinalizedError when the sequencer queries the committee.
+    await this.eth.mineUntilTimestamp(targetTimestamp, { blockTimestampInterval: this.ethereumSlotDuration });
 
     // Wait until an L2 block is mined
     const sequencer = sequencerClient.getSequencer();
