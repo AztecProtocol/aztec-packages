@@ -65,18 +65,20 @@ The legacy `#include_aztec_version` macro uses `COMMIT_TAG`, while `#include_ver
 
 ### How do I change the versions that show in the website
 
-The version system uses two approaches:
+Both developer and network docs use **version config files** that map release types to version strings:
 
-- **Developer docs**: `developer_version_config.json` maps release types to version strings (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`). The Docusaurus-compatible `developer_versions.json` is auto-generated from this config at startup.
-- **Network docs**: `network_versions.json` is managed directly as a simple array of version strings.
+- **Developer docs**: `developer_version_config.json` (e.g., `{"mainnet": "v4.2.0-aztecnr-rc.2", "testnet": "v4.1.0-rc.2", ...}`)
+- **Network docs**: `network_version_config.json` (e.g., `{"mainnet": "v4.1.2", "testnet": "v4.1.0-rc.2"}`)
 
-You can update the developer config manually, or use the `scripts/update_docs_versions.sh` script which reconciles it with the versioned docs directories:
+The `docusaurus.config.js` reads these configs and auto-generates the Docusaurus-compatible `*_versions.json` arrays at startup, including only versions that have matching versioned docs directories. Any extra directories not in the config are also included (to preserve newly cut versions before the config is updated).
+
+Use `scripts/update_docs_versions.sh` to update configs and reconcile with versioned docs directories:
 
 ```bash
-./scripts/update_docs_versions.sh developer  # Updates developer_version_config.json
+./scripts/update_docs_versions.sh developer                        # Reconcile developer config
+./scripts/update_docs_versions.sh network mainnet v4.2.0           # Set mainnet=v4.2.0, then reconcile
+./scripts/update_docs_versions.sh developer nightly v5.0.0-nightly # Set nightly version, then reconcile
 ```
-
-For network docs, edit `network_versions.json` directly.
 
 To create a new versioned snapshot of the docs:
 
@@ -87,32 +89,14 @@ yarn docusaurus docs:version:network v4.2.0              # New network version
 
 ### Version Configuration
 
-The `docusaurus.config.js` file reads `developer_version_config.json` which explicitly maps release types to version strings. This replaces fragile substring matching on version strings for developer docs.
-
-**Developer docs** (from `developer_version_config.json`):
-
-```javascript
-const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
-const developerTestnetVersion = developerVersionConfig.testnet || null;
-const devnetVersion = developerVersionConfig.devnet || null;
-const nightlyVersion = developerVersionConfig.nightly || null;
-```
-
-**Network docs** (from `network_versions.json`):
-
-```javascript
-const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
-const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
-```
+The `docusaurus.config.js` file reads both config files to determine version labels, paths, and defaults. The config-based approach replaces fragile substring matching on version strings.
 
 This ensures that:
 
-- Developer doc version types are always correct regardless of the version string format
+- Version types are always correct regardless of the version string format
 - When nightly versions are removed by the cleanup script, the build doesn't break
 - Version configurations are conditionally included only if they exist
 - The llms.txt plugin always points to the correct version (mainnet or testnet)
-
-**Why this matters:** The [nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs `cleanup_nightly_versions.sh` before creating new versioned docs. The config-based approach means version type detection never breaks even when version strings don't follow predictable patterns.
 
 ## Releases
 

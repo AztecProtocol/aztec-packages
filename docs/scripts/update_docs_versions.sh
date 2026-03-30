@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 
-# This script updates the version config for the developer docs instance.
+# This script updates the version config for a docs instance.
 # It scans versioned_docs directories, reconciles with the existing config file
 # (preserving type→version mappings), and writes the updated config.
 #
-# The Docusaurus-compatible developer_versions.json is auto-generated from the
-# config file by docusaurus.config.js at startup.
+# The Docusaurus-compatible *_versions.json is auto-generated from the
+# config file (for developer docs) or managed directly (for network docs).
 #
-# Note: Network docs use network_versions.json directly (not a config file).
-# Edit that file manually instead of using this script for network docs.
+# Both developer and network docs use a config file
+# (developer_version_config.json / network_version_config.json).
 #
-# Usage: ./update_docs_versions.sh [instance]
-#   instance: "developer" (default)
+# Usage: ./update_docs_versions.sh [instance] [release_type version]
+#   instance:     "developer" (default) or "network"
+#   release_type: optional - set this type's version in the config before reconciling
+#   version:      required if release_type is specified
 #
 # Examples:
-#   ./update_docs_versions.sh           # Updates developer_version_config.json
-#   ./update_docs_versions.sh developer # Updates developer_version_config.json
+#   ./update_docs_versions.sh                            # Reconcile developer config
+#   ./update_docs_versions.sh developer                  # Same
+#   ./update_docs_versions.sh network mainnet v4.2.0     # Set mainnet=v4.2.0, then reconcile
+#   ./update_docs_versions.sh developer nightly v5.0.0   # Set nightly=v5.0.0, then reconcile
 
 # Get the directory where the script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,6 +27,8 @@ DOCS_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Parse instance argument (default to "developer")
 INSTANCE="${1:-developer}"
+RELEASE_TYPE="${2:-}"
+NEW_VERSION="${3:-}"
 
 # Path to config file and versioned_docs for the specified instance
 CONFIG_FILE="$DOCS_DIR/${INSTANCE}_version_config.json"
@@ -31,8 +37,24 @@ VERSIONED_DOCS_DIR="$DOCS_DIR/${INSTANCE}_versioned_docs"
 
 echo "Updating versions for docs instance: $INSTANCE"
 
+# If release type and version provided, update the config file first
+if [ -n "$RELEASE_TYPE" ] && [ -n "$NEW_VERSION" ]; then
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "{\"$RELEASE_TYPE\": \"$NEW_VERSION\"}" | jq '.' > "$CONFIG_FILE"
+        echo "Created $CONFIG_FILE with $RELEASE_TYPE = $NEW_VERSION"
+    else
+        node -e "
+            const fs = require('fs');
+            const config = require('$CONFIG_FILE');
+            config['$RELEASE_TYPE'] = '$NEW_VERSION';
+            fs.writeFileSync('$CONFIG_FILE', JSON.stringify(config, null, 2) + '\n');
+            console.log('Updated $CONFIG_FILE: $RELEASE_TYPE = $NEW_VERSION');
+        "
+    fi
+fi
+
 # For instances without a config file, fall back to the legacy array-based approach
-# (network docs still use network_versions.json directly)
+# (falls back to legacy array-based approach if no config file exists)
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "No config file found at $CONFIG_FILE, using legacy array-based approach"
     if [ ! -f "$VERSIONS_FILE" ]; then
@@ -132,8 +154,11 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
 
             fs.writeFileSync('$CONFIG_FILE', JSON.stringify(newConfig, null, 2) + '\n');
 
-            // Also generate the Docusaurus-compatible array file
-            const versionsArray = Object.values(newConfig).filter(Boolean);
+            // Generate the Docusaurus-compatible array file:
+            // config-mapped versions first, then any unmapped directories
+            const configVersionSet = new Set(Object.values(newConfig).filter(Boolean));
+            const unmapped = allVersions.filter(v => !configVersionSet.has(v));
+            const versionsArray = [...Object.values(newConfig).filter(Boolean), ...unmapped];
             fs.writeFileSync('$VERSIONS_FILE', JSON.stringify(versionsArray, null, 2) + '\n');
         "
 

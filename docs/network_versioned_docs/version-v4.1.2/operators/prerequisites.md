@@ -56,13 +56,7 @@ The Aztec toolchain provides CLI utilities for key generation, validator registr
 Install the Aztec toolchain using the official installer:
 
 ```bash
-bash -i <(curl -sL https://install.aztec.network)
-```
-
-Install the correct version for the current network:
-
-```bash
-aztec-up 2.1.11
+VERSION=4.1.2 bash -i <(curl -sL https://install.aztec.network/4.1.2)
 ```
 
 ### L1 Ethereum Node Access
