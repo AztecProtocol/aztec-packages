@@ -19,11 +19,10 @@ Before proceeding, ensure you have:
 - An Ethereum wallet with sufficient ETH for gas fees
 - Understanding of basic Aztec staking mechanics
 - Foundry installed for `cast` commands
-- Aztec CLI v2.1.11 or later installed:
+- Aztec CLI v4.1.2 or later installed:
 
 ```bash
-bash -i <(curl -sL https://install.aztec.network)
-aztec-up 2.1.11
+VERSION=4.1.2 bash -i <(curl -sL https://install.aztec.network/4.1.2)
 ```
 
 ### Contract Addresses

@@ -58,7 +58,7 @@ Create a `docker-compose.yml` file for your bootnode:
 ```yaml
 services:
   aztec-bootnode:
-    image: "aztecprotocol/aztec:2.1.11"
+    image: "aztecprotocol/aztec:4.1.2"
     container_name: "aztec-bootnode"
     ports:
       - ${P2P_PORT}:${P2P_PORT}

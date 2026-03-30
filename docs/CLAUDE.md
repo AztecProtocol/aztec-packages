@@ -144,9 +144,10 @@ The TypeScript API generation is configured in `scripts/typescript_api_generatio
 Uses Docusaurus multi-instance versioning with separate version tracks:
 
 - **Developer docs**: Version config in `developer_version_config.json`, stored in `developer_versioned_docs/`
-- **Network docs**: Versions in `network_versions.json`, stored in `network_versioned_docs/`
-- Developer version config is an object mapping release type to version string (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`)
-- `developer_versions.json` is auto-generated from the config file; `network_versions.json` is managed directly
+- **Network docs**: Version config in `network_version_config.json`, stored in `network_versioned_docs/`
+- Both config files map release types to version strings (e.g., `{"mainnet": "v4.2.0", "testnet": "v4.1.0", ...}`)
+- `docusaurus.config.js` auto-generates `*_versions.json` from these configs (filtered to versions with existing directories, plus any extra unmapped directories)
+- Use `scripts/update_docs_versions.sh` to update configs and reconcile: `./scripts/update_docs_versions.sh network mainnet v4.2.0`
 - Each docs instance has its own version dropdown in the navbar
 - Preprocessing macros (`#include_code`, `#release_version`, conditionals, etc.) only work in source folders, not in versioned copies
 - Create new versions with: `yarn docusaurus docs:version:<instance-id> <version>`
