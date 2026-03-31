@@ -8,10 +8,12 @@ import { z } from 'zod';
 import { Gas, GasDimensions } from './gas.js';
 import { GasFees } from './gas_fees.js';
 
+/** Approximate max DA gas limit. Arbitrary, assuming 4 blocks per checkpoint — users should use gas estimation. */
+export const APPROXIMATE_MAX_DA_GAS_PER_BLOCK = Math.floor(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 4);
 /** Default teardown L2 gas limit. Arbitrary — users should use gas estimation. */
-export const DEFAULT_TEARDOWN_L2_GAS_LIMIT = 1_000_000;
+export const DEFAULT_TEARDOWN_L2_GAS_LIMIT = Math.floor(MAX_PROCESSABLE_L2_GAS / 8);
 /** Default teardown DA gas limit. Arbitrary — users should use gas estimation. */
-export const DEFAULT_TEARDOWN_DA_GAS_LIMIT = Math.floor(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2);
+export const DEFAULT_TEARDOWN_DA_GAS_LIMIT = Math.floor(APPROXIMATE_MAX_DA_GAS_PER_BLOCK / 2);
 
 // For gas estimation, we use intentionally high limits above what the network can process,
 // so the simulation runs without hitting gas caps. Since teardown gas is counted towards total,
@@ -102,7 +104,7 @@ export class GasSettings {
     return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), GasFees.empty());
   }
 
-  /** Maximum gas settings the network can process. Fills in gas limits at the protocol maximum if not provided. */
+  /** Fills in gas limits at an arbitrary maximum that still allows transactions to be included. */
   static withMaxLimits(overrides: {
     gasLimits?: Gas;
     teardownGasLimits?: Gas;
@@ -112,12 +114,12 @@ export class GasSettings {
     return GasSettings.from({
       gasLimits: overrides.gasLimits ?? {
         l2Gas: MAX_PROCESSABLE_L2_GAS,
-        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+        daGas: APPROXIMATE_MAX_DA_GAS_PER_BLOCK,
       },
+      // These are technically not the max, but if we allocate all the gas to teardown, no txs would be processable due
+      // to teardown gas being paid unconditionally and upfront. This is a fundamental limitation of the protocol,
+      // and one of the many reasons why users should use gas estimation instead of setting max limits manually.
       teardownGasLimits: overrides.teardownGasLimits ?? {
-        // These are technically not the max, but if we allocate all the gas to teardown, no txs would be processable due
-        // to teardown gas being paid unconditionally and upfront. This is a fundamental limitation and the chosen values
-        // are somewhat arbitrary.
         l2Gas: DEFAULT_TEARDOWN_L2_GAS_LIMIT,
         daGas: DEFAULT_TEARDOWN_DA_GAS_LIMIT,
       },
