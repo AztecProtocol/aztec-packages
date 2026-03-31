@@ -459,6 +459,26 @@ describe('Archiver Sync', () => {
       expect(inboxContract.getState).toHaveBeenCalledTimes(1);
       expect(rollupContract.status).toHaveBeenCalledTimes(1);
     });
+
+    it('does not fetch messages when local and remote state both have zero messages', async () => {
+      // When there are no messages on L1, the remote inbox state has messagesRollingHash = Buffer16.ZERO
+      // and totalMessagesInserted = 0. The local store also returns 0 messages and undefined lastMessage.
+      // The fallback for the local rolling hash must use Buffer16.ZERO (not Buffer32.ZERO) to match.
+      fake.setL1BlockNumber(100n);
+
+      // Add a checkpoint with zero messages so the sync has something to process
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 50n,
+        messagesL1BlockNumber: 30n,
+        numL1ToL2Messages: 0,
+      });
+
+      await archiver.syncImmediate();
+
+      // Should have processed the checkpoint without attempting to fetch any messages
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(inboxContract.getMessageSentEvents).not.toHaveBeenCalled();
+    });
   });
 
   describe('epoch completion', () => {

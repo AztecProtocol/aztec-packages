@@ -108,8 +108,6 @@ describe('e2e_p2p_network', () => {
     await t.ctx.ethCheatCodes.mine(10);
     await t.ctx.ethCheatCodes.mineEmptyBlock();
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
-
     t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,

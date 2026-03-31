@@ -117,7 +117,12 @@ export interface P2PService {
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
 
-  registerCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
+  registerValidatorCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
+
+  registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
+
+  /** Fires the all-nodes checkpoint callback for our own proposal (gossipsub doesn't deliver own messages). */
+  notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void>;
 
   /**
    * Registers a callback invoked when a duplicate proposal is detected (equivocation).

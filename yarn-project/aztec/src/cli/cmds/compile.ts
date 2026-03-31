@@ -9,6 +9,7 @@ import { join } from 'path';
 import { readArtifactFiles } from './utils/artifacts.js';
 import { needsRecompile } from './utils/needs_recompile.js';
 import { run } from './utils/spawn.js';
+import { warnIfAztecVersionMismatch } from './utils/warn_if_aztec_version_mismatch.js';
 
 /** Returns paths to contract artifacts in the target directory. */
 async function collectContractArtifacts(): Promise<string[]> {
@@ -139,6 +140,8 @@ async function checkNoTestsInContracts(nargo: string, log: LogFn): Promise<void>
 
 /** Compiles Aztec Noir contracts and postprocesses artifacts. */
 async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<void> {
+  await warnIfAztecVersionMismatch(log);
+
   if (!(await needsRecompile())) {
     log('No source changes detected, skipping compilation.');
     return;

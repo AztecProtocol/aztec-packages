@@ -14,6 +14,12 @@ r="\033[0m"  # Reset
 
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
+AZTEC_NO_AUTO_UPDATE="${AZTEC_NO_AUTO_UPDATE:-}"
+AUTO_UPDATE_INTERVAL_SECS=86400  # 24 hours
+LAST_UPDATE_CHECK_FILE="$AZTEC_HOME/.last_update_check"
+readonly SELF_UPDATE_UPDATED=0
+readonly SELF_UPDATE_FAILED=1
+readonly SELF_UPDATE_UP_TO_DATE=2
 
 function echo_green {
   echo -e "${g}$1${r}"
@@ -118,6 +124,72 @@ function resolve_version {
   fi
 }
 
+# Download latest aztec-up and replace if changed.
+function download_latest_self {
+  local self_path="$AZTEC_HOME/bin/aztec-up"
+  local tmp_path
+  tmp_path=$(mktemp)
+
+  if ! curl -fsSL "$INSTALL_URI/aztec-up" -o "$tmp_path"; then
+    rm -f "$tmp_path"
+    return "$SELF_UPDATE_FAILED"
+  fi
+
+  # Ensure we didn't get an empty or truncated response
+  if [ ! -s "$tmp_path" ]; then
+    rm -f "$tmp_path"
+    return "$SELF_UPDATE_FAILED"
+  fi
+
+  # Skip replacement if the downloaded script is identical to the current one
+  if cmp -s "$tmp_path" "$self_path"; then
+    rm -f "$tmp_path"
+    date +%s > "$LAST_UPDATE_CHECK_FILE"
+    return "$SELF_UPDATE_UP_TO_DATE"
+  fi
+
+  # Replace the current aztec-up binary with the downloaded one
+  chmod +x "$tmp_path"
+  if ! mv "$tmp_path" "$self_path"; then
+    rm -f "$tmp_path"
+    return "$SELF_UPDATE_FAILED"
+  fi
+
+  date +%s > "$LAST_UPDATE_CHECK_FILE"
+  return "$SELF_UPDATE_UPDATED"
+}
+
+# Auto-update aztec-up itself if stale
+function auto_update {
+  # Allow users to opt out of auto-update (e.g. in CI or offline environments)
+  if [ -n "$AZTEC_NO_AUTO_UPDATE" ]; then
+    return 0
+  fi
+
+  # Skip if we already checked recently (within 24 hours)
+  local last_check
+  last_check=$(cat "$LAST_UPDATE_CHECK_FILE" 2>/dev/null || echo 0)
+  [[ "$last_check" =~ ^[0-9]+$ ]] || last_check=0
+  local now
+  now=$(date +%s)
+  if [ $((now - last_check)) -lt "$AUTO_UPDATE_INTERVAL_SECS" ]; then
+    return 0
+  fi
+
+  # Suppress curl output -- auto-update is best-effort
+  local result=0
+  download_latest_self 2>/dev/null || result=$?
+
+  if [ "$result" -eq "$SELF_UPDATE_UPDATED" ]; then
+    # The updated script takes effect on the next invocation.
+    # Current invocation continues with already-parsed old code
+    # (safe due to the { ... exit } wrapper at the top of the file).
+    echo_green "aztec-up has been updated. Changes take effect on next run." >&2
+  elif [ "$result" -eq "$SELF_UPDATE_FAILED" ]; then
+    echo_yellow "Warning: Failed to check for aztec-up updates" >&2
+  fi
+}
+
 # Install a version by downloading and running the version-specific installer
 function cmd_install {
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -146,6 +218,8 @@ function cmd_install {
     exit 1
   fi
 
+  auto_update
+
   # Resolve alias to actual version
   local resolved_version
   if ! resolved_version=$(resolve_version "$version"); then
@@ -162,10 +236,16 @@ function cmd_install {
   fi
 
   # Download and run the version-specific installer
-  curl -fsSL "$install_url" | bash
+  curl -fsSL "$install_url" | VERSION="$resolved_version" bash
 
   # Update the current symlink
   ln -sfn "$AZTEC_HOME/versions/$resolved_version" "$AZTEC_HOME/current"
+
+  if [ "$version" != "$resolved_version" ]; then
+    echo_green "Installed and activated $version ($resolved_version)"
+  else
+    echo_green "Installed and activated version $resolved_version"
+  fi
 }
 
 # Switch to a version
@@ -316,6 +396,11 @@ function cmd_uninstall {
     exit 1
   fi
 
+  if ! is_semver "$version"; then
+    echo "Error: Invalid version '$version'. Expected a semver string (e.g. 0.85.0)."
+    exit 1
+  fi
+
   local current_version
   current_version=$(get_current_version)
 
@@ -410,22 +495,17 @@ function cmd_self-update {
 
   echo "Updating aztec-up..."
 
-  local self_path="$AZTEC_HOME/bin/aztec-up"
-  local tmp_path=$(mktemp)
-
-  # Download latest aztec-up from root
-  if ! curl -fsSL "$INSTALL_URI/aztec-up" -o "$tmp_path"; then
+  local result=0
+  download_latest_self || result=$?
+  if [ "$result" -eq "$SELF_UPDATE_FAILED" ]; then
     echo "Error: Failed to download latest aztec-up"
-    rm -f "$tmp_path"
     exit 1
+  elif [ "$result" -eq "$SELF_UPDATE_UP_TO_DATE" ]; then
+    echo_green "aztec-up is already up to date."
+  else
+    echo_green "aztec-up updated successfully."
+    echo "Run 'aztec-up --help' to see available commands."
   fi
-
-  # Replace self
-  chmod +x "$tmp_path"
-  mv "$tmp_path" "$self_path"
-
-  echo_green "aztec-up updated successfully."
-  echo "Run 'aztec-up --help' to see available commands."
 }
 
 # Output PATH for .aztecrc version (for eval in shell scripts)

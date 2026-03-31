@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function remove_constraints_if documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">remove_constraints_if</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module remove_constraints</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.remove_constraints.html">remove_constraints</a></div></li>
+<li><a href="fn.remove_constraints_if.html">remove_constraints_if</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">utils</a>::<a href="index.html">remove_constraints</a></div>
+<h1>Function <span class="fn">remove_constraints_if</span></h1>
+<pre><code>pub fn remove_constraints_if&lt;Env, T&gt;(condition: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>, f: fn[Env]() -> T) -> T</code></pre>
+
+<div class="comments">
+<p>Calls a function and returns its return value, removing any constraints associated with calling the function if
+<code>condition</code> is true, behaving as if the function was unconstrained.</p>
+<p>Requires <code>condition</code> to be a compile time constant.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

@@ -71,7 +71,7 @@ pub comptime fn event(s: TypeDefinition) -> Quoted {
 
     let serialize_impl = derive_serialize_if_not_implemented(s);
 
-    s.add_attribute("abi(events)");
+    s.add_abi("events");
 
     quote {
         $event_interface_impl

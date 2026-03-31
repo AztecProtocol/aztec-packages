@@ -421,8 +421,8 @@ void field<T>::batch_invert(C& coeffs) noexcept
 
     std::vector<field> temporaries;
     std::vector<bool> skipped;
-    temporaries.reserve(n);
-    skipped.reserve(n);
+    temporaries.resize(n);
+    skipped.resize(n);
 
     field accumulator = one();
     for (size_t i = 0; i < n; ++i) {

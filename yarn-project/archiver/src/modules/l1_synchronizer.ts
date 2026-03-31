@@ -6,7 +6,7 @@ import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/ty
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -251,8 +251,11 @@ export class ArchiverL1Synchronizer implements Traceable {
           finalizedL1BlockNumber,
         });
       }
-    } catch (err) {
-      this.log.warn(`Failed to update finalized checkpoint: ${err}`);
+    } catch (err: any) {
+      // The rollup contract may not exist at the finalized L1 block right after deployment.
+      if (!err?.message?.includes('returned no data')) {
+        this.log.warn(`Failed to update finalized checkpoint: ${err}`);
+      }
     }
   }
 
@@ -269,29 +272,32 @@ export class ArchiverL1Synchronizer implements Traceable {
       return;
     }
 
-    // What's the slot of the first uncheckpointed block?
+    // What's the slot at the next L1 block? All blocks for slots strictly before this one should've been checkpointed by now.
+    const slotAtNextL1Block = getSlotAtNextL1Block(currentL1Timestamp, this.l1Constants);
     const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
+
+    // What's the slot of the first uncheckpointed block?
     const [firstUncheckpointedBlockHeader] = await this.store.getBlockHeaders(firstUncheckpointedBlockNumber, 1);
     const firstUncheckpointedBlockSlot = firstUncheckpointedBlockHeader?.getSlot();
 
-    // What's the slot at the next L1 block? All blocks for slots strictly before this one should've been checkpointed by now.
-    const slotAtNextL1Block = getSlotAtNextL1Block(currentL1Timestamp, this.l1Constants);
+    if (firstUncheckpointedBlockSlot === undefined || firstUncheckpointedBlockSlot >= slotAtNextL1Block) {
+      return;
+    }
 
-    // Prune provisional blocks from slots that have ended without being checkpointed
-    if (firstUncheckpointedBlockSlot !== undefined && firstUncheckpointedBlockSlot < slotAtNextL1Block) {
-      this.log.warn(
-        `Pruning blocks after block ${lastCheckpointedBlockNumber} due to slot ${firstUncheckpointedBlockSlot} not being checkpointed`,
-        { firstUncheckpointedBlockHeader: firstUncheckpointedBlockHeader.toInspect(), slotAtNextL1Block },
-      );
-      const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
+    // Prune provisional blocks from slots that have ended without being checkpointed.
+    // This also clears any proposed checkpoint whose blocks are being pruned.
+    this.log.warn(
+      `Pruning blocks after block ${lastCheckpointedBlockNumber} due to slot ${firstUncheckpointedBlockSlot} not being checkpointed`,
+      { firstUncheckpointedBlockHeader: firstUncheckpointedBlockHeader.toInspect(), slotAtNextL1Block },
+    );
+    const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
 
-      if (prunedBlocks.length > 0) {
-        this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
-          type: L2BlockSourceEvents.L2PruneUncheckpointed,
-          slotNumber: firstUncheckpointedBlockSlot,
-          blocks: prunedBlocks,
-        });
-      }
+    if (prunedBlocks.length > 0) {
+      this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+        type: L2BlockSourceEvents.L2PruneUncheckpointed,
+        slotNumber: firstUncheckpointedBlockSlot,
+        blocks: prunedBlocks,
+      });
     }
   }
 
@@ -406,7 +412,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // Compare message count and rolling hash. If they match, no need to retrieve anything.
     if (
       remoteMessagesState.totalMessagesInserted === localMessagesInserted &&
-      remoteMessagesState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer32.ZERO)
+      remoteMessagesState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer16.ZERO)
     ) {
       this.log.trace(
         `No L1 to L2 messages to query between L1 blocks ${messagesSyncPoint.l1BlockNumber} and ${currentL1BlockNumber}.`,

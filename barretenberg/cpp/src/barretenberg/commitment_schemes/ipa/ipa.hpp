@@ -409,7 +409,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 5.
         // Compute C_zero = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
+        GroupElement LR_sums = scalar_multiplication::pippenger<Curve>(
             { 0, { &msm_scalars[0], /*size*/ pippenger_size } }, { &msm_elements[0], /*size*/ pippenger_size });
         GroupElement C_zero = C_prime + LR_sums;
 

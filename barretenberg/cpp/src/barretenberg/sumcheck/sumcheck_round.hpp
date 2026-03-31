@@ -459,9 +459,7 @@ template <typename Flavor> class SumcheckProverRound {
                     // \cdot
                     // \beta_{d-1}^{\ell_{d-1}}\f$.
 
-                    FF scaling_factor;
-                    // All subrelation in MultilinearBatchingFlavor are linearly dependent, i.e. they are not scaled by
-                    // `pow`-polynomial, hence we don't need to initialize `scaling_factor`.
+                    FF scaling_factor{ 1 };
                     if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
                         scaling_factor = gate_separators[edge_idx];
                     }
