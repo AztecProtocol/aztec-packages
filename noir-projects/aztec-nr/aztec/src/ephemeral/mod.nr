@@ -101,6 +101,7 @@ impl<T> EphemeralArray<T> {
 
 mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
+    use crate::test::mocks::MockStruct;
     use super::EphemeralArray;
 
     global SLOT: Field = 1230;
@@ -301,9 +302,7 @@ mod test {
     unconstrained fn works_with_multi_field_type() {
         let _ = TestEnvironment::new();
 
-        use crate::test::mocks::MockStruct;
-
-        let array = EphemeralArray::at(SLOT);
+        let array: EphemeralArray<MockStruct> = EphemeralArray::at(SLOT);
 
         let a = MockStruct::new(5, 6);
         let b = MockStruct::new(7, 8);
