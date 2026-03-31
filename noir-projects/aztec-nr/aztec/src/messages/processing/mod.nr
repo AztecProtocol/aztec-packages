@@ -19,7 +19,7 @@ use crate::{
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
             log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
-            note_validation_request::NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
+            note_validation_request::NoteValidationRequest,
         },
     },
     oracle,
@@ -152,7 +152,7 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
 }
 
 /// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options
+/// a `CapsuleArray` by performing all node communication concurrently. Returns an `EphemeralArray` with Options
 /// for the responses that correspond to the pending partial notes at the same index.
 ///
 /// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding

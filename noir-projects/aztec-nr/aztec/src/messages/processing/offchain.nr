@@ -175,7 +175,8 @@ pub unconstrained fn sync_inbox(
         // sit in the inbox until it expires.
         //
         // 3. The TX that emitted this message has been found by PXE. That gives us all the information needed to
-        // process the message. We add the message to the `ready_to_process` CapsuleArray so that the `sync_state` loop
+        // process the message. We add the message to the `ready_to_process` EphemeralArray so that the `sync_state`
+        // loop
         // processes it.
         //
         // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL`), we remove it
