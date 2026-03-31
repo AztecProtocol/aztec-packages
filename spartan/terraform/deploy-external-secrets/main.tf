@@ -45,6 +45,21 @@ resource "helm_release" "external_secrets" {
     value = data.terraform_remote_state.gke_cluster.outputs.eso_service_account_email
   }
 
+  set {
+    name  = "nodeSelector.node-type"
+    value = "infra"
+  }
+
+  set {
+    name  = "webhook.nodeSelector.node-type"
+    value = "infra"
+  }
+
+  set {
+    name  = "certController.nodeSelector.node-type"
+    value = "infra"
+  }
+
   timeout = 300
   wait    = true
 }
