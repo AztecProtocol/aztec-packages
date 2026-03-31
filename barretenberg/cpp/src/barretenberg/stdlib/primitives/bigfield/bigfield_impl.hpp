@@ -2147,7 +2147,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
 
     BB_ASSERT_LT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER,
                  get_maximum_crt_product());
-    quotient.binary_basis_limbs[0] = Limb(quotient_limb, uint256_t(1) << maximum_quotient_bits);
+    quotient.binary_basis_limbs[0] = Limb(quotient_limb, (uint256_t(1) << maximum_quotient_bits) - 1);
     quotient.binary_basis_limbs[1] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
     quotient.binary_basis_limbs[2] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
     quotient.binary_basis_limbs[3] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
