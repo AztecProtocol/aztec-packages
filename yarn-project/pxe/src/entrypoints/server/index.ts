@@ -1,4 +1,3 @@
-export * from '../../access_scopes.js';
 export * from '../../notes_filter.js';
 export * from '../../pxe.js';
 export * from '../../config/index.js';

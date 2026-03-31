@@ -89,10 +89,10 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../access_scopes.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { MessageContextService } from '../messages/message_context_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
+import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -122,7 +122,7 @@ export type ContractSimulatorRunOpts = {
   /** The address used as a tagging sender when emitting private logs. */
   senderForTags?: AztecAddress;
   /** The accounts whose notes we can access in this call. */
-  scopes: AccessScopes;
+  scopes: AztecAddress[];
   /** The job ID for staged writes. */
   jobId: string;
 };
@@ -245,7 +245,7 @@ export class ContractFunctionSimulator {
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
@@ -319,7 +319,7 @@ export class ContractFunctionSimulator {
     call: FunctionCall,
     authwits: AuthWitness[],
     anchorBlockHeader: BlockHeader,
-    scopes: AccessScopes,
+    scopes: AztecAddress[],
     jobId: string,
   ): Promise<{ result: Fr[]; offchainEffects: OffchainEffect[] }> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
@@ -340,7 +340,7 @@ export class ContractFunctionSimulator {
       aztecNode: this.aztecNode,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
