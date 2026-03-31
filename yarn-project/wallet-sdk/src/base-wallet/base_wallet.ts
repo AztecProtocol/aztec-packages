@@ -242,8 +242,9 @@ export abstract class BaseWallet implements Wallet {
           : AccountFeePaymentMethodOptions.EXTERNAL;
       }
     }
-    // If the user didn't provide gas settings, we fill in with huge values so simulation doesn't fail due to running
-    // out of gas, which leads to the simulation itself giving use gas numbers that can be used for sending.
+    // If the user didn't provide gas settings, we fill in unreasonably high defaults. A concrete implementation
+    // of this class should only use these limits for estimation and then take the actual used gas from simulation to set
+    // the sending limits
     const fullGasSettings = GasSettings.default({
       gasLimits: gasSettings?.gasLimits
         ? Gas.from(gasSettings.gasLimits)
