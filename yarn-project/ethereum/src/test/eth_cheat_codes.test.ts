@@ -250,6 +250,28 @@ describe('EthCheatCodes', () => {
       const blockNumberAfter = await cheatCodes.blockNumber();
       expect(blockNumberAfter).toBe(blockNumberBefore);
     });
+
+    it('uses the requested interval even when anvil_setBlockTimestampInterval differs', async () => {
+      // Anvil quirk: hardhat_mine ignores its interval parameter when
+      // anvil_setBlockTimestampInterval has been set. mineUntilTimestamp works
+      // around this by using evm_setNextBlockTimestamp + evm_mine per block.
+      await cheatCodes.setIntervalMining(1);
+      await cheatCodes.rpcCall('anvil_setBlockTimestampInterval', [12]);
+      await cheatCodes.mine(2); // Establish the 12s interval in the chain
+
+      const currentTs = await cheatCodes.lastBlockTimestamp();
+      const requestedInterval = 100; // Much larger than the 12s block timestamp interval
+      const targetTs = currentTs + 500;
+
+      await cheatCodes.mineUntilTimestamp(targetTs, { blockTimestampInterval: requestedInterval });
+
+      const latestTs = await cheatCodes.lastBlockTimestamp();
+      // Should have advanced by ~500s (5 blocks * 100s), not by 5 * 12s = 60s
+      expect(latestTs).toBeGreaterThanOrEqual(targetTs);
+
+      // Restore for other tests
+      await cheatCodes.rpcCall('anvil_setBlockTimestampInterval', [1]);
+    });
   });
 
   describe('mineEmptyBlock', () => {

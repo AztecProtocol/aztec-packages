@@ -311,9 +311,14 @@ export class EthCheatCodes {
     }
 
     try {
-      // Mine all blocks at once with the correct interval between them.
-      // hardhat_mine accepts (count, interval) where interval is seconds between blocks.
-      await this.doRpcCall('hardhat_mine', [`0x${blocksNeeded.toString(16)}`, `0x${blockInterval.toString(16)}`]);
+      // Mine blocks one by one with explicit timestamps, since Anvil's hardhat_mine ignores
+      // the interval parameter when anvil_setBlockTimestampInterval has been set (which the
+      // deploy script does). Using evm_setNextBlockTimestamp + evm_mine gives us full control.
+      for (let i = 1; i <= blocksNeeded; i++) {
+        const blockTs = currentTimestamp + i * blockInterval;
+        await this.doRpcCall('evm_setNextBlockTimestamp', [blockTs]);
+        await this.doRpcCall('evm_mine', []);
+      }
     } finally {
       // Restore interval mining if it was previously enabled.
       if (previousInterval !== null && previousInterval > 0) {
