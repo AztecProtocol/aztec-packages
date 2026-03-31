@@ -200,18 +200,17 @@ mod test {
     };
     use crate::protocol::address::AztecAddress;
 
-    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
-
     #[test]
     unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
-        let env = TestEnvironment::new();
+        let mut env = TestEnvironment::new();
+        let scope = env.create_light_account();
 
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
             let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
 
-            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot, SCOPE);
+            let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot, scope);
             logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
             assert_eq(logs.len(), 1);
 
@@ -223,7 +222,7 @@ mod test {
                 dummy_compute_note_nullifier,
                 no_handler,
                 no_inbox_sync,
-                SCOPE,
+                scope,
             );
 
             assert_eq(logs.len(), 0);
