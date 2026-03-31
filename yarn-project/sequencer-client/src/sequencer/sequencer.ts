@@ -668,17 +668,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const weAreProposer = validatorAddresses.some(addr => addr.equals(proposer));
 
     if (!weAreProposer) {
-      this.log.info(`Cannot propose at target slot ${targetSlot} since we are not a proposer`, {
+      this.log.debug(`Cannot propose at target slot ${targetSlot} since we are not a proposer`, {
         targetSlot,
-        validatorAddresses: validatorAddresses.map(a => a.toString()),
-        proposer: proposer.toString(),
+        validatorAddresses,
+        proposer,
       });
       return [false, proposer];
     }
 
     this.log.info(`We are the proposer for pipeline slot ${targetSlot}`, {
       targetSlot,
-      proposer: proposer.toString(),
+      proposer,
     });
     return [true, proposer];
   }

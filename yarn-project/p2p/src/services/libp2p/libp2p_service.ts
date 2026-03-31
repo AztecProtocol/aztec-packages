@@ -677,38 +677,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     return this.node.services.pubsub.getMeshPeers(this.topicStrings[topicType]).length;
   }
 
-  public getGossipSubDiagnostics(topicType: TopicType): {
-    meshPeers: string[];
-    topicPeers: string[];
-    allPeers: string[];
-    subscriptions: string[];
-    directPeers: string[];
-    peerScores: Record<string, number>;
-    hasOutboundStream: Record<string, boolean>;
-    backoffPeers: string[];
-  } {
-    const pubsub = this.node.services.pubsub as any;
-    const topicStr = this.topicStrings[topicType];
-    const allPeerIds = Array.from(pubsub.peers?.keys() ?? []) as string[];
-    const peerScores: Record<string, number> = {};
-    const hasOutboundStream: Record<string, boolean> = {};
-    for (const id of allPeerIds) {
-      peerScores[id] = pubsub.score?.score(id) ?? 0;
-      hasOutboundStream[id] = pubsub.streamsOutbound?.has(id) ?? false;
-    }
-    const backoff = pubsub.backoff?.get(topicStr);
-    return {
-      meshPeers: pubsub.getMeshPeers(topicStr),
-      topicPeers: Array.from(pubsub.topics?.get(topicStr) ?? []),
-      allPeers: allPeerIds,
-      subscriptions: Array.from(pubsub.subscriptions ?? []),
-      directPeers: Array.from(pubsub.direct ?? []),
-      peerScores,
-      hasOutboundStream,
-      backoffPeers: backoff ? Array.from(backoff.keys()) : [],
-    };
-  }
-
   private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
     this.logger.trace(`Received PUBSUB message.`);
 
@@ -1114,7 +1082,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Tx was accepted into pool and will be propagated - just log and record metrics
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
-    this.logger.info(`Received tx ${txHashString} from peer ${source.toString()} via gossip`, {
+    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
       source: source.toString(),
       txHash: txHashString,
     });

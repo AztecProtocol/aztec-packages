@@ -6,7 +6,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { CheckpointAttestation, ConsensusPayload, TopicType } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -116,49 +116,6 @@ describe('e2e_p2p_preferred_network', () => {
     });
     // @ts-expect-error - replace with our own handler
     p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
-  };
-
-  /** Get the short peerId for a node (last 8 chars). */
-  const getShortPeerId = async (node: AztecNodeService): Promise<string> => {
-    const enr = await node.getEncodedEnr();
-    if (!enr) {
-      return 'unknown';
-    }
-    const peerId = ENR.decodeTxt(enr).peerId;
-    const full = peerId.toString();
-    return full.slice(-8);
-  };
-
-  /** Log detailed gossipsub diagnostics for a node including per-peer stream and subscription status. */
-  const logGossipDiagnostics = (node: AztecNodeService, label: string) => {
-    const p2pService = (node.getP2P() as any).p2pService as P2PService;
-    const diag = (p2pService as any).getGossipSubDiagnostics(TopicType.tx);
-    // Log summary
-    t.logger.info(
-      `GossipSub [${label}] tx topic: mesh=${diag.meshPeers.length} topic=${diag.topicPeers.length} all=${diag.allPeers.length} direct=[${diag.directPeers.map((d: string) => d.slice(-8)).join(',')}] backoff=${diag.backoffPeers.length}`,
-    );
-    // Log per-peer details to see which peers have streams and subscriptions
-    for (const peerId of diag.allPeers) {
-      const short = peerId.slice(-8);
-      const inTopic = diag.topicPeers.includes(peerId);
-      const inMesh = diag.meshPeers.includes(peerId);
-      const isDirect = diag.directPeers.includes(peerId);
-      const hasStream = diag.hasOutboundStream[peerId] ?? false;
-      const score = diag.peerScores[peerId] ?? 0;
-      const inBackoff = diag.backoffPeers.includes(peerId);
-      t.logger.info(
-        `  peer ${short}: topic=${inTopic} mesh=${inMesh} direct=${isDirect} outStream=${hasStream} score=${score} backoff=${inBackoff}`,
-      );
-    }
-  };
-
-  /** Log all node peer IDs for correlation with gossipsub diagnostics. */
-  const logPeerIdMap = async (allNodes: AztecNodeService[], identifiers: string[]) => {
-    t.logger.info('=== Peer ID Map ===');
-    for (let i = 0; i < allNodes.length; i++) {
-      const short = await getShortPeerId(allNodes[i]);
-      t.logger.info(`  ${identifiers[i]}: ...${short}`);
-    }
   };
 
   const mockFailedAuthHandler = (node: AztecNodeService) => {
@@ -399,22 +356,6 @@ describe('e2e_p2p_preferred_network', () => {
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
-
-    // Log peer ID map for correlating gossipsub peer IDs with node identities
-    const allIdentifiers = nodes
-      .map((_, i) => `Node ${i + 1}`)
-      .concat(preferredNodes.map((_, i) => `Preferred ${i + 1}`))
-      .concat(validators.map((_, i) => `Validator ${i + 1}`))
-      .concat([`Default`]);
-    const allDiagNodes = [...nodes, ...preferredNodes, ...validators, t.ctx.aztecNodeService];
-    await logPeerIdMap(allDiagNodes, allIdentifiers);
-
-    // Log detailed gossipsub diagnostics to diagnose subscription exchange issues
-    t.logger.info('=== GossipSub diagnostics before setupAccount ===');
-    preferredNodes.forEach((node, i) => logGossipDiagnostics(node, `Preferred ${i + 1}`));
-    validators.forEach((node, i) => logGossipDiagnostics(node, `Validator ${i + 1}`));
-    logGossipDiagnostics(t.ctx.aztecNodeService, 'Default');
-
     await t.setupAccount();
 
     // Send the required number of transactions to each node
