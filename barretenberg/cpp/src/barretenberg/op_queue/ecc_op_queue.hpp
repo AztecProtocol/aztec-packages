@@ -157,15 +157,6 @@ class ECCOpQueue {
                     throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
                 }
                 eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
-            } else {
-                // Point base_point;
-                // base_point.x = Fq(0);
-                // base_point.y = Fq(0);
-
-                // ECCVMOperation eccvm_ops =
-                //     ECCVMOperation{ .op_code = { .eq = true, .reset = true }, .base_point = base_point };
-
-                // eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), eccvm_ops);
             }
         }
         return eccvm_ops_reconstructed;
@@ -316,10 +307,6 @@ class ECCOpQueue {
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();
-        if (expected.is_point_at_infinity()) {
-            expected.x = Fq(0);
-            expected.y = Fq(0);
-        }
         EccOpCode op_code{ .eq = true, .reset = true };
         // Store eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });
