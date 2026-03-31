@@ -1,6 +1,7 @@
 use crate::ephemeral::EphemeralArray;
 use crate::messages::processing::{
-    log_retrieval_response::LogRetrievalResponse, MessageContext, pending_tagged_log::PendingTaggedLog,
+    log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse, MessageContext,
+    pending_tagged_log::PendingTaggedLog,
 };
 use crate::protocol::address::AztecAddress;
 
@@ -46,9 +47,9 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
 
 /// Fetches logs by tag from an ephemeral request array and returns a response ephemeral array.
 pub(crate) unconstrained fn get_logs_by_tag(
-    request_array_base_slot: Field,
+    requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<Option<LogRetrievalResponse>> {
-    let response_slot = get_logs_by_tag_v2_oracle(request_array_base_slot);
+    let response_slot = get_logs_by_tag_v2_oracle(requests.base_slot);
     EphemeralArray::at(response_slot)
 }
 
@@ -57,9 +58,9 @@ unconstrained fn get_logs_by_tag_v2_oracle(request_array_base_slot: Field) -> Fi
 
 /// Resolves message contexts for tx hashes in an ephemeral request array and returns a response ephemeral array.
 pub(crate) unconstrained fn get_message_contexts_by_tx_hash(
-    request_array_base_slot: Field,
+    requests: EphemeralArray<Field>,
 ) -> EphemeralArray<Option<MessageContext>> {
-    let response_slot = get_message_contexts_by_tx_hash_v2_oracle(request_array_base_slot);
+    let response_slot = get_message_contexts_by_tx_hash_v2_oracle(requests.base_slot);
     EphemeralArray::at(response_slot)
 }
 

@@ -18,7 +18,7 @@ use crate::protocol::traits::{Deserialize, Serialize};
 /// For data that needs to persist across simulations, contract calls, etc, use
 /// [`CapsuleArray`](crate::capsules::CapsuleArray) instead.
 pub struct EphemeralArray<T> {
-    base_slot: Field,
+    pub base_slot: Field,
 }
 
 impl<T> EphemeralArray<T> {

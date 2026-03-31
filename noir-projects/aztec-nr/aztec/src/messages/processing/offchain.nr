@@ -155,7 +155,7 @@ pub unconstrained fn sync_inbox(
     // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new
     // ephemeral array.
     let resolved_contexts =
-        crate::oracle::message_processing::get_message_contexts_by_tx_hash(OFFCHAIN_CONTEXT_REQUESTS_SLOT);
+        crate::oracle::message_processing::get_message_contexts_by_tx_hash(context_resolution_requests);
 
     assert_eq(resolved_contexts.len(), inbox_len);
 
