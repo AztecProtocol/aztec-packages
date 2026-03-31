@@ -135,6 +135,7 @@ export interface IUtilityExecutionOracle {
     logRetrievalResponsesArrayBaseSlot: Fr,
     scope: AztecAddress,
   ): Promise<void>;
+  getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr>;
   getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,

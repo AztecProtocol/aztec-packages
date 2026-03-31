@@ -155,25 +155,6 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
     EphemeralArray::<EventValidationRequest>::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
 }
 
-/// Resolves message contexts for a list of tx hashes stored in a CapsuleArray.
-///
-/// The `message_context_requests_array_base_slot` must point to a CapsuleArray<Field> containing tx hashes.
-/// PXE will store `Option<MessageContextResponse>` values into the responses array at
-/// `message_context_responses_array_base_slot`.
-pub unconstrained fn get_message_contexts_by_tx_hash(
-    contract_address: AztecAddress,
-    message_context_requests_array_base_slot: Field,
-    message_context_responses_array_base_slot: Field,
-    scope: AztecAddress,
-) {
-    oracle::message_processing::get_message_contexts_by_tx_hash(
-        contract_address,
-        message_context_requests_array_base_slot,
-        message_context_responses_array_base_slot,
-        scope,
-    );
-}
-
 /// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
 /// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options
 /// for the responses that correspond to the pending partial notes at the same index.

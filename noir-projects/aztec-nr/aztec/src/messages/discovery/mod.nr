@@ -8,7 +8,6 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
-    capsules::CapsuleArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
         encoding::MAX_MESSAGE_CONTENT_LEN,
@@ -150,8 +149,8 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
     });
 
     if offchain_inbox_sync.is_some() {
-        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address, scope);
-        msgs.for_each(|i, msg| {
+        let msgs = offchain_inbox_sync.unwrap()(contract_address, scope);
+        msgs.for_each(|_i, msg: OffchainMessageWithContext| {
             process_message_ciphertext(
                 contract_address,
                 compute_note_hash,
@@ -161,9 +160,6 @@ pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
                 msg.message_context,
                 scope,
             );
-            // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
-            // ephemeral array with the to-process message, not the actual persistent storage of them.
-            msgs.remove(i);
         });
     }
 

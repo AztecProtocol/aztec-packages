@@ -690,6 +690,27 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
+  /** Reads tx hash requests from an ephemeral array, resolves their contexts, and returns the response slot. */
+  public async getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr> {
+    const requestFields = this.ephemeralArrayService.readArrayAt(requestArrayBaseSlot);
+
+    const txHashes = requestFields.map((fields, i) => {
+      if (fields.length !== 1) {
+        throw new Error(
+          `Malformed message context request at index ${i}: expected 1 field (tx hash), got ${fields.length}`,
+        );
+      }
+      return fields[0];
+    });
+
+    const maybeMessageContexts = await this.messageContextService.getMessageContextsByTxHash(
+      txHashes,
+      this.anchorBlockHeader.getBlockNumber(),
+    );
+
+    return this.ephemeralArrayService.newArray(maybeMessageContexts.map(MessageContext.toSerializedOption));
+  }
+
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
