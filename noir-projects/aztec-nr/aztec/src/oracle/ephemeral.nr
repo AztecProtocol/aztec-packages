@@ -28,10 +28,6 @@ pub(crate) unconstrained fn len_oracle(base_slot: Field) -> u32 {}
 #[oracle(aztec_utl_ephemeral_remove)]
 pub(crate) unconstrained fn remove_oracle(base_slot: Field, index: u32) {}
 
-/// Copies `count` elements from the source array to the destination array (overwrites destination).
-#[oracle(aztec_utl_ephemeral_copy)]
-pub(crate) unconstrained fn copy_oracle(src_slot: Field, dst_slot: Field, count: u32) {}
-
 /// Removes all elements from the ephemeral array.
 #[oracle(aztec_utl_ephemeral_clear)]
 pub(crate) unconstrained fn clear_oracle(base_slot: Field) {}

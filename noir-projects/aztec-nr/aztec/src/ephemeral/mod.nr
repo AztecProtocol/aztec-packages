@@ -4,11 +4,11 @@ use crate::protocol::traits::{Deserialize, Serialize};
 /// A dynamically sized array that exists only during a single contract call frame.
 ///
 /// Ephemeral arrays are backed by in-memory storage on the PXE side rather than a persistent database. Each contract
-/// call frame gets its own isolated set of ephemeral arrays child simulations cannot see the parent's ephemeral arrays,
-/// and vice versa.
+/// call frame gets its own isolated slot space of ephemeral arrays. Child simulations cannot see the parent's
+/// ephemeral arrays, and vice versa.
 ///
 /// Each logical array operation (push, pop, get, etc.) is a single oracle call, making ephemeral arrays significantly
-/// cheaper than capsule arrays and more appropriate for transient data.
+/// cheaper than capsule arrays and more appropriate for transient data that is never supposed to be persisted anyway.
 ///
 /// ## Use Cases
 ///

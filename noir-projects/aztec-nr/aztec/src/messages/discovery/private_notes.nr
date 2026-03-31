@@ -62,7 +62,6 @@ pub unconstrained fn attempt_note_discovery(
     randomness: Field,
     note_type_id: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
-    recipient: AztecAddress,
 ) {
     let discovered_notes = attempt_note_nonce_discovery(
         unique_note_hashes_in_tx,
