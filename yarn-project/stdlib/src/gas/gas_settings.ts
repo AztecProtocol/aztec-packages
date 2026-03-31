@@ -1,4 +1,6 @@
 import {
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
@@ -110,8 +112,11 @@ export class GasSettings {
         daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
       },
       teardownGasLimits: overrides.teardownGasLimits ?? {
-        l2Gas: MAX_PROCESSABLE_L2_GAS,
-        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+        // These are technically not the max, but if we allocate all the gas to teardown, no txs would be processable due
+        // to teardown gas being paid unconditionally and upfront. This is a fundamental limitation and the chosen values
+        // are somewhat arbitrary.
+        l2Gas: DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+        daGas: DEFAULT_TEARDOWN_DA_GAS_LIMIT,
       },
       maxFeesPerGas: overrides.maxFeesPerGas,
       maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
