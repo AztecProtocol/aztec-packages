@@ -1,6 +1,6 @@
 import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { Logger } from '@aztec/foundation/log';
-import { backoffGenerator, makeBackoff, retry } from '@aztec/foundation/retry';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { SpanKind, SpanStatusCode, context, propagation } from '@opentelemetry/api';
 
@@ -9,13 +9,13 @@ import { ATTR_JSONRPC_METHOD, ATTR_JSONRPC_REQUEST_ID } from '../vendor/attribut
 
 /**
  * Makes a fetch function that retries based on the given attempts and propagates trace information.
- * @param retries - Sequence of intervals (in seconds) to retry, or undefined for indefinite exponential backoff.
+ * @param retries - Sequence of intervals (in seconds) to retry, or a factory function returning an iterator for custom/indefinite backoff.
  * @param noRetry - Whether to stop retries on server errors.
  * @param log - Optional logger for logging attempts.
  * @returns A fetch function.
  */
 export function makeTracedFetch(
-  retries: number[] | undefined,
+  retries: number[] | (() => Generator<number>),
   defaultNoRetry: boolean,
   fetch = defaultFetch,
   log?: Logger,
@@ -32,10 +32,11 @@ export function makeTracedFetch(
         }
         const headers = { ...extraHeaders };
         propagation.inject(context.active(), headers);
+        const backoff = typeof retries === 'function' ? retries() : makeBackoff(retries);
         return await retry(
           () => fetch(host, body, headers, noRetry ?? defaultNoRetry),
           `JsonRpcClient request to ${host}`,
-          retries ? makeBackoff(retries) : backoffGenerator(),
+          backoff,
           log,
           false,
         );

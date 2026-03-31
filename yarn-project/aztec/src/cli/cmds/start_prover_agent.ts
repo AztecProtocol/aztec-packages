@@ -9,6 +9,7 @@ import {
   createProofStore,
   createProvingJobBrokerClient,
   proverAgentConfigMappings,
+  proverBrokerBackoff,
 } from '@aztec/prover-client/broker';
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
 import { ProverAgentApiSchema } from '@aztec/stdlib/interfaces/server';
@@ -45,12 +46,8 @@ export async function startProverAgent(
 
   await preloadCrsDataForServerSideProving(config, userLog);
 
-  const fetch = makeTracedFetch(
-    // Retry indefinitely until the epoch proving times out and the chain reorgs
-    undefined,
-    false,
-    makeUndiciFetch(new Agent({ connections: 10 })),
-  );
+  // Retry indefinitely until the epoch proving times out and the chain reorgs
+  const fetch = makeTracedFetch(proverBrokerBackoff, false, makeUndiciFetch(new Agent({ connections: 10 })));
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
 
   const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
