@@ -433,7 +433,7 @@ impl TestEnvironment {
         let address = test_account.address;
 
         let _ = self.call_private(
-            AztecAddress::zero(),
+            address,
             PrivateCall::<_, _, ()>::new(
                 address,
                 comptime { FunctionSelector::from_signature("constructor(Field,Field)") },
