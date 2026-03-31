@@ -54,8 +54,6 @@ Messages are synced from the Inbox contract. The sync compares local state (mess
    - If still mismatched (e.g., messages missed due to a concurrent L1 reorg), rollback and retry
 6. On success, advance the syncpoint
 
-The syncpoint and the `inboxTreeInProgress` marker (which tracks which checkpoint's messages are currently being filled on L1) are updated atomically. The marker is only advanced after messages are stored, so concurrent reads don't see an unsealed checkpoint as readable before its messages are available.
-
 ### Checkpoints
 
 Checkpoints are synced from the Rollup contract via `handleCheckpoints()`:

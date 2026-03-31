@@ -592,9 +592,8 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
-  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
-  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
-    return this.#messageStore.setMessageSyncState(l1Block, treeInProgress);
+  async setMessageSynchedL1Block(l1Block: L1BlockId) {
+    return this.#messageStore.setSynchedL1Block(l1Block);
   }
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */

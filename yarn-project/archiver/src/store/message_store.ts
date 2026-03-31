@@ -176,23 +176,6 @@ export class MessageStore {
     return msg ? deserializeInboxMessage(msg) : undefined;
   }
 
-  /** Returns the inbox tree-in-progress checkpoint number from L1, or undefined if not yet set. */
-  public getInboxTreeInProgress(): Promise<bigint | undefined> {
-    return this.#inboxTreeInProgress.getAsync();
-  }
-
-  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
-  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
-    return this.db.transactionAsync(async () => {
-      await this.setSynchedL1Block(l1Block);
-      if (treeInProgress !== undefined) {
-        await this.#inboxTreeInProgress.set(treeInProgress);
-      } else {
-        await this.#inboxTreeInProgress.delete();
-      }
-    });
-  }
-
   public async getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
     const messages: Fr[] = [];
 
