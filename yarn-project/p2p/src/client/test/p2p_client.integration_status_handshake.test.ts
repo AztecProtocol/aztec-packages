@@ -120,8 +120,8 @@ describe('p2p client integration status handshake', () => {
       10,
       0.5,
     );
-    // Give handshakes time to settle — they're async and we need to verify no disconnects happened
-    await sleep(1000);
+    // Wait for the handshake promises to actually resolve before checking disconnect spies.
+    await Promise.all(statusHandshakeSpies.flatMap(spy => spy.mock.results.map(r => r.value)));
     logger.info(`Finished waiting for clients to connect`);
 
     for (const handshakeSpy of statusHandshakeSpies) {
