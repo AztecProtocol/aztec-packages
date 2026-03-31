@@ -1,5 +1,4 @@
 import {
-  DEFAULT_L2_GAS_LIMIT,
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
@@ -108,11 +107,11 @@ export class GasSettings {
     return GasSettings.from({
       gasLimits: overrides.gasLimits ?? {
         l2Gas: MAX_PROCESSABLE_L2_GAS,
-        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 4,
+        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
       },
       teardownGasLimits: overrides.teardownGasLimits ?? {
-        l2Gas: DEFAULT_L2_GAS_LIMIT / 8,
-        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 8,
+        l2Gas: MAX_PROCESSABLE_L2_GAS,
+        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
       },
       maxFeesPerGas: overrides.maxFeesPerGas,
       maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
