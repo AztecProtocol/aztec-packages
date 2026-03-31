@@ -70,7 +70,7 @@ export const ProvingJobBrokerSchemaWithDebug: ApiSchemaFor<ProvingJobBroker & Pr
 export function createProvingJobBrokerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch = makeTracedFetch(undefined, false),
 ): ProvingJobBroker {
   return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, {
     namespaceMethods: 'proverBroker',
@@ -82,7 +82,7 @@ export function createProvingJobBrokerClient(
 export function createProvingJobProducerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch = makeTracedFetch(undefined, false),
 ): ProvingJobProducer {
   return createSafeJsonRpcClient(url, ProvingJobProducerSchema, {
     namespaceMethods: 'provingJobProducer',
@@ -94,7 +94,7 @@ export function createProvingJobProducerClient(
 export function createProvingJobConsumerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch = makeTracedFetch(undefined, false),
 ): ProvingJobConsumer {
   return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
     namespaceMethods: 'provingJobConsumer',

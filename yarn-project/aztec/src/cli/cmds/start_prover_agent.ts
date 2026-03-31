@@ -46,8 +46,8 @@ export async function startProverAgent(
   await preloadCrsDataForServerSideProving(config, userLog);
 
   const fetch = makeTracedFetch(
-    // retry connections every 3s, up to 30s before giving up
-    [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    // Retry indefinitely until the epoch proving times out and the chain reorgs
+    undefined,
     false,
     makeUndiciFetch(new Agent({ connections: 10 })),
   );

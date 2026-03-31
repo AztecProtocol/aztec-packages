@@ -65,12 +65,8 @@ export async function startNode(
     if (nodeConfig.proverBrokerUrl) {
       // at 1TPS we'd enqueue ~1k chonk verifier proofs and ~1k AVM proofs immediately
       // set a lower connection limit such that we don't overload the server
-      // Keep retrying up to 30s
-      const fetch = makeTracedFetch(
-        [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-        false,
-        makeUndiciFetch(new Agent({ connections: 100 })),
-      );
+      // Retry indefinitely until the epoch proving times out and the chain reorgs
+      const fetch = makeTracedFetch(undefined, false, makeUndiciFetch(new Agent({ connections: 100 })));
       broker = createProvingJobBrokerClient(nodeConfig.proverBrokerUrl, getVersions(nodeConfig), fetch);
     } else if (options.proverBroker) {
       ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));
