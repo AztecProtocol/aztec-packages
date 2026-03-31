@@ -4,7 +4,7 @@ services:
     cpus: 1
     cpuset: ${CPU_LIST:-}
     mem_limit: 2G
-    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
+    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337 --slots-in-an-epoch 1'
 
   aztec:
     image: aztecprotocol/build:3.0
