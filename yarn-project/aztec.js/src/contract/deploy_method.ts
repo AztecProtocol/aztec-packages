@@ -356,15 +356,25 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns An instance object.
    */
   public async getInstance(options?: RequestDeployOptions): Promise<ContractInstanceWithAddress> {
-    if (!this.instance) {
-      this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
-        constructorArgs: this.args,
-        salt: options?.contractAddressSalt ?? Fr.random(),
-        publicKeys: this.publicKeys,
-        constructorArtifact: this.constructorArtifact,
-        deployer: options?.deployer ? options.deployer : AztecAddress.ZERO,
-      });
+    const requestedSalt = options?.contractAddressSalt;
+    const requestedDeployer = options?.deployer ?? AztecAddress.ZERO;
+
+    if (this.instance) {
+      // An explicit salt was requested but differs from the cached one — recompute.
+      const saltMismatch = requestedSalt !== undefined && !requestedSalt.equals(this.instance.salt);
+      const deployerMismatch = !requestedDeployer.equals(this.instance.deployer);
+      if (!saltMismatch && !deployerMismatch) {
+        return this.instance;
+      }
     }
+
+    this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
+      constructorArgs: this.args,
+      salt: requestedSalt ?? Fr.random(),
+      publicKeys: this.publicKeys,
+      constructorArtifact: this.constructorArtifact,
+      deployer: requestedDeployer,
+    });
     return this.instance;
   }
 
