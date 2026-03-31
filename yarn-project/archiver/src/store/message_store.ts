@@ -157,15 +157,6 @@ export class MessageStore {
         lastMessage = message;
       }
 
-      // Update the L1 sync point to that of the last message added.
-      const currentSyncPoint = await this.getSynchedL1Block();
-      if (!currentSyncPoint || currentSyncPoint.l1BlockNumber < lastMessage!.l1BlockNumber) {
-        await this.setSynchedL1Block({
-          l1BlockNumber: lastMessage!.l1BlockNumber,
-          l1BlockHash: lastMessage!.l1BlockHash,
-        });
-      }
-
       // Update total message count with the number of inserted messages.
       await this.increaseTotalMessageCount(messageCount);
     });
@@ -185,6 +176,26 @@ export class MessageStore {
     return msg ? deserializeInboxMessage(msg) : undefined;
   }
 
+<<<<<<< HEAD
+=======
+  /** Returns the inbox tree-in-progress checkpoint number from L1, or undefined if not yet set. */
+  public getInboxTreeInProgress(): Promise<bigint | undefined> {
+    return this.#inboxTreeInProgress.getAsync();
+  }
+
+  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
+  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
+    return this.db.transactionAsync(async () => {
+      await this.setSynchedL1Block(l1Block);
+      if (treeInProgress !== undefined) {
+        await this.#inboxTreeInProgress.set(treeInProgress);
+      } else {
+        await this.#inboxTreeInProgress.delete();
+      }
+    });
+  }
+
+>>>>>>> cc3a64cca7 (fix(archiver): always advance L1-to-L2 messages syncpoint to current L1 block (#22154))
   public async getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
     const messages: Fr[] = [];
 

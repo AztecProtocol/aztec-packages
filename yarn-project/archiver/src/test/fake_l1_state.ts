@@ -450,6 +450,7 @@ export class FakeL1State {
   createMockInboxContract(_publicClient: MockProxy<ViemPublicClient>): MockProxy<InboxContract> {
     const mockInbox = mock<InboxContract>();
 
+<<<<<<< HEAD
     mockInbox.getState.mockImplementation(() =>
       Promise.resolve({
         messagesRollingHash: this.messagesRollingHash,
@@ -457,14 +458,46 @@ export class FakeL1State {
         treeInProgress: 0n,
       }),
     );
+=======
+    mockInbox.getState.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
+      // Filter messages visible at the given block number (or all if not specified)
+      const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
+      const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
+
+      // treeInProgress must be > any sealed checkpoint. On L1, a checkpoint can only be proposed
+      // after its messages are sealed, so treeInProgress > checkpointNumber for all published checkpoints.
+      const maxFromMessages =
+        visibleMessages.length > 0 ? Math.max(...visibleMessages.map(m => Number(m.checkpointNumber))) + 1 : 0;
+      const maxFromCheckpoints =
+        this.checkpoints.length > 0
+          ? Math.max(
+              ...this.checkpoints
+                .filter(cp => !cp.pruned && cp.l1BlockNumber <= blockNumber)
+                .map(cp => Number(cp.checkpointNumber)),
+              0,
+            ) + 1
+          : 0;
+      const treeInProgress = Math.max(maxFromMessages, maxFromCheckpoints, INITIAL_CHECKPOINT_NUMBER);
+
+      // Compute rolling hash only for visible messages
+      const rollingHash =
+        visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].rollingHash : Buffer16.ZERO;
+
+      return Promise.resolve({
+        messagesRollingHash: rollingHash,
+        totalMessagesInserted: BigInt(visibleMessages.length),
+        treeInProgress: BigInt(treeInProgress),
+      });
+    });
+>>>>>>> cc3a64cca7 (fix(archiver): always advance L1-to-L2 messages syncpoint to current L1 block (#22154))
 
     // Mock the wrapper methods for fetching message events
     mockInbox.getMessageSentEvents.mockImplementation((fromBlock: bigint, toBlock: bigint) =>
       Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
     );
 
-    mockInbox.getMessageSentEventByHash.mockImplementation((hash: string, fromBlock: bigint, toBlock: bigint) =>
-      Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock, hash)),
+    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, l1BlockHash: string) =>
+      Promise.resolve(this.getMessageSentLogByHash(msgHash, l1BlockHash) as MessageSentLog),
     );
 
     return mockInbox;
@@ -582,6 +615,26 @@ export class FakeL1State {
           rollingHash: msg.rollingHash,
         },
       }));
+  }
+
+  private getMessageSentLogByHash(msgHash: string, l1BlockHash: string): MessageSentLog | undefined {
+    const msg = this.messages.find(
+      msg => msg.leaf.toString() === msgHash && Buffer32.fromBigInt(msg.l1BlockNumber).toString() === l1BlockHash,
+    );
+    if (!msg) {
+      return undefined;
+    }
+    return {
+      l1BlockNumber: msg.l1BlockNumber,
+      l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
+      l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
+      args: {
+        checkpointNumber: msg.checkpointNumber,
+        index: msg.index,
+        leaf: msg.leaf,
+        rollingHash: msg.rollingHash,
+      },
+    };
   }
 
   private async makeRollupTx(
