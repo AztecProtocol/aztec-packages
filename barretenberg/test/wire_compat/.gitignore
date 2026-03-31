@@ -1,7 +1,0 @@
-# Generated files — produced by generate.sh via codegen CLI
-cpp/generated/
-ts/generated/
-zig/generated/
-rust/src/*_gen.rs
-rust/src/ipc_client.rs
-rust/src/ipc_server.rs
