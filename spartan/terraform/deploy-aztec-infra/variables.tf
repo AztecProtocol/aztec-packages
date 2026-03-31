@@ -812,9 +812,15 @@ variable "FULL_NODE_INCLUDE_METRICS" {
 }
 
 variable "FISHERMAN_MODE" {
-  description = "Whether to run in fisherman mode"
+  description = "Whether to run in fisherman mode (applies to the rpc-node; prefer FISHERMAN_REPLICAS for a dedicated fisherman StatefulSet)"
   type        = bool
   default     = false
+}
+
+variable "FISHERMAN_REPLICAS" {
+  description = "Number of dedicated fisherman node replicas (separate from the rpc-node)"
+  type        = number
+  default     = 0
 }
 
 variable "P2P_GOSSIPSUB_D" {
