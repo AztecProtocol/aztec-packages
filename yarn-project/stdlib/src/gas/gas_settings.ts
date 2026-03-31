@@ -1,14 +1,4 @@
-import {
-  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
-  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
-  GAS_ESTIMATION_DA_GAS_LIMIT,
-  GAS_ESTIMATION_L2_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
-  GAS_SETTINGS_LENGTH,
-  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
-  MAX_PROCESSABLE_L2_GAS,
-} from '@aztec/constants';
+import { GAS_SETTINGS_LENGTH, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -17,6 +7,19 @@ import { z } from 'zod';
 
 import { Gas, GasDimensions } from './gas.js';
 import { GasFees } from './gas_fees.js';
+
+/** Default teardown L2 gas limit. Arbitrary — users should use gas estimation. */
+export const DEFAULT_TEARDOWN_L2_GAS_LIMIT = 1_000_000;
+/** Default teardown DA gas limit. Arbitrary — users should use gas estimation. */
+export const DEFAULT_TEARDOWN_DA_GAS_LIMIT = Math.floor(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2);
+
+// For gas estimation, we use intentionally high limits above what the network can process,
+// so the simulation runs without hitting gas caps. Since teardown gas is counted towards total,
+// the total estimation limit is teardown + max processable.
+export const GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT = MAX_PROCESSABLE_L2_GAS;
+export const GAS_ESTIMATION_L2_GAS_LIMIT = GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + MAX_PROCESSABLE_L2_GAS;
+export const GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
+export const GAS_ESTIMATION_DA_GAS_LIMIT = GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
 // docs:start:gas_settings_vars
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */

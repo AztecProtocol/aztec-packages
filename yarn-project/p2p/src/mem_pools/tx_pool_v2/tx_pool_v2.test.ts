@@ -1,6 +1,5 @@
 import {
-  DEFAULT_DA_GAS_LIMIT,
-  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
@@ -14,7 +13,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
@@ -37,7 +36,7 @@ import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
 
 // Default maxFeesPerGas used by mockTx is GasFees(10, 10).
-// Fee limit per tx = DEFAULT_L2_GAS_LIMIT * 10 + DEFAULT_DA_GAS_LIMIT * 10.
+// Fee limit per tx = MAX_PROCESSABLE_L2_GAS * 10 + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT * 10.
 const DEFAULT_MAX_FEES_PER_GAS = new GasFees(10, 10);
 const DEFAULT_TX_FEE_LIMIT = GasSettings.withMaxLimits({ maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS })
   .getFeeLimit()
@@ -739,9 +738,12 @@ describe('TxPoolV2', () => {
     });
 
     it('rejects public tx if L2 gas limit is too high', async () => {
-      const tx = await makePublicTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
+      const tx = await makePublicTxWithGas(
+        1,
+        new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+      );
       tx.data.constants.txContext.gasSettings = GasSettings.withMaxLimits({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
         teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
       });
@@ -751,9 +753,12 @@ describe('TxPoolV2', () => {
     });
 
     it('rejects private tx if L2 gas limit is too high', async () => {
-      const tx = await makePrivateTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
+      const tx = await makePrivateTxWithGas(
+        1,
+        new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+      );
       tx.data.constants.txContext.gasSettings = GasSettings.withMaxLimits({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
         teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
       });
