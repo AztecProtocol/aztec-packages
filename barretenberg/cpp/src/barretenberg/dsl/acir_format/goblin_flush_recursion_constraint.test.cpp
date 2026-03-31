@@ -47,13 +47,16 @@ class GoblinFlushRecursionConstraintTest : public ::testing::Test {
     {
         AcirProgram program;
 
+        // Hacky way to ensure that the construction of the constraints doesn't go through the write_vk path
+        uint32_t predicate_idx = add_to_witness_and_track_indices(program.witness, bb::fr::one());
+
         RecursionConstraint constraint{
             .key = {},
             .proof = {},
             .public_inputs = {},
             .key_hash = 0,
             .proof_type = ULTRA_GOBLIN,
-            .predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1)),
+            .predicate = WitnessOrConstant<bb::fr>::from_index(predicate_idx),
         };
 
         program.constraints.max_witness_index = 0;
@@ -70,9 +73,12 @@ class GoblinFlushRecursionConstraintTest : public ::testing::Test {
      * and extract its VK.
      */
     static std::shared_ptr<VerificationKey> build_goblin_flush_circuit_and_get_vk(
-        const std::shared_ptr<Chonk>& ivc = nullptr)
+        const std::shared_ptr<Chonk>& ivc = nullptr, const bool is_write_vk_mode = true)
     {
         AcirProgram program = construct_goblin_flush_program();
+        if (is_write_vk_mode) {
+            program.witness = {};
+        }
         ProgramMetadata metadata{ ivc };
         auto circuit = acir_format::create_circuit<Builder>(program, metadata);
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
@@ -168,7 +174,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKIndependenceAfterInitKernel)
         construct_and_accumulate_mock_app(ivc);
         construct_and_accumulate_mock_kernel(ivc);
         // At this point, the verification queue has the kernel's entry and the flush would happen next
-        real_vk = build_goblin_flush_circuit_and_get_vk(ivc);
+        real_vk = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/false);
     }
 
     // Step 2: Get VK from mocked IVC state (no real accumulation)
@@ -180,7 +186,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKIndependenceAfterInitKernel)
         // Clear the verification queue so it doesn't interfere with the flush program
         ivc->verification_queue.clear();
         ivc->goblin.merge_verification_queue.clear();
-        mocked_vk = build_goblin_flush_circuit_and_get_vk(ivc);
+        mocked_vk = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/true);
     }
 
     EXPECT_EQ(*real_vk.get(), *mocked_vk.get());
@@ -204,7 +210,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKIndependenceAfterInnerKernel)
         construct_and_accumulate_mock_app(ivc);
         construct_and_accumulate_mock_kernel(ivc);
         // Flush after inner kernel
-        real_vk = build_goblin_flush_circuit_and_get_vk(ivc);
+        real_vk = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/false);
     }
 
     // Step 2: Get VK from mocked IVC state
@@ -214,7 +220,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKIndependenceAfterInnerKernel)
         acir_format::mock_chonk_accumulation(ivc, QUEUE_TYPE::HN, /*is_kernel=*/true);
         ivc->verification_queue.clear();
         ivc->goblin.merge_verification_queue.clear();
-        mocked_vk = build_goblin_flush_circuit_and_get_vk(ivc);
+        mocked_vk = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/true);
     }
 
     EXPECT_EQ(*real_vk.get(), *mocked_vk.get());
@@ -243,7 +249,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKIndependenceAfterResetKernel)
         // Reset kernel (accumulates the HN entry from init kernel)
         construct_and_accumulate_mock_kernel(ivc);
         // Flush after reset kernel
-        real_vk = build_goblin_flush_circuit_and_get_vk(ivc);
+        real_vk = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/false);
     }
 
     // Step 2: Get VK from mocked IVC state
@@ -254,7 +260,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKIndependenceAfterResetKernel)
         acir_format::mock_chonk_accumulation(ivc, QUEUE_TYPE::HN, /*is_kernel=*/true);
         ivc->verification_queue.clear();
         ivc->goblin.merge_verification_queue.clear();
-        mocked_vk = build_goblin_flush_circuit_and_get_vk(ivc);
+        mocked_vk = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/true);
     }
 
     EXPECT_EQ(*real_vk.get(), *mocked_vk.get());
@@ -277,7 +283,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKConsistentAcrossAllKernelTypes)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
         construct_and_accumulate_mock_app(ivc);
         construct_and_accumulate_mock_kernel(ivc);
-        vk_after_init = build_goblin_flush_circuit_and_get_vk(ivc);
+        vk_after_init = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/true);
     }
 
     // Get VK after inner kernel (2 apps + 2 kernels)
@@ -288,7 +294,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKConsistentAcrossAllKernelTypes)
         construct_and_accumulate_mock_kernel(ivc);
         construct_and_accumulate_mock_app(ivc);
         construct_and_accumulate_mock_kernel(ivc);
-        vk_after_inner = build_goblin_flush_circuit_and_get_vk(ivc);
+        vk_after_inner = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/true);
     }
 
     // Get VK after reset kernel (1 app + init kernel + reset kernel)
@@ -298,7 +304,7 @@ TEST_F(GoblinFlushRecursionConstraintTest, VKConsistentAcrossAllKernelTypes)
         construct_and_accumulate_mock_app(ivc);
         construct_and_accumulate_mock_kernel(ivc);
         construct_and_accumulate_mock_kernel(ivc);
-        vk_after_reset = build_goblin_flush_circuit_and_get_vk(ivc);
+        vk_after_reset = build_goblin_flush_circuit_and_get_vk(ivc, /*is_write_vk_mode=*/true);
     }
 
     EXPECT_EQ(*vk_after_init.get(), *vk_after_inner.get())

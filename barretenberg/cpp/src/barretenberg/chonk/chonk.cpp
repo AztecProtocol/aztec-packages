@@ -371,6 +371,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
         hide_op_queue_accumulation_result(circuit);
+    } else if (!is_hiding_kernel) {
+        // For all kernels except tha tail and hiding kernel, add 4 no ops + eq and reset to match the structure
+        // expected by the translator when performing a Goblin flush
+        add_goblin_flush_table_structure_ops(circuit);
     }
     circuit.queue_ecc_eq();
 
@@ -429,8 +433,6 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Assert: merged_table == previous kernel's ecc_op_tables
         for (size_t i = 0; i < ClientCircuit::NUM_WIRES; i++) {
-            info("merged_table: ", merged_table[i].get_value());
-            info("prev_kernel_ecc_op_tables: ", merged_tables_from_kernel[i].get_value());
             merged_table[i].incomplete_assert_equal(merged_tables_from_kernel[i]);
         }
 
@@ -716,6 +718,24 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 {
     circuit.queue_ecc_random_op();
     circuit.queue_ecc_random_op();
+}
+
+/**
+ * @brief Add structural ops to a kernel's subtable for Goblin flush compatibility.
+ *
+ * @details Adds 1 no_op + 4 add_accumulate(infinity) to the kernel's subtable. When this kernel is the last
+ * before a flush, its subtable lands first in the merged table (due to PREPEND ordering), giving the table
+ * the head structure the Translator expects. The no_op (opcode=0) is ultra-only but the Translator relations
+ * enforce accumulator pass-through for op=0, so there is no ECCVM/Translator mismatch. The 4 add_accumulate
+ * ops are in both tables and are mathematical no-ops (acc + infinity = acc).
+ */
+void Chonk::add_goblin_flush_table_structure_ops(ClientCircuit& circuit)
+{
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_no_op();
+    circuit.queue_ecc_eq();
 }
 
 /**

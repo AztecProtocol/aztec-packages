@@ -49,7 +49,6 @@ std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>> prove_inner_
     const GoblinProof& goblin_proof, const MergeVerifier::TableCommitments& merged_table)
 {
     auto builder = build_goblin_flush_circuit(goblin_proof, merged_table);
-    info("BUILDER IS VALID: ", CircuitChecker::check(builder));
 
     using Flavor = UltraFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
@@ -83,12 +82,10 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
 
     GoblinProof goblin_proof;
     MergeVerifier::TableCommitments merged_table;
-    MergeVerifier::TableCommitments merged_table_for_verification;
 
     // Step 1: Generate a Goblin proof and build+prove Inner Circuit on-the-fly
     if (builder.is_write_vk_mode()) {
         std::tie(goblin_proof, merged_table) = create_mock_goblin_proof_and_commitments();
-        merged_table_for_verification = merged_table;
     } else {
         Goblin goblin = ivc_base->get_goblin();
 
@@ -100,35 +97,21 @@ HonkRecursionConstraintOutput<MegaCircuitBuilder> create_goblin_flush_recursion_
             table = pcs_commitment_key.commit(poly);
         }
 
-        // Add missing parts
-        using Fq = curve::BN254::BaseField;
-        goblin.op_queue->no_op_ultra_only();
-        goblin.op_queue->random_op_ultra_only();
-        goblin.op_queue->random_op_ultra_only();
-        goblin.op_queue->random_op_ultra_only();
-        goblin.op_queue->append_hiding_op(Fq(0), Fq(0));
-        goblin.op_queue->merge();
-
-        // Construct merged table for verification
-        auto merged_poly_for_verification = goblin.op_queue->construct_ultra_ops_table_columns();
-
-        for (auto [table, poly] : zip_view(merged_table_for_verification, merged_poly_for_verification)) {
-            table = pcs_commitment_key.commit(poly);
-        }
-
-        // Prove goblin with AVM_MODE = true
+        // Prove goblin with AVM_MODE = true and IS_ZK = false
         goblin.set_avm_mode(true);
+        goblin.set_op_queue_zk(false);
 
         goblin.prove_eccvm();
         goblin.prove_translator();
 
         // Reset goblin
         goblin.set_avm_mode(false);
+        goblin.set_op_queue_zk(true);
 
         goblin_proof = goblin.goblin_proof;
     }
 
-    auto [inner_circuit_proof, inner_circuit_vk] = prove_inner_circuit(goblin_proof, merged_table_for_verification);
+    auto [inner_circuit_proof, inner_circuit_vk] = prove_inner_circuit(goblin_proof, merged_table);
 
     // Step 2: Create witnesses for Inner Circuit's VK and proof directly in the Mega builder
     // (ULTRA_GOBLIN constraints from Noir have empty proof/key - BB constructs everything on-the-fly)

@@ -237,6 +237,7 @@ class Chonk : public IVCBase {
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
+    static void add_goblin_flush_table_structure_ops(ClientCircuit& circuit);
 
     /**
      * @brief Get the hiding kernel verification key and hash for Chonk verification

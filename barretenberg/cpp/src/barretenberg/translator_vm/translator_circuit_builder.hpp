@@ -239,6 +239,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr size_t RESULT_ROW = 8;
     static constexpr size_t NUM_NO_OPS_START = 1;
 
+    // When running Translator in non-ZK mode, we expect the random ops at the start to be replaced with no-ops
+    static constexpr size_t NUM_ADDITIONAL_NO_OPS_START = 3;
+    static_assert(NUM_ADDITIONAL_NO_OPS_START == 3);
+
     // Number of random ops at the beginning of Translator trace
     static constexpr size_t NUM_RANDOM_OPS_START = 3;
     static_assert(NUM_RANDOM_OPS_START == 3);
