@@ -76,7 +76,7 @@ struct NullifierLeafValue {
     static NullifierLeafValue from_wire(const bb::wsdb::wire::NullifierLeafValue& w)
     {
         fr n;
-        std::memcpy(&n, w.nullifier.data(), 32);
+        std::memcpy(static_cast<void*>(&n), w.nullifier.data(), 32);
         return NullifierLeafValue(n);
     }
 
@@ -152,8 +152,8 @@ struct PublicDataLeafValue {
     static PublicDataLeafValue from_wire(const bb::wsdb::wire::PublicDataLeafValue& w)
     {
         fr s, v;
-        std::memcpy(&s, w.slot.data(), 32);
-        std::memcpy(&v, w.value.data(), 32);
+        std::memcpy(static_cast<void*>(&s), w.slot.data(), 32);
+        std::memcpy(static_cast<void*>(&v), w.value.data(), 32);
         return PublicDataLeafValue(s, v);
     }
 

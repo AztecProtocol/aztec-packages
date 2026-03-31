@@ -26,7 +26,7 @@ using Fr = std::array<uint8_t, 32>;
 template <typename FieldType> inline FieldType field_from_wire(const Fr& w)
 {
     FieldType r;
-    std::memcpy(&r, w.data(), 32);
+    std::memcpy(static_cast<void*>(&r), w.data(), 32);
     return r;
 }
 
@@ -34,7 +34,7 @@ template <typename FieldType> inline FieldType field_from_wire(const Fr& w)
 template <typename FieldType> inline Fr field_to_wire(const FieldType& d)
 {
     Fr r;
-    std::memcpy(r.data(), &d, 32);
+    std::memcpy(r.data(), static_cast<const void*>(&d), 32);
     return r;
 }
 
@@ -84,8 +84,8 @@ template <typename FieldType> inline std::vector<Fr> field_vec_to_wire(const std
 template <typename AffineType, typename WirePoint> inline AffineType point_from_wire(const WirePoint& w)
 {
     AffineType r;
-    std::memcpy(&r.x, w.x.data(), 32);
-    std::memcpy(&r.y, w.y.data(), 32);
+    std::memcpy(static_cast<void*>(&r.x), w.x.data(), 32);
+    std::memcpy(static_cast<void*>(&r.y), w.y.data(), 32);
     return r;
 }
 
@@ -93,8 +93,8 @@ template <typename AffineType, typename WirePoint> inline AffineType point_from_
 template <typename WirePoint, typename AffineType> inline WirePoint point_to_wire(const AffineType& d)
 {
     WirePoint r;
-    std::memcpy(r.x.data(), &d.x, 32);
-    std::memcpy(r.y.data(), &d.y, 32);
+    std::memcpy(r.x.data(), static_cast<const void*>(&d.x), 32);
+    std::memcpy(r.y.data(), static_cast<const void*>(&d.y), 32);
     return r;
 }
 

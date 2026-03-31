@@ -41,7 +41,7 @@ inline uint256_t uint256_from_bytes(const std::vector<uint8_t>& bytes)
 inline std::vector<uint8_t> uint256_to_bytes(const uint256_t& val)
 {
     std::vector<uint8_t> buf(32);
-    std::memcpy(buf.data(), &val, 32);
+    std::memcpy(buf.data(), static_cast<const void*>(&val), 32);
     return buf;
 }
 
