@@ -12,6 +12,26 @@
 #ifndef IPC_SERVER_HPP_INCLUDED
 #define IPC_SERVER_HPP_INCLUDED
 
+#include <atomic>
+#include <cstdint>
+#include <functional>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#if defined(__wasm__)
+// UDS not available in WASM — provide stub types only
+namespace ipc {
+struct ShutdownRequested : std::exception {
+    std::vector<uint8_t> final_response;
+    explicit ShutdownRequested(std::vector<uint8_t> resp) : final_response(std::move(resp)) {}
+    const char* what() const noexcept override { return "shutdown requested"; }
+};
+using Handler = std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)>;
+inline void serve(const char*, Handler, std::atomic<bool>* = nullptr, int = 5) {}
+} // namespace ipc
+#else
+
 #ifndef THROW
 #define THROW throw
 #endif
@@ -167,7 +187,7 @@ inline void serve(const char* socket_path,
     };
 
     while (!should_shutdown()) {
-        int ready = ::poll(fds.data(), fds.size(), 100 /* ms */);
+        int ready = ::poll(fds.data(), static_cast<nfds_t>(fds.size()), 100 /* ms */);
         if (ready < 0) {
             if (errno == EINTR) {
                 continue;
@@ -228,4 +248,5 @@ done:
 }
 
 } // namespace ipc
+#endif // !defined(__wasm__)
 #endif // IPC_SERVER_HPP_INCLUDED

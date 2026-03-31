@@ -131,10 +131,10 @@ inline wire::BbCircuitComputeVkResponse compute_vk_response_to_wire(const BbCirc
 inline bb::g2::affine_element g2_point_from_wire(const wire::Bn254G2Point& w)
 {
     bb::g2::affine_element r;
-    std::memcpy(&r.x.c0, w.x[0].data(), 32);
-    std::memcpy(&r.x.c1, w.x[1].data(), 32);
-    std::memcpy(&r.y.c0, w.y[0].data(), 32);
-    std::memcpy(&r.y.c1, w.y[1].data(), 32);
+    std::memcpy(static_cast<void*>(&r.x.c0), w.x[0].data(), 32);
+    std::memcpy(static_cast<void*>(&r.x.c1), w.x[1].data(), 32);
+    std::memcpy(static_cast<void*>(&r.y.c0), w.y[0].data(), 32);
+    std::memcpy(static_cast<void*>(&r.y.c1), w.y[1].data(), 32);
     return r;
 }
 
@@ -142,10 +142,10 @@ inline bb::g2::affine_element g2_point_from_wire(const wire::Bn254G2Point& w)
 inline wire::Bn254G2Point g2_point_to_wire(const bb::g2::affine_element& d)
 {
     wire::Bn254G2Point r;
-    std::memcpy(r.x[0].data(), &d.x.c0, 32);
-    std::memcpy(r.x[1].data(), &d.x.c1, 32);
-    std::memcpy(r.y[0].data(), &d.y.c0, 32);
-    std::memcpy(r.y[1].data(), &d.y.c1, 32);
+    std::memcpy(r.x[0].data(), static_cast<const void*>(&d.x.c0), 32);
+    std::memcpy(r.x[1].data(), static_cast<const void*>(&d.x.c1), 32);
+    std::memcpy(r.y[0].data(), static_cast<const void*>(&d.y.c0), 32);
+    std::memcpy(r.y[1].data(), static_cast<const void*>(&d.y.c1), 32);
     return r;
 }
 

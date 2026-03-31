@@ -83,9 +83,9 @@ struct TreeMeta {
         r.depth = w.depth;
         r.size = w.size;
         r.committedSize = w.committedSize;
-        std::memcpy(&r.root, w.root.data(), 32);
+        std::memcpy(static_cast<void*>(&r.root), w.root.data(), 32);
         r.initialSize = w.initialSize;
-        std::memcpy(&r.initialRoot, w.initialRoot.data(), 32);
+        std::memcpy(static_cast<void*>(&r.initialRoot), w.initialRoot.data(), 32);
         r.oldestHistoricBlock = w.oldestHistoricBlock;
         r.unfinalizedBlockHeight = w.unfinalizedBlockHeight;
         r.finalizedBlockHeight = w.finalizedBlockHeight;
@@ -99,9 +99,9 @@ struct TreeMeta {
         w.depth = depth;
         w.size = size;
         w.committedSize = committedSize;
-        std::memcpy(w.root.data(), &root, 32);
+        std::memcpy(w.root.data(), static_cast<const void*>(&root), 32);
         w.initialSize = initialSize;
-        std::memcpy(w.initialRoot.data(), &initialRoot, 32);
+        std::memcpy(w.initialRoot.data(), static_cast<const void*>(&initialRoot), 32);
         w.oldestHistoricBlock = oldestHistoricBlock;
         w.unfinalizedBlockHeight = unfinalizedBlockHeight;
         w.finalizedBlockHeight = finalizedBlockHeight;
