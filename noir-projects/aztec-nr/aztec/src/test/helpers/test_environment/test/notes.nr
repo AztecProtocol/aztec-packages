@@ -4,7 +4,7 @@ use crate::note::{
     note_getter_options::NoteGetterOptions,
     note_viewer_options::NoteViewerOptions,
 };
-use crate::protocol::address::AztecAddress;
+use crate::protocol::{address::AztecAddress, traits::FromField};
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 
 global VALUE: Field = 7;
