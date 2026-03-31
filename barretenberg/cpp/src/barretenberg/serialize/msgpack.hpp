@@ -118,13 +118,16 @@ to the object itself, do break up the above to keep a reference to the handle, f
 // Helper for above documented syntax
 // Define a macro that takes any amount of parameters and expands to a msgpack method definition
 // __VA__ARGS__ expands to the parmeters, comma separated.
-#ifndef SERIALIZATION_FIELDS
+// Barretenberg's SERIALIZATION_FIELDS uses the NVP macro for schema reflection.
+// Always override any standalone definition (e.g. from generated wire types).
+#ifdef SERIALIZATION_FIELDS
+#undef SERIALIZATION_FIELDS
+#endif
 #define SERIALIZATION_FIELDS(...)                                                                                      \
     void msgpack(auto pack_fn)                                                                                         \
     {                                                                                                                  \
         pack_fn(NVP(__VA_ARGS__));                                                                                     \
     }
-#endif
 
 namespace msgpack_detail {
 
