@@ -1,5 +1,4 @@
 #include "barretenberg/bbapi/generated/bb_types.hpp"
-#include <cstring>
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ipc/ipc_client.hpp"
@@ -165,7 +164,13 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                     while (!stop_background.load(std::memory_order_relaxed)) {
                         // Create Poseidon2Hash command
                         bb::bbapi::wire::BbPoseidon2Hash hash_cmd;
-                        { Fr fr_x; std::memcpy(fr_x.data(), &bx, 32); Fr fr_y; std::memcpy(fr_y.data(), &by, 32); hash_cmd.inputs = { fr_x, fr_y }; }
+                        {
+                            Fr fr_x;
+                            std::memcpy(fr_x.data(), &bx, 32);
+                            Fr fr_y;
+                            std::memcpy(fr_y.data(), &by, 32);
+                            hash_cmd.inputs = { fr_x, fr_y };
+                        }
 
                         // Serialize command with tuple wrapping for CBIND compatibility
                         msgpack::sbuffer cmd_buffer;
@@ -271,7 +276,13 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
         for (auto _ : state) {
             // Create Poseidon2Hash command
             bb::bbapi::wire::BbPoseidon2Hash hash_cmd;
-            { Fr fr_x; std::memcpy(fr_x.data(), &x, 32); Fr fr_y; std::memcpy(fr_y.data(), &y, 32); hash_cmd.inputs = { fr_x, fr_y }; }
+            {
+                Fr fr_x;
+                std::memcpy(fr_x.data(), &x, 32);
+                Fr fr_y;
+                std::memcpy(fr_y.data(), &y, 32);
+                hash_cmd.inputs = { fr_x, fr_y };
+            }
 
             // Serialize command with tuple wrapping for CBIND compatibility
             msgpack::sbuffer cmd_buffer;

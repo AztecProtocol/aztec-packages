@@ -12,9 +12,9 @@ TEST(CBind, CatchesExceptionAndReturnsErrorResponse)
 {
     // Create an invalid SRS command via wire types — too few bytes for the claimed num_points
     wire::BbSrsInitSrs wire_cmd;
-    wire_cmd.num_points = 100;                                // Request 100 points
-    wire_cmd.points_buf = std::vector<uint8_t>(10, 0);       // Only 10 bytes — will fail
-    wire_cmd.g2_point = std::vector<uint8_t>(10, 0);         // Also too small
+    wire_cmd.num_points = 100;                         // Request 100 points
+    wire_cmd.points_buf = std::vector<uint8_t>(10, 0); // Only 10 bytes — will fail
+    wire_cmd.g2_point = std::vector<uint8_t>(10, 0);   // Also too small
 
     // Serialize as [[CommandName, {payload}]]
     msgpack::sbuffer buf;
