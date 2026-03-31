@@ -711,7 +711,7 @@ ${commandStructs}
                 msgpack::sbuffer buf;
                 msgpack::packer<msgpack::sbuffer> pk(buf);
                 pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack_map(0);
-                throw ::ipc::ShutdownRequested(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
+                THROW ::ipc::ShutdownRequested(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
             } }`;
       }
 
@@ -814,7 +814,7 @@ ${handlerEntries},
             }
             return it->second(ctx, cmd_payload);
         } catch (const ::ipc::ShutdownRequested&) {
-            throw;
+            RETHROW;
         } catch (const std::exception& e) {
             std::cerr << "Error processing " << cmd_name << ": " << e.what() << '\\n';
             return detail::make_error(e.what());

@@ -162,7 +162,7 @@ struct SiblingPathAndIndex {
         r.path.reserve(w.path.size());
         for (const auto& f : w.path) {
             bb::fr val;
-            std::memcpy(&val, f.data(), 32);
+            std::memcpy(static_cast<void*>(&val), f.data(), 32);
             r.path.push_back(val);
         }
         return r;
@@ -175,7 +175,7 @@ struct SiblingPathAndIndex {
         w.path.reserve(path.size());
         for (const auto& f : path) {
             Fr wire_fr;
-            std::memcpy(wire_fr.data(), &f, 32);
+            std::memcpy(wire_fr.data(), static_cast<const void*>(&f), 32);
             w.path.push_back(wire_fr);
         }
         return w;
