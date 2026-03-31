@@ -327,11 +327,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
     const effectiveScopes = from.isZero() ? [] : [from];
 
-    // For the sync step, we use all registered accounts as scopes. Note discovery during sync needs
-    // broader key access (e.g. to compute nullifiers for notes belonging to any registered account),
-    // while the private execution itself remains restricted to `effectiveScopes`.
-    const syncScopes = from.isZero() ? [] : await this.keyStore.getAccounts();
-
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
       await this.executeUtilityCall(call, execScopes, jobId);
@@ -344,7 +339,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       utilityExecutor,
       blockHeader,
       jobId,
-      syncScopes,
+      effectiveScopes,
     );
 
     const blockNumber = await this.getNextBlockNumber();
