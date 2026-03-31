@@ -10,7 +10,7 @@ fi
 
 # Run PipeBackend tests (spawns bb binary)
 # Use --no-default-features to skip FFI (which requires libbb-external.a)
-denoise "cargo test --release --no-default-features --features native"
+denoise "cargo test --release --no-default-features --features uds"
 
 # Run FFI backend tests (requires libbb-external.a from cpp build)
 # BB_LIB_DIR tells build.rs to use local lib instead of downloading
