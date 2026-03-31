@@ -273,7 +273,7 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
     const auto res = bigfield::unsafe_construct_from_limbs(limb0, limb1, limb2, limb3, true);
 
     const auto num_last_limb_bits = 256 - (NUM_LIMB_BITS * 3);
-    res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits);
+    res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits) - 1;
     *this = res;
     set_origin_tag(bytes.get_origin_tag());
 }
