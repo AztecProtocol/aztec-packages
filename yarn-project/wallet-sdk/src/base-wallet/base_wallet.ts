@@ -52,7 +52,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeSiloedPrivateInitializationNullifier,
   computeSiloedPublicInitializationNullifier,
@@ -242,7 +242,19 @@ export abstract class BaseWallet implements Wallet {
           : AccountFeePaymentMethodOptions.EXTERNAL;
       }
     }
-    const fullGasSettings: GasSettings = GasSettings.default({ ...gasSettings, maxFeesPerGas });
+    // If the user didn't provide gas settings, we fill in unreasonably high defaults. A concrete implementation
+    // of this class should only use these limits for estimation and then take the actual used gas from simulation to set
+    // the sending limits
+    const fullGasSettings = GasSettings.from({
+      gasLimits: gasSettings?.gasLimits
+        ? Gas.from(gasSettings.gasLimits)
+        : new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
+      teardownGasLimits: gasSettings?.teardownGasLimits
+        ? Gas.from(gasSettings.teardownGasLimits)
+        : new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
+      maxFeesPerGas,
+      maxPriorityFeesPerGas: gasSettings?.maxPriorityFeesPerGas ?? GasFees.empty(),
+    });
     this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
       gasSettings: fullGasSettings,
