@@ -222,7 +222,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -589,7 +588,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -604,7 +602,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -619,7 +616,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -634,7 +630,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -648,7 +643,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(2),
-      1n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -656,7 +650,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(3),
-      2n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -675,7 +668,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -690,7 +682,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -706,7 +697,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -717,7 +707,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(3),
-        2n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),

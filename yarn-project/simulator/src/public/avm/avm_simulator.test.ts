@@ -766,6 +766,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
+        // emit_public_log_unsafe prepends a tag at fields[0]. The test contract passes 0 as the tag.
+        const withTag = (fields: Fr[]) => [Fr.ZERO, ...fields];
         const expectedFields = [new Fr(10), new Fr(20), new Fr(30)];
         const expectedString = 'Hello, world!'.split('').map(c => new Fr(c.charCodeAt(0)));
         const expectedCompressedString = [
@@ -775,10 +777,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const expectedLargeLog = Array.from({ length: 42 }, (_, i) => new Fr(i + 1));
 
         expect(trace.tracePublicLog).toHaveBeenCalledTimes(4);
-        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedFields);
-        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedString);
-        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedCompressedString);
-        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedLargeLog);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, withTag(expectedFields));
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, withTag(expectedString));
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, withTag(expectedCompressedString));
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, withTag(expectedLargeLog));
       });
     });
 

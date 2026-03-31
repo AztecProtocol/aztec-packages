@@ -10,13 +10,16 @@ use crate::protocol::{
 use std::meta::{ctstring::AsCtString, unquote};
 
 use crate::{
-    context::{PrivateContext, PublicContext},
+    context::{PrivateContext, PublicContext, UtilityContext},
     macros::{
         internals_functions_generation::external_functions_registry::get_public_functions, utils::fn_has_noinitcheck,
     },
     nullifier::utils::compute_nullifier_existence_request,
-    oracle::get_contract_instance::{
-        get_contract_instance, get_contract_instance_deployer_avm, get_contract_instance_initialization_hash_avm,
+    oracle::{
+        get_contract_instance::{
+            get_contract_instance, get_contract_instance_deployer_avm, get_contract_instance_initialization_hash_avm,
+        },
+        nullifiers::check_nullifier_exists,
     },
 };
 
@@ -109,6 +112,17 @@ pub fn assert_is_initialized_private(context: &mut PrivateContext) {
     let init_nullifier = compute_private_initialization_nullifier(address, instance.initialization_hash);
     let nullifier_existence_request = compute_nullifier_existence_request(init_nullifier, address);
     context.assert_nullifier_exists(nullifier_existence_request);
+}
+
+/// Asserts that the contract has been initialized, from a utility function's perspective.
+///
+/// Only checks the private initialization nullifier in the settled nullifier tree. Since both nullifiers are emitted in
+/// the same transaction, the private nullifier's presence in settled state guarantees the public one is also settled.
+pub unconstrained fn assert_is_initialized_utility(context: UtilityContext) {
+    let address = context.this_address();
+    let instance = get_contract_instance(address);
+    let initialization_nullifier = compute_private_initialization_nullifier(address, instance.initialization_hash);
+    assert(check_nullifier_exists(initialization_nullifier), "Not initialized");
 }
 
 /// Computes the private initialization nullifier for a contract.

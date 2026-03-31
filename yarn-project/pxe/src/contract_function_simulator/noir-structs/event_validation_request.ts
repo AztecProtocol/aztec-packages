@@ -16,7 +16,6 @@ export class EventValidationRequest {
     public serializedEvent: Fr[],
     public eventCommitment: Fr,
     public txHash: TxHash,
-    public recipient: AztecAddress,
   ) {}
 
   static fromFields(fields: Fr[], maxEventSerializedLen: number): EventValidationRequest {
@@ -33,7 +32,6 @@ export class EventValidationRequest {
 
     const eventCommitment = reader.readField();
     const txHash = TxHash.fromField(reader.readField());
-    const recipient = AztecAddress.fromField(reader.readField());
 
     if (reader.remainingFields() !== 0) {
       throw new Error(
@@ -48,7 +46,6 @@ export class EventValidationRequest {
       serializedEvent,
       eventCommitment,
       txHash,
-      recipient,
     );
   }
 }

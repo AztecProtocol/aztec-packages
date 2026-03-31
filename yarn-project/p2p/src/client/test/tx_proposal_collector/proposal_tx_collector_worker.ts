@@ -259,9 +259,20 @@ async function stopClient() {
   attestationPool = undefined;
 }
 
+function gracefulExit(code: number = 0) {
+  try {
+    if (process.connected) {
+      process.disconnect();
+    }
+  } catch {
+    // IPC channel already closed
+  }
+  setTimeout(() => process.exit(code), 5000).unref();
+}
+
 process.on('disconnect', () => {
   ipcDisconnected = true;
-  void stopClient().finally(() => process.exit(0));
+  void stopClient();
 });
 
 process.on('error', err => {
@@ -325,7 +336,7 @@ process.on('message', (msg: WorkerCommand) => {
         case 'STOP': {
           await stopClient();
           await sendMessage({ type: 'STOPPED', requestId });
-          process.exit(0);
+          gracefulExit(0);
           break;
         }
         default: {
@@ -336,7 +347,8 @@ process.on('message', (msg: WorkerCommand) => {
     } catch (err: any) {
       await sendMessage({ type: 'ERROR', requestId, error: err?.message ?? String(err) });
       if (msg.type === 'START') {
-        process.exit(1);
+        await stopClient();
+        gracefulExit(1);
       }
     }
   })();

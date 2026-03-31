@@ -7,6 +7,7 @@ import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   AnchorBlockStore,
+  CapsuleService,
   CapsuleStore,
   ContractStore,
   ContractSyncService,
@@ -179,7 +180,7 @@ export class TXESession implements TXESessionStateHandler {
 
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);
-    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore, keyStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -188,7 +189,13 @@ export class TXESession implements TXESessionStateHandler {
     const initialJobId = jobCoordinator.beginJob();
 
     const logger = createLogger('txe:session');
-    const contractSyncService = new ContractSyncService(stateMachine.node, contractStore, noteStore, logger);
+    const contractSyncService = new ContractSyncService(
+      stateMachine.node,
+      contractStore,
+      noteStore,
+      () => keyStore.getAccounts(),
+      logger,
+    );
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
@@ -372,7 +379,7 @@ export class TXESession implements TXESessionStateHandler {
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, 'ALL_SCOPES'),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId: this.currentJobId,
@@ -444,7 +451,7 @@ export class TXESession implements TXESessionStateHandler {
       aztecNode: this.stateMachine.node,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, 'ALL_SCOPES'),
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
       contractSyncService: this.contractSyncService,
@@ -537,7 +544,7 @@ export class TXESession implements TXESessionStateHandler {
           aztecNode: this.stateMachine.node,
           recipientTaggingStore: this.recipientTaggingStore,
           senderAddressBookStore: this.senderAddressBookStore,
-          capsuleStore: this.capsuleStore,
+          capsuleService: new CapsuleService(this.capsuleStore, scopes),
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
           contractSyncService: this.contractSyncService,

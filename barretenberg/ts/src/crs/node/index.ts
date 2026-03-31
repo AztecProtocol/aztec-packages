@@ -26,23 +26,36 @@ export class Crs {
     return crs;
   }
 
+  private hasUncompressed = false;
+
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    const compressedFileSize = await stat(this.path + '/bn254_g1_compressed.dat')
-      .then(stats => stats.size)
-      .catch(() => 0);
     const g2FileSize = await stat(this.path + '/bn254_g2.dat')
       .then(stats => stats.size)
       .catch(() => 0);
 
-    const hasCompressed = compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0;
-
-    if (hasCompressed && g2FileSize == 128) {
-      this.logger(`Using cached compressed CRS of size ${compressedFileSize / 32}`);
+    // Prefer cached uncompressed (64 bytes/point, no decompression needed)
+    const uncompressedFileSize = await stat(this.path + '/bn254_g1.dat')
+      .then(stats => stats.size)
+      .catch(() => 0);
+    if (uncompressedFileSize >= this.numPoints * 64 && uncompressedFileSize % 64 == 0 && g2FileSize == 128) {
+      this.logger(`Using cached uncompressed CRS of size ${uncompressedFileSize / 64}`);
+      this.hasUncompressed = true;
       return;
     }
 
+    // Fall back to compressed on disk
+    const compressedFileSize = await stat(this.path + '/bn254_g1_compressed.dat')
+      .then(stats => stats.size)
+      .catch(() => 0);
+    if (compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0 && g2FileSize == 128) {
+      this.logger(`Using cached compressed CRS of size ${compressedFileSize / 32} (will decompress once)`);
+      this.hasUncompressed = false;
+      return;
+    }
+
+    // Download compressed from CDN
     this.logger(`Downloading CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetCrs(this.numPoints);
     const g1Stream = await crs.streamG1Data();
@@ -52,20 +65,37 @@ export class Crs {
       finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + '/bn254_g1_compressed.dat'))),
       finished(Readable.fromWeb(g2Stream as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
     ]);
+    this.hasUncompressed = false;
   }
 
   /**
-   * G1 points data for prover key (compressed, 32 bytes/point).
-   * Decompression happens in C++ via SrsInitSrs.
+   * G1 points data for prover key. Returns uncompressed (64 bytes/point) if cached,
+   * otherwise compressed (32 bytes/point) for WASM to decompress.
    */
   getG1Data(): Uint8Array {
     const numPoints = Math.max(this.numPoints, 1);
+    if (this.hasUncompressed) {
+      const length = numPoints * 64;
+      const fd = openSync(this.path + '/bn254_g1.dat', 'r');
+      const data = new Uint8Array(length);
+      readSync(fd, data, 0, length, 0);
+      closeSync(fd);
+      return data;
+    }
     const compressedLength = numPoints * 32;
     const fd = openSync(this.path + '/bn254_g1_compressed.dat', 'r');
     const compressed = new Uint8Array(compressedLength);
     readSync(fd, compressed, 0, compressedLength, 0);
     closeSync(fd);
     return compressed;
+  }
+
+  /**
+   * Cache uncompressed G1 data to disk after WASM decompression.
+   */
+  async cacheUncompressed(data: Uint8Array): Promise<void> {
+    writeFileSync(this.path + '/bn254_g1.dat', data);
+    this.hasUncompressed = true;
   }
 
   /**

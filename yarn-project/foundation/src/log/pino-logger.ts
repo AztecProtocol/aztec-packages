@@ -21,6 +21,8 @@ export type LoggerBindings = {
   instanceId?: string;
 };
 
+const MAX_MODULE_NAME_LENGTH = 256;
+
 // Allow global hooks for providing default bindings.
 // Used by withLoggerBindings in pino-logger-server to propagate bindings via AsyncLocalStorage.
 type LogBindingsHandler = () => LoggerBindings | undefined;
@@ -48,7 +50,7 @@ function getBindingsFromHandlers(): LoggerBindings | undefined {
 }
 
 export function createLogger(module: string, bindings?: LoggerBindings): Logger {
-  module = module.replace(/^aztec:/, '');
+  module = module.slice(0, MAX_MODULE_NAME_LENGTH).replace(/^aztec:/, '');
 
   const resolvedBindings = { ...getBindingsFromHandlers(), ...bindings };
   const actor = resolvedBindings?.actor;

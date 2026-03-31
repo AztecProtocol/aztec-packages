@@ -127,6 +127,7 @@ FEEPERDAGAS
 feeperl
 FEEPERL
 Fflonk
+FILESTORES
 flamegraph
 Flamegraph
 footgun
@@ -329,6 +330,7 @@ timelocked
 tonelli
 townhall
 townhalls
+TORADIXBE
 TORADIXLE
 Tpkm
 transactionfee
@@ -365,6 +367,7 @@ valuenote
 vecs
 versionˮ
 viewability
+vnext
 visualisation
 visualise
 visualised

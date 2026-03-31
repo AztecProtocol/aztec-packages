@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -16,6 +17,7 @@ import {
   type Hex,
   type StateOverride,
   type WatchContractEventReturnType,
+  encodeAbiParameters,
   encodeFunctionData,
   getContract,
   hexToBigInt,
@@ -212,6 +214,7 @@ export type CheckpointProposedLog = L1EventLog<CheckpointProposedArgs>;
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
+  private readonly logger = createLogger('ethereum:rollup');
 
   private static cachedStfStorageSlot: Hex | undefined;
   private cachedEscapeHatch?: {
@@ -495,7 +498,11 @@ export class RollupContract {
 
       const [isOpen] = await escapeHatch.read.isHatchOpen([BigInt(epoch)]);
       return isOpen;
-    } catch {
+    } catch (err) {
+      this.logger.warn('isEscapeHatchOpen failed (treating as closed); RPC or contract error may cause liveness risk', {
+        epoch: Number(epoch),
+        error: err,
+      });
       return false;
     }
   }
@@ -782,10 +789,18 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     timestamp: bigint,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: {
+      forcePendingCheckpointNumber?: CheckpointNumber;
+      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
+    } = {},
   ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
     const timeOfNextL1Slot = timestamp;
     const who = typeof account === 'string' ? account : account.address;
+
+    const stateOverride = RollupContract.mergeStateOverrides(
+      await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
+      opts.forceArchive ? this.makeArchiveOverride(opts.forceArchive.checkpointNumber, opts.forceArchive.archive) : [],
+    );
 
     try {
       const {
@@ -796,7 +811,7 @@ export class RollupContract {
         functionName: 'canProposeAtTime',
         args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
         account,
-        stateOverride: await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
+        stateOverride,
       });
 
       return {
@@ -830,6 +845,151 @@ export class RollupContract {
         stateDiff: [{ slot, value: `0x${newValue.toString(16).padStart(64, '0')}` }],
       },
     ];
+  }
+
+  /**
+   * Returns a state override that sets tempCheckpointLogs[checkpointNumber].feeHeader to the compressed fee header.
+   * Used when simulating a propose call where the parent checkpoint hasn't landed on L1 yet (pipelining).
+   */
+  public async makeFeeHeaderOverride(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader): Promise<StateOverride> {
+    const { epochDuration, proofSubmissionEpochs } = await this.getRollupConstants();
+    const roundaboutSize = BigInt(epochDuration * (proofSubmissionEpochs + 1) + 1);
+    const circularIndex = BigInt(checkpointNumber) % roundaboutSize;
+
+    // tempCheckpointLogs is at offset 2 in RollupStore
+    const tempCheckpointLogsMappingBase = hexToBigInt(RollupContract.stfStorageSlot) + 2n;
+
+    // Solidity mapping slot: keccak256(abi.encode(key, baseSlot))
+    const structBaseSlot = hexToBigInt(
+      keccak256(
+        encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [circularIndex, tempCheckpointLogsMappingBase]),
+      ),
+    );
+
+    // feeHeader is the 7th field (offset 6) in CompressedTempCheckpointLog
+    const feeHeaderSlot = structBaseSlot + 6n;
+    const compressed = RollupContract.compressFeeHeader(feeHeader);
+
+    return [
+      {
+        address: this.address,
+        stateDiff: [
+          {
+            slot: `0x${feeHeaderSlot.toString(16).padStart(64, '0')}`,
+            value: `0x${compressed.toString(16).padStart(64, '0')}`,
+          },
+        ],
+      },
+    ];
+  }
+
+  /**
+   * Returns a state override that sets archives[checkpointNumber] to the given archive value.
+   * Used when simulating a canProposeAtTime call where the local archive differs from L1
+   * (e.g. pipelining where the parent checkpoint hasn't landed on L1 yet).
+   */
+  public makeArchiveOverride(checkpointNumber: CheckpointNumber, archive: Fr): StateOverride {
+    const archivesMappingBase = hexToBigInt(RollupContract.stfStorageSlot) + 1n;
+    const archiveSlot = hexToBigInt(
+      keccak256(
+        encodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256' }],
+          [BigInt(checkpointNumber), archivesMappingBase],
+        ),
+      ),
+    );
+    return [
+      {
+        address: this.address,
+        stateDiff: [
+          {
+            slot: `0x${archiveSlot.toString(16).padStart(64, '0')}`,
+            value: archive.toString(),
+          },
+        ],
+      },
+    ];
+  }
+
+  /** Merges multiple StateOverride arrays, combining stateDiff entries for the same address. */
+  public static mergeStateOverrides(...overrides: StateOverride[]): StateOverride {
+    type StateDiffEntry = { slot: `0x${string}`; value: `0x${string}` };
+    const byAddress = new Map<string, { address: `0x${string}`; balance?: bigint; stateDiff: StateDiffEntry[] }>();
+    for (const override of overrides) {
+      for (const entry of override) {
+        const key = entry.address.toLowerCase();
+        const existing = byAddress.get(key);
+        if (existing) {
+          existing.stateDiff.push(...(entry.stateDiff ?? []));
+          if (entry.balance !== undefined) {
+            existing.balance = entry.balance;
+          }
+        } else {
+          byAddress.set(key, {
+            address: entry.address,
+            balance: entry.balance,
+            stateDiff: [...(entry.stateDiff ?? [])],
+          });
+        }
+      }
+    }
+    return [...byAddress.values()];
+  }
+
+  /** Compresses a FeeHeader into a uint256 matching FeeHeaderLib.compress() in FeeStructs.sol. */
+  public static compressFeeHeader(feeHeader: FeeHeader): bigint {
+    const MASK_48_BITS = (1n << 48n) - 1n;
+    const MASK_64_BITS = (1n << 64n) - 1n;
+    const MASK_63_BITS = (1n << 63n) - 1n;
+
+    let value = BigInt(feeHeader.manaUsed) & ((1n << 32n) - 1n); // bits [0:31]
+    value |= (feeHeader.excessMana < MASK_48_BITS ? feeHeader.excessMana : MASK_48_BITS) << 32n; // bits [32:79]
+    value |= (BigInt(feeHeader.ethPerFeeAsset) & MASK_48_BITS) << 80n; // bits [80:127]
+    value |= (feeHeader.congestionCost < MASK_64_BITS ? feeHeader.congestionCost : MASK_64_BITS) << 128n; // bits [128:191]
+    value |= (feeHeader.proverCost < MASK_63_BITS ? feeHeader.proverCost : MASK_63_BITS) << 192n; // bits [192:254]
+    value |= 1n << 255n; // preheat flag
+    return value;
+  }
+
+  /** Computes the fee header for a child checkpoint given parent fee header and child data.
+   *  Must stay in sync with Solidity FeeLib.sol (computeNewEthPerFeeAsset, clampedAdd). */
+  public static computeChildFeeHeader(
+    parentFeeHeader: FeeHeader,
+    childManaUsed: bigint,
+    feeAssetPriceModifier: bigint,
+    manaTarget: bigint,
+  ): FeeHeader {
+    const MIN_ETH_PER_FEE_ASSET = 100n;
+    const MAX_ETH_PER_FEE_ASSET = 100_000_000_000_000n; // 1e14, matches FeeLib.sol
+
+    // excessMana = clampedAdd(parent.excessMana + parent.manaUsed, -manaTarget)
+    const sum = parentFeeHeader.excessMana + parentFeeHeader.manaUsed;
+    const excessMana = sum > manaTarget ? sum - manaTarget : 0n;
+
+    // ethPerFeeAsset = computeNewEthPerFeeAsset(max(parent.ethPerFeeAsset, MIN), modifier)
+    const parentPrice =
+      parentFeeHeader.ethPerFeeAsset > MIN_ETH_PER_FEE_ASSET ? parentFeeHeader.ethPerFeeAsset : MIN_ETH_PER_FEE_ASSET;
+    let newPrice: bigint;
+    if (feeAssetPriceModifier >= 0n) {
+      newPrice = (parentPrice * (10_000n + feeAssetPriceModifier)) / 10_000n;
+    } else {
+      const absMod = -feeAssetPriceModifier;
+      newPrice = (parentPrice * (10_000n - absMod)) / 10_000n;
+    }
+    if (newPrice < MIN_ETH_PER_FEE_ASSET) {
+      newPrice = MIN_ETH_PER_FEE_ASSET;
+    }
+    if (newPrice > MAX_ETH_PER_FEE_ASSET) {
+      newPrice = MAX_ETH_PER_FEE_ASSET;
+    }
+
+    return {
+      excessMana,
+      manaUsed: childManaUsed,
+      ethPerFeeAsset: newPrice,
+      congestionCost: 0n,
+      proverCost: 0n,
+    };
   }
 
   /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
@@ -880,8 +1040,8 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean): Promise<bigint> {
-    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset]);
+  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean, stateOverride?: StateOverride): Promise<bigint> {
+    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset], { stateOverride });
   }
 
   async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {

@@ -7,7 +7,7 @@ import {
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
 import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import { type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointInput, type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublicWithCommitment,
   computeContractAddressFromInstance,
@@ -118,6 +118,15 @@ export class ArchiverDataStoreUpdater {
     return result;
   }
 
+  public async setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
+    const result = await this.store.transactionAsync(async () => {
+      await this.store.setProposedCheckpoint(proposedCheckpoint);
+      await this.l2TipsCache?.refresh();
+    });
+
+    return result;
+  }
+
   /**
    * Checks for local proposed blocks that do not match the ones to be checkpointed and prunes them.
    * This method handles multiple checkpoints but returns after pruning the first conflict found.
@@ -211,6 +220,10 @@ export class ArchiverDataStoreUpdater {
       }
 
       const result = await this.removeBlocksAfter(blockNumber);
+
+      // Clear the proposed checkpoint if it exists, since its blocks have been pruned
+      await this.store.deleteProposedCheckpoint();
+
       await this.l2TipsCache?.refresh();
       return result;
     });
