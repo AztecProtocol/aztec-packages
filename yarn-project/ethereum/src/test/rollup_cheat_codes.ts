@@ -27,7 +27,7 @@ export class RollupCheatCodes {
   private logger = createLogger('aztecjs:cheat_codes');
 
   constructor(
-    private ethCheatCodes: EthCheatCodes,
+    public readonly ethCheatCodes: EthCheatCodes,
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
     private readonly ethereumSlotDuration: number = 12,
   ) {

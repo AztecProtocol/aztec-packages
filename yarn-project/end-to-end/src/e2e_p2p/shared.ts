@@ -6,7 +6,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { TxHash } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { type EpochCacheInterface, EpochNotFinalizedError } from '@aztec/epoch-cache';
 import type {
   EmpireSlashingProposerContract,
   RollupContract,
@@ -186,14 +186,26 @@ export async function advanceToEpochBeforeProposer({
       `Checking next epoch ${nextEpoch} (slots ${startSlot}-${endSlot - 1}) for proposer ${targetProposer} (current epoch: ${currentEpoch})`,
     );
 
-    for (let s = startSlot; s < endSlot; s++) {
-      const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(s));
-      if (proposer && proposer.equals(targetProposer)) {
-        logger.warn(
-          `Found target proposer ${targetProposer} in slot ${s} of epoch ${nextEpoch}. Staying at epoch ${currentEpoch} to allow sequencer startup.`,
-        );
-        return { targetEpoch: EpochNumber(nextEpoch) };
+    try {
+      for (let s = startSlot; s < endSlot; s++) {
+        const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(s));
+        if (proposer && proposer.equals(targetProposer)) {
+          logger.warn(
+            `Found target proposer ${targetProposer} in slot ${s} of epoch ${nextEpoch}. Staying at epoch ${currentEpoch} to allow sequencer startup.`,
+          );
+          return { targetEpoch: EpochNumber(nextEpoch) };
+        }
       }
+    } catch (err) {
+      if (err instanceof EpochNotFinalizedError) {
+        // Finalized block hasn't caught up to the sampling timestamp yet.
+        // Mine extra empty blocks to push finalized forward and retry this epoch.
+        logger.info(`Finalized block behind sampling timestamp for epoch ${nextEpoch}, mining extra blocks`);
+        await cheatCodes.ethCheatCodes.mine(10);
+        attempt--;
+        continue;
+      }
+      throw err;
     }
 
     logger.info(`Target proposer not found in epoch ${nextEpoch}, advancing to next epoch`);
