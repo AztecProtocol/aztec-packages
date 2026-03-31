@@ -384,30 +384,11 @@ export class ArchiverL1Synchronizer implements Traceable {
 
     // Compare local message store state with the remote. If they match, we just advance the match pointer.
     const remoteMessagesState = await this.inbox.getState({ blockNumber: currentL1BlockNumber });
-<<<<<<< HEAD
-
-    this.log.trace(`Retrieved remote inbox state at L1 block ${currentL1BlockNumber}.`, {
-      localMessagesInserted,
-      localLastMessage,
-      remoteMessagesState,
-    });
-
-    // Compare message count and rolling hash. If they match, no need to retrieve anything.
-    if (
-      remoteMessagesState.totalMessagesInserted === localMessagesInserted &&
-      remoteMessagesState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer32.ZERO)
-    ) {
-      this.log.trace(
-        `No L1 to L2 messages to query between L1 blocks ${messagesSyncPoint.l1BlockNumber} and ${currentL1BlockNumber}.`,
-      );
-      return;
-=======
     const localLastMessage = await this.store.getLastL1ToL2Message();
     if (await this.localStateMatches(localLastMessage, remoteMessagesState)) {
       this.log.trace(`Local L1 to L2 messages are already in sync with remote at L1 block ${currentL1BlockNumber}`);
       await this.store.setMessageSyncState(currentL1Block, remoteMessagesState.treeInProgress);
       return true;
->>>>>>> cc3a64cca7 (fix(archiver): always advance L1-to-L2 messages syncpoint to current L1 block (#22154))
     }
 
     // If not, then we are out of sync. Most likely there are new messages on the inbox, so we try retrieving them.

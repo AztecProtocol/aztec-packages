@@ -2178,8 +2178,6 @@ describe('KVArchiverDataStore', () => {
       await store.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
     });
-<<<<<<< HEAD
-=======
 
     describe('inbox tree in progress guard', () => {
       it('throws when checkpointNumber >= treeInProgress', async () => {
@@ -2217,7 +2215,6 @@ describe('KVArchiverDataStore', () => {
         await expect(store.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
       });
     });
->>>>>>> cc3a64cca7 (fix(archiver): always advance L1-to-L2 messages syncpoint to current L1 block (#22154))
   });
 
   describe('contractInstances', () => {
