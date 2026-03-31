@@ -1,12 +1,10 @@
 use aztec::macros::aztec;
 
 #[aztec]
-<<<<<<< HEAD
-pub contract InvalidEventContract {
+contract InvalidEventContract {
     use aztec::{
-        event::event_interface::EventInterface,
         macros::{events::event, functions::external},
-        messages::logs::event::MAX_EVENT_SERIALIZED_LEN,
+        messages::{logs::event::MAX_EVENT_SERIALIZED_LEN, message_delivery::MessageDelivery},
         protocol::{traits::Serialize, utils::writer::Writer},
     };
 
@@ -22,11 +20,6 @@ pub contract InvalidEventContract {
 
         fn stream_serialize<let K: u32>(self, _writer: &mut Writer<K>) {}
     }
-=======
-contract InvalidEventContract {
-    use crate::invalid_event::InvalidEvent;
-    use aztec::{macros::functions::external, messages::message_delivery::MessageDelivery};
->>>>>>> ed8f9f9272 (feat: move event size check from declaration to private emission (#22168))
 
     // Emitting an oversized event privately should fail at compile time because its serialized length exceeds
     // MAX_EVENT_SERIALIZED_LEN.
