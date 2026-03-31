@@ -1,14 +1,52 @@
 /**
- * Echo IPC server (C++) — uses GENERATED types + dispatch + template IPC server.
+ * Echo IPC server (C++) — uses GENERATED dispatch + template Ctx.
  * Usage: echo_server --socket /tmp/echo.sock
  */
 
-#include "generated/types_gen.hpp"
-#include "generated/ipc_server.hpp"
+// barretenberg's custom msgpack adaptor for SERIALIZATION_FIELDS —
+// enables msgpack::object::convert() to work with the generated types.
+// Must be included before echo_ipc_server.hpp which uses convert()/pack().
+#include "generated/echo_types.hpp"
+#ifndef THROW
+#define THROW throw
+#endif
+#ifndef RETHROW
+#define RETHROW throw
+#endif
+#include <msgpack.hpp>
+#include "struct_map_impl.hpp"
+
+// The generated server header declares template handler functions.
+// We need to see those declarations before providing specializations.
+// Importantly, make_echo_handler() is defined inline but only instantiated
+// when serve() is called in main() — so specializations defined after
+// the header but before main() are visible at instantiation time.
+#include "generated/echo_ipc_server.hpp"
+
 #include <iostream>
 #include <string_view>
 
-using namespace echo;
+namespace echo {
+
+struct EchoCtx {}; // empty context for the echo service
+
+// Template specializations — echo input fields back in response.
+template <>
+wire::EchoBytesResponse handle_bytes(EchoCtx& /*ctx*/, wire::EchoBytes&& cmd) {
+    return { .data = std::move(cmd.data) };
+}
+
+template <>
+wire::EchoFieldsResponse handle_fields(EchoCtx& /*ctx*/, wire::EchoFields&& cmd) {
+    return { .a = cmd.a, .b = cmd.b, .name = std::move(cmd.name) };
+}
+
+template <>
+wire::EchoNestedResponse handle_nested(EchoCtx& /*ctx*/, wire::EchoNested&& cmd) {
+    return { .inner = std::move(cmd.inner) };
+}
+
+} // namespace echo
 
 int main(int argc, char** argv) {
     const char* socket_path = nullptr;
@@ -17,31 +55,7 @@ int main(int argc, char** argv) {
     }
     if (!socket_path) { std::cerr << "Usage: echo_server --socket <path>\n"; return 1; }
 
-    ipc::serve(socket_path, [](const std::vector<uint8_t>& payload) -> std::vector<uint8_t> {
-        auto oh = msgpack::unpack(reinterpret_cast<const char*>(payload.data()), payload.size());
-        auto& inner = oh.get().via.array.ptr[0];
-        std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
-        auto& cmd_payload = inner.via.array.ptr[1];
-
-        msgpack::sbuffer resp_buf;
-        msgpack::packer<msgpack::sbuffer> pk(resp_buf);
-
-        if (cmd_name == "EchoBytes") {
-            EchoBytes cmd; cmd_payload.convert(cmd);
-            pk.pack_array(2); pk.pack(std::string("EchoBytesResponse")); pk.pack(cmd);
-        } else if (cmd_name == "EchoFields") {
-            EchoFields cmd; cmd_payload.convert(cmd);
-            pk.pack_array(2); pk.pack(std::string("EchoFieldsResponse")); pk.pack(cmd);
-        } else if (cmd_name == "EchoNested") {
-            EchoNested cmd; cmd_payload.convert(cmd);
-            pk.pack_array(2); pk.pack(std::string("EchoNestedResponse")); pk.pack(cmd);
-        } else if (cmd_name == "EchoShutdown") {
-            pk.pack_array(2); pk.pack(std::string("EchoShutdownResponse")); pk.pack_map(0);
-        } else {
-            pk.pack_array(2); pk.pack(std::string("EchoErrorResponse"));
-            pk.pack_map(1); pk.pack(std::string("message")); pk.pack(std::string("unknown: ") + cmd_name);
-        }
-        return std::vector<uint8_t>(resp_buf.data(), resp_buf.data() + resp_buf.size());
-    });
+    echo::EchoCtx ctx;
+    echo::serve(socket_path, ctx);
     return 0;
 }

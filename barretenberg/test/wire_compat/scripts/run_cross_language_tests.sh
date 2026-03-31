@@ -25,9 +25,12 @@ echo "Building Rust echo binaries..."
 # Build C++ binaries
 echo "Building C++ echo binaries..."
 MSGPACK_INC="$(cd "$TEST_DIR/../.." && pwd)/cpp/build/_deps/msgpack-c/src/msgpack-c/include"
+# barretenberg's custom msgpack adaptors (for SERIALIZATION_FIELDS support)
+BB_SERIALIZE="$(cd "$TEST_DIR/../.." && pwd)/cpp/src/barretenberg/serialize/msgpack_impl"
 if [ -d "$MSGPACK_INC" ]; then
-  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -I . -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_server echo_server.cpp 2>&1)
-  (cd cpp && clang++ -std=c++20 -I "$MSGPACK_INC" -I . -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -o echo_client echo_client.cpp 2>&1)
+  CXX_FLAGS="-std=c++20 -I $MSGPACK_INC -I $BB_SERIALIZE -I . -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR"
+  (cd cpp && clang++ $CXX_FLAGS -o echo_server echo_server.cpp 2>&1)
+  (cd cpp && clang++ $CXX_FLAGS -o echo_client echo_client.cpp 2>&1)
   CPP_AVAILABLE=true
 else
   echo "  (skipping C++ — msgpack-c not found at $MSGPACK_INC, run cmake first)"
@@ -59,9 +62,12 @@ fi
 # Build Zig binaries
 echo "Building Zig echo binaries..."
 if command -v zig &>/dev/null; then
-  (cd zig && zig build-exe echo_server.zig -ODebug 2>&1 && zig build-exe echo_client.zig -ODebug 2>&1)
-  SERVERS+=("zig:zig/echo_server:Zig")
-  CLIENTS+=("zig:zig/echo_client:Zig")
+  if (cd zig && zig build-exe echo_server.zig -ODebug 2>&1 && zig build-exe echo_client.zig -ODebug 2>&1); then
+    SERVERS+=("zig:zig/echo_server:Zig")
+    CLIENTS+=("zig:zig/echo_client:Zig")
+  else
+    echo "  (skipping Zig — build failed, msgpack module may be missing)"
+  fi
 else
   echo "  (skipping Zig — zig not found)"
 fi

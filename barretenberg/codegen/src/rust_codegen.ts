@@ -657,4 +657,127 @@ ${shutdownArm}
 }
 `;
   }
+
+  // -----------------------------------------------------------------------
+  // Skeleton generation (one-time handler stubs + main + build files)
+  // -----------------------------------------------------------------------
+
+  /** Generate handler stub implementations that return unimplemented errors */
+  generateHandlerStubs(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const typesModule = `${toSnakeCase(prefix)}_types`;
+    const serverModule = `${toSnakeCase(prefix)}_server`;
+    const ctxName = `${prefix}Context`;
+
+    const stubs = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        const methodName = this.methodName(c.name);
+        const cmdRustName = toPascalCase(c.name);
+        const respRustName = toPascalCase(c.responseType);
+        return `    fn ${methodName}(&mut self, _cmd: ${typesModule}::${cmdRustName}) -> Result<${typesModule}::${respRustName}> {
+        unimplemented!("${c.name}")
+    }`;
+      }).join('\n\n');
+
+    return `// Handler stubs — implement your service logic here.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+
+mod generated {
+    pub mod ${typesModule};
+    pub mod ${serverModule};
+    pub mod ipc_server;
+}
+
+use generated::${typesModule};
+use generated::${serverModule};
+
+/// Shared context for your service — add database connections, state, etc.
+pub struct ${ctxName} {
+    // Add your shared state here
+}
+
+/// Handler implementation
+pub struct ${prefix}Handler {
+    pub ctx: ${ctxName},
+}
+
+impl ${serverModule}::Handler for ${prefix}Handler {
+${stubs}
+}
+`;
+  }
+
+  /** Generate a main.rs entry point for a standalone service */
+  generateMain(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const ctxName = `${prefix}Context`;
+    const serverModule = `${toSnakeCase(prefix)}_server`;
+
+    return `// Entry point for ${prefix} service.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+
+mod ${toSnakeCase(prefix)}_handlers;
+
+use ${toSnakeCase(prefix)}_handlers::{${ctxName}, ${prefix}Handler};
+
+fn main() {
+    let socket_path = std::env::args().nth(1).expect("Usage: ${toSnakeCase(prefix)} <socket_path>");
+
+    let ctx = ${ctxName} {};
+    let mut handler = ${prefix}Handler { ctx };
+
+    eprintln!("${prefix} server starting on {}", socket_path);
+    generated::ipc_server::serve(&socket_path, &mut handler);
+}
+`;
+  }
+
+  /** Generate Cargo.toml for a standalone service */
+  generateBuildFile(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const pkgName = toSnakeCase(prefix).replace(/_/g, '-');
+
+    return `[package]
+name = "${pkgName}-service"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "${pkgName}"
+path = "main.rs"
+
+[dependencies]
+rmp-serde = "1"
+serde = { version = "1", features = ["derive"] }
+`;
+  }
+
+  /** Generate .gitignore for the skeleton project */
+  generateGitignore(): string {
+    return `# Generated IPC code — do not edit, re-run generate.sh instead
+generated/
+target/
+`;
+  }
+
+  /** Generate a shell script to re-run codegen */
+  generateGenerateScript(schemaPath: string): string {
+    const { prefix } = this.opts;
+    return `#!/usr/bin/env bash
+# Re-generate IPC types, server, and client from schema.
+# Run from the project root directory.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SCHEMA="${schemaPath}"
+
+node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
+  --schema "$SCHEMA" \\
+  --lang rust \\
+  --out "$SCRIPT_DIR/generated" \\
+  --prefix ${prefix} \\
+  --server
+`;
+  }
 }

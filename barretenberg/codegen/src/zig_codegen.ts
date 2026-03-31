@@ -487,4 +487,165 @@ fn makeError(message: []const u8) ipc_server.DispatchResult {
 ${stubs}
 `;
   }
+
+  // -----------------------------------------------------------------------
+  // Skeleton generation (one-time handler stubs + main + build files)
+  // -----------------------------------------------------------------------
+
+  /** Generate handler stub implementations that return error.NotImplemented */
+  generateHandlerStubs(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const typesFile = `${toSnakeCase(prefix)}_types.zig`;
+    const serverFile = `${toSnakeCase(prefix)}_server.zig`;
+    const ctxName = `${prefix}Context`;
+
+    const stubs = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        const methodName = this.methodName(c.name);
+        const zigCmdName = toPascalCase(c.name);
+        const zigRespName = toPascalCase(c.responseType);
+        return `pub fn ${methodName}(ctx: *${ctxName}, cmd: types.${zigCmdName}) !types.${zigRespName} {
+    _ = ctx;
+    _ = cmd;
+    return error.NotImplemented;
+}`;
+      }).join('\n\n');
+
+    return `// Handler stubs — implement your service logic here.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+
+const std = @import("std");
+const types = @import("generated/${typesFile}");
+
+/// Shared context for your service — add database connections, state, etc.
+pub const ${ctxName} = struct {
+    // Add your shared state here
+};
+
+// ---------------------------------------------------------------------------
+// Handler implementations — fill these in with your service logic.
+// ---------------------------------------------------------------------------
+
+${stubs}
+`;
+  }
+
+  /** Generate a main.zig entry point for a standalone service */
+  generateMain(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const serverFile = `${toSnakeCase(prefix)}_server`;
+    const handlersFile = `${toSnakeCase(prefix)}_handlers`;
+
+    return `// Entry point for ${prefix} service.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+
+const std = @import("std");
+const server = @import("generated/${serverFile}.zig");
+
+pub fn main() !void {
+    const args = try std.process.argsAlloc(std.heap.page_allocator);
+    defer std.process.argsFree(std.heap.page_allocator, args);
+
+    if (args.len < 2) {
+        std.debug.print("Usage: ${toSnakeCase(prefix)} <socket_path>\\n", .{});
+        std.process.exit(1);
+    }
+
+    const socket_path = args[1];
+    std.debug.print("${prefix} server starting on {s}\\n", .{socket_path});
+    try server.serve(socket_path);
+}
+`;
+  }
+
+  /** Generate build.zig for a standalone service */
+  generateBuildFile(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const binName = toSnakeCase(prefix);
+
+    return `const std = @import("std");
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const msgpack_dep = b.dependency("zig-msgpack", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const exe = b.addExecutable(.{
+        .name = "${binName}",
+        .root_source_file = b.path("main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.root_module.addImport("msgpack", msgpack_dep.module("msgpack"));
+    b.installArtifact(exe);
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+
+    const run_step = b.step("run", "Run the ${prefix} service");
+    run_step.dependOn(&run_cmd.step);
+}
+`;
+  }
+
+  /** Generate build.zig.zon for dependency management */
+  generateBuildZon(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const binName = toSnakeCase(prefix);
+
+    return `.{
+    .name = "${binName}-service",
+    .version = "0.1.0",
+    .dependencies = .{
+        .@"zig-msgpack" = .{
+            .url = "https://github.com/zig-msgpack/zig-msgpack/archive/refs/heads/main.tar.gz",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "main.zig",
+        "generated",
+    },
+}
+`;
+  }
+
+  /** Generate .gitignore for the skeleton project */
+  generateGitignore(): string {
+    return `# Generated IPC code — do not edit, re-run generate.sh instead
+generated/
+zig-out/
+zig-cache/
+.zig-cache/
+`;
+  }
+
+  /** Generate a shell script to re-run codegen */
+  generateGenerateScript(schemaPath: string): string {
+    const { prefix } = this.opts;
+    return `#!/usr/bin/env bash
+# Re-generate IPC types, server, and client from schema.
+# Run from the project root directory.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SCHEMA="${schemaPath}"
+
+node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
+  --schema "$SCHEMA" \\
+  --lang zig \\
+  --out "$SCRIPT_DIR/generated" \\
+  --prefix ${prefix} \\
+  --server
+`;
+  }
 }

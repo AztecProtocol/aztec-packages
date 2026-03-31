@@ -223,6 +223,28 @@ function generate(args: Args) {
       if (args.curveConstants) {
         generateCurveConstants(absOut);
       }
+      // Skeleton (one-time handler stubs + main + build files)
+      if (args.skeleton) {
+        const skelDir = resolve(args.skeleton);
+        mkdirSync(skelDir, { recursive: true });
+        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+          const path = join(skelDir, name);
+          if (existsSync(path)) {
+            console.log(`  ${path} (exists, skipped)`);
+            return;
+          }
+          writeFileSync(path, content);
+          if (opts?.executable) {
+            try { execSync(`chmod +x ${path}`); } catch {}
+          }
+          console.log(`  ${path} (skeleton)`);
+        };
+        writeSkeleton(`${toSnakeCase(prefix)}_handlers.ts`, gen.generateHandlerStubs(compiled, prefix));
+        writeSkeleton('main.ts', gen.generateMain(compiled, prefix));
+        writeSkeleton('package.json', gen.generateBuildFile(prefix));
+        writeSkeleton('.gitignore', gen.generateGitignore());
+        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema, prefix), { executable: true });
+      }
       break;
     }
     case 'rust': {
@@ -246,6 +268,28 @@ function generate(args: Args) {
       if (args.ffi) {
         copyTemplateOnce('rust', 'ffi_backend.rs', absOut);
       }
+      // Skeleton (one-time handler stubs + main + build files)
+      if (args.skeleton) {
+        const skelDir = resolve(args.skeleton);
+        mkdirSync(skelDir, { recursive: true });
+        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+          const path = join(skelDir, name);
+          if (existsSync(path)) {
+            console.log(`  ${path} (exists, skipped)`);
+            return;
+          }
+          writeFileSync(path, content);
+          if (opts?.executable) {
+            try { execSync(`chmod +x ${path}`); } catch {}
+          }
+          console.log(`  ${path} (skeleton)`);
+        };
+        writeSkeleton(`${toSnakeCase(prefix)}_handlers.rs`, gen.generateHandlerStubs(compiled));
+        writeSkeleton('main.rs', gen.generateMain(compiled));
+        writeSkeleton('Cargo.toml', gen.generateBuildFile(compiled));
+        writeSkeleton('.gitignore', gen.generateGitignore());
+        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema), { executable: true });
+      }
       break;
     }
     case 'zig': {
@@ -267,6 +311,29 @@ function generate(args: Args) {
       }
       if (args.ffi) {
         copyTemplateOnce('zig', 'ffi_backend.zig', absOut);
+      }
+      // Skeleton (one-time handler stubs + main + build files)
+      if (args.skeleton) {
+        const skelDir = resolve(args.skeleton);
+        mkdirSync(skelDir, { recursive: true });
+        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+          const path = join(skelDir, name);
+          if (existsSync(path)) {
+            console.log(`  ${path} (exists, skipped)`);
+            return;
+          }
+          writeFileSync(path, content);
+          if (opts?.executable) {
+            try { execSync(`chmod +x ${path}`); } catch {}
+          }
+          console.log(`  ${path} (skeleton)`);
+        };
+        writeSkeleton(`${toSnakeCase(prefix)}_handlers.zig`, gen.generateHandlerStubs(compiled));
+        writeSkeleton('main.zig', gen.generateMain(compiled));
+        writeSkeleton('build.zig', gen.generateBuildFile(compiled));
+        writeSkeleton('build.zig.zon', gen.generateBuildZon(compiled));
+        writeSkeleton('.gitignore', gen.generateGitignore());
+        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema), { executable: true });
       }
       break;
     }
@@ -293,22 +360,30 @@ function generate(args: Args) {
         copyTemplate('cpp', 'ipc_client.hpp', absOut);
       }
 
-      // Skeleton (one-time handler stubs + main)
+      // Skeleton (one-time handler stubs + main + build files)
       if (args.skeleton) {
         const skelDir = resolve(args.skeleton);
         mkdirSync(skelDir, { recursive: true });
-        const handlersPath = join(skelDir, `${toSnakeCase(prefix)}_handlers.cpp`);
-        const mainPath = join(skelDir, 'main.cpp');
-        if (!existsSync(handlersPath)) {
-          writeFileSync(handlersPath, gen.generateHandlerStubs(compiled));
-          console.log(`  ${handlersPath} (skeleton)`);
-          cppFiles.push(handlersPath);
-        }
-        if (!existsSync(mainPath)) {
-          writeFileSync(mainPath, gen.generateMain(compiled));
-          console.log(`  ${mainPath} (skeleton)`);
-          cppFiles.push(mainPath);
-        }
+        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+          const path = join(skelDir, name);
+          if (existsSync(path)) {
+            console.log(`  ${path} (exists, skipped)`);
+            return;
+          }
+          writeFileSync(path, content);
+          if (opts?.executable) {
+            try { execSync(`chmod +x ${path}`); } catch {}
+          }
+          console.log(`  ${path} (skeleton)`);
+          if (path.endsWith('.cpp') || path.endsWith('.hpp')) {
+            cppFiles.push(path);
+          }
+        };
+        writeSkeleton(`${toSnakeCase(prefix)}_handlers.cpp`, gen.generateHandlerStubs(compiled));
+        writeSkeleton('main.cpp', gen.generateMain(compiled));
+        writeSkeleton('CMakeLists.txt', gen.generateBuildFile(compiled));
+        writeSkeleton('.gitignore', gen.generateGitignore());
+        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema), { executable: true });
       }
 
       formatCpp(cppFiles);

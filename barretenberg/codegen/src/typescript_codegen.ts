@@ -9,7 +9,7 @@
  */
 
 import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.ts';
-import { toPascalCase } from './naming.ts';
+import { toPascalCase, toSnakeCase } from './naming.ts';
 
 function toCamelCase(name: string): string {
   // If no underscores, assume already camelCase (e.g. forkId, classId)
@@ -517,6 +517,129 @@ ${dispatchCases}
         throw new Error(\`Unknown command: \${commandName}\`);
   }
 }
+`;
+  }
+
+  // -----------------------------------------------------------------------
+  // Skeleton generation (one-time handler stubs + main + build files)
+  // -----------------------------------------------------------------------
+
+  /** Generate handler stub implementations that throw "not implemented" */
+  generateHandlerStubs(schema: CompiledSchema, prefix: string): string {
+    const serverModule = `${toSnakeCase(prefix)}_server`;
+
+    // Collect import types
+    const importTypes = new Set<string>();
+    for (const cmd of schema.commands) {
+      if (cmd.name.endsWith('Shutdown')) continue;
+      importTypes.add(toPascalCase(cmd.name));
+      importTypes.add(toPascalCase(cmd.responseType));
+    }
+    importTypes.add('Handler');
+    const sortedImports = Array.from(importTypes).sort();
+
+    const stubs = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        const methodName = toCamelCase(c.name);
+        const cmdType = toPascalCase(c.name);
+        const respType = toPascalCase(c.responseType);
+        return `  async ${methodName}(command: ${cmdType}): Promise<${respType}> {
+    throw new Error('not implemented: ${c.name}');
+  }`;
+      }).join('\n\n');
+
+    return `// Handler stubs — implement your service logic here.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+
+import { ${sortedImports.join(', ')} } from './generated/${serverModule}.js';
+
+/** Shared context for your service — add database connections, state, etc. */
+export interface ${prefix}Context {
+  // Add your shared state here
+}
+
+/** Handler implementation */
+export class ${prefix}Handler implements Handler {
+  constructor(public ctx: ${prefix}Context) {}
+
+${stubs}
+}
+`;
+  }
+
+  /** Generate a main.ts entry point for a standalone service */
+  generateMain(schema: CompiledSchema, prefix: string): string {
+    const serverModule = `${toSnakeCase(prefix)}_server`;
+
+    return `// Entry point for ${prefix} service.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+
+import { serve } from './generated/ipc_server.js';
+import { dispatch } from './generated/${serverModule}.js';
+import { ${prefix}Handler } from './${toSnakeCase(prefix)}_handlers.js';
+
+const socketPath = process.argv[2];
+if (!socketPath) {
+  console.error('Usage: ${toSnakeCase(prefix)} <socket_path>');
+  process.exit(1);
+}
+
+const ctx = {};
+const handler = new ${prefix}Handler(ctx);
+
+console.error(\`${prefix} server starting on \${socketPath}\`);
+serve(socketPath, (commandName: string, payload: any) => dispatch(handler, commandName, payload));
+`;
+  }
+
+  /** Generate package.json for a standalone service */
+  generateBuildFile(prefix: string): string {
+    const pkgName = toSnakeCase(prefix).replace(/_/g, '-');
+
+    return JSON.stringify({
+      name: `${pkgName}-service`,
+      version: '0.1.0',
+      type: 'module',
+      scripts: {
+        build: 'tsc',
+        start: 'node --experimental-strip-types main.ts',
+        generate: 'bash generate.sh',
+      },
+      dependencies: {
+        msgpackr: '^1.10.0',
+      },
+      devDependencies: {
+        typescript: '^5.4.0',
+      },
+    }, null, 2) + '\n';
+  }
+
+  /** Generate .gitignore for the skeleton project */
+  generateGitignore(): string {
+    return `# Generated IPC code — do not edit, re-run generate.sh instead
+generated/
+node_modules/
+dist/
+`;
+  }
+
+  /** Generate a shell script to re-run codegen */
+  generateGenerateScript(schemaPath: string, prefix: string): string {
+    return `#!/usr/bin/env bash
+# Re-generate IPC types, server, and client from schema.
+# Run from the project root directory.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SCHEMA="${schemaPath}"
+
+node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
+  --schema "$SCHEMA" \\
+  --lang ts \\
+  --out "$SCRIPT_DIR/generated" \\
+  --prefix ${prefix} \\
+  --server
 `;
   }
 }

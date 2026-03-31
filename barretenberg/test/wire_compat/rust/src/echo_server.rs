@@ -1,11 +1,11 @@
-//! Echo IPC server — echoes commands back as responses.
+//! Echo IPC server — uses GENERATED dispatch + server template + types.
 //! Usage: echo_server --socket /tmp/echo.sock
 
-use echo_wire_compat::types_gen::*;
-use echo_wire_compat::server_gen::Handler;
-use echo_wire_compat::error::{EchoError, Result};
-use std::io::{Read, Write};
-use std::os::unix::net::UnixListener;
+use echo_wire_compat::generated::echo_server::Handler;
+use echo_wire_compat::generated::echo_types::*;
+use echo_wire_compat::generated::error::{EchoError, Result};
+use echo_wire_compat::generated::ipc_server;
+use std::cell::RefCell;
 
 struct EchoHandler;
 
@@ -28,61 +28,44 @@ fn main() -> Result<()> {
         .and_then(|i| args.get(i + 1))
         .expect("Usage: echo_server --socket <path>");
 
-    // Remove stale socket
     let _ = std::fs::remove_file(socket_path);
 
-    let listener = UnixListener::bind(socket_path)?;
-    eprintln!("echo_server(rust): listening on {}", socket_path);
+    // Wrap handler in RefCell so the Fn closure can borrow mutably.
+    let handler = RefCell::new(EchoHandler);
 
-    let (mut stream, _) = listener.accept()?;
-    let mut handler = EchoHandler;
+    ipc_server::serve(socket_path, |payload: &[u8]| {
+        // Deserialize: [Command]
+        let request: Vec<Command> = rmp_serde::from_slice(payload)
+            .unwrap_or_default();
 
-    loop {
-        // Read 4-byte LE length
-        let mut len_buf = [0u8; 4];
-        if stream.read_exact(&mut len_buf).is_err() {
-            break;
-        }
-        let len = u32::from_le_bytes(len_buf) as usize;
-
-        // Read payload
-        let mut payload = vec![0u8; len];
-        stream.read_exact(&mut payload)?;
-
-        // Deserialize: [[CommandName, {fields}]]
-        let request: Vec<Command> = rmp_serde::from_slice(&payload)
-            .map_err(|e| EchoError::Deserialization(e.to_string()))?;
-
-        let command = request.into_iter().next()
-            .ok_or_else(|| EchoError::Deserialization("empty request".into()))?;
-
-        // Check for shutdown
-        let is_shutdown = matches!(&command, Command::EchoShutdown(_));
-
-        // Dispatch
-        let response = match echo_wire_compat::server_gen::dispatch(&mut handler, command) {
-            Ok(resp) => resp,
-            Err(e) => Response::EchoErrorResponse(EchoErrorResponse {
-                message: e.to_string(),
-            }),
+        let command = match request.into_iter().next() {
+            Some(cmd) => cmd,
+            None => {
+                let err = Response::EchoErrorResponse(EchoErrorResponse {
+                    message: "empty request".to_string(),
+                });
+                return rmp_serde::to_vec_named(&err).unwrap_or_default();
+            }
         };
 
-        // Serialize response
-        let response_bytes = rmp_serde::to_vec_named(&response)
-            .map_err(|e| EchoError::Serialization(e.to_string()))?;
+        // Check for shutdown before dispatch
+        let is_shutdown = matches!(&command, Command::EchoShutdown(_));
 
-        // Send length-prefixed response
-        let resp_len = (response_bytes.len() as u32).to_le_bytes();
-        stream.write_all(&resp_len)?;
-        stream.write_all(&response_bytes)?;
-        stream.flush()?;
+        let response = match echo_wire_compat::generated::echo_server::dispatch(
+            &mut *handler.borrow_mut(), command
+        ) {
+            Ok(resp) => resp,
+            Err(_e) => {
+                if is_shutdown {
+                    Response::EchoShutdownResponse(EchoShutdownResponse {})
+                } else {
+                    Response::EchoErrorResponse(EchoErrorResponse {
+                        message: _e.to_string(),
+                    })
+                }
+            }
+        };
 
-        if is_shutdown {
-            break;
-        }
-    }
-
-    let _ = std::fs::remove_file(socket_path);
-    eprintln!("echo_server(rust): shutdown");
-    Ok(())
+        rmp_serde::to_vec_named(&response).unwrap_or_default()
+    }).map_err(|e| EchoError::Io(e))
 }

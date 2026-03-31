@@ -1047,4 +1047,57 @@ int main(int argc, char* argv[])
 }
 `;
   }
+
+  /** Generate CMakeLists.txt for a standalone service */
+  generateBuildFile(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const snakePrefix = toSnakeCase(prefix);
+
+    return `cmake_minimum_required(VERSION 3.20)
+project(${snakePrefix}_service CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Generated IPC code
+file(GLOB GENERATED_SOURCES generated/*.cpp generated/*.hpp)
+
+add_executable(${snakePrefix}
+    main.cpp
+    \${GENERATED_SOURCES}
+)
+
+target_include_directories(${snakePrefix} PRIVATE \${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(${snakePrefix} PRIVATE pthread)
+`;
+  }
+
+  /** Generate .gitignore for the skeleton project */
+  generateGitignore(): string {
+    return `# Generated IPC code — do not edit, re-run generate.sh instead
+generated/
+build/
+`;
+  }
+
+  /** Generate a shell script to re-run codegen */
+  generateGenerateScript(schemaPath: string): string {
+    const { prefix, namespace: ns } = this.opts;
+    return `#!/usr/bin/env bash
+# Re-generate IPC types, server, and client from schema.
+# Run from the project root directory.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SCHEMA="${schemaPath}"
+
+node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
+  --schema "$SCHEMA" \\
+  --lang cpp \\
+  --out "$SCRIPT_DIR/generated" \\
+  --prefix ${prefix} \\
+  --cpp-namespace ${ns} \\
+  --server
+`;
+  }
 }

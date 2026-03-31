@@ -1,15 +1,15 @@
 /**
- * Echo IPC server (TypeScript) — uses GENERATED dispatch + template IPC server.
+ * Echo IPC server (TypeScript) — uses GENERATED dispatch + IPC server template.
  * Usage: npx tsx echo_server.ts --socket /tmp/echo.sock
  */
 import { createServer } from './generated/ipc_server.js';
-import { dispatch } from './generated/server_gen.js';
-import type { Handler } from './generated/server_gen.js';
+import { dispatch } from './generated/echo_server.js';
+import type { Handler } from './generated/echo_server.js';
 import type {
   EchoBytes, EchoBytesResponse,
   EchoFields, EchoFieldsResponse,
   EchoNested, EchoNestedResponse,
-} from './generated/types_gen.js';
+} from './generated/echo_types.js';
 
 const args = process.argv.slice(2);
 const socketIdx = args.indexOf('--socket');
@@ -19,7 +19,7 @@ if (!socketPath) {
   process.exit(1);
 }
 
-// Implement the GENERATED Handler — echo everything back
+// Implement the GENERATED Handler interface — echo everything back
 const handler: Handler = {
   async echoBytes(cmd: EchoBytes): Promise<EchoBytesResponse> {
     return { data: cmd.data };
