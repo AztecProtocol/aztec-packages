@@ -78,6 +78,11 @@ describe('e2e_offchain_payment', () => {
     await cheatCodes.eth.reorg(1);
     await aztecNodeAdmin.rollbackTo(Number(block) - 1);
     expect(await aztecNode.getBlockNumber()).toBe(Number(block) - 1);
+
+    // Pause sync again to prevent the archiver from re-downloading the checkpoint
+    // before we can verify the rolled-back state. rollbackTo resumes sync internally,
+    // so without this the archiver races to re-sync the same checkpoint from L1.
+    await aztecNodeAdmin.pauseSync();
   }
 
   it('processes an offchain-delivered private payment via QR-style handoff', async () => {
@@ -208,7 +213,9 @@ describe('e2e_offchain_payment', () => {
     const { result: aliceAfterRollback } = await contract.methods.get_balance(alice).simulate({ from: alice });
     expect(aliceAfterRollback).toBe(mintAmount);
 
-    // The archiver re-syncs the same checkpoints from L1 after the reorg, so the tx gets re-mined automatically.
+    // Resume sync so the archiver re-downloads the checkpoint from L1 (tx gets re-mined automatically).
+    await aztecNodeAdmin.resumeSync();
+
     // Force an empty block so the PXE re-syncs and reprocesses the offchain-delivered notes.
     await forceEmptyBlock();
 
