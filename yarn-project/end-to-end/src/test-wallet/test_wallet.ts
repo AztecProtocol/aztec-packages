@@ -268,7 +268,11 @@ export class TestWallet extends BaseWallet {
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {
-    const fee = await this.completeFeeOptions(opts.from, exec.feePayer, opts.fee?.gasSettings);
+    const fee = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: exec.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+    });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     const txProvingResult = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     return new ProvenTx(

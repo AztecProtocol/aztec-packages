@@ -1,9 +1,12 @@
 import {
-  DEFAULT_DA_GAS_LIMIT,
   DEFAULT_L2_GAS_LIMIT,
-  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
-  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+  GAS_ESTIMATION_DA_GAS_LIMIT,
+  GAS_ESTIMATION_L2_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
   GAS_SETTINGS_LENGTH,
+  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+  MAX_PROCESSABLE_L2_GAS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
@@ -95,18 +98,46 @@ export class GasSettings {
     return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), GasFees.empty());
   }
 
-  /** Default gas settings to use when user has not provided them. Requires explicit max fees per gas. */
-  static default(overrides: {
+  /** Maximum gas settings the network can process. Fills in gas limits at the protocol maximum if not provided. */
+  static withMaxLimits(overrides: {
     gasLimits?: Gas;
     teardownGasLimits?: Gas;
     maxFeesPerGas: GasFees;
     maxPriorityFeesPerGas?: GasFees;
   }) {
     return GasSettings.from({
-      gasLimits: overrides.gasLimits ?? { l2Gas: DEFAULT_L2_GAS_LIMIT, daGas: DEFAULT_DA_GAS_LIMIT },
+      gasLimits: overrides.gasLimits ?? {
+        l2Gas: MAX_PROCESSABLE_L2_GAS,
+        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 4,
+      },
       teardownGasLimits: overrides.teardownGasLimits ?? {
-        l2Gas: DEFAULT_TEARDOWN_L2_GAS_LIMIT,
-        daGas: DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+        l2Gas: DEFAULT_L2_GAS_LIMIT / 8,
+        daGas: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 8,
+      },
+      maxFeesPerGas: overrides.maxFeesPerGas,
+      maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
+    });
+  }
+
+  /**
+   * Gas settings for simulation/estimation only. Uses intentionally high limits above what the
+   * network can process, so the simulation runs without hitting gas caps. The actual gas used
+   * is then read from the simulation result to set real limits for sending.
+   */
+  static forEstimation(overrides: {
+    gasLimits?: Gas;
+    teardownGasLimits?: Gas;
+    maxFeesPerGas: GasFees;
+    maxPriorityFeesPerGas?: GasFees;
+  }) {
+    return GasSettings.from({
+      gasLimits: overrides.gasLimits ?? {
+        l2Gas: GAS_ESTIMATION_L2_GAS_LIMIT,
+        daGas: GAS_ESTIMATION_DA_GAS_LIMIT,
+      },
+      teardownGasLimits: overrides.teardownGasLimits ?? {
+        l2Gas: GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
+        daGas: GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
       },
       maxFeesPerGas: overrides.maxFeesPerGas,
       maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
