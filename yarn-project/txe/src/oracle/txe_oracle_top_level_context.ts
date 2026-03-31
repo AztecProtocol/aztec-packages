@@ -323,15 +323,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(message);
     }
 
-    // In TXE, we use all registered accounts as scopes. This is needed because:
-    // - Constructors (from=zero) need key access for note log encryption
-    // - Sync needs access to all accounts for note nullifier computation
-    // - The calling account's keys must be accessible during private execution
-    // In production PXE, scopes are more restrictive, but TXE is a test environment where
-    // all accounts are co-located in the same key store.
-    const allAccounts = await this.keyStore.getAccounts();
-    const effectiveScopes = from.isZero() ? allAccounts : [from];
-    const syncScopes = allAccounts;
+    // When `from` is the zero address (e.g. when deploying a new account contract), we return an
+    // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
+    const effectiveScopes = from.isZero() ? [] : [from];
+
+    // For the sync step, we use all registered accounts as scopes. Note discovery during sync needs
+    // broader key access (e.g. to compute nullifiers for notes belonging to any registered account),
+    // while the private execution itself remains restricted to `effectiveScopes`.
+    const syncScopes = from.isZero() ? [] : await this.keyStore.getAccounts();
 
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
