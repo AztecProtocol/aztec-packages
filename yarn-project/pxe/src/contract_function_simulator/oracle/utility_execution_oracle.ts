@@ -554,25 +554,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    // We read all note and event validation requests and process them all concurrently. This makes the process much
-    // faster as we don't need to wait for the network round-trip.
-    const noteValidationRequests = (
-      await this.capsuleService.readCapsuleArray(
-        contractAddress,
-        noteValidationRequestsArrayBaseSlot,
-        this.jobId,
-        scope,
-      )
-    ).map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
+    // We read all note and event validation requests from ephemeral arrays and process them all concurrently. This
+    // makes the process much faster as we don't need to wait for the network round-trip.
+    const noteValidationRequests = this.ephemeralArrayService
+      .readArrayAt(noteValidationRequestsArrayBaseSlot)
+      .map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
 
-    const eventValidationRequests = (
-      await this.capsuleService.readCapsuleArray(
-        contractAddress,
-        eventValidationRequestsArrayBaseSlot,
-        this.jobId,
-        scope,
-      )
-    ).map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
+    const eventValidationRequests = this.ephemeralArrayService
+      .readArrayAt(eventValidationRequestsArrayBaseSlot)
+      .map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
@@ -604,22 +594,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     await Promise.all([...noteStorePromises, ...eventStorePromises]);
-
-    // Requests are cleared once we're done.
-    await this.capsuleService.setCapsuleArray(
-      contractAddress,
-      noteValidationRequestsArrayBaseSlot,
-      [],
-      this.jobId,
-      scope,
-    );
-    await this.capsuleService.setCapsuleArray(
-      contractAddress,
-      eventValidationRequestsArrayBaseSlot,
-      [],
-      this.jobId,
-      scope,
-    );
   }
 
   public async getLogsByTag(
@@ -818,6 +792,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   public ephemeralCopy(srcSlot: Fr, dstSlot: Fr, count: number): void {
     this.ephemeralArrayService.copy(srcSlot, dstSlot, count);
+  }
+
+  public ephemeralClear(baseSlot: Fr): void {
+    this.ephemeralArrayService.clear(baseSlot);
   }
 
   public emitOffchainEffect(data: Fr[]): Promise<void> {

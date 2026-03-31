@@ -30,7 +30,6 @@ pub(crate) unconstrained fn process_private_event_msg(
             serialized_event,
             event_commitment,
             tx_hash,
-            recipient,
         );
     } else {
         aztecnr_warn_log_format!(

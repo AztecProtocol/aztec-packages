@@ -705,6 +705,12 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_ephemeral_clear([baseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().ephemeralClear(Fr.fromString(baseSlot));
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_decryptAes128(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],

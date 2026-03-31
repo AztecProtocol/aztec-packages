@@ -164,6 +164,7 @@ export interface IUtilityExecutionOracle {
   ephemeralLen(baseSlot: Fr): number;
   ephemeralRemove(baseSlot: Fr, index: number): void;
   ephemeralCopy(srcSlot: Fr, dstSlot: Fr, count: number): void;
+  ephemeralClear(baseSlot: Fr): void;
 }
 
 /**

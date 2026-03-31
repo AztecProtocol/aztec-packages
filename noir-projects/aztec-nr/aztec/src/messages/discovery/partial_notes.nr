@@ -167,7 +167,6 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                     discovered_note.note_hash,
                     discovered_note.inner_nullifier,
                     log.tx_hash,
-                    scope,
                 );
             });
 

@@ -105,7 +105,6 @@ pub unconstrained fn attempt_note_discovery(
             discovered_note.note_hash,
             discovered_note.inner_nullifier,
             tx_hash,
-            recipient,
         );
     });
 }

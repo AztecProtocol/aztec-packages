@@ -75,6 +75,11 @@ impl<T> EphemeralArray<T> {
         ephemeral::remove_oracle(self.base_slot, index);
     }
 
+    /// Removes all elements from the array.
+    pub unconstrained fn clear(self) {
+        ephemeral::clear_oracle(self.base_slot);
+    }
+
     /// Calls a function on each element of the array.
     ///
     /// The function `f` is called once with each array value and its corresponding index. Iteration proceeds

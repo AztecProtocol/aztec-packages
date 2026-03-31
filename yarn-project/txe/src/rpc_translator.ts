@@ -969,6 +969,13 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_ephemeral_clear(foreignBaseSlot: ForeignCallSingle) {
+    const baseSlot = fromSingle(foreignBaseSlot);
+    this.handlerAsUtility().ephemeralClear(baseSlot);
+    return toForeignCallResult([]);
+  }
+
   // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
