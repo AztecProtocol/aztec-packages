@@ -263,9 +263,21 @@ WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
     // Rollback canonical to clear any uncommitted state
     rollback();
 
+    // Save pruning-related meta from canonical before the fork overwrites it.
+    // The fork's cached meta may have stale oldestHistoricBlock/finalizedBlockHeight
+    // from when it was created, so commit_block would overwrite LMDB with stale values.
+    std::array<TreeMeta, NUM_TREES> canonicalMeta;
+    get_all_tree_info(WorldStateRevision::committed(), canonicalMeta);
+
     // Clear fork flags so commit_block() is allowed on fork stores
     for (auto& [id, tree] : fork->_trees) {
         std::visit([](auto&& wrapper) { wrapper.tree->clear_initialized_from_block(); }, tree);
+    }
+
+    // Sync the fork's cached meta with canonical pruning state before committing.
+    // The fork's cached meta may have stale oldestHistoricBlock/finalizedBlockHeight.
+    for (auto& entry : fork->_trees) {
+        std::visit([&](auto&& wrapper) { wrapper.tree->sync_pruning_meta(canonicalMeta[entry.first]); }, entry.second);
     }
 
     // Commit fork trees to LMDB

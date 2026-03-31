@@ -77,6 +77,15 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
     void clear_initialized_from_block() { store_->clear_initialized_from_block(); }
 
+    void sync_pruning_meta(const TreeMeta& canonical)
+    {
+        TreeMeta meta;
+        store_->get_meta(meta);
+        meta.oldestHistoricBlock = canonical.oldestHistoricBlock;
+        meta.finalizedBlockHeight = canonical.finalizedBlockHeight;
+        store_->put_meta(meta);
+    }
+
     /**
      * @brief Adds a single value to the end of the tree
      * @param value The value to be added
