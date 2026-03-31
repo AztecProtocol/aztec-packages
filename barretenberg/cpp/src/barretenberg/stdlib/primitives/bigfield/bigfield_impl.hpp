@@ -1999,7 +1999,7 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit,
 // check elements are equal mod p by proving their integer difference is a multiple of p.
 // This relies on the minus operator for a-b increasing a by a multiple of p large enough so diff is non-negative
 // When one of the elements is a constant and another is a witness we check equality of limbs, so if the witness
-// bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatice reduced form
+// bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatic reduced form
 // detection for now, so it is up to the circuit writer to detect this
 template <typename Builder, typename T>
 void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const& msg) const
@@ -2010,13 +2010,16 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
         BB_ASSERT_EQ(get_value(), other.get_value(), "We expect constants to be less than the target modulus");
         return;
     } else if (other.is_constant()) {
-        // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This can lead to a situation where
-        // an honest prover cannot satisfy the constraints, because `this` is not reduced, but `other` is, i.e.,
-        // `this` = kp + r  and  `other` = r
-        // where k is a positive integer. In such a case, the prover cannot satisfy the constraints
-        // because the limb-differences would not be 0 mod r. Therefore, an honest prover needs to make sure that
-        // `this` is reduced before calling this method. Also `other` should never be greater than the modulus by
-        // design. As a precaution, we assert that the circuit-constant `other` is less than the modulus.
+        // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This does a limb-wise integer
+        // comparison, so `this` must already be in reduced form (value in [0, p)) before calling this method.
+        // If `this = kp + r` and `other = r`, the limbs differ and an honest prover cannot satisfy the
+        // constraints. Callers are responsible for calling self_reduce() first when necessary; we omit it
+        // here to avoid adding spurious gates in the common case where `this` is already reduced.
+        // `other` should never exceed the modulus by design; we assert this as a precaution.
+        BB_ASSERT_LT(get_value(),
+                     modulus_u512,
+                     "bigfield::assert_equal: 'this' is not reduced (value >= p). Call self_reduce() before comparing "
+                     "against a constant.");
         BB_ASSERT_LT(other.get_value(), modulus_u512);
         field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
         field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
