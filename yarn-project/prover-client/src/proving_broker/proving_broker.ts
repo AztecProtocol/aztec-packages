@@ -421,7 +421,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       return this.#getProvingJob(filter);
     }
 
-    if (retry && !this.isJobStale(item)) {
+    if (retry && retries + 1 < this.maxRetries && !this.isJobStale(item)) {
       this.logger.info(
         `Retrying proving job id=${id} type=${ProvingRequestType[item.type]} retry=${retries + 1} err=${err}`,
         {

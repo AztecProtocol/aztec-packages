@@ -951,7 +951,7 @@ describe.each([
       await assertJobStatus(provingJob.id, 'in-queue');
     });
 
-    it('retries indefinitely while job is not stale', async () => {
+    it('retries up to a maximum number of times', async () => {
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
@@ -960,16 +960,17 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      // retry well beyond what the old maxRetries would have allowed
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < maxRetries; i++) {
         await assertJobStatus(id, 'in-queue');
         await getAndAssertNextJobId(id);
         await assertJobStatus(id, 'in-progress');
         await broker.reportProvingJobError(id, 'test error', true);
       }
 
-      // job should still be in the queue, not rejected
-      await assertJobStatus(id, 'in-queue');
+      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
+        status: 'rejected',
+        reason: 'test error',
+      });
     });
 
     it('passing retry=false does not retry', async () => {
