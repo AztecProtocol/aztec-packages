@@ -32,7 +32,7 @@ inline uint256_t uint256_from_bytes(const std::vector<uint8_t>& bytes)
 {
     uint256_t val(0);
     if (bytes.size() >= 32) {
-        std::memcpy(&val, bytes.data(), 32);
+        std::memcpy(static_cast<void*>(&val), bytes.data(), 32);
     }
     return val;
 }

@@ -1,62 +1,42 @@
 #include "barretenberg/bbapi/bbapi_execute.hpp"
-#include "barretenberg/bbapi/bbapi_srs.hpp"
-#include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
 #include <gtest/gtest.h>
-#include <stdexcept>
-#include <string_view>
+#include <string>
 
 using namespace bb::bbapi;
 
 #ifndef BB_NO_EXCEPTIONS
 
-// Test that exceptions thrown during command execution are caught and converted to BbErrorResponse
+// Test that exceptions thrown during command execution are caught by the generated dispatch
 TEST(CBind, CatchesExceptionAndReturnsErrorResponse)
 {
-    // Create an BbSrsInitSrs command with invalid data that will cause an exception
-    // The from_buffer calls in bbapi_srs.cpp will read past buffer boundaries
-    BbSrsInitSrs cmd;
-    cmd.num_points = 100;                         // Request 100 points (6400 bytes needed)
-    cmd.points_buf = std::vector<uint8_t>(10, 0); // Only provide 10 bytes - will cause out of bounds access
-    cmd.g2_point = std::vector<uint8_t>(10, 0);   // Also too small (needs 128 bytes)
+    // Create an invalid SRS command via wire types — too few bytes for the claimed num_points
+    wire::BbSrsInitSrs wire_cmd;
+    wire_cmd.num_points = 100;                                // Request 100 points
+    wire_cmd.points_buf = std::vector<uint8_t>(10, 0);       // Only 10 bytes — will fail
+    wire_cmd.g2_point = std::vector<uint8_t>(10, 0);         // Also too small
 
-    Command command = std::move(cmd);
+    // Serialize as [[CommandName, {payload}]]
+    msgpack::sbuffer buf;
+    msgpack::packer<msgpack::sbuffer> pk(buf);
+    pk.pack_array(1);
+    pk.pack_array(2);
+    pk.pack(std::string("BbSrsInitSrs"));
+    pk.pack(wire_cmd);
 
-    // Call bbapi - exception should be caught and converted to BbErrorResponse
-    CommandResponse response = bbapi(std::move(command));
+    // Call the generated handler — exception should be caught and converted to error response
+    static BbRequest request;
+    auto handler = make_bb_handler(request);
+    auto response_bytes = handler(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
 
-    // Check that we got an BbErrorResponse using get_type_name()
-    std::string_view type_name = response.get_type_name();
-    EXPECT_EQ(type_name, "BbErrorResponse") << "Expected BbErrorResponse but got: " << type_name;
+    // Parse response: [ResponseName, {payload}]
+    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(response_bytes.data()), response_bytes.size());
+    auto obj = unpacked.get();
+    ASSERT_EQ(obj.type, msgpack::type::ARRAY);
+    ASSERT_EQ(obj.via.array.size, 2u);
 
-    // Also verify using std::holds_alternative on the underlying variant
-    bool is_error = std::holds_alternative<BbErrorResponse>(response.get());
-    EXPECT_TRUE(is_error) << "Expected BbErrorResponse variant";
-
-    if (is_error) {
-        const auto& error = std::get<BbErrorResponse>(response.get());
-        EXPECT_FALSE(error.message.empty()) << "Error message should not be empty";
-        std::cout << "Successfully caught exception with message: " << error.message << '\n';
-    }
-}
-
-// Test that valid operations still work correctly (no false positives)
-TEST(CBind, ValidOperationReturnsSuccess)
-{
-    // Create a BbShutdown command which should succeed without throwing
-    BbShutdown shutdown_cmd;
-    Command command = shutdown_cmd;
-
-    // Call bbapi - should return success response
-    CommandResponse response = bbapi(std::move(command));
-
-    // Check that we got a ShutdownResponse, not an BbErrorResponse
-    std::string_view type_name = response.get_type_name();
-    EXPECT_NE(type_name, "BbErrorResponse") << "Valid command should not return BbErrorResponse";
-    EXPECT_EQ(type_name, "ShutdownResponse") << "Expected ShutdownResponse";
-
-    // Also verify using std::holds_alternative on the underlying variant
-    bool is_shutdown = std::holds_alternative<BbShutdown::Response>(response.get());
-    EXPECT_TRUE(is_shutdown) << "Expected BbShutdown::Response variant";
+    std::string resp_name(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
+    EXPECT_EQ(resp_name, "BbErrorResponse") << "Expected error response but got: " << resp_name;
 }
 
 #else

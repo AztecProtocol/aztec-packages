@@ -1,4 +1,5 @@
-#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/generated/bb_types.hpp"
+#include <cstring>
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ipc/ipc_client.hpp"
@@ -16,7 +17,9 @@
 #include <unistd.h>
 
 using namespace benchmark;
+using Fr = std::array<uint8_t, 32>;
 using namespace bb;
+using Fr = std::array<uint8_t, 32>;
 
 namespace {
 
@@ -161,13 +164,16 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
 
                     while (!stop_background.load(std::memory_order_relaxed)) {
                         // Create Poseidon2Hash command
-                        bb::bbapi::Poseidon2Hash hash_cmd;
-                        hash_cmd.inputs = { uint256_t(bx), uint256_t(by) };
-                        bb::bbapi::Command command{ std::move(hash_cmd) };
+                        bb::bbapi::wire::BbPoseidon2Hash hash_cmd;
+                        { Fr fr_x; std::memcpy(fr_x.data(), &bx, 32); Fr fr_y; std::memcpy(fr_y.data(), &by, 32); hash_cmd.inputs = { fr_x, fr_y }; }
 
                         // Serialize command with tuple wrapping for CBIND compatibility
                         msgpack::sbuffer cmd_buffer;
-                        msgpack::pack(cmd_buffer, std::make_tuple(command));
+                        msgpack::packer<msgpack::sbuffer> pk(cmd_buffer);
+                        pk.pack_array(1);
+                        pk.pack_array(2);
+                        pk.pack(std::string("BbPoseidon2Hash"));
+                        pk.pack(hash_cmd);
 
                         // Send with retry on backpressure (100ms timeout)
                         constexpr uint64_t TIMEOUT_NS = 100000000; // 100ms
@@ -214,12 +220,15 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
         // Send Shutdown command to bb so it exits gracefully (use client 0)
         if (clients[0]) {
             // Create Shutdown command
-            bb::bbapi::Shutdown shutdown_cmd;
-            bb::bbapi::Command command{ std::move(shutdown_cmd) };
+            bb::bbapi::wire::BbShutdown shutdown_cmd;
 
             // Serialize command with tuple wrapping for CBIND compatibility
             msgpack::sbuffer cmd_buffer;
-            msgpack::pack(cmd_buffer, std::make_tuple(command));
+            msgpack::packer<msgpack::sbuffer> pk(cmd_buffer);
+            pk.pack_array(1);
+            pk.pack_array(2);
+            pk.pack(std::string("BbShutdown"));
+            pk.pack(shutdown_cmd);
 
             // Send shutdown command with retry (1s timeout)
             constexpr uint64_t TIMEOUT_NS = 1000000000; // 1 second
@@ -261,13 +270,16 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
 
         for (auto _ : state) {
             // Create Poseidon2Hash command
-            bb::bbapi::Poseidon2Hash hash_cmd;
-            hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
-            bb::bbapi::Command command{ std::move(hash_cmd) };
+            bb::bbapi::wire::BbPoseidon2Hash hash_cmd;
+            { Fr fr_x; std::memcpy(fr_x.data(), &x, 32); Fr fr_y; std::memcpy(fr_y.data(), &y, 32); hash_cmd.inputs = { fr_x, fr_y }; }
 
             // Serialize command with tuple wrapping for CBIND compatibility
             msgpack::sbuffer cmd_buffer;
-            msgpack::pack(cmd_buffer, std::make_tuple(command));
+            msgpack::packer<msgpack::sbuffer> pk(cmd_buffer);
+            pk.pack_array(1);
+            pk.pack_array(2);
+            pk.pack(std::string("BbPoseidon2Hash"));
+            pk.pack(hash_cmd);
 
             // Send command with retry on backpressure
             while (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), TIMEOUT_NS)) {
@@ -280,23 +292,28 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                 // Response not ready, retry
             }
 
-            // Deserialize response
+            // Deserialize response: wire format is [name, payload]
             auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp.data()), resp.size());
-            bb::bbapi::CommandResponse response;
-            unpacked.get().convert(response);
+            auto arr = unpacked.get().via.array;
+            if (arr.size != 2) {
+                clients[0]->release(resp.size());
+                state.SkipWithError("Invalid response format");
+                break;
+            }
+            std::string resp_name;
+            arr.ptr[0].convert(resp_name);
+            if (resp_name != "BbPoseidon2HashResponse") {
+                clients[0]->release(resp.size());
+                state.SkipWithError("Unexpected response type");
+                break;
+            }
+            bb::bbapi::wire::BbPoseidon2HashResponse hash_response;
+            arr.ptr[1].convert(hash_response);
 
             // Release the message
             clients[0]->release(resp.size());
 
-            // Extract hash from response
-            const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-            const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
-            if (hash_response == nullptr) {
-                state.SkipWithError("Invalid response type");
-                break;
-            }
-
-            auto hash = hash_response->hash;
+            auto hash = hash_response.hash;
             DoNotOptimize(hash);
         }
     }
