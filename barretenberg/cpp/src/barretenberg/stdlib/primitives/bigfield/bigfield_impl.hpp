@@ -2072,8 +2072,10 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
 
 // construct a proof that points are different mod p, when they are different mod r
 // WARNING: This method doesn't have perfect completeness - for points equal mod r (or with certain difference kp
-// mod r) but different mod p, you can't construct a proof. The chances of an honest prover running afoul of this
-// condition are extremely small (TODO: compute probability) Note also that the number of constraints depends on how
+// mod r) but different mod p, you can't construct a proof. The failure probability is at most
+// (L + R + 1) / r where L = floor(a.max / p), R = floor(b.max / p), r = native field size (~2^254).
+// With max bounded by 2^256 - 1 and p >= 2^249, we get L,R <= 127, so probability < 2^{-246}.
+// Note also that the number of constraints depends on how
 // much the values have overflown beyond p e.g. due to an addition chain The function is based on the following.
 // Suppose a-b = 0 mod p. Then a-b = k*p for k in a range [-R,L] for largest L and R such that L*p>= a, R*p>=b.
 // And also a-b = k*p mod r for such k. Thus we can verify a-b is non-zero mod p by taking the product of such values
