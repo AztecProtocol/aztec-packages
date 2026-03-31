@@ -71,9 +71,8 @@ template <typename Flavor> typename Flavor::ProverPolynomials create_satisfiable
     // For ZK flavors: add randomness to the last rows (which will be masked by row-disabling polynomial)
     // These rows don't need to satisfy the relation because they're disabled
     if constexpr (Flavor::HasZK) {
-        constexpr size_t NUM_DISABLED_ROWS = 3; // Matches the number of disabled rows in ZK sumcheck
-        if (circuit_size > NUM_DISABLED_ROWS) {
-            for (size_t i = circuit_size - NUM_DISABLED_ROWS; i < circuit_size; ++i) {
+        if (circuit_size > NUM_DISABLED_ROWS_IN_SUMCHECK) {
+            for (size_t i = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK; i < circuit_size; ++i) {
                 full_polynomials.w_l.at(i) = FF::random_element();
                 full_polynomials.w_r.at(i) = FF::random_element();
                 full_polynomials.w_o.at(i) = FF::random_element();
